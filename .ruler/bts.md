@@ -11,8 +11,10 @@ This is a monorepo with the following structure:
 
 ## MVP
 
-There is also may be an MVP version of the app in the `./mvp-app` folder. This is only for reference. We are trying to rebuild it in apps/web and packages/backend in a structured way.
-It used vite and clerk auth. We are using Next.js and better-auth. We will use the mvp as a reference to build features into the main app.
+There is also may be an MVP version of the app in the `./mvp-app` folder. This is only for reference.
+The MVP used vite and clerk auth. We are using Next.js and better-auth in the main app.
+We are trying to rebuild features from it into apps/web and packages/backend in a structured way.
+Don't ever write to this folder. Only read from it when we specficially mention using the mvp as a reference for building the main app.
 
 ## Running the app
 

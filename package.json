@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "check": "biome check --write .",
-    "ruler:apply": "npx @intellectronica/ruler@latest apply --local-only",
+    "ruler:apply": "npx @intellectronica/ruler@latest apply --local-only --no-backup",
     "dev": "turbo dev",
     "build": "turbo build",
     "check-types": "turbo check-types",

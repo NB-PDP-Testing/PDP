@@ -1,0 +1,138 @@
+import { v } from "convex/values";
+import { components } from "../_generated/api";
+import { mutation, query } from "../_generated/server";
+
+/**
+ * Team management functions that work with Better Auth's team table.
+ * Uses Better Auth component adapter to interact with teams.
+ */
+
+/**
+ * Get all teams for an organization
+ */
+export const getTeamsByOrganization = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "team",
+      paginationOpts: {
+        cursor: null,
+        numItems: 1000,
+      },
+      where: [
+        {
+          field: "organizationId",
+          value: args.organizationId,
+          operator: "eq",
+        },
+      ],
+    });
+    return result.page;
+  },
+});
+
+/**
+ * Create a new team
+ */
+export const createTeam = mutation({
+  args: {
+    name: v.string(),
+    organizationId: v.string(),
+    sport: v.optional(v.string()),
+    ageGroup: v.optional(v.string()),
+    gender: v.optional(
+      v.union(v.literal("Boys"), v.literal("Girls"), v.literal("Mixed"))
+    ),
+    season: v.optional(v.string()),
+    description: v.optional(v.string()),
+    trainingSchedule: v.optional(v.string()),
+    homeVenue: v.optional(v.string()),
+    isActive: v.optional(v.boolean()),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const result = await ctx.runMutation(components.betterAuth.adapter.create, {
+      input: {
+        model: "team",
+        data: {
+          name: args.name,
+          organizationId: args.organizationId,
+          createdAt: now,
+          updatedAt: now,
+          sport: args.sport,
+          ageGroup: args.ageGroup,
+          gender: args.gender,
+          season: args.season,
+          description: args.description,
+          trainingSchedule: args.trainingSchedule,
+          homeVenue: args.homeVenue,
+          isActive: args.isActive ?? true,
+        },
+      },
+    });
+    return result._id;
+  },
+});
+
+/**
+ * Update a team
+ */
+export const updateTeam = mutation({
+  args: {
+    teamId: v.string(),
+    name: v.optional(v.string()),
+    sport: v.optional(v.string()),
+    ageGroup: v.optional(v.string()),
+    gender: v.optional(
+      v.union(v.literal("Boys"), v.literal("Girls"), v.literal("Mixed"))
+    ),
+    season: v.optional(v.string()),
+    description: v.optional(v.string()),
+    trainingSchedule: v.optional(v.string()),
+    homeVenue: v.optional(v.string()),
+    isActive: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { teamId, ...updates } = args;
+    const filteredUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([_, val]) => val !== undefined)
+    );
+    if (Object.keys(filteredUpdates).length > 0) {
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "team",
+          where: [{ field: "_id", value: teamId, operator: "eq" }],
+          update: {
+            ...filteredUpdates,
+            updatedAt: Date.now(),
+          },
+        },
+      });
+    }
+    return null;
+  },
+});
+
+/**
+ * Delete a team
+ */
+export const deleteTeam = mutation({
+  args: {
+    teamId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+      input: {
+        model: "team",
+        where: [{ field: "_id", value: args.teamId, operator: "eq" }],
+      },
+    });
+    return null;
+  },
+});

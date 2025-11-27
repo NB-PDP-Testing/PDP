@@ -5,6 +5,7 @@ import { Home, Settings, Shield, UserCheck, Users } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import Loader from "@/components/loader";
+import { OrgSelector } from "@/components/org-selector";
 import { Button } from "@/components/ui/button";
 import UserMenu from "@/components/user-menu";
 
@@ -79,6 +80,7 @@ export default function OrgAdminLayout({
                 </nav>
               </div>
               <div className="flex items-center gap-4">
+                <OrgSelector />
                 <Link href="/dashboard">
                   <Button size="sm" variant="outline">
                     Back to App

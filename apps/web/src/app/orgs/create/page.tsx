@@ -63,7 +63,7 @@ export default function CreateOrganizationPage() {
       const { data } = await authClient.organization.checkSlug({
         slug: slugToCheck,
       });
-      setSlugAvailable(!data?.status);
+      setSlugAvailable(data?.status);
     } catch (error) {
       console.error("Error checking slug:", error);
       setSlugAvailable(null);
@@ -266,7 +266,7 @@ export default function CreateOrganizationPage() {
               {/* Info Box */}
               <div className="mt-6 rounded-lg border border-blue-200 bg-blue-50/50 p-4">
                 <div className="flex gap-3">
-                  <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
+                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
                   <div className="text-sm">
                     <p className="mb-1 font-medium text-blue-900">
                       What happens next?

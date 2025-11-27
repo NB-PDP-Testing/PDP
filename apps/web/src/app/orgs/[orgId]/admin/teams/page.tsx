@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   Calendar,
@@ -63,7 +63,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { authClient } from "@/lib/auth-client";
 
 interface TeamFormData {
   name: string;
@@ -115,14 +114,20 @@ export default function ManageTeamsPage() {
   const params = useParams();
   const orgId = params.orgId as string;
 
-  // Use Better Auth client to list teams - will implement when we have organization context
-  const [teams, setTeams] = useState<any[]>([]);
-  const [teamsLoading, setTeamsLoading] = useState(true);
+  // Get teams from backend (uses Better Auth component adapter)
+  const teams = useQuery(api.models.teams.getTeamsByOrganization, {
+    organizationId: orgId,
+  });
 
   // Get players from our custom table
   const players = useQuery(api.models.players.getPlayersByOrganization, {
     organizationId: orgId,
   });
+
+  // Mutations
+  const createTeamMutation = useMutation(api.models.teams.createTeam);
+  const updateTeamMutation = useMutation(api.models.teams.updateTeam);
+  const deleteTeamMutation = useMutation(api.models.teams.deleteTeam);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
@@ -138,22 +143,7 @@ export default function ManageTeamsPage() {
   const [sportFilter, setSportFilter] = useState<string>("all");
   const [ageGroupFilter, setAgeGroupFilter] = useState<string>("all");
 
-  // Load teams on mount using Better Auth client
-  useState(() => {
-    const loadTeams = async () => {
-      try {
-        // TODO: Use authClient.organization.listTeams() when available
-        // For now, we'll use the backend query
-        setTeamsLoading(false);
-      } catch (error) {
-        console.error("Error loading teams:", error);
-        setTeamsLoading(false);
-      }
-    };
-    loadTeams();
-  });
-
-  const isLoading = teamsLoading || players === undefined;
+  const isLoading = teams === undefined || players === undefined;
 
   // Get player count for a team
   const getPlayerCount = (teamId: string) =>
@@ -227,30 +217,26 @@ export default function ManageTeamsPage() {
     setLoading(true);
     try {
       if (editingTeamId) {
-        // Use Better Auth client API to update team
-        await authClient.organization.updateTeam({
+        await updateTeamMutation({
           teamId: editingTeamId,
-          data: {
-            name: formData.name,
-            sport: formData.sport,
-            ageGroup: formData.ageGroup,
-            gender: formData.gender || undefined,
-            season: formData.season,
-            description: formData.description || undefined,
-            trainingSchedule: formData.trainingSchedule || undefined,
-            homeVenue: formData.homeVenue || undefined,
-            isActive: formData.isActive,
-          },
+          name: formData.name,
+          sport: formData.sport,
+          ageGroup: formData.ageGroup,
+          gender: formData.gender as "Boys" | "Girls" | "Mixed" | undefined,
+          season: formData.season,
+          description: formData.description || undefined,
+          trainingSchedule: formData.trainingSchedule || undefined,
+          homeVenue: formData.homeVenue || undefined,
+          isActive: formData.isActive,
         });
         toast.success(`${formData.name} has been updated successfully.`);
       } else {
-        // Use Better Auth client API to create team
-        await authClient.organization.createTeam({
+        await createTeamMutation({
           name: formData.name,
           organizationId: orgId,
           sport: formData.sport,
           ageGroup: formData.ageGroup,
-          gender: formData.gender || undefined,
+          gender: formData.gender as "Boys" | "Girls" | "Mixed" | undefined,
           season: formData.season,
           description: formData.description || undefined,
           trainingSchedule: formData.trainingSchedule || undefined,
@@ -262,8 +248,6 @@ export default function ManageTeamsPage() {
       setFormDialogOpen(false);
       setFormData(defaultFormData);
       setEditingTeamId(null);
-      // Reload teams
-      // TODO: Refresh teams list
     } catch (error: any) {
       console.error("Error saving team:", error);
       toast.error(error.message || "Failed to save team");
@@ -277,15 +261,12 @@ export default function ManageTeamsPage() {
 
     setLoading(true);
     try {
-      // Use Better Auth client API to delete team
-      await authClient.organization.deleteTeam({
+      await deleteTeamMutation({
         teamId: teamToDelete.id,
       });
       toast.success(`${teamToDelete.name} has been deleted.`);
       setDeleteDialogOpen(false);
       setTeamToDelete(null);
-      // Reload teams
-      // TODO: Refresh teams list
     } catch (error: any) {
       console.error("Error deleting team:", error);
       toast.error(error.message || "Failed to delete team");

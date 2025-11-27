@@ -6,15 +6,19 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
+  Loader2,
   Mail,
   Phone,
   Search,
+  Send,
   UserCheck,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,17 +34,25 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { authClient } from "@/lib/auth-client";
-
-interface EditState {
-  firstName: string;
-  lastName: string;
-  phone: string;
-  isEditing: boolean;
-  hasChanges: boolean;
-}
 
 export default function ManageUsersPage() {
   const params = useParams();
@@ -50,28 +62,43 @@ export default function ManageUsersPage() {
   const [members, setMembers] = useState<any[]>([]);
   const [membersLoading, setMembersLoading] = useState(true);
 
-  // Load members on mount
-  useState(() => {
-    const loadMembers = async () => {
-      try {
-        const { data } = await authClient.organization.listMembers({
+  // Load members using Better Auth client API
+  const loadMembers = useCallback(async () => {
+    setMembersLoading(true);
+    try {
+      const { data, error } = await authClient.organization.listMembers({
+        query: {
           organizationId: orgId,
-        });
-        setMembers(data || []);
-      } catch (error) {
+        },
+      });
+      if (error) {
         console.error("Error loading members:", error);
-      } finally {
-        setMembersLoading(false);
+      } else {
+        // Extract the members array from the response
+        const membersData = data?.members || [];
+        setMembers(membersData);
       }
-    };
+    } catch (error) {
+      console.error("Error loading members:", error);
+    } finally {
+      setMembersLoading(false);
+    }
+  }, [orgId]);
+
+  // Load members on mount
+  useEffect(() => {
     loadMembers();
-  });
+  }, [loadMembers]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
-  const [editStates, setEditStates] = useState<Record<string, EditState>>({});
-  const [loading, setLoading] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<string>("all");
+
+  // Invitation dialog state
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<string>("member");
+  const [inviting, setInviting] = useState(false);
 
   const isLoading = membersLoading;
 
@@ -114,6 +141,39 @@ export default function ManageUsersPage() {
     return "??";
   };
 
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail) {
+      toast.error("Please enter an email address");
+      return;
+    }
+
+    setInviting(true);
+    try {
+      const { error } = await authClient.organization.inviteMember({
+        email: inviteEmail,
+        organizationId: orgId,
+        role: inviteRole as "member" | "admin",
+      });
+
+      if (error) {
+        toast.error(error.message || "Failed to send invitation");
+      } else {
+        toast.success(`Invitation sent to ${inviteEmail}`);
+        setInviteDialogOpen(false);
+        setInviteEmail("");
+        setInviteRole("member");
+        // Reload members to show pending invitations
+        loadMembers();
+      }
+    } catch (error: any) {
+      console.error("Error inviting user:", error);
+      toast.error(error.message || "Failed to send invitation");
+    } finally {
+      setInviting(false);
+    }
+  };
+
   const getRoleBadge = (role?: string) => {
     switch (role) {
       case "owner":
@@ -140,11 +200,17 @@ export default function ManageUsersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="font-bold text-3xl tracking-tight">Manage Users</h1>
-        <p className="mt-2 text-muted-foreground">
-          View and manage organization members
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="font-bold text-3xl tracking-tight">Manage Users</h1>
+          <p className="mt-2 text-muted-foreground">
+            View and manage organization members
+          </p>
+        </div>
+        <Button onClick={() => setInviteDialogOpen(true)}>
+          <UserPlus className="mr-2 h-4 w-4" />
+          Invite Member
+        </Button>
       </div>
 
       {/* Stats */}
@@ -368,6 +434,82 @@ export default function ManageUsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Invite Member Dialog */}
+      <Dialog onOpenChange={setInviteDialogOpen} open={inviteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5" />
+              Invite Member
+            </DialogTitle>
+            <DialogDescription>
+              Send an invitation to join this organization
+            </DialogDescription>
+          </DialogHeader>
+
+          <form className="space-y-4" onSubmit={handleInvite}>
+            <div className="space-y-2">
+              <Label htmlFor="email">
+                Email Address <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                disabled={inviting}
+                id="email"
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="coach@example.com"
+                required
+                type="email"
+                value={inviteEmail}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Select
+                disabled={inviting}
+                onValueChange={setInviteRole}
+                value={inviteRole}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Member</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-xs">
+                Members can view data. Admins can manage users and teams.
+              </p>
+            </div>
+
+            <DialogFooter>
+              <Button
+                disabled={inviting}
+                onClick={() => setInviteDialogOpen(false)}
+                type="button"
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button disabled={inviting || !inviteEmail} type="submit">
+                {inviting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Send Invitation
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

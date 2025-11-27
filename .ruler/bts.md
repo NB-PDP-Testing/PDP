@@ -1,19 +1,23 @@
-# Better-T-Stack Project Rules
+## PDP
 
-This is a pdp project created with Better-T-Stack CLI.
+Helps to organise sports clubs.
 
-## Project Structure
+## Main app structure
 
 This is a monorepo with the following structure:
 
 - **`apps/web/`** - Frontend application (Next.js)
-
 - **`packages/backend/`** - Convex backend functions
 
-## Available Scripts
+## MVP
 
-- `npm run dev` - Start all apps in development mode
-- `npm run dev:web` - Start only the web app
+There is also may be an MVP version of the app in the `./mvp-app` folder. This is only for reference. We are trying to rebuild it in apps/web and packages/backend in a structured way.
+It used vite and clerk auth. We are using Next.js and better-auth. We will use the mvp as a reference to build features into the main app.
+
+## Running the app
+
+We generally are running the dev server so don't try to run the dev server because there will be a port conflict. It's generally running on port 3000. If not, ask the user about it.
+If you want to type check or build, there are commands in package.json for that.
 
 ## Authentication
 
@@ -26,5 +30,14 @@ Authentication is enabled in this project using better-auth.
 - Run commands from the root to execute across all workspaces
 - Run workspace-specific commands with `npm run command-name`
 - Turborepo handles build caching and parallel execution
-- Use `npx
-create-better-t-stack add` to add more features later
+
+## Important Rules for apps/web
+
+- If building a complex react page or component, create components in the folder as siblings of the page.tsx for that feature. If the component is reused in multiple places, create it in the `apps/web/src/components` folder.
+- In apps/web/src/components/ui you have access to all shadcn/ui components. Don't create new components in that folder.
+
+## Important Rules for packages/backend
+
+- Queries and mutations that the frontend will call should be created in the `packages/backend/convex/models/<model-name>.ts` folder.
+- Complex reusable functions for the backend should be created in the `packages/backend/convex/client/<model-name>.ts` folder.
+-

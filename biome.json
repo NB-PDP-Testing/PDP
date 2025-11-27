@@ -25,7 +25,9 @@
       "!**/.svelte-kit",
       "!**/wrangler.jsonc",
       "!**/.source",
-      "!**/packages/backend/convex/_generated"
+      "!**/apps/web/src/components/ui",
+      "!**/packages/backend/**/_generated",
+      "!**/mvp-app"
     ]
   },
   "formatter": {

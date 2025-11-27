@@ -64,12 +64,19 @@ export declare const components: {
           input:
             | {
                 data: {
+                  approvalStatus?: "pending" | "approved" | "rejected";
+                  approvedAt?: number;
+                  approvedBy?: string;
                   createdAt: number;
                   email: string;
                   emailVerified: boolean;
+                  firstName?: string;
                   image?: null | string;
+                  lastName?: string;
                   name: string;
-                  onboardingComplete?: boolean;
+                  onboardingCompleted?: boolean;
+                  phone?: string;
+                  rejectionReason?: string;
                   updatedAt: number;
                   userId?: null | string;
                 };
@@ -126,9 +133,17 @@ export declare const components: {
               }
             | {
                 data: {
+                  ageGroup?: string;
                   createdAt: number;
+                  description?: string;
+                  gender?: "Boys" | "Girls" | "Mixed";
+                  homeVenue?: string;
+                  isActive?: boolean;
                   name: string;
                   organizationId: string;
+                  season?: string;
+                  sport?: string;
+                  trainingSchedule?: string;
                   updatedAt?: null | number;
                 };
                 model: "team";
@@ -194,7 +209,14 @@ export declare const components: {
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
-                    | "onboardingComplete"
+                    | "firstName"
+                    | "lastName"
+                    | "phone"
+                    | "onboardingCompleted"
+                    | "approvalStatus"
+                    | "approvedBy"
+                    | "approvedAt"
+                    | "rejectionReason"
                     | "_id";
                   operator?:
                     | "lt"
@@ -359,6 +381,14 @@ export declare const components: {
                     | "organizationId"
                     | "createdAt"
                     | "updatedAt"
+                    | "sport"
+                    | "ageGroup"
+                    | "gender"
+                    | "season"
+                    | "description"
+                    | "trainingSchedule"
+                    | "homeVenue"
+                    | "isActive"
                     | "_id";
                   operator?:
                     | "lt"
@@ -533,7 +563,14 @@ export declare const components: {
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
-                    | "onboardingComplete"
+                    | "firstName"
+                    | "lastName"
+                    | "phone"
+                    | "onboardingCompleted"
+                    | "approvalStatus"
+                    | "approvedBy"
+                    | "approvedAt"
+                    | "rejectionReason"
                     | "_id";
                   operator?:
                     | "lt"
@@ -698,6 +735,14 @@ export declare const components: {
                     | "organizationId"
                     | "createdAt"
                     | "updatedAt"
+                    | "sport"
+                    | "ageGroup"
+                    | "gender"
+                    | "season"
+                    | "description"
+                    | "trainingSchedule"
+                    | "homeVenue"
+                    | "isActive"
                     | "_id";
                   operator?:
                     | "lt"
@@ -949,12 +994,19 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
+                  approvalStatus?: "pending" | "approved" | "rejected";
+                  approvedAt?: number;
+                  approvedBy?: string;
                   createdAt?: number;
                   email?: string;
                   emailVerified?: boolean;
+                  firstName?: string;
                   image?: null | string;
+                  lastName?: string;
                   name?: string;
-                  onboardingComplete?: boolean;
+                  onboardingCompleted?: boolean;
+                  phone?: string;
+                  rejectionReason?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -968,7 +1020,14 @@ export declare const components: {
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
-                    | "onboardingComplete"
+                    | "firstName"
+                    | "lastName"
+                    | "phone"
+                    | "onboardingCompleted"
+                    | "approvalStatus"
+                    | "approvedBy"
+                    | "approvedAt"
+                    | "rejectionReason"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1164,9 +1223,17 @@ export declare const components: {
             | {
                 model: "team";
                 update: {
+                  ageGroup?: string;
                   createdAt?: number;
+                  description?: string;
+                  gender?: "Boys" | "Girls" | "Mixed";
+                  homeVenue?: string;
+                  isActive?: boolean;
                   name?: string;
                   organizationId?: string;
+                  season?: string;
+                  sport?: string;
+                  trainingSchedule?: string;
                   updatedAt?: null | number;
                 };
                 where?: Array<{
@@ -1176,6 +1243,14 @@ export declare const components: {
                     | "organizationId"
                     | "createdAt"
                     | "updatedAt"
+                    | "sport"
+                    | "ageGroup"
+                    | "gender"
+                    | "season"
+                    | "description"
+                    | "trainingSchedule"
+                    | "homeVenue"
+                    | "isActive"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1368,12 +1443,19 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
+                  approvalStatus?: "pending" | "approved" | "rejected";
+                  approvedAt?: number;
+                  approvedBy?: string;
                   createdAt?: number;
                   email?: string;
                   emailVerified?: boolean;
+                  firstName?: string;
                   image?: null | string;
+                  lastName?: string;
                   name?: string;
-                  onboardingComplete?: boolean;
+                  onboardingCompleted?: boolean;
+                  phone?: string;
+                  rejectionReason?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1387,7 +1469,14 @@ export declare const components: {
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
-                    | "onboardingComplete"
+                    | "firstName"
+                    | "lastName"
+                    | "phone"
+                    | "onboardingCompleted"
+                    | "approvalStatus"
+                    | "approvedBy"
+                    | "approvedAt"
+                    | "rejectionReason"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1583,9 +1672,17 @@ export declare const components: {
             | {
                 model: "team";
                 update: {
+                  ageGroup?: string;
                   createdAt?: number;
+                  description?: string;
+                  gender?: "Boys" | "Girls" | "Mixed";
+                  homeVenue?: string;
+                  isActive?: boolean;
                   name?: string;
                   organizationId?: string;
+                  season?: string;
+                  sport?: string;
+                  trainingSchedule?: string;
                   updatedAt?: null | number;
                 };
                 where?: Array<{
@@ -1595,6 +1692,14 @@ export declare const components: {
                     | "organizationId"
                     | "createdAt"
                     | "updatedAt"
+                    | "sport"
+                    | "ageGroup"
+                    | "gender"
+                    | "season"
+                    | "description"
+                    | "trainingSchedule"
+                    | "homeVenue"
+                    | "isActive"
                     | "_id";
                   operator?:
                     | "lt"

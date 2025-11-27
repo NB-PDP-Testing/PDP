@@ -5,12 +5,20 @@ import { v } from "convex/values";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { query } from "./_generated/server";
+import authSchema from "./betterAuth/schema";
 
 const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
 
-export const authComponent = createClient<DataModel>(components.betterAuth);
+export const authComponent = createClient<DataModel, typeof authSchema>(
+  components.betterAuth,
+  {
+    local: {
+      schema: authSchema,
+    },
+  }
+);
 
-function createAuth(
+export function createAuth(
   ctx: GenericCtx<DataModel>,
   { optionsOnly }: { optionsOnly?: boolean } = { optionsOnly: false }
 ) {
@@ -28,8 +36,6 @@ function createAuth(
     plugins: [convex()],
   });
 }
-
-export { createAuth };
 
 export const getCurrentUser = query({
   args: {},

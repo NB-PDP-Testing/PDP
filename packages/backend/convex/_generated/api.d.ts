@@ -11,6 +11,8 @@
 import type * as auth from "../auth.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
+import type * as models_players from "../models/players.js";
+import type * as models_users from "../models/users.js";
 import type * as privateData from "../privateData.js";
 import type * as todos from "../todos.js";
 
@@ -24,6 +26,8 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   healthCheck: typeof healthCheck;
   http: typeof http;
+  "models/players": typeof models_players;
+  "models/users": typeof models_users;
   privateData: typeof privateData;
   todos: typeof todos;
 }>;

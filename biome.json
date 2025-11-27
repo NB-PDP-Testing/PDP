@@ -69,7 +69,8 @@
         "useNumberNamespace": "error",
         "noInferrableTypes": "error",
         "noUselessElse": "error",
-        "noNestedTernary": "warn"
+        "noNestedTernary": "warn",
+        "useConsistentTypeDefinitions": "warn"
       }
     }
   },

@@ -25,6 +25,10 @@ If you want to type check or build, there are commands in package.json for that.
 
 Authentication is enabled in this project using better-auth.
 
+- If dealing with anything to do with teams and organizations, first read the docs to see if there's a pattern we can follow: https://www.better-auth.com/llms.txt/docs/plugins/organization.md
+- The organization plugin has client methods removing the need to write backend queries and mutaitons for many basic operations. Only add backend functions if there's business logic that can't be handled by the client methods.
+- We have already integrated better-auth and convex, so don't try to reinvent the wheel. Ask context7 for docs on get-convex/better-auth if needed.
+
 ## Key Points
 
 - This is a Turborepo monorepo using npm workspaces

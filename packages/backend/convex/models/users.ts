@@ -49,7 +49,7 @@ export const getCurrentUser = query({
   handler: async (ctx) => {
     // Get the basic auth user from Better Auth
     // Use try-catch to handle unauthenticated state gracefully
-    let authUser: { _id: string } | null = null;
+    let authUser;
     try {
       authUser = await authComponent.getAuthUser(ctx);
     } catch {

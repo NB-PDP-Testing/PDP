@@ -12,6 +12,7 @@ import type * as auth from "../auth.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as models_members from "../models/members.js";
+import type * as models_orgJoinRequests from "../models/orgJoinRequests.js";
 import type * as models_players from "../models/players.js";
 import type * as models_teams from "../models/teams.js";
 import type * as models_users from "../models/users.js";
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   healthCheck: typeof healthCheck;
   http: typeof http;
   "models/members": typeof models_members;
+  "models/orgJoinRequests": typeof models_orgJoinRequests;
   "models/players": typeof models_players;
   "models/teams": typeof models_teams;
   "models/users": typeof models_users;
@@ -74,10 +76,8 @@ export declare const components: {
           input:
             | {
                 data: {
-                  approvalStatus?: "pending" | "approved" | "rejected";
-                  approvedAt?: number;
-                  approvedBy?: string;
                   createdAt: number;
+                  currentOrgId?: string;
                   email: string;
                   emailVerified: boolean;
                   firstName?: string;
@@ -85,9 +85,7 @@ export declare const components: {
                   isPlatformStaff?: boolean;
                   lastName?: string;
                   name: string;
-                  onboardingCompleted?: boolean;
                   phone?: string;
-                  rejectionReason?: string;
                   updatedAt: number;
                   userId?: null | string;
                 };
@@ -225,11 +223,7 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "onboardingCompleted"
-                    | "approvalStatus"
-                    | "approvedBy"
-                    | "approvedAt"
-                    | "rejectionReason"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -581,11 +575,7 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "onboardingCompleted"
-                    | "approvalStatus"
-                    | "approvedBy"
-                    | "approvedAt"
-                    | "rejectionReason"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1010,10 +1000,8 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
-                  approvalStatus?: "pending" | "approved" | "rejected";
-                  approvedAt?: number;
-                  approvedBy?: string;
                   createdAt?: number;
+                  currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
@@ -1021,9 +1009,7 @@ export declare const components: {
                   isPlatformStaff?: boolean;
                   lastName?: string;
                   name?: string;
-                  onboardingCompleted?: boolean;
                   phone?: string;
-                  rejectionReason?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1041,11 +1027,7 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "onboardingCompleted"
-                    | "approvalStatus"
-                    | "approvedBy"
-                    | "approvedAt"
-                    | "rejectionReason"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1463,10 +1445,8 @@ export declare const components: {
             | {
                 model: "user";
                 update: {
-                  approvalStatus?: "pending" | "approved" | "rejected";
-                  approvedAt?: number;
-                  approvedBy?: string;
                   createdAt?: number;
+                  currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
@@ -1474,9 +1454,7 @@ export declare const components: {
                   isPlatformStaff?: boolean;
                   lastName?: string;
                   name?: string;
-                  onboardingCompleted?: boolean;
                   phone?: string;
-                  rejectionReason?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1494,11 +1472,7 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "onboardingCompleted"
-                    | "approvalStatus"
-                    | "approvedBy"
-                    | "approvedAt"
-                    | "rejectionReason"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"

@@ -1,9 +1,27 @@
 "use client";
 
-import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
-import { Building2, ChevronRight, Plus, Settings } from "lucide-react";
+import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+import {
+  Authenticated,
+  AuthLoading,
+  Unauthenticated,
+  useMutation,
+  useQuery,
+} from "convex/react";
+import {
+  Badge,
+  Building2,
+  ChevronRight,
+  Clock,
+  Plus,
+  Settings,
+  X,
+} from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,14 +35,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 
-interface Organization {
+type Organization = {
   id: string;
   name: string;
   slug: string;
   logo?: string | null;
   metadata?: string | null;
   createdAt: number | Date;
-}
+};
 
 export default function OrganizationsPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -32,6 +50,24 @@ export default function OrganizationsPage() {
 
   // Use Convex query to get user with custom fields
   const user = useCurrentUser();
+
+  // Get pending join requests
+  const pendingRequests = useQuery(
+    api.models.orgJoinRequests.getUserPendingRequests
+  );
+  const cancelRequest = useMutation(
+    api.models.orgJoinRequests.cancelJoinRequest
+  );
+
+  const handleCancelRequest = async (requestId: Id<"orgJoinRequests">) => {
+    try {
+      await cancelRequest({ requestId });
+      toast.success("Request cancelled");
+    } catch (error) {
+      console.error("Error cancelling request:", error);
+      toast.error("Failed to cancel request");
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -68,14 +104,22 @@ export default function OrganizationsPage() {
                     Manage your sports clubs and organizations
                   </p>
                 </div>
-                {user?.isPlatformStaff && (
-                  <Link href="/orgs/create">
-                    <Button>
+                <div className="flex gap-2">
+                  <Link href={"/orgs/join" as Route}>
+                    <Button variant="outline">
                       <Plus className="mr-2 h-4 w-4" />
-                      Create Organization
+                      Join Organization
                     </Button>
                   </Link>
-                )}
+                  {user?.isPlatformStaff && (
+                    <Link href="/orgs/create">
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Organization
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -163,18 +207,81 @@ export default function OrganizationsPage() {
                   <p className="mb-6 max-w-sm text-muted-foreground">
                     {user?.isPlatformStaff
                       ? "Create your first organization to start managing your sports club or team"
-                      : "You don't have access to any organizations yet. Contact platform staff to get started."}
+                      : "You don't have access to any organizations yet. Join an existing organization or contact platform staff."}
                   </p>
-                  {user?.isPlatformStaff && (
-                    <Link href="/orgs/create">
-                      <Button>
+                  <div className="flex gap-2">
+                    <Link href="/orgs/join">
+                      <Button variant="outline">
                         <Plus className="mr-2 h-4 w-4" />
-                        Create Your First Organization
+                        Join Organization
                       </Button>
                     </Link>
-                  )}
+                    {user?.isPlatformStaff && (
+                      <Link href="/orgs/create">
+                        <Button>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create Your First Organization
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
+            )}
+
+            {/* Pending Membership Requests */}
+            {pendingRequests && pendingRequests.length > 0 && (
+              <div className="mt-8">
+                <h2 className="mb-4 font-semibold text-xl">
+                  Pending Membership
+                </h2>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {pendingRequests.map((request) => (
+                    <Card key={request._id}>
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-500/10">
+                              <Clock className="h-5 w-5 text-yellow-600" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <CardTitle className="truncate text-base">
+                                {request.organizationName}
+                              </CardTitle>
+                              <CardDescription className="mt-1">
+                                <Badge
+                                  className="capitalize"
+                                  variant="secondary"
+                                >
+                                  {request.requestedRole}
+                                </Badge>
+                              </CardDescription>
+                            </div>
+                          </div>
+                          <Button
+                            onClick={() => handleCancelRequest(request._id)}
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-muted-foreground text-xs">
+                          Requested{" "}
+                          {new Date(request.requestedAt).toLocaleDateString()}
+                        </div>
+                        {request.message && (
+                          <p className="mt-2 text-muted-foreground text-sm">
+                            {request.message}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>

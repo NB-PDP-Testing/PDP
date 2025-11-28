@@ -5,166 +5,35 @@ import { authComponent } from "../auth";
 
 /**
  * User management functions that work with Better Auth's user table.
- * These functions handle approval workflow and custom business logic.
  * For standard user operations, use authClient.organization methods on the client.
+ * For organization membership approvals, see orgJoinRequests.ts
  */
 
 /**
- * Get all users with pending approval status
- * Used for admin approval workflow
+ * Update the user's current organization
+ * This tracks which org they're currently viewing
  */
-export const getPendingUsers = query({
-  args: {},
-  returns: v.array(v.any()),
-  handler: async (ctx) => {
-    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-      model: "user",
-      paginationOpts: {
-        cursor: null,
-        numItems: 1000,
-      },
-      where: [
-        {
-          field: "approvalStatus",
-          value: "pending",
-          operator: "eq",
-        },
-      ],
-    });
-    return result.page;
-  },
-});
-
-/**
- * Get all approved users
- */
-export const getApprovedUsers = query({
-  args: {},
-  returns: v.array(v.any()),
-  handler: async (ctx) => {
-    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-      model: "user",
-      paginationOpts: {
-        cursor: null,
-        numItems: 1000,
-      },
-      where: [
-        {
-          field: "approvalStatus",
-          value: "approved",
-          operator: "eq",
-        },
-      ],
-    });
-    return result.page;
-  },
-});
-
-/**
- * Get all rejected users
- */
-export const getRejectedUsers = query({
-  args: {},
-  returns: v.array(v.any()),
-  handler: async (ctx) => {
-    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-      model: "user",
-      paginationOpts: {
-        cursor: null,
-        numItems: 1000,
-      },
-      where: [
-        {
-          field: "approvalStatus",
-          value: "rejected",
-          operator: "eq",
-        },
-      ],
-    });
-    return result.page;
-  },
-});
-
-/**
- * Approve a user
- * Updates the custom approvalStatus field in the Better Auth user table
- */
-export const approveUser = mutation({
+export const updateCurrentOrg = mutation({
   args: {
-    userId: v.string(),
+    organizationId: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const currentUser = await authComponent.getAuthUser(ctx);
-    if (!currentUser) {
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user) {
       throw new Error("Not authenticated");
     }
 
     await ctx.runMutation(components.betterAuth.adapter.updateOne, {
       input: {
         model: "user",
-        where: [{ field: "_id", value: args.userId, operator: "eq" }],
+        where: [{ field: "_id", value: user._id, operator: "eq" }],
         update: {
-          approvalStatus: "approved",
-          approvedBy: currentUser._id,
-          approvedAt: Date.now(),
+          currentOrgId: args.organizationId,
         },
       },
     });
-    return null;
-  },
-});
 
-/**
- * Reject a user
- * Updates the custom approvalStatus field in the Better Auth user table
- */
-export const rejectUser = mutation({
-  args: {
-    userId: v.string(),
-    rejectionReason: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const currentUser = await authComponent.getAuthUser(ctx);
-    if (!currentUser) {
-      throw new Error("Not authenticated");
-    }
-
-    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
-      input: {
-        model: "user",
-        where: [{ field: "_id", value: args.userId, operator: "eq" }],
-        update: {
-          approvalStatus: "rejected",
-          rejectionReason: args.rejectionReason,
-          approvedBy: currentUser._id,
-          approvedAt: Date.now(),
-        },
-      },
-    });
-    return null;
-  },
-});
-
-/**
- * Unreject a user (move back to pending)
- */
-export const unrejectUser = mutation({
-  args: {
-    userId: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
-      input: {
-        model: "user",
-        where: [{ field: "_id", value: args.userId, operator: "eq" }],
-        update: {
-          approvalStatus: "pending",
-        },
-      },
-    });
     return null;
   },
 });

@@ -7,16 +7,13 @@ import {
   Calendar,
   CheckCircle,
   Mail,
-  Phone,
-  RotateCcw,
   Search,
   UserCircle,
-  Users,
   XCircle,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,161 +27,117 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
-export default function UserApprovalsPage() {
+export default function JoinRequestApprovalsPage() {
   const params = useParams();
   const orgId = params.orgId as string;
 
-  const pendingUsers = useQuery(api.models.users.getPendingUsers);
-  const rejectedUsers = useQuery(api.models.users.getRejectedUsers);
-  const approveUser = useMutation(api.models.users.approveUser);
-  const rejectUser = useMutation(api.models.users.rejectUser);
-  const unrejectUser = useMutation(api.models.users.unrejectUser);
+  const pendingRequests = useQuery(
+    api.models.orgJoinRequests.getPendingRequestsForOrg,
+    { organizationId: orgId }
+  );
+  const approveRequest = useMutation(
+    api.models.orgJoinRequests.approveJoinRequest
+  );
+  const rejectRequest = useMutation(
+    api.models.orgJoinRequests.rejectJoinRequest
+  );
 
   const [searchTerm, setSearchTerm] = useState("");
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<{
+  const [selectedRequest, setSelectedRequest] = useState<{
     _id: string;
-    name: string;
+    userName: string;
   } | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
 
-  const isLoading = pendingUsers === undefined || rejectedUsers === undefined;
+  const isLoading = pendingRequests === undefined;
 
-  const filteredPendingUsers = pendingUsers?.filter((user: any) => {
+  const filteredRequests = pendingRequests?.filter((request) => {
     if (!searchTerm) return true;
-    const searchable = [user.firstName, user.lastName, user.name, user.email]
+    const searchable = [request.userName, request.userEmail]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
     return searchable.includes(searchTerm.toLowerCase());
   });
 
-  const filteredRejectedUsers = rejectedUsers?.filter((user: any) => {
-    if (!searchTerm) return true;
-    const searchable = [user.firstName, user.lastName, user.name, user.email]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    return searchable.includes(searchTerm.toLowerCase());
-  });
-
-  const handleApprove = async (userId: string) => {
-    setLoading(userId);
+  const handleApprove = async (requestId: string) => {
+    setLoading(requestId);
     try {
-      await approveUser({ userId });
+      await approveRequest({ requestId: requestId as any });
+      toast.success("Join request approved");
     } catch (error) {
-      console.error("Error approving user:", error);
+      console.error("Error approving request:", error);
+      toast.error("Failed to approve request");
     } finally {
       setLoading(null);
     }
   };
 
   const handleReject = async () => {
-    if (!(selectedUser && rejectionReason.trim())) return;
+    if (!(selectedRequest && rejectionReason.trim())) return;
 
-    setLoading(selectedUser._id);
+    setLoading(selectedRequest._id);
     try {
-      await rejectUser({
-        userId: selectedUser._id,
+      await rejectRequest({
+        requestId: selectedRequest._id as any,
         rejectionReason: rejectionReason.trim(),
       });
+      toast.success("Join request rejected");
       setRejectDialogOpen(false);
-      setSelectedUser(null);
+      setSelectedRequest(null);
       setRejectionReason("");
     } catch (error) {
-      console.error("Error rejecting user:", error);
+      console.error("Error rejecting request:", error);
+      toast.error("Failed to reject request");
     } finally {
       setLoading(null);
     }
   };
 
-  const handleUnreject = async (userId: string) => {
-    setLoading(userId);
-    try {
-      await unrejectUser({ userId });
-    } catch (error) {
-      console.error("Error unrejecting user:", error);
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const openRejectDialog = (user: { _id: string; name: string }) => {
-    setSelectedUser(user);
+  const openRejectDialog = (request: { _id: string; userName: string }) => {
+    setSelectedRequest(request);
     setRejectionReason("");
     setRejectDialogOpen(true);
   };
 
-  const getInitials = (user: any) => {
-    if (user.firstName && user.lastName) {
-      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-    }
-    if (user.name) {
-      return user.name
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
-    }
-    return "??";
-  };
-
-  const UserCard = ({
-    user,
-    type,
-  }: {
-    user: any;
-    type: "pending" | "rejected";
-  }) => (
+  const RequestCard = ({ request }: { request: any }) => (
     <Card className="overflow-hidden">
       <CardContent className="p-6">
         <div className="flex items-start gap-4">
-          <Avatar className="h-12 w-12">
-            <AvatarImage src={user.image || undefined} />
-            <AvatarFallback>{getInitials(user)}</AvatarFallback>
-          </Avatar>
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <UserCircle className="h-6 w-6 text-primary" />
+          </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-semibold text-lg">
-                {user.firstName || user.name} {user.lastName || ""}
-              </h3>
-              <Badge variant={type === "pending" ? "secondary" : "destructive"}>
-                {type === "pending" ? "Pending" : "Rejected"}
+              <h3 className="font-semibold text-lg">{request.userName}</h3>
+              <Badge className="capitalize" variant="secondary">
+                {request.requestedRole}
               </Badge>
             </div>
 
             <div className="mt-2 space-y-1 text-muted-foreground text-sm">
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4" />
-                <span className="truncate">{user.email}</span>
+                <span className="truncate">{request.userEmail}</span>
               </div>
-              {user.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
-                  <span>{user.phone}</span>
-                </div>
-              )}
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 <span>
-                  Registered {new Date(user.createdAt).toLocaleDateString()}
+                  Requested {new Date(request.requestedAt).toLocaleDateString()}
                 </span>
               </div>
             </div>
 
-            {type === "rejected" && user.rejectionReason && (
-              <div className="mt-3 rounded-lg border border-destructive/20 bg-destructive/10 p-3">
-                <p className="mb-1 font-medium text-destructive text-xs">
-                  Rejection Reason
-                </p>
-                <p className="text-destructive/80 text-sm">
-                  {user.rejectionReason}
+            {request.message && (
+              <div className="mt-3 rounded-lg border bg-muted/50 p-3">
+                <p className="mb-1 font-medium text-xs">Message</p>
+                <p className="text-muted-foreground text-sm">
+                  {request.message}
                 </p>
               </div>
             )}
@@ -192,42 +145,28 @@ export default function UserApprovalsPage() {
         </div>
 
         <div className="mt-4 flex justify-end gap-2">
-          {type === "pending" ? (
-            <>
-              <Button
-                disabled={loading === user._id}
-                onClick={() =>
-                  openRejectDialog({
-                    _id: user._id,
-                    name: `${user.firstName || user.name} ${user.lastName || ""}`,
-                  })
-                }
-                size="sm"
-                variant="outline"
-              >
-                <XCircle className="mr-2 h-4 w-4" />
-                Reject
-              </Button>
-              <Button
-                disabled={loading === user._id}
-                onClick={() => handleApprove(user._id)}
-                size="sm"
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                {loading === user._id ? "Approving..." : "Approve"}
-              </Button>
-            </>
-          ) : (
-            <Button
-              disabled={loading === user._id}
-              onClick={() => handleUnreject(user._id)}
-              size="sm"
-              variant="outline"
-            >
-              <RotateCcw className="mr-2 h-4 w-4" />
-              {loading === user._id ? "Moving..." : "Review Again"}
-            </Button>
-          )}
+          <Button
+            disabled={loading === request._id}
+            onClick={() =>
+              openRejectDialog({
+                _id: request._id,
+                userName: request.userName,
+              })
+            }
+            size="sm"
+            variant="outline"
+          >
+            <XCircle className="mr-2 h-4 w-4" />
+            Reject
+          </Button>
+          <Button
+            disabled={loading === request._id}
+            onClick={() => handleApprove(request._id)}
+            size="sm"
+          >
+            <CheckCircle className="mr-2 h-4 w-4" />
+            {loading === request._id ? "Approving..." : "Approve & Add to Org"}
+          </Button>
         </div>
       </CardContent>
     </Card>
@@ -255,9 +194,11 @@ export default function UserApprovalsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="font-bold text-3xl tracking-tight">User Approvals</h1>
+        <h1 className="font-bold text-3xl tracking-tight">
+          Membership Requests
+        </h1>
         <p className="mt-2 text-muted-foreground">
-          Review and approve new user registrations
+          Review and approve requests to join your organization
         </p>
       </div>
 
@@ -267,108 +208,52 @@ export default function UserApprovalsPage() {
         <Input
           className="pl-10"
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search users by name or email..."
+          placeholder="Search requests by name or email..."
           value={searchTerm}
         />
       </div>
 
-      {/* Tabs */}
-      <Tabs className="space-y-4" defaultValue="pending">
-        <TabsList>
-          <TabsTrigger className="gap-2" value="pending">
-            <UserCircle className="h-4 w-4" />
-            Pending
-            {pendingUsers && pendingUsers.length > 0 && (
-              <Badge className="ml-1" variant="secondary">
-                {pendingUsers.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger className="gap-2" value="rejected">
-            <XCircle className="h-4 w-4" />
-            Rejected
-            {rejectedUsers && rejectedUsers.length > 0 && (
-              <Badge className="ml-1" variant="destructive">
-                {rejectedUsers.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent className="space-y-4" value="pending">
-          {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <Card key={i}>
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      <Skeleton className="h-12 w-12 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-5 w-48" />
-                        <Skeleton className="h-4 w-64" />
-                        <Skeleton className="h-4 w-32" />
-                      </div>
+      {/* Requests List */}
+      <div className="space-y-4">
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <Skeleton className="h-12 w-12 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-5 w-48" />
+                      <Skeleton className="h-4 w-64" />
+                      <Skeleton className="h-4 w-32" />
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : filteredPendingUsers && filteredPendingUsers.length > 0 ? (
-            <div className="grid gap-4">
-              {filteredPendingUsers.map((user: any) => (
-                <UserCard key={user._id} type="pending" user={user} />
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                <EmptyState
-                  description="There are no pending user requests at the moment."
-                  icon={CheckCircle}
-                  title="All Caught Up!"
-                />
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        <TabsContent className="space-y-4" value="rejected">
-          {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2].map((i) => (
-                <Card key={i}>
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      <Skeleton className="h-12 w-12 rounded-full" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-5 w-48" />
-                        <Skeleton className="h-4 w-64" />
-                        <Skeleton className="h-4 w-32" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : filteredRejectedUsers && filteredRejectedUsers.length > 0 ? (
-            <div className="grid gap-4">
-              {filteredRejectedUsers.map((user: any) => (
-                <UserCard key={user._id} type="rejected" user={user} />
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                <EmptyState
-                  description="All user requests have been processed appropriately."
-                  icon={Users}
-                  title="No Rejected Users"
-                />
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : filteredRequests && filteredRequests.length > 0 ? (
+          <div className="grid gap-4">
+            {filteredRequests.map((request) => (
+              <RequestCard key={request._id} request={request} />
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="p-0">
+              <EmptyState
+                description={
+                  searchTerm
+                    ? "No requests match your search criteria."
+                    : "There are no pending membership requests at the moment."
+                }
+                icon={CheckCircle}
+                title="All Caught Up!"
+              />
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Rejection Dialog */}
       <Dialog onOpenChange={setRejectDialogOpen} open={rejectDialogOpen}>
@@ -376,11 +261,11 @@ export default function UserApprovalsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-destructive" />
-              Reject User
+              Reject Membership Request
             </DialogTitle>
             <DialogDescription>
-              Please provide a reason for rejecting {selectedUser?.name}. This
-              will be recorded for audit purposes.
+              Please provide a reason for rejecting {selectedRequest?.userName}
+              's request. This will be recorded for audit purposes.
             </DialogDescription>
           </DialogHeader>
 

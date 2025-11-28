@@ -2,17 +2,11 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import {
-  Clock,
-  Shield,
-  TrendingUp,
-  UserCheck,
-  Users,
-  UserX,
-} from "lucide-react";
+import { Clock, Shield, UserCheck, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -21,26 +15,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PendingUsersSection } from "./pending-users-section";
-import { RejectedUsersSection } from "./rejected-users-section";
 import { StatCard, StatCardSkeleton } from "./stat-card";
 
 export default function OrgAdminOverviewPage() {
   const params = useParams();
   const orgId = params.orgId as string;
 
-  const pendingUsers = useQuery(api.models.users.getPendingUsers);
-  const approvedUsers = useQuery(api.models.users.getApprovedUsers);
-  const rejectedUsers = useQuery(api.models.users.getRejectedUsers);
+  const pendingRequests = useQuery(
+    api.models.orgJoinRequests.getPendingRequestsForOrg,
+    { organizationId: orgId }
+  );
   const players = useQuery(api.models.players.getPlayersByOrganization, {
+    organizationId: orgId,
+  });
+  const memberCounts = useQuery(api.models.members.getMemberCountsByRole, {
     organizationId: orgId,
   });
 
   const isLoading =
-    pendingUsers === undefined ||
-    approvedUsers === undefined ||
-    rejectedUsers === undefined ||
-    players === undefined;
+    pendingRequests === undefined ||
+    players === undefined ||
+    memberCounts === undefined;
 
   return (
     <div className="space-y-8">
@@ -64,22 +59,23 @@ export default function OrgAdminOverviewPage() {
         ) : (
           <>
             <StatCard
-              description="Users waiting for review"
+              description="Membership requests waiting"
               href={`/orgs/${orgId}/admin/users/approvals`}
               icon={Clock}
-              title="Pending Approvals"
-              value={pendingUsers?.length || 0}
+              title="Pending Requests"
+              value={pendingRequests?.length || 0}
               variant={
-                pendingUsers && pendingUsers.length > 0 ? "warning" : "default"
+                pendingRequests && pendingRequests.length > 0
+                  ? "warning"
+                  : "default"
               }
             />
             <StatCard
-              description="Approved and active"
+              description="Organization members"
               href={`/orgs/${orgId}/admin/users`}
-              icon={UserCheck}
-              title="Active Users"
-              value={approvedUsers?.length || 0}
-              variant="success"
+              icon={Users}
+              title="Total Members"
+              value={memberCounts?.total || 0}
             />
             <StatCard
               description="Active teams"
@@ -98,84 +94,87 @@ export default function OrgAdminOverviewPage() {
         )}
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Common administrative tasks</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Link href={`/orgs/${orgId}/admin/users/approvals` as Route}>
-            <Button className="w-full justify-start gap-2" variant="outline">
-              <UserCheck className="h-4 w-4" />
-              Review Pending Users
-              {pendingUsers && pendingUsers.length > 0 && (
-                <span className="ml-auto rounded-full bg-yellow-500/10 px-2 py-0.5 font-medium text-xs text-yellow-600">
-                  {pendingUsers.length}
-                </span>
-              )}
-            </Button>
-          </Link>
-          <Link href={`/orgs/${orgId}/admin/users` as Route}>
-            <Button className="w-full justify-start gap-2" variant="outline">
-              <Users className="h-4 w-4" />
-              Manage Users
-            </Button>
-          </Link>
-          <Link href={`/orgs/${orgId}/admin/teams` as Route}>
-            <Button className="w-full justify-start gap-2" variant="outline">
-              <Shield className="h-4 w-4" />
-              Manage Teams
-            </Button>
-          </Link>
-          <Button
-            className="w-full justify-start gap-2"
-            disabled
-            variant="outline"
-          >
-            <TrendingUp className="h-4 w-4" />
-            View Reports
-            <span className="ml-auto text-muted-foreground text-xs">
-              Coming Soon
-            </span>
-          </Button>
-        </CardContent>
-      </Card>
-
       {/* Recent Activity */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Pending Users Preview */}
+        {/* Pending Membership Requests */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Pending Approvals
+              Pending Membership Requests
             </CardTitle>
-            <CardDescription>Users waiting for your review</CardDescription>
+            <CardDescription>
+              Users requesting to join your organization
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <PendingUsersSection
-              isLoading={isLoading}
-              orgId={orgId}
-              pendingUsers={pendingUsers}
-            />
+            {isLoading ? (
+              <div className="space-y-3">
+                <StatCardSkeleton />
+                <StatCardSkeleton />
+              </div>
+            ) : pendingRequests && pendingRequests.length > 0 ? (
+              <div className="space-y-3">
+                {pendingRequests.slice(0, 5).map((request) => (
+                  <div
+                    className="flex items-center justify-between rounded-lg border p-3"
+                    key={request._id}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                        <Users className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{request.userName}</p>
+                        <p className="text-muted-foreground text-sm">
+                          {request.userEmail}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className="capitalize" variant="secondary">
+                      {request.requestedRole}
+                    </Badge>
+                  </div>
+                ))}
+                {pendingRequests.length > 5 && (
+                  <Link href={`/orgs/${orgId}/admin/users/approvals` as Route}>
+                    <Button className="w-full" size="sm" variant="ghost">
+                      View all {pendingRequests.length} pending requests
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <UserCheck className="mb-3 h-12 w-12 text-green-500" />
+                <p className="font-medium">All caught up!</p>
+                <p className="text-muted-foreground text-sm">
+                  No pending membership requests
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Rejected Users Preview */}
+        {/* Quick Link to Join Page */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <UserX className="h-5 w-5" />
-              Recently Rejected
+              <UserCheck className="h-5 w-5" />
+              Grow Your Organization
             </CardTitle>
-            <CardDescription>Users that were not approved</CardDescription>
+            <CardDescription>Share your organization join link</CardDescription>
           </CardHeader>
           <CardContent>
-            <RejectedUsersSection
-              isLoading={isLoading}
-              rejectedUsers={rejectedUsers}
-            />
+            <p className="mb-4 text-muted-foreground text-sm">
+              Users can request to join your organization using the join page.
+              You'll receive their requests here for approval.
+            </p>
+            <Link href={"/orgs/join" as Route}>
+              <Button className="w-full" variant="outline">
+                View Join Page
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>

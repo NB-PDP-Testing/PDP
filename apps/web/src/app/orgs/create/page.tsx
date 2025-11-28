@@ -338,7 +338,7 @@ export default function CreateOrganizationPage() {
             <p className="text-muted-foreground">
               Please sign in to create an organization.
             </p>
-            <Link href="/dashboard">
+            <Link href="/">
               <Button>Sign In</Button>
             </Link>
           </div>

@@ -351,6 +351,40 @@ export default defineSchema({
     .index("by_timestamp", ["timestamp"])
     .index("by_organizationId", ["organizationId"]),
 
+  // Organization Join Requests
+  orgJoinRequests: defineTable({
+    userId: v.string(), // Better Auth user ID
+    userEmail: v.string(),
+    userName: v.string(),
+    organizationId: v.string(), // Better Auth organization ID
+    organizationName: v.string(),
+    requestedRole: v.union(
+      v.literal("member"),
+      v.literal("coach"),
+      v.literal("parent")
+    ),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected")
+    ),
+    message: v.optional(v.string()), // Optional message from user
+    rejectionReason: v.optional(v.string()),
+
+    // Timestamps
+    requestedAt: v.number(),
+    reviewedAt: v.optional(v.number()),
+
+    // Reviewer info
+    reviewedBy: v.optional(v.string()), // Better Auth user ID
+    reviewerName: v.optional(v.string()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_status", ["status"])
+    .index("by_userId_and_organizationId", ["userId", "organizationId"])
+    .index("by_organizationId_and_status", ["organizationId", "status"]),
+
   // Voice Notes
   voiceNotes: defineTable({
     orgId: v.id("organizations"),

@@ -31,10 +31,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           input:
             | {
                 data: {
-                  approvalStatus?: "pending" | "approved" | "rejected";
-                  approvedAt?: number;
-                  approvedBy?: string;
                   createdAt: number;
+                  currentOrgId?: string;
                   email: string;
                   emailVerified: boolean;
                   firstName?: string;
@@ -42,9 +40,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   isPlatformStaff?: boolean;
                   lastName?: string;
                   name: string;
-                  onboardingCompleted?: boolean;
                   phone?: string;
-                  rejectionReason?: string;
                   updatedAt: number;
                   userId?: null | string;
                 };
@@ -183,11 +179,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "onboardingCompleted"
-                    | "approvalStatus"
-                    | "approvedBy"
-                    | "approvedAt"
-                    | "rejectionReason"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -540,11 +532,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "onboardingCompleted"
-                    | "approvalStatus"
-                    | "approvedBy"
-                    | "approvedAt"
-                    | "rejectionReason"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -972,10 +960,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
-                  approvalStatus?: "pending" | "approved" | "rejected";
-                  approvedAt?: number;
-                  approvedBy?: string;
                   createdAt?: number;
+                  currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
@@ -983,9 +969,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   isPlatformStaff?: boolean;
                   lastName?: string;
                   name?: string;
-                  onboardingCompleted?: boolean;
                   phone?: string;
-                  rejectionReason?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1003,11 +987,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "onboardingCompleted"
-                    | "approvalStatus"
-                    | "approvedBy"
-                    | "approvedAt"
-                    | "rejectionReason"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1426,10 +1406,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "user";
                 update: {
-                  approvalStatus?: "pending" | "approved" | "rejected";
-                  approvedAt?: number;
-                  approvedBy?: string;
                   createdAt?: number;
+                  currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
@@ -1437,9 +1415,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   isPlatformStaff?: boolean;
                   lastName?: string;
                   name?: string;
-                  onboardingCompleted?: boolean;
                   phone?: string;
-                  rejectionReason?: string;
                   updatedAt?: number;
                   userId?: null | string;
                 };
@@ -1457,11 +1433,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "onboardingCompleted"
-                    | "approvalStatus"
-                    | "approvedBy"
-                    | "approvedAt"
-                    | "rejectionReason"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"

@@ -1,12 +1,12 @@
 "use client";
+
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Loader from "@/components/loader";
 
 export default function Home() {
-  const router = useRouter();
-
   return (
     <>
       <Authenticated>
@@ -28,7 +28,7 @@ function RedirectToOrgs() {
   const router = useRouter();
 
   useEffect(() => {
-    router.push("/orgs");
+    router.push("/orgs/current" as Route);
   }, [router]);
 
   return (
@@ -42,7 +42,7 @@ function RedirectToLogin() {
   const router = useRouter();
 
   useEffect(() => {
-    router.push("/login");
+    router.push("/login" as Route);
   }, [router]);
 
   return (

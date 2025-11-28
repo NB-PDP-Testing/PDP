@@ -1,28 +1,32 @@
 "use client";
-import { Authenticated, Unauthenticated } from "convex/react";
+import { api } from "@pdp/backend/convex/_generated/api";
+import { Authenticated, Unauthenticated, useMutation } from "convex/react";
 import { Building2 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "./mode-toggle";
 import { OrgSelector } from "./org-selector";
 import UserMenu from "./user-menu";
 
-interface Organization {
+type Organization = {
   id: string;
   name: string;
   slug: string;
   logo?: string | null;
   colors?: string[];
-}
+};
 
 export default function Header() {
   const params = useParams();
   const orgId = params?.orgId as string | undefined;
   const [org, setOrg] = useState<Organization | null>(null);
+  const user = useCurrentUser();
+  const updateCurrentOrg = useMutation(api.models.users.updateCurrentOrg);
 
   useEffect(() => {
     if (!orgId) {
@@ -33,17 +37,28 @@ export default function Header() {
     const loadOrg = async () => {
       try {
         const { data } = await authClient.organization.getFullOrganization({
-          organizationId: orgId,
+          query: {
+            organizationId: orgId,
+          },
         });
         if (data) {
           setOrg(data as Organization);
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Error loading organization:", error);
       }
     };
     loadOrg();
   }, [orgId]);
+
+  // Track current org in user profile
+  useEffect(() => {
+    if (user && orgId && user.currentOrgId !== orgId) {
+      updateCurrentOrg({ organizationId: orgId }).catch((error) => {
+        console.error("Error updating current org:", error);
+      });
+    }
+  }, [user, orgId, updateCurrentOrg]);
 
   // Get primary club color (default to green if not set)
   const primaryColor = org?.colors?.[0] || "#16a34a";

@@ -9,13 +9,6 @@ This is a monorepo with the following structure:
 - **`apps/web/`** - Frontend application (Next.js)
 - **`packages/backend/`** - Convex backend functions
 
-## MVP
-
-There is also may be an MVP version of the app in the `./mvp-app` folder. This is only for reference.
-The MVP used vite and clerk auth. We are using Next.js and better-auth in the main app.
-We are trying to rebuild features from it into apps/web and packages/backend in a structured way.
-Don't ever write to this folder. Only read from it when we specficially mention using the mvp as a reference for building the main app.
-
 ## Running the app
 
 We generally are running the dev server so don't try to run the dev server because there will be a port conflict. It's generally running on port 3000. If not, ask the user about it.
@@ -48,3 +41,14 @@ Authentication is enabled in this project using better-auth.
 - Queries and mutations that the frontend will call should be created in the `packages/backend/convex/models/<model-name>.ts` folder.
 - Complex reusable functions for the backend should be created in the `packages/backend/convex/client/<model-name>.ts` folder.
 - If you want to check that the backend tables are working and types are correct, run `npx -w packages/backend convex codegen`
+
+## Terminology
+
+- Org / Organization is the better auth highest level grouping. However, in the UI we may refer to them as a club.
+
+## MVP
+
+There is also may be an MVP version of the app in the `./mvp-app` folder. This is only for reference.
+The MVP used vite and clerk auth. We are using Next.js and better-auth in the main app.
+We are trying to rebuild features from it into apps/web and packages/backend in a structured way.
+Don't ever write to this folder. Only read from it when we specficially mention using the mvp as a reference for building the main app.

@@ -24,19 +24,12 @@ const customUserTable = defineTable({
   lastName: v.optional(v.string()),
   phone: v.optional(v.string()),
 
-  // Onboarding & approval workflow
-  onboardingCompleted: v.optional(v.boolean()),
-  approvalStatus: v.optional(
-    v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected"))
-  ),
-  approvedBy: v.optional(v.string()), // User ID of admin who approved/rejected
-  approvedAt: v.optional(v.number()),
-  rejectionReason: v.optional(v.string()),
+  // Current organization tracking
+  currentOrgId: v.optional(v.string()), // Most recently visited org
 })
   .index("email_name", ["email", "name"])
   .index("name", ["name"])
-  .index("userId", ["userId"])
-  .index("approvalStatus", ["approvalStatus"]);
+  .index("userId", ["userId"]);
 
 // Extend the team table with sports-specific fields
 const customTeamTable = defineTable({

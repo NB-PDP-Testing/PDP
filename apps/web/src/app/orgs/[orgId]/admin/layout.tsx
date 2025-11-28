@@ -6,9 +6,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import Loader from "@/components/loader";
-import { OrgSelector } from "@/components/org-selector";
 import { Button } from "@/components/ui/button";
-import UserMenu from "@/components/user-menu";
 
 export default function OrgAdminLayout({
   children,
@@ -81,13 +79,11 @@ export default function OrgAdminLayout({
                 </nav>
               </div>
               <div className="flex items-center gap-4">
-                <OrgSelector />
-                <Link href="/dashboard">
+                <Link href="/orgs">
                   <Button size="sm" variant="outline">
                     Back to App
                   </Button>
                 </Link>
-                <UserMenu />
               </div>
             </div>
           </header>
@@ -127,7 +123,7 @@ export default function OrgAdminLayout({
             <p className="text-muted-foreground">
               Please sign in to access the admin panel.
             </p>
-            <Link href="/dashboard">
+            <Link href={"/login" as Route}>
               <Button>Sign In</Button>
             </Link>
           </div>

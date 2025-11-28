@@ -166,6 +166,7 @@ export declare const components: {
               }
             | {
                 data: {
+                  colors?: Array<string>;
                   createdAt: number;
                   logo?: null | string;
                   metadata?: null | string;
@@ -455,6 +456,7 @@ export declare const components: {
                     | "logo"
                     | "createdAt"
                     | "metadata"
+                    | "colors"
                     | "_id";
                   operator?:
                     | "lt"
@@ -809,6 +811,7 @@ export declare const components: {
                     | "logo"
                     | "createdAt"
                     | "metadata"
+                    | "colors"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1315,6 +1318,7 @@ export declare const components: {
             | {
                 model: "organization";
                 update: {
+                  colors?: Array<string>;
                   createdAt?: number;
                   logo?: null | string;
                   metadata?: null | string;
@@ -1329,6 +1333,7 @@ export declare const components: {
                     | "logo"
                     | "createdAt"
                     | "metadata"
+                    | "colors"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1764,6 +1769,7 @@ export declare const components: {
             | {
                 model: "organization";
                 update: {
+                  colors?: Array<string>;
                   createdAt?: number;
                   logo?: null | string;
                   metadata?: null | string;
@@ -1778,6 +1784,7 @@ export declare const components: {
                     | "logo"
                     | "createdAt"
                     | "metadata"
+                    | "colors"
                     | "_id";
                   operator?:
                     | "lt"

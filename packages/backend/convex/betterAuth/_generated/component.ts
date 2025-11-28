@@ -125,6 +125,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               }
             | {
                 data: {
+                  colors?: Array<string>;
                   createdAt: number;
                   logo?: null | string;
                   metadata?: null | string;
@@ -415,6 +416,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "logo"
                     | "createdAt"
                     | "metadata"
+                    | "colors"
                     | "_id";
                   operator?:
                     | "lt"
@@ -770,6 +772,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "logo"
                     | "createdAt"
                     | "metadata"
+                    | "colors"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1279,6 +1282,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "organization";
                 update: {
+                  colors?: Array<string>;
                   createdAt?: number;
                   logo?: null | string;
                   metadata?: null | string;
@@ -1293,6 +1297,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "logo"
                     | "createdAt"
                     | "metadata"
+                    | "colors"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1729,6 +1734,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "organization";
                 update: {
+                  colors?: Array<string>;
                   createdAt?: number;
                   logo?: null | string;
                   metadata?: null | string;
@@ -1743,6 +1749,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "logo"
                     | "createdAt"
                     | "metadata"
+                    | "colors"
                     | "_id";
                   operator?:
                     | "lt"

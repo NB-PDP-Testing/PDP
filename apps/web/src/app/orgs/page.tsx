@@ -177,7 +177,7 @@ export default function OrganizationsPage() {
             <p className="text-muted-foreground">
               Please sign in to view your organizations.
             </p>
-            <Link href="/dashboard">
+            <Link href={"/login" as Route}>
               <Button>Sign In</Button>
             </Link>
           </div>

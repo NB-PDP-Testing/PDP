@@ -61,12 +61,29 @@ const customTeamTable = defineTable({
   .index("season", ["season"])
   .index("isActive", ["isActive"]);
 
+// Extend the organization table with club colors
+const customOrganizationTable = defineTable({
+  // Better Auth base fields
+  name: v.string(),
+  slug: v.string(),
+  logo: v.optional(v.union(v.null(), v.string())),
+  createdAt: v.number(),
+  metadata: v.optional(v.union(v.null(), v.string())),
+
+  // Custom field: club colors (array of hex codes)
+  colors: v.optional(v.array(v.string())),
+})
+  .index("name", ["name"])
+  .index("slug", ["slug"]);
+
 export const tables = {
   ...generatedTables,
   // Override user table with custom fields
   user: customUserTable,
   // Override team table with sports-specific fields
   team: customTeamTable,
+  // Override organization table with club colors
+  organization: customOrganizationTable,
 };
 
 const schema = defineSchema(tables);

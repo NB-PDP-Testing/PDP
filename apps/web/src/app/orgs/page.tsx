@@ -28,10 +28,16 @@ interface Organization {
 export default function OrganizationsPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<unknown>(null);
 
   useEffect(() => {
-    const loadOrganizations = async () => {
+    const loadData = async () => {
       try {
+        // Load user
+        const { data: sessionData } = await authClient.getSession();
+        setUser(sessionData?.user || null);
+
+        // Load organizations
         const { data, error } = await authClient.organization.list();
         if (error) {
           console.error("Error loading organizations:", error);
@@ -39,12 +45,12 @@ export default function OrganizationsPage() {
           setOrganizations(data || []);
         }
       } catch (error) {
-        console.error("Error loading organizations:", error);
+        console.error("Error loading data:", error);
       } finally {
         setLoading(false);
       }
     };
-    loadOrganizations();
+    loadData();
   }, []);
 
   return (
@@ -63,12 +69,15 @@ export default function OrganizationsPage() {
                     Manage your sports clubs and organizations
                   </p>
                 </div>
-                <Link href="/orgs/create">
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Organization
-                  </Button>
-                </Link>
+                {(user as { isPlatformStaff?: boolean })?.isPlatformStaff ===
+                  true && (
+                  <Link href="/orgs/create">
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Organization
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
 
@@ -154,15 +163,19 @@ export default function OrganizationsPage() {
                     No Organizations Yet
                   </h3>
                   <p className="mb-6 max-w-sm text-muted-foreground">
-                    Create your first organization to start managing your sports
-                    club or team
+                    {(user as { isPlatformStaff?: boolean })?.isPlatformStaff
+                      ? "Create your first organization to start managing your sports club or team"
+                      : "You don't have access to any organizations yet. Contact platform staff to get started."}
                   </p>
-                  <Link href="/orgs/create">
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Your First Organization
-                    </Button>
-                  </Link>
+                  {(user as { isPlatformStaff?: boolean })?.isPlatformStaff ===
+                    true && (
+                    <Link href="/orgs/create">
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Your First Organization
+                      </Button>
+                    </Link>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -177,9 +190,13 @@ export default function OrganizationsPage() {
             <p className="text-muted-foreground">
               Please sign in to view your organizations.
             </p>
-            <Link href={"/login" as Route}>
-              <Button>Sign In</Button>
-            </Link>
+            <Button
+              onClick={() => {
+                window.location.href = "/login";
+              }}
+            >
+              Sign In
+            </Button>
           </div>
         </div>
       </Unauthenticated>

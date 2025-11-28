@@ -37,10 +37,16 @@ export function OrgSelector() {
   const [open, setOpen] = useState(false);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<unknown>(null);
 
   useEffect(() => {
-    const loadOrganizations = async () => {
+    const loadData = async () => {
       try {
+        // Load user
+        const { data: sessionData } = await authClient.getSession();
+        setUser(sessionData?.user || null);
+
+        // Load organizations
         const { data, error } = await authClient.organization.list();
         if (error) {
           console.error("Error loading organizations:", error);
@@ -48,12 +54,12 @@ export function OrgSelector() {
           setOrganizations(data || []);
         }
       } catch (error) {
-        console.error("Error loading organizations:", error);
+        console.error("Error loading data:", error);
       } finally {
         setLoading(false);
       }
     };
-    loadOrganizations();
+    loadData();
   }, []);
 
   const currentOrg = organizations.find((org) => org.id === currentOrgId);
@@ -122,19 +128,23 @@ export function OrgSelector() {
                 </CommandItem>
               ))}
             </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup>
-              <Link href="/orgs/create">
-                <CommandItem
-                  onSelect={() => {
-                    setOpen(false);
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  <span>Create Organization</span>
-                </CommandItem>
-              </Link>
-            </CommandGroup>
+            {(user as { isPlatformStaff?: boolean })?.isPlatformStaff && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <Link href="/orgs/create">
+                    <CommandItem
+                      onSelect={() => {
+                        setOpen(false);
+                      }}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      <span>Create Organization</span>
+                    </CommandItem>
+                  </Link>
+                </CommandGroup>
+              </>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

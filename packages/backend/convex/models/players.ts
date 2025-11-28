@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { internalQuery, mutation, query } from "../_generated/server";
 
 /**
  * Player management functions
@@ -235,5 +235,37 @@ export const getPlayerCountByTeam = query({
       .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
       .collect();
     return players.length;
+  },
+});
+
+/**
+ * Internal query to get players by organization ID (for voice notes AI processing)
+ */
+export const getPlayersByOrgId = internalQuery({
+  args: {
+    orgId: v.id("organizations"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("players"),
+      name: v.string(),
+      ageGroup: v.string(),
+      sport: v.string(),
+      organizationId: v.string(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const players = await ctx.db
+      .query("players")
+      .withIndex("by_organizationId", (q) => q.eq("organizationId", args.orgId))
+      .collect();
+
+    return players.map((p) => ({
+      _id: p._id,
+      name: p.name,
+      ageGroup: p.ageGroup,
+      sport: p.sport,
+      organizationId: p.organizationId,
+    }));
   },
 });

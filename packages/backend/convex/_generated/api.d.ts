@@ -14,6 +14,7 @@ import type * as http from "../http.js";
 import type * as models_players from "../models/players.js";
 import type * as models_teams from "../models/teams.js";
 import type * as models_users from "../models/users.js";
+import type * as models_voiceNotes from "../models/voiceNotes.js";
 import type * as privateData from "../privateData.js";
 import type * as todos from "../todos.js";
 
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   "models/players": typeof models_players;
   "models/teams": typeof models_teams;
   "models/users": typeof models_users;
+  "models/voiceNotes": typeof models_voiceNotes;
   privateData: typeof privateData;
   todos: typeof todos;
 }>;

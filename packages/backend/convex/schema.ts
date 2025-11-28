@@ -220,69 +220,6 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_priority", ["priority"]),
 
-  // Voice Notes table
-  voiceNotes: defineTable({
-    teamId: v.string(), // Better Auth team ID
-    coachId: v.string(), // Better Auth user ID
-    organizationId: v.string(), // Better Auth organization ID
-    date: v.string(),
-    type: v.union(
-      v.literal("training"),
-      v.literal("match"),
-      v.literal("general")
-    ),
-
-    // Audio storage
-    audioFileId: v.optional(v.id("_storage")),
-    duration: v.optional(v.number()),
-
-    // Transcription
-    transcription: v.string(),
-    transcriptionSource: v.optional(v.string()),
-    transcriptionConfidence: v.optional(v.number()),
-
-    // Processing status
-    processed: v.boolean(),
-    processingError: v.optional(v.string()),
-
-    // Insights
-    insights: v.array(
-      v.object({
-        id: v.string(),
-        type: v.union(
-          v.literal("goal_progress"),
-          v.literal("skill_update"),
-          v.literal("injury"),
-          v.literal("attendance"),
-          v.literal("behavior"),
-          v.literal("performance"),
-          v.literal("team_insight")
-        ),
-        playerIds: v.array(v.string()),
-        description: v.string(),
-        confidence: v.number(),
-        suggestedAction: v.string(),
-        metadata: v.any(),
-        status: v.union(
-          v.literal("pending"),
-          v.literal("applied"),
-          v.literal("dismissed")
-        ),
-        appliedDate: v.optional(v.string()),
-        editedDescription: v.optional(v.string()),
-        source: v.optional(v.string()),
-      })
-    ),
-
-    createdAt: v.optional(v.number()),
-  })
-    .index("by_date", ["date"])
-    .index("by_type", ["type"])
-    .index("by_teamId", ["teamId"])
-    .index("by_coachId", ["coachId"])
-    .index("by_organizationId", ["organizationId"])
-    .index("by_processed", ["processed"]),
-
   // Coach Insight Preferences
   coachInsightPreferences: defineTable({
     coachId: v.string(), // Better Auth user ID
@@ -413,4 +350,46 @@ export default defineSchema({
     .index("by_action", ["action"])
     .index("by_timestamp", ["timestamp"])
     .index("by_organizationId", ["organizationId"]),
+
+  // Voice Notes
+  voiceNotes: defineTable({
+    orgId: v.id("organizations"),
+    coachId: v.optional(v.string()),
+    date: v.string(),
+    type: v.union(
+      v.literal("training"),
+      v.literal("match"),
+      v.literal("general")
+    ),
+    transcription: v.string(),
+    insights: v.array(
+      v.object({
+        id: v.string(),
+        type: v.union(
+          v.literal("goal_progress"),
+          v.literal("skill_update"),
+          v.literal("injury"),
+          v.literal("attendance"),
+          v.literal("behavior"),
+          v.literal("performance"),
+          v.literal("team_insight")
+        ),
+        playerIds: v.array(v.string()),
+        description: v.string(),
+        confidence: v.number(),
+        suggestedAction: v.string(),
+        source: v.optional(v.union(v.literal("pattern"), v.literal("ai"))),
+        metadata: v.any(),
+        status: v.union(
+          v.literal("pending"),
+          v.literal("applied"),
+          v.literal("dismissed")
+        ),
+        appliedDate: v.optional(v.string()),
+      })
+    ),
+    processed: v.boolean(),
+  })
+    .index("by_orgId", ["orgId"])
+    .index("by_orgId_and_coachId", ["orgId", "coachId"]),
 });

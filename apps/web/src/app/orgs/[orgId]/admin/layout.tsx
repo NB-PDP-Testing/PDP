@@ -2,6 +2,7 @@
 
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { Home, Settings, Shield, UserCheck, Users } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import Loader from "@/components/loader";
@@ -20,22 +21,22 @@ export default function OrgAdminLayout({
 
   const navItems = [
     {
-      href: `/orgs/${orgId}/admin`,
+      href: `/orgs/${orgId}/admin` as Route,
       label: "Overview",
       icon: Home,
     },
     {
-      href: `/orgs/${orgId}/admin/users`,
+      href: `/orgs/${orgId}/admin/users` as Route,
       label: "Manage Users",
       icon: Users,
     },
     {
-      href: `/orgs/${orgId}/admin/users/approvals`,
+      href: `/orgs/${orgId}/admin/users/approvals` as Route,
       label: "Approvals",
       icon: UserCheck,
     },
     {
-      href: `/orgs/${orgId}/admin/teams`,
+      href: `/orgs/${orgId}/admin/teams` as Route,
       label: "Teams",
       icon: Shield,
     },
@@ -51,7 +52,7 @@ export default function OrgAdminLayout({
               <div className="flex items-center gap-6">
                 <Link
                   className="flex items-center gap-2"
-                  href={`/orgs/${orgId}/admin`}
+                  href={`/orgs/${orgId}/admin` as Route}
                 >
                   <Settings className="h-6 w-6 text-primary" />
                   <span className="hidden font-semibold text-lg sm:inline">

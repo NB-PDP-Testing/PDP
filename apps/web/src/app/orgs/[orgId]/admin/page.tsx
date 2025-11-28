@@ -10,9 +10,11 @@ import {
   Users,
   UserX,
 } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+
 import {
   Card,
   CardContent,
@@ -64,7 +66,7 @@ function StatCard({
   );
 
   if (href) {
-    return <Link href={href}>{content}</Link>;
+    return <Link href={href as Route}>{content}</Link>;
   }
 
   return content;
@@ -165,7 +167,7 @@ export default function OrgAdminOverviewPage() {
           <CardDescription>Common administrative tasks</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Link href={`/orgs/${orgId}/admin/users/approvals`}>
+          <Link href={`/orgs/${orgId}/admin/users/approvals` as Route}>
             <Button className="w-full justify-start gap-2" variant="outline">
               <UserCheck className="h-4 w-4" />
               Review Pending Users
@@ -176,13 +178,13 @@ export default function OrgAdminOverviewPage() {
               )}
             </Button>
           </Link>
-          <Link href={`/orgs/${orgId}/admin/users`}>
+          <Link href={`/orgs/${orgId}/admin/users` as Route}>
             <Button className="w-full justify-start gap-2" variant="outline">
               <Users className="h-4 w-4" />
               Manage Users
             </Button>
           </Link>
-          <Link href={`/orgs/${orgId}/admin/teams`}>
+          <Link href={`/orgs/${orgId}/admin/teams` as Route}>
             <Button className="w-full justify-start gap-2" variant="outline">
               <Shield className="h-4 w-4" />
               Manage Teams
@@ -222,7 +224,7 @@ export default function OrgAdminOverviewPage() {
               </div>
             ) : pendingUsers && pendingUsers.length > 0 ? (
               <div className="space-y-3">
-                {pendingUsers.slice(0, 5).map((user: any) => (
+                {pendingUsers.slice(0, 5).map((user) => (
                   <div
                     className="flex items-center justify-between rounded-lg border p-3"
                     key={user._id}
@@ -246,7 +248,7 @@ export default function OrgAdminOverviewPage() {
                   </div>
                 ))}
                 {pendingUsers.length > 5 && (
-                  <Link href={`/orgs/${orgId}/admin/users/approvals`}>
+                  <Link href={`/orgs/${orgId}/admin/users/approvals` as Route}>
                     <Button className="w-full" size="sm" variant="ghost">
                       View all {pendingUsers.length} pending users
                     </Button>
@@ -283,7 +285,7 @@ export default function OrgAdminOverviewPage() {
               </div>
             ) : rejectedUsers && rejectedUsers.length > 0 ? (
               <div className="space-y-3">
-                {rejectedUsers.slice(0, 5).map((user: any) => (
+                {rejectedUsers.slice(0, 5).map((user) => (
                   <div
                     className="flex items-center justify-between rounded-lg border p-3"
                     key={user._id}

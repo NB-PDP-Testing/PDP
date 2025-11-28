@@ -39,11 +39,12 @@ Authentication is enabled in this project using better-auth.
 
 ## Important Rules for apps/web
 
-- If building a complex react page or component, create components in the folder as siblings of the page.tsx for that feature. If the component is reused in multiple places, create it in the `apps/web/src/components` folder.
+- If building a next.js page, create components in the folder as siblings of the page.tsx for that feature.
+- If the component is reused in multiple places, create it in the `apps/web/src/components` folder.
 - In apps/web/src/components/ui you have access to all shadcn/ui components. Don't create new components in that folder.
 
 ## Important Rules for packages/backend
 
 - Queries and mutations that the frontend will call should be created in the `packages/backend/convex/models/<model-name>.ts` folder.
 - Complex reusable functions for the backend should be created in the `packages/backend/convex/client/<model-name>.ts` folder.
--
+- If you want to check that the backend tables are working and types are correct, run `npx -w packages/backend convex codegen`

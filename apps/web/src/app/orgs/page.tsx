@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 
 interface Organization {
@@ -28,15 +29,13 @@ interface Organization {
 export default function OrganizationsPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<unknown>(null);
+
+  // Use Convex query to get user with custom fields
+  const user = useCurrentUser();
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load user
-        const { data: sessionData } = await authClient.getSession();
-        setUser(sessionData?.user || null);
-
         // Load organizations
         const { data, error } = await authClient.organization.list();
         if (error) {
@@ -69,8 +68,7 @@ export default function OrganizationsPage() {
                     Manage your sports clubs and organizations
                   </p>
                 </div>
-                {(user as { isPlatformStaff?: boolean })?.isPlatformStaff ===
-                  true && (
+                {user?.isPlatformStaff && (
                   <Link href="/orgs/create">
                     <Button>
                       <Plus className="mr-2 h-4 w-4" />
@@ -163,12 +161,11 @@ export default function OrganizationsPage() {
                     No Organizations Yet
                   </h3>
                   <p className="mb-6 max-w-sm text-muted-foreground">
-                    {(user as { isPlatformStaff?: boolean })?.isPlatformStaff
+                    {user?.isPlatformStaff
                       ? "Create your first organization to start managing your sports club or team"
                       : "You don't have access to any organizations yet. Contact platform staff to get started."}
                   </p>
-                  {(user as { isPlatformStaff?: boolean })?.isPlatformStaff ===
-                    true && (
+                  {user?.isPlatformStaff && (
                     <Link href="/orgs/create">
                       <Button>
                         <Plus className="mr-2 h-4 w-4" />

@@ -171,9 +171,30 @@ export const unrejectUser = mutation({
 
 /**
  * Get current authenticated user using Better Auth
+ * Returns full user record with all custom fields (isPlatformStaff, etc)
  */
 export const getCurrentUser = query({
   args: {},
-  returns: v.any(),
-  handler: async (ctx) => await authComponent.getAuthUser(ctx),
+  returns: v.union(v.any(), v.null()),
+  handler: async (ctx) => {
+    // Get the basic auth user from Better Auth
+    const authUser = await authComponent.getAuthUser(ctx);
+    if (!authUser) {
+      return null;
+    }
+
+    // Query the user table directly using Better Auth component adapter to get all custom fields
+    const result = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [
+        {
+          field: "_id",
+          value: authUser._id,
+          operator: "eq",
+        },
+      ],
+    });
+
+    return result;
+  },
 });

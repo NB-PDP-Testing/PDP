@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 
 export default function CreateOrganizationPage() {
@@ -34,30 +35,17 @@ export default function CreateOrganizationPage() {
   const [loading, setLoading] = useState(false);
   const [checkingSlug, setCheckingSlug] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
-  const [user, setUser] = useState<unknown>(null);
-  const [loadingUser, setLoadingUser] = useState(true);
 
-  // Load current user and check if they're platform staff
+  // Use Convex query to get user with custom fields
+  const user = useCurrentUser();
+
+  // Redirect if not platform staff
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const { data } = await authClient.getSession();
-        setUser(data?.user || null);
-
-        // Redirect if not platform staff
-        if (!(data?.user as { isPlatformStaff?: boolean })?.isPlatformStaff) {
-          toast.error("Only platform staff can create organizations");
-          router.push("/orgs");
-        }
-      } catch (error) {
-        console.error("Error loading user:", error);
-        router.push("/orgs");
-      } finally {
-        setLoadingUser(false);
-      }
-    };
-    loadUser();
-  }, [router]);
+    if (user !== undefined && !user?.isPlatformStaff) {
+      toast.error("Only platform staff can create organizations");
+      router.push("/orgs");
+    }
+  }, [user, router]);
 
   // Auto-generate slug from name
   const handleNameChange = (value: string) => {
@@ -146,12 +134,11 @@ export default function CreateOrganizationPage() {
   return (
     <>
       <Authenticated>
-        {loadingUser ? (
+        {user === undefined ? (
           <div className="flex min-h-screen items-center justify-center">
             <Loader />
           </div>
-        ) : (user as { isPlatformStaff?: boolean })?.isPlatformStaff ===
-          true ? (
+        ) : user?.isPlatformStaff ? (
           <div className="flex min-h-screen items-center justify-center p-4">
             <Card className="w-full max-w-2xl">
               <CardHeader>

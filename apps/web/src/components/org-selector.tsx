@@ -19,6 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -37,15 +38,13 @@ export function OrgSelector() {
   const [open, setOpen] = useState(false);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<unknown>(null);
+
+  // Use Convex query to get user with custom fields
+  const user = useCurrentUser();
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load user
-        const { data: sessionData } = await authClient.getSession();
-        setUser(sessionData?.user || null);
-
         // Load organizations
         const { data, error } = await authClient.organization.list();
         if (error) {
@@ -128,7 +127,7 @@ export function OrgSelector() {
                 </CommandItem>
               ))}
             </CommandGroup>
-            {(user as { isPlatformStaff?: boolean })?.isPlatformStaff && (
+            {user && "isPlatformStaff" in user && user.isPlatformStaff ? (
               <>
                 <CommandSeparator />
                 <CommandGroup>
@@ -144,7 +143,7 @@ export function OrgSelector() {
                   </Link>
                 </CommandGroup>
               </>
-            )}
+            ) : null}
           </CommandList>
         </Command>
       </PopoverContent>

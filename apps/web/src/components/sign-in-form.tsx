@@ -1,8 +1,8 @@
 import { useForm } from "@tanstack/react-form";
+import { createAuthClient } from "better-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import z from "zod";
-import { authClient } from "@/lib/auth-client";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -12,6 +12,7 @@ export default function SignInForm({
 }: {
   onSwitchToSignUp: () => void;
 }) {
+  const authClient = createAuthClient();
   const router = useRouter();
 
   const form = useForm({
@@ -44,9 +45,19 @@ export default function SignInForm({
     },
   });
 
+  const signInWithGoogle = async () => {
+    const data = await authClient.signIn.social({
+      provider: "google",
+    });
+
+    console.log(data);
+  };
+
   return (
     <div className="mx-auto mt-10 w-full max-w-md p-6">
       <h1 className="mb-6 text-center font-bold text-3xl">Welcome Back</h1>
+
+      <Button onClick={signInWithGoogle}>Sign In With Google</Button>
 
       <form
         className="space-y-4"

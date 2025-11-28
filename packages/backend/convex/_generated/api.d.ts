@@ -80,6 +80,7 @@ export declare const components: {
                   emailVerified: boolean;
                   firstName?: string;
                   image?: null | string;
+                  isPlatformStaff?: boolean;
                   lastName?: string;
                   name: string;
                   onboardingCompleted?: boolean;
@@ -218,6 +219,7 @@ export declare const components: {
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
                     | "phone"
@@ -573,6 +575,7 @@ export declare const components: {
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
                     | "phone"
@@ -1013,6 +1016,7 @@ export declare const components: {
                   emailVerified?: boolean;
                   firstName?: string;
                   image?: null | string;
+                  isPlatformStaff?: boolean;
                   lastName?: string;
                   name?: string;
                   onboardingCompleted?: boolean;
@@ -1031,6 +1035,7 @@ export declare const components: {
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
                     | "phone"
@@ -1464,6 +1469,7 @@ export declare const components: {
                   emailVerified?: boolean;
                   firstName?: string;
                   image?: null | string;
+                  isPlatformStaff?: boolean;
                   lastName?: string;
                   name?: string;
                   onboardingCompleted?: boolean;
@@ -1482,6 +1488,7 @@ export declare const components: {
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
                     | "phone"

@@ -71,6 +71,12 @@
         "noUselessElse": "error",
         "noNestedTernary": "warn",
         "useConsistentTypeDefinitions": "warn"
+      },
+      "performance": {
+        "noImgElement": "off"
+      },
+      "correctness": {
+        "useImageSize": "off"
       }
     }
   },

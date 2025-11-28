@@ -39,6 +39,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   emailVerified: boolean;
                   firstName?: string;
                   image?: null | string;
+                  isPlatformStaff?: boolean;
                   lastName?: string;
                   name: string;
                   onboardingCompleted?: boolean;
@@ -178,6 +179,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
                     | "phone"
@@ -534,6 +536,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
                     | "phone"
@@ -977,6 +980,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   emailVerified?: boolean;
                   firstName?: string;
                   image?: null | string;
+                  isPlatformStaff?: boolean;
                   lastName?: string;
                   name?: string;
                   onboardingCompleted?: boolean;
@@ -995,6 +999,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
                     | "phone"
@@ -1429,6 +1434,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   emailVerified?: boolean;
                   firstName?: string;
                   image?: null | string;
+                  isPlatformStaff?: boolean;
                   lastName?: string;
                   name?: string;
                   onboardingCompleted?: boolean;
@@ -1447,6 +1453,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "createdAt"
                     | "updatedAt"
                     | "userId"
+                    | "isPlatformStaff"
                     | "firstName"
                     | "lastName"
                     | "phone"

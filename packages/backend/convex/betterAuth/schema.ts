@@ -16,6 +16,9 @@ const customUserTable = defineTable({
   updatedAt: v.number(),
   userId: v.optional(v.union(v.null(), v.string())),
 
+  // Staff
+  isPlatformStaff: v.optional(v.boolean()),
+
   // Custom profile fields
   firstName: v.optional(v.string()),
   lastName: v.optional(v.string()),

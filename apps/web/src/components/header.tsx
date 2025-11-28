@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 import { ModeToggle } from "./mode-toggle";
 import { OrgSelector } from "./org-selector";
 import UserMenu from "./user-menu";
@@ -46,21 +47,23 @@ export default function Header() {
 
   // Get primary club color (default to green if not set)
   const primaryColor = org?.colors?.[0] || "#16a34a";
-  const headerStyle = orgId
+  const headerBackgroundStyle = orgId
     ? {
         backgroundColor: primaryColor,
-        color: "#ffffff",
       }
     : {};
+
+  // separating this so it doesn't affect other controls (like the org toggle)
+  const headerTextStyle = orgId ? "text-white" : "";
 
   return (
     <div>
       <div
         className="flex flex-row items-center justify-between px-2 py-1"
-        style={headerStyle}
+        style={headerBackgroundStyle}
       >
         {/* Left side - Org logo and nav */}
-        <div className="flex items-center gap-4">
+        <div className={cn("flex items-center gap-4", headerTextStyle)}>
           {org && (
             <Link
               className="flex items-center gap-2 font-semibold"
@@ -69,7 +72,7 @@ export default function Header() {
               {org.logo ? (
                 <img
                   alt={org.name}
-                  className="h-8 w-8 rounded object-cover"
+                  className="h-8 w-8 rounded object-contain"
                   src={org.logo}
                 />
               ) : (

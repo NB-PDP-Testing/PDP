@@ -79,6 +79,11 @@ const customOrganizationTable = defineTable({
   .index("name", ["name"])
   .index("slug", ["slug"]);
 
+const customMemberTable = generatedTables.member.index(
+  "organizationId_userId",
+  ["organizationId", "userId"]
+);
+
 export const tables = {
   ...generatedTables,
   // Override user table with custom fields
@@ -87,6 +92,8 @@ export const tables = {
   team: customTeamTable,
   // Override organization table with club colors
   organization: customOrganizationTable,
+  // Override member table with custom index
+  member: customMemberTable,
 };
 
 const schema = defineSchema(tables);

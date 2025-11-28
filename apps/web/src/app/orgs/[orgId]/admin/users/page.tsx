@@ -182,6 +182,10 @@ export default function ManageUsersPage() {
         );
       case "admin":
         return <Badge className="bg-blue-500/10 text-blue-600">Admin</Badge>;
+      case "coach":
+        return <Badge className="bg-green-500/10 text-green-600">Coach</Badge>;
+      case "parent":
+        return <Badge className="bg-pink-500/10 text-pink-600">Parent</Badge>;
       case "member":
         return <Badge variant="secondary">Member</Badge>;
       default:
@@ -194,6 +198,8 @@ export default function ManageUsersPage() {
     total: members?.length || 0,
     owners: members?.filter((m) => m.role === "owner").length || 0,
     admins: members?.filter((m) => m.role === "admin").length || 0,
+    coaches: members?.filter((m) => m.role === "coach").length || 0,
+    parents: members?.filter((m) => m.role === "parent").length || 0,
     members: members?.filter((m) => m.role === "member").length || 0,
   };
 
@@ -214,7 +220,7 @@ export default function ManageUsersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Card
           className="cursor-pointer transition-colors hover:bg-accent/50"
           onClick={() => setRoleFilter("all")}
@@ -222,7 +228,7 @@ export default function ManageUsersPage() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-muted-foreground text-sm">Total Members</p>
+                <p className="text-muted-foreground text-sm">Total</p>
                 <p className="font-bold text-2xl">{stats.total}</p>
               </div>
               <Users className="h-8 w-8 text-muted-foreground" />
@@ -231,17 +237,47 @@ export default function ManageUsersPage() {
         </Card>
         <Card
           className="cursor-pointer transition-colors hover:bg-accent/50"
-          onClick={() => setRoleFilter("owner")}
+          onClick={() => setRoleFilter("coach")}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-muted-foreground text-sm">Owners</p>
-                <p className="font-bold text-2xl text-purple-600">
-                  {stats.owners}
+                <p className="text-muted-foreground text-sm">Coaches</p>
+                <p className="font-bold text-2xl text-green-600">
+                  {stats.coaches}
                 </p>
               </div>
-              <UserCheck className="h-8 w-8 text-purple-600" />
+              <UserCheck className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className="cursor-pointer transition-colors hover:bg-accent/50"
+          onClick={() => setRoleFilter("parent")}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-muted-foreground text-sm">Parents</p>
+                <p className="font-bold text-2xl text-pink-600">
+                  {stats.parents}
+                </p>
+              </div>
+              <UserCheck className="h-8 w-8 text-pink-600" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card
+          className="cursor-pointer transition-colors hover:bg-accent/50"
+          onClick={() => setRoleFilter("member")}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-muted-foreground text-sm">Members</p>
+                <p className="font-bold text-2xl">{stats.members}</p>
+              </div>
+              <Users className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -263,15 +299,17 @@ export default function ManageUsersPage() {
         </Card>
         <Card
           className="cursor-pointer transition-colors hover:bg-accent/50"
-          onClick={() => setRoleFilter("member")}
+          onClick={() => setRoleFilter("owner")}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-muted-foreground text-sm">Members</p>
-                <p className="font-bold text-2xl">{stats.members}</p>
+                <p className="text-muted-foreground text-sm">Owners</p>
+                <p className="font-bold text-2xl text-purple-600">
+                  {stats.owners}
+                </p>
               </div>
-              <Users className="h-8 w-8 text-muted-foreground" />
+              <UserCheck className="h-8 w-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
@@ -476,11 +514,14 @@ export default function ManageUsersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="member">Member</SelectItem>
+                  <SelectItem value="coach">Coach</SelectItem>
+                  <SelectItem value="parent">Parent</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-muted-foreground text-xs">
-                Members can view data. Admins can manage users and teams.
+                Members can view data. Coaches and Parents have additional
+                permissions. Admins can manage everything.
               </p>
             </div>
 

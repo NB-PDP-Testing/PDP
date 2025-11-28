@@ -6,6 +6,7 @@ import { v } from "convex/values";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { query } from "./_generated/server";
+import { ac, coach, member, parent } from "./betterAuth/accessControl";
 import authSchema from "./betterAuth/schema";
 
 const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
@@ -40,6 +41,13 @@ export function createAuth(
         // Enable teams within organizations
         teams: {
           enabled: true,
+        },
+        // Add access control and custom roles
+        ac,
+        roles: {
+          member,
+          coach,
+          parent,
         },
       }),
     ],

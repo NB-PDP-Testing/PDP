@@ -181,7 +181,19 @@ export default function OrganizationsPage() {
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="space-y-4">
+                      <Link href={`/orgs/${org.id}/coach` as Route}>
+                        <Button
+                          className="w-full justify-between"
+                          variant="outline"
+                        >
+                          <span className="flex items-center gap-2">
+                            <Settings className="h-4 w-4" />
+                            Coach Dashboard
+                          </span>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </Link>
                       <Link href={`/orgs/${org.id}/admin`}>
                         <Button
                           className="w-full justify-between"

@@ -104,7 +104,7 @@ export default function Header() {
               <Link href="/orgs">Organizations</Link>
             </Authenticated>
             <Unauthenticated>
-              <Link href={"/login" as Route}>Login</Link>
+              <Link href={"/login"}>Login</Link>
             </Unauthenticated>
           </nav>
         </div>

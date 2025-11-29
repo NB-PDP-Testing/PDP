@@ -60,7 +60,7 @@ export default function OrgAdminOverviewPage() {
           <>
             <StatCard
               description="Membership requests waiting"
-              href={`/orgs/${orgId}/admin/users/approvals`}
+              href={`/orgs/${orgId}/admin/users/approvals` as Route}
               icon={Clock}
               title="Pending Requests"
               value={pendingRequests?.length || 0}
@@ -72,14 +72,14 @@ export default function OrgAdminOverviewPage() {
             />
             <StatCard
               description="Organization members"
-              href={`/orgs/${orgId}/admin/users`}
+              href={`/orgs/${orgId}/admin/users` as Route}
               icon={Users}
               title="Total Members"
               value={memberCounts?.total || 0}
             />
             <StatCard
               description="Active teams"
-              href={`/orgs/${orgId}/admin/teams`}
+              href={`/orgs/${orgId}/admin/teams` as Route}
               icon={Shield}
               title="Teams"
               value={0}
@@ -137,7 +137,7 @@ export default function OrgAdminOverviewPage() {
                   </div>
                 ))}
                 {pendingRequests.length > 5 && (
-                  <Link href={`/orgs/${orgId}/admin/users/approvals` as Route}>
+                  <Link href={`/orgs/${orgId}/admin/users/approvals`}>
                     <Button className="w-full" size="sm" variant="ghost">
                       View all {pendingRequests.length} pending requests
                     </Button>
@@ -170,7 +170,7 @@ export default function OrgAdminOverviewPage() {
               Users can request to join your organization using the join page.
               You'll receive their requests here for approval.
             </p>
-            <Link href={"/orgs/join" as Route}>
+            <Link href={"/orgs/join"}>
               <Button className="w-full" variant="outline">
                 View Join Page
               </Button>

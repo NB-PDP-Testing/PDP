@@ -15,7 +15,7 @@ export function StatCard({
   value: number | string;
   description?: string;
   icon: React.ComponentType<{ className?: string }>;
-  href?: string;
+  href?: Route;
   variant?: "default" | "warning" | "success" | "danger";
 }) {
   const variantStyles = {
@@ -45,7 +45,7 @@ export function StatCard({
   );
 
   if (href) {
-    return <Link href={href as Route}>{content}</Link>;
+    return <Link href={href}>{content}</Link>;
   }
 
   return content;

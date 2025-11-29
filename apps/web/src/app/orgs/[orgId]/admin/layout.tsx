@@ -19,22 +19,22 @@ export default function OrgAdminLayout({
 
   const navItems = [
     {
-      href: `/orgs/${orgId}/admin` as Route,
+      href: `/orgs/${orgId}/admin`,
       label: "Overview",
       icon: Home,
     },
     {
-      href: `/orgs/${orgId}/admin/users` as Route,
+      href: `/orgs/${orgId}/admin/users`,
       label: "Manage Users",
       icon: Users,
     },
     {
-      href: `/orgs/${orgId}/admin/users/approvals` as Route,
+      href: `/orgs/${orgId}/admin/users/approvals`,
       label: "Approvals",
       icon: UserCheck,
     },
     {
-      href: `/orgs/${orgId}/admin/teams` as Route,
+      href: `/orgs/${orgId}/admin/teams`,
       label: "Teams",
       icon: Shield,
     },
@@ -50,7 +50,7 @@ export default function OrgAdminLayout({
               <div className="flex items-center gap-6">
                 <Link
                   className="flex items-center gap-2"
-                  href={`/orgs/${orgId}/admin` as Route}
+                  href={`/orgs/${orgId}/admin`}
                 >
                   <Settings className="h-6 w-6 text-primary" />
                   <span className="hidden font-semibold text-lg sm:inline">
@@ -64,7 +64,7 @@ export default function OrgAdminLayout({
                       (item.href !== `/orgs/${orgId}/admin` &&
                         pathname.startsWith(item.href));
                     return (
-                      <Link href={item.href} key={item.href}>
+                      <Link href={item.href as Route} key={item.href}>
                         <Button
                           className="gap-2"
                           size="sm"
@@ -97,7 +97,7 @@ export default function OrgAdminLayout({
                   (item.href !== `/orgs/${orgId}/admin` &&
                     pathname.startsWith(item.href));
                 return (
-                  <Link href={item.href} key={item.href}>
+                  <Link href={item.href as Route} key={item.href}>
                     <Button
                       className="gap-2 whitespace-nowrap"
                       size="sm"
@@ -123,7 +123,7 @@ export default function OrgAdminLayout({
             <p className="text-muted-foreground">
               Please sign in to access the admin panel.
             </p>
-            <Link href={"/login" as Route}>
+            <Link href={"/login"}>
               <Button>Sign In</Button>
             </Link>
           </div>

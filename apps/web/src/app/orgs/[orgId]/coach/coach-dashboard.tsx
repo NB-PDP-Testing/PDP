@@ -12,7 +12,6 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -155,7 +154,7 @@ export function CoachDashboard() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Button asChild className="bg-green-600 hover:bg-green-700">
-            <Link href={`/orgs/${orgId}/coach/voice-notes` as Route}>
+            <Link href={`/orgs/${orgId}/coach/voice-notes`}>
               <Mic className="mr-2" size={16} />
               Voice Notes
             </Link>
@@ -208,7 +207,7 @@ export function CoachDashboard() {
 
       {/* Teams Section */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {mockData.teams.map((team, idx) => (
+        {mockData.teams.map((team) => (
           <Card className="transition-shadow hover:shadow-xl" key={team.teamId}>
             <CardHeader>
               <div className="flex items-start justify-between">

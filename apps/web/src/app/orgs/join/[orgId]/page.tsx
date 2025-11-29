@@ -3,7 +3,6 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
 import { Building2, Loader2, Send } from "lucide-react";
-import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -166,7 +165,7 @@ export default function JoinOrganizationRequestPage() {
                 type="button"
                 variant="outline"
               >
-                <Link href={"/orgs/join" as Route}>Cancel</Link>
+                <Link href={"/orgs/join"}>Cancel</Link>
               </Button>
             </div>
           </CardContent>
@@ -177,7 +176,7 @@ export default function JoinOrganizationRequestPage() {
       <div className="pt-4">
         <Link
           className="text-muted-foreground text-sm hover:text-foreground"
-          href={"/orgs/join" as Route}
+          href={"/orgs/join"}
         >
           ← Back to organizations
         </Link>

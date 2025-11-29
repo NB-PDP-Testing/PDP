@@ -23,10 +23,10 @@ function OrganizationCard({
   org: { _id: string; name: string; logo?: string | null };
   hasPendingRequest: boolean;
 }) {
-  const href = hasPendingRequest ? "#" : (`/orgs/join/${org._id}` as Route);
+  const href = hasPendingRequest ? "#" : `/orgs/join/${org._id}`;
 
   return (
-    <Link href={href} key={org._id}>
+    <Link href={href as Route} key={org._id}>
       <Card
         className={
           hasPendingRequest

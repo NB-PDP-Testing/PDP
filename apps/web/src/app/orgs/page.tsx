@@ -18,7 +18,6 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import type { Route } from "next";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -113,7 +112,7 @@ export default function OrganizationsPage() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Link href={"/orgs/join" as Route}>
+                  <Link href={"/orgs/join"}>
                     <Button variant="outline">
                       <Plus className="mr-2 h-4 w-4" />
                       Join Organization
@@ -182,7 +181,7 @@ export default function OrganizationsPage() {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <Link href={`/orgs/${org.id}/coach` as Route}>
+                      <Link href={`/orgs/${org.id}/coach`}>
                         <Button
                           className="w-full justify-between"
                           variant="outline"

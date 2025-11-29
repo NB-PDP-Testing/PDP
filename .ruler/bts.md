@@ -39,7 +39,7 @@ Authentication is enabled in this project using better-auth.
 ## Important Rules for packages/backend
 
 - Queries and mutations that the frontend will call should be created in the `packages/backend/convex/models/<model-name>.ts` folder.
-- Complex reusable functions for the backend should be created in the `packages/backend/convex/client/<model-name>.ts` folder.
+- Actions should be created in the `packages/backend/convex/actions/<model-name>.ts` folder.
 - If you want to check that the backend tables are working and types are correct, run `npx -w packages/backend convex codegen`
 
 ## Terminology

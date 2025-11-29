@@ -12,8 +12,9 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import type { Route } from "next";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,10 +47,7 @@ interface CorrelationInsight {
 
 export function CoachDashboard() {
   const params = useParams();
-  const router = useRouter();
   const orgId = params.orgId as string;
-
-  const [showVoiceNotes, setShowVoiceNotes] = useState(false);
 
   // TODO: Fetch real data from Convex
   const mockData = {
@@ -60,11 +58,6 @@ export function CoachDashboard() {
     teams: [] as TeamAnalytics[],
     insights: [] as CorrelationInsight[],
   };
-
-  if (showVoiceNotes) {
-    router.push(`/orgs/${orgId}/coach/voice-notes`);
-    return null;
-  }
 
   return (
     <div className="space-y-6">
@@ -161,12 +154,11 @@ export function CoachDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Button
-            className="bg-green-600 hover:bg-green-700"
-            onClick={() => setShowVoiceNotes(true)}
-          >
-            <Mic className="mr-2" size={16} />
-            Voice Notes
+          <Button asChild className="bg-green-600 hover:bg-green-700">
+            <Link href={`/orgs/${orgId}/coach/voice-notes` as Route}>
+              <Mic className="mr-2" size={16} />
+              Voice Notes
+            </Link>
           </Button>
           <Button variant="outline">
             <Target className="mr-2" size={16} />

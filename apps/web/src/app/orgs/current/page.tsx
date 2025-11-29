@@ -11,7 +11,9 @@ export default function CurrentOrgRedirectPage() {
   const isLoading = user === undefined;
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading) {
+      return;
+    }
 
     if (!user) {
       // Not authenticated, redirect to login

@@ -70,23 +70,31 @@ export default function OrganizationsPage() {
   };
 
   useEffect(() => {
+    // Only load organizations if user is authenticated
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     const loadData = async () => {
       try {
         // Load organizations
         const { data, error } = await authClient.organization.list();
         if (error) {
           console.error("Error loading organizations:", error);
+          toast.error("Failed to load organizations");
         } else {
           setOrganizations(data || []);
         }
       } catch (error) {
         console.error("Error loading data:", error);
+        toast.error("Failed to load organizations");
       } finally {
         setLoading(false);
       }
     };
     loadData();
-  }, []);
+  }, [user]);
 
   return (
     <>

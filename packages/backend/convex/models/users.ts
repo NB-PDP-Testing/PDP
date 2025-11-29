@@ -41,13 +41,22 @@ export const updateCurrentOrg = mutation({
 /**
  * Get current authenticated user using Better Auth
  * Returns full user record with all custom fields (isPlatformStaff, etc)
+ * Returns null if not authenticated (does not throw)
  */
 export const getCurrentUser = query({
   args: {},
   returns: v.union(v.any(), v.null()),
   handler: async (ctx) => {
     // Get the basic auth user from Better Auth
-    const authUser = await authComponent.getAuthUser(ctx);
+    // Use try-catch to handle unauthenticated state gracefully
+    let authUser: { _id: string } | null = null;
+    try {
+      authUser = await authComponent.getAuthUser(ctx);
+    } catch {
+      // User is not authenticated, return null instead of throwing
+      return null;
+    }
+
     if (!authUser) {
       return null;
     }

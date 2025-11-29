@@ -3,6 +3,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import z from "zod";
 import { authClient } from "@/lib/auth-client";
+import { PDPLogo } from "./pdp-logo";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -94,19 +95,32 @@ export default function SignUpForm() {
       <div className="mx-auto w-full max-w-md space-y-6">
         {/* Header */}
         <div className="text-center">
+          <div className="mb-6 flex justify-center">
+            <PDPLogo size="lg" />
+          </div>
           <h1 className="font-bold text-3xl tracking-tight sm:text-4xl">
             Welcome to PDP
           </h1>
           <p className="mt-2 font-medium text-base sm:text-lg">
             Player Development Passport System
           </p>
-          <p className="mt-2 text-primary text-sm italic">
+          <p
+            className="mt-2 text-sm italic"
+            style={{ color: "var(--pdp-green)" }}
+          >
             "As many as possible, for as long as possible..."
           </p>
         </div>
 
         {/* Mission Statement */}
-        <div className="rounded-lg border-2 border-primary/30 bg-gradient-to-r from-primary/10 to-primary/5 p-4 shadow-sm">
+        <div
+          className="rounded-lg border-2 p-4 shadow-sm"
+          style={{
+            borderColor: "var(--pdp-navy)",
+            background:
+              "linear-gradient(to right, rgba(var(--pdp-navy-rgb), 0.1), rgba(var(--pdp-green-rgb), 0.05))",
+          }}
+        >
           <p className="text-foreground text-sm leading-relaxed">
             Player Development Passport (PDP) is a comprehensive digital
             ecosystem where parents and coaches collaborate to support and
@@ -117,13 +131,25 @@ export default function SignUpForm() {
         </div>
 
         {/* How to Join */}
-        <div className="rounded-lg border bg-blue-50 p-5 dark:bg-blue-950/20">
-          <h2 className="mb-3 font-semibold text-base text-blue-900 sm:text-lg dark:text-blue-100">
+        <div
+          className="rounded-lg border p-5"
+          style={{
+            borderColor: "rgba(var(--pdp-navy-rgb), 0.2)",
+            backgroundColor: "rgba(var(--pdp-navy-rgb), 0.05)",
+          }}
+        >
+          <h2
+            className="mb-3 font-semibold text-base sm:text-lg"
+            style={{ color: "var(--pdp-navy)" }}
+          >
             How to Join
           </h2>
           <ol className="space-y-3">
             <li className="flex gap-3">
-              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 font-semibold text-sm text-white">
+              <span
+                className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full font-semibold text-sm text-white"
+                style={{ backgroundColor: "var(--pdp-navy)" }}
+              >
                 1
               </span>
               <span className="text-muted-foreground text-sm">
@@ -131,19 +157,28 @@ export default function SignUpForm() {
               </span>
             </li>
             <li className="flex gap-3">
-              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 font-semibold text-sm text-white">
+              <span
+                className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full font-semibold text-sm text-white"
+                style={{ backgroundColor: "var(--pdp-navy)" }}
+              >
                 2
               </span>
               <span className="text-muted-foreground text-sm">
                 Select your role(s):{" "}
-                <span className="font-semibold text-blue-600">
+                <span
+                  className="font-semibold"
+                  style={{ color: "var(--pdp-green)" }}
+                >
                   Coach, Parent, Admin
                 </span>{" "}
                 - pick one, multiple, or all three
               </span>
             </li>
             <li className="flex gap-3">
-              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 font-semibold text-sm text-white">
+              <span
+                className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full font-semibold text-sm text-white"
+                style={{ backgroundColor: "var(--pdp-navy)" }}
+              >
                 3
               </span>
               <span className="text-muted-foreground text-sm">
@@ -151,7 +186,10 @@ export default function SignUpForm() {
               </span>
             </li>
             <li className="flex gap-3">
-              <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 font-semibold text-sm text-white">
+              <span
+                className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full font-semibold text-sm text-white"
+                style={{ backgroundColor: "var(--pdp-navy)" }}
+              >
                 4
               </span>
               <span className="text-muted-foreground text-sm">
@@ -172,14 +210,22 @@ export default function SignUpForm() {
           </div>
 
           {/* Sign In Link - Above Form */}
-          <div className="rounded-lg border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 p-4 text-center shadow-sm dark:border-green-800 dark:from-green-950/50 dark:to-emerald-950/50">
+          <div
+            className="rounded-lg border-2 p-4 text-center shadow-sm"
+            style={{
+              borderColor: "rgba(var(--pdp-navy-rgb), 0.3)",
+              background:
+                "linear-gradient(to right, rgba(var(--pdp-navy-rgb), 0.1), rgba(var(--pdp-navy-rgb), 0.05))",
+            }}
+          >
             <p className="text-sm">
               <span className="text-muted-foreground">
                 Already have an account?{" "}
               </span>
               <a
-                className="font-bold text-green-600 hover:underline dark:text-green-400"
+                className="font-bold hover:underline"
                 href="/login"
+                style={{ color: "var(--pdp-navy)" }}
               >
                 Sign in
               </a>
@@ -336,9 +382,12 @@ export default function SignUpForm() {
             <form.Subscribe>
               {(state) => (
                 <Button
-                  className="w-full"
+                  className="w-full text-white"
                   disabled={!state.canSubmit || state.isSubmitting}
                   size="lg"
+                  style={{
+                    backgroundColor: "var(--pdp-navy)",
+                  }}
                   type="submit"
                 >
                   {state.isSubmitting

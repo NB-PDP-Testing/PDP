@@ -15,8 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "pdp",
-  description: "pdp",
+  title: "PDP - Player Development Passport",
+  description:
+    "Player Development Passport (PDP) - A comprehensive digital ecosystem where parents and coaches collaborate to support and manage a child's sporting development.",
+  icons: {
+    icon: "/logos/icon.png",
+  },
 };
 
 export default function RootLayout({

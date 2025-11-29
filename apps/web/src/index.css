@@ -52,6 +52,12 @@ body {
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 
+  /* PDP Brand colors - navy primary with green accent */
+  --pdp-navy: #1e3a5f;
+  --pdp-navy-rgb: 30, 58, 95;
+  --pdp-green: #22c55e;
+  --pdp-green-rgb: 34, 197, 94;
+
   /* Organization theme colors - overridden dynamically per org */
   --org-primary: #16a34a;
   --org-primary-rgb: 22, 163, 74;

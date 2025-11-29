@@ -48,6 +48,7 @@
     "rules": {
       "recommended": true,
       "correctness": {
+        "useImageSize": "off",
         "useExhaustiveDependencies": "info"
       },
       "nursery": {
@@ -75,9 +76,6 @@
       },
       "performance": {
         "noImgElement": "off"
-      },
-      "correctness": {
-        "useImageSize": "off"
       }
     }
   },

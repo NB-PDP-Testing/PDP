@@ -14,6 +14,8 @@ import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as models_members from "../models/members.js";
 import type * as models_orgJoinRequests from "../models/orgJoinRequests.js";
+import type * as models_organizationScraper from "../models/organizationScraper.js";
+import type * as models_organizations from "../models/organizations.js";
 import type * as models_players from "../models/players.js";
 import type * as models_teams from "../models/teams.js";
 import type * as models_users from "../models/users.js";
@@ -34,6 +36,8 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "models/members": typeof models_members;
   "models/orgJoinRequests": typeof models_orgJoinRequests;
+  "models/organizationScraper": typeof models_organizationScraper;
+  "models/organizations": typeof models_organizations;
   "models/players": typeof models_players;
   "models/teams": typeof models_teams;
   "models/users": typeof models_users;

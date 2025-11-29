@@ -76,3 +76,70 @@ export const getCurrentUser = query({
     return result;
   },
 });
+
+/**
+ * Find a user by email address
+ * Useful for admin operations to find users
+ */
+export const getUserByEmail = query({
+  args: {
+    email: v.string(),
+  },
+  returns: v.union(v.any(), v.null()),
+  handler: async (ctx, args) => {
+    const result = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [
+        {
+          field: "email",
+          value: args.email,
+          operator: "eq",
+        },
+      ],
+    });
+
+    return result;
+  },
+});
+
+/**
+ * Update a user's isPlatformStaff status
+ * This allows granting/revoking platform staff privileges
+ */
+export const updatePlatformStaffStatus = mutation({
+  args: {
+    email: v.string(),
+    isPlatformStaff: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Find the user by email
+    const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [
+        {
+          field: "email",
+          value: args.email,
+          operator: "eq",
+        },
+      ],
+    });
+
+    if (!user) {
+      throw new Error(`User with email ${args.email} not found`);
+    }
+
+    // Update the isPlatformStaff field
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: user._id, operator: "eq" }],
+        update: {
+          isPlatformStaff: args.isPlatformStaff,
+        },
+      },
+    });
+
+    return null;
+  },
+});

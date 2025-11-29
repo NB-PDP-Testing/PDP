@@ -31,6 +31,19 @@ npm run dev:setup
 
 Follow the prompts to create a new Convex project and connect it to your application.
 
+## Authentication Setup
+
+This project supports multiple authentication providers:
+
+- **Email/Password**: Built-in, no additional setup required
+- **Google OAuth**: Requires Google OAuth credentials
+- **Microsoft OAuth**: Requires Microsoft Azure Entra ID credentials
+
+For Microsoft authentication setup, see [MICROSOFT_AUTH_SETUP.md](./MICROSOFT_AUTH_SETUP.md) for detailed instructions on:
+- Creating a Microsoft Azure app registration
+- Configuring environment variables
+- Testing and deployment
+
 Then, run the development server:
 
 ```bash

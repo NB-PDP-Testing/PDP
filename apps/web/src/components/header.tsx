@@ -4,52 +4,25 @@ import { Authenticated, Unauthenticated, useMutation } from "convex/react";
 import { Building2 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { authClient } from "@/lib/auth-client";
+import { useOrgTheme } from "@/hooks/use-org-theme";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "./mode-toggle";
 import { OrgSelector } from "./org-selector";
 import UserMenu from "./user-menu";
 
-type Organization = {
-  id: string;
-  name: string;
-  slug: string;
-  logo?: string | null;
-  colors?: string[];
-};
-
 export default function Header() {
   const params = useParams();
+  const pathname = usePathname();
   const orgId = params?.orgId as string | undefined;
-  const [org, setOrg] = useState<Organization | null>(null);
   const user = useCurrentUser();
   const updateCurrentOrg = useMutation(api.models.users.updateCurrentOrg);
+  const { theme, org } = useOrgTheme();
 
-  useEffect(() => {
-    if (!orgId) {
-      setOrg(null);
-      return;
-    }
-
-    const loadOrg = async () => {
-      try {
-        const { data } = await authClient.organization.getFullOrganization({
-          query: {
-            organizationId: orgId,
-          },
-        });
-        if (data) {
-          setOrg(data as Organization);
-        }
-      } catch (error: unknown) {
-        console.error("Error loading organization:", error);
-      }
-    };
-    loadOrg();
-  }, [orgId]);
+  // Check if we're on an auth page
+  const isAuthPage = pathname === "/login" || pathname === "/signup";
 
   // Track current org in user profile
   useEffect(() => {
@@ -60,16 +33,24 @@ export default function Header() {
     }
   }, [user, orgId, updateCurrentOrg]);
 
-  // Get primary club color (default to green if not set)
-  const primaryColor = org?.colors?.[0] || "#16a34a";
+  // Get primary club color using the theme hook
   const headerBackgroundStyle = orgId
     ? {
-        backgroundColor: primaryColor,
+        backgroundColor: theme.primary,
       }
     : {};
 
   // separating this so it doesn't affect other controls (like the org toggle)
   const headerTextStyle = orgId ? "text-white" : "";
+
+  // Minimal header for auth pages (just theme toggle)
+  if (isAuthPage) {
+    return (
+      <div className="absolute top-4 right-4 z-50">
+        <ModeToggle />
+      </div>
+    );
+  }
 
   return (
     <div>

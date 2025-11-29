@@ -5,9 +5,9 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Loader from "@/components/loader";
-import SignInForm from "@/components/sign-in-form";
+import SignUpForm from "@/components/sign-up-form";
 
-export default function LoginPage() {
+export default function SignUpPage() {
   const router = useRouter();
 
   return (
@@ -16,7 +16,7 @@ export default function LoginPage() {
         <RedirectToOrgs router={router} />
       </Authenticated>
       <Unauthenticated>
-        <SignInForm />
+        <SignUpForm />
       </Unauthenticated>
       <AuthLoading>
         <div className="flex min-h-screen items-center justify-center">

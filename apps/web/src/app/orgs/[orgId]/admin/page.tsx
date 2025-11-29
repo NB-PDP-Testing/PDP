@@ -6,6 +6,7 @@ import { Clock, Shield, UserCheck, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { OrgThemedButton } from "@/components/org-themed-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,11 +16,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useOrgTheme } from "@/hooks/use-org-theme";
 import { StatCard, StatCardSkeleton } from "./stat-card";
 
 export default function OrgAdminOverviewPage() {
   const params = useParams();
   const orgId = params.orgId as string;
+  const { theme } = useOrgTheme();
 
   const pendingRequests = useQuery(
     api.models.orgJoinRequests.getPendingRequestsForOrg,
@@ -76,6 +79,7 @@ export default function OrgAdminOverviewPage() {
               icon={Users}
               title="Total Members"
               value={memberCounts?.total || 0}
+              variant="secondary"
             />
             <StatCard
               description="Active teams"
@@ -83,6 +87,7 @@ export default function OrgAdminOverviewPage() {
               icon={Shield}
               title="Teams"
               value={0}
+              variant="tertiary"
             />
             <StatCard
               description="Registered players"
@@ -119,10 +124,21 @@ export default function OrgAdminOverviewPage() {
                   <div
                     className="flex items-center justify-between rounded-lg border p-3"
                     key={request._id}
+                    style={{
+                      borderColor: "rgb(var(--org-primary-rgb) / 0.2)",
+                    }}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                        <Users className="h-5 w-5 text-primary" />
+                      <div
+                        className="flex h-10 w-10 items-center justify-center rounded-full"
+                        style={{
+                          backgroundColor: "rgb(var(--org-primary-rgb) / 0.1)",
+                        }}
+                      >
+                        <Users
+                          className="h-5 w-5"
+                          style={{ color: theme.primary }}
+                        />
                       </div>
                       <div>
                         <p className="font-medium">{request.userName}</p>
@@ -131,22 +147,35 @@ export default function OrgAdminOverviewPage() {
                         </p>
                       </div>
                     </div>
-                    <Badge className="capitalize" variant="secondary">
+                    <Badge
+                      className="capitalize"
+                      style={{
+                        backgroundColor: "rgb(var(--org-secondary-rgb) / 0.2)",
+                        color: theme.secondary,
+                      }}
+                    >
                       {request.requestedRole}
                     </Badge>
                   </div>
                 ))}
                 {pendingRequests.length > 5 && (
-                  <Link href={`/orgs/${orgId}/admin/users/approvals`}>
-                    <Button className="w-full" size="sm" variant="ghost">
+                  <Link href={`/orgs/${orgId}/admin/users/approvals` as Route}>
+                    <OrgThemedButton
+                      className="w-full"
+                      size="sm"
+                      variant="outline"
+                    >
                       View all {pendingRequests.length} pending requests
-                    </Button>
+                    </OrgThemedButton>
                   </Link>
                 )}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <UserCheck className="mb-3 h-12 w-12 text-green-500" />
+                <UserCheck
+                  className="mb-3 h-12 w-12"
+                  style={{ color: theme.primary }}
+                />
                 <p className="font-medium">All caught up!</p>
                 <p className="text-muted-foreground text-sm">
                   No pending membership requests

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
+import { useOrgTheme } from "@/hooks/use-org-theme";
 
 export default function OrgAdminLayout({
   children,
@@ -16,6 +17,9 @@ export default function OrgAdminLayout({
   const params = useParams();
   const pathname = usePathname();
   const orgId = params.orgId as string;
+
+  // Apply organization theme
+  const { theme } = useOrgTheme();
 
   const navItems = [
     {
@@ -38,6 +42,16 @@ export default function OrgAdminLayout({
       label: "Teams",
       icon: Shield,
     },
+    {
+      href: `/orgs/${orgId}/admin/settings` as Route,
+      label: "Settings",
+      icon: Settings,
+    },
+    {
+      href: `/orgs/${orgId}/admin/theme-demo` as Route,
+      label: "Theme Preview",
+      icon: Settings,
+    },
   ];
 
   return (
@@ -52,7 +66,10 @@ export default function OrgAdminLayout({
                   className="flex items-center gap-2"
                   href={`/orgs/${orgId}/admin`}
                 >
-                  <Settings className="h-6 w-6 text-primary" />
+                  <Settings
+                    className="h-6 w-6"
+                    style={{ color: theme.primary }}
+                  />
                   <span className="hidden font-semibold text-lg sm:inline">
                     Admin Panel
                   </span>
@@ -68,6 +85,17 @@ export default function OrgAdminLayout({
                         <Button
                           className="gap-2"
                           size="sm"
+                          style={
+                            isActive
+                              ? {
+                                  backgroundColor:
+                                    "rgb(var(--org-primary-rgb) / 0.1)",
+                                  color: theme.primary,
+                                  borderColor: theme.primary,
+                                  borderWidth: "1px",
+                                }
+                              : undefined
+                          }
                           variant={isActive ? "secondary" : "ghost"}
                         >
                           <item.icon className="h-4 w-4" />

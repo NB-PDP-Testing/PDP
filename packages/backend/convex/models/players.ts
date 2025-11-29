@@ -243,7 +243,7 @@ export const getPlayerCountByTeam = query({
  */
 export const getPlayersByOrgId = internalQuery({
   args: {
-    orgId: v.id("organizations"),
+    orgId: v.id("organization"),
   },
   returns: v.array(
     v.object({

@@ -1,19 +1,20 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   ArrowLeft,
   CheckCircle,
-  Heart,
+  Loader2,
   Mic,
   MicOff,
-  Target,
-  TrendingUp,
-  Users,
   XCircle,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,242 +26,204 @@ import {
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
-// Types for voice notes and insights
-type InsightType =
-  | "goal_progress"
-  | "skill_update"
-  | "injury"
-  | "attendance"
-  | "behavior"
-  | "performance"
-  | "team_insight";
-type InsightStatus = "pending" | "applied" | "dismissed";
-
-interface VoiceInsight {
-  id: string;
-  type: InsightType;
-  playerIds: string[];
-  description: string;
-  confidence: number;
-  suggestedAction: string;
-  source?: "pattern" | "ai";
-  metadata: Record<string, unknown>;
-  status: InsightStatus;
-  appliedDate?: string;
-}
-
-interface VoiceNote {
-  id: string;
-  date: string;
-  type: "training" | "match" | "general";
-  transcription: string;
-  insights: VoiceInsight[];
-  processed: boolean;
-}
+type NoteType = "training" | "match" | "general";
 
 export function VoiceNotesDashboard() {
   const params = useParams();
   const router = useRouter();
-  const orgId = params.orgId as string;
+  const orgId = params.orgId as BetterAuthId<"organization">;
 
   const [noteText, setNoteText] = useState("");
-  const [noteType, setNoteType] = useState<"training" | "match" | "general">(
-    "training"
-  );
+  const [noteType, setNoteType] = useState<NoteType>("training");
   const [isRecording, setIsRecording] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [warningMessage, setWarningMessage] = useState<string | null>(null);
-  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Web Speech API
-  const [interimText, setInterimText] = useState("");
-  const [speechSupported, setSpeechSupported] = useState(false);
-  const recognitionRef = useRef<unknown>(null);
-  const finalTranscriptRef = useRef<string>("");
+  // Audio recording refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-  // Mock data - TODO: Replace with Convex queries
-  const voiceNotes: VoiceNote[] = [];
-
-  // Initialize Web Speech API
-  useEffect(() => {
-    const SpeechRecognition =
-      // biome-ignore lint/suspicious/noExplicitAny: Web Speech API
-      (window as any).SpeechRecognition ||
-      // biome-ignore lint/suspicious/noExplicitAny: Web Speech API
-      (window as any).webkitSpeechRecognition;
-
-    if (SpeechRecognition) {
-      setSpeechSupported(true);
-
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "en-GB";
-
-      // biome-ignore lint/suspicious/noExplicitAny: Web Speech API event
-      recognition.onresult = (event: any) => {
-        let interimTranscript = "";
-        let finalTranscript = "";
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += `${transcript} `;
-          } else {
-            interimTranscript += transcript;
-          }
-        }
-
-        if (finalTranscript) {
-          finalTranscriptRef.current += finalTranscript;
-          setNoteText(finalTranscriptRef.current);
-        }
-
-        setInterimText(interimTranscript);
-      };
-
-      // biome-ignore lint/suspicious/noExplicitAny: Web Speech API event
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error:", event.error);
-        if (event.error === "no-speech") {
-          showWarningMessage("⚠️ No speech detected. Please try again.");
-        } else if (event.error === "not-allowed") {
-          showWarningMessage(
-            "⚠️ Microphone access denied. Please allow microphone access in your browser settings."
-          );
-        } else {
-          showWarningMessage(`⚠️ Speech recognition error: ${event.error}`);
-        }
-        setIsRecording(false);
-        setInterimText("");
-      };
-
-      recognition.onend = () => {
-        setIsRecording(false);
-        setInterimText("");
-      };
-
-      recognitionRef.current = recognition;
-    }
-
-    return () => {
-      // biome-ignore lint/suspicious/noExplicitAny: Web Speech API
-      if (recognitionRef.current) {
-        // biome-ignore lint/suspicious/noExplicitAny: Web Speech API
-        (recognitionRef.current as any).stop();
-      }
-    };
-  }, []);
-
-  const toggleRecording = () => {
-    if (!speechSupported) {
-      showWarningMessage(
-        "⚠️ Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari."
-      );
-      return;
-    }
-
-    if (isRecording) {
-      // biome-ignore lint/suspicious/noExplicitAny: Web Speech API
-      (recognitionRef.current as any)?.stop();
-      setIsRecording(false);
-      setInterimText("");
-      showSuccessMessage("✓ Recording stopped");
-    } else {
-      try {
-        finalTranscriptRef.current = noteText;
-        // biome-ignore lint/suspicious/noExplicitAny: Web Speech API
-        (recognitionRef.current as any)?.start();
-        setIsRecording(true);
-        showSuccessMessage("🎤 Recording started - speak your notes...");
-      } catch (error) {
-        console.error("Failed to start recording:", error);
-        showWarningMessage("⚠️ Failed to start recording. Please try again.");
-      }
-    }
-  };
+  // Convex queries and mutations
+  const voiceNotes = useQuery(api.models.voiceNotes.getAllVoiceNotes, {
+    orgId,
+  });
+  const createTypedNote = useMutation(api.models.voiceNotes.createTypedNote);
+  const createRecordedNote = useMutation(
+    api.models.voiceNotes.createRecordedNote
+  );
+  const generateUploadUrl = useAction(api.models.voiceNotes.generateUploadUrl);
+  const updateInsightStatus = useMutation(
+    api.models.voiceNotes.updateInsightStatus
+  );
 
   const showSuccessMessage = (message: string) => {
     setSuccessMessage(message);
-    setWarningMessage(null);
+    setErrorMessage(null);
     setTimeout(() => setSuccessMessage(null), 3000);
   };
 
-  const showWarningMessage = (message: string) => {
-    setWarningMessage(message);
+  const showErrorMessage = (message: string) => {
+    setErrorMessage(message);
     setSuccessMessage(null);
-    setTimeout(() => setWarningMessage(null), 5000);
+    setTimeout(() => setErrorMessage(null), 5000);
   };
 
-  const handleSaveNote = async () => {
-    if (!noteText.trim()) return;
-
-    setIsAiProcessing(true);
-    showSuccessMessage("💾 Saving note...");
-
+  const startRecording = async () => {
     try {
-      // TODO: Call Convex mutation to save note and extract insights
-      // const result = await saveVoiceNote({ noteText, noteType, orgId });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: "audio/webm",
+      });
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      audioChunksRef.current = [];
 
-      setNoteText("");
-      finalTranscriptRef.current = "";
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        // Stop all tracks
+        for (const track of stream.getTracks()) {
+          track.stop();
+        }
+
+        // Create blob and upload
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm",
+        });
+
+        await uploadAudio(audioBlob);
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+      showSuccessMessage("🎤 Recording started...");
+    } catch (error) {
+      console.error("Failed to start recording:", error);
+      showErrorMessage(
+        "⚠️ Could not access microphone. Please check permissions."
+      );
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
+  const uploadAudio = async (audioBlob: Blob) => {
+    setIsUploading(true);
+    try {
+      // Get upload URL
+      const uploadUrl = await generateUploadUrl();
+
+      // Upload the audio
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": audioBlob.type },
+        body: audioBlob,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload audio");
+      }
+
+      const { storageId } = await response.json();
+
+      // Create the voice note
+      await createRecordedNote({
+        orgId,
+        noteType,
+        audioStorageId: storageId,
+      });
+
       showSuccessMessage(
-        "✓ Note saved and sent for AI analysis! Check back in a moment."
+        "✓ Recording saved! AI is transcribing and analyzing..."
       );
     } catch (error) {
-      console.error("Failed to save note:", error);
-      showWarningMessage("⚠️ Failed to save note. Please try again.");
+      console.error("Failed to upload audio:", error);
+      showErrorMessage("⚠️ Failed to save recording. Please try again.");
     } finally {
-      setIsAiProcessing(false);
+      setIsUploading(false);
     }
   };
 
-  const getInsightIcon = (type: InsightType) => {
-    switch (type) {
-      case "injury":
-        return <AlertTriangle className="text-red-500" size={20} />;
-      case "goal_progress":
-        return <Target className="text-purple-500" size={20} />;
-      case "skill_update":
-        return <TrendingUp className="text-blue-500" size={20} />;
-      case "performance":
-        return <CheckCircle className="text-green-500" size={20} />;
-      case "behavior":
-        return <Heart className="text-pink-500" size={20} />;
-      case "team_insight":
-        return <Users className="text-indigo-500" size={20} />;
-      default:
-        return <AlertTriangle className="text-gray-500" size={20} />;
+  const handleSaveTypedNote = async () => {
+    if (!noteText.trim()) {
+      return;
+    }
+
+    try {
+      await createTypedNote({
+        orgId,
+        noteType,
+        noteText: noteText.trim(),
+      });
+
+      setNoteText("");
+      showSuccessMessage("✓ Note saved! AI is analyzing for insights...");
+    } catch (error) {
+      console.error("Failed to save note:", error);
+      showErrorMessage("⚠️ Failed to save note. Please try again.");
     }
   };
 
-  const getInsightColor = (type: InsightType) => {
-    switch (type) {
-      case "injury":
-        return "border-red-200 bg-red-50";
-      case "goal_progress":
-        return "border-purple-200 bg-purple-50";
-      case "skill_update":
-        return "border-blue-200 bg-blue-50";
-      case "performance":
-        return "border-green-200 bg-green-50";
-      case "behavior":
-        return "border-pink-200 bg-pink-50";
-      case "team_insight":
-        return "border-indigo-200 bg-indigo-50";
-      default:
-        return "border-gray-200 bg-gray-50";
+  const handleApplyInsight = async (
+    noteId: Id<"voiceNotes">,
+    insightId: string
+  ) => {
+    try {
+      await updateInsightStatus({
+        noteId,
+        insightId,
+        status: "applied",
+      });
+      showSuccessMessage("✓ Insight applied!");
+    } catch (error) {
+      console.error("Failed to apply insight:", error);
+      showErrorMessage("⚠️ Failed to apply insight.");
     }
   };
 
-  const pendingInsights = voiceNotes.flatMap((note) =>
-    note.insights
-      .filter((i) => i.status === "pending")
-      .map((i) => ({ ...i, noteId: note.id }))
-  );
+  const handleDismissInsight = async (
+    noteId: Id<"voiceNotes">,
+    insightId: string
+  ) => {
+    try {
+      await updateInsightStatus({
+        noteId,
+        insightId,
+        status: "dismissed",
+      });
+    } catch (error) {
+      console.error("Failed to dismiss insight:", error);
+      showErrorMessage("⚠️ Failed to dismiss insight.");
+    }
+  };
+
+  // Get pending insights from all notes
+  const pendingInsights =
+    voiceNotes?.flatMap((note) =>
+      note.insights
+        .filter((i) => i.status === "pending")
+        .map((i) => ({ ...i, noteId: note._id, noteDate: note.date }))
+    ) ?? [];
+
+  // Count stats
+  const notesWithInsights =
+    voiceNotes?.filter((n) => n.insights.length > 0).length ?? 0;
+  const processingCount =
+    voiceNotes?.filter(
+      (n) =>
+        n.transcriptionStatus === "processing" ||
+        n.insightsStatus === "processing"
+    ).length ?? 0;
 
   return (
     <div className="space-y-6">
@@ -275,7 +238,7 @@ export function VoiceNotesDashboard() {
           </Button>
           <Mic className="text-green-600" size={32} />
           <div>
-            <h1 className="font-bold text-3xl text-gray-800">
+            <h1 className="font-bold text-3xl text-foreground">
               Coach Voice Notes
             </h1>
             <p className="text-gray-600 text-sm">
@@ -286,22 +249,31 @@ export function VoiceNotesDashboard() {
         <div className="flex items-center gap-4">
           <div className="text-center">
             <div className="font-bold text-2xl text-blue-600">
-              {voiceNotes.length}
+              {voiceNotes?.length ?? 0}
             </div>
             <div className="text-gray-600 text-sm">Total Notes</div>
           </div>
           <div className="text-center">
             <div className="font-bold text-2xl text-green-600">
-              {voiceNotes.filter((n) => n.insights.length > 0).length}
+              {notesWithInsights}
             </div>
             <div className="text-gray-600 text-sm">With Insights</div>
           </div>
+          {processingCount > 0 && (
+            <div className="text-center">
+              <div className="flex items-center gap-1 font-bold text-2xl text-orange-600">
+                <Loader2 className="animate-spin" size={20} />
+                {processingCount}
+              </div>
+              <div className="text-gray-600 text-sm">Processing</div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Success/Warning Messages */}
+      {/* Success/Error Messages */}
       {successMessage && (
-        <div className="flex animate-fade-in items-center justify-between rounded-lg border-2 border-green-500 bg-green-100 px-6 py-4 text-green-800">
+        <div className="flex items-center justify-between rounded-lg border-2 border-green-500 bg-green-100 px-6 py-4 text-green-800">
           <span className="font-semibold">{successMessage}</span>
           <button
             className="font-bold text-green-600 text-xl hover:text-green-800"
@@ -313,26 +285,16 @@ export function VoiceNotesDashboard() {
         </div>
       )}
 
-      {warningMessage && (
-        <div className="flex animate-fade-in items-start justify-between rounded-lg border-2 border-yellow-500 bg-yellow-100 px-6 py-4 text-yellow-800">
-          <div className="flex-1 font-semibold">{warningMessage}</div>
+      {errorMessage && (
+        <div className="flex items-start justify-between rounded-lg border-2 border-red-500 bg-red-100 px-6 py-4 text-red-800">
+          <div className="flex-1 font-semibold">{errorMessage}</div>
           <button
-            className="ml-4 flex-shrink-0 font-bold text-xl text-yellow-600 hover:text-yellow-800"
-            onClick={() => setWarningMessage(null)}
+            className="ml-4 flex-shrink-0 font-bold text-red-600 text-xl hover:text-red-800"
+            onClick={() => setErrorMessage(null)}
             type="button"
           >
             ×
           </button>
-        </div>
-      )}
-
-      {/* AI Processing Indicator */}
-      {isAiProcessing && (
-        <div className="flex animate-pulse items-center gap-3 rounded-lg border-2 border-blue-500 bg-blue-100 px-6 py-4 text-blue-800">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-b-blue-600" />
-          <span className="font-semibold">
-            🤖 AI analyzing note for insights...
-          </span>
         </div>
       )}
 
@@ -342,24 +304,15 @@ export function VoiceNotesDashboard() {
           <div className="flex items-center justify-between">
             <CardTitle>New Voice Note</CardTitle>
             <div className="flex gap-2">
-              <Button
-                onClick={() => setNoteType("training")}
-                variant={noteType === "training" ? "default" : "outline"}
-              >
-                Training
-              </Button>
-              <Button
-                onClick={() => setNoteType("match")}
-                variant={noteType === "match" ? "default" : "outline"}
-              >
-                Match
-              </Button>
-              <Button
-                onClick={() => setNoteType("general")}
-                variant={noteType === "general" ? "default" : "outline"}
-              >
-                General
-              </Button>
+              {(["training", "match", "general"] as const).map((type) => (
+                <Button
+                  key={type}
+                  onClick={() => setNoteType(type)}
+                  variant={noteType === type ? "default" : "outline"}
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </Button>
+              ))}
             </div>
           </div>
         </CardHeader>
@@ -370,9 +323,12 @@ export function VoiceNotesDashboard() {
               className={`relative rounded-full p-6 shadow-lg transition-all ${
                 isRecording
                   ? "bg-red-600 hover:bg-red-700"
-                  : "bg-green-600 hover:bg-green-700"
+                  : isUploading
+                    ? "cursor-not-allowed bg-gray-400"
+                    : "bg-green-600 hover:bg-green-700"
               } text-white`}
-              onClick={toggleRecording}
+              disabled={isUploading}
+              onClick={isRecording ? stopRecording : startRecording}
               title={
                 isRecording
                   ? "Click to stop recording"
@@ -380,7 +336,13 @@ export function VoiceNotesDashboard() {
               }
               type="button"
             >
-              {isRecording ? <MicOff size={32} /> : <Mic size={32} />}
+              {isUploading ? (
+                <Loader2 className="animate-spin" size={32} />
+              ) : isRecording ? (
+                <MicOff size={32} />
+              ) : (
+                <Mic size={32} />
+              )}
               {isRecording && (
                 <div className="absolute inset-0 animate-ping rounded-full border-4 border-red-400" />
               )}
@@ -393,48 +355,45 @@ export function VoiceNotesDashboard() {
               <div className="inline-flex items-center gap-3 rounded-full bg-red-100 px-4 py-2 text-red-700">
                 <div className="h-2 w-2 animate-pulse rounded-full bg-red-600" />
                 <span className="font-semibold">
-                  Recording... speak your notes
+                  Recording... click to stop
                 </span>
               </div>
             </div>
           )}
 
-          <Textarea
-            className={`h-48 ${isRecording ? "border-red-300 bg-red-50" : ""}`}
-            onChange={(e) => {
-              if (!isRecording) {
-                setNoteText(e.target.value);
-              }
-            }}
-            placeholder="Type or speak your coaching notes here... Mention player names and the AI will extract insights automatically.
-
-Example: 'Emma Murphy had a great session today. Her left foot passing is really improving. Liam seemed a bit tired in the last 15 minutes. Jack O'Brien took a knock to the ankle around the halfway point but finished the session.'"
-            readOnly={isRecording}
-            value={
-              noteText +
-              (interimText ? (noteText ? " " : "") + interimText : "")
-            }
-          />
-
-          {/* Live transcription indicator */}
-          {isRecording && interimText && (
-            <div className="text-gray-500 text-sm italic">
-              <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" />
-              Transcribing: "{interimText}"
+          {isUploading && (
+            <div className="text-center">
+              <div className="inline-flex items-center gap-3 rounded-full bg-blue-100 px-4 py-2 text-blue-700">
+                <Loader2 className="animate-spin" size={16} />
+                <span className="font-semibold">Uploading recording...</span>
+              </div>
             </div>
           )}
 
+          <div className="text-center text-gray-500 text-sm">
+            or type your note below
+          </div>
+
+          <Textarea
+            className="h-48"
+            onChange={(e) => setNoteText(e.target.value)}
+            placeholder="Type your coaching notes here... Mention player names and the AI will extract insights automatically.
+
+Example: 'Emma Murphy had a great session today. Her left foot passing is really improving. Liam seemed a bit tired in the last 15 minutes. Jack O'Brien took a knock to the ankle around the halfway point but finished the session.'"
+            value={noteText}
+          />
+
           <div className="flex items-center justify-between">
             <p className="text-gray-600 text-sm">
-              AI will automatically detect: injuries, goal progress, skill
-              updates, attendance, and performance notes
+              AI will extract player insights, injuries, skill progress, and
+              more
             </p>
             <Button
               className="bg-green-600 hover:bg-green-700"
               disabled={!noteText.trim()}
-              onClick={handleSaveNote}
+              onClick={handleSaveTypedNote}
             >
-              Save & Process Note
+              Save & Analyze
             </Button>
           </div>
         </CardContent>
@@ -458,39 +417,51 @@ Example: 'Emma Murphy had a great session today. Her left foot passing is really
           <CardContent className="space-y-3">
             {pendingInsights.map((insight) => (
               <div
-                className={`flex items-start justify-between rounded-lg border-2 p-4 ${getInsightColor(insight.type)}`}
+                className="flex items-start justify-between rounded-lg border-2 border-blue-200 bg-blue-50 p-4"
                 key={insight.id}
               >
                 <div className="flex flex-1 items-start gap-3">
-                  {getInsightIcon(insight.type)}
                   <div className="flex-1">
                     <div className="mb-1 flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-gray-800">
-                        {insight.description}
+                        {insight.title}
                       </span>
-                      <Badge variant="secondary">
-                        {Math.round(insight.confidence * 100)}% confident
-                      </Badge>
-                      {insight.source && (
-                        <Badge
-                          variant={
-                            insight.source === "ai" ? "default" : "secondary"
-                          }
-                        >
-                          {insight.source === "ai" ? "🤖 AI" : "⚡ Pattern"}
-                        </Badge>
+                      {insight.playerName && (
+                        <Badge variant="secondary">{insight.playerName}</Badge>
+                      )}
+                      {insight.category && (
+                        <Badge variant="outline">{insight.category}</Badge>
                       )}
                     </div>
-                    <p className="mb-2 text-gray-600 text-sm">
-                      {insight.suggestedAction}
+                    <p className="mb-2 text-gray-700 text-sm">
+                      {insight.description}
                     </p>
+                    {insight.recommendedUpdate && (
+                      <p className="text-gray-500 text-xs italic">
+                        💡 {insight.recommendedUpdate}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="default">
+                  <Button
+                    onClick={() =>
+                      handleApplyInsight(insight.noteId, insight.id)
+                    }
+                    size="sm"
+                    title="Apply insight"
+                    variant="default"
+                  >
                     <CheckCircle size={16} />
                   </Button>
-                  <Button size="sm" variant="outline">
+                  <Button
+                    onClick={() =>
+                      handleDismissInsight(insight.noteId, insight.id)
+                    }
+                    size="sm"
+                    title="Dismiss insight"
+                    variant="outline"
+                  >
                     <XCircle size={16} />
                   </Button>
                 </div>
@@ -505,48 +476,127 @@ Example: 'Emma Murphy had a great session today. Her left foot passing is really
         <CardHeader>
           <CardTitle>Voice Note History</CardTitle>
           <CardDescription>
-            {voiceNotes.length} note{voiceNotes.length !== 1 ? "s" : ""}{" "}
-            recorded
+            {voiceNotes?.length ?? 0} note
+            {(voiceNotes?.length ?? 0) !== 1 ? "s" : ""} recorded
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {voiceNotes.length === 0 ? (
-            <div className="py-8 text-center text-gray-500">
-              <Mic className="mx-auto mb-4 text-gray-400" size={48} />
-              <p>No voice notes yet. Create your first note above!</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {voiceNotes.map((note) => (
-                <div
-                  className="rounded-lg border-2 border-gray-200 p-4"
-                  key={note.id}
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge>{note.type}</Badge>
-                      <span className="text-gray-500 text-sm">
-                        {new Date(note.date).toLocaleString()}
-                      </span>
+          {voiceNotes ? (
+            voiceNotes.length === 0 ? (
+              <div className="py-8 text-center text-gray-500">
+                <Mic className="mx-auto mb-4 text-gray-400" size={48} />
+                <p>No voice notes yet. Create your first note above!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {voiceNotes.map((note) => (
+                  <div
+                    className="rounded-lg border-2 border-gray-200 p-4"
+                    key={note._id}
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge>{note.type}</Badge>
+                        {note.audioStorageId && (
+                          <Badge variant="outline">🎤 Recorded</Badge>
+                        )}
+                        <span className="text-gray-500 text-sm">
+                          {new Date(note.date).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Processing status */}
+                        {(note.transcriptionStatus === "processing" ||
+                          note.insightsStatus === "processing") && (
+                          <Badge
+                            className="flex items-center gap-1"
+                            variant="secondary"
+                          >
+                            <Loader2 className="animate-spin" size={12} />
+                            Processing
+                          </Badge>
+                        )}
+                        {/* Error status */}
+                        {(note.transcriptionStatus === "failed" ||
+                          note.insightsStatus === "failed") && (
+                          <Badge
+                            className="flex items-center gap-1"
+                            variant="destructive"
+                          >
+                            <AlertTriangle size={12} />
+                            Error
+                          </Badge>
+                        )}
+                        {/* Insights count */}
+                        {note.insights.length > 0 ? (
+                          <Badge variant="default">
+                            <CheckCircle className="mr-1" size={14} />
+                            {note.insights.length} insight
+                            {note.insights.length > 1 ? "s" : ""}
+                          </Badge>
+                        ) : note.insightsStatus === "completed" ? (
+                          <Badge variant="secondary">No insights</Badge>
+                        ) : null}
+                      </div>
                     </div>
-                    {note.insights.length > 0 ? (
-                      <Badge variant="default">
-                        <CheckCircle className="mr-1" size={14} />
-                        {note.insights.length} insight
-                        {note.insights.length > 1 ? "s" : ""}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">
-                        <AlertTriangle className="mr-1" size={14} />
-                        No insights
-                      </Badge>
+
+                    {/* Summary */}
+                    {note.summary && (
+                      <p className="mb-2 text-gray-600 text-sm italic">
+                        {note.summary}
+                      </p>
+                    )}
+
+                    {/* Transcription */}
+                    {note.transcription ? (
+                      <p className="whitespace-pre-wrap text-gray-700">
+                        {note.transcription}
+                      </p>
+                    ) : note.transcriptionStatus === "pending" ||
+                      note.transcriptionStatus === "processing" ? (
+                      <p className="text-gray-400 italic">
+                        Transcribing audio...
+                      </p>
+                    ) : note.transcriptionError ? (
+                      <p className="text-red-500 text-sm">
+                        ⚠️ Transcription failed: {note.transcriptionError}
+                      </p>
+                    ) : null}
+
+                    {/* Insights preview */}
+                    {note.insights.length > 0 && (
+                      <div className="mt-3 border-gray-200 border-t pt-3">
+                        <div className="flex flex-wrap gap-2">
+                          {note.insights.map((insight) => (
+                            <Badge
+                              key={insight.id}
+                              variant={
+                                insight.status === "applied"
+                                  ? "default"
+                                  : insight.status === "dismissed"
+                                    ? "secondary"
+                                    : "outline"
+                              }
+                            >
+                              {insight.status === "applied" && "✓ "}
+                              {insight.status === "dismissed" && "✗ "}
+                              {insight.title}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
-                  <p className="whitespace-pre-wrap text-gray-700">
-                    {note.transcription}
-                  </p>
-                </div>
-              ))}
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="py-8 text-center text-gray-500">
+              <Loader2
+                className="mx-auto mb-4 animate-spin text-gray-400"
+                size={48}
+              />
+              <p>Loading notes...</p>
             </div>
           )}
         </CardContent>

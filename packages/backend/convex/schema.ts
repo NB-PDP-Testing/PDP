@@ -387,7 +387,7 @@ export default defineSchema({
 
   // Voice Notes
   voiceNotes: defineTable({
-    orgId: v.id("organizations"),
+    orgId: v.string(),
     coachId: v.optional(v.string()),
     date: v.string(),
     type: v.union(
@@ -395,25 +395,30 @@ export default defineSchema({
       v.literal("match"),
       v.literal("general")
     ),
-    transcription: v.string(),
+    // Audio recording (optional - typed notes won't have this)
+    audioStorageId: v.optional(v.id("_storage")),
+    // Transcription status
+    transcription: v.optional(v.string()),
+    transcriptionStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("processing"),
+        v.literal("completed"),
+        v.literal("failed")
+      )
+    ),
+    transcriptionError: v.optional(v.string()),
+    // AI insights
+    summary: v.optional(v.string()),
     insights: v.array(
       v.object({
         id: v.string(),
-        type: v.union(
-          v.literal("goal_progress"),
-          v.literal("skill_update"),
-          v.literal("injury"),
-          v.literal("attendance"),
-          v.literal("behavior"),
-          v.literal("performance"),
-          v.literal("team_insight")
-        ),
-        playerIds: v.array(v.string()),
+        playerId: v.optional(v.id("players")),
+        playerName: v.optional(v.string()),
+        title: v.string(),
         description: v.string(),
-        confidence: v.number(),
-        suggestedAction: v.string(),
-        source: v.optional(v.union(v.literal("pattern"), v.literal("ai"))),
-        metadata: v.any(),
+        category: v.optional(v.string()),
+        recommendedUpdate: v.optional(v.string()),
         status: v.union(
           v.literal("pending"),
           v.literal("applied"),
@@ -422,7 +427,15 @@ export default defineSchema({
         appliedDate: v.optional(v.string()),
       })
     ),
-    processed: v.boolean(),
+    insightsStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("processing"),
+        v.literal("completed"),
+        v.literal("failed")
+      )
+    ),
+    insightsError: v.optional(v.string()),
   })
     .index("by_orgId", ["orgId"])
     .index("by_orgId_and_coachId", ["orgId", "coachId"]),

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as actions_voiceNotes from "../actions/voiceNotes.js";
 import type * as auth from "../auth.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
@@ -27,6 +28,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "actions/voiceNotes": typeof actions_voiceNotes;
   auth: typeof auth;
   healthCheck: typeof healthCheck;
   http: typeof http;

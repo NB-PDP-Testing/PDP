@@ -1,42 +1,43 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import {
-  internalAction,
+  action,
   internalMutation,
   internalQuery,
   mutation,
   query,
 } from "../_generated/server";
 
-// Voice Note Types
-const insightTypeValidator = v.union(
-  v.literal("goal_progress"),
-  v.literal("skill_update"),
-  v.literal("injury"),
-  v.literal("attendance"),
-  v.literal("behavior"),
-  v.literal("performance"),
-  v.literal("team_insight")
-);
+// ============ VALIDATORS ============
 
-const insightStatusValidator = v.union(
-  v.literal("pending"),
-  v.literal("applied"),
-  v.literal("dismissed")
-);
-
-const voiceInsightValidator = v.object({
+const insightValidator = v.object({
   id: v.string(),
-  type: insightTypeValidator,
-  playerIds: v.array(v.string()),
+  playerId: v.optional(v.id("players")),
+  playerName: v.optional(v.string()),
+  title: v.string(),
   description: v.string(),
-  confidence: v.number(),
-  suggestedAction: v.string(),
-  source: v.optional(v.union(v.literal("pattern"), v.literal("ai"))),
-  metadata: v.any(),
-  status: insightStatusValidator,
+  category: v.optional(v.string()),
+  recommendedUpdate: v.optional(v.string()),
+  status: v.union(
+    v.literal("pending"),
+    v.literal("applied"),
+    v.literal("dismissed")
+  ),
   appliedDate: v.optional(v.string()),
 });
+
+const noteTypeValidator = v.union(
+  v.literal("training"),
+  v.literal("match"),
+  v.literal("general")
+);
+
+const statusValidator = v.union(
+  v.literal("pending"),
+  v.literal("processing"),
+  v.literal("completed"),
+  v.literal("failed")
+);
 
 // ============ QUERIES ============
 
@@ -45,23 +46,24 @@ const voiceInsightValidator = v.object({
  */
 export const getAllVoiceNotes = query({
   args: {
-    orgId: v.id("organizations"),
+    orgId: v.string(),
   },
   returns: v.array(
     v.object({
       _id: v.id("voiceNotes"),
       _creationTime: v.number(),
-      orgId: v.id("organizations"),
+      orgId: v.string(),
       coachId: v.optional(v.string()),
       date: v.string(),
-      type: v.union(
-        v.literal("training"),
-        v.literal("match"),
-        v.literal("general")
-      ),
-      transcription: v.string(),
-      insights: v.array(voiceInsightValidator),
-      processed: v.boolean(),
+      type: noteTypeValidator,
+      audioStorageId: v.optional(v.id("_storage")),
+      transcription: v.optional(v.string()),
+      transcriptionStatus: v.optional(statusValidator),
+      transcriptionError: v.optional(v.string()),
+      summary: v.optional(v.string()),
+      insights: v.array(insightValidator),
+      insightsStatus: v.optional(statusValidator),
+      insightsError: v.optional(v.string()),
     })
   ),
   handler: async (ctx, args) => {
@@ -80,24 +82,25 @@ export const getAllVoiceNotes = query({
  */
 export const getVoiceNotesByCoach = query({
   args: {
-    orgId: v.id("organizations"),
+    orgId: v.id("organization"),
     coachId: v.string(),
   },
   returns: v.array(
     v.object({
       _id: v.id("voiceNotes"),
       _creationTime: v.number(),
-      orgId: v.id("organizations"),
+      orgId: v.id("organization"),
       coachId: v.optional(v.string()),
       date: v.string(),
-      type: v.union(
-        v.literal("training"),
-        v.literal("match"),
-        v.literal("general")
-      ),
-      transcription: v.string(),
-      insights: v.array(voiceInsightValidator),
-      processed: v.boolean(),
+      type: noteTypeValidator,
+      audioStorageId: v.optional(v.id("_storage")),
+      transcription: v.optional(v.string()),
+      transcriptionStatus: v.optional(statusValidator),
+      transcriptionError: v.optional(v.string()),
+      summary: v.optional(v.string()),
+      insights: v.array(insightValidator),
+      insightsStatus: v.optional(statusValidator),
+      insightsError: v.optional(v.string()),
     })
   ),
   handler: async (ctx, args) => {
@@ -118,12 +121,12 @@ export const getVoiceNotesByCoach = query({
  */
 export const getPendingInsights = query({
   args: {
-    orgId: v.id("organizations"),
+    orgId: v.id("organization"),
   },
   returns: v.array(
     v.object({
       noteId: v.id("voiceNotes"),
-      insight: voiceInsightValidator,
+      insight: insightValidator,
     })
   ),
   handler: async (ctx, args) => {
@@ -155,18 +158,15 @@ export const getPendingInsights = query({
 // ============ MUTATIONS ============
 
 /**
- * Create a new voice note
+ * Create a typed voice note (no audio, just text)
+ * Schedules AI insights extraction immediately
  */
-export const createVoiceNote = mutation({
+export const createTypedNote = mutation({
   args: {
-    orgId: v.id("organizations"),
+    orgId: v.id("organization"),
     coachId: v.optional(v.string()),
     noteText: v.string(),
-    noteType: v.union(
-      v.literal("training"),
-      v.literal("match"),
-      v.literal("general")
-    ),
+    noteType: noteTypeValidator,
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
@@ -176,17 +176,49 @@ export const createVoiceNote = mutation({
       date: new Date().toISOString(),
       type: args.noteType,
       transcription: args.noteText,
+      transcriptionStatus: "completed",
       insights: [],
-      processed: false,
+      insightsStatus: "pending",
     });
 
-    // Schedule AI processing
+    // Schedule AI insights extraction
+    await ctx.scheduler.runAfter(0, internal.actions.voiceNotes.buildInsights, {
+      noteId,
+    });
+
+    return noteId;
+  },
+});
+
+/**
+ * Create a voice note with audio recording
+ * Schedules transcription which will then schedule insights extraction
+ */
+export const createRecordedNote = mutation({
+  args: {
+    orgId: v.id("organization"),
+    coachId: v.optional(v.string()),
+    audioStorageId: v.id("_storage"),
+    noteType: noteTypeValidator,
+  },
+  returns: v.id("voiceNotes"),
+  handler: async (ctx, args) => {
+    const noteId = await ctx.db.insert("voiceNotes", {
+      orgId: args.orgId,
+      coachId: args.coachId,
+      date: new Date().toISOString(),
+      type: args.noteType,
+      audioStorageId: args.audioStorageId,
+      transcriptionStatus: "pending",
+      insights: [],
+      insightsStatus: "pending",
+    });
+
+    // Schedule transcription (which will then schedule insights)
     await ctx.scheduler.runAfter(
       0,
-      internal.models.voiceNotes.processVoiceNoteWithAI,
-      {
-        noteId,
-      }
+      internal.actions.voiceNotes.transcribeAudio,
+      { noteId }
     );
 
     return noteId;
@@ -194,13 +226,22 @@ export const createVoiceNote = mutation({
 });
 
 /**
- * Update insight status
+ * Generate an upload URL for audio storage
+ */
+export const generateUploadUrl = action({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => await ctx.storage.generateUploadUrl(),
+});
+
+/**
+ * Update insight status (apply or dismiss)
  */
 export const updateInsightStatus = mutation({
   args: {
     noteId: v.id("voiceNotes"),
     insightId: v.string(),
-    status: insightStatusValidator,
+    status: v.union(v.literal("applied"), v.literal("dismissed")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -238,180 +279,19 @@ export const deleteVoiceNote = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const note = await ctx.db.get(args.noteId);
+    if (note?.audioStorageId) {
+      await ctx.storage.delete(note.audioStorageId);
+    }
     await ctx.db.delete(args.noteId);
     return null;
   },
 });
 
-// ============ INTERNAL MUTATIONS ============
+// ============ INTERNAL QUERIES ============
 
 /**
- * Internal mutation to update note with AI-extracted insights
- */
-export const updateNoteWithInsights = internalMutation({
-  args: {
-    noteId: v.id("voiceNotes"),
-    insights: v.array(voiceInsightValidator),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.noteId, {
-      insights: args.insights,
-      processed: true,
-    });
-
-    return null;
-  },
-});
-
-// ============ ACTIONS ============
-
-/**
- * Process voice note with OpenAI to extract insights
- */
-export const processVoiceNoteWithAI = internalAction({
-  args: {
-    noteId: v.id("voiceNotes"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    // Get the note
-    const note = await ctx.runQuery(internal.models.voiceNotes.getNote, {
-      noteId: args.noteId,
-    });
-
-    if (!note) {
-      throw new Error("Note not found");
-    }
-
-    // Get players for context
-    const players = await ctx.runQuery(
-      internal.models.players.getPlayersByOrgId,
-      {
-        orgId: note.orgId,
-      }
-    );
-
-    // Call OpenAI API to extract insights
-    const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (!openaiApiKey) {
-      console.error("OPENAI_API_KEY not configured");
-      // Mark as processed even if AI fails
-      await ctx.runMutation(internal.models.voiceNotes.updateNoteWithInsights, {
-        noteId: args.noteId,
-        insights: [],
-      });
-      return null;
-    }
-
-    try {
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${openaiApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content: `You are an expert sports coaching assistant analyzing coach's notes. Extract actionable insights about players.
-
-Available players:
-${players.map((p) => `- ${p.name} (${p.ageGroup}, ${p.sport})`).join("\n")}
-
-Extract insights in these categories:
-- injury: Physical injuries or concerns
-- goal_progress: Progress on skill development
-- skill_update: Notable skill observations
-- performance: Outstanding performances
-- behavior: Attitude and engagement
-- attendance: Attendance issues
-- team_insight: Team-level observations (no specific player)
-
-Return a JSON array of insights with this structure:
-{
-  "insights": [
-    {
-      "type": "injury" | "goal_progress" | "skill_update" | "performance" | "behavior" | "attendance" | "team_insight",
-      "playerIds": ["player1", "player2"], // empty array for team insights
-      "description": "Brief description",
-      "confidence": 0.0-1.0,
-      "suggestedAction": "What action to take",
-      "metadata": {} // Additional context
-    }
-  ]
-}`,
-              },
-              {
-                role: "user",
-                content: note.transcription,
-              },
-            ],
-            response_format: { type: "json_object" },
-            temperature: 0.3,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const content = data.choices[0].message.content;
-      const parsed = JSON.parse(content);
-
-      // Transform insights to match our schema
-      const insights = parsed.insights.map((insight: unknown) => {
-        const i = insight as {
-          type: string;
-          playerIds: string[];
-          description: string;
-          confidence: number;
-          suggestedAction: string;
-          metadata: Record<string, unknown>;
-        };
-
-        return {
-          id: `insight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          type: i.type,
-          playerIds: i.playerIds || [],
-          description: i.description,
-          confidence: i.confidence,
-          suggestedAction: i.suggestedAction,
-          source: "ai" as const,
-          metadata: {
-            ...i.metadata,
-            aiModel: "gpt-4o-mini",
-          },
-          status: "pending" as const,
-        };
-      });
-
-      // Update note with insights
-      await ctx.runMutation(internal.models.voiceNotes.updateNoteWithInsights, {
-        noteId: args.noteId,
-        insights,
-      });
-    } catch (error) {
-      console.error("Failed to process voice note with AI:", error);
-      // Mark as processed even if AI fails
-      await ctx.runMutation(internal.models.voiceNotes.updateNoteWithInsights, {
-        noteId: args.noteId,
-        insights: [],
-      });
-    }
-
-    return null;
-  },
-});
-
-/**
- * Internal query to get a note (for actions)
+ * Get a note by ID (for internal use by actions)
  */
 export const getNote = internalQuery({
   args: {
@@ -420,19 +300,85 @@ export const getNote = internalQuery({
   returns: v.union(
     v.object({
       _id: v.id("voiceNotes"),
-      orgId: v.id("organizations"),
+      orgId: v.id("organization"),
       coachId: v.optional(v.string()),
       date: v.string(),
-      type: v.union(
-        v.literal("training"),
-        v.literal("match"),
-        v.literal("general")
-      ),
-      transcription: v.string(),
-      insights: v.array(voiceInsightValidator),
-      processed: v.boolean(),
+      type: noteTypeValidator,
+      audioStorageId: v.optional(v.id("_storage")),
+      transcription: v.optional(v.string()),
+      transcriptionStatus: v.optional(statusValidator),
+      transcriptionError: v.optional(v.string()),
+      summary: v.optional(v.string()),
+      insights: v.array(insightValidator),
+      insightsStatus: v.optional(statusValidator),
+      insightsError: v.optional(v.string()),
     }),
     v.null()
   ),
   handler: async (ctx, args) => await ctx.db.get(args.noteId),
+});
+
+// ============ INTERNAL MUTATIONS ============
+
+/**
+ * Update transcription status and content
+ */
+export const updateTranscription = internalMutation({
+  args: {
+    noteId: v.id("voiceNotes"),
+    transcription: v.optional(v.string()),
+    status: statusValidator,
+    error: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const updates: Record<string, unknown> = {
+      transcriptionStatus: args.status,
+    };
+
+    if (args.transcription !== undefined) {
+      updates.transcription = args.transcription;
+    }
+
+    if (args.error !== undefined) {
+      updates.transcriptionError = args.error;
+    }
+
+    await ctx.db.patch(args.noteId, updates);
+    return null;
+  },
+});
+
+/**
+ * Update insights status and content
+ */
+export const updateInsights = internalMutation({
+  args: {
+    noteId: v.id("voiceNotes"),
+    summary: v.optional(v.string()),
+    insights: v.optional(v.array(insightValidator)),
+    status: statusValidator,
+    error: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const updates: Record<string, unknown> = {
+      insightsStatus: args.status,
+    };
+
+    if (args.summary !== undefined) {
+      updates.summary = args.summary;
+    }
+
+    if (args.insights !== undefined) {
+      updates.insights = args.insights;
+    }
+
+    if (args.error !== undefined) {
+      updates.insightsError = args.error;
+    }
+
+    await ctx.db.patch(args.noteId, updates);
+    return null;
+  },
 });

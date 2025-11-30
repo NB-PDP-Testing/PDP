@@ -66,7 +66,7 @@ export default function Header() {
   return (
     <div>
       <div
-        className="flex flex-row items-center justify-between px-2 py-1"
+        className="flex flex-row items-center justify-start space-x-4 px-2 py-1"
         style={headerBackgroundStyle}
       >
         {/* Left side - Org logo and nav */}
@@ -94,6 +94,8 @@ export default function Header() {
             {member && <OrgNav member={member} />}
           </>
         )}
+
+        <div className="flex-1">{/* spacer */}</div>
 
         {/* Right side - User controls */}
         <div className="flex items-center gap-2">

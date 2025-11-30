@@ -2,10 +2,9 @@
 
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import type { Route } from "next";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Loader from "@/components/loader";
-import { authClient } from "@/lib/auth-client";
 
 export default function Home() {
   return (
@@ -26,16 +25,16 @@ export default function Home() {
 }
 
 function RedirectToOrgs() {
-  const { data: activeOrganization } = authClient.useActiveOrganization();
+  // const { data: activeOrganization } = authClient.useActiveOrganization();
   const router = useRouter();
+  const params = useParams();
+  const orgId = params.orgId as string;
 
   useEffect(() => {
-    if (activeOrganization) {
-      router.push(`/orgs/${activeOrganization.id}` as Route);
-    } else {
-      router.push("/orgs");
+    if (orgId) {
+      router.push(`/orgs/${orgId}/coach` as Route);
     }
-  }, [router, activeOrganization]);
+  }, [router, orgId]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

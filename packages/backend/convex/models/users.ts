@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { query } from "../_generated/server";
+import { components } from "../_generated/api";
+import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
 /**

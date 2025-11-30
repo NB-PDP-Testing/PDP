@@ -3,5 +3,5 @@ export default function CoachLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className="container mx-auto py-6">{children}</div>;
+  return <div className="container mx-auto px-4 py-6">{children}</div>;
 }

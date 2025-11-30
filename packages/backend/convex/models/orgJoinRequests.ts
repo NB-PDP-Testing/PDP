@@ -180,12 +180,8 @@ export const getUserPendingRequests = query({
   args: {},
   returns: v.array(v.any()),
   handler: async (ctx) => {
-    let user;
-    try {
-      user = await authComponent.getAuthUser(ctx);
-    } catch {
-      return [];
-    }
+    const user = await authComponent.safeGetAuthUser(ctx);
+
     if (!user) {
       return [];
     }

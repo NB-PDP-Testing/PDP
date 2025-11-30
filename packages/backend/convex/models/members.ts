@@ -1,3 +1,4 @@
+import type { Member } from "better-auth/plugins";
 import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { query } from "../_generated/server";
@@ -39,7 +40,7 @@ export const getMembersByOrganization = query({
 
     // Fetch user details for each member
     const membersWithUsers = await Promise.all(
-      members.map(async (member) => {
+      members.map(async (member: Member) => {
         const userResult = await ctx.runQuery(
           components.betterAuth.adapter.findOne,
           {
@@ -111,15 +112,15 @@ export const getMemberCountsByRole = query({
     for (const member of members) {
       const role = member.role.toLowerCase();
       if (role === "owner") {
-        counts.owner++;
+        counts.owner += 1;
       } else if (role === "admin") {
-        counts.admin++;
+        counts.admin += 1;
       } else if (role === "coach") {
-        counts.coach++;
+        counts.coach += 1;
       } else if (role === "parent") {
-        counts.parent++;
+        counts.parent += 1;
       } else if (role === "member") {
-        counts.member++;
+        counts.member += 1;
       }
     }
 
@@ -165,7 +166,7 @@ export const getMembersByRole = query({
 
     // Fetch user details for each member
     const membersWithUsers = await Promise.all(
-      members.map(async (member) => {
+      members.map(async (member: Member) => {
         const userResult = await ctx.runQuery(
           components.betterAuth.adapter.findOne,
           {

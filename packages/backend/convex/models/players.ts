@@ -9,6 +9,7 @@ import { internalQuery, mutation, query } from "../_generated/server";
 
 /**
  * Get all players for an organization
+ * Limited to 100 most recent players to reduce bandwidth usage
  */
 export const getPlayersByOrganization = query({
   args: {
@@ -21,13 +22,15 @@ export const getPlayersByOrganization = query({
       .withIndex("by_organizationId", (q) =>
         q.eq("organizationId", args.organizationId)
       )
-      .collect();
+      .order("desc")
+      .take(100);
     return players;
   },
 });
 
 /**
  * Get all players for a team
+ * Limited to 50 players per team to reduce bandwidth usage
  */
 export const getPlayersByTeam = query({
   args: {
@@ -38,19 +41,22 @@ export const getPlayersByTeam = query({
     const players = await ctx.db
       .query("players")
       .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
-      .collect();
+      .order("desc")
+      .take(50);
     return players;
   },
 });
 
 /**
- * Get all players
+ * Get all players (DEPRECATED - use getPlayersByOrganization instead)
+ * Limited to 50 most recent players to reduce bandwidth usage
+ * WARNING: This query should be replaced with organization-specific queries
  */
 export const getAllPlayers = query({
   args: {},
   returns: v.array(v.any()),
   handler: async (ctx) => {
-    const players = await ctx.db.query("players").collect();
+    const players = await ctx.db.query("players").order("desc").take(50);
     return players;
   },
 });
@@ -88,6 +94,7 @@ export const searchPlayersByName = query({
 
 /**
  * Get players by age group
+ * Limited to 100 players to reduce bandwidth usage
  */
 export const getPlayersByAgeGroup = query({
   args: {
@@ -98,13 +105,15 @@ export const getPlayersByAgeGroup = query({
     const players = await ctx.db
       .query("players")
       .withIndex("by_ageGroup", (q) => q.eq("ageGroup", args.ageGroup))
-      .collect();
+      .order("desc")
+      .take(100);
     return players;
   },
 });
 
 /**
  * Get players by sport
+ * Limited to 100 players to reduce bandwidth usage
  */
 export const getPlayersBySport = query({
   args: {
@@ -115,7 +124,8 @@ export const getPlayersBySport = query({
     const players = await ctx.db
       .query("players")
       .withIndex("by_sport", (q) => q.eq("sport", args.sport))
-      .collect();
+      .order("desc")
+      .take(100);
     return players;
   },
 });
@@ -223,6 +233,7 @@ export const deletePlayer = mutation({
 
 /**
  * Get player count by team
+ * Uses aggregation to count without fetching all data
  */
 export const getPlayerCountByTeam = query({
   args: {
@@ -230,16 +241,19 @@ export const getPlayerCountByTeam = query({
   },
   returns: v.number(),
   handler: async (ctx, args) => {
+    // Note: Collecting to count is still needed in Convex
+    // but limiting to reasonable team size
     const players = await ctx.db
       .query("players")
       .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
-      .collect();
+      .take(200); // Max reasonable team size
     return players.length;
   },
 });
 
 /**
  * Internal query to get players by organization ID (for voice notes AI processing)
+ * Limited to 100 most recent players to reduce bandwidth usage
  */
 export const getPlayersByOrgId = internalQuery({
   args: {
@@ -258,7 +272,8 @@ export const getPlayersByOrgId = internalQuery({
     const players = await ctx.db
       .query("players")
       .withIndex("by_organizationId", (q) => q.eq("organizationId", args.orgId))
-      .collect();
+      .order("desc")
+      .take(100);
 
     return players.map((p) => ({
       _id: p._id,

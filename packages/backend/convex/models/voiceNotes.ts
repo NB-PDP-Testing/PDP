@@ -43,6 +43,7 @@ const statusValidator = v.union(
 
 /**
  * Get all voice notes for an organization
+ * Limited to 100 most recent notes to reduce bandwidth usage
  */
 export const getAllVoiceNotes = query({
   args: {
@@ -71,7 +72,7 @@ export const getAllVoiceNotes = query({
       .query("voiceNotes")
       .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))
       .order("desc")
-      .collect();
+      .take(100);
 
     return notes;
   },
@@ -79,6 +80,7 @@ export const getAllVoiceNotes = query({
 
 /**
  * Get voice notes by coach
+ * Limited to 100 most recent notes to reduce bandwidth usage
  */
 export const getVoiceNotesByCoach = query({
   args: {
@@ -110,7 +112,7 @@ export const getVoiceNotesByCoach = query({
         q.eq("orgId", args.orgId).eq("coachId", args.coachId)
       )
       .order("desc")
-      .collect();
+      .take(100);
 
     return notes;
   },
@@ -118,6 +120,7 @@ export const getVoiceNotesByCoach = query({
 
 /**
  * Get pending insights for an organization
+ * Limited to 100 most recent notes to reduce bandwidth usage
  */
 export const getPendingInsights = query({
   args: {
@@ -133,7 +136,8 @@ export const getPendingInsights = query({
     const notes = await ctx.db
       .query("voiceNotes")
       .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))
-      .collect();
+      .order("desc")
+      .take(100);
 
     const pendingInsights: Array<{
       noteId: (typeof notes)[0]["_id"];

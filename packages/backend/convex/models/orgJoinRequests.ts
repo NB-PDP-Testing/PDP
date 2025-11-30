@@ -100,6 +100,7 @@ export const createJoinRequest = mutation({
 
 /**
  * Get all pending join requests for an organization
+ * Limited to 100 most recent pending requests to reduce bandwidth usage
  */
 export const getPendingRequestsForOrg = query({
   args: {
@@ -146,12 +147,13 @@ export const getPendingRequestsForOrg = query({
         q.eq("organizationId", args.organizationId).eq("status", "pending")
       )
       .order("desc")
-      .collect();
+      .take(100);
   },
 });
 
 /**
  * Get all join requests for the current user
+ * Limited to 50 most recent requests to reduce bandwidth usage
  */
 export const getUserJoinRequests = query({
   args: {},
@@ -166,12 +168,13 @@ export const getUserJoinRequests = query({
       .query("orgJoinRequests")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .order("desc")
-      .collect();
+      .take(50);
   },
 });
 
 /**
  * Get pending join requests for the current user
+ * Limited to 50 most recent pending requests to reduce bandwidth usage
  */
 export const getUserPendingRequests = query({
   args: {},
@@ -192,7 +195,7 @@ export const getUserPendingRequests = query({
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .filter((q) => q.eq(q.field("status"), "pending"))
       .order("desc")
-      .collect();
+      .take(50);
   },
 });
 

@@ -32,7 +32,7 @@ export default function OrgLayout({
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <Loader /> OrgLayout
+      <Loader />
     </div>
   );
 }

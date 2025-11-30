@@ -1,7 +1,7 @@
 "use client";
 
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
-import { Home, Settings, Shield, UserCheck, Users } from "lucide-react";
+import { Home, Settings, Shield, Upload, UserCheck, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
@@ -10,6 +10,7 @@ import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { authClient } from "@/lib/auth-client";
+import type { OrgMemberRole } from "@/lib/types";
 
 export default function OrgAdminLayout({
   children,
@@ -41,7 +42,7 @@ export default function OrgAdminLayout({
         // Check if the user's role has org:admin permission
         const canAccess = authClient.organization.checkRolePermission({
           permissions: { organization: ["update"] },
-          role: member.role,
+          role: member.role as OrgMemberRole,
         });
 
         setHasAccess(canAccess);
@@ -84,6 +85,11 @@ export default function OrgAdminLayout({
       href: `/orgs/${orgId}/admin/teams`,
       label: "Teams",
       icon: Shield,
+    },
+    {
+      href: `/orgs/${orgId}/admin/player-import` as Route,
+      label: "Import Players",
+      icon: Upload,
     },
     {
       href: `/orgs/${orgId}/admin/settings` as Route,

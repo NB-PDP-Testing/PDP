@@ -31,7 +31,7 @@ function RedirectToOrgs() {
 
   useEffect(() => {
     if (activeOrganization) {
-      router.push(`/orgs/${activeOrganization.id}` as Route);
+      router.push(`/orgs/${activeOrganization.id}/coach` as Route);
     } else {
       router.push("/orgs");
     }

@@ -25,7 +25,6 @@ export default function Home() {
 }
 
 function RedirectToOrgs() {
-  // const { data: activeOrganization } = authClient.useActiveOrganization();
   const router = useRouter();
   const params = useParams();
   const orgId = params.orgId as string;

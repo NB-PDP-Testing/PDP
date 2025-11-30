@@ -84,14 +84,14 @@ export const getAllVoiceNotes = query({
  */
 export const getVoiceNotesByCoach = query({
   args: {
-    orgId: v.id("organization"),
+    orgId: v.string(),
     coachId: v.string(),
   },
   returns: v.array(
     v.object({
       _id: v.id("voiceNotes"),
       _creationTime: v.number(),
-      orgId: v.id("organization"),
+      orgId: v.string(),
       coachId: v.optional(v.string()),
       date: v.string(),
       type: noteTypeValidator,
@@ -124,7 +124,7 @@ export const getVoiceNotesByCoach = query({
  */
 export const getPendingInsights = query({
   args: {
-    orgId: v.id("organization"),
+    orgId: v.string(),
   },
   returns: v.array(
     v.object({
@@ -167,7 +167,7 @@ export const getPendingInsights = query({
  */
 export const createTypedNote = mutation({
   args: {
-    orgId: v.id("organization"),
+    orgId: v.string(),
     coachId: v.optional(v.string()),
     noteText: v.string(),
     noteType: noteTypeValidator,
@@ -200,7 +200,7 @@ export const createTypedNote = mutation({
  */
 export const createRecordedNote = mutation({
   args: {
-    orgId: v.id("organization"),
+    orgId: v.string(),
     coachId: v.optional(v.string()),
     audioStorageId: v.id("_storage"),
     noteType: noteTypeValidator,
@@ -304,7 +304,8 @@ export const getNote = internalQuery({
   returns: v.union(
     v.object({
       _id: v.id("voiceNotes"),
-      orgId: v.id("organization"),
+      _creationTime: v.number(),
+      orgId: v.string(),
       coachId: v.optional(v.string()),
       date: v.string(),
       type: noteTypeValidator,

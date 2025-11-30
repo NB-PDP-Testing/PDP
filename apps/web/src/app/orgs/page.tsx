@@ -144,29 +144,32 @@ export default function OrganizationsPage() {
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      <Link href={`/orgs/${org.id}/coach`}>
-                        <Button
-                          className="w-full justify-between"
-                          variant="outline"
-                        >
+                      <Button
+                        asChild
+                        className="w-full justify-between"
+                        variant="outline"
+                      >
+                        <Link href={`/orgs/${org.id}/coach`}>
                           <span className="flex items-center gap-2">
                             <Settings className="h-4 w-4" />
-                            Coach Dashboard
+                            Coach Panel
                           </span>
                           <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                      <Link href={`/orgs/${org.id}/admin`}>
-                        <Button
-                          className="w-full justify-between"
-                          variant="outline"
-                        >
+                        </Link>
+                      </Button>
+                      <Button
+                        asChild
+                        className="w-full justify-between"
+                        variant="outline"
+                      >
+                        <Link href={`/orgs/${org.id}/admin`}>
                           <span className="flex items-center gap-2">
-                            <Settings className="h-4 w-4" />d
+                            <Settings className="h-4 w-4" />
+                            Admin Panel
                           </span>
                           <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </Link>
+                        </Link>
+                      </Button>
                       <div className="flex items-center justify-between pt-2 text-muted-foreground text-xs">
                         <span>
                           Created {new Date(org.createdAt).toLocaleDateString()}

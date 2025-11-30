@@ -10,7 +10,6 @@ import {
   useQuery,
 } from "convex/react";
 import {
-  Badge,
   Building2,
   ChevronRight,
   Clock,
@@ -19,9 +18,9 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import Loader from "@/components/loader";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,18 +33,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 
-type Organization = {
-  id: string;
-  name: string;
-  slug: string;
-  logo?: string | null;
-  metadata?: string | null;
-  createdAt: number | Date;
-};
-
 export default function OrganizationsPage() {
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: organizations, isPending: loading } =
+    authClient.useListOrganizations();
 
   // Use Convex query to get user with custom fields
   const user = useCurrentUser();
@@ -67,33 +57,6 @@ export default function OrganizationsPage() {
       toast.error("Failed to cancel request");
     }
   };
-
-  useEffect(() => {
-    // Only load organizations if user is authenticated
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const loadData = async () => {
-      try {
-        // Load organizations
-        const { data, error } = await authClient.organization.list();
-        if (error) {
-          console.error("Error loading organizations:", error);
-          toast.error("Failed to load organizations");
-        } else {
-          setOrganizations(data || []);
-        }
-      } catch (error) {
-        console.error("Error loading data:", error);
-        toast.error("Failed to load organizations");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, [user]);
 
   return (
     <>
@@ -146,7 +109,7 @@ export default function OrganizationsPage() {
                   </Card>
                 ))}
               </div>
-            ) : organizations.length > 0 ? (
+            ) : organizations && organizations.length > 0 ? (
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {organizations.map((org) => (
                   <Card
@@ -199,8 +162,7 @@ export default function OrganizationsPage() {
                           variant="outline"
                         >
                           <span className="flex items-center gap-2">
-                            <Settings className="h-4 w-4" />
-                            Admin Panel
+                            <Settings className="h-4 w-4" />d
                           </span>
                           <ChevronRight className="h-4 w-4" />
                         </Button>

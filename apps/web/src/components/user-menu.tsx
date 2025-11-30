@@ -1,5 +1,3 @@
-import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
@@ -9,12 +7,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "./ui/button";
 
 export default function UserMenu() {
   const router = useRouter();
-  const user = useQuery(api.auth.getCurrentUser);
+  const user = useCurrentUser();
 
   return (
     <DropdownMenu>

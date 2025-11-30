@@ -1,5 +1,6 @@
 "use client";
 
+import type { User } from "better-auth";
 import {
   AlertTriangle,
   Calendar,
@@ -107,9 +108,11 @@ export default function ManageUsersPage() {
     if (roleFilter !== "all" && member.role !== roleFilter) {
       return false;
     }
-    if (!searchTerm) return true;
+    if (!searchTerm) {
+      return true;
+    }
     const user = member.user || {};
-    const searchable = [user.firstName, user.lastName, user.name, user.email]
+    const searchable = [user.name, user.email]
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -126,10 +129,7 @@ export default function ManageUsersPage() {
     setExpandedUsers(newExpanded);
   };
 
-  const getInitials = (user: any) => {
-    if (user.firstName && user.lastName) {
-      return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
-    }
+  const getInitials = (user: User) => {
     if (user.name) {
       return user.name
         .split(" ")
@@ -387,8 +387,7 @@ export default function ManageUsersPage() {
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <p className="truncate font-medium">
-                                {user.firstName || user.name || "Unknown"}{" "}
-                                {user.lastName || ""}
+                                {user.name || "Unknown"}{" "}
                               </p>
                             </div>
                             <p className="truncate text-muted-foreground text-sm">

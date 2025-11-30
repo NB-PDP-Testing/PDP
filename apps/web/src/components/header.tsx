@@ -1,37 +1,59 @@
 "use client";
-import { api } from "@pdp/backend/convex/_generated/api";
-import { Authenticated, Unauthenticated, useMutation } from "convex/react";
+import type { Member } from "better-auth/plugins";
 import { Building2 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useOrgTheme } from "@/hooks/use-org-theme";
+import { authClient } from "@/lib/auth-client";
+import type { OrgMemberRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "./mode-toggle";
 import { OrgSelector } from "./org-selector";
 import UserMenu from "./user-menu";
 
+function OrgNav({ member }: { member: Member }) {
+  const role = member.role as OrgMemberRole;
+
+  const effectiveOrgId = member?.organizationId;
+  const hasCoachFull = authClient.organization.checkRolePermission({
+    permissions: { coach: ["full"] },
+    role,
+  });
+  const hasOrgAdmin = authClient.organization.checkRolePermission({
+    permissions: { organization: ["update"] },
+    role,
+  });
+
+  return (
+    <nav className="flex gap-4 text-lg">
+      <Link href="/">Home</Link>
+      {hasCoachFull && (
+        <Link href={`/orgs/${effectiveOrgId}/coach` as Route}>Coach</Link>
+      )}
+      {hasOrgAdmin && (
+        <Link href={`/orgs/${effectiveOrgId}/admin` as Route}>Admin</Link>
+      )}
+    </nav>
+  );
+}
+
 export default function Header() {
   const params = useParams();
-  const pathname = usePathname();
   const orgId = params?.orgId as string | undefined;
   const user = useCurrentUser();
-  const updateCurrentOrg = useMutation(api.models.users.updateCurrentOrg);
-  const { theme, org } = useOrgTheme();
-
-  // Check if we're on an auth page
-  const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const { data: org } = authClient.useActiveOrganization();
+  const { data: member } = authClient.useActiveMember();
+  const { theme } = useOrgTheme();
 
   // Track current org in user profile
   useEffect(() => {
-    if (user && orgId && user.currentOrgId !== orgId) {
-      updateCurrentOrg({ organizationId: orgId }).catch((error) => {
-        console.error("Error updating current org:", error);
-      });
+    if (user && orgId && member?.organizationId !== orgId) {
+      authClient.organization.setActive({ organizationId: orgId });
     }
-  }, [user, orgId, updateCurrentOrg]);
+  }, [user, orgId, member?.organizationId]);
 
   // Get primary club color using the theme hook
   const headerBackgroundStyle = orgId
@@ -39,18 +61,7 @@ export default function Header() {
         backgroundColor: theme.primary,
       }
     : {};
-
-  // separating this so it doesn't affect other controls (like the org toggle)
   const headerTextStyle = orgId ? "text-white" : "";
-
-  // Minimal header for auth pages (just theme toggle)
-  if (isAuthPage) {
-    return (
-      <div className="absolute top-4 right-4 z-50">
-        <ModeToggle />
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -59,43 +70,35 @@ export default function Header() {
         style={headerBackgroundStyle}
       >
         {/* Left side - Org logo and nav */}
-        <div className={cn("flex items-center gap-4", headerTextStyle)}>
-          {org && (
-            <Link
-              className="flex items-center gap-2 font-semibold"
-              href={`/orgs/${orgId}` as Route}
-            >
-              {org.logo ? (
-                <img
-                  alt={org.name}
-                  className="h-8 w-8 rounded object-contain"
-                  src={org.logo}
-                />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded bg-white/20">
-                  <Building2 className="h-5 w-5" />
-                </div>
-              )}
-              <span className="hidden sm:inline">{org.name}</span>
-            </Link>
-          )}
-          <nav className="flex gap-4 text-lg">
-            <Link href="/">Home</Link>
-            <Authenticated>
-              <Link href="/orgs">Organizations</Link>
-            </Authenticated>
-            <Unauthenticated>
-              <Link href={"/login"}>Login</Link>
-            </Unauthenticated>
-          </nav>
-        </div>
+        {org && (
+          <>
+            <div className={cn("flex items-center gap-4", headerTextStyle)}>
+              <Link
+                className="flex items-center gap-2 font-semibold"
+                href={`/orgs/${orgId}` as Route}
+              >
+                {org.logo ? (
+                  <img
+                    alt={org.name}
+                    className="h-8 w-8 rounded object-contain"
+                    src={org.logo}
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded bg-white/20">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                )}
+                <span className="hidden sm:inline">{org.name}</span>
+              </Link>
+            </div>
+            {member && <OrgNav member={member} />}
+          </>
+        )}
 
         {/* Right side - User controls */}
         <div className="flex items-center gap-2">
-          <Authenticated>
-            <OrgSelector />
-            <UserMenu />
-          </Authenticated>
+          <OrgSelector />
+          <UserMenu />
           <ModeToggle />
         </div>
       </div>

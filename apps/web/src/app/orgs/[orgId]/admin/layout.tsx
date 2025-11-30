@@ -4,10 +4,12 @@ import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { Home, Settings, Shield, UserCheck, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
+import { authClient } from "@/lib/auth-client";
 
 export default function OrgAdminLayout({
   children,
@@ -16,7 +18,48 @@ export default function OrgAdminLayout({
 }) {
   const params = useParams();
   const pathname = usePathname();
+  const router = useRouter();
   const orgId = params.orgId as string;
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
+
+  // Check if the user has org:admin permission
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        // Set the active organization first
+        await authClient.organization.setActive({ organizationId: orgId });
+
+        // Get the user's role in this organization
+        const { data: member } =
+          await authClient.organization.getActiveMember();
+
+        if (!member?.role) {
+          setHasAccess(false);
+          return;
+        }
+
+        // Check if the user's role has org:admin permission
+        const canAccess = authClient.organization.checkRolePermission({
+          permissions: { organization: ["update"] },
+          role: member.role,
+        });
+
+        setHasAccess(canAccess);
+      } catch (error) {
+        console.error("Error checking access:", error);
+        setHasAccess(false);
+      }
+    };
+
+    checkAccess();
+  }, [orgId]);
+
+  // Redirect if no access
+  useEffect(() => {
+    if (hasAccess === false) {
+      router.replace("/orgs");
+    }
+  }, [hasAccess, router]);
 
   // Apply organization theme
   const { theme } = useOrgTheme();
@@ -53,6 +96,30 @@ export default function OrgAdminLayout({
       icon: Settings,
     },
   ];
+
+  // Show loading while checking access
+  if (hasAccess === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader />
+      </div>
+    );
+  }
+
+  // Will redirect via useEffect, but show nothing while redirecting
+  if (hasAccess === false) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="space-y-4 text-center">
+          <h1 className="font-bold text-2xl">Access Denied</h1>
+          <p className="text-muted-foreground">
+            You don't have permission to access the admin panel.
+          </p>
+          <Loader />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

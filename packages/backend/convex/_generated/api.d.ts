@@ -83,7 +83,6 @@ export declare const components: {
             | {
                 data: {
                   createdAt: number;
-                  currentOrgId?: string;
                   email: string;
                   emailVerified: boolean;
                   firstName?: string;
@@ -91,6 +90,7 @@ export declare const components: {
                   isPlatformStaff?: boolean;
                   lastName?: string;
                   name: string;
+                  onboardingComplete?: boolean;
                   phone?: string;
                   updatedAt: number;
                   userId?: null | string;
@@ -229,7 +229,7 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "currentOrgId"
+                    | "onboardingComplete"
                     | "_id";
                   operator?:
                     | "lt"
@@ -581,7 +581,7 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "currentOrgId"
+                    | "onboardingComplete"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1007,7 +1007,6 @@ export declare const components: {
                 model: "user";
                 update: {
                   createdAt?: number;
-                  currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
@@ -1015,6 +1014,7 @@ export declare const components: {
                   isPlatformStaff?: boolean;
                   lastName?: string;
                   name?: string;
+                  onboardingComplete?: boolean;
                   phone?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -1033,7 +1033,7 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "currentOrgId"
+                    | "onboardingComplete"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1452,7 +1452,6 @@ export declare const components: {
                 model: "user";
                 update: {
                   createdAt?: number;
-                  currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
@@ -1460,6 +1459,7 @@ export declare const components: {
                   isPlatformStaff?: boolean;
                   lastName?: string;
                   name?: string;
+                  onboardingComplete?: boolean;
                   phone?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -1478,7 +1478,7 @@ export declare const components: {
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "currentOrgId"
+                    | "onboardingComplete"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1890,11 +1890,14 @@ export declare const components: {
           _creationTime: number;
           _id: string;
           createdAt: number;
+          currentOrgId?: string;
           email: string;
           emailVerified: boolean;
           image?: null | string;
+          isPlatformStaff?: boolean;
           name: string;
           onboardingComplete?: boolean;
+          phone?: string;
           updatedAt: number;
           userId?: null | string;
         }

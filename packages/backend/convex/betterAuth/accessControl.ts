@@ -1,11 +1,16 @@
 import { createAccessControl } from "better-auth/plugins/access";
+import {
+  adminAc,
+  defaultStatements,
+  memberAc,
+  ownerAc,
+} from "better-auth/plugins/organization/access";
 
-// Define the access control statement
-// This outlines the resources and actions available in your application
+// Define the access control statement (must match server-side)
 const statement = {
-  // Add resources and actions as needed
-  // For now, we'll keep it minimal and expand as you define specific permissions
-  team: ["view", "manage"],
+  ...defaultStatements,
+  // org: ["admin"],
+  coach: ["full"],
   player: ["view", "create", "update"],
   training: ["view", "create", "update"],
   report: ["view", "create"],
@@ -14,27 +19,46 @@ const statement = {
 // Create the access control instance
 export const ac = createAccessControl(statement);
 
-// Define custom roles with their permissions
+// Define custom roles with their permissions (must match server-side)
+// Owner role - full access including org admin
+export const owner = ac.newRole({
+  coach: ["full"],
+  player: ["view", "create", "update"],
+  training: ["view", "create", "update"],
+  report: ["view", "create"],
+  ...ownerAc.statements,
+});
+
+// Admin role - org admin access
+export const admin = ac.newRole({
+  coach: ["full"],
+  player: ["view", "create", "update"],
+  training: ["view", "create", "update"],
+  report: ["view", "create"],
+  ...adminAc.statements,
+});
+
 // Member role - basic access (default for all organization members)
 export const member = ac.newRole({
-  team: ["view"],
   player: ["view"],
   training: ["view"],
   report: ["view"],
+  ...memberAc.statements,
 });
 
 // Coach role - can manage teams, players, and training sessions
 export const coach = ac.newRole({
-  team: ["view", "manage"],
+  coach: ["full"],
   player: ["view", "create", "update"],
   training: ["view", "create", "update"],
   report: ["view", "create"],
+  ...memberAc.statements,
 });
 
 // Parent role - can view and create reports for their players
 export const parent = ac.newRole({
-  team: ["view"],
   player: ["view"],
   training: ["view"],
   report: ["view", "create"],
+  ...memberAc.statements,
 });

@@ -1,79 +1,42 @@
 import { v } from "convex/values";
-import { components } from "../_generated/api";
-import { mutation, query } from "../_generated/server";
+import { query } from "../_generated/server";
 import { authComponent } from "../auth";
-
-/**
- * User management functions that work with Better Auth's user table.
- * For standard user operations, use authClient.organization methods on the client.
- * For organization membership approvals, see orgJoinRequests.ts
- */
-
-/**
- * Update the user's current organization
- * This tracks which org they're currently viewing
- */
-export const updateCurrentOrg = mutation({
-  args: {
-    organizationId: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const user = await authComponent.getAuthUser(ctx);
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
-
-    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
-      input: {
-        model: "user",
-        where: [{ field: "_id", value: user._id, operator: "eq" }],
-        update: {
-          currentOrgId: args.organizationId,
-        },
-      },
-    });
-
-    return null;
-  },
-});
 
 /**
  * Get current authenticated user using Better Auth
  * Returns full user record with all custom fields (isPlatformStaff, etc)
- * Returns null if not authenticated (does not throw)
+ * Returns undefined if not authenticated (does not throw)
  */
 export const getCurrentUser = query({
   args: {},
-  returns: v.union(v.any(), v.null()),
+  returns: v.nullable(
+    v.object({
+      _id: v.string(),
+      _creationTime: v.number(),
+      name: v.string(),
+      email: v.string(),
+      emailVerified: v.boolean(),
+      image: v.optional(v.union(v.null(), v.string())),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+      userId: v.optional(v.union(v.null(), v.string())),
+
+      // Staff
+      isPlatformStaff: v.optional(v.boolean()),
+
+      // Custom profile fields
+      firstName: v.optional(v.string()),
+      lastName: v.optional(v.string()),
+      phone: v.optional(v.string()),
+
+      // onboarding
+      onboardingComplete: v.optional(v.boolean()),
+    })
+  ),
   handler: async (ctx) => {
-    // Get the basic auth user from Better Auth
-    // Use try-catch to handle unauthenticated state gracefully
-    let authUser;
-    try {
-      authUser = await authComponent.getAuthUser(ctx);
-    } catch {
-      // User is not authenticated, return null instead of throwing
-      return null;
-    }
+    const result = await authComponent.safeGetAuthUser(ctx);
 
-    if (!authUser) {
-      return null;
-    }
-
-    // Query the user table directly using Better Auth component adapter to get all custom fields
-    const result = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "user",
-      where: [
-        {
-          field: "_id",
-          value: authUser._id,
-          operator: "eq",
-        },
-      ],
-    });
-
-    return result;
+    return result ?? null;
   },
 });
 

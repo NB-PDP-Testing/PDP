@@ -29,7 +29,7 @@ export type InsightType =
 export type InsightStatus = "pending" | "applied" | "dismissed";
 
 // User roles
-export type UserRole = "Coach" | "Parent" | "Admin";
+export type OrgMemberRole = "owner" | "admin" | "coach" | "parent" | "member";
 
 // Approval status
 export type ApprovalStatus = "pending" | "approved" | "rejected";

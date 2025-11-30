@@ -2,11 +2,16 @@ import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth";
 import { organization } from "better-auth/plugins";
-import { v } from "convex/values";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
-import { query } from "./_generated/server";
-import { ac, coach, member, parent } from "./betterAuth/accessControl";
+import {
+  ac,
+  admin,
+  coach,
+  member,
+  owner,
+  parent,
+} from "./betterAuth/accessControl";
 import authSchema from "./betterAuth/schema";
 
 const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
@@ -42,9 +47,20 @@ export function createAuth(
         teams: {
           enabled: true,
         },
+
+        async allowUserToCreateOrganization(user) {
+          const fullUser = await ctx.runQuery(
+            components.betterAuth.userFunctions.getUserById,
+            { userId: user.id }
+          );
+          console.log("user", fullUser);
+          return fullUser?.isPlatformStaff ?? false;
+        },
         // Add access control and custom roles
         ac,
         roles: {
+          owner,
+          admin,
           member,
           coach,
           parent,
@@ -67,11 +83,3 @@ export function createAuth(
     },
   });
 }
-
-export const getCurrentUser = query({
-  args: {},
-  returns: v.any(),
-  handler(ctx, _args) {
-    return authComponent.getAuthUser(ctx);
-  },
-});

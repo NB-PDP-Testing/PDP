@@ -40,6 +40,15 @@ export const getUserById = query({
       updatedAt: v.number(),
       userId: v.optional(v.union(v.null(), v.string())),
       onboardingComplete: v.optional(v.boolean()),
+
+      // Staff
+      isPlatformStaff: v.optional(v.boolean()),
+
+      // Custom profile fields
+      phone: v.optional(v.string()),
+
+      // Current organization tracking
+      currentOrgId: v.optional(v.string()),
     })
   ),
   handler: async (ctx, args) => await ctx.db.get(args.userId),

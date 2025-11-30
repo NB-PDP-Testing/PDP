@@ -3,7 +3,7 @@
 import { Building2, Check, ChevronsUpDown, Plus } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -23,45 +23,27 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
-interface Organization {
-  id: string;
-  name: string;
-  slug: string;
-  logo?: string | null;
-}
+// interface Organization {
+//   id: string;
+//   name: string;
+//   slug: string;
+//   logo?: string | null;
+// }
 
 export function OrgSelector() {
   const router = useRouter();
   const params = useParams();
-  const currentOrgId = params.orgId as string | undefined;
+  const urlOrgId = params.orgId as string | undefined;
 
   const [open, setOpen] = useState(false);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Use Convex query to get user with custom fields
   const user = useCurrentUser();
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        // Load organizations
-        const { data, error } = await authClient.organization.list();
-        if (error) {
-          console.error("Error loading organizations:", error);
-        } else {
-          setOrganizations(data || []);
-        }
-      } catch (error) {
-        console.error("Error loading data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+  const { data: organizations, isPending: isLoadingOrganizations } =
+    authClient.useListOrganizations();
 
-  const currentOrg = organizations.find((org) => org.id === currentOrgId);
+  const currentOrg = organizations?.find((org) => org.id === urlOrgId);
 
   const handleSelectOrg = (orgId: string) => {
     setOpen(false);
@@ -74,11 +56,11 @@ export function OrgSelector() {
         <Button
           aria-expanded={open}
           className="w-[200px] justify-between"
-          disabled={loading}
+          disabled={isLoadingOrganizations}
           role="combobox"
           variant="outline"
         >
-          {loading ? (
+          {isLoadingOrganizations ? (
             "Loading..."
           ) : currentOrg ? (
             <div className="flex items-center gap-2 truncate">
@@ -104,7 +86,7 @@ export function OrgSelector() {
           <CommandList>
             <CommandEmpty>No organization found.</CommandEmpty>
             <CommandGroup heading="Your Organizations">
-              {organizations.map((org) => (
+              {organizations?.map((org) => (
                 <CommandItem
                   key={org.id}
                   onSelect={() => handleSelectOrg(org.id)}
@@ -113,7 +95,7 @@ export function OrgSelector() {
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      currentOrgId === org.id ? "opacity-100" : "opacity-0"
+                      urlOrgId === org.id ? "opacity-100" : "opacity-0"
                     )}
                   />
                   <div className="flex items-center gap-2 truncate">
@@ -127,6 +109,7 @@ export function OrgSelector() {
                 </CommandItem>
               ))}
             </CommandGroup>
+
             {user && "isPlatformStaff" in user && user.isPlatformStaff ? (
               <>
                 <CommandSeparator />

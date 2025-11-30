@@ -1,9 +1,11 @@
 "use client";
 
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Loader from "@/components/loader";
+import { authClient } from "@/lib/auth-client";
 
 export default function Home() {
   return (
@@ -16,7 +18,7 @@ export default function Home() {
       </Unauthenticated>
       <AuthLoading>
         <div className="flex min-h-screen items-center justify-center">
-          <Loader />
+          <Loader /> HERe
         </div>
       </AuthLoading>
     </>
@@ -24,11 +26,16 @@ export default function Home() {
 }
 
 function RedirectToOrgs() {
+  const { data: activeOrganization } = authClient.useActiveOrganization();
   const router = useRouter();
 
   useEffect(() => {
-    router.push("/orgs/current");
-  }, [router]);
+    if (activeOrganization) {
+      router.push(`/orgs/${activeOrganization.id}` as Route);
+    } else {
+      router.push("/orgs");
+    }
+  }, [router, activeOrganization]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

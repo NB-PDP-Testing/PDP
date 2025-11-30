@@ -32,7 +32,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 data: {
                   createdAt: number;
-                  currentOrgId?: string;
                   email: string;
                   emailVerified: boolean;
                   firstName?: string;
@@ -40,6 +39,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   isPlatformStaff?: boolean;
                   lastName?: string;
                   name: string;
+                  onboardingComplete?: boolean;
                   phone?: string;
                   updatedAt: number;
                   userId?: null | string;
@@ -179,7 +179,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "currentOrgId"
+                    | "onboardingComplete"
                     | "_id";
                   operator?:
                     | "lt"
@@ -532,7 +532,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "currentOrgId"
+                    | "onboardingComplete"
                     | "_id";
                   operator?:
                     | "lt"
@@ -961,7 +961,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "user";
                 update: {
                   createdAt?: number;
-                  currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
@@ -969,6 +968,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   isPlatformStaff?: boolean;
                   lastName?: string;
                   name?: string;
+                  onboardingComplete?: boolean;
                   phone?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -987,7 +987,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "currentOrgId"
+                    | "onboardingComplete"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1407,7 +1407,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "user";
                 update: {
                   createdAt?: number;
-                  currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
@@ -1415,6 +1414,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   isPlatformStaff?: boolean;
                   lastName?: string;
                   name?: string;
+                  onboardingComplete?: boolean;
                   phone?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -1433,7 +1433,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "firstName"
                     | "lastName"
                     | "phone"
-                    | "currentOrgId"
+                    | "onboardingComplete"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1846,11 +1846,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
           _creationTime: number;
           _id: string;
           createdAt: number;
+          currentOrgId?: string;
           email: string;
           emailVerified: boolean;
           image?: null | string;
+          isPlatformStaff?: boolean;
           name: string;
           onboardingComplete?: boolean;
+          phone?: string;
           updatedAt: number;
           userId?: null | string;
         },

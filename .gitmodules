@@ -1,4 +1,0 @@
-[submodule "mvp-app"]
-    path = mvp-app
-    url = https://github.com/ardmhacha24/pdp-portal-convex.git
-    branch = main

@@ -79,7 +79,7 @@ export default function OrgAdminOverviewPage() {
               icon={Users}
               title="Total Members"
               value={memberCounts?.total || 0}
-              variant="secondary"
+              variant="default"
             />
             <StatCard
               description="Active teams"
@@ -87,7 +87,7 @@ export default function OrgAdminOverviewPage() {
               icon={Shield}
               title="Teams"
               value={0}
-              variant="tertiary"
+              variant="default"
             />
             <StatCard
               description="Registered players"

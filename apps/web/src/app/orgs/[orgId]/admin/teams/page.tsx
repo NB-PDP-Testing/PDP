@@ -150,7 +150,7 @@ export default function ManageTeamsPage() {
     players?.filter((p: any) => p.teamId === teamId).length || 0;
 
   // Filter teams
-  const filteredTeams = teams?.filter((team) => {
+  const filteredTeams = teams?.filter((team: any) => {
     if (sportFilter !== "all" && team.sport !== sportFilter) {
       return false;
     }
@@ -166,10 +166,12 @@ export default function ManageTeamsPage() {
   });
 
   // Get unique values for filters
-  const uniqueSports = [...new Set(teams?.map((t) => t.sport).filter(Boolean))];
+  const uniqueSports = [
+    ...new Set(teams?.map((t: any) => t.sport).filter(Boolean)),
+  ] as string[];
   const uniqueAgeGroups = [
-    ...new Set(teams?.map((t) => t.ageGroup).filter(Boolean)),
-  ];
+    ...new Set(teams?.map((t: any) => t.ageGroup).filter(Boolean)),
+  ] as string[];
 
   const toggleExpanded = (teamId: string) => {
     const newExpanded = new Set(expandedTeams);
@@ -292,8 +294,8 @@ export default function ManageTeamsPage() {
 
   const stats = {
     total: teams?.length || 0,
-    active: teams?.filter((t) => t.isActive !== false).length || 0,
-    needsReview: teams?.filter((t) => hasWarnings(t)).length || 0,
+    active: teams?.filter((t: any) => t.isActive !== false).length || 0,
+    needsReview: teams?.filter((t: any) => hasWarnings(t)).length || 0,
   };
 
   return (
@@ -370,8 +372,8 @@ export default function ManageTeamsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Sports</SelectItem>
-            {uniqueSports.map((sport) => (
-              <SelectItem key={sport as string} value={sport as string}>
+            {uniqueSports.map((sport: string) => (
+              <SelectItem key={sport} value={sport}>
                 {sport}
               </SelectItem>
             ))}
@@ -383,8 +385,8 @@ export default function ManageTeamsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Ages</SelectItem>
-            {uniqueAgeGroups.map((age) => (
-              <SelectItem key={age as string} value={age as string}>
+            {uniqueAgeGroups.map((age: string) => (
+              <SelectItem key={age} value={age}>
                 {age}
               </SelectItem>
             ))}
@@ -418,7 +420,7 @@ export default function ManageTeamsPage() {
             </div>
           ) : filteredTeams && filteredTeams.length > 0 ? (
             <div className="divide-y">
-              {filteredTeams.map((team) => {
+              {filteredTeams.map((team: any) => {
                 const isExpanded = expandedTeams.has(team._id);
                 const playerCount = getPlayerCount(team._id);
                 const warnings = hasWarnings(team);

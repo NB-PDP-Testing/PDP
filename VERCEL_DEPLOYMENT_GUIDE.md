@@ -55,19 +55,32 @@ Vercel will auto-detect Next.js, but you need to configure for a monorepo:
 
 ### Environment Variables
 
-Click **Environment Variables** and add:
+**Where to add them:**
+1. In your Vercel project dashboard
+2. Go to **Settings** (top navigation)
+3. Click **Environment Variables** (left sidebar)
+4. Click **Add New** button
+
+**Add these variables:**
 
 1. **`NEXT_PUBLIC_CONVEX_URL`**
    - Value: Your Convex deployment URL (e.g., `https://your-deployment.convex.cloud`)
-   - Add to: Production, Preview, and Development
+   - Environments: Select **Production**, **Preview**, and **Development** (or just Production)
+   - Click **Save**
 
 2. **`NEXT_PUBLIC_CONVEX_SITE_URL`**
-   - Value: Will be your Vercel URL (e.g., `https://pdp.vercel.app`)
-   - You can update this after first deployment
-   - Add to: Production, Preview, and Development
+   - Value: Your Vercel URL (e.g., `https://pdp-web.vercel.app`)
+   - You'll get this URL after the first deployment
+   - Environments: Select **Production**, **Preview**, and **Development**
+   - Click **Save**
 
 3. **Any other environment variables** your app needs
    - Check your `.env.local` or `.env.example` files
+
+**After adding/updating environment variables:**
+- Go to **Deployments** tab
+- Click the **"..."** menu on the latest deployment
+- Click **Redeploy** to apply the new variables
 
 ## Step 4: Deploy
 
@@ -114,18 +127,58 @@ Vercel automatically deploys:
 
 ## Monorepo Configuration
 
-Since you're using a Turborepo monorepo, Vercel should automatically:
-- Detect the monorepo structure
-- Run `npm install` from the root
-- Run `npm run build` which uses Turbo
-- Build only the `web` workspace
+A `vercel.json` file has been added to configure the monorepo properly:
 
-If you encounter issues, you can explicitly set:
-- **Root Directory**: `/`
-- **Build Command**: `npm run build`
-- **Output Directory**: `apps/web/.next` (if needed)
+```json
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "apps/web/.next",
+  "installCommand": "npm install",
+  "framework": "nextjs"
+}
+```
+
+This tells Vercel to:
+- Run `npm install` from the repository root (installs all workspace dependencies)
+- Run `npm run build` from the root (uses Turbo to build the `web` workspace)
+- Look for the build output in `apps/web/.next`
+
+**If you still get 404 errors:**
+1. Go to **Settings** → **General**
+2. Check **Root Directory** - should be empty (default: `/`)
+3. Check **Build Command** - should be `npm run build`
+4. Check **Output Directory** - should be `apps/web/.next`
+5. Redeploy after making changes
 
 ## Troubleshooting
+
+### 404 Error on Deployment
+
+If you get a 404 error after deployment:
+
+1. **Check Build Logs**:
+   - Go to **Deployments** tab
+   - Click on the latest deployment
+   - Check if the build completed successfully
+   - Look for any errors
+
+2. **Verify Output Directory**:
+   - Go to **Settings** → **General**
+   - Check **Output Directory** is set to: `apps/web/.next`
+   - The `vercel.json` file should handle this automatically
+
+3. **Verify Root Directory**:
+   - In **Settings** → **General**
+   - **Root Directory** should be empty (default: `/`)
+   - This tells Vercel to use the repository root
+
+4. **Check Build Command**:
+   - Should be: `npm run build`
+   - This runs Turbo which builds the `web` workspace
+
+5. **Redeploy**:
+   - After making changes, go to **Deployments**
+   - Click **"..."** on latest deployment → **Redeploy**
 
 ### Build Fails
 

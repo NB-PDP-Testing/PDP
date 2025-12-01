@@ -49,11 +49,9 @@ Vercel will auto-detect Next.js, but you need to configure for a monorepo:
 
 ### Build Settings
 - **Root Directory**: `apps/web` (set this first!)
-- **Build Command**: Leave empty (auto-detected when root is `apps/web`)
-  - OR manually set: `cd ../.. && npm install && npm run build`
-- **Output Directory**: Leave empty (auto-detected as `.next`)
-- **Install Command**: Leave empty (auto-detected)
-  - OR manually set: `cd ../.. && npm install`
+- **Install Command**: `cd ../.. && npm install` (IMPORTANT: must install from repo root for workspaces)
+- **Build Command**: `cd ../.. && npm run build` (must build from repo root for Turborepo)
+- **Output Directory**: `.next` (relative to `apps/web`)
 
 ### Environment Variables
 
@@ -145,9 +143,10 @@ The `vercel.json` file helps, but the Root Directory setting in the dashboard is
    - Go to **Settings** → **General**
    - **Root Directory** MUST be set to: `apps/web`
    - NOT empty, NOT `/`, but exactly: `apps/web`
-2. **Check Build Command**:
-   - Should be: `cd ../.. && npm install && npm run build`
-   - Or leave empty if root is set correctly
+2. **Check Install Command**:
+   - Should be: `cd ../.. && npm install` (installs from repo root for workspaces)
+3. **Check Build Command**:
+   - Should be: `cd ../.. && npm run build` (builds from repo root for Turborepo)
 3. **Check Output Directory**:
    - Should be: `.next` (relative to `apps/web`)
 4. **Redeploy**:

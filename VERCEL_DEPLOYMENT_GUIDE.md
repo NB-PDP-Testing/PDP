@@ -44,14 +44,16 @@ Vercel will auto-detect Next.js, but you need to configure for a monorepo:
 - If not detected, select **Next.js** manually
 
 ### Root Directory
-- **Root Directory**: Leave empty (default: `/`)
-- OR set to `apps/web` if you want to be explicit
+- **Root Directory**: Set to `apps/web` (IMPORTANT for monorepo!)
+- This tells Vercel where your Next.js app is located
 
 ### Build Settings
-- **Build Command**: `npm run build` (Vercel will run this from the root)
-  - OR if root is set to `apps/web`: Leave empty (auto-detected)
+- **Root Directory**: `apps/web` (set this first!)
+- **Build Command**: Leave empty (auto-detected when root is `apps/web`)
+  - OR manually set: `cd ../.. && npm install && npm run build`
 - **Output Directory**: Leave empty (auto-detected as `.next`)
-- **Install Command**: `npm install` (default)
+- **Install Command**: Leave empty (auto-detected)
+  - OR manually set: `cd ../.. && npm install`
 
 ### Environment Variables
 
@@ -127,28 +129,30 @@ Vercel automatically deploys:
 
 ## Monorepo Configuration
 
-A `vercel.json` file has been added to configure the monorepo properly:
+A `vercel.json` file has been added, but the **most important setting is in the Vercel Dashboard**:
 
-```json
-{
-  "buildCommand": "npm run build",
-  "outputDirectory": "apps/web/.next",
-  "installCommand": "npm install",
-  "framework": "nextjs"
-}
-```
+**CRITICAL: Set Root Directory to `apps/web`**
 
-This tells Vercel to:
-- Run `npm install` from the repository root (installs all workspace dependencies)
-- Run `npm run build` from the root (uses Turbo to build the `web` workspace)
-- Look for the build output in `apps/web/.next`
+1. Go to **Settings** → **General**
+2. Find **Root Directory**
+3. Set it to: `apps/web`
+4. Click **Save**
+
+The `vercel.json` file helps, but the Root Directory setting in the dashboard is what Vercel uses primarily.
 
 **If you still get 404 errors:**
-1. Go to **Settings** → **General**
-2. Check **Root Directory** - should be empty (default: `/`)
-3. Check **Build Command** - should be `npm run build`
-4. Check **Output Directory** - should be `apps/web/.next`
-5. Redeploy after making changes
+1. **Verify Root Directory** (MOST IMPORTANT):
+   - Go to **Settings** → **General**
+   - **Root Directory** MUST be set to: `apps/web`
+   - NOT empty, NOT `/`, but exactly: `apps/web`
+2. **Check Build Command**:
+   - Should be: `cd ../.. && npm install && npm run build`
+   - Or leave empty if root is set correctly
+3. **Check Output Directory**:
+   - Should be: `.next` (relative to `apps/web`)
+4. **Redeploy**:
+   - After making changes, go to **Deployments**
+   - Click **"..."** on latest deployment → **Redeploy**
 
 ## Troubleshooting
 

@@ -165,14 +165,14 @@ export default function ThemeDemoPage() {
               icon={Heart}
               title="Secondary Stat"
               value={89}
-              variant="secondary"
+              variant="default"
             />
             <StatCard
               description="Uses tertiary color"
               icon={Zap}
               title="Tertiary Stat"
               value={42}
-              variant="tertiary"
+              variant="default"
             />
           </div>
         </CardContent>

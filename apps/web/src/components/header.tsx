@@ -4,7 +4,6 @@ import { Building2 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect } from "react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { authClient } from "@/lib/auth-client";
@@ -42,11 +41,16 @@ function OrgNav({ member }: { member: Member }) {
 
 export default function Header() {
   const params = useParams();
+  const pathname = usePathname();
   const orgId = params?.orgId as string | undefined;
   const user = useCurrentUser();
   const { data: org } = authClient.useActiveOrganization();
   const { data: member } = authClient.useActiveMember();
   const { theme } = useOrgTheme();
+
+  // Check if we're on an auth page or landing page
+  const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const isLandingPage = pathname === "/";
 
   // Track current org in user profile
   useEffect(() => {
@@ -62,6 +66,20 @@ export default function Header() {
       }
     : {};
   const headerTextStyle = orgId ? "text-white" : "";
+
+  // Minimal header for auth pages (just theme toggle)
+  if (isAuthPage) {
+    return (
+      <div className="absolute top-4 right-4 z-50">
+        <ModeToggle />
+      </div>
+    );
+  }
+
+  // No header for landing page - using FloatingHeader component instead
+  if (isLandingPage) {
+    return null;
+  }
 
   return (
     <div>

@@ -439,4 +439,25 @@ export default defineSchema({
   })
     .index("by_orgId", ["orgId"])
     .index("by_orgId_and_coachId", ["orgId", "coachId"]),
+
+  // Demo requests table
+  demoAsks: defineTable({
+    name: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    organization: v.optional(v.string()),
+    message: v.optional(v.string()),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("contacted"),
+      v.literal("scheduled"),
+      v.literal("completed"),
+      v.literal("dismissed")
+    ),
+    requestedAt: v.number(),
+    contactedAt: v.optional(v.number()),
+    notes: v.optional(v.string()),
+  })
+    .index("by_status", ["status"])
+    .index("by_email", ["email"]),
 });

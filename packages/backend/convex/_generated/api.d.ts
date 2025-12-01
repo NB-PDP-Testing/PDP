@@ -12,6 +12,7 @@ import type * as actions_voiceNotes from "../actions/voiceNotes.js";
 import type * as auth from "../auth.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
+import type * as models_demoAsks from "../models/demoAsks.js";
 import type * as models_members from "../models/members.js";
 import type * as models_orgJoinRequests from "../models/orgJoinRequests.js";
 import type * as models_organizationScraper from "../models/organizationScraper.js";
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   healthCheck: typeof healthCheck;
   http: typeof http;
+  "models/demoAsks": typeof models_demoAsks;
   "models/members": typeof models_members;
   "models/orgJoinRequests": typeof models_orgJoinRequests;
   "models/organizationScraper": typeof models_organizationScraper;

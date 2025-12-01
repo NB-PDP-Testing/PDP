@@ -1,9 +1,20 @@
 "use client";
 
-import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
+import { Authenticated } from "convex/react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { BlogSection } from "@/components/landing/blog-section";
+import { FeaturesSection } from "@/components/landing/features-section";
+import { FinalCTASection } from "@/components/landing/final-cta-section";
+import { FloatingHeader } from "@/components/landing/floating-header";
+import { HeroSection } from "@/components/landing/hero-section";
+import { InsightsSection } from "@/components/landing/insights-section";
+import { LandingFooter } from "@/components/landing/landing-footer";
+import { ProblemSection } from "@/components/landing/problem-section";
+import { SolutionSection } from "@/components/landing/solution-section";
+import { SportsShowcase } from "@/components/landing/sports-showcase";
+import { TestimonialsSection } from "@/components/landing/testimonials-section";
 import Loader from "@/components/loader";
 import { authClient } from "@/lib/auth-client";
 
@@ -13,14 +24,7 @@ export default function Home() {
       <Authenticated>
         <RedirectToOrgs />
       </Authenticated>
-      <Unauthenticated>
-        <RedirectToLogin />
-      </Unauthenticated>
-      <AuthLoading>
-        <div className="flex min-h-screen items-center justify-center">
-          <Loader />
-        </div>
-      </AuthLoading>
+      <LandingPage />
     </>
   );
 }
@@ -44,16 +48,34 @@ function RedirectToOrgs() {
   );
 }
 
-function RedirectToLogin() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.push("/login");
-  }, [router]);
-
+function LandingPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Loader />
+    <div className="flex min-h-screen flex-col">
+      <FloatingHeader />
+      <HeroSection />
+      <div id="problem">
+        <ProblemSection />
+      </div>
+      <div id="solution">
+        <SolutionSection />
+      </div>
+      <div id="insights">
+        <InsightsSection />
+      </div>
+      <div id="sports">
+        <SportsShowcase />
+      </div>
+      <div id="features">
+        <FeaturesSection />
+      </div>
+      <div id="testimonials">
+        <TestimonialsSection />
+      </div>
+      <div id="blog">
+        <BlogSection />
+      </div>
+      <FinalCTASection />
+      <LandingFooter />
     </div>
   );
 }

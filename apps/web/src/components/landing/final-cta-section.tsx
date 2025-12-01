@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, Clock, Shield, Users } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,7 +52,7 @@ export function FinalCTASection() {
             size="lg"
             variant="outline"
           >
-            <Link href="/contact">
+            <Link href={"/contact" as Route}>
               Contact Us
               <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
             </Link>

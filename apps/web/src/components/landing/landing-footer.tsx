@@ -1,6 +1,7 @@
 "use client";
 
 import { Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
+import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -90,7 +91,7 @@ export function LandingFooter() {
                 <li key={link.label}>
                   <Link
                     className="text-gray-600 text-sm transition-colors hover:text-[#27AE60]"
-                    href={link.href}
+                    href={link.href as Route}
                   >
                     {link.label}
                   </Link>
@@ -107,7 +108,7 @@ export function LandingFooter() {
                 <li key={link.label}>
                   <Link
                     className="text-gray-600 text-sm transition-colors hover:text-[#27AE60]"
-                    href={link.href}
+                    href={link.href as Route}
                   >
                     {link.label}
                   </Link>
@@ -124,7 +125,7 @@ export function LandingFooter() {
                 <li key={link.label}>
                   <Link
                     className="text-gray-600 text-sm transition-colors hover:text-[#27AE60]"
-                    href={link.href}
+                    href={link.href as Route}
                   >
                     {link.label}
                   </Link>
@@ -141,7 +142,7 @@ export function LandingFooter() {
                 <li key={link.label}>
                   <Link
                     className="text-gray-600 text-sm transition-colors hover:text-[#27AE60]"
-                    href={link.href}
+                    href={link.href as Route}
                   >
                     {link.label}
                   </Link>

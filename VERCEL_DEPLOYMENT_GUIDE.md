@@ -111,10 +111,30 @@ You need to add your Vercel production URL as a redirect URI in both Google and 
 
 ### Step 2: Set Convex Environment Variables
 
-The OAuth credentials need to be set in Convex (not Vercel):
+The OAuth credentials need to be set in Convex (not Vercel).
 
+**Important**: Run these commands from the `packages/backend` directory:
 ```bash
-# Set Google OAuth credentials
+cd packages/backend
+```
+
+**If Vercel is pointing to DEV Convex deployment:**
+```bash
+# Set Google OAuth credentials (no --prod flag for dev)
+npx convex env set GOOGLE_CLIENT_ID "your-google-client-id"
+npx convex env set GOOGLE_CLIENT_SECRET "your-google-client-secret"
+
+# Set Microsoft OAuth credentials
+npx convex env set MICROSOFT_CLIENT_ID "your-microsoft-client-id"
+npx convex env set MICROSOFT_CLIENT_SECRET "your-microsoft-client-secret"
+
+# Set the site URL to your Vercel deployment
+npx convex env set SITE_URL "https://pdp-web-eight.vercel.app"
+```
+
+**If Vercel is pointing to PRODUCTION Convex deployment:**
+```bash
+# Set Google OAuth credentials (with --prod flag)
 npx convex env set GOOGLE_CLIENT_ID "your-google-client-id" --prod
 npx convex env set GOOGLE_CLIENT_SECRET "your-google-client-secret" --prod
 
@@ -128,6 +148,10 @@ npx convex env set SITE_URL "https://pdp-web-eight.vercel.app" --prod
 
 **Verify your environment variables:**
 ```bash
+# For dev (no flag)
+npx convex env list
+
+# For production
 npx convex env list --prod
 ```
 
@@ -149,11 +173,15 @@ If the Google/Microsoft buttons don't work after setup:
 
 **Where to run these commands:**
 - Open your terminal (Terminal app on Mac, or VS Code integrated terminal)
-- Navigate to your project root: `cd /Users/neil/Documents/GitHub/PDP`
+- Navigate to the backend package: `cd /Users/neil/Documents/GitHub/PDP/packages/backend`
 - Run the commands from there
 
 1. **Verify OAuth Credentials are Set in Convex:**
    ```bash
+   # If using dev deployment (no --prod flag)
+   npx convex env list
+   
+   # If using production deployment
    npx convex env list --prod
    ```
    You should see:
@@ -180,14 +208,22 @@ If the Google/Microsoft buttons don't work after setup:
 
 4. **Check Convex Logs:**
    ```bash
-   # From project root directory
+   # From packages/backend directory
+   # For dev (no flag)
+   npx convex logs
+   
+   # For production
    npx convex logs --prod
    ```
    Look for authentication-related errors
 
 5. **Verify SITE_URL is Set Correctly:**
    ```bash
-   # From project root directory
+   # From packages/backend directory
+   # For dev (no flag)
+   npx convex env get SITE_URL
+   
+   # For production
    npx convex env get SITE_URL --prod
    ```
    Should return: `https://pdp-web-eight.vercel.app`

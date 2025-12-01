@@ -46,43 +46,61 @@ export default function SignInForm() {
   });
 
   const signInWithGoogle = async () => {
-    await authClient.signIn.social(
-      {
-        provider: "google",
-        callbackURL: "/orgs/current",
-      },
-      {
-        onError: (error: {
-          error: { message?: string; statusText?: string };
-        }) => {
-          toast.error(
-            error.error.message ||
-              error.error.statusText ||
-              "Unable to sign in with Google. Please try again."
-          );
+    try {
+      console.log("Google sign-in clicked");
+      await authClient.signIn.social(
+        {
+          provider: "google",
+          callbackURL: "/orgs/current",
         },
-      }
-    );
+        {
+          onError: (error: {
+            error: { message?: string; statusText?: string };
+          }) => {
+            console.error("Google sign-in error:", error);
+            toast.error(
+              error.error.message ||
+                error.error.statusText ||
+                "Unable to sign in with Google. Please try again."
+            );
+          },
+        }
+      );
+    } catch (error) {
+      console.error("Google sign-in exception:", error);
+      toast.error(
+        "Failed to initiate Google sign-in. Please check the console."
+      );
+    }
   };
 
   const signInWithMicrosoft = async () => {
-    await authClient.signIn.social(
-      {
-        provider: "microsoft",
-        callbackURL: "/orgs/current",
-      },
-      {
-        onError: (error: {
-          error: { message?: string; statusText?: string };
-        }) => {
-          toast.error(
-            error.error.message ||
-              error.error.statusText ||
-              "Unable to sign in with Microsoft. Please try again."
-          );
+    try {
+      console.log("Microsoft sign-in clicked");
+      await authClient.signIn.social(
+        {
+          provider: "microsoft",
+          callbackURL: "/orgs/current",
         },
-      }
-    );
+        {
+          onError: (error: {
+            error: { message?: string; statusText?: string };
+          }) => {
+            console.error("Microsoft sign-in error:", error);
+            toast.error(
+              error.error.message ||
+                error.error.statusText ||
+                "Unable to sign in with Microsoft. Please try again."
+            );
+          },
+        }
+      );
+    } catch (error) {
+      console.error("Microsoft sign-in exception:", error);
+      toast.error(
+        "Failed to initiate Microsoft sign-in. Please check the console."
+      );
+    }
   };
 
   return (

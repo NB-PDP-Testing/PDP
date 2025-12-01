@@ -4,6 +4,9 @@ import { createAuthClient } from "better-auth/react";
 import { ac, admin, coach, member, owner, parent } from "./accessControl";
 
 export const authClient = createAuthClient({
+  baseURL:
+    process.env.NEXT_PUBLIC_CONVEX_SITE_URL ||
+    process.env.NEXT_PUBLIC_CONVEX_URL?.replace(".cloud", ".site"),
   plugins: [
     convexClient(),
     organizationClient({

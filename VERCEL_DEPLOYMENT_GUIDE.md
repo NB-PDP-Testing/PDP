@@ -147,6 +147,11 @@ After setting the environment variables:
 
 If the Google/Microsoft buttons don't work after setup:
 
+**Where to run these commands:**
+- Open your terminal (Terminal app on Mac, or VS Code integrated terminal)
+- Navigate to your project root: `cd /Users/neil/Documents/GitHub/PDP`
+- Run the commands from there
+
 1. **Verify OAuth Credentials are Set in Convex:**
    ```bash
    npx convex env list --prod
@@ -175,12 +180,14 @@ If the Google/Microsoft buttons don't work after setup:
 
 4. **Check Convex Logs:**
    ```bash
+   # From project root directory
    npx convex logs --prod
    ```
    Look for authentication-related errors
 
 5. **Verify SITE_URL is Set Correctly:**
    ```bash
+   # From project root directory
    npx convex env get SITE_URL --prod
    ```
    Should return: `https://pdp-web-eight.vercel.app`

@@ -44,14 +44,15 @@ Vercel will auto-detect Next.js, but you need to configure for a monorepo:
 - If not detected, select **Next.js** manually
 
 ### Root Directory
-- **Root Directory**: Leave empty (default: `/`) - IMPORTANT!
-- This tells Vercel to use the repository root, which is required for npm workspaces
+- **Root Directory**: Set to `apps/web` (IMPORTANT for monorepo!)
+- This tells Vercel where your Next.js app is located
+- Commands will run from `apps/web`, so we use `cd ..` to reach repo root
 
 ### Build Settings
-- **Root Directory**: Leave empty (default: `/`)
-- **Install Command**: Leave empty (default: `npm install`) - runs from repo root
-- **Build Command**: `npm run build` (runs Turbo from repo root)
-- **Output Directory**: `apps/web/.next` (relative to repo root)
+- **Root Directory**: `apps/web` (set this first!)
+- **Install Command**: `cd .. && npm install` (goes to repo root for npm workspaces)
+- **Build Command**: `cd .. && npm run build` (goes to repo root for Turborepo)
+- **Output Directory**: `.next` (relative to `apps/web` directory)
 
 ### Environment Variables
 
@@ -81,6 +82,120 @@ Vercel will auto-detect Next.js, but you need to configure for a monorepo:
 - Go to **Deployments** tab
 - Click the **"..."** menu on the latest deployment
 - Click **Redeploy** to apply the new variables
+
+## OAuth Provider Setup (Google & Microsoft)
+
+**Important**: OAuth credentials are stored in **Convex**, not Vercel, because authentication is handled by your Convex backend.
+
+### Step 1: Update Redirect URIs in OAuth Providers
+
+You need to add your Vercel production URL as a redirect URI in both Google and Microsoft OAuth apps:
+
+#### Google OAuth Console:
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Navigate to **APIs & Services** → **Credentials**
+3. Find your OAuth 2.0 Client ID
+4. Click **Edit**
+5. Under **Authorized redirect URIs**, add:
+   - `https://pdp-web-eight.vercel.app/api/auth/callback/google`
+6. Click **Save**
+
+#### Microsoft Azure Portal:
+1. Go to [Microsoft Azure Portal](https://portal.azure.com/)
+2. Navigate to **Azure Active Directory** → **App registrations**
+3. Find your app registration
+4. Go to **Authentication**
+5. Under **Redirect URIs**, add:
+   - `https://pdp-web-eight.vercel.app/api/auth/callback/microsoft`
+6. Click **Save**
+
+### Step 2: Set Convex Environment Variables
+
+The OAuth credentials need to be set in Convex (not Vercel):
+
+```bash
+# Set Google OAuth credentials
+npx convex env set GOOGLE_CLIENT_ID "your-google-client-id" --prod
+npx convex env set GOOGLE_CLIENT_SECRET "your-google-client-secret" --prod
+
+# Set Microsoft OAuth credentials
+npx convex env set MICROSOFT_CLIENT_ID "your-microsoft-client-id" --prod
+npx convex env set MICROSOFT_CLIENT_SECRET "your-microsoft-client-secret" --prod
+
+# Set the site URL to your Vercel deployment
+npx convex env set SITE_URL "https://pdp-web-eight.vercel.app" --prod
+```
+
+**Verify your environment variables:**
+```bash
+npx convex env list --prod
+```
+
+### Step 3: Verify Configuration
+
+After setting the environment variables:
+1. The OAuth buttons should work on your Vercel deployment
+2. Users can sign in with Google or Microsoft accounts
+3. Callbacks will redirect to: `https://pdp-web-eight.vercel.app/api/auth/callback/{provider}`
+
+**Note**: If you change your Vercel domain, update:
+- Redirect URIs in Google/Microsoft OAuth apps
+- `SITE_URL` in Convex environment variables
+- `NEXT_PUBLIC_CONVEX_SITE_URL` in Vercel environment variables
+
+### Troubleshooting OAuth Buttons Not Working
+
+If the Google/Microsoft buttons don't work after setup:
+
+1. **Verify OAuth Credentials are Set in Convex:**
+   ```bash
+   npx convex env list --prod
+   ```
+   You should see:
+   - `GOOGLE_CLIENT_ID`
+   - `GOOGLE_CLIENT_SECRET`
+   - `MICROSOFT_CLIENT_ID`
+   - `MICROSOFT_CLIENT_SECRET`
+   - `SITE_URL` (should be `https://pdp-web-eight.vercel.app`)
+
+2. **Check Browser Console:**
+   - Open browser DevTools (F12)
+   - Go to Console tab
+   - Click the OAuth button
+   - Look for any error messages
+   - Common errors:
+     - "Missing GOOGLE_CLIENT_ID" → Credentials not set in Convex
+     - "Redirect URI mismatch" → Redirect URI not added in OAuth provider
+     - CORS errors → Check `trustedOrigins` in auth config
+
+3. **Verify Redirect URIs Match Exactly:**
+   - Google: Must be exactly `https://pdp-web-eight.vercel.app/api/auth/callback/google`
+   - Microsoft: Must be exactly `https://pdp-web-eight.vercel.app/api/auth/callback/microsoft`
+   - No trailing slashes, exact match required
+
+4. **Check Convex Logs:**
+   ```bash
+   npx convex logs --prod
+   ```
+   Look for authentication-related errors
+
+5. **Verify SITE_URL is Set Correctly:**
+   ```bash
+   npx convex env get SITE_URL --prod
+   ```
+   Should return: `https://pdp-web-eight.vercel.app`
+
+6. **Test OAuth Flow:**
+   - Click the button
+   - Should redirect to Google/Microsoft login
+   - After login, should redirect back to your app
+   - If it redirects but shows an error, check Convex logs
+
+7. **Common Issues:**
+   - **Buttons do nothing**: Check browser console for JavaScript errors
+   - **Redirects but fails**: Check Convex logs for backend errors
+   - **"Invalid client" error**: OAuth credentials are wrong or not set
+   - **"Redirect URI mismatch"**: Redirect URI not added in OAuth provider console
 
 ## Step 4: Deploy
 
@@ -129,26 +244,27 @@ Vercel automatically deploys:
 
 A `vercel.json` file has been added, but the **most important setting is in the Vercel Dashboard**:
 
-**CRITICAL: Root Directory MUST be empty (repo root)**
+**CRITICAL: Set Root Directory to `apps/web`**
 
 1. Go to **Settings** → **General**
 2. Find **Root Directory**
-3. **Clear it** or set it to empty/`/` (repo root)
+3. Set it to: `apps/web`
 4. Click **Save**
 
-The `vercel.json` file configures the build, but the Root Directory setting in the dashboard must be the repo root for npm workspaces to work.
+The `vercel.json` file matches these settings. The key is that commands use `cd ..` to reach the repo root where npm workspaces can resolve dependencies.
 
-**If you still get 404 errors:**
+**If you still get build errors:**
 1. **Verify Root Directory** (MOST IMPORTANT):
    - Go to **Settings** → **General**
-   - **Root Directory** MUST be empty or `/` (repo root)
-   - NOT `apps/web` - this breaks npm workspaces!
+   - **Root Directory** MUST be: `apps/web`
 2. **Check Install Command**:
-   - Should be empty (default: `npm install`) - runs from repo root
+   - Should be: `cd .. && npm install` (goes to repo root for workspaces)
 3. **Check Build Command**:
-   - Should be: `npm run build` (runs Turbo from repo root)
+   - Should be: `cd .. && npm run build` (goes to repo root for Turborepo)
 4. **Check Output Directory**:
-   - Should be: `apps/web/.next` (relative to repo root)
+   - Should be: `.next` (relative to `apps/web`)
+5. **Check for Configuration Warnings**:
+   - If you see "Configuration Settings differ" warning, click to sync or redeploy
 4. **Redeploy**:
    - After making changes, go to **Deployments**
    - Click **"..."** on latest deployment → **Redeploy**

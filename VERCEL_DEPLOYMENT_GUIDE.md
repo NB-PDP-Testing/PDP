@@ -44,14 +44,14 @@ Vercel will auto-detect Next.js, but you need to configure for a monorepo:
 - If not detected, select **Next.js** manually
 
 ### Root Directory
-- **Root Directory**: Set to `apps/web` (IMPORTANT for monorepo!)
-- This tells Vercel where your Next.js app is located
+- **Root Directory**: Leave empty (default: `/`) - IMPORTANT!
+- This tells Vercel to use the repository root, which is required for npm workspaces
 
 ### Build Settings
-- **Root Directory**: `apps/web` (set this first!)
-- **Install Command**: `cd .. && npm install` (IMPORTANT: must install from repo root for workspaces)
-- **Build Command**: `cd .. && npm run build` (must build from repo root for Turborepo)
-- **Output Directory**: `.next` (relative to `apps/web`)
+- **Root Directory**: Leave empty (default: `/`)
+- **Install Command**: Leave empty (default: `npm install`) - runs from repo root
+- **Build Command**: `npm run build` (runs Turbo from repo root)
+- **Output Directory**: `apps/web/.next` (relative to repo root)
 
 ### Environment Variables
 
@@ -129,26 +129,26 @@ Vercel automatically deploys:
 
 A `vercel.json` file has been added, but the **most important setting is in the Vercel Dashboard**:
 
-**CRITICAL: Set Root Directory to `apps/web`**
+**CRITICAL: Root Directory MUST be empty (repo root)**
 
 1. Go to **Settings** → **General**
 2. Find **Root Directory**
-3. Set it to: `apps/web`
+3. **Clear it** or set it to empty/`/` (repo root)
 4. Click **Save**
 
-The `vercel.json` file helps, but the Root Directory setting in the dashboard is what Vercel uses primarily.
+The `vercel.json` file configures the build, but the Root Directory setting in the dashboard must be the repo root for npm workspaces to work.
 
 **If you still get 404 errors:**
 1. **Verify Root Directory** (MOST IMPORTANT):
    - Go to **Settings** → **General**
-   - **Root Directory** MUST be set to: `apps/web`
-   - NOT empty, NOT `/`, but exactly: `apps/web`
+   - **Root Directory** MUST be empty or `/` (repo root)
+   - NOT `apps/web` - this breaks npm workspaces!
 2. **Check Install Command**:
-   - Should be: `cd .. && npm install` (installs from repo root for workspaces)
+   - Should be empty (default: `npm install`) - runs from repo root
 3. **Check Build Command**:
-   - Should be: `cd .. && npm run build` (builds from repo root for Turborepo)
-3. **Check Output Directory**:
-   - Should be: `.next` (relative to `apps/web`)
+   - Should be: `npm run build` (runs Turbo from repo root)
+4. **Check Output Directory**:
+   - Should be: `apps/web/.next` (relative to repo root)
 4. **Redeploy**:
    - After making changes, go to **Deployments**
    - Click **"..."** on latest deployment → **Redeploy**

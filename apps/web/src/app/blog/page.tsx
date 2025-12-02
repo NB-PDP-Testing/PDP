@@ -11,7 +11,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { FloatingHeader } from "@/components/landing/floating-header";
 import { Button } from "@/components/ui/button";
 import {

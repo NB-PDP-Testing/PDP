@@ -65,6 +65,7 @@ export function FloatingHeader() {
                 alt="PDP Logo"
                 className="object-contain"
                 fill
+                sizes="(max-width: 768px) 120px, 150px"
                 src={
                   isScrolled
                     ? "/logos-landing/PDP-Logo-NavyOrbit_GreenHuman.png"

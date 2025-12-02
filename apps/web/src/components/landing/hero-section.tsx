@@ -22,6 +22,7 @@ export function HeroSection() {
               alt="PDP Logo"
               className="object-contain"
               fill
+              sizes="(max-width: 640px) 160px, 192px"
               src="/logos-landing/PDP-Logo-OffWhiteOrbit_GreenHuman.png"
             />
           </div>

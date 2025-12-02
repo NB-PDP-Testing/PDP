@@ -40,7 +40,7 @@ const categories = [
   "Multi-Sport Benefits",
 ] as const;
 
-export default function BlogPage() {
+function BlogPageContent() {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get("category");
   const [searchQuery, setSearchQuery] = useState("");
@@ -221,5 +221,21 @@ export default function BlogPage() {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function BlogPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-white">
+          <div className="text-center">
+            <div className="mb-4 text-gray-600">Loading...</div>
+          </div>
+        </div>
+      }
+    >
+      <BlogPageContent />
+    </Suspense>
   );
 }

@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
-import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { FloatingHeader } from "@/components/landing/floating-header";
@@ -164,6 +164,18 @@ export default function DemoPage() {
               See how PDP can transform player development for your club or
               organisation. Get a personalised walkthrough of our platform.
             </p>
+            {/* Back to Home Button */}
+            <div className="mt-8">
+              <Button
+                asChild
+                className="group bg-[#1E3A5F] text-white transition-all hover:bg-[#1E3A5F]/90"
+              >
+                <Link href="/">
+                  <ArrowLeft className="group-hover:-translate-x-1 mr-2 h-4 w-4 transition-transform" />
+                  Back to Home
+                </Link>
+              </Button>
+            </div>
           </div>
 
           {/* Error Message */}

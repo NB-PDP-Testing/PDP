@@ -26,6 +26,9 @@ const customUserTable = defineTable({
 
   // onboarding
   onboardingComplete: v.optional(v.boolean()),
+
+  // Current organization tracking
+  currentOrgId: v.optional(v.string()),
 })
   .index("email_name", ["email", "name"])
   .index("name", ["name"])

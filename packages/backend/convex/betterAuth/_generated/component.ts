@@ -32,6 +32,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 data: {
                   createdAt: number;
+                  currentOrgId?: string;
                   email: string;
                   emailVerified: boolean;
                   firstName?: string;
@@ -180,6 +181,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -533,6 +535,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -961,6 +964,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "user";
                 update: {
                   createdAt?: number;
+                  currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
@@ -988,6 +992,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1407,6 +1412,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "user";
                 update: {
                   createdAt?: number;
+                  currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
@@ -1434,6 +1440,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"

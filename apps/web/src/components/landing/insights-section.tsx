@@ -189,29 +189,29 @@ export function InsightsSection() {
                       <div className="grid gap-6 md:grid-cols-3">
                         <div className="text-center">
                           <div className="mb-2 font-bold text-5xl text-[#27AE60] sm:text-6xl">
-                            73%
+                            1 in 3
                           </div>
                           <p className="text-base text-gray-700 leading-relaxed">
-                            of parents report improved communication with
-                            PDP-like systems
+                            young athletes quit organised sports by age 14, with
+                            dropout rates peaking between ages 12-16
                           </p>
                         </div>
                         <div className="text-center">
                           <div className="mb-2 font-bold text-5xl text-[#27AE60] sm:text-6xl">
-                            45%
+                            29.4%
                           </div>
                           <p className="text-base text-gray-700 leading-relaxed">
-                            reduction in early-stage athlete burnout with
-                            structured development tracking
+                            of parents report lack of communication with
+                            coaches—a top-5 reason for dissatisfaction
                           </p>
                         </div>
                         <div className="text-center">
                           <div className="mb-2 font-bold text-5xl text-[#27AE60] sm:text-6xl">
-                            2.5x
+                            70-93%
                           </div>
                           <p className="text-base text-gray-700 leading-relaxed">
-                            longer retention rates when athletes have clear
-                            development pathways
+                            higher injury risk for single-sport specialisation
+                            compared to multi-sport participation
                           </p>
                         </div>
                       </div>

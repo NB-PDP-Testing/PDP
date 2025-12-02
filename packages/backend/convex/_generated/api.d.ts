@@ -85,6 +85,7 @@ export declare const components: {
             | {
                 data: {
                   createdAt: number;
+                  currentOrgId?: string;
                   email: string;
                   emailVerified: boolean;
                   firstName?: string;
@@ -232,6 +233,7 @@ export declare const components: {
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -584,6 +586,7 @@ export declare const components: {
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1009,6 +1012,7 @@ export declare const components: {
                 model: "user";
                 update: {
                   createdAt?: number;
+                  currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
@@ -1036,6 +1040,7 @@ export declare const components: {
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1454,6 +1459,7 @@ export declare const components: {
                 model: "user";
                 update: {
                   createdAt?: number;
+                  currentOrgId?: string;
                   email?: string;
                   emailVerified?: boolean;
                   firstName?: string;
@@ -1481,6 +1487,7 @@ export declare const components: {
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "currentOrgId"
                     | "_id";
                   operator?:
                     | "lt"

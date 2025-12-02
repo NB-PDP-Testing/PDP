@@ -20,12 +20,13 @@ export function FloatingHeader() {
   const pathname = usePathname();
   const isLandingPage = pathname === "/";
   const isDemoPage = pathname === "/demo";
+  const isBlogPage = pathname?.startsWith("/blog");
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    // On demo page, always show scrolled state (light background)
-    if (isDemoPage) {
+    // On demo and blog pages, always show scrolled state (light background)
+    if (isDemoPage || isBlogPage) {
       setIsScrolled(true);
       return;
     }
@@ -36,7 +37,7 @@ export function FloatingHeader() {
 
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [isDemoPage]);
+  }, [isDemoPage, isBlogPage]);
 
   const handleNavClick = (href: string) => {
     setIsMobileMenuOpen(false);
@@ -65,6 +66,7 @@ export function FloatingHeader() {
                 alt="PDP Logo"
                 className="object-contain"
                 fill
+                priority
                 sizes="(max-width: 768px) 120px, 150px"
                 src={
                   isScrolled

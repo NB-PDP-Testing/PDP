@@ -52,6 +52,7 @@ export function LandingFooter() {
                   alt="PDP Logo"
                   className="object-contain"
                   fill
+                  sizes="120px"
                   src="/logos-landing/PDP-Logo-NavyOrbit_GreenHuman.png"
                 />
               </div>

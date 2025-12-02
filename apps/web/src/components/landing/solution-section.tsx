@@ -70,6 +70,7 @@ export function SolutionSection() {
                 alt="Player Development Passport"
                 className="object-contain drop-shadow-2xl"
                 fill
+                sizes="(max-width: 640px) 256px, 320px"
                 src="/passports/PDP-Passport-BrownGold_CameraANDBox.png"
               />
             </div>

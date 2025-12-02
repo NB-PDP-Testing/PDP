@@ -22,6 +22,7 @@ export function HeroSection() {
               alt="PDP Logo"
               className="object-contain"
               fill
+              priority
               sizes="(max-width: 640px) 160px, 192px"
               src="/logos-landing/PDP-Logo-OffWhiteOrbit_GreenHuman.png"
             />
@@ -57,12 +58,17 @@ export function HeroSection() {
             </Link>
           </Button>
           <Button
-            asChild
             className="group border-2 border-white bg-transparent px-8 py-6 font-semibold text-lg text-white transition-all hover:border-white/80 hover:bg-white/10"
+            onClick={() => {
+              document
+                .getElementById("solution")
+                ?.scrollIntoView({ behavior: "smooth" });
+            }}
             size="lg"
+            type="button"
             variant="outline"
           >
-            <Link href="/login">Learn More</Link>
+            Learn More
           </Button>
         </div>
       </div>

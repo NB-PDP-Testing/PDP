@@ -64,6 +64,7 @@ export function SportsShowcase() {
                 alt={sport.name}
                 className="object-cover transition-transform duration-500 group-hover:scale-110"
                 fill
+                sizes="(max-width: 640px) 100vw, 50vw"
                 src={sport.image}
               />
               {/* Dark overlay gradient from bottom */}

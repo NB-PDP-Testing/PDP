@@ -92,6 +92,11 @@ export default function OrgAdminLayout({
       icon: Upload,
     },
     {
+      href: `/orgs/${orgId}/admin/gaa-import` as Route,
+      label: "GAA Players",
+      icon: Upload,
+    },
+    {
       href: `/orgs/${orgId}/admin/settings` as Route,
       label: "Settings",
       icon: Settings,

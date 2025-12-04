@@ -171,6 +171,7 @@ export const createPlayer = mutation({
       parentSurname: args.parentSurname,
       parentEmail: args.parentEmail,
       parentPhone: args.parentPhone,
+      skills: {},
       reviewStatus: "Not Started",
     });
     return playerId;
@@ -228,6 +229,124 @@ export const deletePlayer = mutation({
   handler: async (ctx, args) => {
     await ctx.db.delete(args.playerId);
     return null;
+  },
+});
+
+/**
+ * Create a player with full import data (for bulk imports like GAA membership)
+ * Supports skills, family info, and all optional fields
+ */
+export const createPlayerForImport = mutation({
+  args: {
+    name: v.string(),
+    ageGroup: v.string(),
+    sport: v.string(),
+    gender: v.string(),
+    teamId: v.string(),
+    organizationId: v.string(),
+    season: v.string(),
+    completionDate: v.optional(v.string()),
+    dateOfBirth: v.optional(v.string()),
+    address: v.optional(v.string()),
+    town: v.optional(v.string()),
+    postcode: v.optional(v.string()),
+    parentFirstName: v.optional(v.string()),
+    parentSurname: v.optional(v.string()),
+    parentEmail: v.optional(v.string()),
+    parentPhone: v.optional(v.string()),
+    // Skills as record (key-value pairs)
+    skills: v.optional(v.record(v.string(), v.number())),
+    // Family grouping
+    familyId: v.optional(v.string()),
+    // Inferred parent data from membership imports
+    inferredParentFirstName: v.optional(v.string()),
+    inferredParentSurname: v.optional(v.string()),
+    inferredParentEmail: v.optional(v.string()),
+    inferredParentPhone: v.optional(v.string()),
+    inferredFromSource: v.optional(v.string()),
+    // Additional fields
+    createdFrom: v.optional(v.string()),
+    coachNotes: v.optional(v.string()),
+    reviewedWith: v.optional(
+      v.object({
+        coach: v.boolean(),
+        parent: v.boolean(),
+        player: v.boolean(),
+        forum: v.boolean(),
+      })
+    ),
+    attendance: v.optional(
+      v.object({
+        training: v.string(),
+        matches: v.string(),
+      })
+    ),
+    positions: v.optional(
+      v.object({
+        favourite: v.string(),
+        leastFavourite: v.string(),
+        coachesPref: v.string(),
+        dominantSide: v.string(),
+        goalkeeper: v.string(),
+      })
+    ),
+    fitness: v.optional(
+      v.object({
+        pushPull: v.string(),
+        core: v.string(),
+        endurance: v.string(),
+        speed: v.string(),
+        broncoBeep: v.string(),
+      })
+    ),
+    injuryNotes: v.optional(v.string()),
+    otherInterests: v.optional(v.string()),
+    communications: v.optional(v.string()),
+    actions: v.optional(v.string()),
+    parentNotes: v.optional(v.string()),
+    playerNotes: v.optional(v.string()),
+  },
+  returns: v.id("players"),
+  handler: async (ctx, args) => {
+    const playerId = await ctx.db.insert("players", {
+      name: args.name,
+      ageGroup: args.ageGroup,
+      sport: args.sport,
+      gender: args.gender,
+      teamId: args.teamId,
+      organizationId: args.organizationId,
+      season: args.season,
+      completionDate: args.completionDate,
+      dateOfBirth: args.dateOfBirth,
+      address: args.address,
+      town: args.town,
+      postcode: args.postcode,
+      parentFirstName: args.parentFirstName,
+      parentSurname: args.parentSurname,
+      parentEmail: args.parentEmail,
+      parentPhone: args.parentPhone,
+      skills: args.skills ?? {},
+      familyId: args.familyId,
+      inferredParentFirstName: args.inferredParentFirstName,
+      inferredParentSurname: args.inferredParentSurname,
+      inferredParentEmail: args.inferredParentEmail,
+      inferredParentPhone: args.inferredParentPhone,
+      inferredFromSource: args.inferredFromSource,
+      createdFrom: args.createdFrom,
+      coachNotes: args.coachNotes,
+      reviewedWith: args.reviewedWith,
+      attendance: args.attendance,
+      positions: args.positions,
+      fitness: args.fitness,
+      injuryNotes: args.injuryNotes,
+      otherInterests: args.otherInterests,
+      communications: args.communications,
+      actions: args.actions,
+      parentNotes: args.parentNotes,
+      playerNotes: args.playerNotes,
+      reviewStatus: "Not Started",
+    });
+    return playerId;
   },
 });
 

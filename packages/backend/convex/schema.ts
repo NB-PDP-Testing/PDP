@@ -48,7 +48,9 @@ export default defineSchema({
     ),
 
     // Skills - stored as JSON string for flexibility across sports
-    skills: v.optional(v.string()),
+    // skills: v.optional(v.string()),
+    // skills2: v.object(v.record()),
+    skills: v.record(v.string(), v.number()),
 
     // Positions
     positions: v.optional(
@@ -419,6 +421,13 @@ export default defineSchema({
         description: v.string(),
         category: v.optional(v.string()),
         recommendedUpdate: v.optional(v.string()),
+        // relatingTo: v.union(
+        //   v.literal("player"),
+        //   v.literal("team"),
+        //   v.literal("coach"),
+        //   v.literal("parent"),
+        //   v.literal("other")
+        // ),
         status: v.union(
           v.literal("pending"),
           v.literal("applied"),

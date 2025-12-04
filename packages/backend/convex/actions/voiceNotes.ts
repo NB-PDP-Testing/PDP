@@ -167,6 +167,7 @@ export const buildInsights = internalAction({
       });
 
       // Get players for context
+      // TODO update to use only the players that the coach is attached to
       const players = await ctx.runQuery(
         internal.models.players.getPlayersByOrgId,
         { orgId: note.orgId }

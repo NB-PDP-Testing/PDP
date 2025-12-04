@@ -14,7 +14,6 @@ export default defineSchema({
     ageGroup: v.string(),
     sport: v.string(),
     gender: v.string(),
-    teamId: v.string(), // References Better Auth team
     organizationId: v.string(), // References Better Auth organization
     completionDate: v.optional(v.string()),
     season: v.string(),
@@ -120,7 +119,6 @@ export default defineSchema({
     inferredParentPhone: v.optional(v.string()),
     inferredFromSource: v.optional(v.string()),
   })
-    .index("by_teamId", ["teamId"])
     .index("by_organizationId", ["organizationId"])
     .index("by_sport", ["sport"])
     .index("by_ageGroup", ["ageGroup"])
@@ -129,6 +127,14 @@ export default defineSchema({
     .index("by_inferredParentEmail", ["inferredParentEmail"])
     .searchIndex("name_search", { searchField: "name" })
     .searchIndex("address_search", { searchField: "address" }),
+
+  teamPlayers: defineTable({
+    teamId: v.string(),
+    playerId: v.id("players"),
+    createdAt: v.number(),
+  })
+    .index("by_teamId", ["teamId"])
+    .index("by_playerId", ["playerId"]),
 
   // Injuries table
   injuries: defineTable({

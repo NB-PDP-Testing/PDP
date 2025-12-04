@@ -199,7 +199,7 @@ export default function OrgAdminOverviewPage() {
               Users can request to join your organization using the join page.
               You'll receive their requests here for approval.
             </p>
-            <Link href={"/orgs/join"}>
+            <Link href={`/orgs/join/${orgId}`}>
               <Button className="w-full" variant="outline">
                 View Join Page
               </Button>

@@ -8,13 +8,14 @@ import {
   Download,
   FileText,
   Info,
+  Plus,
   Upload,
   Users,
   X,
   XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Player, ReviewStatus } from "@/lib/types";
+import type { Player, ReviewStatus, Team } from "@/lib/types";
 
 // Skills type for GAA Football
 type GAASkills = {
@@ -43,7 +44,7 @@ type PlayerCreateData = {
   ageGroup: string;
   sport: string;
   gender: string;
-  team: string;
+  teamId: string; // Now uses teamId instead of team name
   completionDate?: string;
   season: string;
   reviewedWith?: {
@@ -96,22 +97,47 @@ type PlayerCreateData = {
   postcode?: string;
 };
 
+// Type for team creation data
+type TeamCreateData = {
+  name: string;
+  sport: string;
+  ageGroup: string;
+  gender: "Boys" | "Girls" | "Mixed";
+  season: string;
+};
+
+// Type for detected team from CSV
+type DetectedTeam = {
+  name: string;
+  sport: string;
+  ageGroup: string;
+  gender: "Boys" | "Girls" | "Mixed";
+  season: string;
+  playerCount: number;
+  existingTeamId?: string; // If matched to existing team
+};
+
 const GAAMembershipWizard = ({
   onClose,
   onComplete,
   existingPlayers,
+  existingTeams,
   createPlayerMutation,
+  createTeamMutation,
   deletePlayerMutation,
 }: {
   onClose: () => void;
   onComplete: () => Promise<void>;
   existingPlayers: Player[];
+  existingTeams: Team[];
   createPlayerMutation: (data: PlayerCreateData) => Promise<string>;
+  createTeamMutation: (data: TeamCreateData) => Promise<string>;
   deletePlayerMutation: (data: { id: string }) => Promise<void>;
 }) => {
   const [step, setStep] = useState(1);
   const [csvData, setCsvData] = useState("");
   const [parsedMembers, setParsedMembers] = useState<any[]>([]);
+  // teamAssignments now maps member index -> teamId (not team name)
   const [teamAssignments, setTeamAssignments] = useState<
     Record<string, string>
   >({});
@@ -124,6 +150,7 @@ const GAAMembershipWizard = ({
     families: number;
     skipped?: number;
     replaced?: number;
+    teamsCreated?: number;
   } | null>(null);
   const [duplicates, setDuplicates] = useState<
     Array<{ index: number; member: any; existingPlayer: Player }>
@@ -147,6 +174,12 @@ const GAAMembershipWizard = ({
     ignored: string[];
     hasAllRequired: boolean;
   } | null>(null);
+  // Team management state
+  const [detectedTeams, setDetectedTeams] = useState<DetectedTeam[]>([]);
+  const [teamsToCreate, setTeamsToCreate] = useState<Set<string>>(new Set());
+  const [creatingTeams, setCreatingTeams] = useState(false);
+  // Local teams state (includes newly created teams)
+  const [localTeams, setLocalTeams] = useState<Team[]>([]);
 
   // Auto-validate columns whenever CSV data changes
   useEffect(() => {
@@ -157,6 +190,92 @@ const GAAMembershipWizard = ({
       setColumnAnalysis(null);
     }
   }, [csvData]);
+
+  // Sync local teams with existing teams
+  useEffect(() => {
+    setLocalTeams(existingTeams);
+  }, [existingTeams]);
+
+  // Helper to generate team key for comparison
+  const getTeamKey = (team: {
+    sport: string;
+    ageGroup: string;
+    gender: string;
+    season: string;
+  }) => {
+    return `${team.sport}|${team.ageGroup}|${team.gender}|${team.season}`;
+  };
+
+  // Detect teams from parsed members
+  const detectTeamsFromMembers = (members: any[]) => {
+    const teamMap = new Map<string, DetectedTeam>();
+
+    members.forEach((member) => {
+      const normalizedGender =
+        member.Gender?.toUpperCase() === "MALE"
+          ? "Boys"
+          : member.Gender?.toUpperCase() === "FEMALE"
+            ? "Girls"
+            : "Mixed";
+
+      const teamKey = getTeamKey({
+        sport: "GAA Football",
+        ageGroup: member.AgeGroup,
+        gender: normalizedGender,
+        season: "2025",
+      });
+
+      const teamName =
+        member.AgeGroup === "Senior"
+          ? `Senior ${normalizedGender === "Boys" ? "Men" : normalizedGender === "Girls" ? "Women" : "Mixed"}`
+          : `${member.AgeGroup} ${normalizedGender}`;
+
+      if (teamMap.has(teamKey)) {
+        const existing = teamMap.get(teamKey)!;
+        existing.playerCount += 1;
+      } else {
+        // Check if this team already exists
+        const existingTeam = localTeams.find(
+          (t) =>
+            t.sport === "GAA Football" &&
+            t.ageGroup === member.AgeGroup &&
+            t.gender === normalizedGender &&
+            t.season === "2025"
+        );
+
+        teamMap.set(teamKey, {
+          name: teamName,
+          sport: "GAA Football",
+          ageGroup: member.AgeGroup,
+          gender: normalizedGender as "Boys" | "Girls" | "Mixed",
+          season: "2025",
+          playerCount: 1,
+          existingTeamId: existingTeam?._id,
+        });
+      }
+    });
+
+    return Array.from(teamMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
+  };
+
+  // Get team ID by team properties (looks up in localTeams)
+  const getTeamIdByProperties = (
+    sport: string,
+    ageGroup: string,
+    gender: string,
+    season: string
+  ): string | undefined => {
+    const team = localTeams.find(
+      (t) =>
+        t.sport === sport &&
+        t.ageGroup === ageGroup &&
+        t.gender === gender &&
+        t.season === season
+    );
+    return team?._id;
+  };
 
   const downloadMembershipTemplate = () => {
     const template = `Forename,Surname,DOB,gender,email,Mobile Number,Membership Type,Player
@@ -802,38 +921,142 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
     }
 
     const data = parseCSV(csvData);
-
-    // Auto-assign teams based on age groups
-    const assignments: Record<string, string> = {};
-    data.forEach((member, idx) => {
-      const gender = member.Gender?.toUpperCase() || "MALE";
-      // Senior players (18+) get assigned to Senior Men/Women teams
-      if (member.AgeGroup === "Senior") {
-        assignments[idx] = `Senior ${gender === "MALE" ? "Men" : "Women"}`;
-      } else {
-        // Youth players get age-group teams
-        assignments[idx] =
-          `${member.AgeGroup} ${gender === "MALE" ? "Boys" : "Girls"}`;
-      }
-    });
-
     setParsedMembers(data);
-    setTeamAssignments(assignments);
 
-    // Check for duplicates before proceeding
-    const foundDuplicates = await checkForDuplicates(data);
-    setDuplicates(foundDuplicates);
+    // Detect teams from the parsed data
+    const detected = detectTeamsFromMembers(data);
+    setDetectedTeams(detected);
 
-    // Initialize default resolutions (skip duplicates by default)
-    const defaultResolutions: Record<number, "replace" | "keep" | "skip"> = {};
-    foundDuplicates.forEach((dup) => {
-      defaultResolutions[dup.index] = "skip";
-    });
-    setDuplicateResolutions(defaultResolutions);
+    // Find teams that need to be created (no existing match)
+    const missingTeams = detected.filter((t) => !t.existingTeamId);
+    setTeamsToCreate(new Set(missingTeams.map((t) => getTeamKey(t))));
 
-    // If there are duplicates, go to duplicate resolution step (2.5)
-    // Otherwise, proceed to final confirmation (step 2)
-    setStep(foundDuplicates.length > 0 ? 2.5 : 2);
+    // If there are missing teams, go to team creation step (1.5)
+    // Otherwise, proceed with team assignments
+    if (missingTeams.length > 0) {
+      setStep(1.5);
+    } else {
+      // All teams exist, assign team IDs directly
+      const assignments: Record<string, string> = {};
+      data.forEach((member, idx) => {
+        const normalizedGender =
+          member.Gender?.toUpperCase() === "MALE"
+            ? "Boys"
+            : member.Gender?.toUpperCase() === "FEMALE"
+              ? "Girls"
+              : "Mixed";
+        const teamId = getTeamIdByProperties(
+          "GAA Football",
+          member.AgeGroup,
+          normalizedGender,
+          "2025"
+        );
+        if (teamId) {
+          assignments[idx] = teamId;
+        }
+      });
+      setTeamAssignments(assignments);
+
+      // Check for duplicates
+      const foundDuplicates = await checkForDuplicates(data);
+      setDuplicates(foundDuplicates);
+
+      const defaultResolutions: Record<number, "replace" | "keep" | "skip"> =
+        {};
+      foundDuplicates.forEach((dup) => {
+        defaultResolutions[dup.index] = "skip";
+      });
+      setDuplicateResolutions(defaultResolutions);
+
+      // Go to duplicates step or review step
+      setStep(foundDuplicates.length > 0 ? 2.5 : 2);
+    }
+  };
+
+  // Create missing teams and proceed
+  const handleCreateMissingTeams = async () => {
+    setCreatingTeams(true);
+    const teamsCreated: Team[] = [];
+
+    try {
+      for (const team of detectedTeams) {
+        const teamKey = getTeamKey(team);
+        if (teamsToCreate.has(teamKey) && !team.existingTeamId) {
+          // Create the team
+          const teamId = await createTeamMutation({
+            name: team.name,
+            sport: team.sport,
+            ageGroup: team.ageGroup,
+            gender: team.gender,
+            season: team.season,
+          });
+
+          // Add to local teams
+          teamsCreated.push({
+            _id: teamId,
+            name: team.name,
+            organizationId: "", // Will be set by the backend
+            createdAt: Date.now(),
+            sport: team.sport,
+            ageGroup: team.ageGroup,
+            gender: team.gender,
+            season: team.season,
+            isActive: true,
+          });
+
+          // Update detected team with new ID
+          team.existingTeamId = teamId;
+        }
+      }
+
+      // Update local teams state
+      setLocalTeams([...localTeams, ...teamsCreated]);
+      setDetectedTeams([...detectedTeams]);
+
+      // Now assign teams to members
+      const assignments: Record<string, string> = {};
+      parsedMembers.forEach((member, idx) => {
+        const normalizedGender =
+          member.Gender?.toUpperCase() === "MALE"
+            ? "Boys"
+            : member.Gender?.toUpperCase() === "FEMALE"
+              ? "Girls"
+              : "Mixed";
+
+        // Find the team in detected teams
+        const matchedTeam = detectedTeams.find(
+          (t) =>
+            t.sport === "GAA Football" &&
+            t.ageGroup === member.AgeGroup &&
+            t.gender === normalizedGender &&
+            t.season === "2025"
+        );
+
+        if (matchedTeam?.existingTeamId) {
+          assignments[idx] = matchedTeam.existingTeamId;
+        }
+      });
+      setTeamAssignments(assignments);
+
+      // Check for duplicates
+      const foundDuplicates = await checkForDuplicates(parsedMembers);
+      setDuplicates(foundDuplicates);
+
+      const defaultResolutions: Record<number, "replace" | "keep" | "skip"> =
+        {};
+      foundDuplicates.forEach((dup) => {
+        defaultResolutions[dup.index] = "skip";
+      });
+      setDuplicateResolutions(defaultResolutions);
+
+      // Go to duplicates step or review step
+      setStep(foundDuplicates.length > 0 ? 2.5 : 2);
+    } catch (error) {
+      console.error("Error creating teams:", error);
+      alert("Failed to create teams. Please try again.");
+    } finally {
+      setCreatingTeams(false);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -966,12 +1189,20 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
           );
         }
 
+        // Get the assigned team ID
+        const assignedTeamId = teamAssignments[i];
+        if (!assignedTeamId) {
+          console.error(`No team assigned for member ${member.FullName}`);
+          skipped++;
+          continue;
+        }
+
         const player: PlayerCreateData = {
           name: member.FullName,
           ageGroup: member.AgeGroup,
           sport: "GAA Football",
           gender: member.Gender,
-          team: teamAssignments[i] || member.AgeGroup,
+          teamId: assignedTeamId,
           completionDate: new Date().toISOString().split("T")[0],
           season: "2025",
           reviewedWith: {
@@ -1464,6 +1695,161 @@ Address: ${member.Address || ""}, ${member.Town || ""} ${member.Postcode || ""}`
             </>
           )}
 
+          {/* Step 1.5: Create Missing Teams */}
+          {step === 1.5 && (
+            <>
+              <div className="mb-4 rounded-lg border border-purple-200 bg-purple-50 p-4">
+                <h3 className="mb-2 flex items-center gap-2 font-bold text-gray-800">
+                  <Users className="text-purple-600" size={20} />
+                  Teams Required for Import
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  The following teams are needed to import players. Teams that
+                  already exist are marked with a checkmark. Select which
+                  missing teams to create.
+                </p>
+              </div>
+
+              <div className="mb-4 grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+                <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-center">
+                  <p className="text-gray-600">Total Teams</p>
+                  <p className="font-bold text-2xl text-green-700">
+                    {detectedTeams.length}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-center">
+                  <p className="text-gray-600">Existing</p>
+                  <p className="font-bold text-2xl text-blue-700">
+                    {detectedTeams.filter((t) => t.existingTeamId).length}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-center">
+                  <p className="text-gray-600">To Create</p>
+                  <p className="font-bold text-2xl text-orange-700">
+                    {detectedTeams.filter((t) => !t.existingTeamId).length}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-center">
+                  <p className="text-gray-600">Total Players</p>
+                  <p className="font-bold text-2xl text-gray-700">
+                    {parsedMembers.length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-4 max-h-96 space-y-2 overflow-y-auto">
+                {detectedTeams.map((team, idx) => {
+                  const teamKey = getTeamKey(team);
+                  const isExisting = !!team.existingTeamId;
+                  const isSelected = teamsToCreate.has(teamKey);
+
+                  return (
+                    <div
+                      className={`flex items-center justify-between rounded-lg border p-3 ${
+                        isExisting
+                          ? "border-green-300 bg-green-50"
+                          : isSelected
+                            ? "border-purple-300 bg-purple-50"
+                            : "border-gray-300 bg-white"
+                      }`}
+                      key={idx}
+                    >
+                      <div className="flex items-center gap-3">
+                        {!isExisting && (
+                          <input
+                            checked={isSelected}
+                            className="h-4 w-4 rounded border-gray-300"
+                            disabled={isExisting}
+                            onChange={() => {
+                              const newSet = new Set(teamsToCreate);
+                              if (newSet.has(teamKey)) {
+                                newSet.delete(teamKey);
+                              } else {
+                                newSet.add(teamKey);
+                              }
+                              setTeamsToCreate(newSet);
+                            }}
+                            type="checkbox"
+                          />
+                        )}
+                        {isExisting && (
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                        )}
+                        <div>
+                          <p className="font-medium text-gray-800">
+                            {team.name}
+                          </p>
+                          <p className="text-gray-600 text-xs">
+                            {team.sport} • {team.ageGroup} • {team.gender} •{" "}
+                            {team.season}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-800">
+                          {team.playerCount}
+                        </p>
+                        <p className="text-gray-500 text-xs">players</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {detectedTeams.filter((t) => !t.existingTeamId).length > 0 && (
+                <div className="mb-4 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 p-3">
+                  <span className="text-gray-700 text-sm">
+                    Select all missing teams
+                  </span>
+                  <button
+                    className="rounded bg-blue-600 px-3 py-1 text-white text-xs hover:bg-blue-700"
+                    onClick={() => {
+                      const allMissing = detectedTeams
+                        .filter((t) => !t.existingTeamId)
+                        .map((t) => getTeamKey(t));
+                      setTeamsToCreate(new Set(allMissing));
+                    }}
+                  >
+                    Select All
+                  </button>
+                </div>
+              )}
+
+              <div className="mt-4 flex gap-3">
+                <button
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gray-600 px-4 py-3 text-white transition-colors hover:bg-gray-700"
+                  onClick={() => setStep(1)}
+                >
+                  <ChevronRight className="rotate-180" size={18} />
+                  Back
+                </button>
+                <button
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-3 text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={
+                    creatingTeams ||
+                    (detectedTeams.some((t) => !t.existingTeamId) &&
+                      teamsToCreate.size === 0)
+                  }
+                  onClick={handleCreateMissingTeams}
+                >
+                  {creatingTeams ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-white border-b-2" />
+                      Creating Teams...
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={18} />
+                      {teamsToCreate.size > 0
+                        ? `Create ${teamsToCreate.size} Team${teamsToCreate.size !== 1 ? "s" : ""} & Continue`
+                        : "Continue"}
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+
           {/* Step 2.5: Resolve Duplicates */}
           {step === 2.5 && (
             <>
@@ -1894,79 +2280,101 @@ Address: ${member.Address || ""}, ${member.Town || ""} ${member.Postcode || ""}`
                             b.member.Gender
                           );
                         } else if (memberSort.field === "team") {
-                          const teamA = teamAssignments[a.originalIndex] || "";
-                          const teamB = teamAssignments[b.originalIndex] || "";
+                          const teamA =
+                            localTeams.find(
+                              (t) => t._id === teamAssignments[a.originalIndex]
+                            )?.name || "";
+                          const teamB =
+                            localTeams.find(
+                              (t) => t._id === teamAssignments[b.originalIndex]
+                            )?.name || "";
                           comparison = teamA.localeCompare(teamB);
                         }
                         return memberSort.direction === "asc"
                           ? comparison
                           : -comparison;
                       })
-                      .map(({ member, originalIndex: idx }) => (
-                        <tr className="border-b hover:bg-gray-50" key={idx}>
-                          <td className="p-2 font-medium">{member.FullName}</td>
-                          <td className="p-2">
-                            {member.Age} ({member.AgeGroup})
-                          </td>
-                          <td className="p-2">{member.Gender}</td>
-                          <td className="p-2">
-                            <input
-                              className="w-full rounded border px-2 py-1 text-xs"
-                              list={`team-options-${idx}`}
-                              onChange={(e) =>
-                                setTeamAssignments({
-                                  ...teamAssignments,
-                                  [idx]: e.target.value,
-                                })
-                              }
-                              placeholder="Select or type team..."
-                              type="text"
-                              value={teamAssignments[idx]}
-                            />
-                            <datalist id={`team-options-${idx}`}>
-                              {Array.from(
-                                new Set(Object.values(teamAssignments))
-                              )
-                                .sort()
-                                .map((team) => (
-                                  <option key={team} value={team} />
-                                ))}
-                            </datalist>
-                          </td>
-                          <td className="p-2 text-gray-600 text-xs">
-                            {member.ParentSurname ? (
-                              <div>
-                                <div className="font-medium text-gray-800">
-                                  {member.ParentFirstName
-                                    ? `${member.ParentFirstName} ${member.ParentSurname}`
-                                    : `Parent/Guardian: ${member.ParentSurname}`}
+                      .map(({ member, originalIndex: idx }) => {
+                        const assignedTeamId = teamAssignments[idx];
+                        const assignedTeam = localTeams.find(
+                          (t) => t._id === assignedTeamId
+                        );
+
+                        return (
+                          <tr className="border-b hover:bg-gray-50" key={idx}>
+                            <td className="p-2 font-medium">
+                              {member.FullName}
+                            </td>
+                            <td className="p-2">
+                              {member.Age} ({member.AgeGroup})
+                            </td>
+                            <td className="p-2">{member.Gender}</td>
+                            <td className="p-2">
+                              <select
+                                className="w-full rounded border px-2 py-1 text-xs"
+                                onChange={(e) =>
+                                  setTeamAssignments({
+                                    ...teamAssignments,
+                                    [idx]: e.target.value,
+                                  })
+                                }
+                                value={assignedTeamId || ""}
+                              >
+                                <option value="">Select team...</option>
+                                {localTeams
+                                  .filter((t) => t.isActive !== false)
+                                  .sort((a, b) =>
+                                    (a.name || "").localeCompare(b.name || "")
+                                  )
+                                  .map((team) => (
+                                    <option key={team._id} value={team._id}>
+                                      {team.name} ({team.ageGroup} {team.gender}
+                                      )
+                                    </option>
+                                  ))}
+                              </select>
+                              {assignedTeam && (
+                                <div className="mt-1 text-gray-500 text-xs">
+                                  {assignedTeam.sport} • {assignedTeam.season}
                                 </div>
-                                {member.ParentEmail && (
-                                  <div className="text-gray-600">
-                                    {member.ParentEmail}
+                              )}
+                            </td>
+                            <td className="p-2 text-gray-600 text-xs">
+                              {member.ParentSurname ? (
+                                <div>
+                                  <div className="font-medium text-gray-800">
+                                    {member.ParentFirstName
+                                      ? `${member.ParentFirstName} ${member.ParentSurname}`
+                                      : `Parent/Guardian: ${member.ParentSurname}`}
                                   </div>
-                                )}
-                                {member.ParentPhone && (
-                                  <div className="text-gray-600">
-                                    {member.ParentPhone}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div>
-                                {member.ParentEmail && (
-                                  <div>{member.ParentEmail}</div>
-                                )}
-                                {member.ParentPhone && (
-                                  <div>{member.ParentPhone}</div>
-                                )}
-                                {!(member.ParentEmail || member.ParentPhone) &&
-                                  "N/A"}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                                  {member.ParentEmail && (
+                                    <div className="text-gray-600">
+                                      {member.ParentEmail}
+                                    </div>
+                                  )}
+                                  {member.ParentPhone && (
+                                    <div className="text-gray-600">
+                                      {member.ParentPhone}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <div>
+                                  {member.ParentEmail && (
+                                    <div>{member.ParentEmail}</div>
+                                  )}
+                                  {member.ParentPhone && (
+                                    <div>{member.ParentPhone}</div>
+                                  )}
+                                  {!(
+                                    member.ParentEmail || member.ParentPhone
+                                  ) && "N/A"}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>

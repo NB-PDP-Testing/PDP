@@ -147,7 +147,7 @@ export const getPendingRequestsForOrg = query({
         q.eq("organizationId", args.organizationId).eq("status", "pending")
       )
       .order("desc")
-      .take(100);
+      .take(1000);
   },
 });
 

@@ -72,7 +72,7 @@ export const getAllVoiceNotes = query({
       .query("voiceNotes")
       .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))
       .order("desc")
-      .take(100);
+      .take(1000);
 
     return notes;
   },
@@ -112,7 +112,7 @@ export const getVoiceNotesByCoach = query({
         q.eq("orgId", args.orgId).eq("coachId", args.coachId)
       )
       .order("desc")
-      .take(100);
+      .take(1000);
 
     return notes;
   },
@@ -137,7 +137,7 @@ export const getPendingInsights = query({
       .query("voiceNotes")
       .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))
       .order("desc")
-      .take(100);
+      .take(1000);
 
     const pendingInsights: Array<{
       noteId: (typeof notes)[0]["_id"];

@@ -4,7 +4,7 @@ import { internalQuery, mutation, query } from "../_generated/server";
 /**
  * Player management functions
  * Players are sports club members (children/athletes) and are separate from
- * Better Auth users. They link to Better Auth teams via teamId (string).
+ * Better Auth users. They link to teams via the teamPlayers junction table.
  */
 
 /**
@@ -23,13 +23,13 @@ export const getPlayersByOrganization = query({
         q.eq("organizationId", args.organizationId)
       )
       .order("desc")
-      .take(100);
+      .take(3000);
     return players;
   },
 });
 
 /**
- * Get all players for a team
+ * Get all players for a team (via teamPlayers junction table)
  * Limited to 50 players per team to reduce bandwidth usage
  */
 export const getPlayersByTeam = query({
@@ -38,12 +38,21 @@ export const getPlayersByTeam = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    const players = await ctx.db
-      .query("players")
+    // Get player IDs from junction table
+    const teamPlayerLinks = await ctx.db
+      .query("teamPlayers")
       .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
-      .order("desc")
       .take(50);
-    return players;
+
+    // Fetch actual player records
+    const players = await Promise.all(
+      teamPlayerLinks.map(async (link) => {
+        const player = await ctx.db.get(link.playerId);
+        return player;
+      })
+    );
+
+    return players.filter((p) => p !== null);
   },
 });
 
@@ -106,7 +115,7 @@ export const getPlayersByAgeGroup = query({
       .query("players")
       .withIndex("by_ageGroup", (q) => q.eq("ageGroup", args.ageGroup))
       .order("desc")
-      .take(100);
+      .take(1000);
     return players;
   },
 });
@@ -125,13 +134,13 @@ export const getPlayersBySport = query({
       .query("players")
       .withIndex("by_sport", (q) => q.eq("sport", args.sport))
       .order("desc")
-      .take(100);
+      .take(1000);
     return players;
   },
 });
 
 /**
- * Create a new player
+ * Create a new player (without team - use addPlayerToTeam separately)
  */
 export const createPlayer = mutation({
   args: {
@@ -139,7 +148,6 @@ export const createPlayer = mutation({
     ageGroup: v.string(),
     sport: v.string(),
     gender: v.string(),
-    teamId: v.string(),
     organizationId: v.string(),
     season: v.string(),
     completionDate: v.optional(v.string()),
@@ -159,7 +167,6 @@ export const createPlayer = mutation({
       ageGroup: args.ageGroup,
       sport: args.sport,
       gender: args.gender,
-      teamId: args.teamId,
       organizationId: args.organizationId,
       season: args.season,
       completionDate: args.completionDate,
@@ -188,7 +195,6 @@ export const updatePlayer = mutation({
     ageGroup: v.optional(v.string()),
     sport: v.optional(v.string()),
     gender: v.optional(v.string()),
-    teamId: v.optional(v.string()),
     season: v.optional(v.string()),
     completionDate: v.optional(v.string()),
     dateOfBirth: v.optional(v.string()),
@@ -199,7 +205,7 @@ export const updatePlayer = mutation({
     parentSurname: v.optional(v.string()),
     parentEmail: v.optional(v.string()),
     parentPhone: v.optional(v.string()),
-    skills: v.optional(v.string()),
+    skills: v.optional(v.record(v.string(), v.number())),
     injuryNotes: v.optional(v.string()),
     coachNotes: v.optional(v.string()),
     parentNotes: v.optional(v.string()),
@@ -219,7 +225,7 @@ export const updatePlayer = mutation({
 });
 
 /**
- * Delete a player
+ * Delete a player (and their team associations)
  */
 export const deletePlayer = mutation({
   args: {
@@ -227,14 +233,99 @@ export const deletePlayer = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // Delete team associations first
+    const teamLinks = await ctx.db
+      .query("teamPlayers")
+      .withIndex("by_playerId", (q) => q.eq("playerId", args.playerId))
+      .collect();
+
+    for (const link of teamLinks) {
+      await ctx.db.delete(link._id);
+    }
+
+    // Delete the player
     await ctx.db.delete(args.playerId);
     return null;
   },
 });
 
 /**
+ * Add a player to a team (creates junction record)
+ */
+export const addPlayerToTeam = mutation({
+  args: {
+    playerId: v.id("players"),
+    teamId: v.string(),
+  },
+  returns: v.id("teamPlayers"),
+  handler: async (ctx, args) => {
+    // Check if already exists
+    const existing = await ctx.db
+      .query("teamPlayers")
+      .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
+      .collect();
+
+    const alreadyLinked = existing.find(
+      (link) => link.playerId === args.playerId
+    );
+    if (alreadyLinked) {
+      return alreadyLinked._id;
+    }
+
+    // Create new link
+    const linkId = await ctx.db.insert("teamPlayers", {
+      teamId: args.teamId,
+      playerId: args.playerId,
+      createdAt: Date.now(),
+    });
+    return linkId;
+  },
+});
+
+/**
+ * Remove a player from a team
+ */
+export const removePlayerFromTeam = mutation({
+  args: {
+    playerId: v.id("players"),
+    teamId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const links = await ctx.db
+      .query("teamPlayers")
+      .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
+      .collect();
+
+    const linkToDelete = links.find((link) => link.playerId === args.playerId);
+    if (linkToDelete) {
+      await ctx.db.delete(linkToDelete._id);
+    }
+    return null;
+  },
+});
+
+/**
+ * Get all teams for a player
+ */
+export const getTeamsForPlayer = query({
+  args: {
+    playerId: v.id("players"),
+  },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    const links = await ctx.db
+      .query("teamPlayers")
+      .withIndex("by_playerId", (q) => q.eq("playerId", args.playerId))
+      .collect();
+    return links.map((link) => link.teamId);
+  },
+});
+
+/**
  * Create a player with full import data (for bulk imports like GAA membership)
  * Supports skills, family info, and all optional fields
+ * Returns player ID - use addPlayerToTeam separately for team associations
  */
 export const createPlayerForImport = mutation({
   args: {
@@ -242,7 +333,6 @@ export const createPlayerForImport = mutation({
     ageGroup: v.string(),
     sport: v.string(),
     gender: v.string(),
-    teamId: v.string(),
     organizationId: v.string(),
     season: v.string(),
     completionDate: v.optional(v.string()),
@@ -313,7 +403,6 @@ export const createPlayerForImport = mutation({
       ageGroup: args.ageGroup,
       sport: args.sport,
       gender: args.gender,
-      teamId: args.teamId,
       organizationId: args.organizationId,
       season: args.season,
       completionDate: args.completionDate,
@@ -351,8 +440,7 @@ export const createPlayerForImport = mutation({
 });
 
 /**
- * Get player count by team
- * Uses aggregation to count without fetching all data
+ * Get player count by team (via junction table)
  */
 export const getPlayerCountByTeam = query({
   args: {
@@ -360,13 +448,11 @@ export const getPlayerCountByTeam = query({
   },
   returns: v.number(),
   handler: async (ctx, args) => {
-    // Note: Collecting to count is still needed in Convex
-    // but limiting to reasonable team size
-    const players = await ctx.db
-      .query("players")
+    const links = await ctx.db
+      .query("teamPlayers")
       .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
       .take(200); // Max reasonable team size
-    return players.length;
+    return links.length;
   },
 });
 
@@ -392,7 +478,7 @@ export const getPlayersByOrgId = internalQuery({
       .query("players")
       .withIndex("by_organizationId", (q) => q.eq("organizationId", args.orgId))
       .order("desc")
-      .take(100);
+      .take(1000);
 
     return players.map((p) => ({
       _id: p._id,

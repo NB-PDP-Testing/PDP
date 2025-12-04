@@ -17,7 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { Player } from "@/lib/types";
+import type { Player, Team } from "@/lib/types";
 
 export default function GAAImportPage() {
   const params = useParams();
@@ -34,7 +34,7 @@ export default function GAAImportPage() {
   );
 
   // Get teams for the organization
-  const teams = useQuery(api.models.teams.getTeamsByOrganization, {
+  const teamsRaw = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
 
@@ -44,8 +44,11 @@ export default function GAAImportPage() {
   );
   const deletePlayerMutation = useMutation(api.models.players.deletePlayer);
   const createTeamMutation = useMutation(api.models.teams.createTeam);
+  const addPlayerToTeamMutation = useMutation(
+    api.models.players.addPlayerToTeam
+  );
 
-  const isLoading = existingPlayersRaw === undefined || teams === undefined;
+  const isLoading = existingPlayersRaw === undefined || teamsRaw === undefined;
 
   // Transform raw player data to Player type
   const existingPlayers: Player[] = (existingPlayersRaw ?? []).map((p) => ({
@@ -54,23 +57,55 @@ export default function GAAImportPage() {
     ageGroup: p.ageGroup,
     sport: p.sport,
     gender: p.gender,
-    teamId: p.teamId,
+    teamId: "", // No longer on player directly
     organizationId: p.organizationId,
     season: p.season,
     dateOfBirth: p.dateOfBirth,
-    team: p.teamId, // For display in wizard
     parentFirstName: p.parentFirstName,
     parentSurname: p.parentSurname,
     lastReviewDate: p.lastReviewDate,
   }));
 
-  // Create player wrapper that handles team creation if needed
+  // Transform teams to proper type
+  const existingTeams: Team[] = (teamsRaw ?? []).map((t) => ({
+    _id: t._id,
+    name: t.name,
+    organizationId: t.organizationId,
+    createdAt: t.createdAt,
+    sport: t.sport,
+    ageGroup: t.ageGroup,
+    gender: t.gender,
+    season: t.season,
+    isActive: t.isActive,
+  }));
+
+  // Create team wrapper
+  const handleCreateTeam = async (teamData: {
+    name: string;
+    sport: string;
+    ageGroup: string;
+    gender: "Boys" | "Girls" | "Mixed";
+    season: string;
+  }) => {
+    const teamId = await createTeamMutation({
+      name: teamData.name,
+      organizationId: orgId,
+      sport: teamData.sport,
+      ageGroup: teamData.ageGroup,
+      gender: teamData.gender,
+      season: teamData.season,
+      isActive: true,
+    });
+    return teamId;
+  };
+
+  // Create player wrapper - now creates player and adds to team separately
   const handleCreatePlayer = async (playerData: {
     name: string;
     ageGroup: string;
     sport: string;
     gender: string;
-    team: string;
+    teamId: string; // Now required - team must be created/selected first
     completionDate?: string;
     season: string;
     reviewedWith?: {
@@ -122,61 +157,12 @@ export default function GAAImportPage() {
     town?: string;
     postcode?: string;
   }) => {
-    // Find or create team
-    const teamName = playerData.team;
-    const normalizedGender =
-      playerData.gender?.toUpperCase() === "MALE"
-        ? "Boys"
-        : playerData.gender?.toUpperCase() === "FEMALE"
-          ? "Girls"
-          : "Mixed";
-
-    // Try to find existing team by name
-    type TeamType = {
-      _id: string;
-      name: string;
-      sport?: string;
-      ageGroup?: string;
-      gender?: string;
-      season?: string;
-    };
-    const existingTeam = (teams as TeamType[] | undefined)?.find(
-      (t: TeamType) =>
-        t.name === teamName ||
-        (t.sport === playerData.sport &&
-          t.ageGroup === playerData.ageGroup &&
-          t.gender === normalizedGender &&
-          t.season === playerData.season)
-    );
-
-    let teamId: string;
-    if (existingTeam) {
-      teamId = existingTeam._id;
-    } else {
-      // Create new team
-      try {
-        teamId = await createTeamMutation({
-          name: teamName,
-          organizationId: orgId,
-          sport: playerData.sport,
-          ageGroup: playerData.ageGroup,
-          gender: normalizedGender as "Boys" | "Girls" | "Mixed",
-          season: playerData.season,
-          isActive: true,
-        });
-      } catch (error) {
-        console.error("Error creating team:", error);
-        throw error;
-      }
-    }
-
-    // Create player
+    // Create player (without team reference - that's now in teamPlayers)
     const playerId = await createPlayerMutation({
       name: playerData.name,
       ageGroup: playerData.ageGroup,
       sport: playerData.sport,
       gender: playerData.gender,
-      teamId,
       organizationId: orgId,
       season: playerData.season,
       completionDate: playerData.completionDate,
@@ -209,6 +195,12 @@ export default function GAAImportPage() {
       playerNotes: playerData.playerNotes,
     });
 
+    // Add player to team (many-to-many relationship)
+    await addPlayerToTeamMutation({
+      playerId,
+      teamId: playerData.teamId,
+    });
+
     return playerId;
   };
 
@@ -221,7 +213,6 @@ export default function GAAImportPage() {
 
   const handleComplete = async () => {
     toast.success("Import completed successfully!");
-    // Refresh the page data
   };
 
   const handleClose = () => {
@@ -278,7 +269,7 @@ export default function GAAImportPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-muted-foreground text-sm">Teams</p>
-                <p className="font-bold text-3xl">{teams?.length ?? 0}</p>
+                <p className="font-bold text-3xl">{existingTeams.length}</p>
               </div>
               <FileSpreadsheet className="h-10 w-10 text-muted-foreground" />
             </div>
@@ -350,8 +341,10 @@ export default function GAAImportPage() {
       {showWizard && (
         <GAAMembershipWizard
           createPlayerMutation={handleCreatePlayer}
+          createTeamMutation={handleCreateTeam}
           deletePlayerMutation={handleDeletePlayer}
           existingPlayers={existingPlayers}
+          existingTeams={existingTeams}
           onClose={handleClose}
           onComplete={handleComplete}
         />

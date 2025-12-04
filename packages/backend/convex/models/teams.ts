@@ -1,6 +1,8 @@
+import type { Doc as BetterAuthDoc } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { v } from "convex/values";
 import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
+import { customTeamTableSchema } from "../betterAuth/schema";
 
 /**
  * Team management functions that work with Better Auth's team table.
@@ -14,7 +16,13 @@ export const getTeamsByOrganization = query({
   args: {
     organizationId: v.string(),
   },
-  returns: v.array(v.any()),
+  returns: v.array(
+    v.object({
+      ...customTeamTableSchema,
+      _creationTime: v.number(),
+      _id: v.string(),
+    })
+  ),
   handler: async (ctx, args) => {
     const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
       model: "team",
@@ -30,7 +38,7 @@ export const getTeamsByOrganization = query({
         },
       ],
     });
-    return result.page;
+    return result.page as BetterAuthDoc<"team">[];
   },
 });
 

@@ -34,8 +34,7 @@ const customUserTable = defineTable({
   .index("name", ["name"])
   .index("userId", ["userId"]);
 
-// Extend the team table with sports-specific fields
-const customTeamTable = defineTable({
+export const customTeamTableSchema = {
   // Better Auth base fields
   name: v.string(),
   organizationId: v.string(),
@@ -53,7 +52,10 @@ const customTeamTable = defineTable({
   trainingSchedule: v.optional(v.string()), // e.g., "Tuesdays & Thursdays 6-7pm"
   homeVenue: v.optional(v.string()),
   isActive: v.optional(v.boolean()),
-})
+};
+
+// Extend the team table with sports-specific fields
+const customTeamTable = defineTable(customTeamTableSchema)
   .index("organizationId", ["organizationId"])
   .index("sport", ["sport"])
   .index("ageGroup", ["ageGroup"])

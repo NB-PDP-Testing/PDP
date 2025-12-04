@@ -9,7 +9,6 @@ import { internalQuery, mutation, query } from "../_generated/server";
 
 /**
  * Get all players for an organization
- * Limited to 100 most recent players to reduce bandwidth usage
  */
 export const getPlayersByOrganization = query({
   args: {
@@ -30,7 +29,6 @@ export const getPlayersByOrganization = query({
 
 /**
  * Get all players for a team (via teamPlayers junction table)
- * Limited to 50 players per team to reduce bandwidth usage
  */
 export const getPlayersByTeam = query({
   args: {
@@ -53,20 +51,6 @@ export const getPlayersByTeam = query({
     );
 
     return players.filter((p) => p !== null);
-  },
-});
-
-/**
- * Get all players (DEPRECATED - use getPlayersByOrganization instead)
- * Limited to 50 most recent players to reduce bandwidth usage
- * WARNING: This query should be replaced with organization-specific queries
- */
-export const getAllPlayers = query({
-  args: {},
-  returns: v.array(v.any()),
-  handler: async (ctx) => {
-    const players = await ctx.db.query("players").order("desc").take(50);
-    return players;
   },
 });
 

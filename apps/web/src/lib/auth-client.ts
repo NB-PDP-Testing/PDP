@@ -1,5 +1,9 @@
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
-import { organizationClient } from "better-auth/client/plugins";
+import type { auth } from "@pdp/backend/convex/betterAuth/auth";
+import {
+  inferAdditionalFields,
+  organizationClient,
+} from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { ac, admin, coach, member, owner, parent } from "./accessControl";
 
@@ -10,6 +14,7 @@ export const authClient = createAuthClient({
   // Or set to current origin for Next.js API routes
   baseURL: typeof window !== "undefined" ? window.location.origin : undefined,
   plugins: [
+    inferAdditionalFields<typeof auth>(),
     convexClient(),
     organizationClient({
       teams: {

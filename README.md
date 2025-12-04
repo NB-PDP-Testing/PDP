@@ -1,4 +1,4 @@
-# pdp
+# PDP
 
 This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Next.js, Convex, and more.
 
@@ -40,6 +40,7 @@ This project supports multiple authentication providers:
 - **Microsoft OAuth**: Requires Microsoft Azure Entra ID credentials
 
 For Microsoft authentication setup, see [MICROSOFT_AUTH_SETUP.md](./MICROSOFT_AUTH_SETUP.md) for detailed instructions on:
+
 - Creating a Microsoft Azure app registration
 - Configuring environment variables
 - Testing and deployment

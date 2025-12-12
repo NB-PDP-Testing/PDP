@@ -161,7 +161,7 @@ export default function DemoPage() {
               Request a Demo
             </h1>
             <p className="mx-auto max-w-3xl text-gray-600 text-lg">
-              See how PDP can transform player development for your club or
+              See how PlayerARC can transform player development for your club or
               organisation. Get a personalised walkthrough of our platform.
             </p>
             {/* Back to Home Button */}
@@ -201,7 +201,7 @@ export default function DemoPage() {
                   Request Submitted Successfully!
                 </h2>
                 <p className="mx-auto mb-2 max-w-2xl text-gray-700 text-lg leading-relaxed">
-                  Thank you for your interest in PDP. We&apos;ve received your
+                  Thank you for your interest in PlayerARC. We&apos;ve received your
                   demo request and will be in touch soon to schedule your
                   personalised walkthrough.
                 </p>

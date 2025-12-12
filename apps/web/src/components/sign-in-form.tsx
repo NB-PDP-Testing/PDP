@@ -112,10 +112,10 @@ export default function SignInForm() {
             <PDPLogo size="lg" />
           </div>
           <h1 className="font-bold text-3xl tracking-tight sm:text-4xl">
-            Welcome to PDP
+            Welcome to PlayerARC
           </h1>
           <p className="mt-2 font-medium text-base sm:text-lg">
-            Player Development Passport System
+            Player Development System
           </p>
           <p
             className="mt-2 text-sm italic"
@@ -135,11 +135,10 @@ export default function SignInForm() {
           }}
         >
           <p className="text-foreground text-sm leading-relaxed">
-            Player Development Passport (PDP) is a comprehensive digital
-            ecosystem where parents and coaches collaborate to support and
-            manage a child's sporting development. Each player has a personal
-            "passport" that follows them throughout their time with a
-            club/sport.
+            A comprehensive digital ecosystem where parents and coaches 
+            collaborate to support and manage a child's sporting development.
+            Each player has a personal "passport" that follows them 
+            throughout their time with a club/sport.
           </p>
         </div>
 

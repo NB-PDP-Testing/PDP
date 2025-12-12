@@ -122,7 +122,7 @@ export function SolutionSection() {
             className="bg-[#1E3A5F] px-8 py-6 font-semibold text-lg text-white hover:bg-[#1E3A5F]/90"
             size="lg"
           >
-            <Link href="/demo">Learn More About PDP</Link>
+            <Link href="/demo">Learn More About PlayerARC</Link>
           </Button>
         </div>
       </div>

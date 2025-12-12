@@ -63,7 +63,7 @@ export function FloatingHeader() {
               className={`relative transition-all ${isScrolled ? "h-10 w-10" : "h-12 w-12 drop-shadow-lg"}`}
             >
               <Image
-                alt="PDP Logo"
+                alt="PlayerARC Logo"
                 className="object-contain"
                 fill
                 priority
@@ -83,9 +83,9 @@ export function FloatingHeader() {
               }`}
             >
               <span className="hidden sm:inline">
-                {isScrolled ? "PDP" : "Player Development Portal"}
+                {isScrolled ? "PlayerARC" : "PlayerARC"}
               </span>
-              <span className="sm:hidden">PDP</span>
+              <span className="sm:hidden">PlayerARC</span>
             </span>
           </Link>
 

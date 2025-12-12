@@ -19,7 +19,7 @@ export function HeroSection() {
         <div className="mt-8 flex flex-col items-center gap-4">
           <div className="relative h-40 w-40 drop-shadow-2xl sm:h-48 sm:w-48">
             <Image
-              alt="PDP Logo"
+              alt="PlayerArc Logo"
               className="object-contain"
               fill
               priority
@@ -37,7 +37,7 @@ export function HeroSection() {
               pathway built around them, not just their sport(s).
               <br />
               <br />
-              PDP is the digital passport that travels with players throughout
+              PlayerARC is the digital passport that travels with players throughout
               their sporting journey, connecting coaches, parents, and clubs to
               support their development, prevent burnout, and help players stay
               motivated and in love with their sport(s).

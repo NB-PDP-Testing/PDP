@@ -49,7 +49,7 @@ export function LandingFooter() {
             <div className="flex items-center gap-2">
               <div className="relative h-10 w-10">
                 <Image
-                  alt="PDP Logo"
+                  alt="PlayerARC Logo"
                   className="object-contain"
                   fill
                   sizes="120px"
@@ -57,15 +57,12 @@ export function LandingFooter() {
                 />
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-[#1E3A5F]">PDP</span>
-                <span className="text-[#27AE60] text-xs">
-                  Player Development Passport
-                </span>
+                <span className="font-bold text-[#1E3A5F]">PlayerARC</span>
+                
               </div>
             </div>
             <p className="text-gray-600 text-sm">
-              Player Development Passport — keeping young athletes engaged,
-              healthy, and in love with their sport.
+              Keeping young athletes engaged, healthy, and in love with their sport.
             </p>
             <div className="flex gap-4">
               {socialLinks.map((social) => {
@@ -156,7 +153,7 @@ export function LandingFooter() {
         {/* Copyright */}
         <div className="mt-8 border-gray-200 border-t pt-8 text-center text-gray-600 text-sm">
           <p>
-            © {new Date().getFullYear()} Player Development Passport. As many as
+            © {new Date().getFullYear()} PlayerARC. As many as
             possible, for as long as possible.
           </p>
         </div>

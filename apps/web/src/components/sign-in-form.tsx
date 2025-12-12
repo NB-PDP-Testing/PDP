@@ -148,7 +148,7 @@ export default function SignInForm() {
           <div className="text-center">
             <h2 className="font-bold text-2xl">Sign In</h2>
             <p className="mt-1 text-muted-foreground text-sm">
-              Access your PDP account
+              Access your PlayerARC account
             </p>
           </div>
 

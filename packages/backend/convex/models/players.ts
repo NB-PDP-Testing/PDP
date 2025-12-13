@@ -31,20 +31,20 @@ export const getPlayerPassport = query({
       .withIndex("by_playerId", (q) => q.eq("playerId", args.playerId))
       .collect();
 
-    // Fetch team details
-    const teams = await Promise.all(
-      teamLinks.map(async (link) => {
-        // Query Better Auth team table via internal query
-        const team = await ctx.db
-          .query("team")
-          .filter((q) => q.eq(q.field("_id"), link.teamId))
-          .first();
-        return team;
-      })
-    );
-
-    // Filter out any null teams and format
-    const playerTeams = teams.filter((t) => t !== null);
+    // Fetch team details from Better Auth
+    const teams = [];
+    for (const link of teamLinks) {
+      const teamResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "team",
+          where: [{ field: "_id", value: link.teamId, operator: "eq" }],
+        }
+      );
+      if (teamResult) {
+        teams.push(teamResult);
+      }
+    }
 
     // Get coach assignments for these teams
     const coachAssignments = await ctx.db
@@ -55,17 +55,16 @@ export const getPlayerPassport = query({
       .collect();
 
     // Find coaches for player's teams
+    const teamIds = teamLinks.map((link) => link.teamId);
     const relevantCoaches = coachAssignments.filter((ca) =>
-      ca.teams.some((teamId) =>
-        teamLinks.some((link) => link.teamId === teamId)
-      )
+      ca.teams.some((teamId) => teamIds.includes(teamId))
     );
 
     return {
       ...player,
-      teams: playerTeams,
+      teams,
       coaches: relevantCoaches,
-      teamCount: playerTeams.length,
+      teamCount: teams.length,
     };
   },
 });

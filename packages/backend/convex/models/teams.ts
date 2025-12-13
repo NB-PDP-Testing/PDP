@@ -182,7 +182,7 @@ export const getTeamPlayerLinks = query({
 
     // Get all team-player links for these teams
     const allLinks = await Promise.all(
-      teamIds.map(async (teamId) => {
+      teamIds.map(async (teamId: string) => {
         const links = await ctx.db
           .query("teamPlayers")
           .withIndex("by_teamId", (q) => q.eq("teamId", teamId))

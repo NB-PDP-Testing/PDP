@@ -178,7 +178,7 @@ export const getTeamPlayerLinks = query({
       ],
     });
 
-    const teamIds = teams.page.map((t) => t._id);
+    const teamIds = teams.page.map((t: BetterAuthDoc<"team">) => t._id);
 
     // Get all team-player links for these teams
     const allLinks = await Promise.all(

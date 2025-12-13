@@ -1,6 +1,9 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useMutation, useQuery } from "convex/react";
 import {
+  AlertTriangle,
   Calendar,
   CheckCircle,
   ChevronDown,
@@ -49,6 +52,25 @@ export default function ManageCoachesPage() {
   const params = useParams();
   const orgId = params.orgId as string;
 
+  // Get teams and players from backend
+  const teams = useQuery(api.models.teams.getTeamsByOrganization, {
+    organizationId: orgId,
+  });
+  const allPlayers = useQuery(api.models.players.getPlayersByOrganization, {
+    organizationId: orgId,
+  });
+
+  // Get coach assignments
+  const coachAssignments = useQuery(
+    api.models.coaches.getCoachAssignmentsByOrganization,
+    { organizationId: orgId }
+  );
+
+  // Mutation for updating coach assignments
+  const updateCoachAssignmentsMutation = useMutation(
+    api.models.coaches.updateCoachAssignments
+  );
+
   // Get coaches - filter members with coach role
   const [members, setMembers] = useState<any[]>([]);
   const [membersLoading, setMembersLoading] = useState(true);
@@ -65,7 +87,7 @@ export default function ManageCoachesPage() {
       if (error) {
         console.error("Error loading members:", error);
       } else {
-        // Filter to only coaches
+        // Filter to only coaches and admins
         const membersData = data?.members || [];
         const coaches = membersData.filter(
           (m: any) => m.role === "coach" || m.role === "admin"
@@ -94,13 +116,50 @@ export default function ManageCoachesPage() {
     teams: string[];
     ageGroups: string[];
     sport: string;
+    roles: string[];
   }>({
     teams: [],
     ageGroups: [],
     sport: "",
+    roles: [],
   });
 
-  const isLoading = membersLoading;
+  const isLoading =
+    membersLoading ||
+    teams === undefined ||
+    allPlayers === undefined ||
+    coachAssignments === undefined;
+
+  // Get unique values for assignments
+  const uniqueTeams = [...new Set(teams?.map((t: any) => t.name) || [])];
+  const uniqueAgeGroups = [
+    ...new Set(teams?.map((t: any) => t.ageGroup).filter(Boolean) || []),
+  ].sort();
+
+  // Helper to get coach assignment data
+  const getCoachData = (userId: string) => {
+    const assignment = coachAssignments?.find((ca) => ca.userId === userId);
+    return (
+      assignment || {
+        teams: [],
+        ageGroups: [],
+        sport: "",
+        roles: [],
+      }
+    );
+  };
+
+  // Helper functions to calculate player counts
+  const getCoachPlayerCount = (coachTeams: string[]) => {
+    if (!coachTeams || coachTeams.length === 0 || !allPlayers) return 0;
+    return allPlayers.filter((player: any) => coachTeams.includes(player.team))
+      .length;
+  };
+
+  const getTeamPlayerCount = (teamName: string) => {
+    if (!allPlayers) return 0;
+    return allPlayers.filter((player: any) => player.team === teamName).length;
+  };
 
   // Filter coaches by search term
   const filteredCoaches = members?.filter((coach) => {
@@ -108,44 +167,123 @@ export default function ManageCoachesPage() {
     const user = coach.user || {};
     const fullName = `${user.name || ""}`.toLowerCase();
     const email = (user.email || "").toLowerCase();
-    return fullName.includes(searchLower) || email.includes(searchLower);
+    const coachData = getCoachData(coach.userId);
+    const teams = (coachData.teams || []).join(" ").toLowerCase();
+    return (
+      fullName.includes(searchLower) ||
+      email.includes(searchLower) ||
+      teams.includes(searchLower)
+    );
   });
 
   const startEditing = (coach: any) => {
+    const coachData = getCoachData(coach.userId);
     setEditingCoach(coach.userId);
     setEditData({
-      teams: [],
-      ageGroups: [],
-      sport: "",
+      teams: coachData.teams || [],
+      ageGroups: coachData.ageGroups || [],
+      sport: coachData.sport || "",
+      roles: coachData.roles || [coach.role],
     });
   };
 
   const cancelEditing = () => {
     setEditingCoach(null);
-    setEditData({ teams: [], ageGroups: [], sport: "" });
+    setEditData({ teams: [], ageGroups: [], sport: "", roles: [] });
   };
 
-  const saveEdits = async (coachId: string) => {
-    setLoading(coachId);
+  const saveEdits = async (coach: any) => {
+    setLoading(coach.userId);
     try {
-      // In a real implementation, this would call a backend mutation
-      // For now, just show success
+      await updateCoachAssignmentsMutation({
+        userId: coach.userId,
+        organizationId: orgId,
+        teams: editData.teams,
+        ageGroups: editData.ageGroups,
+        sport: editData.sport,
+        roles: editData.roles,
+      });
+
       toast.success("Coach assignments updated successfully");
       setEditingCoach(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to update coach:", error);
-      toast.error("Failed to update coach assignments");
+      toast.error(error.message || "Failed to update coach assignments");
+    } finally {
+      setLoading(null);
     }
-    setLoading(null);
   };
 
-  const getStatusBadge = (role?: string) => {
+  const handleStatusChange = async (
+    coach: any,
+    newRole: "coach" | "admin" | "member"
+  ) => {
+    setLoading(coach.userId);
+    try {
+      await authClient.organization.updateMemberRole({
+        memberId: coach.id,
+        role: newRole,
+        organizationId: orgId,
+      });
+
+      toast.success(
+        `Coach ${newRole === "member" ? "deactivated" : "activated"} successfully`
+      );
+      await loadMembers();
+    } catch (error: any) {
+      console.error("Failed to update status:", error);
+      toast.error(error.message || "Failed to update coach status");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const toggleTeam = (team: string) => {
+    setEditData((prev) => ({
+      ...prev,
+      teams: prev.teams.includes(team)
+        ? prev.teams.filter((t) => t !== team)
+        : [...prev.teams, team],
+    }));
+  };
+
+  const toggleAgeGroup = (ageGroup: string) => {
+    setEditData((prev) => ({
+      ...prev,
+      ageGroups: prev.ageGroups.includes(ageGroup)
+        ? prev.ageGroups.filter((ag) => ag !== ageGroup)
+        : [...prev.ageGroups, ageGroup],
+    }));
+  };
+
+  const toggleRole = (role: string) => {
+    setEditData((prev) => ({
+      ...prev,
+      roles: prev.roles.includes(role)
+        ? prev.roles.filter((r) => r !== role)
+        : [...prev.roles, role],
+    }));
+  };
+
+  const getStatusBadge = (coach: any) => {
+    const role = coach.role;
+    const isDeactivated = role === "member" || role === "pending";
+
+    if (isDeactivated) {
+      return (
+        <Badge className="border-yellow-500/20 bg-yellow-500/10 text-yellow-600">
+          <Clock className="mr-1 h-3 w-3" />
+          Pending
+        </Badge>
+      );
+    }
+
     switch (role) {
       case "coach":
         return (
           <Badge className="border-green-500/20 bg-green-500/10 text-green-600">
             <CheckCircle className="mr-1 h-3 w-3" />
-            Coach
+            Active Coach
           </Badge>
         );
       case "admin":
@@ -179,7 +317,12 @@ export default function ManageCoachesPage() {
 
   // Stats
   const totalCoaches = members?.length || 0;
-  const activeCoaches = members?.filter((c) => c.role === "coach").length || 0;
+  const activeCoaches =
+    members?.filter((c) => c.role === "coach" || c.role === "admin").length ||
+    0;
+  const pendingCoaches =
+    members?.filter((c) => c.role === "member" || c.role === "pending")
+      .length || 0;
 
   return (
     <div className="space-y-6">
@@ -192,7 +335,7 @@ export default function ManageCoachesPage() {
       </div>
 
       {/* Stats Bar */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -217,6 +360,21 @@ export default function ManageCoachesPage() {
             </div>
           </CardContent>
         </Card>
+        {pendingCoaches > 0 && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-muted-foreground text-sm">Pending</p>
+                  <p className="font-bold text-2xl text-yellow-600">
+                    {pendingCoaches}
+                  </p>
+                </div>
+                <Clock className="h-8 w-8 text-yellow-600" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Search */}
@@ -258,6 +416,9 @@ export default function ManageCoachesPage() {
             <div className="divide-y">
               {filteredCoaches.map((coach) => {
                 const user = coach.user || {};
+                const coachData = getCoachData(coach.userId);
+                const coachTeams = coachData.teams || [];
+                const playerCount = getCoachPlayerCount(coachTeams);
                 const isExpanded = expandedCoach === coach.userId;
                 const isEditing = editingCoach === coach.userId;
 
@@ -298,7 +459,13 @@ export default function ManageCoachesPage() {
                           </div>
 
                           <div className="flex items-center gap-3">
-                            {getStatusBadge(coach.role)}
+                            <div className="text-right">
+                              {getStatusBadge(coach)}
+                              <p className="mt-1 text-muted-foreground text-xs">
+                                {playerCount} player
+                                {playerCount !== 1 ? "s" : ""}
+                              </p>
+                            </div>
                             {isExpanded ? (
                               <ChevronUp className="h-4 w-4 text-muted-foreground" />
                             ) : (
@@ -306,6 +473,21 @@ export default function ManageCoachesPage() {
                             )}
                           </div>
                         </div>
+
+                        {/* Quick view of teams */}
+                        {coachTeams && coachTeams.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {coachTeams.map((team: string) => (
+                              <Badge
+                                className="bg-green-50 text-green-700"
+                                key={team}
+                                variant="outline"
+                              >
+                                {team} ({getTeamPlayerCount(team)})
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </CollapsibleTrigger>
 
@@ -344,11 +526,113 @@ export default function ManageCoachesPage() {
                               </Select>
                             </div>
 
+                            {/* Team Assignments */}
+                            <div>
+                              <Label className="mb-2 block font-medium text-sm">
+                                Team Assignments
+                              </Label>
+                              <div className="flex flex-wrap gap-2">
+                                {uniqueTeams.length > 0 ? (
+                                  uniqueTeams.map((team) => (
+                                    <Button
+                                      className={
+                                        editData.teams.includes(team)
+                                          ? "bg-green-600 text-white hover:bg-green-700"
+                                          : ""
+                                      }
+                                      key={team}
+                                      onClick={() => toggleTeam(team)}
+                                      size="sm"
+                                      type="button"
+                                      variant={
+                                        editData.teams.includes(team)
+                                          ? "default"
+                                          : "outline"
+                                      }
+                                    >
+                                      {team}
+                                    </Button>
+                                  ))
+                                ) : (
+                                  <p className="text-muted-foreground text-sm">
+                                    No teams available. Create teams first.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Age Group Assignments */}
+                            <div>
+                              <Label className="mb-2 block font-medium text-sm">
+                                Age Group Assignments
+                              </Label>
+                              <div className="flex flex-wrap gap-2">
+                                {uniqueAgeGroups.length > 0 ? (
+                                  uniqueAgeGroups.map((ageGroup) => (
+                                    <Button
+                                      className={
+                                        editData.ageGroups.includes(ageGroup)
+                                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                                          : ""
+                                      }
+                                      key={ageGroup}
+                                      onClick={() => toggleAgeGroup(ageGroup)}
+                                      size="sm"
+                                      type="button"
+                                      variant={
+                                        editData.ageGroups.includes(ageGroup)
+                                          ? "default"
+                                          : "outline"
+                                      }
+                                    >
+                                      {ageGroup}
+                                    </Button>
+                                  ))
+                                ) : (
+                                  <p className="text-muted-foreground text-sm">
+                                    No age groups available
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Additional Roles */}
+                            <div>
+                              <Label className="mb-2 block font-medium text-sm">
+                                Additional Roles
+                              </Label>
+                              <div className="flex flex-wrap gap-2">
+                                {["Coach", "Admin", "Parent"].map((role) => (
+                                  <Button
+                                    className={
+                                      editData.roles.includes(role)
+                                        ? "bg-purple-600 text-white hover:bg-purple-700"
+                                        : ""
+                                    }
+                                    key={role}
+                                    onClick={() => toggleRole(role)}
+                                    size="sm"
+                                    type="button"
+                                    variant={
+                                      editData.roles.includes(role)
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                  >
+                                    {role}
+                                  </Button>
+                                ))}
+                              </div>
+                              <p className="mt-1 text-muted-foreground text-xs">
+                                Allow this user to switch between multiple roles
+                              </p>
+                            </div>
+
                             {/* Save/Cancel Buttons */}
                             <div className="flex gap-2 pt-2">
                               <Button
                                 disabled={loading === coach.userId}
-                                onClick={() => saveEdits(coach.userId)}
+                                onClick={() => saveEdits(coach)}
                               >
                                 <Save className="mr-2 h-4 w-4" />
                                 {loading === coach.userId
@@ -367,6 +651,14 @@ export default function ManageCoachesPage() {
                             <div className="grid grid-cols-2 gap-4">
                               <div>
                                 <p className="text-muted-foreground text-xs uppercase tracking-wider">
+                                  Sport
+                                </p>
+                                <p className="mt-1 font-medium">
+                                  {coachData.sport || "Not specified"}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs uppercase tracking-wider">
                                   Joined
                                 </p>
                                 <p className="mt-1 flex items-center gap-1 font-medium">
@@ -377,6 +669,47 @@ export default function ManageCoachesPage() {
                                       ).toLocaleDateString()
                                     : "Unknown"}
                                 </p>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs uppercase tracking-wider">
+                                  Age Groups
+                                </p>
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {coachData.ageGroups &&
+                                  coachData.ageGroups.length > 0 ? (
+                                    coachData.ageGroups.map((ag: string) => (
+                                      <Badge
+                                        className="bg-blue-50 text-blue-700"
+                                        key={ag}
+                                        variant="outline"
+                                      >
+                                        {ag}
+                                      </Badge>
+                                    ))
+                                  ) : (
+                                    <span className="text-muted-foreground text-sm">
+                                      None assigned
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-muted-foreground text-xs uppercase tracking-wider">
+                                  Roles
+                                </p>
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {(coachData.roles || [coach.role]).map(
+                                    (role: string) => (
+                                      <Badge
+                                        className="bg-purple-50 text-purple-700"
+                                        key={role}
+                                        variant="outline"
+                                      >
+                                        {role}
+                                      </Badge>
+                                    )
+                                  )}
+                                </div>
                               </div>
                               <div>
                                 <p className="text-muted-foreground text-xs uppercase tracking-wider">
@@ -416,6 +749,43 @@ export default function ManageCoachesPage() {
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit Assignments
                               </Button>
+
+                              <div className="flex gap-2">
+                                {coach.role === "coach" ||
+                                coach.role === "admin" ? (
+                                  <Button
+                                    disabled={loading === coach.userId}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (
+                                        confirm(
+                                          "Are you sure you want to deactivate this coach?"
+                                        )
+                                      ) {
+                                        handleStatusChange(coach, "member");
+                                      }
+                                    }}
+                                    size="sm"
+                                    variant="destructive"
+                                  >
+                                    <AlertTriangle className="mr-2 h-4 w-4" />
+                                    Deactivate
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    disabled={loading === coach.userId}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleStatusChange(coach, "coach");
+                                    }}
+                                    size="sm"
+                                    variant="default"
+                                  >
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Activate
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         )}

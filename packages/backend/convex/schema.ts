@@ -8,6 +8,20 @@ export default defineSchema({
     completed: v.boolean(),
   }),
 
+  // Coach assignments - stores team/age group assignments for coaches
+  coachAssignments: defineTable({
+    userId: v.string(), // Better Auth user ID
+    organizationId: v.string(),
+    teams: v.array(v.string()), // Team names they're assigned to
+    ageGroups: v.array(v.string()), // Age groups they coach
+    sport: v.optional(v.string()), // Primary sport
+    roles: v.optional(v.array(v.string())), // Additional roles
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_and_org", ["userId", "organizationId"])
+    .index("by_organizationId", ["organizationId"]),
+
   // Players table
   players: defineTable({
     name: v.string(),

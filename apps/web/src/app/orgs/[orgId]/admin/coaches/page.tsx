@@ -18,7 +18,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -82,16 +82,6 @@ export default function ManageCoachesPage() {
 
   const membersLoading = membersWithDetails === undefined;
 
-  // Kept for compatibility - may be used elsewhere
-  const [members, setMembers] = useState<any[]>([]);
-
-  // Update local state when Convex data changes
-  useEffect(() => {
-    if (coaches) {
-      setMembers(coaches);
-    }
-  }, [coaches]);
-
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [editingCoach, setEditingCoach] = useState<string | null>(null);
@@ -146,7 +136,7 @@ export default function ManageCoachesPage() {
   };
 
   // Filter coaches by search term
-  const filteredCoaches = members?.filter((coach) => {
+  const filteredCoaches = coaches?.filter((coach) => {
     const searchLower = searchTerm.toLowerCase();
     const user = coach.user || {};
     const fullName = `${user.name || ""}`.toLowerCase();

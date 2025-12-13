@@ -1,7 +1,7 @@
 "use client";
 
-import type { Id } from "@convex/_generated/dataModel";
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { ArrowLeft, Edit, Loader2, Share2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";

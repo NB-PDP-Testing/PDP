@@ -231,11 +231,13 @@ export const updateMemberFunctionalRoles = mutation({
     }
 
     // Update functional roles using the adapter
-    await ctx.runMutation(components.betterAuth.adapter.update, {
-      model: "member",
-      documentId: memberResult._id,
-      data: {
-        functionalRoles: args.functionalRoles,
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
+        update: {
+          functionalRoles: args.functionalRoles,
+        },
       },
     });
 

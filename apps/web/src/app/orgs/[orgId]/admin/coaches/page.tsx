@@ -19,7 +19,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -71,35 +71,28 @@ export default function ManageCoachesPage() {
     api.models.coaches.updateCoachAssignments
   );
 
-  // Get coaches - filter members with coach role
-  const [members, setMembers] = useState<any[]>([]);
-  const [membersLoading, setMembersLoading] = useState(true);
+  // Get members with coach functional role using Convex query
+  const membersWithDetails = useQuery(
+    api.models.members.getMembersWithDetails,
+    { organizationId: orgId }
+  );
 
-  // Load coaches using Better Auth client API
-  const loadMembers = useCallback(async () => {
-    setMembersLoading(true);
-    try {
-      const { data, error } = await authClient.organization.listMembers({
-        query: {
-          organizationId: orgId,
-        },
-      });
-      if (error) {
-        console.error("Error loading members:", error);
-      } else {
-        // Filter to only coaches and admins
-        const membersData = data?.members || [];
-        const coaches = membersData.filter(
-          (m: any) => m.role === "coach" || m.role === "admin"
-        );
-        setMembers(coaches);
-      }
-    } catch (error) {
-      console.error("Error loading members:", error);
-    } finally {
-      setMembersLoading(false);
+  // Filter to only users with coach functional role
+  const coaches = membersWithDetails?.filter((m) =>
+    m.functionalRoles?.includes("coach")
+  );
+
+  const membersLoading = membersWithDetails === undefined;
+
+  // Kept for compatibility - may be used elsewhere
+  const [members, setMembers] = useState<any[]>([]);
+
+  // Update local state when Convex data changes
+  useEffect(() => {
+    if (coaches) {
+      setMembers(coaches);
     }
-  }, [orgId]);
+  }, [coaches]);
 
   // Load coaches on mount
   useEffect(() => {
@@ -266,41 +259,34 @@ export default function ManageCoachesPage() {
   };
 
   const getStatusBadge = (coach: any) => {
-    const role = coach.role;
-    const isDeactivated = role === "member" || role === "pending";
+    const functionalRoles = coach.functionalRoles || [];
+    const hasCoach = functionalRoles.includes("coach");
+    const hasAdmin = functionalRoles.includes("admin");
 
-    if (isDeactivated) {
+    if (hasAdmin) {
       return (
-        <Badge className="border-yellow-500/20 bg-yellow-500/10 text-yellow-600">
-          <Clock className="mr-1 h-3 w-3" />
-          Pending
+        <Badge className="border-blue-500/20 bg-blue-500/10 text-blue-600">
+          <UserCheck className="mr-1 h-3 w-3" />
+          Admin + Coach
         </Badge>
       );
     }
 
-    switch (role) {
-      case "coach":
-        return (
-          <Badge className="border-green-500/20 bg-green-500/10 text-green-600">
-            <CheckCircle className="mr-1 h-3 w-3" />
-            Active Coach
-          </Badge>
-        );
-      case "admin":
-        return (
-          <Badge className="border-blue-500/20 bg-blue-500/10 text-blue-600">
-            <UserCheck className="mr-1 h-3 w-3" />
-            Admin
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="secondary">
-            <Clock className="mr-1 h-3 w-3" />
-            {role || "Unknown"}
-          </Badge>
-        );
+    if (hasCoach) {
+      return (
+        <Badge className="border-green-500/20 bg-green-500/10 text-green-600">
+          <CheckCircle className="mr-1 h-3 w-3" />
+          Active Coach
+        </Badge>
+      );
     }
+
+    return (
+      <Badge variant="secondary">
+        <Clock className="mr-1 h-3 w-3" />
+        No Coach Role
+      </Badge>
+    );
   };
 
   const getInitials = (user: any) => {
@@ -316,13 +302,10 @@ export default function ManageCoachesPage() {
   };
 
   // Stats
-  const totalCoaches = members?.length || 0;
+  const totalCoaches = coaches?.length || 0;
   const activeCoaches =
-    members?.filter((c) => c.role === "coach" || c.role === "admin").length ||
-    0;
-  const pendingCoaches =
-    members?.filter((c) => c.role === "member" || c.role === "pending")
-      .length || 0;
+    coaches?.filter((c) => c.functionalRoles?.includes("coach")).length || 0;
+  const pendingCoaches = 0; // No pending status with functional roles
 
   return (
     <div className="space-y-6">

@@ -630,7 +630,7 @@ export default function ManageCoachesPage() {
                             <div className="flex items-center justify-between border-t pt-3">
                               <p className="text-muted-foreground text-sm">
                                 Last updated:{" "}
-                                {coachData.updatedAt
+                                {"updatedAt" in coachData && coachData.updatedAt
                                   ? new Date(
                                       coachData.updatedAt
                                     ).toLocaleDateString()

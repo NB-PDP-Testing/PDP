@@ -208,8 +208,10 @@ export async function generateSessionPlanPDF(sessionPlanData: {
   // Serialize the PDF to bytes
   const pdfBytes = await pdfDoc.save();
 
-  // Convert to Blob
-  return new Blob([pdfBytes], { type: "application/pdf" });
+  // Convert to Blob (cast to BlobPart to satisfy TypeScript)
+  return new Blob([pdfBytes as unknown as BlobPart], {
+    type: "application/pdf",
+  });
 }
 
 /**

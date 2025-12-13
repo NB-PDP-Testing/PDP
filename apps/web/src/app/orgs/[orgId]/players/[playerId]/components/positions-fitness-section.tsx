@@ -2,7 +2,6 @@
 
 import { Activity, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
@@ -11,7 +10,13 @@ import {
 } from "@/components/ui/collapsible";
 
 interface PlayerData {
-  positions?: string[];
+  positions?: {
+    favourite?: string;
+    leastFavourite?: string;
+    coachesPref?: string;
+    dominantSide?: string;
+    goalkeeper?: string;
+  };
   fitness?: {
     speed?: string;
     agility?: string;
@@ -29,7 +34,8 @@ export function PositionsFitnessSection({ player }: Props) {
   const [isPositionsExpanded, setIsPositionsExpanded] = useState(true);
   const [isFitnessExpanded, setIsFitnessExpanded] = useState(true);
 
-  const hasPositions = player.positions && player.positions.length > 0;
+  const hasPositions =
+    player.positions && Object.keys(player.positions).length > 0;
   const hasFitness = player.fitness && Object.keys(player.fitness).length > 0;
 
   if (!(hasPositions || hasFitness)) {
@@ -63,17 +69,38 @@ export function PositionsFitnessSection({ player }: Props) {
 
             <CollapsibleContent>
               <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {player.positions!.map((position, idx) => (
-                    <Badge
-                      className="px-3 py-1 text-sm"
-                      key={idx}
-                      variant={idx === 0 ? "default" : "secondary"}
-                    >
-                      {position}
-                      {idx === 0 && " (Primary)"}
-                    </Badge>
-                  ))}
+                <div className="space-y-4">
+                  {player.positions!.favourite && (
+                    <PositionField
+                      isPrimary
+                      label="Favourite Position"
+                      value={player.positions!.favourite}
+                    />
+                  )}
+                  {player.positions!.coachesPref && (
+                    <PositionField
+                      label="Coach's Preferred Position"
+                      value={player.positions!.coachesPref}
+                    />
+                  )}
+                  {player.positions!.leastFavourite && (
+                    <PositionField
+                      label="Least Favourite Position"
+                      value={player.positions!.leastFavourite}
+                    />
+                  )}
+                  {player.positions!.dominantSide && (
+                    <PositionField
+                      label="Dominant Side"
+                      value={player.positions!.dominantSide}
+                    />
+                  )}
+                  {player.positions!.goalkeeper && (
+                    <PositionField
+                      label="Goalkeeper"
+                      value={player.positions!.goalkeeper}
+                    />
+                  )}
                 </div>
               </CardContent>
             </CollapsibleContent>
@@ -147,6 +174,25 @@ export function PositionsFitnessSection({ player }: Props) {
         </Collapsible>
       )}
     </>
+  );
+}
+
+function PositionField({
+  label,
+  value,
+  isPrimary,
+}: {
+  label: string;
+  value: string;
+  isPrimary?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="font-medium text-muted-foreground text-sm">{label}</span>
+      <Badge className="text-sm" variant={isPrimary ? "default" : "secondary"}>
+        {value}
+      </Badge>
+    </div>
   );
 }
 

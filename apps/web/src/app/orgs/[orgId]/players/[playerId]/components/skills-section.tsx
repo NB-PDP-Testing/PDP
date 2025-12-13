@@ -74,20 +74,20 @@ export function SkillsSection({ player }: Props) {
 // Rating Display Component
 function RatingDisplay({ label, value }: { label: string; value: number }) {
   const getColorForRating = (rating: number): string => {
-    if (rating === 0) return "#9CA3AF"; // gray-400
-    if (rating === 1) return "#EF4444"; // red-500
-    if (rating === 2) return "#F97316"; // orange-500
-    if (rating === 3) return "#EAB308"; // yellow-500
-    if (rating === 4) return "#22C55E"; // green-500
-    return "#3B82F6"; // blue-500
+    if (rating === 0) return "#9CA3AF"; // gray-400 - Not Rated
+    if (rating <= 1) return "#dc2626"; // red-600 - Developing
+    if (rating <= 2) return "#f97316"; // orange-500 - Emerging
+    if (rating <= 3) return "#eab308"; // yellow-500 - Competent
+    if (rating <= 4) return "#84cc16"; // lime-500 - Proficient
+    return "#22c55e"; // green-500 - Excellent
   };
 
   const getRatingLabel = (rating: number): string => {
     if (rating === 0) return "Not Rated";
-    if (rating === 1) return "Needs Work";
-    if (rating === 2) return "Developing";
-    if (rating === 3) return "Competent";
-    if (rating === 4) return "Proficient";
+    if (rating <= 1) return "Developing";
+    if (rating <= 2) return "Emerging";
+    if (rating <= 3) return "Competent";
+    if (rating <= 4) return "Proficient";
     return "Excellent";
   };
 

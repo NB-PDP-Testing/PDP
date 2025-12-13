@@ -108,25 +108,50 @@ This invitation will expire in 7 days. If you didn't expect this invitation, you
     invitedBy: invitedByUsername,
   });
 
-  // TODO: Implement actual email sending
-  // Options:
-  // 1. Use Resend API (recommended): https://resend.com
-  // 2. Use SendGrid API: https://sendgrid.com
-  // 3. Use AWS SES: https://aws.amazon.com/ses/
-  // 4. Use Nodemailer with SMTP
-  //
-  // Example with Resend:
-  // const resend = new Resend(process.env.RESEND_API_KEY);
-  // await resend.emails.send({
-  //   from: 'PlayerARC <invitations@playerarc.com>',
-  //   to: email,
-  //   subject,
-  //   html: htmlBody,
-  //   text: textBody,
-  // });
+  // Send email via Resend API
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS || "PlayerARC <onboarding@resend.dev>";
 
-  // For now, we'll need to implement this via an HTTP action
-  // that can call an email service provider
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Email will not be sent. Set RESEND_API_KEY in Convex dashboard."
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ Failed to send email via Resend:", {
+        status: response.status,
+        error: errorData,
+      });
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Email sent successfully via Resend:", result.id);
+  } catch (error) {
+    console.error("❌ Error sending email:", error);
+    // Don't throw - log the error but don't break the invitation flow
+    // The invitation is still created in the database
+  }
 }
 
 /**

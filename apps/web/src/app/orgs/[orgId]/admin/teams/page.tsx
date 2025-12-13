@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
@@ -14,6 +15,8 @@ import {
   Search,
   Shield,
   Trash2,
+  UserMinus,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -110,6 +113,324 @@ const AGE_GROUPS = [
   "Senior",
 ];
 
+// Component to fetch and display player count for a single team
+function TeamPlayerCount({ teamId }: { teamId: string }) {
+  const count = useQuery(api.models.players.getPlayerCountByTeam, { teamId });
+
+  if (count === undefined) {
+    return <span className="text-muted-foreground">...</span>;
+  }
+
+  return (
+    <span>
+      {count} player{count !== 1 ? "s" : ""}
+    </span>
+  );
+}
+
+// Component to display team roster
+function TeamRoster({
+  teamId,
+  teamName,
+  onManageClick,
+}: {
+  teamId: string;
+  teamName: string;
+  onManageClick: () => void;
+}) {
+  const players = useQuery(api.models.players.getPlayersByTeam, { teamId });
+
+  if (!players) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <div className="text-center">
+          <div className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-muted-foreground text-sm">Loading players...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (players.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed bg-muted/50 p-8 text-center">
+        <Users className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
+        <h3 className="mb-1 font-semibold">No Players Assigned</h3>
+        <p className="mb-4 text-muted-foreground text-sm">
+          This team doesn't have any players yet
+        </p>
+        <Button onClick={onManageClick} size="sm">
+          <UserPlus className="mr-2 h-4 w-4" />
+          Add Players
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="font-medium text-sm">Team Members ({players.length})</p>
+        <Button onClick={onManageClick} size="sm" variant="outline">
+          <Edit2 className="mr-2 h-4 w-4" />
+          Manage Members
+        </Button>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+        {players.map((player: any) => (
+          <div
+            className="rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
+            key={player._id}
+          >
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                <span className="font-medium text-primary text-sm">
+                  {player.name
+                    ?.split(" ")
+                    .map((n: string) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </span>
+              </div>
+              <p className="w-full truncate font-medium text-sm">
+                {player.name}
+              </p>
+              <p className="text-muted-foreground text-xs">{player.ageGroup}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Component for player assignment in edit dialog
+function PlayerAssignmentGrid({
+  teamId,
+  editingTeamName,
+  allPlayers,
+  playerSearch,
+  pendingAssignments,
+  setPendingAssignments,
+}: {
+  teamId: string;
+  editingTeamName: string;
+  allPlayers: any[];
+  playerSearch: string;
+  pendingAssignments: { add: string[]; remove: string[] };
+  setPendingAssignments: React.Dispatch<
+    React.SetStateAction<{ add: string[]; remove: string[] }>
+  >;
+}) {
+  const teamPlayers = useQuery(api.models.players.getPlayersByTeam, {
+    teamId,
+  });
+
+  if (!teamPlayers) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Categorize players
+  const categorized = allPlayers.map((p) => {
+    const isOnTeam = teamPlayers?.some((tp: any) => tp._id === p._id);
+    const isBeingAdded = pendingAssignments.add.includes(p._id);
+    const isBeingRemoved = pendingAssignments.remove.includes(p._id);
+
+    let status: "assigned" | "adding" | "removing" | "available";
+    if (isBeingAdded) status = "adding";
+    else if (isBeingRemoved) status = "removing";
+    else if (isOnTeam) status = "assigned";
+    else status = "available";
+
+    return { ...p, status };
+  });
+
+  // Filter by search
+  const filtered = categorized.filter((p) => {
+    if (!playerSearch) return true;
+    const search = playerSearch.toLowerCase();
+    return (
+      p.name.toLowerCase().includes(search) ||
+      p.ageGroup?.toLowerCase().includes(search)
+    );
+  });
+
+  // Sort: assigned/adding first, then removing, then available
+  const sorted = filtered.sort((a, b) => {
+    const order: Record<string, number> = {
+      assigned: 0,
+      adding: 1,
+      removing: 2,
+      available: 3,
+    };
+    return order[a.status] - order[b.status];
+  });
+
+  if (sorted.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed bg-muted/50 p-6 text-center">
+        <p className="text-muted-foreground text-sm">
+          {playerSearch ? "No players match search" : "No players available"}
+        </p>
+      </div>
+    );
+  }
+
+  // Separate into current members and unassigned
+  const currentMembers = sorted.filter(
+    (p) =>
+      p.status === "assigned" ||
+      p.status === "removing" ||
+      p.status === "adding"
+  );
+  const unassignedPlayers = sorted.filter((p) => p.status === "available");
+
+  const renderPlayerCard = (player: any) => (
+    <button
+      className={`rounded-lg border p-3 text-left transition-all ${
+        player.status === "assigned"
+          ? "border-green-300 bg-green-50 hover:bg-green-100"
+          : player.status === "adding"
+            ? "border-blue-300 bg-blue-50 hover:bg-blue-100"
+            : player.status === "removing"
+              ? "border-red-300 bg-red-50 opacity-60 hover:opacity-80"
+              : "border-gray-200 bg-white hover:border-primary hover:bg-accent"
+      }`}
+      key={player._id}
+      onClick={() => {
+        if (player.status === "assigned") {
+          setPendingAssignments((prev) => ({
+            ...prev,
+            remove: [...prev.remove, player._id],
+          }));
+        } else if (player.status === "adding") {
+          setPendingAssignments((prev) => ({
+            ...prev,
+            add: prev.add.filter((id) => id !== player._id),
+          }));
+        } else if (player.status === "removing") {
+          setPendingAssignments((prev) => ({
+            ...prev,
+            remove: prev.remove.filter((id) => id !== player._id),
+          }));
+        } else {
+          setPendingAssignments((prev) => ({
+            ...prev,
+            add: [...prev.add, player._id],
+          }));
+        }
+      }}
+      type="button"
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
+            player.status === "assigned"
+              ? "bg-green-200"
+              : player.status === "adding"
+                ? "bg-blue-200"
+                : player.status === "removing"
+                  ? "bg-red-200"
+                  : "bg-gray-100"
+          }`}
+        >
+          <span
+            className={`font-medium text-xs ${
+              player.status === "assigned"
+                ? "text-green-700"
+                : player.status === "adding"
+                  ? "text-blue-700"
+                  : player.status === "removing"
+                    ? "text-red-700"
+                    : "text-gray-600"
+            }`}
+          >
+            {player.name
+              ?.split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()}
+          </span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-sm">{player.name}</p>
+          <p className="truncate text-muted-foreground text-xs">
+            {player.ageGroup}
+          </p>
+        </div>
+        <div
+          className={`flex-shrink-0 ${
+            player.status === "assigned" || player.status === "adding"
+              ? "text-red-500"
+              : player.status === "removing"
+                ? "text-green-600"
+                : "text-primary"
+          }`}
+        >
+          {player.status === "assigned" || player.status === "adding" ? (
+            <UserMinus className="h-4 w-4" />
+          ) : player.status === "removing" ? (
+            <UserPlus className="h-4 w-4" />
+          ) : (
+            <UserPlus className="h-4 w-4" />
+          )}
+        </div>
+      </div>
+      {(player.status === "adding" || player.status === "removing") && (
+        <p
+          className={`mt-1 text-xs ${
+            player.status === "adding" ? "text-blue-600" : "text-red-600"
+          }`}
+        >
+          {player.status === "adding" ? "+ Adding" : "− Removing"}
+        </p>
+      )}
+    </button>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Current Team Members */}
+      {currentMembers.length > 0 && (
+        <div>
+          <h4 className="mb-2 flex items-center gap-2 font-semibold text-green-700 text-sm">
+            <Users className="h-4 w-4" />
+            Current Members (
+            {currentMembers.filter((p) => p.status !== "removing").length})
+          </h4>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {currentMembers.map(renderPlayerCard)}
+          </div>
+        </div>
+      )}
+
+      {/* Unassigned Players */}
+      {unassignedPlayers.length > 0 && (
+        <div>
+          <h4 className="mb-2 flex items-center gap-2 font-semibold text-gray-600 text-sm">
+            <UserPlus className="h-4 w-4" />
+            Unassigned Players ({unassignedPlayers.length})
+          </h4>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {unassignedPlayers.slice(0, 30).map(renderPlayerCard)}
+            {unassignedPlayers.length > 30 && (
+              <div className="col-span-full py-2 text-center text-muted-foreground text-xs">
+                +{unassignedPlayers.length - 30} more (use search)
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ManageTeamsPage() {
   const params = useParams();
   const orgId = params.orgId as string;
@@ -119,8 +440,8 @@ export default function ManageTeamsPage() {
     organizationId: orgId,
   });
 
-  // Get players from our custom table
-  const players = useQuery(api.models.players.getPlayersByOrganization, {
+  // Get all players for player assignment
+  const allPlayers = useQuery(api.models.players.getPlayersByOrganization, {
     organizationId: orgId,
   });
 
@@ -128,12 +449,19 @@ export default function ManageTeamsPage() {
   const createTeamMutation = useMutation(api.models.teams.createTeam);
   const updateTeamMutation = useMutation(api.models.teams.updateTeam);
   const deleteTeamMutation = useMutation(api.models.teams.deleteTeam);
+  const addPlayerToTeamMutation = useMutation(
+    api.models.players.addPlayerToTeam
+  );
+  const removePlayerFromTeamMutation = useMutation(
+    api.models.players.removePlayerFromTeam
+  );
 
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [editingTeamName, setEditingTeamName] = useState<string>("");
   const [teamToDelete, setTeamToDelete] = useState<{
     id: string;
     name: string;
@@ -142,13 +470,15 @@ export default function ManageTeamsPage() {
   const [loading, setLoading] = useState(false);
   const [sportFilter, setSportFilter] = useState<string>("all");
   const [ageGroupFilter, setAgeGroupFilter] = useState<string>("all");
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [pendingAssignments, setPendingAssignments] = useState<{
+    add: string[];
+    remove: string[];
+  }>({ add: [], remove: [] });
 
-  const isLoading = teams === undefined || players === undefined;
+  const isLoading = teams === undefined || allPlayers === undefined;
 
-  // Get player count for a team
-  const getPlayerCount = (teamId: string) =>
-    players?.filter((p: any) => p.teamId === teamId).length || 0;
-
+  // Filter teams
   // Filter teams
   const filteredTeams = teams?.filter((team: any) => {
     if (sportFilter !== "all" && team.sport !== sportFilter) {
@@ -185,12 +515,16 @@ export default function ManageTeamsPage() {
 
   const openCreateDialog = () => {
     setEditingTeamId(null);
+    setEditingTeamName("");
     setFormData(defaultFormData);
+    setPendingAssignments({ add: [], remove: [] });
+    setPlayerSearch("");
     setFormDialogOpen(true);
   };
 
   const openEditDialog = (team: any) => {
     setEditingTeamId(team._id);
+    setEditingTeamName(team.name);
     setFormData({
       name: team.name,
       sport: team.sport || "",
@@ -202,6 +536,8 @@ export default function ManageTeamsPage() {
       homeVenue: team.homeVenue || "",
       isActive: team.isActive ?? true,
     });
+    setPendingAssignments({ add: [], remove: [] });
+    setPlayerSearch("");
     setFormDialogOpen(true);
   };
 
@@ -231,6 +567,24 @@ export default function ManageTeamsPage() {
           homeVenue: formData.homeVenue || undefined,
           isActive: formData.isActive,
         });
+
+        // Process player assignments
+        // Add new players
+        for (const playerId of pendingAssignments.add) {
+          await addPlayerToTeamMutation({
+            playerId: playerId as Id<"players">,
+            teamId: editingTeamId,
+          });
+        }
+
+        // Remove players
+        for (const playerId of pendingAssignments.remove) {
+          await removePlayerFromTeamMutation({
+            playerId: playerId as Id<"players">,
+            teamId: editingTeamId,
+          });
+        }
+
         toast.success(`${formData.name} has been updated successfully.`);
       } else {
         await createTeamMutation({
@@ -250,6 +604,9 @@ export default function ManageTeamsPage() {
       setFormDialogOpen(false);
       setFormData(defaultFormData);
       setEditingTeamId(null);
+      setEditingTeamName("");
+      setPendingAssignments({ add: [], remove: [] });
+      setPlayerSearch("");
     } catch (error: any) {
       console.error("Error saving team:", error);
       toast.error(error.message || "Failed to save team");
@@ -422,7 +779,6 @@ export default function ManageTeamsPage() {
             <div className="divide-y">
               {filteredTeams.map((team: any) => {
                 const isExpanded = expandedTeams.has(team._id);
-                const playerCount = getPlayerCount(team._id);
                 const warnings = hasWarnings(team);
 
                 return (
@@ -470,7 +826,7 @@ export default function ManageTeamsPage() {
                                 </Badge>
                               )}
                               <span className="text-muted-foreground text-sm">
-                                {playerCount} players
+                                <TeamPlayerCount teamId={team._id} />
                               </span>
                             </div>
                           </div>
@@ -574,7 +930,7 @@ export default function ManageTeamsPage() {
                               <div>
                                 <p className="font-medium text-sm">Players</p>
                                 <p className="text-muted-foreground text-sm">
-                                  {playerCount} registered
+                                  <TeamPlayerCount teamId={team._id} />
                                 </p>
                               </div>
                             </div>
@@ -590,6 +946,15 @@ export default function ManageTeamsPage() {
                               </p>
                             </div>
                           )}
+
+                          {/* Team Roster */}
+                          <div className="mt-6 border-t pt-4">
+                            <TeamRoster
+                              onManageClick={() => openEditDialog(team)}
+                              teamId={team._id}
+                              teamName={team.name}
+                            />
+                          </div>
                         </div>
                       </div>
                     </CollapsibleContent>
@@ -773,6 +1138,56 @@ export default function ManageTeamsPage() {
                 }
               />
             </div>
+
+            {/* Team Members Management - only show when editing */}
+            {editingTeamId && allPlayers && (
+              <div className="mt-6 border-t pt-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <Label>Team Members</Label>
+                  {(pendingAssignments.add.length > 0 ||
+                    pendingAssignments.remove.length > 0) && (
+                    <Badge variant="secondary">
+                      {pendingAssignments.add.length > 0 &&
+                        `+${pendingAssignments.add.length}`}
+                      {pendingAssignments.add.length > 0 &&
+                        pendingAssignments.remove.length > 0 &&
+                        " / "}
+                      {pendingAssignments.remove.length > 0 &&
+                        `-${pendingAssignments.remove.length}`}
+                      {" pending"}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Search */}
+                <div className="relative mb-3">
+                  <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    className="pl-10"
+                    onChange={(e) => setPlayerSearch(e.target.value)}
+                    placeholder="Search all players..."
+                    value={playerSearch}
+                  />
+                </div>
+
+                {/* Combined Player List - Card Layout */}
+                <div className="max-h-80 overflow-y-auto pr-1">
+                  <PlayerAssignmentGrid
+                    allPlayers={allPlayers}
+                    editingTeamName={editingTeamName}
+                    pendingAssignments={pendingAssignments}
+                    playerSearch={playerSearch}
+                    setPendingAssignments={setPendingAssignments}
+                    teamId={editingTeamId}
+                  />
+                </div>
+
+                <p className="mt-2 text-muted-foreground text-xs">
+                  Tap to toggle • Green = on team • Blue = adding • Red =
+                  removing
+                </p>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

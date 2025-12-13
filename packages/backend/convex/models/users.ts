@@ -32,6 +32,9 @@ export const getCurrentUser = query({
 
       // onboarding
       onboardingComplete: v.optional(v.boolean()),
+
+      // Current organization tracking
+      currentOrgId: v.optional(v.string()),
     })
   ),
   handler: async (ctx) => {

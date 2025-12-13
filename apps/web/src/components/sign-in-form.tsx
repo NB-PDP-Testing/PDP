@@ -135,10 +135,10 @@ export default function SignInForm() {
           }}
         >
           <p className="text-foreground text-sm leading-relaxed">
-            A comprehensive digital ecosystem where parents and coaches 
+            A comprehensive digital ecosystem where parents and coaches
             collaborate to support and manage a child's sporting development.
-            Each player has a personal "passport" that follows them 
-            throughout their time with a club/sport.
+            Each player has a personal "passport" that follows them throughout
+            their time with a club/sport.
           </p>
         </div>
 

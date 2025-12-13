@@ -1,7 +1,16 @@
 "use client";
 
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
-import { Home, Settings, Shield, Upload, UserCheck, Users } from "lucide-react";
+import {
+  Clipboard,
+  GraduationCap,
+  Home,
+  Settings,
+  Shield,
+  Upload,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
@@ -72,6 +81,21 @@ export default function OrgAdminLayout({
       icon: Home,
     },
     {
+      href: `/orgs/${orgId}/admin/players` as Route,
+      label: "Players",
+      icon: Clipboard,
+    },
+    {
+      href: `/orgs/${orgId}/admin/teams`,
+      label: "Teams",
+      icon: Shield,
+    },
+    {
+      href: `/orgs/${orgId}/admin/coaches` as Route,
+      label: "Coaches",
+      icon: GraduationCap,
+    },
+    {
       href: `/orgs/${orgId}/admin/users`,
       label: "Manage Users",
       icon: Users,
@@ -80,11 +104,6 @@ export default function OrgAdminLayout({
       href: `/orgs/${orgId}/admin/users/approvals`,
       label: "Approvals",
       icon: UserCheck,
-    },
-    {
-      href: `/orgs/${orgId}/admin/teams`,
-      label: "Teams",
-      icon: Shield,
     },
     {
       href: `/orgs/${orgId}/admin/player-import` as Route,

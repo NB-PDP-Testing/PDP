@@ -37,10 +37,10 @@ export function HeroSection() {
               pathway built around them, not just their sport(s).
               <br />
               <br />
-              PlayerARC is the digital passport that travels with players throughout
-              their sporting journey, connecting coaches, parents, and clubs to
-              support their development, prevent burnout, and help players stay
-              motivated and in love with their sport(s).
+              PlayerARC is the digital passport that travels with players
+              throughout their sporting journey, connecting coaches, parents,
+              and clubs to support their development, prevent burnout, and help
+              players stay motivated and in love with their sport(s).
             </p>
           </div>
         </div>

@@ -58,11 +58,11 @@ export function LandingFooter() {
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-[#1E3A5F]">PlayerARC</span>
-                
               </div>
             </div>
             <p className="text-gray-600 text-sm">
-              Keeping young athletes engaged, healthy, and in love with their sport.
+              Keeping young athletes engaged, healthy, and in love with their
+              sport.
             </p>
             <div className="flex gap-4">
               {socialLinks.map((social) => {
@@ -153,8 +153,8 @@ export function LandingFooter() {
         {/* Copyright */}
         <div className="mt-8 border-gray-200 border-t pt-8 text-center text-gray-600 text-sm">
           <p>
-            © {new Date().getFullYear()} PlayerARC. As many as
-            possible, for as long as possible.
+            © {new Date().getFullYear()} PlayerARC. As many as possible, for as
+            long as possible.
           </p>
         </div>
       </div>

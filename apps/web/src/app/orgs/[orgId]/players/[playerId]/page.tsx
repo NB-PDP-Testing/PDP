@@ -1,12 +1,12 @@
 "use client";
 
 import type { Id } from "@convex/_generated/dataModel";
+import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { ArrowLeft, Edit, Loader2, Share2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { api } from "@/convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 import { BasicInformationSection } from "./components/basic-info-section";
 import { GoalsSection } from "./components/goals-section";

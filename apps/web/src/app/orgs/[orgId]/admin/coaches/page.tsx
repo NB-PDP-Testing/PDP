@@ -125,16 +125,23 @@ export default function ManageCoachesPage() {
     );
   };
 
-  // Helper functions to calculate player counts
-  const getCoachPlayerCount = (coachTeams: string[]) => {
-    if (!coachTeams || coachTeams.length === 0 || !allPlayers) return 0;
-    return allPlayers.filter((player: any) => coachTeams.includes(player.team))
-      .length;
+  // Helper to get team name from team ID
+  const getTeamName = (teamId: string) => {
+    const team = teams?.find((t: any) => t._id === teamId);
+    return team?.name || teamId;
   };
 
-  const getTeamPlayerCount = (teamName: string) => {
+  // Helper functions to calculate player counts
+  const getCoachPlayerCount = (coachTeamIds: string[]) => {
+    if (!coachTeamIds || coachTeamIds.length === 0 || !allPlayers) return 0;
+    return allPlayers.filter((player: any) =>
+      coachTeamIds.includes(player.team)
+    ).length;
+  };
+
+  const getTeamPlayerCount = (teamId: string) => {
     if (!allPlayers) return 0;
-    return allPlayers.filter((player: any) => player.team === teamName).length;
+    return allPlayers.filter((player: any) => player.team === teamId).length;
   };
 
   // Filter coaches by search term
@@ -439,15 +446,19 @@ export default function ManageCoachesPage() {
                         {/* Quick view of teams */}
                         {coachTeams && coachTeams.length > 0 && (
                           <div className="mt-3 flex flex-wrap gap-2">
-                            {coachTeams.map((team: string) => (
-                              <Badge
-                                className="bg-green-50 text-green-700"
-                                key={team}
-                                variant="outline"
-                              >
-                                {team} ({getTeamPlayerCount(team)})
-                              </Badge>
-                            ))}
+                            {coachTeams.map((teamId: string) => {
+                              const teamPlayerCount =
+                                getTeamPlayerCount(teamId);
+                              const teamName = getTeamName(teamId);
+                              return (
+                                <span
+                                  className="rounded-lg bg-green-50 px-2 py-1 text-green-700 text-xs"
+                                  key={teamId}
+                                >
+                                  {teamName} ({teamPlayerCount})
+                                </span>
+                              );
+                            })}
                           </div>
                         )}
                       </div>

@@ -115,7 +115,11 @@ export default function ManageUsersPage() {
 
   // Helper to get unique age groups from teams
   const ageGroups = Array.from(
-    new Set(teams?.map((team) => team.ageGroup).filter(Boolean) || [])
+    new Set(
+      teams
+        ?.map((team) => team.ageGroup)
+        .filter((ag): ag is string => typeof ag === "string") || []
+    )
   ).sort();
 
   const getRoleIcon = (role: string) => {

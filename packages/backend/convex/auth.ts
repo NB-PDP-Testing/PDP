@@ -13,6 +13,7 @@ import {
   parent,
 } from "./betterAuth/accessControl";
 import authSchema from "./betterAuth/schema";
+import { sendOrganizationInvitation } from "./utils/email";
 
 const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
 

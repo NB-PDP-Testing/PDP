@@ -55,8 +55,8 @@ export default function AcceptInvitationPage() {
           setStatus("success");
           // Redirect to the organization after a short delay
           setTimeout(() => {
-            if (result.data?.organizationId) {
-              router.push(`/orgs/${result.data.organizationId}`);
+            if (result.data?.invitation?.organizationId) {
+              router.push(`/orgs/${result.data.invitation.organizationId}`);
             } else {
               router.push("/orgs");
             }

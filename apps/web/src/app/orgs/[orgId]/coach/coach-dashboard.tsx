@@ -355,7 +355,7 @@ export function CoachDashboard() {
   }
 
   // Handle case where coach has no assignments
-  if (coachAssignments === null || coachAssignments.teams.length === 0) {
+  if (!coachAssignments || coachAssignments.teams.length === 0) {
     return (
       <div className="space-y-6">
         <Card>

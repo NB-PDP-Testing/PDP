@@ -3,7 +3,6 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
-  AlertTriangle,
   Calendar,
   CheckCircle,
   ChevronDown,
@@ -46,7 +45,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { authClient } from "@/lib/auth-client";
 
 export default function ManageCoachesPage() {
   const params = useParams();
@@ -104,12 +102,10 @@ export default function ManageCoachesPage() {
     teams: string[];
     ageGroups: string[];
     sport: string;
-    roles: string[];
   }>({
     teams: [],
     ageGroups: [],
     sport: "",
-    roles: [],
   });
 
   const isLoading =
@@ -171,13 +167,12 @@ export default function ManageCoachesPage() {
       teams: coachData.teams || [],
       ageGroups: coachData.ageGroups || [],
       sport: coachData.sport || "",
-      roles: coachData.roles || [coach.role],
     });
   };
 
   const cancelEditing = () => {
     setEditingCoach(null);
-    setEditData({ teams: [], ageGroups: [], sport: "", roles: [] });
+    setEditData({ teams: [], ageGroups: [], sport: "" });
   };
 
   const saveEdits = async (coach: any) => {
@@ -189,7 +184,6 @@ export default function ManageCoachesPage() {
         teams: editData.teams,
         ageGroups: editData.ageGroups,
         sport: editData.sport,
-        roles: editData.roles,
       });
 
       toast.success("Coach assignments updated successfully");
@@ -197,30 +191,6 @@ export default function ManageCoachesPage() {
     } catch (error: any) {
       console.error("Failed to update coach:", error);
       toast.error(error.message || "Failed to update coach assignments");
-    } finally {
-      setLoading(null);
-    }
-  };
-
-  const handleStatusChange = async (
-    coach: any,
-    newRole: "coach" | "admin" | "member"
-  ) => {
-    setLoading(coach.userId);
-    try {
-      await authClient.organization.updateMemberRole({
-        memberId: coach.id,
-        role: newRole,
-        organizationId: orgId,
-      });
-
-      toast.success(
-        `Coach ${newRole === "member" ? "deactivated" : "activated"} successfully`
-      );
-      await loadMembers();
-    } catch (error: any) {
-      console.error("Failed to update status:", error);
-      toast.error(error.message || "Failed to update coach status");
     } finally {
       setLoading(null);
     }
@@ -241,15 +211,6 @@ export default function ManageCoachesPage() {
       ageGroups: prev.ageGroups.includes(ageGroup)
         ? prev.ageGroups.filter((ag) => ag !== ageGroup)
         : [...prev.ageGroups, ageGroup],
-    }));
-  };
-
-  const toggleRole = (role: string) => {
-    setEditData((prev) => ({
-      ...prev,
-      roles: prev.roles.includes(role)
-        ? prev.roles.filter((r) => r !== role)
-        : [...prev.roles, role],
     }));
   };
 
@@ -574,38 +535,6 @@ export default function ManageCoachesPage() {
                               </div>
                             </div>
 
-                            {/* Additional Roles */}
-                            <div>
-                              <Label className="mb-2 block font-medium text-sm">
-                                Additional Roles
-                              </Label>
-                              <div className="flex flex-wrap gap-2">
-                                {["Coach", "Admin", "Parent"].map((role) => (
-                                  <Button
-                                    className={
-                                      editData.roles.includes(role)
-                                        ? "bg-purple-600 text-white hover:bg-purple-700"
-                                        : ""
-                                    }
-                                    key={role}
-                                    onClick={() => toggleRole(role)}
-                                    size="sm"
-                                    type="button"
-                                    variant={
-                                      editData.roles.includes(role)
-                                        ? "default"
-                                        : "outline"
-                                    }
-                                  >
-                                    {role}
-                                  </Button>
-                                ))}
-                              </div>
-                              <p className="mt-1 text-muted-foreground text-xs">
-                                Allow this user to switch between multiple roles
-                              </p>
-                            </div>
-
                             {/* Save/Cancel Buttons */}
                             <div className="flex gap-2 pt-2">
                               <Button
@@ -673,24 +602,6 @@ export default function ManageCoachesPage() {
                               </div>
                               <div>
                                 <p className="text-muted-foreground text-xs uppercase tracking-wider">
-                                  Roles
-                                </p>
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  {(coachData.roles || [coach.role]).map(
-                                    (role: string) => (
-                                      <Badge
-                                        className="bg-purple-50 text-purple-700"
-                                        key={role}
-                                        variant="outline"
-                                      >
-                                        {role}
-                                      </Badge>
-                                    )
-                                  )}
-                                </div>
-                              </div>
-                              <div>
-                                <p className="text-muted-foreground text-xs uppercase tracking-wider">
                                   Email Verified
                                 </p>
                                 <p className="mt-1 font-medium">
@@ -717,53 +628,25 @@ export default function ManageCoachesPage() {
 
                             {/* Actions */}
                             <div className="flex items-center justify-between border-t pt-3">
+                              <p className="text-muted-foreground text-sm">
+                                Last updated:{" "}
+                                {coachData.updatedAt
+                                  ? new Date(
+                                      coachData.updatedAt
+                                    ).toLocaleDateString()
+                                  : "Never"}
+                              </p>
                               <Button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   startEditing(coach);
                                 }}
+                                size="sm"
                                 variant="outline"
                               >
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit Assignments
                               </Button>
-
-                              <div className="flex gap-2">
-                                {coach.role === "coach" ||
-                                coach.role === "admin" ? (
-                                  <Button
-                                    disabled={loading === coach.userId}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (
-                                        confirm(
-                                          "Are you sure you want to deactivate this coach?"
-                                        )
-                                      ) {
-                                        handleStatusChange(coach, "member");
-                                      }
-                                    }}
-                                    size="sm"
-                                    variant="destructive"
-                                  >
-                                    <AlertTriangle className="mr-2 h-4 w-4" />
-                                    Deactivate
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    disabled={loading === coach.userId}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleStatusChange(coach, "coach");
-                                    }}
-                                    size="sm"
-                                    variant="default"
-                                  >
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Activate
-                                  </Button>
-                                )}
-                              </div>
                             </div>
                           </div>
                         )}

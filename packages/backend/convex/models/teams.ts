@@ -144,3 +144,53 @@ export const deleteTeam = mutation({
     return null;
   },
 });
+
+/**
+ * Get all team-player links for an organization (via teams)
+ */
+export const getTeamPlayerLinks = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("teamPlayers"),
+      _creationTime: v.number(),
+      teamId: v.string(),
+      playerId: v.id("players"),
+      createdAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all teams for this organization
+    const teams = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "team",
+      paginationOpts: {
+        cursor: null,
+        numItems: 1000,
+      },
+      where: [
+        {
+          field: "organizationId",
+          value: args.organizationId,
+          operator: "eq",
+        },
+      ],
+    });
+
+    const teamIds = teams.page.map((t) => t._id);
+
+    // Get all team-player links for these teams
+    const allLinks = await Promise.all(
+      teamIds.map(async (teamId) => {
+        const links = await ctx.db
+          .query("teamPlayers")
+          .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
+          .collect();
+        return links;
+      })
+    );
+
+    return allLinks.flat();
+  },
+});

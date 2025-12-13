@@ -60,6 +60,11 @@ export default function ManageCoachesPage() {
     organizationId: orgId,
   });
 
+  // Get team-player links for accurate counts
+  const teamPlayerLinks = useQuery(api.models.teams.getTeamPlayerLinks, {
+    organizationId: orgId,
+  });
+
   // Get coach assignments
   const coachAssignments = useQuery(
     api.models.coaches.getCoachAssignmentsByOrganization,
@@ -104,7 +109,8 @@ export default function ManageCoachesPage() {
     membersLoading ||
     teams === undefined ||
     allPlayers === undefined ||
-    coachAssignments === undefined;
+    coachAssignments === undefined ||
+    teamPlayerLinks === undefined;
 
   // Get unique values for assignments
   const uniqueTeams = [...new Set(teams?.map((t: any) => t.name) || [])];
@@ -131,17 +137,18 @@ export default function ManageCoachesPage() {
     return team?.name || teamId;
   };
 
-  // Helper functions to calculate player counts
+  // Helper functions to calculate player counts using teamPlayerLinks
   const getCoachPlayerCount = (coachTeamIds: string[]) => {
-    if (!coachTeamIds || coachTeamIds.length === 0 || !allPlayers) return 0;
-    return allPlayers.filter((player: any) =>
-      coachTeamIds.includes(player.team)
+    if (!coachTeamIds || coachTeamIds.length === 0 || !teamPlayerLinks)
+      return 0;
+    return teamPlayerLinks.filter((link: any) =>
+      coachTeamIds.includes(link.teamId)
     ).length;
   };
 
   const getTeamPlayerCount = (teamId: string) => {
-    if (!allPlayers) return 0;
-    return allPlayers.filter((player: any) => player.team === teamId).length;
+    if (!teamPlayerLinks) return 0;
+    return teamPlayerLinks.filter((link: any) => link.teamId === teamId).length;
   };
 
   // Filter coaches by search term

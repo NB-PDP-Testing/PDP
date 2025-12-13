@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { Building2, ChevronRight, Search, Users } from "lucide-react";
 import type { Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -100,77 +101,117 @@ export default function JoinOrganizationPage() {
   });
 
   return (
-    <div className="container mx-auto max-w-4xl space-y-6 py-8">
-      {/* Header */}
-      <div>
-        <h1 className="font-bold text-3xl tracking-tight">
-          Join an Organization
-        </h1>
-        <p className="mt-2 text-muted-foreground">
-          Select an organization to request to join
-        </p>
-      </div>
-
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
-        <Input
-          className="pl-10"
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search organizations..."
-          value={searchTerm}
-        />
-      </div>
-
-      {/* Organizations List */}
-      <div className="space-y-4">
-        {isLoading ? (
-          [1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardHeader>
-                <div className="flex items-center gap-4">
-                  <Skeleton className="h-12 w-12 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-5 w-48" />
-                    <Skeleton className="h-4 w-32" />
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
-          ))
-        ) : filteredOrgs && filteredOrgs.length > 0 ? (
-          filteredOrgs.map(
-            (org: { _id: string; name: string; logo?: string | null }) => (
-              <OrganizationCard
-                hasPendingRequest={pendingOrgIds.has(org._id)}
-                key={org._id}
-                org={org}
+    <div className="min-h-screen bg-gradient-to-b from-[#1E3A5F] via-[#1E3A5F] to-white p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-4xl">
+        {/* PlayerARC Welcome Section */}
+        <div className="mb-8 text-center text-white">
+          <div className="mb-4 flex justify-center">
+            <div className="relative h-16 w-16 sm:h-20 sm:w-20">
+              <Image
+                alt="PlayerARC Logo"
+                className="object-contain drop-shadow-lg"
+                fill
+                priority
+                sizes="(max-width: 640px) 64px, 80px"
+                src="/logos-landing/PDP-Logo-OffWhiteOrbit_GreenHuman.png"
               />
-            )
-          )
-        ) : (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-              <Building2 className="mb-4 h-12 w-12 text-muted-foreground" />
-              <h3 className="font-semibold text-lg">No Organizations Found</h3>
-              <p className="mt-1 text-muted-foreground">
-                {searchTerm
-                  ? "No organizations match your search"
-                  : "There are no organizations available to join"}
-              </p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+            </div>
+          </div>
+          <h1 className="mb-2 font-bold text-3xl tracking-tight sm:text-4xl">
+            Join an Organization
+          </h1>
+          <p className="mx-auto max-w-2xl text-base text-white/90 sm:text-lg">
+            Find and request to join a sports club or organization on PlayerARC
+          </p>
+        </div>
 
-      {/* Back Link */}
-      <div className="pt-4">
-        <Link
-          className="text-muted-foreground text-sm hover:text-foreground"
-          href="/orgs"
-        >
-          ← Back to organizations
-        </Link>
+        {/* Back Link */}
+        <div className="mb-6">
+          <Link
+            className="flex items-center gap-1 text-sm text-white/80 hover:text-white"
+            href="/orgs"
+          >
+            ← Back to organizations
+          </Link>
+        </div>
+
+        {/* Main Content Card */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#1E3A5F]/10">
+                <Users className="h-6 w-6 text-[#1E3A5F]" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl text-[#1E3A5F]">
+                  Available Organizations
+                </CardTitle>
+                <CardDescription>
+                  Search and select an organization to request to join
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Search */}
+            <div className="relative">
+              <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-10"
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search organizations..."
+                value={searchTerm}
+              />
+            </div>
+
+            {/* Organizations List */}
+            <div className="space-y-4">
+              {isLoading ? (
+                [1, 2, 3, 4].map((i) => (
+                  <Card key={i}>
+                    <CardHeader>
+                      <div className="flex items-center gap-4">
+                        <Skeleton className="h-12 w-12 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-5 w-48" />
+                          <Skeleton className="h-4 w-32" />
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </Card>
+                ))
+              ) : filteredOrgs && filteredOrgs.length > 0 ? (
+                filteredOrgs.map(
+                  (org: {
+                    _id: string;
+                    name: string;
+                    logo?: string | null;
+                  }) => (
+                    <OrganizationCard
+                      hasPendingRequest={pendingOrgIds.has(org._id)}
+                      key={org._id}
+                      org={org}
+                    />
+                  )
+                )
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                    <Building2 className="mb-4 h-12 w-12 text-muted-foreground" />
+                    <h3 className="font-semibold text-lg">
+                      No Organizations Found
+                    </h3>
+                    <p className="mt-1 text-muted-foreground">
+                      {searchTerm
+                        ? "No organizations match your search"
+                        : "There are no organizations available to join"}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

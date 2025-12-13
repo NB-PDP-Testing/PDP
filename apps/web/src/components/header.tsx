@@ -10,6 +10,7 @@ import { useOrgTheme } from "@/hooks/use-org-theme";
 import { authClient } from "@/lib/auth-client";
 import type { OrgMemberRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { FunctionalRoleIndicator } from "./functional-role-indicator";
 import { ModeToggle } from "./mode-toggle";
 import { OrgSelector } from "./org-selector";
 import UserMenu from "./user-menu";
@@ -52,6 +53,13 @@ export default function Header() {
   // Check if we're on an auth page or landing page
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isLandingPage = pathname === "/";
+  // Check if we're on orgs routes that should show PlayerARC branding (no org-specific content)
+  const isOrgsListingPage = pathname === "/orgs" || pathname === "/orgs/";
+  const isOrgsJoinPage =
+    pathname === "/orgs/join" || pathname?.startsWith("/orgs/join/");
+  const isOrgsCreatePage = pathname === "/orgs/create";
+  const shouldHideOrgContent =
+    isOrgsListingPage || isOrgsJoinPage || isOrgsCreatePage;
 
   // Track current org in user profile
   useEffect(() => {
@@ -60,13 +68,17 @@ export default function Header() {
     }
   }, [user, orgId, member?.organizationId]);
 
-  // Get primary club color using the theme hook
+  // Get header styling based on context:
+  // - Org pages: Use org primary color
+  // - Non-org pages: Use PDP brand navy color (#1E3A5F)
   const headerBackgroundStyle = orgId
     ? {
         backgroundColor: theme.primary,
       }
-    : {};
-  const headerTextStyle = orgId ? "text-white" : "";
+    : {
+        backgroundColor: "#1E3A5F", // PDP brand navy
+      };
+  const headerTextStyle = "text-white"; // Always white text for contrast
 
   // Minimal header for auth pages (just theme toggle)
   if (isAuthPage) {
@@ -89,7 +101,8 @@ export default function Header() {
         style={headerBackgroundStyle}
       >
         {/* Left side - Org logo and nav */}
-        {org && (
+        {/* Only show org info when on a specific org page, not on /orgs listing, join, or create */}
+        {org && !shouldHideOrgContent && (
           <>
             <div className={cn("flex items-center gap-4", headerTextStyle)}>
               <Link
@@ -118,6 +131,16 @@ export default function Header() {
 
         {/* Right side - User controls */}
         <div className="flex items-center gap-2">
+          {/* Only show role indicator when on a specific org page */}
+          {member && !shouldHideOrgContent && (
+            <FunctionalRoleIndicator
+              functionalRoles={
+                (member.functionalRoles as
+                  | ("coach" | "parent" | "admin")[]
+                  | undefined) || []
+              }
+            />
+          )}
           <OrgSelector />
           <UserMenu />
           <ModeToggle />

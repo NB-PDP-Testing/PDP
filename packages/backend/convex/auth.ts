@@ -65,6 +65,18 @@ export function createAuth(
           coach,
           parent,
         },
+        // Email invitation configuration
+        async sendInvitationEmail(data) {
+          const inviteLink = `${siteUrl}/orgs/accept-invitation/${data.id}`;
+          await sendOrganizationInvitation({
+            email: data.email,
+            invitedByUsername: data.inviter.user.name || "Someone",
+            invitedByEmail: data.inviter.user.email,
+            organizationName: data.organization.name,
+            inviteLink,
+            role: data.role || undefined,
+          });
+        },
       }),
     ],
     socialProviders: {

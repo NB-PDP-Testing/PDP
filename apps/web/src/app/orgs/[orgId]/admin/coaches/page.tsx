@@ -94,11 +94,6 @@ export default function ManageCoachesPage() {
     }
   }, [coaches]);
 
-  // Load coaches on mount
-  useEffect(() => {
-    loadMembers();
-  }, [loadMembers]);
-
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [editingCoach, setEditingCoach] = useState<string | null>(null);

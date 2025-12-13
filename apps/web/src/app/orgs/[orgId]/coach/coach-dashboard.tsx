@@ -1,304 +1,499 @@
 "use client";
 
-import {
-  AlertCircle,
-  BarChart3,
-  Brain,
-  CheckCircle,
-  Mic,
-  Target,
-  TrendingDown,
-  TrendingUp,
-  Users,
-  Zap,
-} from "lucide-react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-
-// TODO: Replace with actual data fetching from Convex
-interface TeamAnalytics {
-  teamId: string;
-  teamName: string;
-  playerCount: number;
-  avgSkillLevel: number;
-  strengths: Array<{ skill: string; avg: number }>;
-  weaknesses: Array<{ skill: string; avg: number }>;
-  overdueReviews: number;
-  attendanceIssues: number;
-  topPerformers: string[];
-  needsAttention: string[];
-}
-
-interface CorrelationInsight {
-  type: "attendance" | "improvement" | "position";
-  message: string;
-  severity: "info" | "warning" | "success";
-}
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
+import { Brain } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { SmartCoachDashboard } from "@/components/smart-coach-dashboard";
+import { Card, CardContent } from "@/components/ui/card";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { authClient } from "@/lib/auth-client";
 
 export function CoachDashboard() {
   const params = useParams();
+  const router = useRouter();
   const orgId = params.orgId as string;
+  const currentUser = useCurrentUser();
+  const { data: session } = authClient.useSession();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  const [ageGroupFilter, setAgeGroupFilter] = useState<string>("all");
+  const [sportFilter, setSportFilter] = useState<string>("all");
+  const [genderFilter, setGenderFilter] = useState<string>("all");
+  const [reviewStatusFilter, setReviewStatusFilter] = useState<string>("all");
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
 
-  // TODO: Fetch real data from Convex
-  const mockData = {
-    totalPlayers: 0,
-    completedReviews: 0,
-    overdueReviews: 0,
-    avgSkillLevel: 0,
-    teams: [] as TeamAnalytics[],
-    insights: [] as CorrelationInsight[],
-  };
+  // Fallback: use session user ID if Convex user query returns null
+  const userId = currentUser?._id || session?.user?.id;
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="rounded-lg bg-gradient-to-r from-green-600 to-green-700 p-6 text-white shadow-md">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Users size={28} />
-            <div>
-              <h2 className="font-bold text-2xl">Coach Dashboard</h2>
-              <p className="text-green-100 text-sm">
-                Team insights and analytics
-              </p>
-            </div>
-          </div>
+  // Get coach assignments for current user
+  const coachAssignments = useQuery(
+    api.models.coaches.getCoachAssignments,
+    userId && orgId
+      ? {
+          userId,
+          organizationId: orgId,
+        }
+      : "skip"
+  );
+
+  // Get all teams for the organization
+  const teams = useQuery(api.models.teams.getTeamsByOrganization, {
+    organizationId: orgId,
+  });
+
+  // Get all players for the organization
+  const allPlayers = useQuery(api.models.players.getPlayersByOrganization, {
+    organizationId: orgId,
+  });
+
+  // Get team-player links to map players to teams
+  const teamPlayerLinks = useQuery(api.models.teams.getTeamPlayerLinks, {
+    organizationId: orgId,
+  });
+
+  // Get coach's assigned team IDs (convert names to IDs if needed)
+  const coachTeamIds = useMemo(() => {
+    if (!(coachAssignments && teams)) return [];
+    const assignmentTeams = coachAssignments.teams || [];
+
+    // Convert team names/IDs to team IDs
+    return assignmentTeams
+      .map((teamValue: string) => {
+        // Check if it's already a team ID (exists in teams array by _id)
+        const teamById = teams.find((t: any) => t._id === teamValue);
+        if (teamById) {
+          return teamValue; // It's already an ID
+        }
+
+        // Check if it's a team name (exists in teams array by name)
+        const teamByName = teams.find((t: any) => t.name === teamValue);
+        if (teamByName) {
+          return teamByName._id; // Convert name to ID
+        }
+
+        // Fallback: return as-is (might be an ID that doesn't match)
+        return teamValue;
+      })
+      .filter(Boolean);
+  }, [coachAssignments, teams]);
+
+  // Filter team-player links to only those for coach's assigned teams
+  const coachTeamPlayerLinks = useMemo(() => {
+    if (!teamPlayerLinks || coachTeamIds.length === 0) return [];
+    return teamPlayerLinks.filter((link: any) =>
+      coachTeamIds.includes(link.teamId)
+    );
+  }, [teamPlayerLinks, coachTeamIds]);
+
+  // Get unique player IDs from coach's team links
+  const coachPlayerIds = useMemo(
+    () =>
+      new Set(
+        coachTeamPlayerLinks.map((link: any) => link.playerId.toString())
+      ),
+    [coachTeamPlayerLinks]
+  );
+
+  // Filter players to only those in coach's teams
+  const coachPlayers = useMemo(() => {
+    if (!allPlayers || coachPlayerIds.size === 0) return [];
+    return allPlayers.filter((player) =>
+      coachPlayerIds.has(player._id.toString())
+    );
+  }, [allPlayers, coachPlayerIds]);
+
+  // Map players with team names (similar to admin/coaches approach)
+  const playersWithTeams = useMemo(() => {
+    if (!(coachPlayers && teamPlayerLinks && teams)) {
+      console.log("[coach-dashboard] playersWithTeams: missing data", {
+        coachPlayers: coachPlayers?.length ?? "undefined",
+        teamPlayerLinks: teamPlayerLinks?.length ?? "undefined",
+        teams: teams?.length ?? "undefined",
+      });
+      return [];
+    }
+
+    console.log(
+      `[coach-dashboard] Mapping ${coachPlayers.length} players with ${teamPlayerLinks.length} links and ${teams.length} teams`
+    );
+
+    const mapped = coachPlayers.map((player) => {
+      // Find team links for this player (only from coach's assigned teams)
+      const links = coachTeamPlayerLinks.filter(
+        (link: any) => link.playerId.toString() === player._id.toString()
+      );
+
+      // Get team names from links
+      const playerTeams = links
+        .map((link: any) => {
+          const team = teams.find((t: any) => t._id === link.teamId);
+          return team?.name;
+        })
+        .filter(Boolean) as string[];
+
+      // Use first team name or empty string
+      const teamName = playerTeams[0] || "";
+
+      if (links.length > 0 && !teamName) {
+        console.warn(
+          `[coach-dashboard] Player ${player._id} has ${links.length} links but no team name found`,
+          {
+            links: links.map((l: any) => l.teamId),
+            teams: teams.map((t: any) => ({ id: t._id, name: t.name })),
+          }
+        );
+      }
+
+      return {
+        ...player,
+        teamName,
+        team: teamName, // For compatibility
+      };
+    });
+
+    console.log(
+      `[coach-dashboard] Mapped ${mapped.length} players, ${mapped.filter((p) => p.teamName).length} with team names`
+    );
+
+    return mapped;
+  }, [coachPlayers, coachTeamPlayerLinks, teams]);
+
+  // Get unique values for filters from coach's players
+  const uniqueAgeGroups = useMemo(() => {
+    const ageGroups = new Set(
+      coachPlayers.map((p) => p.ageGroup).filter(Boolean)
+    );
+    return Array.from(ageGroups).sort();
+  }, [coachPlayers]);
+
+  const uniqueSports = useMemo(() => {
+    const sports = new Set(coachPlayers.map((p) => p.sport).filter(Boolean));
+    return Array.from(sports).sort();
+  }, [coachPlayers]);
+
+  const uniqueGenders = useMemo(() => {
+    const genders = new Set(coachPlayers.map((p) => p.gender).filter(Boolean));
+    return Array.from(genders).sort();
+  }, [coachPlayers]);
+
+  // Filter players based on all filters
+  const filteredPlayers = useMemo(() => {
+    let filtered = playersWithTeams;
+
+    // Filter by search term
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter((p) =>
+        p.name?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Filter by team
+    if (teamFilter) {
+      filtered = filtered.filter(
+        (p) => p.teamName === teamFilter || p.team === teamFilter
+      );
+    }
+
+    // Filter by age group
+    if (ageGroupFilter !== "all") {
+      filtered = filtered.filter((p) => p.ageGroup === ageGroupFilter);
+    }
+
+    // Filter by sport
+    if (sportFilter !== "all") {
+      filtered = filtered.filter((p) => p.sport === sportFilter);
+    }
+
+    // Filter by gender
+    if (genderFilter !== "all") {
+      filtered = filtered.filter(
+        (p) => p.gender?.toUpperCase() === genderFilter.toUpperCase()
+      );
+    }
+
+    // Filter by review status
+    if (reviewStatusFilter !== "all") {
+      filtered = filtered.filter((p) => p.reviewStatus === reviewStatusFilter);
+    }
+
+    return filtered;
+  }, [
+    playersWithTeams,
+    searchTerm,
+    teamFilter,
+    ageGroupFilter,
+    sportFilter,
+    genderFilter,
+    reviewStatusFilter,
+  ]);
+
+  // Check if any filters are active
+  const hasActiveFilters = useMemo(
+    () =>
+      !!searchTerm ||
+      !!teamFilter ||
+      ageGroupFilter !== "all" ||
+      sportFilter !== "all" ||
+      genderFilter !== "all" ||
+      reviewStatusFilter !== "all",
+    [
+      searchTerm,
+      teamFilter,
+      ageGroupFilter,
+      sportFilter,
+      genderFilter,
+      reviewStatusFilter,
+    ]
+  );
+
+  // Get coach team names from assignments
+  // Convert team IDs to team names if needed
+  const coachTeamNames = useMemo(() => {
+    if (!(coachAssignments && teams)) return [];
+    const assignmentTeams = coachAssignments.teams || [];
+
+    // Convert team IDs to team names
+    return assignmentTeams.map((teamValue: string) => {
+      // Check if it's already a team name (exists in teams array)
+      const teamByName = teams.find((t: any) => t.name === teamValue);
+      if (teamByName) {
+        return teamValue; // It's already a name
+      }
+
+      // Check if it's a team ID
+      const teamById = teams.find((t: any) => t._id === teamValue);
+      if (teamById) {
+        return teamById.name; // Convert ID to name
+      }
+
+      // Fallback: return as-is (might be a name that doesn't match exactly)
+      return teamValue;
+    });
+  }, [coachAssignments, teams]);
+
+  // Check if any query is still loading
+  // Note: null means loaded but no data found, undefined means still loading
+  // If userId is null, queries are skipped and we should show error
+  const hasUser = userId !== null && userId !== undefined;
+  const isLoading =
+    // Wait for session to load if we don't have a user yet
+    (!userId && session === undefined) ||
+    // Wait for currentUser query if we have session but no user yet
+    (session?.user?.id && currentUser === undefined) ||
+    teams === undefined ||
+    teamPlayerLinks === undefined ||
+    allPlayers === undefined ||
+    // Only check coachAssignments if we have a user
+    (hasUser && coachAssignments === undefined);
+
+  // Debug logging (remove in production)
+  if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+    console.log("Coach Dashboard Debug:", {
+      currentUser: currentUser?._id || "null/undefined",
+      sessionUserId: session?.user?.id || "null/undefined",
+      userId: userId || "null/undefined",
+      orgId,
+      coachAssignments:
+        coachAssignments === undefined
+          ? "loading"
+          : coachAssignments === null
+            ? "null (no assignments)"
+            : `loaded (${coachAssignments.teams.length} teams: ${JSON.stringify(coachAssignments.teams)})`,
+      coachTeamNames:
+        coachTeamNames.length > 0 ? JSON.stringify(coachTeamNames) : "empty",
+      teams: teams
+        ? `loaded (${teams.length}): ${teams.map((t: any) => `${t.name}(${t._id})`).join(", ")}`
+        : "loading",
+      allPlayers: allPlayers ? `loaded (${allPlayers.length})` : "loading",
+      coachTeamIds: coachTeamIds.length,
+      coachTeamPlayerLinks: coachTeamPlayerLinks.length,
+      coachPlayers: coachPlayers.length,
+      playersWithTeams: playersWithTeams.length,
+      filteredPlayers: filteredPlayers.length,
+      teamPlayerLinks: teamPlayerLinks
+        ? `loaded (${teamPlayerLinks.length})`
+        : "loading",
+      isLoading,
+    });
+  }
+
+  // Handle case where user is not authenticated
+  if (!userId && session === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <Brain className="mx-auto mb-4 text-gray-400" size={48} />
+          <h3 className="mb-2 font-semibold text-gray-700 text-lg">
+            Authentication Required
+          </h3>
+          <p className="mb-4 text-gray-500">
+            You need to be logged in to view the coach dashboard.
+          </p>
+          <button
+            className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+            onClick={() => router.push("/login")}
+          >
+            Go to Login
+          </button>
         </div>
       </div>
+    );
+  }
 
-      {/* Overall Statistics */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <Card className="cursor-pointer transition-shadow hover:shadow-lg">
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <Users className="text-blue-600" size={20} />
-              <div className="font-bold text-2xl text-gray-800">
-                {mockData.totalPlayers}
-              </div>
-            </div>
-            <div className="font-medium text-gray-600 text-sm">
-              Total Players
-            </div>
-            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
-              <div className="h-1 w-full rounded-full bg-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer transition-shadow hover:shadow-lg">
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <CheckCircle className="text-green-600" size={20} />
-              <div className="font-bold text-2xl text-gray-800">
-                {mockData.completedReviews}
-              </div>
-            </div>
-            <div className="font-medium text-gray-600 text-sm">
-              Reviews Complete
-            </div>
-            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
-              <div className="h-1 w-1/2 rounded-full bg-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="cursor-pointer transition-shadow hover:shadow-lg">
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <AlertCircle className="text-red-600" size={20} />
-              <div className="font-bold text-2xl text-gray-800">
-                {mockData.overdueReviews}
-              </div>
-            </div>
-            <div className="font-medium text-gray-600 text-sm">
-              Reviews Overdue
-            </div>
-            <div className="mt-2 h-1 w-full rounded-full bg-red-100">
-              <div className="h-1 w-1/4 rounded-full bg-red-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="transition-shadow hover:shadow-lg">
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <TrendingUp className="text-purple-600" size={20} />
-              <div className="font-bold text-2xl text-gray-800">
-                {mockData.avgSkillLevel.toFixed(1)}
-              </div>
-            </div>
-            <div className="text-gray-600 text-sm">Avg Skill Level</div>
-            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
-              <div className="h-1 w-3/4 rounded-full bg-purple-600" />
-            </div>
-          </CardContent>
-        </Card>
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-green-600 border-b-2" />
+          <p className="text-gray-600">Loading coach dashboard...</p>
+        </div>
       </div>
+    );
+  }
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="text-yellow-600" size={20} />
-            Quick Actions
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Button asChild className="bg-green-600 hover:bg-green-700">
-            <Link href={`/orgs/${orgId}/coach/voice-notes`}>
-              <Mic className="mr-2" size={16} />
-              Voice Notes
-            </Link>
-          </Button>
-          <Button variant="outline">
-            <Target className="mr-2" size={16} />
-            Session Planner
-          </Button>
-          <Button variant="outline">
-            <BarChart3 className="mr-2" size={16} />
-            Team Analytics
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Data Insights */}
-      {mockData.insights.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="text-blue-600" size={20} />
-              Team Data Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {mockData.insights.map((insight, idx) => (
-              <div
-                className={`flex items-start gap-3 rounded-lg p-3 ${
-                  insight.severity === "warning"
-                    ? "border border-orange-200 bg-orange-50"
-                    : insight.severity === "success"
-                      ? "border border-green-200 bg-green-50"
-                      : "border border-blue-200 bg-blue-50"
-                }`}
-                key={idx}
-              >
-                {insight.severity === "warning" ? (
-                  <AlertCircle className="mt-0.5 text-orange-600" size={18} />
-                ) : (
-                  <Target className="mt-0.5 text-blue-600" size={18} />
-                )}
-                <p className="text-gray-700 text-sm leading-relaxed">
-                  {insight.message}
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Teams Section */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {mockData.teams.map((team) => (
-          <Card className="transition-shadow hover:shadow-xl" key={team.teamId}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle>{team.teamName}</CardTitle>
-                  <CardDescription>{team.playerCount} Players</CardDescription>
-                </div>
-                <div className="text-right">
-                  <div className="font-bold text-3xl text-green-600">
-                    {team.avgSkillLevel.toFixed(1)}
-                  </div>
-                  <div className="text-gray-500 text-xs">Avg Skill</div>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Strengths */}
-              {team.strengths.length > 0 && (
-                <div className="rounded-lg border border-green-200 bg-green-50 p-3">
-                  <div className="flex items-start gap-2">
-                    <TrendingUp className="mt-0.5 text-green-600" size={16} />
-                    <div className="flex-1">
-                      <div className="mb-2 font-semibold text-green-800 text-sm">
-                        Top Strengths
-                      </div>
-                      <div className="space-y-1">
-                        {team.strengths.map((s, i) => (
-                          <div className="flex items-center gap-2" key={i}>
-                            <Badge variant="secondary">{s.skill}</Badge>
-                            <span className="text-green-700 text-xs">
-                              {s.avg.toFixed(1)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Weaknesses */}
-              {team.weaknesses.length > 0 && (
-                <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
-                  <div className="flex items-start gap-2">
-                    <TrendingDown
-                      className="mt-0.5 text-orange-600"
-                      size={16}
-                    />
-                    <div className="flex-1">
-                      <div className="mb-2 font-semibold text-orange-800 text-sm">
-                        Areas to Improve
-                      </div>
-                      <div className="space-y-1">
-                        {team.weaknesses.map((w, i) => (
-                          <div className="flex items-center gap-2" key={i}>
-                            <Badge variant="secondary">{w.skill}</Badge>
-                            <span className="text-orange-700 text-xs">
-                              {w.avg.toFixed(1)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <Button className="flex-1" variant="default">
-                  View Team
-                </Button>
-                <Button className="flex-1" variant="outline">
-                  Analytics
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Empty State */}
-      {mockData.teams.length === 0 && (
+  // Handle case where coach has no assignments
+  if (coachAssignments === null || coachAssignments.teams.length === 0) {
+    return (
+      <div className="space-y-6">
         <Card>
           <CardContent className="py-12 text-center">
             <Brain className="mx-auto mb-4 text-gray-400" size={48} />
             <h3 className="mb-2 font-semibold text-gray-700 text-lg">
-              No Teams Found
+              No Teams Assigned
             </h3>
             <p className="mb-4 text-gray-500">
               You don't have any teams assigned yet. Contact your administrator
               to get started.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Handle navigation callbacks
+  const handleViewTeam = (teamName: string) => {
+    // Toggle: if same team is clicked, clear selection; otherwise select it
+    if (selectedTeam === teamName) {
+      setSelectedTeam(null);
+      setTeamFilter(null);
+    } else {
+      setSelectedTeam(teamName);
+      setTeamFilter(teamName);
+    }
+    setReviewStatusFilter("all");
+    // Scroll to top or navigate to players list
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleClearTeamSelection = () => {
+    setSelectedTeam(null);
+    setTeamFilter(null);
+    setReviewStatusFilter("all");
+  };
+
+  const handleViewAnalytics = (teamName?: string) => {
+    if (teamName) {
+      setTeamFilter(teamName);
+    }
+    // Navigate to analytics page or show analytics modal
+    // For now, just scroll to top
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleFilterOverdueReviews = () => {
+    setReviewStatusFilter("Overdue");
+    setTeamFilter(null);
+    setSearchTerm("");
+    setAgeGroupFilter("all");
+    setSportFilter("all");
+    setGenderFilter("all");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleFilterAllPlayers = () => {
+    setReviewStatusFilter("all");
+    setTeamFilter(null);
+    setSelectedTeam(null);
+    setSearchTerm("");
+    setAgeGroupFilter("all");
+    setSportFilter("all");
+    setGenderFilter("all");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleFilterCompletedReviews = () => {
+    setReviewStatusFilter("Completed");
+    setTeamFilter(null);
+    setSearchTerm("");
+    setAgeGroupFilter("all");
+    setSportFilter("all");
+    setGenderFilter("all");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Handle player view/edit navigation
+  const handleViewPlayer = (player: any) => {
+    // Navigate to player passport page
+    router.push(`/orgs/${orgId}/players/${player._id}`);
+  };
+
+  const handleEditPlayer = (player: any) => {
+    // Navigate to player edit page
+    router.push(`/orgs/${orgId}/players/${player._id}/edit`);
+  };
+
+  const handleViewVoiceNotes = () => {
+    // Navigate to voice notes page
+    router.push(`/orgs/${orgId}/coach/voice-notes`);
+  };
+
+  return (
+    <div className="space-y-6">
+      <SmartCoachDashboard
+        ageGroupFilter={ageGroupFilter}
+        coachTeams={coachTeamNames}
+        genderFilter={genderFilter}
+        isClubView={false}
+        onAgeGroupFilterChange={setAgeGroupFilter}
+        onClearTeamSelection={handleClearTeamSelection}
+        onEditPlayer={handleEditPlayer}
+        onFilterAllPlayers={handleFilterAllPlayers}
+        onFilterCompletedReviews={handleFilterCompletedReviews}
+        onFilterOverdueReviews={handleFilterOverdueReviews}
+        onGenderFilterChange={setGenderFilter}
+        onSearchChange={setSearchTerm}
+        onSportFilterChange={setSportFilter}
+        onTeamFilterChange={setTeamFilter}
+        onViewAnalytics={handleViewAnalytics}
+        onViewPlayer={handleViewPlayer}
+        onViewTeam={handleViewTeam}
+        onViewVoiceNotes={handleViewVoiceNotes}
+        players={filteredPlayers}
+        searchTerm={searchTerm}
+        selectedTeam={selectedTeam}
+        sportFilter={sportFilter}
+        teamFilter={teamFilter}
+        uniqueAgeGroups={uniqueAgeGroups}
+        uniqueGenders={uniqueGenders}
+        uniqueSports={uniqueSports}
+      />
+
+      {/* Empty State */}
+      {filteredPlayers.length === 0 && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Brain className="mx-auto mb-4 text-gray-400" size={48} />
+            <h3 className="mb-2 font-semibold text-gray-700 text-lg">
+              {hasActiveFilters ? "No Players Match Filters" : "No Teams Found"}
+            </h3>
+            <p className="mb-4 text-gray-500">
+              {hasActiveFilters
+                ? "Try adjusting your filters to see more players."
+                : "You don't have any teams assigned yet. Contact your administrator to get started."}
             </p>
           </CardContent>
         </Card>

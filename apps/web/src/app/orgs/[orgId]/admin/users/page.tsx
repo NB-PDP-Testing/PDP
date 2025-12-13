@@ -153,7 +153,20 @@ export default function ManageUsersPage() {
       return;
     }
 
-    const coachTeams = member.coachAssignments?.teams || [];
+    const coachTeamsRaw = member.coachAssignments?.teams || [];
+    // Convert team IDs to team names if needed (for consistency)
+    // But keep IDs in state for UI checking against team._id
+    const coachTeams = coachTeamsRaw.map((teamValue: string) => {
+      // Check if it's already a team name
+      const teamByName = teams?.find((t: any) => t.name === teamValue);
+      if (teamByName) {
+        // It's a name, but we need the ID for the UI
+        return teamByName._id;
+      }
+      // It's already an ID, return as-is
+      return teamValue;
+    });
+
     const coachAgeGroups = member.coachAssignments?.ageGroups || [];
     const linkedPlayerIds = member.linkedPlayers?.map((p: any) => p._id) || [];
     const functionalRoles = member.functionalRoles || [];
@@ -162,7 +175,7 @@ export default function ManageUsersPage() {
       ...prev,
       [member.userId]: {
         functionalRoles,
-        teams: coachTeams,
+        teams: coachTeams, // Store IDs for UI consistency
         ageGroups: coachAgeGroups,
         linkedPlayerIds,
         expanded: false,
@@ -286,10 +299,28 @@ export default function ManageUsersPage() {
 
       // Update coach assignments if they have coach role
       if (state.functionalRoles.includes("coach")) {
+        // Convert team IDs to team names for consistency
+        const teamNames = (state.teams || [])
+          .map((teamIdOrName: string) => {
+            // Check if it's already a name (exists in teams array by name)
+            const teamByName = teams?.find((t: any) => t.name === teamIdOrName);
+            if (teamByName) {
+              return teamIdOrName; // It's already a name
+            }
+            // Check if it's a team ID and convert to name
+            const teamById = teams?.find((t: any) => t._id === teamIdOrName);
+            if (teamById) {
+              return teamById.name; // Convert ID to name
+            }
+            // Fallback: return as-is (might be a name that doesn't match)
+            return teamIdOrName;
+          })
+          .filter(Boolean);
+
         await updateCoachAssignments({
           userId,
           organizationId: orgId,
-          teams: state.teams,
+          teams: teamNames,
           ageGroups: state.ageGroups,
         });
       }

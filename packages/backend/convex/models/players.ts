@@ -118,6 +118,149 @@ export const getPlayersByTeam = query({
 });
 
 /**
+ * Get players for a coach based on their team assignments
+ * Returns all players from teams assigned to the coach
+ */
+export const getPlayersForCoach = query({
+  args: {
+    userId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    // Get coach assignments
+    const coachAssignment = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", args.userId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!coachAssignment || coachAssignment.teams.length === 0) {
+      console.log(
+        `[getPlayersForCoach] No coach assignment found for userId: ${args.userId}, orgId: ${args.organizationId}`
+      );
+      return [];
+    }
+
+    console.log(
+      "[getPlayersForCoach] Coach assignment found with teams:",
+      coachAssignment.teams
+    );
+
+    // Get all teams for this organization to match team names
+    const teamsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "team",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const teams = teamsResult.page as any[];
+
+    console.log(
+      `[getPlayersForCoach] Found ${teams.length} teams in organization`
+    );
+
+    // Match team names OR team IDs to team IDs
+    // coachAssignments.teams might contain either team names or team IDs
+    // Normalize team names for comparison (trim whitespace, case-insensitive)
+    const normalizedCoachTeams = coachAssignment.teams.map((t: string) =>
+      t.trim()
+    );
+    const assignedTeamIds = teams
+      .filter((team: any) => {
+        // Check if coachAssignment.teams contains either the team name or team ID
+        // Normalize team name for comparison
+        const normalizedTeamName = team.name?.trim() || "";
+        const matches =
+          normalizedCoachTeams.includes(normalizedTeamName) ||
+          normalizedCoachTeams.includes(team._id) ||
+          coachAssignment.teams.includes(team.name) ||
+          coachAssignment.teams.includes(team._id);
+        if (matches) {
+          console.log(
+            `[getPlayersForCoach] Matched team: ${team.name} (${team._id})`
+          );
+        }
+        return matches;
+      })
+      .map((team: any) => team._id);
+
+    console.log(
+      `[getPlayersForCoach] Found ${assignedTeamIds.length} assigned team IDs:`,
+      assignedTeamIds
+    );
+
+    if (assignedTeamIds.length === 0) {
+      console.log(
+        "[getPlayersForCoach] No teams matched from coachAssignment.teams:",
+        coachAssignment.teams
+      );
+      return [];
+    }
+
+    // Get all team-player links for assigned teams
+    const allLinks = await Promise.all(
+      assignedTeamIds.map(async (teamId: string) => {
+        const links = await ctx.db
+          .query("teamPlayers")
+          .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
+          .collect();
+        console.log(
+          `[getPlayersForCoach] Found ${links.length} player links for team ${teamId}`
+        );
+        return links;
+      })
+    );
+
+    const flatLinks = allLinks.flat();
+    console.log(
+      `[getPlayersForCoach] Total player links found: ${flatLinks.length}`
+    );
+
+    const playerIds = new Set(
+      flatLinks.map((link) => link.playerId.toString())
+    );
+
+    console.log(
+      `[getPlayersForCoach] Unique player IDs: ${playerIds.size}`,
+      Array.from(playerIds)
+    );
+
+    // Fetch all unique player records
+    const players = await Promise.all(
+      Array.from(playerIds).map(async (playerIdStr) => {
+        const playerId = playerIdStr as Id<"players">;
+        const player = await ctx.db.get(playerId);
+        return player;
+      })
+    );
+
+    const filteredPlayers = players.filter(
+      (p) => p !== null && p.organizationId === args.organizationId
+    );
+
+    console.log(
+      `[getPlayersForCoach] Returning ${filteredPlayers.length} players`
+    );
+
+    return filteredPlayers;
+  },
+});
+
+/**
  * Get a single player by ID
  */
 export const getPlayerById = query({

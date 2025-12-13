@@ -32,6 +32,7 @@ interface Team {
   name: string;
   ageGroup?: string;
   sport?: string;
+  [key: string]: any; // Allow additional properties
 }
 
 interface PlayerData {

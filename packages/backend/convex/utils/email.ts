@@ -24,7 +24,14 @@ interface InvitationEmailData {
 export async function sendOrganizationInvitation(
   data: InvitationEmailData
 ): Promise<void> {
-  const { email, invitedByUsername, organizationName, inviteLink, role } = data;
+  const {
+    email,
+    invitedByUsername,
+    invitedByEmail,
+    organizationName,
+    inviteLink,
+    role,
+  } = data;
 
   // Email template
   const subject = `Invitation to join ${organizationName} on PlayerARC`;

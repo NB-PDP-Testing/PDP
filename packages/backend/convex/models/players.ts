@@ -9,6 +9,68 @@ import { internalQuery, mutation, query } from "../_generated/server";
  */
 
 /**
+ * Get complete player passport data with all related information
+ * Used for the player passport/profile page
+ */
+export const getPlayerPassport = query({
+  args: {
+    playerId: v.id("players"),
+    organizationId: v.string(),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    // Get player data
+    const player = await ctx.db.get(args.playerId);
+    if (!player || player.organizationId !== args.organizationId) {
+      return null;
+    }
+
+    // Get all teams this player is on via teamPlayers junction table
+    const teamLinks = await ctx.db
+      .query("teamPlayers")
+      .withIndex("by_playerId", (q) => q.eq("playerId", args.playerId))
+      .collect();
+
+    // Fetch team details
+    const teams = await Promise.all(
+      teamLinks.map(async (link) => {
+        // Query Better Auth team table via internal query
+        const team = await ctx.db
+          .query("team")
+          .filter((q) => q.eq(q.field("_id"), link.teamId))
+          .first();
+        return team;
+      })
+    );
+
+    // Filter out any null teams and format
+    const playerTeams = teams.filter((t) => t !== null);
+
+    // Get coach assignments for these teams
+    const coachAssignments = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // Find coaches for player's teams
+    const relevantCoaches = coachAssignments.filter((ca) =>
+      ca.teams.some((teamId) =>
+        teamLinks.some((link) => link.teamId === teamId)
+      )
+    );
+
+    return {
+      ...player,
+      teams: playerTeams,
+      coaches: relevantCoaches,
+      teamCount: playerTeams.length,
+    };
+  },
+});
+
+/**
  * Get all players for an organization
  */
 export const getPlayersByOrganization = query({

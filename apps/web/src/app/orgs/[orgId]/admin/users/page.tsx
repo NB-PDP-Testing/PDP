@@ -1,24 +1,26 @@
 "use client";
 
-import type { User } from "better-auth";
+import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
-  Calendar,
-  CheckCircle,
   ChevronDown,
   ChevronUp,
   Loader2,
   Mail,
-  Phone,
+  Save,
   Search,
   Send,
+  Shield,
   UserCheck,
+  UserCircle,
   UserPlus,
   Users,
   X,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -30,11 +32,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -55,45 +53,54 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { authClient } from "@/lib/auth-client";
 
+type FunctionalRole = "coach" | "parent" | "admin";
+
+interface UserEditState {
+  [userId: string]: {
+    functionalRoles: FunctionalRole[];
+    teams: string[];
+    ageGroups: string[];
+    linkedPlayerIds: string[];
+    expanded: boolean;
+    modified: boolean;
+  };
+}
+
 export default function ManageUsersPage() {
   const params = useParams();
   const orgId = params.orgId as string;
 
-  // Get organization members using Better Auth client
-  const [members, setMembers] = useState<any[]>([]);
-  const [membersLoading, setMembersLoading] = useState(true);
+  // Get members with all details (coach assignments, linked players)
+  const membersWithDetails = useQuery(
+    api.models.members.getMembersWithDetails,
+    { organizationId: orgId }
+  );
 
-  // Load members using Better Auth client API
-  const loadMembers = useCallback(async () => {
-    setMembersLoading(true);
-    try {
-      const { data, error } = await authClient.organization.listMembers({
-        query: {
-          organizationId: orgId,
-        },
-      });
-      if (error) {
-        console.error("Error loading members:", error);
-      } else {
-        // Extract the members array from the response
-        const membersData = data?.members || [];
-        setMembers(membersData);
-      }
-    } catch (error) {
-      console.error("Error loading members:", error);
-    } finally {
-      setMembersLoading(false);
-    }
-  }, [orgId]);
+  // Get teams and players for the organization
+  const teams = useQuery(api.models.teams.getTeamsByOrganization, {
+    organizationId: orgId,
+  });
+  const allPlayers = useQuery(api.models.players.getPlayersByOrganization, {
+    organizationId: orgId,
+  });
 
-  // Load members on mount
-  useEffect(() => {
-    loadMembers();
-  }, [loadMembers]);
+  // Mutations
+  const updateMemberFunctionalRoles = useMutation(
+    api.models.members.updateMemberFunctionalRoles
+  );
+  const updateCoachAssignments = useMutation(
+    api.models.coaches.updateCoachAssignments
+  );
+  const linkPlayers = useMutation(api.models.players.linkPlayersToParent);
+  const unlinkPlayers = useMutation(api.models.players.unlinkPlayersFromParent);
 
+  const [editStates, setEditStates] = useState<UserEditState>({});
+  const [loading, setLoading] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [playerSearchTerms, setPlayerSearchTerms] = useState<{
+    [userId: string]: string;
+  }>({});
 
   // Invitation dialog state
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -101,44 +108,230 @@ export default function ManageUsersPage() {
   const [inviteRole, setInviteRole] = useState<string>("member");
   const [inviting, setInviting] = useState(false);
 
-  const isLoading = membersLoading;
+  const isLoading =
+    membersWithDetails === undefined ||
+    teams === undefined ||
+    allPlayers === undefined;
 
-  // Filter members
-  const filteredMembers = members?.filter((member) => {
-    if (roleFilter !== "all" && member.role !== roleFilter) {
-      return false;
-    }
-    if (!searchTerm) {
-      return true;
-    }
-    const user = member.user || {};
-    const searchable = [user.name, user.email]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    return searchable.includes(searchTerm.toLowerCase());
-  });
+  // Helper to get unique age groups from teams
+  const ageGroups = Array.from(
+    new Set(teams?.map((team) => team.ageGroup).filter(Boolean) || [])
+  ).sort();
 
-  const toggleExpanded = (userId: string) => {
-    const newExpanded = new Set(expandedUsers);
-    if (newExpanded.has(userId)) {
-      newExpanded.delete(userId);
-    } else {
-      newExpanded.add(userId);
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "coach":
+        return <Users className="h-4 w-4" />;
+      case "parent":
+        return <UserCircle className="h-4 w-4" />;
+      case "admin":
+        return <Shield className="h-4 w-4" />;
+      default:
+        return <UserCheck className="h-4 w-4" />;
     }
-    setExpandedUsers(newExpanded);
   };
 
-  const getInitials = (user: User) => {
-    if (user.name) {
-      return user.name
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case "coach":
+        return "bg-green-100 text-green-700 border-green-300";
+      case "parent":
+        return "bg-blue-100 text-blue-700 border-blue-300";
+      case "admin":
+        return "bg-purple-100 text-purple-700 border-purple-300";
+      default:
+        return "bg-gray-100 text-gray-700 border-gray-300";
     }
-    return "??";
+  };
+
+  const initEditState = (member: any) => {
+    if (editStates[member.userId]) {
+      return;
+    }
+
+    const coachTeams = member.coachAssignments?.teams || [];
+    const coachAgeGroups = member.coachAssignments?.ageGroups || [];
+    const linkedPlayerIds = member.linkedPlayers?.map((p: any) => p._id) || [];
+    const functionalRoles = member.functionalRoles || [];
+
+    setEditStates((prev) => ({
+      ...prev,
+      [member.userId]: {
+        functionalRoles,
+        teams: coachTeams,
+        ageGroups: coachAgeGroups,
+        linkedPlayerIds,
+        expanded: false,
+        modified: false,
+      },
+    }));
+  };
+
+  const toggleExpanded = (userId: string) => {
+    setEditStates((prev) => ({
+      ...prev,
+      [userId]: {
+        ...prev[userId],
+        expanded: !prev[userId]?.expanded,
+      },
+    }));
+  };
+
+  const toggleFunctionalRole = (userId: string, role: FunctionalRole) => {
+    setEditStates((prev) => {
+      const current = prev[userId]?.functionalRoles || [];
+      const newRoles = current.includes(role)
+        ? current.filter((r) => r !== role)
+        : [...current, role];
+      return {
+        ...prev,
+        [userId]: {
+          ...prev[userId],
+          functionalRoles: newRoles,
+          modified: true,
+        },
+      };
+    });
+  };
+
+  const toggleTeam = (userId: string, teamId: string) => {
+    setEditStates((prev) => {
+      const current = prev[userId]?.teams || [];
+      const newTeams = current.includes(teamId)
+        ? current.filter((t) => t !== teamId)
+        : [...current, teamId];
+      return {
+        ...prev,
+        [userId]: {
+          ...prev[userId],
+          teams: newTeams,
+          modified: true,
+        },
+      };
+    });
+  };
+
+  const toggleAgeGroup = (userId: string, ageGroup: string) => {
+    setEditStates((prev) => {
+      const current = prev[userId]?.ageGroups || [];
+      const newAgeGroups = current.includes(ageGroup)
+        ? current.filter((a) => a !== ageGroup)
+        : [...current, ageGroup];
+      return {
+        ...prev,
+        [userId]: {
+          ...prev[userId],
+          ageGroups: newAgeGroups,
+          modified: true,
+        },
+      };
+    });
+  };
+
+  const togglePlayer = (userId: string, playerId: string) => {
+    setEditStates((prev) => {
+      const current = prev[userId]?.linkedPlayerIds || [];
+      const newPlayers = current.includes(playerId)
+        ? current.filter((p) => p !== playerId)
+        : [...current, playerId];
+      return {
+        ...prev,
+        [userId]: {
+          ...prev[userId],
+          linkedPlayerIds: newPlayers,
+          modified: true,
+        },
+      };
+    });
+  };
+
+  const handleSave = async (member: any) => {
+    const userId = member.userId;
+    const state = editStates[userId];
+    if (!(state && state.modified)) {
+      return;
+    }
+
+    // Validation
+    if (state.functionalRoles.length === 0) {
+      toast.error("User must have at least one functional role");
+      return;
+    }
+
+    if (state.functionalRoles.includes("coach") && state.teams.length === 0) {
+      toast.error("Coach role requires at least one team assignment");
+      return;
+    }
+
+    if (
+      state.functionalRoles.includes("parent") &&
+      state.linkedPlayerIds.length === 0
+    ) {
+      toast.error("Parent role requires at least one linked player");
+      return;
+    }
+
+    setLoading(userId);
+    try {
+      // Update functional roles
+      await updateMemberFunctionalRoles({
+        organizationId: orgId,
+        userId,
+        functionalRoles: state.functionalRoles,
+      });
+
+      // Update coach assignments if they have coach role
+      if (state.functionalRoles.includes("coach")) {
+        await updateCoachAssignments({
+          userId,
+          organizationId: orgId,
+          teams: state.teams,
+          ageGroups: state.ageGroups,
+        });
+      }
+
+      // Update parent-player links if they have parent role
+      if (state.functionalRoles.includes("parent") && member.user?.email) {
+        const currentLinkedIds =
+          member.linkedPlayers?.map((p: any) => p._id) || [];
+        const newLinkedIds = state.linkedPlayerIds;
+
+        const toLink = newLinkedIds.filter(
+          (id) => !currentLinkedIds.includes(id)
+        );
+        const toUnlink = currentLinkedIds.filter(
+          (id: string) => !newLinkedIds.includes(id)
+        );
+
+        if (toLink.length > 0) {
+          await linkPlayers({
+            playerIds: toLink as Id<"players">[],
+            parentEmail: member.user.email,
+            organizationId: orgId,
+          });
+        }
+
+        if (toUnlink.length > 0) {
+          await unlinkPlayers({
+            playerIds: toUnlink as Id<"players">[],
+            parentEmail: member.user.email,
+            organizationId: orgId,
+          });
+        }
+      }
+
+      setEditStates((prev) => ({
+        ...prev,
+        [userId]: { ...prev[userId], modified: false },
+      }));
+
+      toast.success("User updated successfully");
+    } catch (error) {
+      console.error("Error updating user:", error);
+      toast.error("Failed to update user. Please try again.");
+    } finally {
+      setLoading(null);
+    }
   };
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -163,8 +356,6 @@ export default function ManageUsersPage() {
         setInviteDialogOpen(false);
         setInviteEmail("");
         setInviteRole("member");
-        // Reload members to show pending invitations
-        loadMembers();
       }
     } catch (error: any) {
       console.error("Error inviting user:", error);
@@ -174,34 +365,67 @@ export default function ManageUsersPage() {
     }
   };
 
-  const getRoleBadge = (role?: string) => {
-    switch (role) {
-      case "owner":
-        return (
-          <Badge className="bg-purple-500/10 text-purple-600">Owner</Badge>
-        );
-      case "admin":
-        return <Badge className="bg-blue-500/10 text-blue-600">Admin</Badge>;
-      case "coach":
-        return <Badge className="bg-green-500/10 text-green-600">Coach</Badge>;
-      case "parent":
-        return <Badge className="bg-pink-500/10 text-pink-600">Parent</Badge>;
-      case "member":
-        return <Badge variant="secondary">Member</Badge>;
-      default:
-        return <Badge variant="outline">{role || "Unknown"}</Badge>;
+  const getInitials = (name?: string | null) => {
+    if (!name) {
+      return "??";
     }
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
   };
 
-  // Stats
+  // Filter members
+  const filteredMembers = membersWithDetails?.filter((member) => {
+    const functionalRoles = member.functionalRoles || [];
+    if (roleFilter !== "all" && !functionalRoles.includes(roleFilter)) {
+      return false;
+    }
+    if (!searchTerm) {
+      return true;
+    }
+    const user = member.user || {};
+    const searchable = [user.name, user.email, ...functionalRoles]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return searchable.includes(searchTerm.toLowerCase());
+  });
+
+  // Stats - count members by functional roles
   const stats = {
-    total: members?.length || 0,
-    owners: members?.filter((m) => m.role === "owner").length || 0,
-    admins: members?.filter((m) => m.role === "admin").length || 0,
-    coaches: members?.filter((m) => m.role === "coach").length || 0,
-    parents: members?.filter((m) => m.role === "parent").length || 0,
-    members: members?.filter((m) => m.role === "member").length || 0,
+    total: membersWithDetails?.length || 0,
+    coaches:
+      membersWithDetails?.filter((m) => m.functionalRoles?.includes("coach"))
+        .length || 0,
+    parents:
+      membersWithDetails?.filter((m) => m.functionalRoles?.includes("parent"))
+        .length || 0,
+    admins:
+      membersWithDetails?.filter((m) => m.functionalRoles?.includes("admin"))
+        .length || 0,
+    members:
+      membersWithDetails?.filter(
+        (m) => !m.functionalRoles || m.functionalRoles.length === 0
+      ).length || 0,
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -210,7 +434,7 @@ export default function ManageUsersPage() {
         <div>
           <h1 className="font-bold text-3xl tracking-tight">Manage Users</h1>
           <p className="mt-2 text-muted-foreground">
-            View and manage organization members
+            Manage roles, assign teams to coaches, and link children to parents
           </p>
         </div>
         <Button onClick={() => setInviteDialogOpen(true)}>
@@ -220,7 +444,7 @@ export default function ManageUsersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card
           className="cursor-pointer transition-colors hover:bg-accent/50"
           onClick={() => setRoleFilter("all")}
@@ -247,7 +471,7 @@ export default function ManageUsersPage() {
                   {stats.coaches}
                 </p>
               </div>
-              <UserCheck className="h-8 w-8 text-green-600" />
+              <Users className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
@@ -259,25 +483,11 @@ export default function ManageUsersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-muted-foreground text-sm">Parents</p>
-                <p className="font-bold text-2xl text-pink-600">
+                <p className="font-bold text-2xl text-blue-600">
                   {stats.parents}
                 </p>
               </div>
-              <UserCheck className="h-8 w-8 text-pink-600" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card
-          className="cursor-pointer transition-colors hover:bg-accent/50"
-          onClick={() => setRoleFilter("member")}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-muted-foreground text-sm">Members</p>
-                <p className="font-bold text-2xl">{stats.members}</p>
-              </div>
-              <Users className="h-8 w-8 text-muted-foreground" />
+              <UserCircle className="h-8 w-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
@@ -289,27 +499,25 @@ export default function ManageUsersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-muted-foreground text-sm">Admins</p>
-                <p className="font-bold text-2xl text-blue-600">
+                <p className="font-bold text-2xl text-purple-600">
                   {stats.admins}
                 </p>
               </div>
-              <AlertTriangle className="h-8 w-8 text-blue-600" />
+              <Shield className="h-8 w-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
         <Card
           className="cursor-pointer transition-colors hover:bg-accent/50"
-          onClick={() => setRoleFilter("owner")}
+          onClick={() => setRoleFilter("member")}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-muted-foreground text-sm">Owners</p>
-                <p className="font-bold text-2xl text-purple-600">
-                  {stats.owners}
-                </p>
+                <p className="text-muted-foreground text-sm">No Roles</p>
+                <p className="font-bold text-2xl">{stats.members}</p>
               </div>
-              <UserCheck className="h-8 w-8 text-purple-600" />
+              <UserCheck className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -338,139 +546,387 @@ export default function ManageUsersPage() {
         )}
       </div>
 
-      {/* Members List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            Organization Members ({filteredMembers?.length || 0})
-          </CardTitle>
-          <CardDescription>
-            Users who are part of this organization
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="divide-y">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div className="p-4" key={i}>
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="flex-1 space-y-2">
-                      <Skeleton className="h-4 w-48" />
-                      <Skeleton className="h-3 w-64" />
-                    </div>
-                    <Skeleton className="h-6 w-20" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : filteredMembers && filteredMembers.length > 0 ? (
-            <div className="divide-y">
-              {filteredMembers.map((member) => {
-                const user = member.user || {};
-                const isExpanded = expandedUsers.has(member.userId);
-
-                return (
-                  <Collapsible
-                    key={member._id}
-                    onOpenChange={() => toggleExpanded(member.userId)}
-                    open={isExpanded}
-                  >
-                    <CollapsibleTrigger asChild>
-                      <div className="cursor-pointer p-4 transition-colors hover:bg-accent/50">
-                        <div className="flex items-center gap-4">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src={user.image || undefined} />
-                            <AvatarFallback>{getInitials(user)}</AvatarFallback>
-                          </Avatar>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="truncate font-medium">
-                                {user.name || "Unknown"}{" "}
-                              </p>
-                            </div>
-                            <p className="truncate text-muted-foreground text-sm">
-                              {user.email || "No email"}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            {getRoleBadge(member.role)}
-                            {isExpanded ? (
-                              <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                            ) : (
-                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CollapsibleTrigger>
-
-                    <CollapsibleContent>
-                      <div className="border-t bg-muted/30 px-4 pb-4">
-                        <div className="space-y-4 pt-4">
-                          <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-2">
-                              <p className="font-medium text-sm">Role</p>
-                              <p className="text-muted-foreground text-sm">
-                                {member.role}
-                              </p>
-                            </div>
-
-                            <div className="space-y-2">
-                              <p className="font-medium text-sm">
-                                Member Since
-                              </p>
-                              <p className="flex items-center gap-2 text-muted-foreground text-sm">
-                                <Calendar className="h-4 w-4" />
-                                {new Date(
-                                  member.createdAt
-                                ).toLocaleDateString()}
-                              </p>
-                            </div>
-
-                            <div className="space-y-2">
-                              <p className="font-medium text-sm">Email</p>
-                              <p className="flex items-center gap-2 text-muted-foreground text-sm">
-                                <Mail className="h-4 w-4" />
-                                {user.email || "—"}
-                                {user.emailVerified && (
-                                  <CheckCircle className="h-4 w-4 text-green-500" />
-                                )}
-                              </p>
-                            </div>
-
-                            {user.phone && (
-                              <div className="space-y-2">
-                                <p className="font-medium text-sm">Phone</p>
-                                <p className="flex items-center gap-2 text-muted-foreground text-sm">
-                                  <Phone className="h-4 w-4" />
-                                  {user.phone}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
+      {/* Users List */}
+      <div className="space-y-3">
+        {filteredMembers && filteredMembers.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
               <Users className="mb-4 h-12 w-12 text-muted-foreground" />
-              <h3 className="font-semibold text-lg">No Members Found</h3>
-              <p className="mt-1 text-muted-foreground">
+              <p className="text-muted-foreground">
                 {searchTerm || roleFilter !== "all"
-                  ? "No members match your search criteria"
-                  : "No members in this organization yet"}
+                  ? "No users match your search criteria"
+                  : "No users in this organization yet"}
               </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredMembers?.map((member) => {
+            // Initialize edit state if needed
+            if (!editStates[member.userId]) {
+              initEditState(member);
+            }
+
+            const state = editStates[member.userId] || {
+              functionalRoles: member.functionalRoles || [],
+              teams: member.coachAssignments?.teams || [],
+              ageGroups: member.coachAssignments?.ageGroups || [],
+              linkedPlayerIds:
+                member.linkedPlayers?.map((p: any) => p._id) || [],
+              expanded: false,
+              modified: false,
+            };
+
+            const user = member.user || {};
+            const hasCoachWarning =
+              state.functionalRoles.includes("coach") &&
+              state.teams.length === 0;
+            const hasParentWarning =
+              state.functionalRoles.includes("parent") &&
+              state.linkedPlayerIds.length === 0;
+            const hasWarning = hasCoachWarning || hasParentWarning;
+
+            return (
+              <Card key={member.userId}>
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={user.image || undefined} />
+                        <AvatarFallback>
+                          {getInitials(user.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <CardTitle className="text-base">
+                          {user.name || "Unknown"}
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-1 text-sm">
+                          <Mail className="h-3 w-3" />
+                          {user.email || "No email"}
+                        </CardDescription>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap gap-1">
+                        {state.functionalRoles.length === 0 ? (
+                          <Badge variant="secondary">No roles</Badge>
+                        ) : (
+                          state.functionalRoles.map((role) => {
+                            const roleHasWarning =
+                              (role === "coach" && state.teams.length === 0) ||
+                              (role === "parent" &&
+                                state.linkedPlayerIds.length === 0);
+                            return (
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium text-xs ${getRoleBadgeColor(role)} ${roleHasWarning ? "ring-2 ring-orange-400" : ""}`}
+                                key={role}
+                                title={
+                                  roleHasWarning
+                                    ? `${role} has incomplete configuration`
+                                    : ""
+                                }
+                              >
+                                {getRoleIcon(role)}
+                                {role}
+                                {roleHasWarning && (
+                                  <AlertTriangle className="h-3 w-3 text-orange-500" />
+                                )}
+                              </span>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      <Button
+                        onClick={() => toggleExpanded(member.userId)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        {state.expanded ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+
+                {state.expanded && (
+                  <CardContent className="space-y-4 border-t pt-4">
+                    {/* Functional Role Selection (Checkboxes) */}
+                    <div className="space-y-2">
+                      <Label className="font-medium text-sm">
+                        Functional Roles (select multiple)
+                      </Label>
+                      <div className="flex flex-wrap gap-2">
+                        {(["coach", "parent", "admin"] as const).map((role) => (
+                          <label
+                            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                              state.functionalRoles.includes(role)
+                                ? getRoleBadgeColor(role)
+                                : "border-gray-200 bg-white hover:bg-gray-50"
+                            }`}
+                            key={role}
+                          >
+                            <Checkbox
+                              checked={state.functionalRoles.includes(role)}
+                              className="sr-only"
+                              onCheckedChange={() =>
+                                toggleFunctionalRole(member.userId, role)
+                              }
+                            />
+                            {getRoleIcon(role)}
+                            <span className="capitalize">{role}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-muted-foreground text-xs">
+                        Users can have multiple roles. For example, a coach can
+                        also be a parent.
+                      </p>
+                    </div>
+
+                    {/* Coach Settings */}
+                    {state.functionalRoles.includes("coach") && (
+                      <div
+                        className={`space-y-3 rounded-lg border p-4 ${state.teams.length === 0 ? "border-orange-300 bg-orange-50" : "border-green-200 bg-green-50"}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-green-600" />
+                            <span className="font-semibold text-green-700 text-sm">
+                              Coach Settings
+                            </span>
+                          </div>
+                          {state.teams.length === 0 && (
+                            <Badge
+                              className="bg-orange-100 text-orange-700"
+                              variant="outline"
+                            >
+                              <AlertTriangle className="mr-1 h-3 w-3" />
+                              No teams assigned
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="font-medium text-sm">
+                            Team Assignments{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {teams?.map((team) => (
+                              <label
+                                className={`flex cursor-pointer items-center gap-2 rounded border p-2 text-sm transition-colors ${
+                                  state.teams.includes(team._id)
+                                    ? "border-green-400 bg-green-100"
+                                    : "border-gray-200 bg-white hover:bg-gray-50"
+                                }`}
+                                key={team._id}
+                              >
+                                <Checkbox
+                                  checked={state.teams.includes(team._id)}
+                                  onCheckedChange={() =>
+                                    toggleTeam(member.userId, team._id)
+                                  }
+                                />
+                                <span className="truncate">{team.name}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        {ageGroups.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="font-medium text-sm">
+                              Age Groups (Optional)
+                            </Label>
+                            <div className="flex flex-wrap gap-2">
+                              {ageGroups.map((ageGroup) => (
+                                <label
+                                  className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors ${
+                                    state.ageGroups.includes(ageGroup)
+                                      ? "border-green-400 bg-green-100"
+                                      : "border-gray-200 bg-white hover:bg-gray-50"
+                                  }`}
+                                  key={ageGroup}
+                                >
+                                  <Checkbox
+                                    checked={state.ageGroups.includes(ageGroup)}
+                                    onCheckedChange={() =>
+                                      toggleAgeGroup(member.userId, ageGroup)
+                                    }
+                                  />
+                                  {ageGroup}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Parent Settings */}
+                    {state.functionalRoles.includes("parent") && (
+                      <div
+                        className={`space-y-3 rounded-lg border p-4 ${state.linkedPlayerIds.length === 0 ? "border-orange-300 bg-orange-50" : "border-blue-200 bg-blue-50"}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <UserCircle className="h-4 w-4 text-blue-600" />
+                            <span className="font-semibold text-blue-700 text-sm">
+                              Parent Settings
+                            </span>
+                          </div>
+                          {state.linkedPlayerIds.length === 0 && (
+                            <Badge
+                              className="bg-orange-100 text-orange-700"
+                              variant="outline"
+                            >
+                              <AlertTriangle className="mr-1 h-3 w-3" />
+                              No children linked
+                            </Badge>
+                          )}
+                        </div>
+
+                        {state.linkedPlayerIds.length > 0 && (
+                          <div className="rounded-lg bg-blue-100 p-2">
+                            <p className="mb-1 font-medium text-blue-700 text-xs">
+                              Currently Linked ({state.linkedPlayerIds.length}):
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {state.linkedPlayerIds.map((id) => {
+                                const player = allPlayers?.find(
+                                  (p) => p._id === id
+                                );
+                                return player ? (
+                                  <span
+                                    className="inline-flex items-center rounded bg-blue-200 px-2 py-0.5 text-blue-800 text-xs"
+                                    key={id}
+                                  >
+                                    {player.name}
+                                  </span>
+                                ) : null;
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="space-y-2">
+                          <Label className="font-medium text-sm">
+                            Link Children{" "}
+                            <span className="text-destructive">*</span>
+                          </Label>
+                          <div className="relative">
+                            <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-gray-400" />
+                            <Input
+                              className="pl-10"
+                              onChange={(e) =>
+                                setPlayerSearchTerms((prev) => ({
+                                  ...prev,
+                                  [member.userId]: e.target.value,
+                                }))
+                              }
+                              placeholder="Search players by name or team..."
+                              value={playerSearchTerms[member.userId] || ""}
+                            />
+                          </div>
+                          <div className="max-h-48 space-y-1 overflow-y-auto">
+                            {allPlayers
+                              ?.filter((player) => {
+                                const searchTerm =
+                                  playerSearchTerms[
+                                    member.userId
+                                  ]?.toLowerCase() || "";
+                                if (!searchTerm) {
+                                  return true;
+                                }
+                                return (
+                                  player.name
+                                    .toLowerCase()
+                                    .includes(searchTerm) ||
+                                  player.sport
+                                    .toLowerCase()
+                                    .includes(searchTerm) ||
+                                  player.ageGroup
+                                    .toLowerCase()
+                                    .includes(searchTerm)
+                                );
+                              })
+                              .map((player) => (
+                                <label
+                                  className={`flex cursor-pointer items-center gap-2 rounded border p-2 text-sm ${
+                                    state.linkedPlayerIds.includes(player._id)
+                                      ? "border-blue-400 bg-blue-100"
+                                      : "border-gray-200 bg-white hover:bg-gray-50"
+                                  }`}
+                                  key={player._id}
+                                >
+                                  <Checkbox
+                                    checked={state.linkedPlayerIds.includes(
+                                      player._id
+                                    )}
+                                    onCheckedChange={() =>
+                                      togglePlayer(member.userId, player._id)
+                                    }
+                                  />
+                                  <span className="flex-1 font-medium">
+                                    {player.name}
+                                  </span>
+                                  <span className="text-muted-foreground text-xs">
+                                    {player.ageGroup} - {player.sport}
+                                  </span>
+                                </label>
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Save Button */}
+                    {state.modified && (
+                      <div className="flex justify-end gap-2 border-t pt-4">
+                        <Button
+                          onClick={() =>
+                            setEditStates((prev) => ({
+                              ...prev,
+                              [member.userId]: {
+                                ...prev[member.userId],
+                                modified: false,
+                              },
+                            }))
+                          }
+                          variant="outline"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          disabled={loading === member.userId}
+                          onClick={() => handleSave(member)}
+                        >
+                          {loading === member.userId ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="mr-2 h-4 w-4" />
+                              Save Changes
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })
+        )}
+      </div>
 
       {/* Invite Member Dialog */}
       <Dialog onOpenChange={setInviteDialogOpen} open={inviteDialogOpen}>

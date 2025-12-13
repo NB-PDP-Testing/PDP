@@ -77,10 +77,24 @@ const customOrganizationTable = defineTable({
   .index("name", ["name"])
   .index("slug", ["slug"]);
 
-const customMemberTable = generatedTables.member.index(
-  "organizationId_userId",
-  ["organizationId", "userId"]
-);
+const customMemberTable = defineTable({
+  // Better Auth base fields
+  organizationId: v.string(),
+  userId: v.string(),
+  role: v.string(), // Better Auth org role (owner/admin/member)
+  createdAt: v.number(),
+
+  // Custom field: functional roles for sports club capabilities
+  functionalRoles: v.optional(
+    v.array(
+      v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+    )
+  ),
+})
+  .index("organizationId", ["organizationId"])
+  .index("userId", ["userId"])
+  .index("role", ["role"])
+  .index("organizationId_userId", ["organizationId", "userId"]);
 
 export const tables = {
   ...generatedTables,

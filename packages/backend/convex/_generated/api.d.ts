@@ -190,6 +190,7 @@ export declare const components: {
             | {
                 data: {
                   createdAt: number;
+                  functionalRoles?: Array<"coach" | "parent" | "admin">;
                   organizationId: string;
                   role: string;
                   userId: string;
@@ -498,6 +499,7 @@ export declare const components: {
                     | "userId"
                     | "role"
                     | "createdAt"
+                    | "functionalRoles"
                     | "_id";
                   operator?:
                     | "lt"
@@ -851,6 +853,7 @@ export declare const components: {
                     | "userId"
                     | "role"
                     | "createdAt"
+                    | "functionalRoles"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1364,6 +1367,7 @@ export declare const components: {
                 model: "member";
                 update: {
                   createdAt?: number;
+                  functionalRoles?: Array<"coach" | "parent" | "admin">;
                   organizationId?: string;
                   role?: string;
                   userId?: string;
@@ -1375,6 +1379,7 @@ export declare const components: {
                     | "userId"
                     | "role"
                     | "createdAt"
+                    | "functionalRoles"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1811,6 +1816,7 @@ export declare const components: {
                 model: "member";
                 update: {
                   createdAt?: number;
+                  functionalRoles?: Array<"coach" | "parent" | "admin">;
                   organizationId?: string;
                   role?: string;
                   userId?: string;
@@ -1822,6 +1828,7 @@ export declare const components: {
                     | "userId"
                     | "role"
                     | "createdAt"
+                    | "functionalRoles"
                     | "_id";
                   operator?:
                     | "lt"

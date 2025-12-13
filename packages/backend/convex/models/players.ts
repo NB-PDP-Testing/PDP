@@ -639,3 +639,83 @@ export const getPlayersByOrgId = internalQuery({
     }));
   },
 });
+
+/**
+ * Link players to a parent by updating player parent email fields
+ * This is used in user management when assigning children to a parent user
+ */
+export const linkPlayersToParent = mutation({
+  args: {
+    playerIds: v.array(v.id("players")),
+    parentEmail: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.parentEmail.toLowerCase().trim();
+
+    // Update each player to link to this parent
+    for (const playerId of args.playerIds) {
+      const player = await ctx.db.get(playerId);
+      if (!player) {
+        continue;
+      }
+
+      // Verify player belongs to the same organization
+      if (player.organizationId !== args.organizationId) {
+        throw new Error(
+          `Player ${player.name} does not belong to this organization`
+        );
+      }
+
+      // Update parent email if not already set
+      if (!player.parentEmail) {
+        await ctx.db.patch(playerId, {
+          parentEmail: normalizedEmail,
+        });
+      }
+    }
+
+    return null;
+  },
+});
+
+/**
+ * Unlink players from a parent
+ */
+export const unlinkPlayersFromParent = mutation({
+  args: {
+    playerIds: v.array(v.id("players")),
+    parentEmail: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.parentEmail.toLowerCase().trim();
+
+    // Remove parent email from each player
+    for (const playerId of args.playerIds) {
+      const player = await ctx.db.get(playerId);
+      if (!player) {
+        continue;
+      }
+
+      // Verify player belongs to the same organization
+      if (player.organizationId !== args.organizationId) {
+        continue;
+      }
+
+      // Remove parent email if it matches
+      if (
+        player.parentEmail?.toLowerCase().trim() === normalizedEmail ||
+        player.inferredParentEmail?.toLowerCase().trim() === normalizedEmail
+      ) {
+        await ctx.db.patch(playerId, {
+          parentEmail: undefined,
+        });
+      }
+    }
+
+    return null;
+  },
+});

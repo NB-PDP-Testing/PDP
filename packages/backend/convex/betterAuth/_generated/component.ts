@@ -135,6 +135,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 data: {
                   createdAt: number;
+                  functionalRoles?: Array<"coach" | "parent" | "admin">;
                   organizationId: string;
                   role: string;
                   userId: string;
@@ -444,6 +445,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "userId"
                     | "role"
                     | "createdAt"
+                    | "functionalRoles"
                     | "_id";
                   operator?:
                     | "lt"
@@ -798,6 +800,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "userId"
                     | "role"
                     | "createdAt"
+                    | "functionalRoles"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1314,6 +1317,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "member";
                 update: {
                   createdAt?: number;
+                  functionalRoles?: Array<"coach" | "parent" | "admin">;
                   organizationId?: string;
                   role?: string;
                   userId?: string;
@@ -1325,6 +1329,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "userId"
                     | "role"
                     | "createdAt"
+                    | "functionalRoles"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1762,6 +1767,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "member";
                 update: {
                   createdAt?: number;
+                  functionalRoles?: Array<"coach" | "parent" | "admin">;
                   organizationId?: string;
                   role?: string;
                   userId?: string;
@@ -1773,6 +1779,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "userId"
                     | "role"
                     | "createdAt"
+                    | "functionalRoles"
                     | "_id";
                   operator?:
                     | "lt"

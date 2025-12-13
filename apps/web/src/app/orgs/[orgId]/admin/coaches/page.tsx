@@ -13,7 +13,9 @@ import {
   Phone,
   Save,
   Search,
+  Shield,
   UserCheck,
+  UserCircle,
   Users,
   XCircle,
 } from "lucide-react";
@@ -208,29 +210,60 @@ export default function ManageCoachesPage() {
     const functionalRoles = coach.functionalRoles || [];
     const hasCoach = functionalRoles.includes("coach");
     const hasAdmin = functionalRoles.includes("admin");
+    const hasParent = functionalRoles.includes("parent");
 
+    // Build role display with icons
+    const roles = [];
     if (hasAdmin) {
-      return (
-        <Badge className="border-blue-500/20 bg-blue-500/10 text-blue-600">
-          <UserCheck className="mr-1 h-3 w-3" />
-          Admin + Coach
-        </Badge>
+      roles.push(
+        <span className="inline-flex items-center gap-1" key="admin">
+          <Shield className="h-3 w-3" />
+          Admin
+        </span>
+      );
+    }
+    if (hasCoach) {
+      roles.push(
+        <span className="inline-flex items-center gap-1" key="coach">
+          <Users className="h-3 w-3" />
+          Coach
+        </span>
+      );
+    }
+    if (hasParent) {
+      roles.push(
+        <span className="inline-flex items-center gap-1" key="parent">
+          <UserCircle className="h-3 w-3" />
+          Parent
+        </span>
       );
     }
 
-    if (hasCoach) {
+    if (roles.length === 0) {
       return (
-        <Badge className="border-green-500/20 bg-green-500/10 text-green-600">
-          <CheckCircle className="mr-1 h-3 w-3" />
-          Active Coach
+        <Badge
+          className="border-gray-300 bg-gray-100 text-gray-600"
+          variant="outline"
+        >
+          <UserCheck className="mr-1 h-3 w-3" />
+          Member
         </Badge>
       );
     }
 
     return (
-      <Badge variant="secondary">
-        <Clock className="mr-1 h-3 w-3" />
-        No Coach Role
+      <Badge
+        className={
+          hasAdmin
+            ? "border-blue-500/20 bg-blue-500/10 text-blue-600"
+            : "border-green-500/20 bg-green-500/10 text-green-600"
+        }
+      >
+        <CheckCircle className="mr-1 h-3 w-3" />
+        {roles.reduce(
+          (prev, curr, i) => (i === 0 ? [curr] : [...prev, " + ", curr]),
+          [] as React.ReactNode[]
+        )}
       </Badge>
     );
   };

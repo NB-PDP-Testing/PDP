@@ -91,13 +91,14 @@ function RatingDisplay({ label, value }: { label: string; value: number }) {
     return "Excellent";
   };
 
-  const color = getColorForRating(value);
-
   return (
     <div className="mb-3">
       <div className="mb-1 flex items-center justify-between">
         <span className="font-medium text-gray-700 text-sm">{label}</span>
-        <span className="font-semibold text-sm" style={{ color }}>
+        <span
+          className="font-semibold text-sm"
+          style={{ color: getColorForRating(value) }}
+        >
           {value} - {getRatingLabel(value)}
         </span>
       </div>
@@ -106,7 +107,7 @@ function RatingDisplay({ label, value }: { label: string; value: number }) {
           className="h-full rounded-full transition-all duration-300"
           style={{
             width: `${(value / 5) * 100}%`,
-            backgroundColor: color,
+            backgroundColor: getColorForRating(value),
           }}
         />
       </div>

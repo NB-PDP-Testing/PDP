@@ -523,10 +523,28 @@ export default function ManagePlayersPage() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex items-center justify-end gap-1">
-                          <Button size="icon" variant="ghost">
+                          <Button
+                            onClick={() =>
+                              router.push(
+                                `/orgs/${orgId}/players/${player._id}`
+                              )
+                            }
+                            size="icon"
+                            title="View Passport"
+                            variant="ghost"
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button size="icon" variant="ghost">
+                          <Button
+                            onClick={() =>
+                              router.push(
+                                `/orgs/${orgId}/admin/players/${player._id}/edit`
+                              )
+                            }
+                            size="icon"
+                            title="Edit Player"
+                            variant="ghost"
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                         </div>

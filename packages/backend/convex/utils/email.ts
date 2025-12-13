@@ -111,7 +111,7 @@ This invitation will expire in 7 days. If you didn't expect this invitation, you
   // Send email via Resend API
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail =
-    process.env.EMAIL_FROM_ADDRESS || "PlayerARC <onboarding@resend.dev>";
+    process.env.EMAIL_FROM_ADDRESS || "PlayerARC <invitations@playerarc.io>";
 
   if (!resendApiKey) {
     console.warn(

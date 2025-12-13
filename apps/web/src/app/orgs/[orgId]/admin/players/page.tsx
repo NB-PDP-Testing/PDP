@@ -538,7 +538,7 @@ export default function ManagePlayersPage() {
                           <Button
                             onClick={() =>
                               router.push(
-                                `/orgs/${orgId}/admin/players/${player._id}/edit`
+                                `/orgs/${orgId}/admin/players/${player._id}/edit` as any
                               )
                             }
                             size="icon"

@@ -31,8 +31,8 @@ export default function PlayerPassportPage() {
   // Get current user session
   const { data: session } = authClient.useSession();
 
-  // Determine user role in organization
-  const isCoach = session?.user?.currentOrgId === orgId; // TODO: Check actual role
+  // Determine user role in organization (TODO: Implement proper role checking)
+  const isCoach = true; // For now, assume all logged-in users can edit
 
   if (playerData === undefined) {
     return (

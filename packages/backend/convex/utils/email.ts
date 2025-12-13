@@ -174,3 +174,132 @@ export function generateWhatsAppInvitationMessage(
 
   return message;
 }
+
+/**
+ * Demo request notification email data
+ */
+interface DemoRequestNotificationData {
+  name: string;
+  email: string;
+  phone?: string;
+  organization?: string;
+  message?: string;
+  requestedAt: number;
+  adminEmail: string; // Email address to send notification to
+}
+
+/**
+ * Send email notification when a new demo request is submitted
+ */
+export async function sendDemoRequestNotification(
+  data: DemoRequestNotificationData
+): Promise<void> {
+  const { name, email, phone, organization, message, requestedAt, adminEmail } =
+    data;
+
+  const subject = `New Demo Request from ${name}`;
+  const requestDate = new Date(requestedAt).toLocaleString();
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #1E3A5F; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="color: white; margin: 0;">PlayerARC</h1>
+        </div>
+        <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
+          <h2 style="color: #1E3A5F; margin-top: 0;">New Demo Request</h2>
+          <p>A new demo request has been submitted on PlayerARC.</p>
+          
+          <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #1E3A5F; margin-top: 0;">Request Details</h3>
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+            ${phone ? `<p><strong>Phone:</strong> <a href="tel:${phone}">${phone}</a></p>` : ""}
+            ${organization ? `<p><strong>Organization:</strong> ${organization}</p>` : ""}
+            ${message ? `<p><strong>Message:</strong><br>${message.replace(/\n/g, "<br>")}</p>` : ""}
+            <p><strong>Submitted:</strong> ${requestDate}</p>
+          </div>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a 
+              href="mailto:${email}?subject=Re: Demo Request for PlayerARC" 
+              style="background-color: #22c55e; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;"
+            >
+              Reply to ${name}
+            </a>
+          </div>
+        </div>
+        <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+          <p>© ${new Date().getFullYear()} PlayerARC. All rights reserved.</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const textBody = `
+New Demo Request from ${name}
+
+A new demo request has been submitted on PlayerARC.
+
+Request Details:
+- Name: ${name}
+- Email: ${email}
+${phone ? `- Phone: ${phone}\n` : ""}
+${organization ? `- Organization: ${organization}\n` : ""}
+${message ? `- Message: ${message}\n` : ""}
+- Submitted: ${requestDate}
+
+Reply to: ${email}
+  `.trim();
+
+  // Send email via Resend API
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS || "PlayerARC <notifications@playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Demo request notification will not be sent."
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: adminEmail,
+        subject,
+        html: htmlBody,
+        text: textBody,
+        replyTo: email, // Set reply-to to the requester's email
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ Failed to send demo request notification:", {
+        status: response.status,
+        error: errorData,
+      });
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Demo request notification sent successfully:", result.id);
+  } catch (error) {
+    console.error("❌ Error sending demo request notification:", error);
+    // Don't throw - log the error but don't break the demo request creation
+  }
+}

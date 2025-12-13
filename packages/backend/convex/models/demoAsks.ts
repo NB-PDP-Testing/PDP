@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 
 /**
@@ -17,16 +18,36 @@ export const createDemoRequest = mutation({
     message: v.optional(v.string()),
   },
   returns: v.id("demoAsks"),
-  handler: async (ctx, args) =>
-    await ctx.db.insert("demoAsks", {
+  handler: async (ctx, args) => {
+    const requestedAt = Date.now();
+
+    // Insert the demo request
+    const requestId = await ctx.db.insert("demoAsks", {
       name: args.name,
       email: args.email,
       phone: args.phone,
       organization: args.organization,
       message: args.message,
       status: "pending",
-      requestedAt: Date.now(),
-    }),
+      requestedAt,
+    });
+
+    // Schedule email notification (non-blocking)
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.sendDemoRequestNotification.sendNotification,
+      {
+        name: args.name,
+        email: args.email,
+        phone: args.phone,
+        organization: args.organization,
+        message: args.message,
+        requestedAt,
+      }
+    );
+
+    return requestId;
+  },
 });
 
 /**

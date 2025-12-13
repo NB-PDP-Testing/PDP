@@ -132,10 +132,12 @@ export function FunctionalRoleIndicator({
 
 /**
  * Hook to get current user's functional roles from active member
+ * Note: functionalRoles is a custom field stored in Convex, not part of Better Auth's member type
  */
 export function useFunctionalRoles() {
   const { data: member } = authClient.useActiveMember();
+  // Type assertion needed because functionalRoles is a custom Convex field
   const functionalRoles =
-    (member?.functionalRoles as FunctionalRole[] | undefined) || [];
+    ((member as any)?.functionalRoles as FunctionalRole[] | undefined) || [];
   return functionalRoles;
 }

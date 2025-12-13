@@ -135,7 +135,7 @@ export default function Header() {
           {member && !shouldHideOrgContent && (
             <FunctionalRoleIndicator
               functionalRoles={
-                (member.functionalRoles as
+                ((member as any).functionalRoles as
                   | ("coach" | "parent" | "admin")[]
                   | undefined) || []
               }

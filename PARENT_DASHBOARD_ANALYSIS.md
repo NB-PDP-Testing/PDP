@@ -13,13 +13,21 @@ The MVP's Parent Dashboard is a comprehensive family-focused interface that prov
 - **Filtering Logic**: Backend filters players where `player.parents[].email` matches the logged-in user's email
 - **Multi-Child Support**: Parents can have multiple children, potentially across different sports
 - **Multi-Sport Support**: Single child can play multiple sports (e.g., Soccer + GAA Football)
+- **⚠️ CRITICAL: Multi-Organization Support**: 
+  - A parent user may be a member of **multiple organizations**
+  - Their children may be players in **different organizations**
+  - The parent dashboard is **organization-scoped** (`/orgs/[orgId]/parents`)
+  - Must filter players by BOTH parent email AND organization ID
+  - May need organization switcher or cross-org summary view
 
 ### 1.2 Main Dashboard Components
 
 #### A. Header Section
 - **"Your Family's Journey"** - Gradient blue header
-- Shows count of children being tracked
+- Shows count of children being tracked **in current organization**
 - Displays total number of sports across all children
+- **Organization Context**: Shows current organization name
+- **Cross-Org Indicator**: If parent has children in other orgs, show indicator/badge
 
 #### B. Weekly Schedule Calendar
 - **7-day grid view** (Mon-Sun)
@@ -269,6 +277,13 @@ interface PlayerForParent {
 - Ensure parent's email from Better Auth matches `players.parents[].email`
 - Use `getMembersWithDetails` to get linked players
 - Filter players where `functionalRoles.includes("parent")`
+- **⚠️ CRITICAL: Organization Scoping**:
+  - Parent dashboard is at `/orgs/[orgId]/parents`
+  - Must filter players by BOTH:
+    1. Parent email match (`players.parents[].email === user.email`)
+    2. Organization ID match (`player.organizationId === orgId`)
+  - A parent may have children in multiple organizations
+  - Each organization context shows only that org's children
 
 ### 4.2 Multi-Sport Grouping
 ```typescript
@@ -347,19 +362,53 @@ export const getPlayersForParent = query({
     
     if (!user) return [];
     
-    // Get all players for organization
+    // Get all players for THIS organization only
     const allPlayers = await ctx.db
       .query("players")
       .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
       .collect();
     
-    // Filter by parent email
+    // Filter by parent email AND organization (organization already filtered above)
     const normalizedEmail = identity.email.toLowerCase().trim();
     return allPlayers.filter((player) =>
       player.parents?.some((parent: any) =>
         parent.email?.toLowerCase().trim() === normalizedEmail
       )
     );
+  },
+});
+```
+
+#### `getParentChildrenCountAcrossOrgs` (Optional - for cross-org indicator)
+```typescript
+export const getParentChildrenCountAcrossOrgs = query({
+  args: {},
+  returns: v.record(v.string(), v.number()), // { orgId: count }
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    
+    const normalizedEmail = identity.email.toLowerCase().trim();
+    
+    // Get all players across all organizations (where parent is linked)
+    const allPlayers = await ctx.db
+      .query("players")
+      .collect();
+    
+    const parentPlayers = allPlayers.filter((player) =>
+      player.parents?.some((parent: any) =>
+        parent.email?.toLowerCase().trim() === normalizedEmail
+      )
+    );
+    
+    // Group by organization
+    const orgCounts: Record<string, number> = {};
+    for (const player of parentPlayers) {
+      const orgId = player.organizationId;
+      orgCounts[orgId] = (orgCounts[orgId] || 0) + 1;
+    }
+    
+    return orgCounts;
   },
 });
 ```
@@ -427,37 +476,47 @@ export const getPlayersForParent = query({
 
 ## 8. Open Questions & Decisions Needed
 
-1. **Schedule Data**: 
+1. **Multi-Organization UX**:
+   - Should parent dashboard show organization switcher?
+   - Should we show "X children in other organizations" indicator?
+   - Should we have a cross-organization summary view?
+   - How do we handle organization switching within parent dashboard?
+
+2. **Schedule Data**: 
    - Do we have a teams/schedule system yet?
    - Should we build it or use mock data initially?
 
-2. **AI Practice Plans**:
+3. **AI Practice Plans**:
    - Client-side generation (MVP approach) or backend AI?
    - Should plans be saved/stored?
 
-3. **Review Status**:
+4. **Review Status**:
    - How is review frequency determined?
    - Per organization? Per team? Per sport?
 
-4. **Injuries**:
+5. **Injuries**:
    - Do we have an injuries system?
    - Should we build it or skip for now?
 
-5. **Notifications**:
+6. **Notifications**:
    - Should parents get notified of new coach notes?
    - Should parents get notified of upcoming reviews?
+   - Should notifications be organization-scoped?
 
 ---
 
 ## 9. Success Criteria
 
-- [ ] Parent can see all their children in one dashboard
+- [ ] Parent can see all their children **in current organization** in one dashboard
+- [ ] Parent dashboard correctly filters by organization ID
+- [ ] Multi-organization parents can switch between organizations
+- [ ] Cross-organization indicator shows if children exist in other orgs
 - [ ] Multi-sport athletes are properly grouped
 - [ ] Performance metrics are accurate
 - [ ] Coach feedback is visible
 - [ ] Practice plans can be generated and shared
 - [ ] Schedule calendar shows events (even if mock initially)
-- [ ] All links to player passports work
+- [ ] All links to player passports work (organization-scoped)
 - [ ] Dashboard is responsive and accessible
 
 ---
@@ -467,24 +526,26 @@ export const getPlayersForParent = query({
 ### New Files
 ```
 apps/web/src/app/orgs/[orgId]/parents/
-  ├── page.tsx (main dashboard)
+  ├── page.tsx (main dashboard - organization-scoped)
   └── components/
-      ├── family-header.tsx
+      ├── family-header.tsx (includes org context & cross-org indicator)
       ├── summary-stats.tsx
       ├── child-card.tsx
       ├── weekly-schedule.tsx
       ├── coach-feedback.tsx
       ├── ai-practice-assistant.tsx
-      └── practice-plan-modal.tsx
+      ├── practice-plan-modal.tsx
+      └── org-switcher.tsx (optional - for switching between orgs)
 ```
 
 ### Modified Files
 ```
 packages/backend/convex/models/players.ts
-  └── Add getPlayersForParent query
+  └── Add getPlayersForParent query (organization-scoped)
+  └── Add getParentChildrenCountAcrossOrgs query (optional)
 
 packages/backend/convex/models/members.ts
-  └── Ensure parent filtering works correctly
+  └── Ensure parent filtering works correctly with organization scoping
 ```
 
 ---
@@ -493,11 +554,19 @@ packages/backend/convex/models/members.ts
 
 The Parent Dashboard is a feature-rich component that requires careful planning. The recommended approach is to implement in phases, starting with core features (header, stats, child cards) and gradually adding advanced features (schedule, AI assistant).
 
+**⚠️ Critical Architecture Consideration**: The parent dashboard must be **organization-scoped**. A parent user can be a member of multiple organizations, and their children may be in different organizations. The dashboard at `/orgs/[orgId]/parents` should:
+1. Show only children in the current organization context
+2. Provide clear organization context in the UI
+3. Optionally show indicators if children exist in other organizations
+4. Allow easy organization switching if needed
+
 The MVP's client-side AI practice plan generation is a good starting point - it provides value without requiring complex backend AI integration.
 
 Key success factors:
-1. Proper parent-player linking via email
-2. Multi-sport athlete handling
-3. Accurate performance calculations
-4. Clean, intuitive UI matching MVP design
+1. **Organization-scoped filtering** - Filter by both parent email AND organization ID
+2. Proper parent-player linking via email
+3. Multi-organization awareness and UX
+4. Multi-sport athlete handling
+5. Accurate performance calculations
+6. Clean, intuitive UI matching MVP design
 

@@ -42,6 +42,9 @@ export default function GAAImportPage() {
   const createPlayerMutation = useMutation(
     api.models.players.createPlayerForImport
   );
+  const bulkImportPlayersMutation = useMutation(
+    api.models.players.bulkImportPlayers
+  );
   const deletePlayerMutation = useMutation(api.models.players.deletePlayer);
   const createTeamMutation = useMutation(api.models.teams.createTeam);
   const addPlayerToTeamMutation = useMutation(
@@ -340,6 +343,7 @@ export default function GAAImportPage() {
       {/* Wizard Modal */}
       {showWizard && (
         <GAAMembershipWizard
+          bulkImportPlayersMutation={bulkImportPlayersMutation}
           createPlayerMutation={handleCreatePlayer}
           createTeamMutation={handleCreateTeam}
           deletePlayerMutation={handleDeletePlayer}

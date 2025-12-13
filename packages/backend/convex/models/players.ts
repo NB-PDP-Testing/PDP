@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { internalQuery, mutation, query } from "../_generated/server";
 
 /**
@@ -437,6 +438,171 @@ export const getPlayerCountByTeam = query({
       .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
       .take(200); // Max reasonable team size
     return links.length;
+  },
+});
+
+/**
+ * Bulk import players - optimized for large imports (e.g., GAA membership)
+ * Creates multiple players and team assignments in a single efficient operation
+ * Returns player IDs for all successfully created players
+ */
+export const bulkImportPlayers = mutation({
+  args: {
+    players: v.array(
+      v.object({
+        name: v.string(),
+        ageGroup: v.string(),
+        sport: v.string(),
+        gender: v.string(),
+        organizationId: v.string(),
+        season: v.string(),
+        teamId: v.string(), // For team assignment
+        completionDate: v.optional(v.string()),
+        dateOfBirth: v.optional(v.string()),
+        address: v.optional(v.string()),
+        town: v.optional(v.string()),
+        postcode: v.optional(v.string()),
+        parentFirstName: v.optional(v.string()),
+        parentSurname: v.optional(v.string()),
+        parentEmail: v.optional(v.string()),
+        parentPhone: v.optional(v.string()),
+        skills: v.optional(v.record(v.string(), v.number())),
+        familyId: v.optional(v.string()),
+        inferredParentFirstName: v.optional(v.string()),
+        inferredParentSurname: v.optional(v.string()),
+        inferredParentEmail: v.optional(v.string()),
+        inferredParentPhone: v.optional(v.string()),
+        inferredFromSource: v.optional(v.string()),
+        createdFrom: v.optional(v.string()),
+        coachNotes: v.optional(v.string()),
+        reviewedWith: v.optional(
+          v.object({
+            coach: v.boolean(),
+            parent: v.boolean(),
+            player: v.boolean(),
+            forum: v.boolean(),
+          })
+        ),
+        attendance: v.optional(
+          v.object({
+            training: v.string(),
+            matches: v.string(),
+          })
+        ),
+        positions: v.optional(
+          v.object({
+            favourite: v.string(),
+            leastFavourite: v.string(),
+            coachesPref: v.string(),
+            dominantSide: v.string(),
+            goalkeeper: v.string(),
+          })
+        ),
+        fitness: v.optional(
+          v.object({
+            pushPull: v.string(),
+            core: v.string(),
+            endurance: v.string(),
+            speed: v.string(),
+            broncoBeep: v.string(),
+          })
+        ),
+        injuryNotes: v.optional(v.string()),
+        otherInterests: v.optional(v.string()),
+        communications: v.optional(v.string()),
+        actions: v.optional(v.string()),
+        parentNotes: v.optional(v.string()),
+        playerNotes: v.optional(v.string()),
+      })
+    ),
+  },
+  returns: v.object({
+    created: v.number(),
+    playerIds: v.array(v.id("players")),
+  }),
+  handler: async (ctx, args) => {
+    const playerIds: Id<"players">[] = [];
+    const teamAssignments: Array<{ playerId: Id<"players">; teamId: string }> =
+      [];
+
+    console.log(`🚀 Bulk import starting: ${args.players.length} players`);
+
+    // Create all players
+    for (const playerData of args.players) {
+      const playerId = await ctx.db.insert("players", {
+        name: playerData.name,
+        ageGroup: playerData.ageGroup,
+        sport: playerData.sport,
+        gender: playerData.gender,
+        organizationId: playerData.organizationId,
+        season: playerData.season,
+        completionDate: playerData.completionDate,
+        dateOfBirth: playerData.dateOfBirth,
+        address: playerData.address,
+        town: playerData.town,
+        postcode: playerData.postcode,
+        parentFirstName: playerData.parentFirstName,
+        parentSurname: playerData.parentSurname,
+        parentEmail: playerData.parentEmail,
+        parentPhone: playerData.parentPhone,
+        skills: playerData.skills ?? {},
+        familyId: playerData.familyId,
+        inferredParentFirstName: playerData.inferredParentFirstName,
+        inferredParentSurname: playerData.inferredParentSurname,
+        inferredParentEmail: playerData.inferredParentEmail,
+        inferredParentPhone: playerData.inferredParentPhone,
+        inferredFromSource: playerData.inferredFromSource,
+        createdFrom: playerData.createdFrom,
+        coachNotes: playerData.coachNotes,
+        reviewedWith: playerData.reviewedWith,
+        attendance: playerData.attendance,
+        positions: playerData.positions,
+        fitness: playerData.fitness,
+        injuryNotes: playerData.injuryNotes,
+        otherInterests: playerData.otherInterests,
+        communications: playerData.communications,
+        actions: playerData.actions,
+        parentNotes: playerData.parentNotes,
+        playerNotes: playerData.playerNotes,
+        reviewStatus: "Not Started",
+      });
+
+      playerIds.push(playerId);
+      teamAssignments.push({ playerId, teamId: playerData.teamId });
+    }
+
+    console.log(`✅ Created ${playerIds.length} players`);
+    console.log(`🔗 Creating ${teamAssignments.length} team assignments...`);
+
+    // Create all team assignments
+    for (const assignment of teamAssignments) {
+      // Check if already exists
+      const existing = await ctx.db
+        .query("teamPlayers")
+        .withIndex("by_teamId", (q) => q.eq("teamId", assignment.teamId))
+        .collect();
+
+      const alreadyLinked = existing.find(
+        (link) => link.playerId === assignment.playerId
+      );
+
+      if (!alreadyLinked) {
+        await ctx.db.insert("teamPlayers", {
+          teamId: assignment.teamId,
+          playerId: assignment.playerId,
+          createdAt: Date.now(),
+        });
+      }
+    }
+
+    console.log(
+      `✅ Bulk import complete: ${playerIds.length} players with team assignments`
+    );
+
+    return {
+      created: playerIds.length,
+      playerIds,
+    };
   },
 });
 

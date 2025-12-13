@@ -123,6 +123,7 @@ const GAAMembershipWizard = ({
   existingPlayers,
   existingTeams,
   createPlayerMutation,
+  bulkImportPlayersMutation,
   createTeamMutation,
   deletePlayerMutation,
 }: {
@@ -131,6 +132,62 @@ const GAAMembershipWizard = ({
   existingPlayers: Player[];
   existingTeams: Team[];
   createPlayerMutation: (data: PlayerCreateData) => Promise<string>;
+  bulkImportPlayersMutation: (data: {
+    players: Array<{
+      name: string;
+      ageGroup: string;
+      sport: string;
+      gender: string;
+      organizationId: string;
+      season: string;
+      teamId: string;
+      completionDate?: string;
+      dateOfBirth?: string;
+      address?: string;
+      town?: string;
+      postcode?: string;
+      parentFirstName?: string;
+      parentSurname?: string;
+      parentEmail?: string;
+      parentPhone?: string;
+      skills?: Record<string, number>;
+      familyId?: string;
+      inferredParentFirstName?: string;
+      inferredParentSurname?: string;
+      inferredParentEmail?: string;
+      inferredParentPhone?: string;
+      inferredFromSource?: string;
+      createdFrom?: string;
+      coachNotes?: string;
+      reviewedWith?: {
+        coach: boolean;
+        parent: boolean;
+        player: boolean;
+        forum: boolean;
+      };
+      attendance?: { training: string; matches: string };
+      positions?: {
+        favourite: string;
+        leastFavourite: string;
+        coachesPref: string;
+        dominantSide: string;
+        goalkeeper: string;
+      };
+      fitness?: {
+        pushPull: string;
+        core: string;
+        endurance: string;
+        speed: string;
+        broncoBeep: string;
+      };
+      injuryNotes?: string;
+      otherInterests?: string;
+      communications?: string;
+      actions?: string;
+      parentNotes?: string;
+      playerNotes?: string;
+    }>;
+  }) => Promise<{ created: number; playerIds: string[] }>;
   createTeamMutation: (data: TeamCreateData) => Promise<string>;
   deletePlayerMutation: (data: { id: string }) => Promise<void>;
 }) => {
@@ -1073,42 +1130,133 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
 
   const createPassports = async () => {
     setImporting(true);
-    let created = 0;
     let skipped = 0;
     let replaced = 0;
-    const familyMap = new Map<string, string>(); // Maps address+postcode to familyId
-    const playerIds: string[] = [];
+    const familyMap = new Map<string, string>();
 
+    // Helper to convert GAASkills to Record<string, number>
+    const convertSkillsToRecord = (
+      gaaSkills: GAASkills
+    ): Record<string, number> => {
+      const result: Record<string, number> = {};
+      for (const [key, value] of Object.entries(gaaSkills)) {
+        if (typeof value === "number") {
+          result[key] = value;
+        }
+      }
+      return result;
+    };
+
+    console.log("🔄 Phase 1: Processing duplicates...");
+
+    // Phase 1: Handle deletions for "replace" resolutions in parallel
+    const deletions = [];
     for (let i = 0; i < parsedMembers.length; i++) {
-      const member = parsedMembers[i];
-
-      // Check if this member has a duplicate resolution
       const resolution = duplicateResolutions[i];
 
-      if (resolution === "skip") {
-        // User chose to skip this duplicate
-        skipped++;
-        continue;
-      }
-
-      if (resolution === "keep") {
-        // User chose to keep existing player, don't import this one
+      if (resolution === "skip" || resolution === "keep") {
         skipped++;
         continue;
       }
 
       if (resolution === "replace") {
-        // User chose to replace existing with imported data
-        // Find and delete the existing player using Convex mutation
         const duplicate = duplicates.find((d) => d.index === i);
-        if (duplicate && duplicate.existingPlayer._id) {
-          await deletePlayerMutation({ id: duplicate.existingPlayer._id });
-          replaced++;
+        if (duplicate?.existingPlayer._id) {
+          deletions.push(
+            deletePlayerMutation({ id: duplicate.existingPlayer._id })
+              .then(() => {
+                replaced++;
+                console.log(`🗑️  Deleted: ${duplicate.existingPlayer.name}`);
+              })
+              .catch((error) => {
+                console.error(`❌ Delete failed:`, error);
+              })
+          );
         }
       }
+    }
 
-      // Create family ID: address + postcode for grouping siblings
-      // This is more reliable than email - siblings live at the same address
+    if (deletions.length > 0) {
+      await Promise.all(deletions);
+      console.log(`✅ Deleted ${replaced} existing players`);
+    }
+
+    console.log("📋 Phase 2: Preparing player data...");
+
+    // Phase 2: Prepare all player data (no I/O, just data preparation)
+    const playersToCreate: Array<{
+      name: string;
+      ageGroup: string;
+      sport: string;
+      gender: string;
+      organizationId: string;
+      season: string;
+      teamId: string;
+      completionDate?: string;
+      dateOfBirth?: string;
+      address?: string;
+      town?: string;
+      postcode?: string;
+      parentFirstName?: string;
+      parentSurname?: string;
+      parentEmail?: string;
+      parentPhone?: string;
+      skills?: Record<string, number>;
+      familyId?: string;
+      inferredParentFirstName?: string;
+      inferredParentSurname?: string;
+      inferredParentEmail?: string;
+      inferredParentPhone?: string;
+      inferredFromSource?: string;
+      createdFrom?: string;
+      coachNotes?: string;
+      reviewedWith?: {
+        coach: boolean;
+        parent: boolean;
+        player: boolean;
+        forum: boolean;
+      };
+      attendance?: { training: string; matches: string };
+      positions?: {
+        favourite: string;
+        leastFavourite: string;
+        coachesPref: string;
+        dominantSide: string;
+        goalkeeper: string;
+      };
+      fitness?: {
+        pushPull: string;
+        core: string;
+        endurance: string;
+        speed: string;
+        broncoBeep: string;
+      };
+      injuryNotes?: string;
+      otherInterests?: string;
+      communications?: string;
+      actions?: string;
+      parentNotes?: string;
+      playerNotes?: string;
+    }> = [];
+
+    let familyCounter = 0;
+
+    // Get organizationId from the first team assignment
+    const firstTeamId = Object.values(teamAssignments)[0];
+    const firstTeam = localTeams.find((t) => t._id === firstTeamId);
+    const organizationId = firstTeam?.organizationId || "";
+
+    for (let i = 0; i < parsedMembers.length; i++) {
+      const resolution = duplicateResolutions[i];
+
+      // Skip if user chose to skip or keep
+      if (resolution === "skip" || resolution === "keep") {
+        continue;
+      }
+
+      const member = parsedMembers[i];
+
+      // Create family ID
       const address = (member.Address || "")
         .toLowerCase()
         .trim()
@@ -1121,182 +1269,190 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
 
       let familyId = familyMap.get(familyKey);
       if (!familyId) {
-        familyId = `family_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        familyId = `family_${Date.now()}_${familyCounter++}`;
         familyMap.set(familyKey, familyId);
       }
 
-      try {
-        // Determine skills based on selected strategy
-        // Convert GAASkills to Record<string, number> for storage
-        const convertSkillsToRecord = (
-          gaaSkills: GAASkills
-        ): Record<string, number> => {
-          const result: Record<string, number> = {};
-          for (const [key, value] of Object.entries(gaaSkills)) {
-            // Skip kickingDistanceMax as it's a string, store numeric values only
-            if (typeof value === "number") {
-              result[key] = value;
-            }
-          }
-          return result;
+      // Determine skills based on strategy
+      let skills: Record<string, number>;
+      if (skillRatingStrategy === "blank") {
+        skills = {
+          soloing: 1,
+          kickingLong: 1,
+          kickingShort: 1,
+          freeTakingGround: 1,
+          freeTakingHand: 1,
+          handPassing: 1,
+          pickupToeLift: 1,
+          highCatching: 1,
+          tackling: 1,
+          positionalSense: 1,
+          tracking: 1,
+          decisionMaking: 1,
+          decisionSpeed: 1,
+          ballHandling: 1,
+          leftSide: 1,
+          rightSide: 1,
         };
+      } else if (skillRatingStrategy === "middle") {
+        skills = {
+          soloing: 3,
+          kickingLong: 3,
+          kickingShort: 3,
+          freeTakingGround: 3,
+          freeTakingHand: 3,
+          handPassing: 3,
+          pickupToeLift: 3,
+          highCatching: 3,
+          tackling: 3,
+          positionalSense: 3,
+          tracking: 3,
+          decisionMaking: 3,
+          decisionSpeed: 3,
+          ballHandling: 3,
+          leftSide: 3,
+          rightSide: 3,
+        };
+      } else {
+        skills = convertSkillsToRecord(
+          getAgeAppropriateSkills(member.AgeGroup)
+        );
+      }
 
-        let skills: Record<string, number>;
-        if (skillRatingStrategy === "blank") {
-          // Start with no ratings (all 1s)
-          skills = {
-            soloing: 1,
-            kickingLong: 1,
-            kickingShort: 1,
-            freeTakingGround: 1,
-            freeTakingHand: 1,
-            handPassing: 1,
-            pickupToeLift: 1,
-            highCatching: 1,
-            tackling: 1,
-            positionalSense: 1,
-            tracking: 1,
-            decisionMaking: 1,
-            decisionSpeed: 1,
-            ballHandling: 1,
-            leftSide: 1,
-            rightSide: 1,
-          };
-        } else if (skillRatingStrategy === "middle") {
-          // Middle of road (all 3s)
-          skills = {
-            soloing: 3,
-            kickingLong: 3,
-            kickingShort: 3,
-            freeTakingGround: 3,
-            freeTakingHand: 3,
-            handPassing: 3,
-            pickupToeLift: 3,
-            highCatching: 3,
-            tackling: 3,
-            positionalSense: 3,
-            tracking: 3,
-            decisionMaking: 3,
-            decisionSpeed: 3,
-            ballHandling: 3,
-            leftSide: 3,
-            rightSide: 3,
-          };
-        } else {
-          // Age-appropriate baseline
-          skills = convertSkillsToRecord(
-            getAgeAppropriateSkills(member.AgeGroup)
-          );
-        }
+      const assignedTeamId = teamAssignments[i];
+      if (!assignedTeamId) {
+        console.error(`❌ No team assigned for ${member.FullName}`);
+        skipped++;
+        continue;
+      }
 
-        // Get the assigned team ID
-        const assignedTeamId = teamAssignments[i];
-        if (!assignedTeamId) {
-          console.error(`No team assigned for member ${member.FullName}`);
-          skipped++;
-          continue;
-        }
-
-        const player: PlayerCreateData = {
-          name: member.FullName,
-          ageGroup: member.AgeGroup,
-          sport: "GAA Football",
-          gender: member.Gender,
-          teamId: assignedTeamId,
-          completionDate: new Date().toISOString().split("T")[0],
-          season: "2025",
-          reviewedWith: {
-            coach: false,
-            parent: false,
-            player: false,
-            forum: false,
-          },
-          attendance: { training: "", matches: "" },
-          injuryNotes: "",
-          reviewStatus: "Not Started" as ReviewStatus,
-          lastReviewDate: null,
-          nextReviewDue: null,
-          skills,
-          positions: {
-            favourite: "",
-            leastFavourite: "",
-            coachesPref: "",
-            dominantSide: "",
-            goalkeeper: "",
-          },
-          fitness: {
-            pushPull: "",
-            core: "",
-            endurance: "",
-            speed: "",
-            broncoBeep: "",
-          },
-          otherInterests: "",
-          communications: "",
-          actions: "",
-          coachNotes: `Imported from membership database
+      playersToCreate.push({
+        name: member.FullName,
+        ageGroup: member.AgeGroup,
+        sport: "GAA Football",
+        gender: member.Gender,
+        organizationId,
+        teamId: assignedTeamId,
+        completionDate: new Date().toISOString().split("T")[0],
+        season: "2025",
+        reviewedWith: {
+          coach: false,
+          parent: false,
+          player: false,
+          forum: false,
+        },
+        attendance: { training: "", matches: "" },
+        injuryNotes: "",
+        skills,
+        positions: {
+          favourite: "",
+          leastFavourite: "",
+          coachesPref: "",
+          dominantSide: "",
+          goalkeeper: "",
+        },
+        fitness: {
+          pushPull: "",
+          core: "",
+          endurance: "",
+          speed: "",
+          broncoBeep: "",
+        },
+        otherInterests: "",
+        communications: "",
+        actions: "",
+        coachNotes: `Imported from membership database
 ${member.ParentFirstName ? `Parent: ${member.ParentFirstName} ${member.ParentSurname}` : member.ParentSurname ? `Parent/Guardian: ${member.ParentSurname}` : "Parent: Unknown"}
 Contact: ${member.ParentEmail || "No email"}
 Phone: ${member.ParentPhone || "No phone"}
 Address: ${member.Address || ""}, ${member.Town || ""} ${member.Postcode || ""}`.trim(),
-          parentNotes: "",
-          playerNotes: "",
-          seasonReviews: [],
-          createdFrom: "GAA Membership Import",
-          familyId,
-          // Store parent info as INFERRED data (to be confirmed during parent registration)
-          inferredParentFirstName: member.ParentFirstName || undefined,
-          inferredParentSurname: member.ParentSurname || undefined,
-          inferredParentEmail: member.ParentEmail
-            ? member.ParentEmail.toLowerCase().trim()
-            : undefined,
-          inferredParentPhone: member.ParentPhone || undefined,
-          inferredFromSource: `GAA Membership Import ${new Date().toISOString().split("T")[0]}`,
-          // Also keep direct fields for display/reference
-          parentFirstName: member.ParentFirstName || undefined,
-          parentSurname: member.ParentSurname || undefined,
-          parentEmail: member.ParentEmail || undefined,
-          parentPhone: member.ParentPhone || undefined,
-          dateOfBirth: member.DateOfBirth || undefined,
-          address: member.Address || undefined,
-          town: member.Town || undefined,
-          postcode: member.Postcode || undefined,
-        };
-
-        // Use Convex mutation to create player
-        const playerId = await createPlayerMutation(player);
-        playerIds.push(playerId);
-        created++;
-        console.log(`✅ Imported player: ${player.name}`);
-      } catch (error) {
-        console.error("Error creating passport:", error);
-      }
+        parentNotes: "",
+        playerNotes: "",
+        createdFrom: "GAA Membership Import",
+        familyId,
+        inferredParentFirstName: member.ParentFirstName || undefined,
+        inferredParentSurname: member.ParentSurname || undefined,
+        inferredParentEmail:
+          member.ParentEmail?.toLowerCase().trim() || undefined,
+        inferredParentPhone: member.ParentPhone || undefined,
+        inferredFromSource: `GAA Membership Import ${new Date().toISOString().split("T")[0]}`,
+        parentFirstName: member.ParentFirstName || undefined,
+        parentSurname: member.ParentSurname || undefined,
+        parentEmail: member.ParentEmail || undefined,
+        parentPhone: member.ParentPhone || undefined,
+        dateOfBirth: member.DateOfBirth || undefined,
+        address: member.Address || undefined,
+        town: member.Town || undefined,
+        postcode: member.Postcode || undefined,
+      });
     }
 
-    // Log the bulk import operation to console (audit table can be added later)
-    const filterDesc =
-      importFilter === "all"
-        ? "all players"
-        : importFilter === "youth"
-          ? "youth players only"
-          : "senior players only";
-    console.log("[AUDIT] BULK_IMPORT", {
-      message: `Imported ${created} player passports from GAA membership database (${filterDesc})`,
-      user: "Admin",
-      recordCount: created,
-      familyCount: familyMap.size,
-      playerIds,
-      fileName: "membership_import.csv",
-      metadata: {
-        importSource: "GAA Membership Wizard",
-        skillRatingStrategy,
-        importFilter,
-        teams: Array.from(new Set(Object.values(teamAssignments))),
-      },
-      priority: "high",
-    });
+    console.log(
+      `📦 Prepared ${playersToCreate.length} players for bulk import`
+    );
 
-    setResults({ created, families: familyMap.size, skipped, replaced });
+    // Phase 3: Bulk import all players at once!
+    console.log(
+      `🚀 Phase 3: Bulk importing ${playersToCreate.length} players (single transaction)...`
+    );
+
+    try {
+      const result = await bulkImportPlayersMutation({
+        players: playersToCreate,
+      });
+
+      console.log(
+        `✅ Bulk import complete! Created ${result.created} players with team assignments in a single transaction`
+      );
+
+      // Log audit
+      const filterDesc =
+        importFilter === "all"
+          ? "all players"
+          : importFilter === "youth"
+            ? "youth players only"
+            : "senior players only";
+
+      console.log("[AUDIT] BULK_IMPORT", {
+        message: `Bulk imported ${result.created} player passports from GAA membership database (${filterDesc})`,
+        user: "Admin",
+        recordCount: result.created,
+        familyCount: familyMap.size,
+        playerIds: result.playerIds,
+        fileName: "membership_import.csv",
+        metadata: {
+          importSource: "GAA Membership Wizard - Bulk Import",
+          skillRatingStrategy,
+          importFilter,
+          teams: Array.from(new Set(Object.values(teamAssignments))),
+        },
+        priority: "high",
+      });
+
+      console.log(
+        `🎉 Import complete! Created: ${result.created}, Skipped: ${skipped}, Replaced: ${replaced}`
+      );
+
+      setResults({
+        created: result.created,
+        families: familyMap.size,
+        skipped,
+        replaced,
+      });
+    } catch (error) {
+      console.error("❌ Bulk import failed:", error);
+      // Show error to user
+      alert(
+        `Import failed: ${error instanceof Error ? error.message : "Unknown error"}. Please check console for details.`
+      );
+      setResults({
+        created: 0,
+        families: familyMap.size,
+        skipped,
+        replaced,
+      });
+    }
+
     setImporting(false);
     setStep(3);
     await onComplete();

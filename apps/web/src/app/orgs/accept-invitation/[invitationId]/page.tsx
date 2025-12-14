@@ -66,49 +66,24 @@ export default function AcceptInvitationPage() {
         console.log("[AcceptInvitation] ===== STARTING INVITATION CHECK =====");
         console.log("[AcceptInvitation] Invitation ID from URL:", invitationId);
         console.log("[AcceptInvitation] Page loaded, checking session...");
+        console.log("[AcceptInvitation] Raw session from hook:", session);
+        console.log("[AcceptInvitation] Session type:", typeof session);
+        console.log(
+          "[AcceptInvitation] Session keys:",
+          session ? Object.keys(session) : "null/undefined"
+        );
 
-        // Check if user is logged in
-        const session = await authClient.getSession();
-        console.log("[AcceptInvitation] Raw session object:", session);
-        console.log("[AcceptInvitation] Session check result:", {
-          hasSession: !!session,
-          isObject: typeof session === "object",
-          hasError:
-            session && typeof session === "object" && "error" in session,
-          hasData: session && typeof session === "object" && "data" in session,
-          keys:
-            session && typeof session === "object" ? Object.keys(session) : [],
-        });
-
-        // Better Auth getSession can return different structures
-        // Check for error first
-        if (session && typeof session === "object" && "error" in session) {
-          console.log(
-            "[AcceptInvitation] Session has error, redirecting to login"
-          );
-          router.push(
-            `/login?redirect=/orgs/accept-invitation/${invitationId}`
-          );
+        // Wait for session to load (it might be undefined initially)
+        if (session === undefined) {
+          console.log("[AcceptInvitation] ⏳ Session still loading...");
+          setStatus("checking");
           return;
         }
 
-        // Check if session has data property (Better Auth structure)
-        let sessionData: { user?: { email: string } } | undefined;
-        if (session && typeof session === "object" && "data" in session) {
-          sessionData = (session as { data?: { user?: { email: string } } })
-            .data;
-        } else if (
-          session &&
-          typeof session === "object" &&
-          "user" in session
-        ) {
-          // Some Better Auth versions return session directly with user
-          sessionData = session as { user?: { email: string } };
-        }
-
-        if (!sessionData?.user) {
+        // Check if session is null or has error
+        if (!session || (typeof session === "object" && "error" in session)) {
           console.log(
-            "[AcceptInvitation] No user in session data, redirecting to login"
+            "[AcceptInvitation] ❌ No valid session, redirecting to login"
           );
           // Redirect to login with return URL
           router.push(
@@ -117,7 +92,25 @@ export default function AcceptInvitationPage() {
           return;
         }
 
-        const userEmail = sessionData.user.email;
+        // Extract user email from session
+        // Better Auth useSession returns { user: { email, id, ... }, session: {...} }
+        const userEmail = session?.user?.email;
+
+        if (!userEmail) {
+          console.log(
+            "[AcceptInvitation] ❌ No user email in session, redirecting to login"
+          );
+          console.log(
+            "[AcceptInvitation] Session structure:",
+            JSON.stringify(session, null, 2)
+          );
+          router.push(
+            `/login?redirect=/orgs/accept-invitation/${invitationId}`
+          );
+          return;
+        }
+
+        console.log("[AcceptInvitation] ✅ User is logged in:", userEmail);
         setCurrentUserEmail(userEmail);
 
         // Wait for invitation details to load

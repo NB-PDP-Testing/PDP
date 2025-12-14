@@ -4883,6 +4883,1006 @@ function getRedirectRoute(
 
 ---
 
+## 18. Owner Role Management: Complete Implementation Plan
+
+### 18.1 Current State Analysis
+
+#### What We Have Documented
+
+**Owner Role Assignment**:
+- ✅ **Automatic**: When user creates organization → becomes owner
+- ✅ **Manual Transfer**: Owner can transfer ownership via `authClient.organization.updateMemberRole()`
+- ❌ **Cannot be assigned via invitation**: Only `admin` or `member` can be invited
+- ❌ **Cannot be assigned via join request**: Only `admin` or `member` can be requested
+
+**Owner Permissions**:
+- ✅ Full organization management (name, logo, colors, delete org)
+- ✅ Transfer ownership to another member
+- ✅ Invite/remove any member (including admins)
+- ✅ Change any member's role (including making/removing owners)
+- ✅ All Better Auth permissions granted by default
+
+#### What's Missing
+
+**UI/UX**:
+- ❌ **No Transfer Ownership UI**: Settings page has delete org, but no transfer ownership feature
+- ❌ **No Owner Display**: No clear indication of who the current owner is
+- ❌ **No Owner Management Section**: No dedicated UI for owner management
+
+**Backend**:
+- ❌ **No Transfer Ownership Mutation**: Need custom mutation to handle ownership transfer safely
+- ❌ **No Get Current Owner Query**: Need query to identify current owner(s)
+- ❌ **No Ownership Transfer Validation**: Need to ensure only owner can transfer
+
+**Flows**:
+- ❌ **No Ownership Transfer Flow**: No step-by-step process for transferring ownership
+- ❌ **No Confirmation Dialog**: No warning/confirmation before transfer
+- ❌ **No Post-Transfer Handling**: No logic for what happens after transfer
+
+**Permissions**:
+- ⚠️ **Partially Implemented**: `getUserOrgRole` query exists but not used everywhere
+- ❌ **No Owner-Only UI Sections**: Settings page checks `isOwner` but no owner-specific sections
+
+### 18.2 How to Get Owner Permission
+
+#### Method 1: Create Organization (Automatic)
+
+**When**: User creates a new organization via `/orgs/create`
+
+**Implementation**:
+```typescript
+// apps/web/src/app/orgs/create/page.tsx
+const { data } = await authClient.organization.create({
+  name: "Grange GFC",
+  slug: "grange-gfc",
+});
+// User who calls this automatically becomes owner
+```
+
+**Result**:
+- User's Better Auth role: `"owner"`
+- User's functional role: `["admin"]` (auto-assigned via `onMemberAdded` hook)
+- User can manage organization, transfer ownership, delete org
+
+**Limitations**:
+- Only works for new organizations
+- Cannot retroactively make someone owner of existing org (except via transfer)
+
+#### Method 2: Ownership Transfer (Manual)
+
+**When**: Current owner transfers ownership to another existing member
+
+**Current Implementation** (via Better Auth client):
+```typescript
+// Owner can transfer ownership
+await authClient.organization.updateMemberRole({
+  memberId: "member_123",
+  role: "owner",
+  organizationId: "org_123",
+});
+// Previous owner becomes "admin", new owner gets "owner" role
+```
+
+**What Happens**:
+- Better Auth automatically demotes previous owner to `"admin"`
+- New member gets `"owner"` role
+- Previous owner retains functional role `["admin"]` (if they had it)
+- New owner gets functional role `["admin"]` (via `onMemberAdded` hook if they're new, or manually if existing)
+
+**Limitations**:
+- ❌ **No UI**: Currently only possible via direct API call
+- ❌ **No Validation**: No check to ensure caller is current owner
+- ❌ **No Confirmation**: No warning dialog before transfer
+- ❌ **No Audit Trail**: No logging of ownership transfers
+
+### 18.3 Required UI Updates
+
+#### 18.3.1 Organization Settings Page Enhancement
+
+**Location**: `/orgs/[orgId]/admin/settings`
+
+**Current State**:
+- ✅ Shows delete organization (owner only)
+- ❌ No owner management section
+- ❌ No display of current owner
+- ❌ No transfer ownership feature
+
+**Required Updates**:
+
+**1. Add "Owner Management" Section**:
+
+```typescript
+// apps/web/src/app/orgs/[orgId]/admin/settings/page.tsx
+
+// Add new state
+const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+const [selectedNewOwner, setSelectedNewOwner] = useState<string | null>(null);
+const [transferring, setTransferring] = useState(false);
+
+// Add query to get current owner
+const currentOwner = useQuery(api.models.members.getCurrentOwner, {
+  organizationId: orgId,
+});
+
+// Add query to get all members (for owner selection)
+const allMembers = useQuery(api.models.members.getMembersByOrganization, {
+  organizationId: orgId,
+});
+
+// Add mutation for ownership transfer
+const transferOwnership = useMutation(api.models.members.transferOwnership);
+```
+
+**2. Add Owner Display Card**:
+
+```typescript
+{/* Owner Management Section - Only visible to owner */}
+{isOwner && (
+  <Card>
+    <CardHeader>
+      <CardTitle>Owner Management</CardTitle>
+      <CardDescription>
+        Manage organization ownership and transfer to another member
+      </CardDescription>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      {/* Current Owner Display */}
+      <div className="rounded-lg border bg-muted/50 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-muted-foreground text-sm font-medium">Current Owner</p>
+            <div className="mt-1 flex items-center gap-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={currentOwner?.user?.image || undefined} />
+                <AvatarFallback>
+                  {currentOwner?.user?.name?.charAt(0) || "O"}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-medium">{currentOwner?.user?.name || "Unknown"}</p>
+                <p className="text-muted-foreground text-sm">
+                  {currentOwner?.user?.email || ""}
+                </p>
+              </div>
+              <Badge className="ml-2" variant="default">
+                Owner
+              </Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Transfer Ownership Button */}
+      <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <div className="flex-1">
+          <h3 className="font-semibold">Transfer Ownership</h3>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Transfer ownership of this organization to another member. You will become an admin after the transfer.
+          </p>
+        </div>
+        <Button
+          onClick={() => setTransferDialogOpen(true)}
+          variant="outline"
+        >
+          Transfer Ownership
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+)}
+```
+
+**3. Add Transfer Ownership Dialog**:
+
+```typescript
+{/* Transfer Ownership Dialog */}
+<Dialog onOpenChange={setTransferDialogOpen} open={transferDialogOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-2 text-amber-600">
+        <AlertTriangle className="h-5 w-5" />
+        Transfer Ownership
+      </DialogTitle>
+      <DialogDescription>
+        Select a member to transfer ownership to. This action cannot be undone.
+        You will become an admin after the transfer.
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="space-y-4 py-4">
+      {/* Warning Alert */}
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Warning</AlertTitle>
+        <AlertDescription>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-sm">
+            <li>You will lose the ability to delete this organization</li>
+            <li>You will lose the ability to transfer ownership again</li>
+            <li>The new owner will have full control over the organization</li>
+            <li>This action cannot be undone</li>
+          </ul>
+        </AlertDescription>
+      </Alert>
+
+      {/* Member Selection */}
+      <div className="space-y-2">
+        <Label htmlFor="newOwner">Select New Owner</Label>
+        <Select
+          onValueChange={setSelectedNewOwner}
+          value={selectedNewOwner || ""}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Choose a member..." />
+          </SelectTrigger>
+          <SelectContent>
+            {allMembers
+              ?.filter((member) => {
+                // Exclude current owner
+                return member.userId !== currentOwner?.userId;
+              })
+              .map((member) => (
+                <SelectItem key={member._id} value={member._id}>
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={member.user?.image || undefined} />
+                      <AvatarFallback>
+                        {member.user?.name?.charAt(0) || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{member.user?.name || "Unknown"}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {member.user?.email || ""} • {member.role}
+                      </p>
+                    </div>
+                  </div>
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+        <p className="text-muted-foreground text-xs">
+          Only existing members can become owners. The selected member must already be a member of this organization.
+        </p>
+      </div>
+
+      {/* Confirmation Checkbox */}
+      <div className="flex items-start space-x-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <Checkbox
+          id="confirmTransfer"
+          checked={confirmTransfer}
+          onCheckedChange={setConfirmTransfer}
+        />
+        <Label
+          className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          htmlFor="confirmTransfer"
+        >
+          I understand that I will lose owner privileges and this action cannot be undone.
+        </Label>
+      </div>
+    </div>
+
+    <DialogFooter>
+      <Button
+        onClick={() => {
+          setTransferDialogOpen(false);
+          setSelectedNewOwner(null);
+          setConfirmTransfer(false);
+        }}
+        variant="outline"
+      >
+        Cancel
+      </Button>
+      <Button
+        disabled={!selectedNewOwner || !confirmTransfer || transferring}
+        onClick={handleTransferOwnership}
+        variant="destructive"
+      >
+        {transferring ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Transferring...
+          </>
+        ) : (
+          "Transfer Ownership"
+        )}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+**4. Add Transfer Handler**:
+
+```typescript
+const handleTransferOwnership = async () => {
+  if (!selectedNewOwner) {
+    toast.error("Please select a member to transfer ownership to");
+    return;
+  }
+
+  setTransferring(true);
+  try {
+    await transferOwnership({
+      organizationId: orgId,
+      newOwnerMemberId: selectedNewOwner,
+    });
+
+    toast.success("Ownership transferred successfully");
+    setTransferDialogOpen(false);
+    setSelectedNewOwner(null);
+    setConfirmTransfer(false);
+
+    // Refresh page or redirect to show updated owner
+    router.refresh();
+  } catch (error: any) {
+    console.error("Error transferring ownership:", error);
+    toast.error(error.message || "Failed to transfer ownership");
+  } finally {
+    setTransferring(false);
+  }
+};
+```
+
+#### 18.3.2 Manage Users Page Enhancement
+
+**Location**: `/orgs/[orgId]/admin/users`
+
+**Current State**:
+- ✅ Shows all members with their roles
+- ✅ Allows changing Better Auth roles (admin/member)
+- ❌ Does not show owner role clearly
+- ❌ Does not allow transferring ownership from this page
+
+**Required Updates**:
+
+**1. Add Owner Badge**:
+
+```typescript
+// In member card, add owner indicator
+{member.role === "owner" && (
+  <Badge className="bg-amber-100 text-amber-700 border-amber-300">
+    Owner
+  </Badge>
+)}
+```
+
+**2. Add Transfer Ownership Action** (for owner only):
+
+```typescript
+// In member actions dropdown (if current user is owner)
+{isOwner && member.role !== "owner" && (
+  <DropdownMenuItem
+    onClick={() => {
+      setTransferTargetMemberId(member._id);
+      setTransferDialogOpen(true);
+    }}
+    className="text-amber-600"
+  >
+    <Shield className="mr-2 h-4 w-4" />
+    Transfer Ownership
+  </DropdownMenuItem>
+)}
+```
+
+**3. Disable Role Changes for Owner**:
+
+```typescript
+// In role selector, disable if member is owner
+<Select
+  disabled={member.role === "owner" || loading === member.userId}
+  onValueChange={(value) => {
+    // Handle role change
+  }}
+  value={member.role}
+>
+  {/* Options */}
+</Select>
+{member.role === "owner" && (
+  <p className="text-muted-foreground text-xs">
+    Owner role cannot be changed. Transfer ownership to change.
+  </p>
+)}
+```
+
+#### 18.3.3 Organization Overview Page Enhancement
+
+**Location**: `/orgs/[orgId]/admin`
+
+**Current State**:
+- ✅ Shows organization stats
+- ❌ Does not show current owner
+
+**Required Updates**:
+
+**1. Add Owner Display in Stats**:
+
+```typescript
+// Add owner card to stats section
+<StatCard
+  description="Organization owner"
+  icon={Shield}
+  title="Owner"
+  value={currentOwner?.user?.name || "Unknown"}
+  variant="default"
+/>
+```
+
+### 18.4 Required Backend Implementation
+
+#### 18.4.1 Get Current Owner Query
+
+**File**: `packages/backend/convex/models/members.ts`
+
+```typescript
+/**
+ * Get the current owner(s) of an organization
+ * Returns owner member with user details
+ */
+export const getCurrentOwner = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      _id: v.string(),
+      userId: v.string(),
+      organizationId: v.string(),
+      role: v.literal("owner"),
+      user: v.union(
+        v.object({
+          _id: v.string(),
+          name: v.union(v.string(), v.null()),
+          email: v.string(),
+          image: v.union(v.string(), v.null()),
+        }),
+        v.null()
+      ),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Get all members with owner role
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "role",
+            value: "owner",
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (membersResult.page.length === 0) {
+      return null;
+    }
+
+    // Get first owner (typically only one)
+    const owner = membersResult.page[0];
+
+    // Get user details
+    const userResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "_id",
+            value: owner.userId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    return {
+      _id: owner._id,
+      userId: owner.userId,
+      organizationId: owner.organizationId,
+      role: "owner" as const,
+      user: userResult
+        ? {
+            _id: userResult._id,
+            name: userResult.name || null,
+            email: userResult.email,
+            image: userResult.image || null,
+          }
+        : null,
+    };
+  },
+});
+```
+
+#### 18.4.2 Transfer Ownership Mutation
+
+**File**: `packages/backend/convex/models/members.ts`
+
+```typescript
+/**
+ * Transfer ownership of an organization to another member
+ * Only the current owner can transfer ownership
+ * 
+ * What happens:
+ * 1. Previous owner's role changes from "owner" to "admin"
+ * 2. New owner's role changes to "owner"
+ * 3. Both retain their functional roles
+ * 4. Audit log entry created (if audit logging exists)
+ */
+export const transferOwnership = mutation({
+  args: {
+    organizationId: v.string(),
+    newOwnerMemberId: v.string(), // Member ID (not user ID) of new owner
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      throw new Error("Not authenticated");
+    }
+
+    // 1. Verify current user is the owner
+    const currentOwnerMember = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "userId",
+            value: currentUser._id,
+            operator: "eq",
+          },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+            connector: "AND",
+          },
+          {
+            field: "role",
+            value: "owner",
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!currentOwnerMember) {
+      throw new Error("Only the current owner can transfer ownership");
+    }
+
+    // 2. Verify new owner member exists and is in the organization
+    const newOwnerMember = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "_id",
+            value: args.newOwnerMemberId,
+            operator: "eq",
+          },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!newOwnerMember) {
+      throw new Error("New owner member not found in this organization");
+    }
+
+    // 3. Prevent transferring to self
+    if (newOwnerMember.userId === currentUser._id) {
+      throw new Error("You are already the owner");
+    }
+
+    // 4. Transfer ownership (Better Auth handles role changes)
+    // First, set new owner to "owner" role
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: args.newOwnerMemberId, operator: "eq" }],
+        update: {
+          role: "owner",
+        },
+      },
+    });
+
+    // 5. Set previous owner to "admin" role
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: currentOwnerMember._id, operator: "eq" }],
+        update: {
+          role: "admin",
+        },
+      },
+    });
+
+    // 6. Ensure both have functional "admin" role (if they don't already)
+    const previousOwnerFunctionalRoles = (currentOwnerMember as any).functionalRoles || [];
+    if (!previousOwnerFunctionalRoles.includes("admin")) {
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "member",
+          where: [{ field: "_id", value: currentOwnerMember._id, operator: "eq" }],
+          update: {
+            functionalRoles: [...previousOwnerFunctionalRoles, "admin"],
+          },
+        },
+      });
+    }
+
+    const newOwnerFunctionalRoles = (newOwnerMember as any).functionalRoles || [];
+    if (!newOwnerFunctionalRoles.includes("admin")) {
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "member",
+          where: [{ field: "_id", value: args.newOwnerMemberId, operator: "eq" }],
+          update: {
+            functionalRoles: [...newOwnerFunctionalRoles, "admin"],
+          },
+        },
+      });
+    }
+
+    // 7. Log ownership transfer (if audit logging exists)
+    // TODO: Add audit log entry for ownership transfer
+
+    console.log("[transferOwnership] Ownership transferred:", {
+      organizationId: args.organizationId,
+      previousOwner: currentUser._id,
+      newOwner: newOwnerMember.userId,
+    });
+
+    return null;
+  },
+});
+```
+
+#### 18.4.3 Get All Members Query (Enhanced)
+
+**File**: `packages/backend/convex/models/members.ts`
+
+**Update existing `getMembersByOrganization` to include owner indicator**:
+
+```typescript
+// Already exists, but ensure it includes role information
+// Members returned should include:
+// - role: "owner" | "admin" | "member"
+// - user: User details
+// - functionalRoles: Functional roles array
+```
+
+### 18.5 Ownership Transfer Flow
+
+#### 18.5.1 Complete Transfer Flow
+
+**Step 1: Owner Initiates Transfer**
+- Owner navigates to `/orgs/[orgId]/admin/settings`
+- Clicks "Transfer Ownership" button
+- Transfer dialog opens
+
+**Step 2: Owner Selects New Owner**
+- Dialog shows list of all members (excluding current owner)
+- Owner selects a member from dropdown
+- Shows member details (name, email, current role)
+
+**Step 3: Owner Confirms Transfer**
+- Owner checks confirmation checkbox
+- Owner reads warning about losing privileges
+- Owner clicks "Transfer Ownership" button
+
+**Step 4: Backend Validates and Transfers**
+- Backend verifies current user is owner
+- Backend verifies new owner member exists
+- Backend updates roles:
+  - Previous owner: `role: "owner"` → `role: "admin"`
+  - New owner: `role: "admin"` or `role: "member"` → `role: "owner"`
+- Backend ensures both have functional `["admin"]` role
+
+**Step 5: UI Updates**
+- Settings page refreshes
+- New owner is displayed
+- Previous owner sees admin view
+- Success toast shown
+
+**Step 6: Redirect (Optional)**
+- Previous owner redirected to admin dashboard
+- New owner can access owner-only features
+
+#### 18.5.2 Edge Cases
+
+**1. Multiple Owners (Better Auth supports this)**:
+- If multiple owners exist, all can transfer ownership
+- Transfer affects only the transferring owner
+- Other owners remain as owners
+
+**2. Owner Leaves Organization**:
+- If owner leaves, organization has no owner
+- Need fallback: First admin becomes owner, or organization becomes unmanaged
+- **Recommendation**: Prevent owner from leaving until ownership is transferred
+
+**3. Owner Account Deleted**:
+- If owner account is deleted, organization has no owner
+- Need admin intervention or automatic promotion of first admin
+- **Recommendation**: Add validation to prevent deleting owner account
+
+**4. Transfer to Non-Member**:
+- Cannot transfer to someone who isn't a member
+- UI should only show existing members
+- Backend validates membership
+
+**5. Transfer to Self**:
+- Prevented in UI and backend
+- Show error: "You are already the owner"
+
+### 18.6 Permissions & Access Control
+
+#### 18.6.1 Owner-Only Permissions
+
+**What Only Owner Can Do**:
+- ✅ Delete organization
+- ✅ Transfer ownership
+- ✅ Change any member's role to "owner" (via transfer)
+- ✅ Remove any member (including other owners, if multiple exist)
+
+**What Owner Cannot Do**:
+- ❌ Remove their own owner role (must transfer first)
+- ❌ Leave organization while owner (must transfer first)
+
+#### 18.6.2 Permission Checks Required
+
+**1. Settings Page Access**:
+```typescript
+// apps/web/src/app/orgs/[orgId]/admin/settings/page.tsx
+const userRole = useQuery(api.models.organizations.getUserOrgRole, {
+  organizationId: orgId,
+});
+const isOwner = userRole?.isOwner ?? false;
+
+// Show owner management section only if owner
+{isOwner && <OwnerManagementSection />}
+```
+
+**2. Transfer Ownership Mutation**:
+```typescript
+// Backend validates owner before allowing transfer
+const currentOwnerMember = await ctx.runQuery(/* find owner */);
+if (!currentOwnerMember) {
+  throw new Error("Only the current owner can transfer ownership");
+}
+```
+
+**3. Delete Organization**:
+```typescript
+// Already implemented in deleteOrganization mutation
+if (memberResult.role !== "owner") {
+  throw new Error("Only organization owners can delete the organization");
+}
+```
+
+**4. Change Member Roles**:
+```typescript
+// In manage users page, prevent changing owner role
+if (member.role === "owner") {
+  // Disable role selector
+  // Show message: "Owner role cannot be changed. Transfer ownership to change."
+}
+```
+
+### 18.7 UI/UX Best Practices
+
+#### 18.7.1 Owner Display
+
+**Where to Show Owner**:
+- ✅ Organization settings page (owner management section)
+- ✅ Organization overview page (stats card)
+- ✅ Manage users page (owner badge on member card)
+- ✅ Organization header (optional: show owner badge)
+
+**How to Display**:
+- Use `Badge` component with amber/yellow color (distinct from admin purple)
+- Show owner name and email
+- Show "Owner" label clearly
+- Use `Shield` icon for owner
+
+#### 18.7.2 Transfer Ownership Dialog
+
+**Design Principles**:
+- ⚠️ **Warning-First**: Show warnings prominently
+- ✅ **Clear Consequences**: List what owner will lose
+- ✅ **Member Selection**: Easy-to-use dropdown with member details
+- ✅ **Confirmation Required**: Checkbox to confirm understanding
+- ✅ **Destructive Styling**: Use destructive variant for transfer button
+
+**Warning Messages**:
+- "You will lose the ability to delete this organization"
+- "You will lose the ability to transfer ownership again"
+- "The new owner will have full control over the organization"
+- "This action cannot be undone"
+
+#### 18.7.3 Owner Management Section
+
+**Location**: Organization settings page (`/orgs/[orgId]/admin/settings`)
+
+**Layout**:
+```
+┌─────────────────────────────────────────┐
+│ Owner Management                        │
+├─────────────────────────────────────────┤
+│ Current Owner                           │
+│ [Avatar] John Doe (john@example.com)   │
+│ [Owner Badge]                           │
+│                                         │
+│ Transfer Ownership                      │
+│ [Warning Box]                           │
+│ [Transfer Ownership Button]             │
+└─────────────────────────────────────────┘
+```
+
+### 18.8 Implementation Checklist
+
+#### Phase 1: Backend (Week 1)
+
+- [ ] Add `getCurrentOwner` query
+- [ ] Add `transferOwnership` mutation
+- [ ] Add validation: only owner can transfer
+- [ ] Add validation: cannot transfer to self
+- [ ] Ensure functional roles are set correctly after transfer
+- [ ] Add logging for ownership transfers
+
+#### Phase 2: Settings Page UI (Week 1-2)
+
+- [ ] Add "Owner Management" section to settings page
+- [ ] Add current owner display card
+- [ ] Add transfer ownership button
+- [ ] Add transfer ownership dialog
+- [ ] Add member selection dropdown
+- [ ] Add confirmation checkbox
+- [ ] Add warning messages
+- [ ] Add transfer handler
+- [ ] Add success/error toasts
+
+#### Phase 3: Manage Users Page Enhancement (Week 2)
+
+- [ ] Add owner badge to member cards
+- [ ] Add "Transfer Ownership" action to member dropdown (owner only)
+- [ ] Disable role changes for owner
+- [ ] Show message: "Owner role cannot be changed"
+- [ ] Add transfer dialog (reuse from settings)
+
+#### Phase 4: Organization Overview (Week 2)
+
+- [ ] Add owner stat card
+- [ ] Show current owner name
+- [ ] Link to settings page for owner management
+
+#### Phase 5: Validation & Edge Cases (Week 3)
+
+- [ ] Prevent owner from leaving organization
+- [ ] Prevent deleting owner account
+- [ ] Handle multiple owners scenario
+- [ ] Add fallback if no owner exists
+- [ ] Test all edge cases
+
+#### Phase 6: Testing & Documentation (Week 3)
+
+- [ ] Test ownership transfer flow
+- [ ] Test permission checks
+- [ ] Test edge cases
+- [ ] Update user documentation
+- [ ] Add admin guide for ownership management
+
+### 18.9 Security Considerations
+
+#### 18.9.1 Authorization Checks
+
+**Critical**: Always verify owner status on backend:
+```typescript
+// ✅ CORRECT: Verify on backend
+const currentOwnerMember = await ctx.runQuery(/* find owner */);
+if (!currentOwnerMember) {
+  throw new Error("Only the current owner can transfer ownership");
+}
+
+// ❌ WRONG: Relying only on frontend check
+if (isOwner) {
+  // Frontend check can be bypassed
+}
+```
+
+#### 18.9.2 Audit Trail
+
+**Recommendation**: Log all ownership transfers:
+```typescript
+// Add to transferOwnership mutation
+await ctx.db.insert("auditLog", {
+  action: "ownership_transferred",
+  organizationId: args.organizationId,
+  previousOwner: currentUser._id,
+  newOwner: newOwnerMember.userId,
+  timestamp: Date.now(),
+  performedBy: currentUser._id,
+});
+```
+
+#### 18.9.3 Rate Limiting
+
+**Consideration**: Prevent rapid ownership transfers:
+- Add cooldown period (e.g., 24 hours between transfers)
+- Or require admin approval for transfers
+- Or limit transfers per organization per month
+
+### 18.10 Future Enhancements
+
+#### 18.10.1 Ownership History
+
+**Feature**: Track ownership history
+- New table: `ownershipHistory`
+- Log all ownership transfers
+- Show history in settings page
+- Useful for auditing and compliance
+
+#### 18.10.2 Ownership Transfer Requests
+
+**Feature**: Allow members to request ownership
+- New table: `ownershipTransferRequests`
+- Member can request to become owner
+- Current owner can approve/reject
+- Useful when owner is inactive
+
+#### 18.10.3 Co-Owners
+
+**Feature**: Support multiple owners (Better Auth supports this)
+- UI to show all owners
+- Transfer to any owner
+- All owners can delete org, transfer ownership
+- Useful for shared organizations
+
+### 18.11 Summary
+
+**Current State**:
+- ✅ Owner role automatically assigned on org creation
+- ✅ Owner can transfer via Better Auth API
+- ❌ No UI for ownership management
+- ❌ No transfer ownership flow
+- ❌ No owner display
+
+**Required Implementation**:
+1. **Backend**: `getCurrentOwner` query, `transferOwnership` mutation
+2. **UI**: Owner management section in settings, transfer dialog
+3. **Flows**: Complete ownership transfer flow with confirmation
+4. **Permissions**: Owner-only access checks throughout
+5. **Edge Cases**: Handle multiple owners, owner leaving, etc.
+
+**Benefits**:
+- ✅ Clear ownership management
+- ✅ Safe ownership transfer process
+- ✅ Better UX for organization management
+- ✅ Prevents accidental ownership loss
+- ✅ Audit trail for compliance
+
+---
+
 ## Appendix: Decision Log
 
 | Decision | Date | Rationale |

@@ -229,10 +229,12 @@ export async function sendDemoRequestNotification(
         <title>${subject}</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background-color: #1E3A5F; padding: 25px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 100px; height: auto; margin-bottom: 12px;" />
-          <h1 style="color: white; margin: 0 0 4px 0; font-size: 24px; font-weight: bold;">PlayerARC</h1>
-          <p style="color: #22c55e; margin: 0; font-size: 14px; font-style: italic;">As many as possible, for as long as possible…</p>
+        <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0;">
+          <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;">
+            <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 80px; height: auto;" />
+            <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold;">PlayerARC</h1>
+          </div>
+          <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic; text-align: center;">As many as possible, for as long as possible…</p>
         </div>
         <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #1E3A5F; margin-top: 0;">New Demo Request</h2>
@@ -350,10 +352,12 @@ export async function sendDemoRequestAcknowledgement(data: {
         <title>${subject}</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background-color: #1E3A5F; padding: 25px 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 100px; height: auto; margin-bottom: 12px;" />
-          <h1 style="color: white; margin: 0 0 4px 0; font-size: 24px; font-weight: bold;">PlayerARC</h1>
-          <p style="color: #22c55e; margin: 0; font-size: 14px; font-style: italic;">As many as possible, for as long as possible…</p>
+        <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0;">
+          <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;">
+            <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 80px; height: auto;" />
+            <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold;">PlayerARC</h1>
+          </div>
+          <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic; text-align: center;">As many as possible, for as long as possible…</p>
         </div>
         <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #1E3A5F; margin-top: 0;">Thank you for your interest, ${name}!</h2>

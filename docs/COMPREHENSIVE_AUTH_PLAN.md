@@ -3476,6 +3476,341 @@ await ctx.runMutation(api.models.members.updateCoachAssignment, {
 
 ---
 
+## 15. Authentication Solution Alternatives Analysis
+
+### 15.1 Current Better Auth Usage
+
+#### What We're Using
+
+**Core Features**:
+- ✅ Email/password authentication
+- ✅ Social providers (Google, Microsoft)
+- ✅ Session management
+- ✅ Multi-tenancy (organizations)
+- ✅ Teams within organizations
+- ✅ Custom roles and access control
+- ✅ Invitation system
+- ✅ Convex integration (`@convex-dev/better-auth`)
+
+**Key Dependencies**:
+- `better-auth`: 1.3.27
+- `@convex-dev/better-auth`: ^0.9.1
+- Organization plugin with teams enabled
+- Custom access control with roles (owner, admin, member, coach, parent)
+- Custom schema extensions (team sports fields, member functional roles)
+
+**Integration Points**:
+- Convex backend (via adapter)
+- Next.js frontend (via React hooks)
+- Custom email sending (Resend.com)
+- Custom invitation flow
+
+### 15.2 Alternative Solutions Comparison
+
+#### Option A: Clerk
+
+**Overview**: Fully managed authentication service with pre-built UI components.
+
+**Pros**:
+- ✅ **Pre-built UI**: Beautiful, customizable login/signup components
+- ✅ **Managed Service**: No backend code needed for auth
+- ✅ **Rich Features**: Organizations, teams, roles, permissions out of the box
+- ✅ **Great DX**: Excellent TypeScript support, React hooks
+- ✅ **Social Logins**: Easy integration with many providers
+- ✅ **User Management**: Built-in user dashboard
+- ✅ **Multi-tenancy**: Native organization support
+- ✅ **Active Development**: Well-maintained, regular updates
+
+**Cons**:
+- ❌ **Cost**: Pricing starts at $25/month, scales with MAU (Monthly Active Users)
+- ❌ **Vendor Lock-in**: Fully managed, less control
+- ❌ **Convex Integration**: Would need custom adapter (not officially supported)
+- ❌ **Custom Schema**: Limited ability to extend schema
+- ❌ **Migration Complexity**: Would require significant refactoring
+- ❌ **Less Flexibility**: Harder to customize core auth flows
+
+**Pricing**: 
+- Free tier: Up to 10,000 MAU
+- Pro: $25/month + $0.02 per MAU over 10k
+- Enterprise: Custom pricing
+
+**Verdict**: ⚠️ **Good but Expensive** - Great features but cost and Convex integration concerns
+
+#### Option B: Auth.js (NextAuth.js v5)
+
+**Overview**: Open-source authentication library for Next.js (formerly NextAuth.js).
+
+**Pros**:
+- ✅ **Open Source**: Free, self-hosted
+- ✅ **Next.js Native**: Built specifically for Next.js
+- ✅ **Flexible**: Highly customizable
+- ✅ **Many Providers**: Supports 50+ OAuth providers
+- ✅ **TypeScript**: Full TypeScript support
+- ✅ **Active Community**: Large, active community
+- ✅ **No Vendor Lock-in**: Self-hosted, full control
+
+**Cons**:
+- ❌ **No Built-in Multi-tenancy**: Would need to build organizations/teams from scratch
+- ❌ **No Convex Adapter**: Would need to build custom adapter
+- ❌ **More Code**: Requires more custom code than Better Auth
+- ❌ **No Teams Feature**: Would need to build teams system
+- ❌ **Less Structured**: Less opinionated, more decisions to make
+- ❌ **Migration Complexity**: Significant refactoring required
+
+**Verdict**: ⚠️ **Possible but Complex** - Would require building multi-tenancy from scratch
+
+#### Option C: Supabase Auth
+
+**Overview**: Open-source Firebase alternative with built-in authentication.
+
+**Pros**:
+- ✅ **Open Source**: Self-hosted option available
+- ✅ **Built-in Auth**: Authentication included
+- ✅ **PostgreSQL**: Uses PostgreSQL (could migrate from Convex)
+- ✅ **Row Level Security**: Built-in RLS for multi-tenancy
+- ✅ **TypeScript**: Full TypeScript support
+- ✅ **Free Tier**: Generous free tier
+
+**Cons**:
+- ❌ **Database Migration**: Would require migrating from Convex to PostgreSQL
+- ❌ **No Convex Integration**: Would need to abandon Convex
+- ❌ **Different Architecture**: Different backend paradigm
+- ❌ **Migration Complexity**: Very high - would require full backend rewrite
+- ❌ **Teams Feature**: Would need to build teams system
+
+**Verdict**: ❌ **Not Recommended** - Would require abandoning Convex
+
+#### Option D: Auth0
+
+**Overview**: Enterprise-grade identity and access management platform.
+
+**Pros**:
+- ✅ **Enterprise Features**: Advanced features (MFA, SSO, etc.)
+- ✅ **Scalable**: Handles millions of users
+- ✅ **Multi-tenancy**: Built-in organization support
+- ✅ **Managed Service**: No backend code needed
+- ✅ **Many Providers**: Supports many identity providers
+
+**Cons**:
+- ❌ **Cost**: Expensive ($23/month + per MAU pricing)
+- ❌ **Complexity**: Over-engineered for our needs
+- ❌ **Vendor Lock-in**: Fully managed, less control
+- ❌ **Convex Integration**: Would need custom adapter
+- ❌ **Migration Complexity**: Significant refactoring
+- ❌ **Overkill**: Too many features we don't need
+
+**Verdict**: ❌ **Not Recommended** - Too expensive and complex for our needs
+
+#### Option E: Kinde
+
+**Overview**: All-in-one authentication and user management platform.
+
+**Pros**:
+- ✅ **Pre-built UI**: Customizable UI components
+- ✅ **Multi-tenancy**: Built-in organization support
+- ✅ **User Management**: Built-in user dashboard
+- ✅ **TypeScript**: Full TypeScript support
+- ✅ **Managed Service**: No backend code needed
+
+**Cons**:
+- ❌ **Cost**: Pricing starts at $99/month
+- ❌ **Vendor Lock-in**: Fully managed
+- ❌ **Convex Integration**: Would need custom adapter
+- ❌ **Migration Complexity**: Significant refactoring
+- ❌ **Less Flexible**: Harder to customize
+
+**Verdict**: ❌ **Not Recommended** - Too expensive
+
+#### Option F: SuperTokens
+
+**Overview**: Open-source authentication solution with self-hosting option.
+
+**Pros**:
+- ✅ **Open Source**: Free, self-hosted option
+- ✅ **Flexible**: Highly customizable
+- ✅ **Multi-tenancy**: Built-in organization support
+- ✅ **TypeScript**: Full TypeScript support
+- ✅ **No Vendor Lock-in**: Self-hosted option
+
+**Cons**:
+- ❌ **No Convex Adapter**: Would need to build custom adapter
+- ❌ **Less Popular**: Smaller community than Better Auth
+- ❌ **Migration Complexity**: Significant refactoring
+- ❌ **Teams Feature**: Would need to build teams system
+- ❌ **Less Documentation**: Less documentation than Better Auth
+
+**Verdict**: ⚠️ **Possible but Complex** - Similar to Better Auth but less Convex integration
+
+#### Option G: Stay with Better Auth
+
+**Overview**: Continue using Better Auth (current solution).
+
+**Pros**:
+- ✅ **Already Integrated**: Working with Convex
+- ✅ **Open Source**: Free, self-hosted
+- ✅ **Convex Support**: Official Convex adapter (`@convex-dev/better-auth`)
+- ✅ **Multi-tenancy**: Organization plugin with teams
+- ✅ **Flexible**: Highly customizable
+- ✅ **TypeScript**: Full TypeScript support
+- ✅ **Custom Schema**: Can extend schema easily
+- ✅ **No Migration**: No refactoring needed
+- ✅ **Active Development**: Regular updates
+- ✅ **Cost**: Free (self-hosted)
+
+**Cons**:
+- ⚠️ **Smaller Community**: Smaller than Clerk/Auth0
+- ⚠️ **Less Documentation**: Less documentation than enterprise solutions
+- ⚠️ **Self-hosted**: Need to manage ourselves (but we're already doing this)
+
+**Verdict**: ✅ **Recommended** - Best fit for our requirements
+
+### 15.3 Requirements-Based Comparison
+
+#### PlayerARC Requirements
+
+| Requirement | Better Auth | Clerk | Auth.js | Supabase | Auth0 | Kinde | SuperTokens |
+|-------------|-------------|-------|---------|----------|-------|-------|-------------|
+| **Convex Integration** | ✅ Official | ❌ Custom | ❌ Custom | ❌ N/A | ❌ Custom | ❌ Custom | ❌ Custom |
+| **Multi-tenancy** | ✅ Built-in | ✅ Built-in | ❌ Custom | ✅ Built-in | ✅ Built-in | ✅ Built-in | ✅ Built-in |
+| **Teams Feature** | ✅ Built-in | ✅ Built-in | ❌ Custom | ❌ Custom | ✅ Built-in | ✅ Built-in | ❌ Custom |
+| **Custom Roles** | ✅ Flexible | ✅ Built-in | ❌ Custom | ⚠️ Limited | ✅ Built-in | ✅ Built-in | ✅ Built-in |
+| **Custom Schema** | ✅ Extensible | ⚠️ Limited | ✅ Flexible | ✅ Flexible | ⚠️ Limited | ⚠️ Limited | ✅ Flexible |
+| **Cost** | ✅ Free | ❌ $25+/mo | ✅ Free | ✅ Free | ❌ $23+/mo | ❌ $99+/mo | ✅ Free |
+| **Migration Effort** | ✅ None | ❌ High | ❌ High | ❌ Very High | ❌ High | ❌ High | ❌ High |
+| **TypeScript** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| **Social Logins** | ✅ Many | ✅ Many | ✅ Many | ✅ Many | ✅ Many | ✅ Many | ✅ Many |
+
+### 15.4 Migration Complexity Analysis
+
+#### If We Switched to Clerk
+
+**Effort Required**:
+1. **Backend Refactoring**: Replace all Better Auth Convex queries with Clerk API calls
+2. **Frontend Refactoring**: Replace Better Auth hooks with Clerk hooks
+3. **Schema Migration**: Migrate organization/team data to Clerk
+4. **Custom Logic**: Rebuild invitation flow, access control, etc.
+5. **Testing**: Comprehensive testing of all auth flows
+6. **Cost**: $25+/month ongoing
+
+**Estimated Time**: 2-3 weeks of development + testing
+
+**Risk**: High - Significant refactoring, potential bugs, vendor lock-in
+
+#### If We Switched to Auth.js
+
+**Effort Required**:
+1. **Build Multi-tenancy**: Create organization/team system from scratch
+2. **Build Teams**: Create teams feature from scratch
+3. **Build Convex Adapter**: Create custom adapter for Convex
+4. **Rebuild Access Control**: Rebuild role/permission system
+5. **Rebuild Invitations**: Rebuild invitation flow
+6. **Testing**: Comprehensive testing
+
+**Estimated Time**: 4-6 weeks of development + testing
+
+**Risk**: Very High - Building complex features from scratch
+
+### 15.5 Cost Analysis
+
+#### Current (Better Auth)
+- **Cost**: $0 (self-hosted, open source)
+- **Infrastructure**: Included in Convex hosting
+- **Total**: $0/month
+
+#### Clerk
+- **Free Tier**: Up to 10,000 MAU
+- **Pro**: $25/month + $0.02 per MAU over 10k
+- **Example**: 5,000 MAU = $25/month, 20,000 MAU = $225/month
+- **Total**: $25-$225+/month depending on usage
+
+#### Auth.js / SuperTokens
+- **Cost**: $0 (self-hosted, open source)
+- **Infrastructure**: Included in Convex hosting
+- **Total**: $0/month
+
+#### Auth0 / Kinde
+- **Cost**: $23-$99+/month + per MAU pricing
+- **Total**: $100-$500+/month depending on usage
+
+### 15.6 Feature Comparison
+
+#### Multi-tenancy Support
+
+| Feature | Better Auth | Clerk | Auth.js | Others |
+|---------|-------------|-------|---------|--------|
+| Organizations | ✅ Built-in | ✅ Built-in | ❌ Custom | ✅ Most |
+| Teams | ✅ Built-in | ✅ Built-in | ❌ Custom | ⚠️ Some |
+| Custom Roles | ✅ Flexible | ✅ Built-in | ❌ Custom | ✅ Most |
+| Access Control | ✅ Custom | ✅ Built-in | ❌ Custom | ✅ Most |
+
+#### Convex Integration
+
+| Feature | Better Auth | Clerk | Auth.js | Others |
+|---------|-------------|-------|---------|--------|
+| Official Adapter | ✅ Yes | ❌ No | ❌ No | ❌ No |
+| Type Safety | ✅ Full | ⚠️ Partial | ⚠️ Partial | ⚠️ Partial |
+| Schema Extension | ✅ Easy | ⚠️ Limited | ✅ Easy | ⚠️ Varies |
+
+### 15.7 Recommendation
+
+#### ✅ **Stay with Better Auth**
+
+**Rationale**:
+
+1. **Perfect Fit for Convex**: Better Auth has official Convex integration (`@convex-dev/better-auth`), which is critical for our architecture.
+
+2. **Already Working**: Our current implementation is working well. No need to fix what isn't broken.
+
+3. **Cost Effective**: Free and open source, no ongoing costs.
+
+4. **Flexible**: Can customize schema, roles, and access control to our exact needs.
+
+5. **Multi-tenancy Built-in**: Organization and teams features are already implemented and working.
+
+6. **Low Migration Risk**: Staying with Better Auth means no migration risk, no refactoring, no bugs.
+
+7. **Active Development**: Better Auth is actively maintained and regularly updated.
+
+8. **TypeScript Support**: Full TypeScript support with excellent type safety.
+
+**When to Reconsider**:
+
+- **If Better Auth stops being maintained**: Then consider alternatives
+- **If we need enterprise features**: Then consider Auth0 or Clerk
+- **If we outgrow Better Auth**: Then consider scaling to enterprise solution
+- **If Convex integration breaks**: Then consider alternatives with Convex support
+
+### 15.8 Alternative Recommendation (If We Must Switch)
+
+**If we had to switch**, the best alternative would be **Clerk** because:
+- ✅ Best multi-tenancy support
+- ✅ Best developer experience
+- ✅ Pre-built UI components
+- ✅ Excellent TypeScript support
+
+**But**:
+- ❌ Would require custom Convex integration
+- ❌ Ongoing costs ($25+/month)
+- ❌ Vendor lock-in
+- ❌ Significant migration effort
+
+**Verdict**: Only consider if Better Auth becomes unmaintained or we need enterprise features.
+
+### 15.9 Conclusion
+
+**Better Auth is the best choice for PlayerARC** because:
+1. ✅ Official Convex integration
+2. ✅ Already implemented and working
+3. ✅ Free and open source
+4. ✅ Flexible and customizable
+5. ✅ Multi-tenancy built-in
+6. ✅ No migration risk
+7. ✅ Active development
+
+**No need to switch** - Better Auth meets all our requirements and is well-integrated with our Convex backend.
+
+---
+
 ## Appendix: Decision Log
 
 | Decision | Date | Rationale |

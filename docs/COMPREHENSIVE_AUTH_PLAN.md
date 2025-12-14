@@ -745,6 +745,195 @@ Keep only: `owner`, `admin`, `member`
 
 ### 3.5 Invitation Flow Design
 
+#### The Three Better Auth Roles: Detailed Usage & Assignment
+
+Before diving into the invitation flow, let's clarify how each of the three Better Auth roles (`owner`, `admin`, `member`) will be used and assigned:
+
+##### 1. **Owner** Role - How It's Assigned & Used
+
+**How It's Assigned**:
+- ✅ **Automatically**: When a user creates a new organization, they become the `owner`
+- ✅ **Manually**: An existing `owner` can transfer ownership to another member (via Better Auth API)
+- ❌ **Cannot be assigned via invitation**: Invitations can only assign `admin` or `member`
+- ❌ **Cannot be assigned via join request**: Join requests can only request `admin` or `member`
+
+**When It's Used**:
+- Organization creator/founder
+- Person with ultimate responsibility for the organization
+- Typically only one owner per organization (though Better Auth supports multiple)
+
+**Assignment Examples**:
+```typescript
+// Example 1: User creates organization → automatically becomes owner
+const { data } = await authClient.organization.create({
+  name: "Grange GFC",
+  slug: "grange-gfc",
+});
+// User who created it is automatically assigned role: "owner"
+
+// Example 2: Owner transfers ownership to another member
+await authClient.organization.updateMemberRole({
+  memberId: "member_123",
+  role: "owner", // Only current owner can do this
+  organizationId: "org_123",
+});
+// Previous owner becomes "admin", new owner gets "owner" role
+```
+
+**What Owner Can Do**:
+- ✅ Full organization management (name, logo, colors, delete org)
+- ✅ Transfer ownership to another member
+- ✅ Invite/remove any member (including admins)
+- ✅ Change any member's role (including making/removing owners)
+- ✅ All Better Auth permissions granted by default
+
+##### 2. **Admin** Role - How It's Assigned & Used
+
+**How It's Assigned**:
+- ✅ **Via Invitation**: Admin can invite user with `role: "admin"`
+- ✅ **Via Join Request**: User can request `admin` role (admin must approve)
+- ✅ **Manually**: Owner or existing admin can change member's role to `admin`
+- ✅ **After Approval**: When admin approves join request, they can assign `admin` role
+
+**When It's Used**:
+- Club administrators
+- Organization managers
+- Delegated authority holders
+- People who need to manage members and organization settings
+- Can have multiple admins per organization
+
+**Assignment Examples**:
+```typescript
+// Example 1: Admin invites another admin via invitation
+await authClient.organization.inviteMember({
+  email: "newadmin@example.com",
+  organizationId: "org_123",
+  role: "admin", // Better Auth role: admin
+  metadata: {
+    suggestedFunctionalRoles: ["admin"], // Functional role: admin
+  },
+});
+// User accepts → Better Auth role: "admin", Functional role: ["admin"]
+
+// Example 2: User requests admin role via join request
+await createJoinRequest({
+  organizationId: "org_123",
+  requestedRole: "admin", // Better Auth role requested
+  requestedFunctionalRoles: ["admin"], // Functional role requested
+});
+// Admin approves → Better Auth role: "admin", Functional role: ["admin"]
+
+// Example 3: Owner/Admin manually promotes member to admin
+await authClient.organization.updateMemberRole({
+  memberId: "member_123",
+  role: "admin",
+  organizationId: "org_123",
+});
+// Member's Better Auth role changes from "member" to "admin"
+// Note: Functional role "admin" should also be assigned separately
+```
+
+**What Admin Can Do**:
+- ✅ Manage organization settings (name, logo, colors)
+- ✅ Invite/remove members (except owner)
+- ✅ Change member roles (except cannot make/remove owner)
+- ✅ Approve/reject join requests
+- ✅ All Better Auth permissions (except owner-only: delete org, transfer ownership)
+
+**What Admin Cannot Do**:
+- ❌ Delete the organization
+- ❌ Transfer ownership
+- ❌ Remove the owner
+- ❌ Change owner's role
+
+##### 3. **Member** Role - How It's Assigned & Used
+
+**How It's Assigned**:
+- ✅ **Default for Invitations**: Most invitations use `role: "member"`
+- ✅ **Default for Join Requests**: Most join requests use `requestedRole: "member"`
+- ✅ **Automatically**: When user accepts invitation or join request, they get `member` role
+- ✅ **Manually**: Admin can demote admin to `member` (or promote member to admin)
+
+**When It's Used**:
+- Default for all new members
+- Coaches (who don't need org management)
+- Parents (who don't need org management)
+- Regular users who just need access to features
+- Most common role in the organization
+
+**Assignment Examples**:
+```typescript
+// Example 1: Admin invites coach as member
+await authClient.organization.inviteMember({
+  email: "coach@example.com",
+  organizationId: "org_123",
+  role: "member", // Better Auth role: member (hierarchy)
+  metadata: {
+    suggestedFunctionalRoles: ["coach"], // Functional role: coach (capability)
+  },
+});
+// User accepts → Better Auth role: "member", Functional role: ["coach"]
+// Result: User can coach teams but cannot manage organization
+
+// Example 2: Admin invites parent as member
+await authClient.organization.inviteMember({
+  email: "parent@example.com",
+  organizationId: "org_123",
+  role: "member", // Better Auth role: member
+  metadata: {
+    suggestedFunctionalRoles: ["parent"], // Functional role: parent
+    suggestedPlayerLinks: ["playerId1", "playerId2"], // Auto-link children
+  },
+});
+// User accepts → Better Auth role: "member", Functional role: ["parent"]
+// Result: User can view children but cannot manage organization
+
+// Example 3: Admin invites user as both coach AND parent (member role)
+await authClient.organization.inviteMember({
+  email: "coachparent@example.com",
+  organizationId: "org_123",
+  role: "member", // Better Auth role: member
+  metadata: {
+    suggestedFunctionalRoles: ["coach", "parent"], // Multiple functional roles!
+    roleSpecificData: {
+      teams: ["U12 Boys"], // For coach role
+    },
+    suggestedPlayerLinks: ["playerId1"], // For parent role
+  },
+});
+// User accepts → Better Auth role: "member", Functional role: ["coach", "parent"]
+// Result: User can coach teams AND view children, but cannot manage organization
+
+// Example 4: User requests to join as member
+await createJoinRequest({
+  organizationId: "org_123",
+  requestedRole: "member", // Better Auth role requested
+  requestedFunctionalRoles: ["coach", "parent"], // Functional roles requested
+  roleSpecificData: {
+    teams: ["U12 Boys"],
+    children: ["John Doe"],
+  },
+});
+// Admin approves → Better Auth role: "member", Functional role: ["coach", "parent"]
+```
+
+**What Member Can Do**:
+- ✅ View organization information
+- ✅ View other members (depending on privacy settings)
+- ✅ Access features based on functional roles:
+  - If `functionalRoles: ["coach"]` → Can access coach dashboard, manage teams
+  - If `functionalRoles: ["parent"]` → Can access parent dashboard, view children
+  - If `functionalRoles: ["admin"]` → Can access admin dashboard (but Better Auth role is still "member")
+- ✅ Leave the organization
+- ✅ Update own profile
+
+**What Member Cannot Do**:
+- ❌ Manage organization settings
+- ❌ Invite or remove members
+- ❌ Change member roles
+- ❌ Approve/reject join requests
+- ❌ Access admin-only features (unless they have functional role "admin")
+
 #### Enhanced Invitation Process with Auto-Assignment
 
 **Why This Works**: Better Auth's `inviteMember` API supports a `metadata` field that can store custom data. This metadata is preserved in the invitation record and is accessible in the `onMemberAdded` hook when the user accepts. This allows us to:
@@ -802,24 +991,32 @@ const handleInvite = async () => {
 
 Better Auth sends invitation email with link. The invitation record in the database contains:
 - `email`: Invitee's email
-- `role`: Better Auth role ("member" or "admin")
+- `role`: Better Auth role ("member" or "admin") - **This determines organizational hierarchy**
 - `metadata`: Our custom data:
   ```json
   {
-    "suggestedFunctionalRoles": ["coach", "parent"],
-    "suggestedPlayerLinks": ["playerId1", "playerId2"],
+    "suggestedFunctionalRoles": ["coach", "parent"], // Capabilities to assign
+    "suggestedPlayerLinks": ["playerId1", "playerId2"], // For parent role
     "roleSpecificData": {
-      "teams": ["U12 Boys"]
+      "teams": ["U12 Boys"], // For coach role
+      "ageGroups": ["U12", "U14"] // Optional: age groups for coach
     }
   }
   ```
+
+**Important**: The Better Auth `role` field ("member" or "admin") is separate from the functional roles in metadata:
+- **Better Auth `role`**: Determines organizational permissions (can they manage the org?)
+- **Functional roles in metadata**: Determines feature access (what dashboards can they use?)
 
 **Step 3: User Accepts Invitation**
 
 - User clicks invitation link
 - If not logged in, redirected to login/signup
-- After authentication, Better Auth creates `member` record with `role: "member"` (or "admin")
-- **`onMemberAdded` hook fires automatically**
+- After authentication, Better Auth creates `member` record with:
+  - `role`: The Better Auth role from invitation ("member" or "admin")
+  - `organizationId`: The organization they're joining
+  - `userId`: The user's ID
+- **`onMemberAdded` hook fires automatically** (this is where we assign functional roles)
 
 **Step 4: Auto-Assignment Hook (Fully Automated)**
 
@@ -915,13 +1112,127 @@ async onMemberAdded(data) {
 
 **Step 5: User Redirected**
 
-- Based on functional roles assigned
+- Based on functional roles assigned (NOT Better Auth role)
 - Parent → `/orgs/[orgId]/parents`
 - Coach → `/orgs/[orgId]/coach`
-- Admin → `/orgs/[orgId]/admin`
+- Admin (functional) → `/orgs/[orgId]/admin`
 - Multiple roles → Priority: Coach > Admin > Parent
+- No functional roles → `/orgs/[orgId]` (organization overview)
 
-**Result**: User is fully set up with functional roles, player links, and coach assignments - **zero manual steps required!**
+**Result**: User is fully set up with:
+- ✅ Better Auth role (organizational hierarchy: "member" or "admin")
+- ✅ Functional roles (capabilities: ["coach", "parent", "admin"])
+- ✅ Player links (if parent role)
+- ✅ Coach assignments (if coach role)
+- ✅ **Zero manual steps required!**
+
+#### Complete Invitation Examples
+
+**Example 1: Invite Coach (Member Role)**
+```typescript
+// Admin invites coach
+await authClient.organization.inviteMember({
+  email: "coach@example.com",
+  organizationId: "org_123",
+  role: "member", // Better Auth: member (cannot manage org)
+  metadata: {
+    suggestedFunctionalRoles: ["coach"], // Functional: coach (can coach teams)
+    roleSpecificData: {
+      teams: ["U12 Boys", "U14 Boys"], // Auto-assign to teams
+    },
+  },
+});
+
+// User accepts → Result:
+// - Better Auth role: "member" (cannot invite members, manage org)
+// - Functional role: ["coach"] (can access coach dashboard, manage teams)
+// - Coach assignments: ["U12 Boys", "U14 Boys"]
+// - Redirect: /orgs/[orgId]/coach
+```
+
+**Example 2: Invite Admin (Admin Role)**
+```typescript
+// Admin invites another admin
+await authClient.organization.inviteMember({
+  email: "newadmin@example.com",
+  organizationId: "org_123",
+  role: "admin", // Better Auth: admin (can manage org)
+  metadata: {
+    suggestedFunctionalRoles: ["admin"], // Functional: admin (can access admin dashboard)
+  },
+});
+
+// User accepts → Result:
+// - Better Auth role: "admin" (can invite members, manage org settings)
+// - Functional role: ["admin"] (can access admin dashboard)
+// - Redirect: /orgs/[orgId]/admin
+```
+
+**Example 3: Invite Parent (Member Role)**
+```typescript
+// Admin invites parent
+await authClient.organization.inviteMember({
+  email: "parent@example.com",
+  organizationId: "org_123",
+  role: "member", // Better Auth: member (cannot manage org)
+  metadata: {
+    suggestedFunctionalRoles: ["parent"], // Functional: parent (can view children)
+    suggestedPlayerLinks: ["playerId1", "playerId2"], // Auto-link specific children
+  },
+});
+
+// User accepts → Result:
+// - Better Auth role: "member" (cannot invite members, manage org)
+// - Functional role: ["parent"] (can access parent dashboard, view children)
+// - Player links: ["playerId1", "playerId2"] + any auto-matched players
+// - Redirect: /orgs/[orgId]/parents
+```
+
+**Example 4: Invite Coach-Parent (Member Role, Multiple Functional Roles)**
+```typescript
+// Admin invites someone who is both coach AND parent
+await authClient.organization.inviteMember({
+  email: "coachparent@example.com",
+  organizationId: "org_123",
+  role: "member", // Better Auth: member (cannot manage org)
+  metadata: {
+    suggestedFunctionalRoles: ["coach", "parent"], // Multiple functional roles!
+    roleSpecificData: {
+      teams: ["U12 Boys"], // For coach role
+    },
+    suggestedPlayerLinks: ["playerId1"], // For parent role
+  },
+});
+
+// User accepts → Result:
+// - Better Auth role: "member" (cannot manage org)
+// - Functional roles: ["coach", "parent"] (can coach teams AND view children)
+// - Coach assignments: ["U12 Boys"]
+// - Player links: ["playerId1"] + auto-matched players
+// - Redirect: /orgs/[orgId]/coach (priority: Coach > Parent)
+```
+
+**Example 5: Invite Admin-Coach (Admin Role, Multiple Functional Roles)**
+```typescript
+// Admin invites someone who needs org management AND coaching
+await authClient.organization.inviteMember({
+  email: "admincoach@example.com",
+  organizationId: "org_123",
+  role: "admin", // Better Auth: admin (can manage org)
+  metadata: {
+    suggestedFunctionalRoles: ["admin", "coach"], // Multiple functional roles!
+    roleSpecificData: {
+      teams: ["U12 Boys"], // For coach role
+    },
+  },
+});
+
+// User accepts → Result:
+// - Better Auth role: "admin" (can invite members, manage org settings)
+// - Functional roles: ["admin", "coach"] (can access admin dashboard AND coach teams)
+// - Coach assignments: ["U12 Boys"]
+// - Redirect: /orgs/[orgId]/coach (priority: Coach > Admin)
+```
 
 #### Why This Approach Works
 

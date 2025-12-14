@@ -34,7 +34,15 @@ export default function AcceptInvitationPage() {
   );
 
   useEffect(() => {
+    console.log("[AcceptInvitation] ===== PAGE MOUNTED =====");
+    console.log("[AcceptInvitation] Invitation ID from params:", invitationId);
+    console.log(
+      "[AcceptInvitation] Current URL:",
+      typeof window !== "undefined" ? window.location.href : "SSR"
+    );
+
     if (!invitationId) {
+      console.error("[AcceptInvitation] No invitation ID found in URL params");
       setStatus("error");
       setErrorMessage("Invalid invitation link");
       return;
@@ -45,20 +53,30 @@ export default function AcceptInvitationPage() {
     if (typeof window !== "undefined") {
       sessionStorage.setItem("pendingInvitationId", invitationId);
       console.log(
-        "[AcceptInvitation] Stored invitation ID in sessionStorage:",
+        "[AcceptInvitation] ✅ Stored invitation ID in sessionStorage:",
         invitationId
       );
     }
 
     const checkAndAcceptInvitation = async () => {
       try {
-        console.log("[AcceptInvitation] Checking invitation:", invitationId);
+        console.log("[AcceptInvitation] ===== STARTING INVITATION CHECK =====");
+        console.log("[AcceptInvitation] Invitation ID from URL:", invitationId);
+        console.log("[AcceptInvitation] Page loaded, checking session...");
+
         // Check if user is logged in
         const session = await authClient.getSession();
-        console.log("[AcceptInvitation] Session:", session ? "exists" : "none");
+        console.log("[AcceptInvitation] Session check result:", {
+          hasSession: !!session,
+          hasError: session && "error" in session,
+          sessionData: session && "data" in session ? "exists" : "none",
+        });
 
         // Check if session is valid and has user data
         if (!session || "error" in session) {
+          console.log(
+            "[AcceptInvitation] No valid session, redirecting to login"
+          );
           // Redirect to login with return URL
           router.push(
             `/login?redirect=/orgs/accept-invitation/${invitationId}`
@@ -83,7 +101,7 @@ export default function AcceptInvitationPage() {
         // Wait for invitation details to load
         if (invitation === undefined) {
           console.log(
-            "[AcceptInvitation] Waiting for invitation details to load..."
+            "[AcceptInvitation] ⏳ Waiting for invitation details to load from Convex..."
           );
           setStatus("checking");
           return;
@@ -92,9 +110,13 @@ export default function AcceptInvitationPage() {
         // Check if invitation exists
         if (invitation === null) {
           console.error(
-            "[AcceptInvitation] Invitation not found:",
+            "[AcceptInvitation] ❌ Invitation not found in database:",
             invitationId
           );
+          console.error("[AcceptInvitation] This could mean:");
+          console.error("  - Invitation ID is invalid");
+          console.error("  - Invitation was deleted");
+          console.error("  - Database query failed");
           setStatus("error");
           setErrorMessage("Invitation not found or has expired");
           return;

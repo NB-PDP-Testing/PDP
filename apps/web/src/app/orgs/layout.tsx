@@ -49,10 +49,15 @@ export default function OrgLayout({
   }, [router, pathname]);
 
   useEffect(() => {
+    // Don't require authentication for invitation pages - they handle their own auth flow
+    if (pathname?.includes("/orgs/accept-invitation/")) {
+      return;
+    }
+
     if (user === null && !isCheckingInvitation) {
       redirect("/login");
     }
-  }, [user, isCheckingInvitation]);
+  }, [user, isCheckingInvitation, pathname]);
 
   // Show loader while checking for pending invitations
   if (isCheckingInvitation) {
@@ -61,6 +66,12 @@ export default function OrgLayout({
         <Loader />
       </div>
     );
+  }
+
+  // Don't require authentication or show header for invitation pages
+  // They handle their own authentication and UI
+  if (pathname?.includes("/orgs/accept-invitation/")) {
+    return <>{children}</>;
   }
 
   if (user) {

@@ -19,6 +19,11 @@ export const sendNotification = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    console.log("📧 Demo request notification action started", {
+      name: args.name,
+      email: args.email,
+    });
+
     const emailConfig = process.env.ADMIN_EMAIL;
 
     if (!emailConfig) {
@@ -39,15 +44,23 @@ export const sendNotification = internalAction({
       return null;
     }
 
-    await sendDemoRequestNotification({
-      name: args.name,
-      email: args.email,
-      phone: args.phone,
-      organization: args.organization,
-      message: args.message,
-      requestedAt: args.requestedAt,
-      adminEmails,
-    });
+    console.log("📧 Sending demo request notification to:", adminEmails);
+
+    try {
+      await sendDemoRequestNotification({
+        name: args.name,
+        email: args.email,
+        phone: args.phone,
+        organization: args.organization,
+        message: args.message,
+        requestedAt: args.requestedAt,
+        adminEmails,
+      });
+      console.log("✅ Demo request notification sent successfully");
+    } catch (error) {
+      console.error("❌ Error in demo request notification action:", error);
+      throw error;
+    }
 
     return null;
   },

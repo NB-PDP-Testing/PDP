@@ -34,18 +34,25 @@ export const createDemoRequest = mutation({
 
     // Schedule email notification (non-blocking)
     // Type assertion needed until Convex regenerates API types
-    await ctx.scheduler.runAfter(
-      0,
-      (internal.actions as any).sendDemoRequestNotification.sendNotification,
-      {
-        name: args.name,
-        email: args.email,
-        phone: args.phone,
-        organization: args.organization,
-        message: args.message,
-        requestedAt,
-      }
-    );
+    try {
+      console.log("📅 Scheduling demo request notification email");
+      await ctx.scheduler.runAfter(
+        0,
+        (internal.actions as any).sendDemoRequestNotification.sendNotification,
+        {
+          name: args.name,
+          email: args.email,
+          phone: args.phone,
+          organization: args.organization,
+          message: args.message,
+          requestedAt,
+        }
+      );
+      console.log("✅ Demo request notification scheduled successfully");
+    } catch (error) {
+      console.error("❌ Failed to schedule demo request notification:", error);
+      // Don't throw - we don't want to fail the demo request creation if email scheduling fails
+    }
 
     return requestId;
   },

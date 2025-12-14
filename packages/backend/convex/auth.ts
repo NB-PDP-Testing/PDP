@@ -15,7 +15,11 @@ import {
 import authSchema from "./betterAuth/schema";
 import { sendOrganizationInvitation } from "./utils/email";
 
-const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
+// Normalize SITE_URL to remove trailing slash
+const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
+  /\/+$/,
+  ""
+);
 
 export const authComponent = createClient<DataModel, typeof authSchema>(
   components.betterAuth,

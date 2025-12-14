@@ -617,7 +617,11 @@ export const resendInvitation = mutation({
     );
 
     // Schedule action to resend email
-    const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
+    // Normalize SITE_URL to remove trailing slash
+    const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
+      /\/+$/,
+      ""
+    );
     const inviteLink = `${siteUrl}/orgs/accept-invitation/${args.invitationId}`;
 
     // Schedule the action to resend email

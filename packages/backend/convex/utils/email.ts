@@ -201,7 +201,11 @@ export function generateWhatsAppInvitationMessage(
  * Get the PlayerARC logo URL for emails
  */
 function getLogoUrl(): string {
-  const siteUrl = process.env.SITE_URL || "https://playerarc.io";
+  // Normalize SITE_URL to remove trailing slash
+  const siteUrl = (process.env.SITE_URL || "https://playerarc.io").replace(
+    /\/+$/,
+    ""
+  );
   return `${siteUrl}/logos-landing/PDP-Logo-OffWhiteOrbit_GreenHuman.png`;
 }
 

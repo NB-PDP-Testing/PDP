@@ -1880,6 +1880,457 @@ This comprehensive plan addresses:
 
 ---
 
+## 12. Future Feature Analysis: Cross-Organization Passport Sharing
+
+### 12.1 Feature Overview
+
+**Goal**: Enable parents to authorize sharing of player passport data from one organization to another, allowing coaches to see a holistic view of player development across multiple sports/organizations.
+
+**Use Case Example**:
+- Player "John" plays **Soccer** in Organization A (Grange GFC)
+- Player "John" also plays **Rugby** in Organization B (Local Rugby Club)
+- Parent authorizes sharing: Soccer passport → Rugby organization
+- Rugby coach can see John's soccer development data to inform training plans
+- Provides **single view of player development** across sports
+
+**Benefits**:
+- ✅ Coaches get holistic view of player's development
+- ✅ Better-informed training plans (understand player's strengths/weaknesses across sports)
+- ✅ Prevents overtraining (see training load across sports)
+- ✅ Injury prevention (see injury history across sports)
+- ✅ Parent-controlled: Parents decide what to share and with whom
+
+### 12.2 Current Architecture Implications
+
+#### Current State
+
+**Player Passport Scope**:
+- ✅ Player passports are **organization-scoped**
+- ✅ Each organization has its own player records
+- ✅ Passport data is isolated per organization
+- ✅ No cross-organization data sharing currently exists
+
+**Access Control**:
+- ✅ Coaches can only see players in their organization
+- ✅ Parents can only see children in organizations they're members of
+- ✅ No mechanism for cross-organization data access
+
+#### Required Changes
+
+**1. Consent/Authorization System**
+
+**New Schema**:
+```typescript
+// New table: passportSharingAuthorizations
+passportSharingAuthorizations: defineTable({
+  playerId: v.id("players"), // Player in source organization
+  sourceOrganizationId: v.string(), // Where player currently is
+  targetOrganizationId: v.string(), // Where data should be shared
+  authorizedBy: v.string(), // Parent user ID who authorized
+  authorizedAt: v.number(), // Timestamp
+  status: v.union(
+    v.literal("pending"), // Parent needs to approve
+    v.literal("active"), // Sharing is active
+    v.literal("revoked") // Parent revoked sharing
+  ),
+  sharedData: v.array(v.string()), // What data to share: ["skills", "goals", "injuries", "attendance"]
+  expiresAt: v.optional(v.number()), // Optional expiration
+})
+  .index("by_playerId", ["playerId"])
+  .index("by_targetOrganizationId", ["targetOrganizationId"])
+  .index("by_sourceOrganizationId", ["sourceOrganizationId"])
+  .index("by_authorizedBy", ["authorizedBy"])
+```
+
+**2. Parent Authorization UI**
+
+**Location**: `/orgs/[orgId]/parents/[playerId]/sharing`
+
+**Features**:
+- List of organizations where player is also a member
+- Toggle switches for each organization:
+  - ☐ Share with [Organization Name]
+  - ☐ Share skills data
+  - ☐ Share goals data
+  - ☐ Share injury history
+  - ☐ Share attendance data
+- Granular control: Parent chooses what data to share
+- Revocation: Parent can revoke sharing at any time
+
+**3. Coach View Enhancement**
+
+**Location**: `/orgs/[orgId]/players/[playerId]` (existing passport page)
+
+**Features**:
+- **"Shared Passport Data"** section (if parent authorized sharing)
+- Shows data from other organizations:
+  - Skills from other sports
+  - Goals from other sports
+  - Injury history across all sports
+  - Training load across all sports
+- Clear indicators: "Data from [Organization Name]"
+- Timestamp: "Last updated [date]"
+
+**4. Access Control Updates**
+
+**New Permission Checks**:
+```typescript
+function canViewSharedPassportData(
+  coachUserId: string,
+  playerId: string,
+  sourceOrgId: string,
+  targetOrgId: string
+): boolean {
+  // 1. Check if parent authorized sharing
+  const authorization = getPassportSharingAuthorization(
+    playerId,
+    sourceOrgId,
+    targetOrgId
+  );
+  
+  if (!authorization || authorization.status !== "active") {
+    return false;
+  }
+  
+  // 2. Check if coach is in target organization
+  const coachMember = getMember(coachUserId, targetOrgId);
+  if (!coachMember) {
+    return false;
+  }
+  
+  // 3. Check if coach has functional role "coach"
+  if (!coachMember.functionalRoles?.includes("coach")) {
+    return false;
+  }
+  
+  // 4. Check if coach is assigned to player's team (in target org)
+  const playerInTargetOrg = getPlayerInOrg(playerId, targetOrgId);
+  const coachTeams = getCoachTeams(coachUserId, targetOrgId);
+  
+  return playerInTargetOrg.teams.some(teamId => 
+    coachTeams.includes(teamId)
+  );
+}
+```
+
+### 12.3 Technical Implementation Considerations
+
+#### Data Structure
+
+**Shared Passport View**:
+```typescript
+interface SharedPassportData {
+  sourceOrganization: {
+    id: string;
+    name: string;
+    sport: string;
+  };
+  sharedData: {
+    skills?: Record<string, number>; // If parent authorized
+    goals?: Array<Goal>; // If parent authorized
+    injuries?: Array<Injury>; // If parent authorized
+    attendance?: AttendanceData; // If parent authorized
+  };
+  lastUpdated: number;
+  authorizedBy: string; // Parent name
+  authorizedAt: number;
+}
+```
+
+**Player Passport with Shared Data**:
+```typescript
+interface PlayerPassportWithShared {
+  // Current org data (always visible)
+  currentOrg: {
+    organizationId: string;
+    organizationName: string;
+    sport: string;
+    skills: Record<string, number>;
+    goals: Array<Goal>;
+    injuries: Array<Injury>;
+    attendance: AttendanceData;
+  };
+  
+  // Shared data from other orgs (if authorized)
+  sharedFromOtherOrgs: Array<SharedPassportData>;
+}
+```
+
+#### Backend Queries
+
+**New Query: `getSharedPassportData`**
+```typescript
+export const getSharedPassportData = query({
+  args: {
+    playerId: v.id("players"), // Player in current org
+    organizationId: v.string(), // Current organization
+  },
+  returns: v.array(v.object({
+    sourceOrganization: v.object({
+      id: v.string(),
+      name: v.string(),
+      sport: v.string(),
+    }),
+    sharedData: v.any(), // Filtered based on authorization
+    lastUpdated: v.number(),
+  })),
+  handler: async (ctx, args) => {
+    // 1. Get all active sharing authorizations for this player
+    const authorizations = await ctx.db
+      .query("passportSharingAuthorizations")
+      .withIndex("by_playerId", (q) => q.eq("playerId", args.playerId))
+      .filter((q) => 
+        q.and(
+          q.eq(q.field("targetOrganizationId"), args.organizationId),
+          q.eq(q.field("status"), "active")
+        )
+      )
+      .collect();
+    
+    // 2. For each authorization, fetch shared data from source org
+    const sharedData = [];
+    for (const auth of authorizations) {
+      const sourcePlayer = await ctx.db
+        .query("players")
+        .withIndex("by_organizationId", (q) =>
+          q.eq("organizationId", auth.sourceOrganizationId)
+        )
+        .filter((q) => {
+          // Match player by name, email, or other identifier
+          // (players might have different IDs in different orgs)
+          return q.eq(q.field("name"), playerName); // Simplified
+        })
+        .first();
+      
+      if (sourcePlayer) {
+        // Filter data based on authorization.sharedData array
+        const filteredData = {
+          skills: auth.sharedData.includes("skills") ? sourcePlayer.skills : undefined,
+          goals: auth.sharedData.includes("goals") ? sourcePlayer.actions : undefined,
+          injuries: auth.sharedData.includes("injuries") ? sourcePlayer.injuries : undefined,
+          attendance: auth.sharedData.includes("attendance") ? sourcePlayer.attendance : undefined,
+        };
+        
+        sharedData.push({
+          sourceOrganization: {
+            id: auth.sourceOrganizationId,
+            name: await getOrgName(auth.sourceOrganizationId),
+            sport: sourcePlayer.sport,
+          },
+          sharedData: filteredData,
+          lastUpdated: sourcePlayer._creationTime,
+        });
+      }
+    }
+    
+    return sharedData;
+  },
+});
+```
+
+#### Player Matching Across Organizations
+
+**Challenge**: A player might have different records in different organizations (different `_id` values).
+
+**Solutions**:
+
+**Option A: Email-Based Matching** (Recommended)
+- Match players by parent email across organizations
+- Parent email is consistent across orgs
+- Simple and reliable
+
+**Option B: Player Name + DOB Matching**
+- Match by name and date of birth
+- More complex but handles email changes
+
+**Option C: Explicit Linking**
+- Parent manually links player records across orgs
+- Most control, but more work for parent
+
+**Recommended**: Start with Option A (email-based), add Option C (explicit linking) as enhancement.
+
+### 12.4 Privacy & Consent Considerations
+
+#### Parent Control
+
+**Granular Permissions**:
+- ✅ Parent chooses **which organizations** to share with
+- ✅ Parent chooses **what data** to share (skills, goals, injuries, attendance)
+- ✅ Parent can **revoke** sharing at any time
+- ✅ Parent can set **expiration dates** for sharing
+
+**Default Behavior**:
+- ❌ **No sharing by default** - opt-in only
+- ❌ **No automatic sharing** - parent must explicitly authorize
+- ✅ **Clear UI** - parent understands what they're sharing
+
+#### Coach Access
+
+**Restrictions**:
+- ✅ Coach can only see shared data if:
+  - Parent explicitly authorized sharing
+  - Coach is in the target organization
+  - Coach has functional role "coach"
+  - Coach is assigned to player's team
+- ❌ Coach cannot see data from organizations where they're not a member
+- ❌ Coach cannot see data if parent revoked sharing
+
+#### Audit Trail
+
+**Logging**:
+- Log when parent authorizes sharing
+- Log when parent revokes sharing
+- Log when coach views shared data
+- Log what data was viewed
+
+### 12.5 UI/UX Considerations
+
+#### Parent Authorization UI
+
+**Location**: `/orgs/[orgId]/parents/[playerId]/sharing`
+
+**Design**:
+```
+┌─────────────────────────────────────────┐
+│ Share [Player Name]'s Passport Data     │
+├─────────────────────────────────────────┤
+│                                         │
+│ Other Organizations:                    │
+│                                         │
+│ ┌─────────────────────────────────────┐ │
+│ │ ☑ Local Rugby Club                  │ │
+│ │   Sport: Rugby                       │ │
+│ │   ┌───────────────────────────────┐ │ │
+│ │   │ ☑ Share Skills Data          │ │ │
+│ │   │ ☑ Share Goals Data            │ │ │
+│ │   │ ☐ Share Injury History        │ │ │
+│ │   │ ☑ Share Attendance Data       │ │ │
+│ │   └───────────────────────────────┘ │ │
+│ │   [Revoke Sharing]                  │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ ┌─────────────────────────────────────┐ │
+│ │ ☐ Basketball Academy                 │ │
+│ │   Sport: Basketball                  │ │
+│ │   [Enable Sharing]                   │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ [Save Changes]                          │
+└─────────────────────────────────────────┘
+```
+
+#### Coach View Enhancement
+
+**Location**: `/orgs/[orgId]/players/[playerId]` (existing passport)
+
+**Design**:
+```
+┌─────────────────────────────────────────┐
+│ Player Passport: John Doe               │
+├─────────────────────────────────────────┤
+│                                         │
+│ [Current Organization Data]              │
+│ Skills, Goals, Injuries, etc.            │
+│                                         │
+│ ─────────────────────────────────────  │
+│                                         │
+│ 📊 Shared Passport Data                 │
+│                                         │
+│ ┌─────────────────────────────────────┐ │
+│ │ Data from: Local Rugby Club          │ │
+│ │ Sport: Rugby                         │ │
+│ │ Authorized by: Parent Name           │ │
+│ │                                     │ │
+│ │ Skills (Rugby):                      │ │
+│ │ - Passing: 4/5                      │ │
+│ │ - Tackling: 3/5                     │ │
+│ │                                     │ │
+│ │ Goals:                              │ │
+│ │ - Improve defensive positioning     │ │
+│ │                                     │ │
+│ │ Last updated: 2 weeks ago           │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+### 12.6 Implementation Phases
+
+#### Phase 1: Foundation (Future)
+- Create `passportSharingAuthorizations` table
+- Add parent authorization UI
+- Add backend queries for shared data
+- Add access control checks
+
+#### Phase 2: Coach View (Future)
+- Enhance player passport page to show shared data
+- Add visual indicators for shared vs. current org data
+- Add filtering/sorting for shared data
+
+#### Phase 3: Advanced Features (Future)
+- Player matching across organizations (email-based)
+- Explicit player linking (parent manually links)
+- Sharing analytics (who viewed what, when)
+- Bulk sharing (share with multiple orgs at once)
+
+### 12.7 Open Questions
+
+**Q1**: How do we match players across organizations?
+- **Recommendation**: Start with email-based matching, add explicit linking later
+
+**Q2**: Should sharing be one-way or bidirectional?
+- **Recommendation**: One-way initially (Org A → Org B), bidirectional as enhancement
+
+**Q3**: Should there be a time limit on sharing?
+- **Recommendation**: Optional expiration date, default to no expiration
+
+**Q4**: What happens if parent removes player from source organization?
+- **Recommendation**: Sharing automatically revoked, coach sees "data no longer available"
+
+**Q5**: Should coaches be notified when new shared data is available?
+- **Recommendation**: Optional notification, but not required initially
+
+**Q6**: How do we handle data conflicts (same skill rated differently in different orgs)?
+- **Recommendation**: Show both ratings with org context, let coach interpret
+
+### 12.8 Integration with Current Architecture
+
+#### How It Fits
+
+**Parent Role**:
+- ✅ Parents control sharing (fits with parent role responsibilities)
+- ✅ Parents can authorize/revoke from parent dashboard
+- ✅ Parents see what data is being shared
+
+**Coach Role**:
+- ✅ Coaches can view shared data (if authorized)
+- ✅ Coaches get holistic view of player development
+- ✅ Coaches can use shared data to inform training plans
+
+**Player Passport**:
+- ✅ Existing passport structure supports shared data
+- ✅ Can add "Shared Data" section to existing passport page
+- ✅ No major restructuring needed
+
+**Access Control**:
+- ✅ Uses existing functional role checks
+- ✅ Uses existing organization membership checks
+- ✅ Adds new authorization check (parent consent)
+
+### 12.9 Success Criteria
+
+- [ ] Parent can authorize sharing from parent dashboard
+- [ ] Parent can choose what data to share (granular control)
+- [ ] Parent can revoke sharing at any time
+- [ ] Coach can see shared data in player passport (if authorized)
+- [ ] Coach can only see data if assigned to player's team
+- [ ] Access control correctly enforces parent authorization
+- [ ] Player matching works across organizations
+- [ ] UI clearly indicates shared vs. current org data
+- [ ] Audit trail logs all sharing actions
+
+---
+
 ## Appendix: Decision Log
 
 | Decision | Date | Rationale |
@@ -1889,4 +2340,5 @@ This comprehensive plan addresses:
 | Auto-link parent to children on role assignment | TBD | Improves user experience |
 | Use invitation metadata for functional roles | TBD | Faster onboarding |
 | Check functional roles for capability permissions | TBD | Correct access control |
+| Cross-org passport sharing: Parent-controlled, opt-in only | TBD | Privacy-first approach, parent consent required |
 

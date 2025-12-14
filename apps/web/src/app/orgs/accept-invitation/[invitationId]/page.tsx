@@ -43,7 +43,9 @@ export default function AcceptInvitationPage() {
       try {
         // Check if user is logged in
         const session = await authClient.getSession();
-        if (!session || "error" in session || !session.data?.user) {
+
+        // Check if session is valid and has user data
+        if (!session || "error" in session) {
           // Redirect to login with return URL
           router.push(
             `/login?redirect=/orgs/accept-invitation/${invitationId}`
@@ -51,7 +53,18 @@ export default function AcceptInvitationPage() {
           return;
         }
 
-        const userEmail = session.data.user.email;
+        // Type assertion: after error check, session should have data property
+        const sessionData = (session as { data?: { user?: { email: string } } })
+          .data;
+        if (!sessionData?.user) {
+          // Redirect to login with return URL
+          router.push(
+            `/login?redirect=/orgs/accept-invitation/${invitationId}`
+          );
+          return;
+        }
+
+        const userEmail = sessionData.user.email;
         setCurrentUserEmail(userEmail);
 
         // Wait for invitation details to load

@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 
 /**
@@ -33,22 +32,27 @@ export const createDemoRequest = mutation({
     });
 
     // Schedule email notification (non-blocking)
-    // Type assertion needed until Convex regenerates API types
+    // Use scheduler to call action since mutations can't use fetch directly
     try {
       console.log("📅 Scheduling demo request notification email");
-      await ctx.scheduler.runAfter(
-        0,
-        (internal.actions as any).sendDemoRequestNotification.sendNotification,
-        {
+      const actionRef = (internal.actions as any).sendDemoRequestNotification
+        ?.sendNotification;
+
+      if (actionRef) {
+        await ctx.scheduler.runAfter(0, actionRef, {
           name: args.name,
           email: args.email,
           phone: args.phone,
           organization: args.organization,
           message: args.message,
           requestedAt,
-        }
-      );
-      console.log("✅ Demo request notification scheduled successfully");
+        });
+        console.log("✅ Demo request notification scheduled successfully");
+      } else {
+        console.warn(
+          "⚠️ sendDemoRequestNotification action not found. Email will not be sent."
+        );
+      }
     } catch (error) {
       console.error("❌ Failed to schedule demo request notification:", error);
       // Don't throw - we don't want to fail the demo request creation if email scheduling fails

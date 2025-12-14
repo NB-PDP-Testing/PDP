@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Loader from "@/components/loader";
 import SignUpForm from "@/components/sign-up-form";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 export default function SignUpPage() {
   const router = useRouter();

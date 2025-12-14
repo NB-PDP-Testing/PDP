@@ -114,7 +114,8 @@ This invitation will expire in 7 days. If you didn't expect this invitation, you
   // Send email via Resend API
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail =
-    process.env.EMAIL_FROM_ADDRESS || "PlayerARC <invitations@playerarc.io>";
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
 
   if (!resendApiKey) {
     console.warn(
@@ -282,7 +283,8 @@ Reply to: ${email}
   // Send email via Resend API
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail =
-    process.env.EMAIL_FROM_ADDRESS || "PlayerARC <notifications@playerarc.io>";
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
 
   if (!resendApiKey) {
     console.warn(
@@ -403,7 +405,8 @@ The PlayerARC Team
   // Send email via Resend API
   const resendApiKey = process.env.RESEND_API_KEY;
   const fromEmail =
-    process.env.EMAIL_FROM_ADDRESS || "PlayerARC <notifications@playerarc.io>";
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
 
   if (!resendApiKey) {
     console.warn(

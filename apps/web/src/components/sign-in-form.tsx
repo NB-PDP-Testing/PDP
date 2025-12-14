@@ -1,6 +1,5 @@
 import { useForm } from "@tanstack/react-form";
 import type { Route } from "next";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { toast } from "sonner";
@@ -116,13 +115,13 @@ function SignInFormContent() {
         {/* Header */}
         <div className="text-center">
           <div className="mb-6 flex justify-center">
-            <Link
+            <a
               href="https://playerarc.io"
               rel="noopener noreferrer"
               target="_blank"
             >
               <PDPLogo size="lg" />
-            </Link>
+            </a>
           </div>
           <h1 className="font-bold text-3xl tracking-tight sm:text-4xl">
             Welcome to PlayerARC

@@ -33,9 +33,10 @@ export const createDemoRequest = mutation({
     });
 
     // Schedule email notification (non-blocking)
+    // Type assertion needed until Convex regenerates API types
     await ctx.scheduler.runAfter(
       0,
-      internal.actions.sendDemoRequestNotification.sendNotification,
+      internal.actions.sendDemoRequestNotification.sendNotification as any,
       {
         name: args.name,
         email: args.email,

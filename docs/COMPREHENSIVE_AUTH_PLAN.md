@@ -948,21 +948,33 @@ await createJoinRequest({
 The invitation dialog is enhanced to allow selecting functional roles:
 
 ```typescript
-// Enhanced Invitation Dialog UI
+// Enhanced Invitation Dialog UI (Simplified - Auto-Infer Better Auth Role)
 const [inviteEmail, setInviteEmail] = useState("");
-const [inviteBetterAuthRole, setInviteBetterAuthRole] = useState<"member" | "admin">("member");
 const [inviteFunctionalRoles, setInviteFunctionalRoles] = useState<FunctionalRole[]>([]);
 const [invitePlayerLinks, setInvitePlayerLinks] = useState<string[]>([]); // Optional: specific players
 const [inviteTeamAssignments, setInviteTeamAssignments] = useState<string[]>([]); // Optional: teams for coach
 
+// Helper function to infer Better Auth role from functional roles
+function inferBetterAuthRole(functionalRoles: FunctionalRole[]): "member" | "admin" {
+  // If functional roles include "admin", Better Auth role should be "admin"
+  if (functionalRoles.includes("admin")) {
+    return "admin";
+  }
+  // Otherwise, default to "member"
+  return "member";
+}
+
 const handleInvite = async () => {
+  // Auto-infer Better Auth role from functional roles
+  const betterAuthRole = inferBetterAuthRole(inviteFunctionalRoles);
+  
   await authClient.organization.inviteMember({
     email: inviteEmail,
     organizationId: orgId,
-    role: inviteBetterAuthRole, // Better Auth role (hierarchy): "member" or "admin"
+    role: betterAuthRole, // Auto-inferred from functional roles
     metadata: {
       // Functional roles (capabilities) - stored in invitation metadata
-      suggestedFunctionalRoles: inviteFunctionalRoles, // ["coach", "parent"]
+      suggestedFunctionalRoles: inviteFunctionalRoles, // ["coach", "parent"] or ["admin"] or ["admin", "coach"]
       
       // Optional: Specific player links for parent role
       suggestedPlayerLinks: invitePlayerLinks, // ["playerId1", "playerId2"]
@@ -991,7 +1003,9 @@ const handleInvite = async () => {
 
 Better Auth sends invitation email with link. The invitation record in the database contains:
 - `email`: Invitee's email
-- `role`: Better Auth role ("member" or "admin") - **This determines organizational hierarchy**
+- `role`: Better Auth role ("member" or "admin") - **Auto-inferred from functional roles**
+  - If `suggestedFunctionalRoles` includes "admin" → `role: "admin"`
+  - Otherwise → `role: "member"`
 - `metadata`: Our custom data:
   ```json
   {
@@ -1004,8 +1018,9 @@ Better Auth sends invitation email with link. The invitation record in the datab
   }
   ```
 
-**Important**: The Better Auth `role` field ("member" or "admin") is separate from the functional roles in metadata:
-- **Better Auth `role`**: Determines organizational permissions (can they manage the org?)
+**Important**: The Better Auth `role` is **auto-inferred** from functional roles:
+- **If functional roles include "admin"** → Better Auth `role: "admin"` (can manage org)
+- **If functional roles are only "coach" and/or "parent"** → Better Auth `role: "member"` (cannot manage org)
 - **Functional roles in metadata**: Determines feature access (what dashboards can they use?)
 
 **Step 3: User Accepts Invitation**
@@ -1020,7 +1035,7 @@ Better Auth sends invitation email with link. The invitation record in the datab
 
 **Step 4: Auto-Assignment Hook (Fully Automated)**
 
-The hook reads the invitation metadata and auto-assigns everything:
+The hook reads the invitation metadata and auto-assigns everything. Note: The Better Auth `role` was already auto-inferred from functional roles during invitation:
 
 ```typescript
 async onMemberAdded(data) {
@@ -1031,12 +1046,13 @@ async onMemberAdded(data) {
   console.log("[onMemberAdded] Member added via invitation:", {
     userId,
     organizationId,
-    betterAuthRole: role,
+    betterAuthRole: role, // This was auto-inferred from functional roles
     invitationId: invitation?.id,
     metadata: invitation?.metadata,
   });
   
   // 1. Auto-map Better Auth "admin"/"owner" to functional "admin"
+  // This ensures owners and admins always have functional "admin" role
   if (role === "admin" || role === "owner") {
     console.log("[onMemberAdded] Auto-assigning functional 'admin' role");
     await ctx.runMutation(api.models.members.addFunctionalRole, {
@@ -1045,6 +1061,9 @@ async onMemberAdded(data) {
       functionalRole: "admin",
     });
   }
+  
+  // Note: The Better Auth role was already set correctly during invitation
+  // based on functional roles (if "admin" functional role → "admin" Better Auth role)
   
   // 2. Auto-assign suggested functional roles from invitation metadata
   const suggestedRoles = invitation?.metadata?.suggestedFunctionalRoles || [];
@@ -1377,30 +1396,34 @@ Adding functional role selection to invitation UI:
 **Files**:
 - `apps/web/src/app/orgs/[orgId]/admin/users/page.tsx` (invitation dialog)
 
-**Example UI Flow**:
+**Example UI Flow** (Simplified - Auto-Infer Better Auth Role):
 ```
 Admin clicks "Invite Member"
   ↓
 Dialog opens with:
   - Email input
-  - Better Auth Role: [Member ▼] or [Admin ▼]
-  - Functional Roles:
+  - Functional Roles (checkboxes):
     ☐ Coach
     ☐ Parent
-    ☐ Admin (only if Better Auth role is "admin")
+    ☐ Admin
   - If Coach selected:
     - Teams: [Multi-select dropdown]
   - If Parent selected:
     - Link to specific players: [Search/Select players] (optional)
   ↓
+Admin selects functional roles: ["coach", "parent"]
 Admin fills form and clicks "Send Invitation"
   ↓
-Invitation sent with metadata:
-  {
-    suggestedFunctionalRoles: ["coach", "parent"],
-    roleSpecificData: { teams: ["U12 Boys"] },
-    suggestedPlayerLinks: ["playerId1"]
-  }
+Backend auto-infers Better Auth role:
+  - Functional roles: ["coach", "parent"] → Better Auth role = "member"
+  ↓
+Invitation sent with:
+  - role: "member" (auto-inferred)
+  - metadata: {
+      suggestedFunctionalRoles: ["coach", "parent"],
+      roleSpecificData: { teams: ["U12 Boys"] },
+      suggestedPlayerLinks: ["playerId1"]
+    }
   ↓
 User accepts invitation
   ↓
@@ -1412,6 +1435,20 @@ Hook reads metadata and auto-assigns:
   - Parent-player links: ["playerId1"] + auto-matched players
   ↓
 User is fully set up - zero manual steps!
+```
+
+**Alternative Example** (Admin Functional Role):
+```
+Admin selects functional role: ["admin"]
+  ↓
+Backend auto-infers Better Auth role:
+  - Functional role: ["admin"] → Better Auth role = "admin"
+  ↓
+Invitation sent with:
+  - role: "admin" (auto-inferred)
+  - metadata: { suggestedFunctionalRoles: ["admin"] }
+  ↓
+User accepts → Better Auth role: "admin", Functional role: ["admin"]
 ```
 
 **Benefits**:

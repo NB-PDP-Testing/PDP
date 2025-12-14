@@ -88,16 +88,22 @@ function RedirectToActiveOrg() {
 
   useEffect(() => {
     // Check for pending invitation in sessionStorage (from OAuth flow)
+    // This MUST be checked FIRST before any other redirects
     const pendingInvitationId =
       typeof window !== "undefined"
         ? sessionStorage.getItem("pendingInvitationId")
         : null;
 
     if (pendingInvitationId) {
+      console.log(
+        "[orgs/current] Found pending invitation:",
+        pendingInvitationId
+      );
       // Clear it from sessionStorage
       sessionStorage.removeItem("pendingInvitationId");
-      // Redirect to invitation acceptance page
-      router.push(`/orgs/accept-invitation/${pendingInvitationId}` as Route);
+      // Redirect to invitation acceptance page IMMEDIATELY
+      // Use replace to avoid adding to history
+      router.replace(`/orgs/accept-invitation/${pendingInvitationId}` as Route);
       return;
     }
 

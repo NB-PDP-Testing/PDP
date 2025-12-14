@@ -78,6 +78,7 @@ function OrganizationCard({
 
 export default function JoinOrganizationPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const router = useRouter();
 
   // Check for pending invitation in sessionStorage (from OAuth flow)
@@ -86,6 +87,7 @@ export default function JoinOrganizationPage() {
     const pendingInvitationId = sessionStorage.getItem("pendingInvitationId");
     if (pendingInvitationId) {
       console.log("[Join] Found pending invitation:", pendingInvitationId);
+      setIsRedirecting(true);
       // Clear it from sessionStorage immediately
       sessionStorage.removeItem("pendingInvitationId");
       // Redirect to invitation acceptance page immediately
@@ -122,6 +124,18 @@ export default function JoinOrganizationPage() {
     }
     return org.name.toLowerCase().includes(searchTerm.toLowerCase());
   });
+
+  // Don't render content if we're redirecting to invitation page
+  if (isRedirecting) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-[#22c55e] border-t-transparent" />
+          <p className="text-white">Redirecting to invitation...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1E3A5F] via-[#1E3A5F] to-white p-4 sm:p-6 lg:p-8">

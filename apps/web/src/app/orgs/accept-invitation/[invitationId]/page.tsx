@@ -81,15 +81,57 @@ export default function AcceptInvitationPage() {
 
         // Wait for invitation details to load
         if (invitation === undefined) {
+          console.log(
+            "[AcceptInvitation] Waiting for invitation details to load..."
+          );
           setStatus("checking");
           return;
         }
 
         // Check if invitation exists
         if (invitation === null) {
+          console.error(
+            "[AcceptInvitation] Invitation not found:",
+            invitationId
+          );
           setStatus("error");
           setErrorMessage("Invitation not found or has expired");
           return;
+        }
+
+        console.log("[AcceptInvitation] Invitation loaded:", {
+          id: invitation._id,
+          email: invitation.email,
+          status: invitation.status,
+          organizationId: invitation.organizationId,
+        });
+
+        // Check if user is already a member of this organization
+        // If so, just redirect to the organization (invitation might have been accepted in another tab/session)
+        try {
+          const userOrgs = await authClient.organization.list();
+          const isAlreadyMember = userOrgs.data?.some(
+            (org) => org.id === invitation.organizationId
+          );
+
+          if (isAlreadyMember) {
+            console.log(
+              "[AcceptInvitation] User is already a member, redirecting to org..."
+            );
+            // Clear sessionStorage
+            if (typeof window !== "undefined") {
+              sessionStorage.removeItem("pendingInvitationId");
+            }
+            // Set as active and redirect
+            await authClient.organization.setActive({
+              organizationId: invitation.organizationId,
+            });
+            router.push(`/orgs/${invitation.organizationId}` as Route);
+            return;
+          }
+        } catch (error) {
+          console.error("[AcceptInvitation] Error checking membership:", error);
+          // Continue to try accepting invitation
         }
 
         // Check if invitation is expired
@@ -103,6 +145,31 @@ export default function AcceptInvitationPage() {
 
         // Check if invitation is already accepted/cancelled
         if (invitation.status !== "pending") {
+          // If already accepted, check if user is a member and redirect to org
+          if (invitation.status === "accepted") {
+            console.log(
+              "[AcceptInvitation] Invitation already accepted, checking membership..."
+            );
+            // Try to set the organization as active and redirect
+            try {
+              await authClient.organization.setActive({
+                organizationId: invitation.organizationId,
+              });
+              // Clear sessionStorage
+              if (typeof window !== "undefined") {
+                sessionStorage.removeItem("pendingInvitationId");
+              }
+              // Redirect to the organization
+              router.push(`/orgs/${invitation.organizationId}` as Route);
+              return;
+            } catch (error) {
+              console.error(
+                "[AcceptInvitation] Error setting active org:",
+                error
+              );
+              // Fall through to show error
+            }
+          }
           setStatus("error");
           setErrorMessage(
             `This invitation has already been ${invitation.status}.`

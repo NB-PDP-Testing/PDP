@@ -36,6 +36,11 @@ export default function AcceptInvitationPage() {
     invitationId ? { invitationId } : "skip"
   );
 
+  // Mutation to update functional roles
+  const updateMemberFunctionalRoles = useMutation(
+    api.models.members.updateMemberFunctionalRoles
+  );
+
   useEffect(() => {
     console.log("[AcceptInvitation] ===== PAGE MOUNTED =====");
     console.log("[AcceptInvitation] Invitation ID from params:", invitationId);
@@ -287,13 +292,47 @@ export default function AcceptInvitationPage() {
 
         // Get the organization ID from the result
         const organizationId = result.data?.invitation?.organizationId;
+        const memberRole = result.data?.member?.role; // Better Auth role from invitation
 
         // Clear pending invitation from sessionStorage since we've accepted it
         if (typeof window !== "undefined") {
           sessionStorage.removeItem("pendingInvitationId");
         }
 
-        if (organizationId) {
+        if (organizationId && session?.user?.id) {
+          // Map Better Auth role to functional roles
+          // If user was invited as "admin", give them "admin" functional role
+          // This ensures they show up with roles in the UI
+          const functionalRoles: ("coach" | "parent" | "admin")[] = [];
+
+          if (memberRole === "admin" || memberRole === "owner") {
+            functionalRoles.push("admin");
+            console.log(
+              "[AcceptInvitation] User invited as admin, setting admin functional role"
+            );
+          }
+
+          // Set functional roles if needed
+          if (functionalRoles.length > 0) {
+            try {
+              await updateMemberFunctionalRoles({
+                organizationId,
+                userId: session.user.id,
+                functionalRoles,
+              });
+              console.log(
+                "[AcceptInvitation] Functional roles set:",
+                functionalRoles
+              );
+            } catch (error) {
+              console.error(
+                "[AcceptInvitation] Error setting functional roles:",
+                error
+              );
+              // Don't fail the invitation acceptance if this fails
+            }
+          }
+
           // Set the organization as active before redirecting
           // This ensures the user sees the correct organization context
           try {

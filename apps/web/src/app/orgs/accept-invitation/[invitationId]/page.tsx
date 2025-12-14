@@ -204,12 +204,22 @@ export default function AcceptInvitationPage() {
         const invitationEmail = invitation.email.toLowerCase();
         const loggedInEmail = userEmail.toLowerCase();
 
+        console.log("[AcceptInvitation] Email comparison:", {
+          invitationEmail,
+          loggedInEmail,
+          match: invitationEmail === loggedInEmail,
+        });
+
         if (invitationEmail !== loggedInEmail) {
+          console.warn("[AcceptInvitation] ⚠️ Email mismatch detected");
           // Emails don't match - show warning
           setStatus("mismatch");
           return;
         }
 
+        console.log(
+          "[AcceptInvitation] ✅ Emails match, proceeding with acceptance"
+        );
         // Emails match - proceed with acceptance
         await acceptInvitation(userEmail);
       } catch (error: any) {

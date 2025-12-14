@@ -3092,6 +3092,390 @@ export const getDevelopmentInsights = query({
 
 ---
 
+## 14. Better Auth Teams & TeamMembers Analysis
+
+### 14.1 Current State
+
+#### What We're Currently Using
+
+**Better Auth Organization Plugin**:
+- ✅ **Enabled**: `organization` plugin is configured
+- ✅ **Teams Feature**: `teams: { enabled: true }` is set
+- ✅ **Custom Team Fields**: Extended Better Auth `team` table with sports-specific fields:
+  - `sport`, `ageGroup`, `gender`, `season`, `description`, `trainingSchedule`, `isActive`
+- ✅ **Team Storage**: Teams are stored in Better Auth's `team` table
+
+**Current Architecture**:
+```
+Better Auth Tables:
+├── organization (Better Auth)
+├── member (Better Auth) - links users to organizations
+├── team (Better Auth) - team metadata with custom sports fields
+└── teamMembers (Better Auth) - many-to-many: members ↔ teams
+
+Convex Tables:
+├── players (Convex) - player data (separate from Better Auth users)
+├── teamPlayers (Convex) - junction: players ↔ teams
+└── coachAssignments (Convex) - links coaches to teams via team IDs/names
+```
+
+**Current Implementation**:
+- **Teams**: Stored in Better Auth `team` table ✅
+- **Team-Player Links**: Custom `teamPlayers` junction table (Convex) ✅
+- **Team-Coach Links**: Custom `coachAssignments` table (Convex) ❓
+- **Team-Member Links**: Better Auth `teamMembers` table exists but **NOT USED** ❓
+
+### 14.2 Better Auth TeamMembers Feature
+
+#### What Better Auth Provides
+
+**`teamMembers` Table**:
+- **Purpose**: Many-to-many relationship between Better Auth `member` records and `team` records
+- **Structure**:
+  ```typescript
+  teamMembers: {
+    teamId: string;      // Better Auth team ID
+    memberId: string;    // Better Auth member ID (links to member table)
+    role?: string;       // Optional role within team (e.g., "coach", "player", "manager")
+    createdAt: number;
+  }
+  ```
+- **Client API**: Better Auth provides client methods:
+  - `authClient.organization.addTeamMember({ teamId, memberId, role? })`
+  - `authClient.organization.removeTeamMember({ teamId, memberId })`
+  - `authClient.organization.listTeamMembers({ teamId })`
+  - `authClient.organization.getMemberTeams({ memberId })`
+
+**Key Features**:
+- ✅ **Built-in**: No custom code needed
+- ✅ **Type-safe**: Full TypeScript support
+- ✅ **Client API**: Direct client-side methods
+- ✅ **Multi-team support**: Members can belong to multiple teams
+- ✅ **Team roles**: Optional role within team (beyond org role)
+- ✅ **Access control**: Can integrate with Better Auth permissions
+
+### 14.3 Current vs. Better Auth Approach Comparison
+
+#### Current Approach: Custom `coachAssignments` Table
+
+**Structure**:
+```typescript
+coachAssignments: {
+  userId: string;              // Better Auth user ID
+  organizationId: string;     // Organization ID
+  teams: string[];            // Array of team IDs or team names
+  ageGroups: string[];        // Age groups coached
+  sport?: string;             // Primary sport
+  roles?: string[];            // Additional roles
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+**Pros**:
+- ✅ **Custom fields**: Can store `ageGroups`, `sport`, `roles` specific to coaching
+- ✅ **Flexible**: Can store team names or IDs (handles both)
+- ✅ **Organization-scoped**: Direct link to organization
+- ✅ **Additional metadata**: Can store coaching-specific data
+
+**Cons**:
+- ❌ **Custom code**: Need to maintain custom queries/mutations
+- ❌ **No client API**: Must use Convex queries/mutations
+- ❌ **Duplication**: Teams stored in Better Auth, links stored in Convex
+- ❌ **Inconsistency**: Different pattern than Better Auth's built-in approach
+- ❌ **Manual sync**: Must manually keep in sync with Better Auth teams
+
+#### Better Auth Approach: Use `teamMembers` Table
+
+**Structure**:
+```typescript
+teamMembers: {
+  teamId: string;      // Better Auth team ID
+  memberId: string;    // Better Auth member ID
+  role?: string;       // Optional: "coach", "assistant", etc.
+  createdAt: number;
+}
+```
+
+**Pros**:
+- ✅ **Built-in**: No custom code needed
+- ✅ **Client API**: Direct client-side methods available
+- ✅ **Type-safe**: Full TypeScript support from Better Auth
+- ✅ **Consistent**: Uses Better Auth's standard pattern
+- ✅ **Automatic**: Automatically synced with Better Auth teams
+- ✅ **Access control**: Can integrate with Better Auth permissions
+- ✅ **Multi-team**: Native support for members in multiple teams
+
+**Cons**:
+- ❌ **Limited metadata**: Can only store `role` (string), no custom fields
+- ❌ **No ageGroups**: Cannot store `ageGroups` array directly
+- ❌ **No sport field**: Cannot store `sport` directly on team membership
+- ❌ **Member-based**: Links `member` records, not `user` records directly
+- ❌ **Less flexible**: Cannot store arbitrary coaching metadata
+
+### 14.4 Requirements Analysis
+
+#### What We Need for Coaches
+
+**Current Requirements** (from `coachAssignments`):
+1. ✅ Link coach to teams (team IDs)
+2. ✅ Store age groups coached
+3. ✅ Store primary sport
+4. ✅ Store additional roles
+5. ✅ Organization-scoped
+
+**Can Better Auth `teamMembers` Handle This?**
+
+| Requirement | Current (`coachAssignments`) | Better Auth (`teamMembers`) | Gap |
+|-------------|------------------------------|-----------------------------|-----|
+| Link coach to teams | ✅ `teams: string[]` | ✅ `teamId: string` (one per record) | Need multiple records for multiple teams |
+| Store age groups | ✅ `ageGroups: string[]` | ❌ Not supported | **Missing** |
+| Store sport | ✅ `sport?: string` | ❌ Not supported | **Missing** |
+| Store roles | ✅ `roles?: string[]` | ⚠️ `role?: string` (single) | Limited to one role |
+| Organization-scoped | ✅ `organizationId` | ✅ Via `member.organizationId` | ✅ Works |
+| Client API | ❌ Custom Convex | ✅ Built-in | ✅ Better |
+
+### 14.5 Hybrid Approach Analysis
+
+#### Option A: Full Better Auth (Use `teamMembers` Only)
+
+**Approach**: Replace `coachAssignments` with `teamMembers`
+
+**Implementation**:
+```typescript
+// Instead of:
+coachAssignments: {
+  userId: "...",
+  organizationId: "...",
+  teams: ["team1", "team2"],
+  ageGroups: ["U12", "U14"],
+  sport: "Soccer"
+}
+
+// Use:
+teamMembers: [
+  { teamId: "team1", memberId: "member1", role: "coach" },
+  { teamId: "team2", memberId: "member1", role: "coach" }
+]
+
+// Store additional metadata in team table or separate table
+```
+
+**Pros**:
+- ✅ Uses Better Auth's built-in system
+- ✅ Client API available
+- ✅ Type-safe
+- ✅ Consistent with Better Auth patterns
+
+**Cons**:
+- ❌ **Loses ageGroups**: Cannot store age groups per coach
+- ❌ **Loses sport**: Cannot store sport per coach assignment
+- ❌ **Loses roles array**: Can only store single role per team
+- ❌ **More records**: Need one `teamMembers` record per team (vs. one `coachAssignments` record)
+- ❌ **Metadata storage**: Need separate table for `ageGroups`, `sport`, etc.
+
+**Verdict**: ❌ **Not Recommended** - Loses important coaching metadata
+
+#### Option B: Hybrid (Use Both)
+
+**Approach**: Use `teamMembers` for team links, keep `coachAssignments` for metadata
+
+**Implementation**:
+```typescript
+// Better Auth teamMembers: Links coaches to teams
+teamMembers: [
+  { teamId: "team1", memberId: "member1", role: "coach" },
+  { teamId: "team2", memberId: "member1", role: "coach" }
+]
+
+// Convex coachAssignments: Stores coaching metadata
+coachAssignments: {
+  userId: "...",
+  organizationId: "...",
+  ageGroups: ["U12", "U14"],  // Metadata not in Better Auth
+  sport: "Soccer",             // Metadata not in Better Auth
+  roles: ["head-coach"]        // Additional metadata
+}
+```
+
+**Pros**:
+- ✅ Uses Better Auth for team links (client API available)
+- ✅ Keeps custom metadata (ageGroups, sport, roles)
+- ✅ Best of both worlds
+- ✅ Can query teams via Better Auth client API
+- ✅ Can query metadata via Convex
+
+**Cons**:
+- ⚠️ **Duplication**: Team links stored in both places
+- ⚠️ **Sync complexity**: Must keep `teamMembers` and `coachAssignments` in sync
+- ⚠️ **Two sources of truth**: Risk of inconsistency
+
+**Verdict**: ⚠️ **Possible but Complex** - Requires careful sync logic
+
+#### Option C: Enhanced Better Auth (Extend `teamMembers`)
+
+**Approach**: Extend Better Auth `teamMembers` table with custom fields
+
+**Implementation**:
+```typescript
+// Extend Better Auth teamMembers schema
+teamMembers: {
+  teamId: string;
+  memberId: string;
+  role?: string;
+  createdAt: number;
+  
+  // Custom fields (if Better Auth supports schema extension)
+  ageGroups?: string[];
+  sport?: string;
+  additionalRoles?: string[];
+}
+```
+
+**Pros**:
+- ✅ Single source of truth
+- ✅ Client API available
+- ✅ All metadata in one place
+
+**Cons**:
+- ❌ **Better Auth limitation**: Better Auth may not support custom fields on `teamMembers`
+- ❌ **Schema extension**: Would need to verify if this is possible
+- ❌ **Migration complexity**: Would need to migrate existing data
+
+**Verdict**: ❓ **Unknown** - Need to verify if Better Auth supports custom fields on `teamMembers`
+
+#### Option D: Keep Current (Custom `coachAssignments`)
+
+**Approach**: Continue using custom `coachAssignments` table
+
+**Pros**:
+- ✅ **Works now**: Already implemented and working
+- ✅ **Flexible**: Can store any metadata needed
+- ✅ **No migration**: No changes required
+- ✅ **Single source**: One table for all coaching data
+
+**Cons**:
+- ❌ **No client API**: Must use Convex queries/mutations
+- ❌ **Custom code**: Need to maintain custom implementation
+- ❌ **Inconsistent**: Different from Better Auth patterns
+
+**Verdict**: ✅ **Recommended for Now** - Simplest, most flexible
+
+### 14.6 Recommendation
+
+#### For Teams: ✅ Already Using Better Auth (Correct)
+
+**Current State**: Teams are stored in Better Auth `team` table with custom sports fields.
+
+**Recommendation**: **Continue using Better Auth teams** - This is correct and working well.
+
+#### For Team-Coach Links: ⚠️ Keep Custom `coachAssignments` (For Now)
+
+**Current State**: Using custom `coachAssignments` table to link coaches to teams.
+
+**Recommendation**: **Keep using `coachAssignments`** for the following reasons:
+
+1. **Metadata Requirements**: We need to store `ageGroups`, `sport`, and `roles` array, which Better Auth `teamMembers` doesn't support natively.
+
+2. **Flexibility**: Custom table allows us to store any coaching-specific metadata without limitations.
+
+3. **Working Solution**: Current implementation is working and doesn't need immediate change.
+
+4. **Future Migration Path**: If Better Auth adds support for custom fields on `teamMembers`, we can migrate later.
+
+#### For Team-Player Links: ✅ Keep Custom `teamPlayers` (Correct)
+
+**Current State**: Using custom `teamPlayers` junction table to link players (Convex) to teams (Better Auth).
+
+**Recommendation**: **Continue using `teamPlayers`** - Players are not Better Auth users, so `teamMembers` (which links Better Auth members) doesn't apply.
+
+### 14.7 Future Considerations
+
+#### If Better Auth Adds Custom Fields Support
+
+**Scenario**: Better Auth adds support for custom fields on `teamMembers` table.
+
+**Migration Path**:
+1. Extend `teamMembers` schema with custom fields (`ageGroups`, `sport`, `roles`)
+2. Migrate data from `coachAssignments` to `teamMembers`
+3. Update queries to use Better Auth client API
+4. Remove `coachAssignments` table
+
+**Benefits**:
+- Single source of truth
+- Client API available
+- Type-safe
+- Consistent with Better Auth patterns
+
+#### If We Need Better Auth Client API
+
+**Scenario**: We want to use Better Auth's client API for team management.
+
+**Hybrid Approach**:
+- Use `teamMembers` for team links (via Better Auth client API)
+- Keep `coachAssignments` for metadata only
+- Sync `teamMembers` when `coachAssignments` changes
+
+**Implementation**:
+```typescript
+// When coach is assigned to team:
+// 1. Add to Better Auth teamMembers (via client API)
+await authClient.organization.addTeamMember({
+  teamId: "team1",
+  memberId: "member1",
+  role: "coach"
+});
+
+// 2. Update coachAssignments (via Convex mutation)
+await ctx.runMutation(api.models.members.updateCoachAssignment, {
+  userId: "...",
+  organizationId: "...",
+  teams: ["team1"],
+  ageGroups: ["U12"],
+  sport: "Soccer"
+});
+```
+
+### 14.8 Decision Matrix
+
+| Factor | Current (`coachAssignments`) | Better Auth (`teamMembers`) | Hybrid |
+|--------|------------------------------|-----------------------------|--------|
+| **Metadata Support** | ✅ Full (ageGroups, sport, roles) | ❌ Limited (role only) | ✅ Full |
+| **Client API** | ❌ Custom Convex | ✅ Built-in | ✅ Built-in |
+| **Type Safety** | ⚠️ Custom types | ✅ Better Auth types | ✅ Better Auth types |
+| **Flexibility** | ✅ High | ❌ Low | ✅ High |
+| **Consistency** | ❌ Custom pattern | ✅ Better Auth pattern | ⚠️ Mixed |
+| **Maintenance** | ⚠️ Custom code | ✅ Built-in | ⚠️ Sync logic |
+| **Migration Effort** | ✅ None (current) | ⚠️ Medium | ⚠️ High |
+
+### 14.9 Final Recommendation
+
+**For Organizations**: ✅ **Continue using Better Auth** - Already correct.
+
+**For Teams**: ✅ **Continue using Better Auth** - Already correct, with custom sports fields.
+
+**For Team-Coach Links**: ✅ **Keep custom `coachAssignments`** - Provides necessary metadata that Better Auth `teamMembers` doesn't support.
+
+**For Team-Player Links**: ✅ **Keep custom `teamPlayers`** - Players are not Better Auth users, so `teamMembers` doesn't apply.
+
+**Future Enhancement**: If Better Auth adds custom field support for `teamMembers`, consider migrating `coachAssignments` to use `teamMembers` with custom fields, while keeping `teamPlayers` for player-team links.
+
+### 14.10 Open Questions
+
+**Q1**: Does Better Auth support custom fields on `teamMembers` table?
+- **Action**: Check Better Auth documentation/schema extension capabilities
+- **Impact**: Would enable migration to Better Auth `teamMembers` if supported
+
+**Q2**: Can we use Better Auth client API for team management while keeping custom metadata?
+- **Answer**: Yes, via hybrid approach (use both `teamMembers` and `coachAssignments`)
+- **Trade-off**: Requires sync logic to keep both in sync
+
+**Q3**: Should we migrate `coachAssignments` to use `teamMembers` for team links only?
+- **Recommendation**: Not necessary - current approach works and is simpler
+- **Future**: Revisit if Better Auth adds custom field support
+
+---
+
 ## Appendix: Decision Log
 
 | Decision | Date | Rationale |

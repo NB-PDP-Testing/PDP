@@ -28,9 +28,16 @@ export default function SignUpPage() {
 }
 
 function RedirectToOrgs({ router }: { router: ReturnType<typeof useRouter> }) {
+  const user = useCurrentUser();
+
   useEffect(() => {
-    router.push("/orgs/current" as Route);
-  }, [router]);
+    // Platform staff should go directly to /orgs
+    if (user?.isPlatformStaff) {
+      router.push("/orgs" as Route);
+    } else {
+      router.push("/orgs/current" as Route);
+    }
+  }, [router, user]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

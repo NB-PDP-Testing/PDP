@@ -70,8 +70,40 @@ export const getUserByEmail = query({
 });
 
 /**
+ * Get all users (platform staff only)
+ * Returns list of all users with their platform staff status
+ */
+export const getAllUsers = query({
+  args: {},
+  returns: v.array(v.any()),
+  handler: async (ctx) => {
+    // Get current user to verify they are platform staff
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
+      throw new Error("Only platform staff can view all users");
+    }
+
+    // Get all users
+    const usersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "user",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [],
+      }
+    );
+
+    return usersResult.page;
+  },
+});
+
+/**
  * Update a user's isPlatformStaff status
  * This allows granting/revoking platform staff privileges
+ * Only platform staff can update this
  */
 export const updatePlatformStaffStatus = mutation({
   args: {
@@ -80,6 +112,12 @@ export const updatePlatformStaffStatus = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // Verify current user is platform staff
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
+      throw new Error("Only platform staff can update platform staff status");
+    }
+
     // Find the user by email
     const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
       model: "user",

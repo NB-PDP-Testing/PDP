@@ -5,6 +5,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import Loader from "@/components/loader";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import type { OrgMemberRole } from "@/lib/types";
 
@@ -78,9 +79,16 @@ function getRedirectRoute(
 function RedirectToActiveOrg() {
   const { data: activeOrganization } = authClient.useActiveOrganization();
   const { data: member } = authClient.useActiveMember();
+  const user = useCurrentUser();
   const router = useRouter();
 
   useEffect(() => {
+    // Platform staff should go directly to /orgs
+    if (user?.isPlatformStaff) {
+      router.push("/orgs");
+      return;
+    }
+
     if (!activeOrganization) {
       router.push("/orgs");
       return;
@@ -121,7 +129,7 @@ function RedirectToActiveOrg() {
     }
 
     router.push(redirectRoute);
-  }, [router, activeOrganization, member]);
+  }, [router, activeOrganization, member, user]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

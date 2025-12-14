@@ -16,6 +16,7 @@ import {
   Clock,
   Plus,
   Settings,
+  Shield,
   Target,
   Users,
   X,
@@ -63,6 +64,15 @@ export default function OrganizationsPage() {
     api.models.orgJoinRequests.cancelJoinRequest
   );
 
+  // Get all users for platform staff management (only if platform staff)
+  const allUsers = useQuery(
+    api.models.users.getAllUsers,
+    user?.isPlatformStaff ? {} : "skip"
+  );
+  const updatePlatformStaffStatus = useMutation(
+    api.models.users.updatePlatformStaffStatus
+  );
+
   const handleCancelRequest = async (requestId: Id<"orgJoinRequests">) => {
     try {
       await cancelRequest({ requestId });
@@ -70,6 +80,24 @@ export default function OrganizationsPage() {
     } catch (error) {
       console.error("Error cancelling request:", error);
       toast.error("Failed to cancel request");
+    }
+  };
+
+  const handleTogglePlatformStaff = async (
+    email: string,
+    currentStatus: boolean
+  ) => {
+    try {
+      await updatePlatformStaffStatus({
+        email,
+        isPlatformStaff: !currentStatus,
+      });
+      toast.success(
+        `Platform staff status ${currentStatus ? "revoked" : "granted"}`
+      );
+    } catch (error: any) {
+      console.error("Error updating platform staff status:", error);
+      toast.error(error.message || "Failed to update platform staff status");
     }
   };
 
@@ -371,6 +399,105 @@ export default function OrganizationsPage() {
                 </div>
               )}
             </div>
+
+            {/* Platform Staff Management - Only visible to platform staff */}
+            {user?.isPlatformStaff && (
+              <div className="mt-8 rounded-lg bg-white p-6 shadow-lg">
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <h2 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
+                      Platform Staff Management
+                    </h2>
+                    <p className="mt-2 text-muted-foreground">
+                      Manage which users have platform staff permissions
+                    </p>
+                  </div>
+                </div>
+
+                {allUsers === undefined ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                  </div>
+                ) : allUsers && allUsers.length > 0 ? (
+                  <div className="space-y-3">
+                    {allUsers.map((platformUser: any) => {
+                      const isPlatformStaff = platformUser.isPlatformStaff;
+                      return (
+                        <Card key={platformUser._id}>
+                          <CardContent className="flex items-center justify-between p-4">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`flex h-10 w-10 items-center justify-center rounded-full ${
+                                  isPlatformStaff
+                                    ? "bg-purple-100"
+                                    : "bg-gray-100"
+                                }`}
+                              >
+                                {isPlatformStaff ? (
+                                  <Shield className="h-5 w-5 text-purple-600" />
+                                ) : (
+                                  <Users className="h-5 w-5 text-gray-600" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-medium">
+                                  {platformUser.name || "Unknown"}
+                                </p>
+                                <p className="text-muted-foreground text-sm">
+                                  {platformUser.email}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {isPlatformStaff && (
+                                <Badge
+                                  className="bg-purple-100 text-purple-700"
+                                  variant="secondary"
+                                >
+                                  Platform Staff
+                                </Badge>
+                              )}
+                              <Button
+                                onClick={() =>
+                                  handleTogglePlatformStaff(
+                                    platformUser.email,
+                                    isPlatformStaff
+                                  )
+                                }
+                                size="sm"
+                                variant={
+                                  isPlatformStaff ? "destructive" : "default"
+                                }
+                              >
+                                {isPlatformStaff
+                                  ? "Remove Staff"
+                                  : "Grant Staff"}
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Card className="border-dashed">
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="mb-4 rounded-full bg-muted p-4">
+                        <Users className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="mb-2 font-semibold text-lg">
+                        No Users Found
+                      </h3>
+                      <p className="text-muted-foreground text-sm">
+                        No users are registered in the system yet.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </Authenticated>

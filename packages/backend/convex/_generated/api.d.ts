@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as actions_invitations from "../actions/invitations.js";
+import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
 import type * as auth from "../auth.js";
 import type * as healthCheck from "../healthCheck.js";
@@ -24,6 +26,7 @@ import type * as models_users from "../models/users.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
 import type * as privateData from "../privateData.js";
 import type * as todos from "../todos.js";
+import type * as utils_email from "../utils/email.js";
 
 import type {
   ApiFromModules,
@@ -32,6 +35,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "actions/invitations": typeof actions_invitations;
+  "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
   "actions/voiceNotes": typeof actions_voiceNotes;
   auth: typeof auth;
   healthCheck: typeof healthCheck;
@@ -48,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   "models/voiceNotes": typeof models_voiceNotes;
   privateData: typeof privateData;
   todos: typeof todos;
+  "utils/email": typeof utils_email;
 }>;
 
 /**

@@ -1,6 +1,6 @@
 import type { Member } from "better-auth/plugins";
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 
 /**
@@ -335,5 +335,220 @@ export const getMembersWithDetails = query({
     );
 
     return membersWithDetails;
+  },
+});
+
+/**
+ * Get all pending invitations for an organization
+ * Returns invitations with inviter user details
+ */
+export const getPendingInvitations = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    // Get all pending invitations for the organization
+    const invitationsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "invitation",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "status",
+            value: "pending",
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    const invitations = invitationsResult.page;
+
+    // Fetch inviter details for each invitation
+    const invitationsWithInviter = await Promise.all(
+      invitations.map(async (invitation: any) => {
+        const inviterResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [
+              {
+                field: "_id",
+                value: invitation.inviterId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        // Check if invitation is expired
+        const now = Date.now();
+        const isExpired = invitation.expiresAt < now;
+
+        return {
+          ...invitation,
+          inviter: inviterResult,
+          isExpired,
+        };
+      })
+    );
+
+    return invitationsWithInviter;
+  },
+});
+
+/**
+ * Cancel a pending invitation
+ */
+export const cancelInvitation = mutation({
+  args: {
+    invitationId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Find the invitation
+    const invitationResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "invitation",
+        where: [
+          {
+            field: "_id",
+            value: args.invitationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!invitationResult) {
+      throw new Error("Invitation not found");
+    }
+
+    if (invitationResult.status !== "pending") {
+      throw new Error("Only pending invitations can be cancelled");
+    }
+
+    // Update invitation status to cancelled
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "invitation",
+        where: [{ field: "_id", value: args.invitationId, operator: "eq" }],
+        update: {
+          status: "cancelled",
+        },
+      },
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Resend an invitation email
+ * This schedules an action to resend the email
+ */
+export const resendInvitation = mutation({
+  args: {
+    invitationId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Find the invitation
+    const invitationResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "invitation",
+        where: [
+          {
+            field: "_id",
+            value: args.invitationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!invitationResult) {
+      throw new Error("Invitation not found");
+    }
+
+    if (invitationResult.status !== "pending") {
+      throw new Error("Only pending invitations can be resent");
+    }
+
+    // Check if invitation is expired
+    const now = Date.now();
+    if (invitationResult.expiresAt < now) {
+      throw new Error(
+        "Cannot resend expired invitation. Please send a new invitation."
+      );
+    }
+
+    // Get organization details
+    const orgResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "organization",
+        where: [
+          {
+            field: "_id",
+            value: invitationResult.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    // Get inviter details
+    const inviterResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "_id",
+            value: invitationResult.inviterId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    // Schedule action to resend email
+    const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
+    const inviteLink = `${siteUrl}/orgs/accept-invitation/${args.invitationId}`;
+
+    // Schedule the action to resend email
+    const actionRef = (internal.actions as any).invitations
+      ?.resendInvitationEmail;
+
+    if (actionRef) {
+      await ctx.scheduler.runAfter(0, actionRef, {
+        email: invitationResult.email,
+        invitedByUsername: inviterResult?.name || "Someone",
+        invitedByEmail: inviterResult?.email || "",
+        organizationName: orgResult?.name || "Organization",
+        inviteLink,
+        role: invitationResult.role || undefined,
+      });
+    } else {
+      console.warn(
+        "⚠️ resendInvitationEmail action not found. Email will not be sent."
+      );
+    }
+
+    return null;
   },
 });

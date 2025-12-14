@@ -76,6 +76,12 @@ export default function ManageUsersPage() {
     { organizationId: orgId }
   );
 
+  // Get pending invitations
+  const pendingInvitations = useQuery(
+    api.models.members.getPendingInvitations,
+    { organizationId: orgId }
+  );
+
   // Get teams and players for the organization
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
@@ -93,6 +99,8 @@ export default function ManageUsersPage() {
   );
   const linkPlayers = useMutation(api.models.players.linkPlayersToParent);
   const unlinkPlayers = useMutation(api.models.players.unlinkPlayersFromParent);
+  const resendInvitation = useMutation(api.models.members.resendInvitation);
+  const cancelInvitation = useMutation(api.models.members.cancelInvitation);
 
   const [editStates, setEditStates] = useState<UserEditState>({});
   const [loading, setLoading] = useState<string | null>(null);
@@ -110,6 +118,7 @@ export default function ManageUsersPage() {
 
   const isLoading =
     membersWithDetails === undefined ||
+    pendingInvitations === undefined ||
     teams === undefined ||
     allPlayers === undefined;
 
@@ -400,6 +409,32 @@ export default function ManageUsersPage() {
     }
   };
 
+  const handleResendInvitation = async (invitationId: string) => {
+    setLoading(invitationId);
+    try {
+      await resendInvitation({ invitationId });
+      toast.success("Invitation email resent successfully");
+    } catch (error: any) {
+      console.error("Error resending invitation:", error);
+      toast.error(error.message || "Failed to resend invitation");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: string) => {
+    setLoading(invitationId);
+    try {
+      await cancelInvitation({ invitationId });
+      toast.success("Invitation cancelled");
+    } catch (error: any) {
+      console.error("Error cancelling invitation:", error);
+      toast.error(error.message || "Failed to cancel invitation");
+    } finally {
+      setLoading(null);
+    }
+  };
+
   const getInitials = (name?: string | null) => {
     if (!name) {
       return "??";
@@ -429,9 +464,12 @@ export default function ManageUsersPage() {
     return searchable.includes(searchTerm.toLowerCase());
   });
 
-  // Stats - count members by functional roles
+  // Stats - count members by functional roles (includes pending invitations)
   const stats = {
-    total: membersWithDetails?.length || 0,
+    total:
+      (membersWithDetails?.length || 0) + (pendingInvitations?.length || 0),
+    activeMembers: membersWithDetails?.length || 0,
+    pendingInvites: pendingInvitations?.length || 0,
     coaches:
       membersWithDetails?.filter((m) => m.functionalRoles?.includes("coach"))
         .length || 0,
@@ -479,7 +517,7 @@ export default function ManageUsersPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         <Card
           className="cursor-pointer transition-colors hover:bg-accent/50"
           onClick={() => setRoleFilter("all")}
@@ -489,11 +527,29 @@ export default function ManageUsersPage() {
               <div>
                 <p className="text-muted-foreground text-sm">Total</p>
                 <p className="font-bold text-2xl">{stats.total}</p>
+                <p className="text-muted-foreground text-xs">
+                  {stats.activeMembers} active
+                </p>
               </div>
               <Users className="h-8 w-8 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
+        {stats.pendingInvites > 0 && (
+          <Card className="border-orange-200 bg-orange-50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-orange-700 text-sm">Pending Invites</p>
+                  <p className="font-bold text-2xl text-orange-700">
+                    {stats.pendingInvites}
+                  </p>
+                </div>
+                <Mail className="h-8 w-8 text-orange-600" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <Card
           className="cursor-pointer transition-colors hover:bg-accent/50"
           onClick={() => setRoleFilter("coach")}
@@ -557,6 +613,106 @@ export default function ManageUsersPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pending Invitations */}
+      {pendingInvitations && pendingInvitations.length > 0 && (
+        <Card className="border-orange-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-orange-600" />
+              Pending Invitations ({pendingInvitations.length})
+            </CardTitle>
+            <CardDescription>
+              Invitations that have been sent but not yet accepted
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {pendingInvitations.map((invitation: any) => {
+                const isExpired = invitation.isExpired;
+                const expiresAt = new Date(invitation.expiresAt);
+                const daysUntilExpiry = Math.ceil(
+                  (invitation.expiresAt - Date.now()) / (1000 * 60 * 60 * 24)
+                );
+
+                return (
+                  <div
+                    className={`flex items-center justify-between rounded-lg border p-3 ${
+                      isExpired
+                        ? "border-red-200 bg-red-50"
+                        : "border-orange-200 bg-orange-50"
+                    }`}
+                    key={invitation._id}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+                        <Mail className="h-5 w-5 text-orange-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{invitation.email}</p>
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                          <span>
+                            Invited by {invitation.inviter?.name || "Unknown"}
+                          </span>
+                          {invitation.role && (
+                            <>
+                              <span>•</span>
+                              <Badge className="text-xs" variant="outline">
+                                {invitation.role}
+                              </Badge>
+                            </>
+                          )}
+                        </div>
+                        <p className="text-muted-foreground text-xs">
+                          {isExpired ? (
+                            <span className="text-red-600">Expired</span>
+                          ) : (
+                            <span>
+                              Expires in {daysUntilExpiry}{" "}
+                              {daysUntilExpiry === 1 ? "day" : "days"} (
+                              {expiresAt.toLocaleDateString()})
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!isExpired && (
+                        <Button
+                          disabled={loading === invitation._id}
+                          onClick={() => handleResendInvitation(invitation._id)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {loading === invitation._id ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Send className="mr-2 h-4 w-4" />
+                          )}
+                          Resend
+                        </Button>
+                      )}
+                      <Button
+                        disabled={loading === invitation._id}
+                        onClick={() => handleCancelInvitation(invitation._id)}
+                        size="sm"
+                        variant="destructive"
+                      >
+                        {loading === invitation._id ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <X className="mr-2 h-4 w-4" />
+                        )}
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Search and Filter */}
       <div className="flex flex-col gap-4 sm:flex-row">

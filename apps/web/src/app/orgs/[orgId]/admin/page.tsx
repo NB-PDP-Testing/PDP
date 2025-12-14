@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { Clock, Shield, UserCheck, Users } from "lucide-react";
+import { Clock, Mail, Shield, UserCheck, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -28,6 +28,10 @@ export default function OrgAdminOverviewPage() {
     api.models.orgJoinRequests.getPendingRequestsForOrg,
     { organizationId: orgId }
   );
+  const pendingInvitations = useQuery(
+    api.models.members.getPendingInvitations,
+    { organizationId: orgId }
+  );
   const players = useQuery(api.models.players.getPlayersByOrganization, {
     organizationId: orgId,
   });
@@ -37,6 +41,7 @@ export default function OrgAdminOverviewPage() {
 
   const isLoading =
     pendingRequests === undefined ||
+    pendingInvitations === undefined ||
     players === undefined ||
     memberCounts === undefined;
 
@@ -78,9 +83,21 @@ export default function OrgAdminOverviewPage() {
               href={`/orgs/${orgId}/admin/users` as Route}
               icon={Users}
               title="Total Members"
-              value={memberCounts?.total || 0}
+              value={
+                (memberCounts?.total || 0) + (pendingInvitations?.length || 0)
+              }
               variant="default"
             />
+            {pendingInvitations && pendingInvitations.length > 0 && (
+              <StatCard
+                description="Invitations sent but not accepted"
+                href={`/orgs/${orgId}/admin/users` as Route}
+                icon={Mail}
+                title="Pending Invites"
+                value={pendingInvitations.length}
+                variant="warning"
+              />
+            )}
             <StatCard
               description="Active teams"
               href={`/orgs/${orgId}/admin/teams` as Route}

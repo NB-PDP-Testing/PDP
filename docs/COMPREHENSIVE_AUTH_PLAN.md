@@ -4159,6 +4159,730 @@ await ctx.runMutation(api.models.members.updateCoachAssignment, {
 
 ---
 
+## 17. Role Selector & Active Role Management: MVP vs Current Site Analysis
+
+### 17.1 MVP Role Switcher Analysis
+
+#### MVP Approach
+
+**Key Features**:
+- ✅ **Active Role Concept**: User has an `activeRole` field that determines which role they're currently "using"
+- ✅ **Role Switching**: Users can switch between their assigned roles via dropdown
+- ✅ **Static Display**: If user has only one role, shows static badge (no dropdown)
+- ✅ **Request Additional Role**: Users can request additional roles they don't have
+- ✅ **Visual Feedback**: Active role highlighted in green, shows "Active" label
+- ✅ **Loading State**: Shows "Switching..." during role change
+
+**Implementation**:
+```typescript
+// MVP: User-level active role
+const user = {
+  roles: ["Coach", "Parent"], // All roles user has
+  activeRole: "Coach", // Currently active role
+};
+
+// Switching role updates activeRole field
+await switchActiveRole({ newRole: "Parent" });
+```
+
+**Limitations**:
+- ❌ **Single Organization**: MVP doesn't support multiple organizations
+- ❌ **User-Level Roles**: Roles are stored on user, not organization-scoped
+- ❌ **No Org Context**: Can't have different roles in different organizations
+
+### 17.2 Current Site Functional Role Indicator Analysis
+
+#### Current Approach
+
+**Key Features**:
+- ✅ **Organization-Scoped Roles**: Roles are stored per organization (member.functionalRoles)
+- ✅ **Multi-Org Support**: User can have different roles in different organizations
+- ✅ **Read-Only Display**: Shows roles but doesn't allow switching
+- ✅ **Visual Display**: Shows badges with icons, dropdown for multiple roles
+- ✅ **Primary Role Indicator**: Shows first role as "Primary" (but not switchable)
+
+**Implementation**:
+```typescript
+// Current: Organization-scoped functional roles
+const member = {
+  organizationId: "org_123",
+  functionalRoles: ["coach", "parent"], // Roles in this org
+  // No activeRole concept
+};
+
+// Roles are displayed but not switchable
+<FunctionalRoleIndicator functionalRoles={member.functionalRoles} />
+```
+
+**Limitations**:
+- ❌ **No Role Switching**: Users can't switch between their roles
+- ❌ **No Active Role**: No concept of which role is currently "active"
+- ❌ **No Dashboard Redirect**: Switching role doesn't redirect to appropriate dashboard
+- ❌ **No Role Request**: No way to request additional roles (though join requests exist)
+
+### 17.3 Integrated Approach: Multi-Org Role Switcher
+
+#### Design Principles
+
+**1. Organization-Scoped Active Role**:
+- Active role is stored per organization (not globally)
+- User can have different active roles in different organizations
+- Switching role in one org doesn't affect other orgs
+
+**2. Combined Org + Role Selector**:
+- Unified component that shows both organization and role
+- Can switch both organization and role in one place
+- Clear visual hierarchy: Org → Role
+
+**3. Dashboard Redirect on Role Switch**:
+- When role is switched, redirect to appropriate dashboard
+- Priority: Coach > Admin > Parent (same as current redirect logic)
+
+**4. Role Request Integration**:
+- For requesting additional roles in current organization
+- Uses existing join request system or new role request system
+
+#### Proposed Component: `OrgRoleSwitcher`
+
+**Location**: Header (replaces separate `OrgSelector` and `FunctionalRoleIndicator`)
+
+**Features**:
+- **Organization Selector**: Dropdown to switch between organizations
+- **Role Selector**: Dropdown to switch between roles in current organization
+- **Combined Display**: Shows "Organization Name - Active Role"
+- **Quick Switch**: Click to open combined dropdown
+- **Request Role**: Option to request additional roles
+
+**UI Design**:
+```
+┌─────────────────────────────────────────┐
+│ [Org Logo] Grange GFC - Coach ▼        │ ← Combined button
+└─────────────────────────────────────────┘
+         ↓ (click)
+┌─────────────────────────────────────────┐
+│ Organizations                            │
+├─────────────────────────────────────────┤
+│ ✓ Grange GFC                            │
+│   Coach (Active)                         │
+│   Parent                                 │
+│   [Request Role]                         │
+├─────────────────────────────────────────┤
+│ Local Rugby Club                         │
+│   Parent (Active)                        │
+│   [Request Role]                         │
+├─────────────────────────────────────────┤
+│ + Create Organization                   │
+└─────────────────────────────────────────┘
+```
+
+#### Implementation Specification
+
+**1. Schema Extension**:
+
+```typescript
+// Add activeFunctionalRole to member table
+member: {
+  // ... existing fields ...
+  functionalRoles: ["coach", "parent", "admin"], // All roles
+  activeFunctionalRole: "coach", // Currently active role (optional)
+}
+```
+
+**2. Backend Mutations**:
+
+```typescript
+// packages/backend/convex/models/members.ts
+
+/**
+ * Switch active functional role for a member in an organization
+ */
+export const switchActiveFunctionalRole = mutation({
+  args: {
+    organizationId: v.string(),
+    functionalRole: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get member record
+    const member = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          { field: "userId", value: currentUser._id, operator: "eq" },
+          { field: "organizationId", value: args.organizationId, operator: "eq" },
+        ],
+      }
+    );
+
+    if (!member) {
+      throw new Error("Member not found");
+    }
+
+    // Verify user has this functional role
+    const functionalRoles = (member as any).functionalRoles || [];
+    if (!functionalRoles.includes(args.functionalRole)) {
+      throw new Error(`You don't have the ${args.functionalRole} role in this organization`);
+    }
+
+    // Update active functional role
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: member._id, operator: "eq" }],
+        update: {
+          activeFunctionalRole: args.functionalRole,
+        },
+      },
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Get member's active functional role (with fallback to first role)
+ */
+export const getActiveFunctionalRole = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.union(
+    v.literal("coach"),
+    v.literal("parent"),
+    v.literal("admin"),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser) {
+      return null;
+    }
+
+    const member = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          { field: "userId", value: currentUser._id, operator: "eq" },
+          { field: "organizationId", value: args.organizationId, operator: "eq" },
+        ],
+      }
+    );
+
+    if (!member) {
+      return null;
+    }
+
+    const functionalRoles = (member as any).functionalRoles || [];
+    if (functionalRoles.length === 0) {
+      return null;
+    }
+
+    // Return active role if set, otherwise return first role (default)
+    const activeRole = (member as any).activeFunctionalRole;
+    if (activeRole && functionalRoles.includes(activeRole)) {
+      return activeRole;
+    }
+
+    // Fallback: return first role (priority: coach > admin > parent)
+    const priority = ["coach", "admin", "parent"];
+    for (const role of priority) {
+      if (functionalRoles.includes(role)) {
+        return role as "coach" | "parent" | "admin";
+      }
+    }
+
+    return functionalRoles[0] as "coach" | "parent" | "admin";
+  },
+});
+
+/**
+ * Get all memberships for a user across all organizations
+ * Used by OrgRoleSwitcher to show all orgs and roles
+ */
+export const getMembersForAllOrganizations = query({
+  args: {
+    userId: v.string(),
+  },
+  returns: v.array(v.object({
+    organizationId: v.string(),
+    organizationName: v.union(v.string(), v.null()),
+    functionalRoles: v.array(v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))),
+    activeFunctionalRole: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.null()),
+    betterAuthRole: v.string(),
+  })),
+  handler: async (ctx, args) => {
+    // Get all memberships for this user
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "userId",
+            value: args.userId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    // Get organization details for each membership
+    const memberships = await Promise.all(
+      membersResult.page.map(async (member) => {
+        const orgResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "organization",
+            where: [
+              {
+                field: "_id",
+                value: member.organizationId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        return {
+          organizationId: member.organizationId,
+          organizationName: orgResult?.name || null,
+          functionalRoles: (member as any).functionalRoles || [],
+          activeFunctionalRole: (member as any).activeFunctionalRole || null,
+          betterAuthRole: member.role,
+        };
+      })
+    );
+
+    return memberships;
+  },
+});
+```
+
+**3. Frontend Component**:
+
+```typescript
+// apps/web/src/components/org-role-switcher.tsx
+
+"use client";
+
+import { Building2, ChevronDown, Shield, UserCircle, Users, Plus, Check } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { authClient } from "@/lib/auth-client";
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useMutation, useQuery } from "convex/react";
+import { cn } from "@/lib/utils";
+import type { Route } from "next";
+
+type FunctionalRole = "coach" | "parent" | "admin";
+
+function getRoleIcon(role: FunctionalRole) {
+  switch (role) {
+    case "coach":
+      return <Users className="h-4 w-4 text-green-600" />;
+    case "parent":
+      return <UserCircle className="h-4 w-4 text-blue-600" />;
+    case "admin":
+      return <Shield className="h-4 w-4 text-purple-600" />;
+  }
+}
+
+function getRoleLabel(role: FunctionalRole): string {
+  switch (role) {
+    case "coach":
+      return "Coach";
+    case "parent":
+      return "Parent";
+    case "admin":
+      return "Admin";
+  }
+}
+
+function getRoleDashboardRoute(orgId: string, role: FunctionalRole): Route {
+  switch (role) {
+    case "coach":
+      return `/orgs/${orgId}/coach` as Route;
+    case "parent":
+      return `/orgs/${orgId}/parents` as Route;
+    case "admin":
+      return `/orgs/${orgId}/admin` as Route;
+  }
+}
+
+export function OrgRoleSwitcher() {
+  const router = useRouter();
+  const params = useParams();
+  const urlOrgId = params.orgId as string | undefined;
+  const [open, setOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+
+  const user = useCurrentUser();
+  const { data: organizations, isPending: isLoadingOrgs } =
+    authClient.useListOrganizations();
+
+  // Get members for all organizations to show roles
+  const allMembers = useQuery(
+    api.models.members.getMembersForAllOrganizations,
+    user?._id ? { userId: user._id } : "skip"
+  );
+
+  const switchActiveRole = useMutation(api.models.members.switchActiveFunctionalRole);
+
+  const currentOrg = organizations?.find((org) => org.id === urlOrgId);
+  const currentMember = allMembers?.find(
+    (m) => m.organizationId === urlOrgId
+  );
+
+  const functionalRoles =
+    ((currentMember as any)?.functionalRoles as FunctionalRole[] | undefined) || [];
+  const activeRole =
+    ((currentMember as any)?.activeFunctionalRole as FunctionalRole | undefined) ||
+    functionalRoles[0]; // Fallback to first role
+
+  const handleSwitchOrg = async (orgId: string) => {
+    setOpen(false);
+    // Set organization as active
+    await authClient.organization.setActive({ organizationId: orgId });
+    // Get member for new org
+    const newOrgMember = allMembers?.find((m) => m.organizationId === orgId);
+    const newOrgRoles =
+      ((newOrgMember as any)?.functionalRoles as FunctionalRole[] | undefined) || [];
+    const newActiveRole =
+      ((newOrgMember as any)?.activeFunctionalRole as FunctionalRole | undefined) ||
+      newOrgRoles[0];
+
+    // Redirect to appropriate dashboard
+    if (newActiveRole) {
+      router.push(getRoleDashboardRoute(orgId, newActiveRole));
+    } else {
+      router.push(`/orgs/${orgId}` as Route);
+    }
+  };
+
+  const handleSwitchRole = async (role: FunctionalRole) => {
+    if (!urlOrgId || role === activeRole) {
+      setOpen(false);
+      return;
+    }
+
+    setSwitching(true);
+    try {
+      await switchActiveRole({
+        organizationId: urlOrgId,
+        functionalRole: role,
+      });
+
+      // Redirect to appropriate dashboard
+      router.push(getRoleDashboardRoute(urlOrgId, role));
+      setOpen(false);
+    } catch (error) {
+      console.error("Error switching role:", error);
+      // Show error toast
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  if (isLoadingOrgs || !organizations || organizations.length === 0) {
+    return null;
+  }
+
+  // Build org-role structure for display
+  const orgRoleStructure = organizations.map((org) => {
+    const member = allMembers?.find((m) => m.organizationId === org.id);
+    const roles =
+      ((member as any)?.functionalRoles as FunctionalRole[] | undefined) || [];
+    const active =
+      ((member as any)?.activeFunctionalRole as FunctionalRole | undefined) ||
+      roles[0];
+
+    return {
+      org,
+      member,
+      roles,
+      activeRole: active,
+    };
+  });
+
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger asChild>
+        <Button
+          aria-expanded={open}
+          className="w-[240px] justify-between"
+          disabled={switching}
+          variant="outline"
+        >
+          {switching ? (
+            "Switching..."
+          ) : currentOrg && activeRole ? (
+            <div className="flex items-center gap-2 truncate">
+              {currentOrg.logo ? (
+                <img
+                  alt=""
+                  className="h-4 w-4 rounded"
+                  src={currentOrg.logo}
+                />
+              ) : (
+                <Building2 className="h-4 w-4" />
+              )}
+              <span className="truncate">{currentOrg.name}</span>
+              <span className="text-gray-400">-</span>
+              {getRoleIcon(activeRole)}
+              <span className="truncate">{getRoleLabel(activeRole)}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              <span>Select org...</span>
+            </div>
+          )}
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[280px] p-0">
+        <Command>
+          <CommandInput placeholder="Search organizations..." />
+          <CommandList>
+            <CommandEmpty>No organization found.</CommandEmpty>
+            {orgRoleStructure.map(({ org, roles, activeRole: orgActiveRole }) => (
+              <CommandGroup key={org.id} heading={org.name}>
+                {roles.length === 0 ? (
+                  <CommandItem disabled>
+                    <span className="text-muted-foreground text-sm">
+                      No roles assigned
+                    </span>
+                  </CommandItem>
+                ) : (
+                  roles.map((role) => (
+                    <CommandItem
+                      key={`${org.id}-${role}`}
+                      onSelect={() => {
+                        if (urlOrgId === org.id) {
+                          // Same org, just switch role
+                          handleSwitchRole(role);
+                        } else {
+                          // Different org, switch org and role
+                          handleSwitchOrg(org.id);
+                          // Note: Role will be set after org switch
+                        }
+                      }}
+                      value={`${org.id}-${role}`}
+                    >
+                      <div className="flex w-full items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {getRoleIcon(role)}
+                          <span>{getRoleLabel(role)}</span>
+                        </div>
+                        {urlOrgId === org.id && role === orgActiveRole && (
+                          <Check className="h-4 w-4 text-green-600" />
+                        )}
+                      </div>
+                    </CommandItem>
+                  ))
+                )}
+                {/* Request Role Option */}
+                <CommandItem
+                  onSelect={() => {
+                    setOpen(false);
+                    router.push(`/orgs/${org.id}/admin/users` as Route);
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  <span>Request Role</span>
+                </CommandItem>
+              </CommandGroup>
+            ))}
+
+            {user && "isPlatformStaff" in user && user.isPlatformStaff ? (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem
+                    onSelect={() => {
+                      setOpen(false);
+                      router.push("/orgs/create" as Route);
+                    }}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span>Create Organization</span>
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            ) : null}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+```
+
+**4. Updated Redirect Logic**:
+
+```typescript
+// apps/web/src/app/orgs/current/page.tsx
+
+function getRedirectRoute(
+  orgId: string,
+  memberRole: OrgMemberRole | undefined,
+  functionalRoles: string[],
+  activeFunctionalRole?: string // NEW: Use active role if set
+): Route {
+  // Priority: Use activeFunctionalRole if set, otherwise use priority logic
+  const roleToUse = activeFunctionalRole || 
+    (functionalRoles.includes("coach") ? "coach" :
+     functionalRoles.includes("admin") ? "admin" :
+     functionalRoles.includes("parent") ? "parent" : null);
+
+  if (roleToUse === "coach") {
+    return `/orgs/${orgId}/coach` as Route;
+  }
+
+  if (roleToUse === "admin") {
+    return `/orgs/${orgId}/admin` as Route;
+  }
+
+  if (roleToUse === "parent") {
+    return `/orgs/${orgId}/parents` as Route;
+  }
+
+  return "/orgs";
+}
+```
+
+### 17.4 Comparison Matrix
+
+| Feature | MVP | Current Site | Integrated Approach |
+|---------|-----|--------------|---------------------|
+| **Role Switching** | ✅ Yes | ❌ No | ✅ Yes |
+| **Active Role Concept** | ✅ Yes (user-level) | ❌ No | ✅ Yes (org-scoped) |
+| **Multi-Org Support** | ❌ No | ✅ Yes | ✅ Yes |
+| **Org-Scoped Roles** | ❌ No | ✅ Yes | ✅ Yes |
+| **Dashboard Redirect** | ⚠️ Partial | ✅ Yes | ✅ Yes (on role switch) |
+| **Request Additional Role** | ✅ Yes | ❌ No | ✅ Yes (via admin UI) |
+| **Visual Feedback** | ✅ Yes | ✅ Yes | ✅ Yes (enhanced) |
+| **Combined Selector** | ❌ No | ❌ No | ✅ Yes |
+
+### 17.5 Benefits of Integrated Approach
+
+**1. Best of Both Worlds**:
+- ✅ Role switching from MVP
+- ✅ Multi-org support from current site
+- ✅ Organization-scoped roles from current site
+- ✅ Dashboard redirect on switch
+
+**2. Improved UX**:
+- ✅ Single component for org + role selection
+- ✅ Clear visual hierarchy
+- ✅ Quick switching between contexts
+- ✅ Consistent behavior across orgs
+
+**3. Technical Benefits**:
+- ✅ Organization-scoped active role (no conflicts)
+- ✅ Can have different active roles in different orgs
+- ✅ Proper dashboard routing on switch
+- ✅ Maintains existing redirect logic
+
+### 17.6 Migration Strategy
+
+**Phase 1: Add Active Role Field**:
+- Add `activeFunctionalRole` to member schema
+- Default to first role (priority: coach > admin > parent)
+- Update existing members
+
+**Phase 2: Implement Backend Mutations**:
+- Add `switchActiveFunctionalRole` mutation
+- Add `getActiveFunctionalRole` query
+- Add `getMembersForAllOrganizations` query
+- Update redirect logic to use active role
+
+**Phase 3: Create Combined Component**:
+- Create `OrgRoleSwitcher` component
+- Replace `OrgSelector` and `FunctionalRoleIndicator` in header
+- Add role switching functionality
+
+**Phase 4: Update Redirects**:
+- Update `/orgs/current` to use active role
+- Update role-based redirects to respect active role
+- Add redirect on role switch
+
+### 17.7 Edge Cases & Considerations
+
+**1. User Has No Roles in Org**:
+- Show "No roles assigned" message
+- Allow requesting roles (redirect to admin/users page)
+- Don't show role switcher
+
+**2. User Switches Org with Different Roles**:
+- Set active role to first available role in new org
+- Redirect to appropriate dashboard
+- Preserve active role preference per org
+
+**3. User Loses Role (Admin Removes)**:
+- If active role is removed, switch to first available role
+- Show notification about role removal
+- Redirect to appropriate dashboard
+
+**4. User Gains New Role**:
+- New role appears in dropdown
+- Active role remains unchanged (unless it was removed)
+- User can manually switch to new role
+
+**5. Multiple Roles, No Active Role Set**:
+- Use priority logic: coach > admin > parent
+- Auto-set active role on first access
+- Persist preference for future visits
+
+### 17.8 Request Additional Role Feature
+
+**Current State**: 
+- MVP has `RequestAdditionalRole` component
+- Current site has join requests (but for joining org, not requesting roles)
+
+**Integrated Approach**:
+- **Option A**: Use existing admin UI (`/orgs/[orgId]/admin/users`)
+  - User navigates to admin page
+  - Admin can assign additional roles
+  - Simpler, reuses existing UI
+
+- **Option B**: Create role request system (like MVP)
+  - New `roleRequests` table
+  - User can request specific roles
+  - Admin approves/rejects
+  - More structured, but more complex
+
+**Recommendation**: Start with Option A (admin UI), add Option B later if needed.
+
+---
+
 ## Appendix: Decision Log
 
 | Decision | Date | Rationale |
@@ -4169,4 +4893,7 @@ await ctx.runMutation(api.models.members.updateCoachAssignment, {
 | Use invitation metadata for functional roles | TBD | Faster onboarding |
 | Check functional roles for capability permissions | TBD | Correct access control |
 | Cross-org passport sharing: Parent-controlled, opt-in only | TBD | Privacy-first approach, parent consent required |
+| Auto-infer Better Auth role from functional roles | TBD | Simpler UI, logical mapping, prevents mismatches |
+| Owner management: Transfer-only, not promotion | TBD | Ownership should be transferred, not assigned to new users |
+| Integrated OrgRoleSwitcher: Combined org + role selector with active role switching | TBD | Best of both MVP and current site, multi-org support, improved UX |
 

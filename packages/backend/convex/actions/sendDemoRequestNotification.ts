@@ -19,13 +19,23 @@ export const sendNotification = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const adminEmail =
-      process.env.DEMO_REQUEST_NOTIFICATION_EMAIL || process.env.ADMIN_EMAIL;
+    const emailConfig = process.env.ADMIN_EMAIL;
 
-    if (!adminEmail) {
+    if (!emailConfig) {
       console.warn(
-        "⚠️ DEMO_REQUEST_NOTIFICATION_EMAIL or ADMIN_EMAIL not configured. Notification will not be sent."
+        "⚠️ ADMIN_EMAIL not configured. Demo request notification will not be sent."
       );
+      return null;
+    }
+
+    // Parse comma-separated email addresses and trim whitespace
+    const adminEmails = emailConfig
+      .split(",")
+      .map((email) => email.trim())
+      .filter((email) => email.length > 0);
+
+    if (adminEmails.length === 0) {
+      console.warn("⚠️ No valid email addresses found in ADMIN_EMAIL.");
       return null;
     }
 
@@ -36,7 +46,7 @@ export const sendNotification = internalAction({
       organization: args.organization,
       message: args.message,
       requestedAt: args.requestedAt,
-      adminEmail,
+      adminEmails,
     });
 
     return null;

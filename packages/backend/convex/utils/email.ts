@@ -185,7 +185,7 @@ interface DemoRequestNotificationData {
   organization?: string;
   message?: string;
   requestedAt: number;
-  adminEmail: string; // Email address to send notification to
+  adminEmails: string[]; // Email addresses to send notification to
 }
 
 /**
@@ -194,8 +194,15 @@ interface DemoRequestNotificationData {
 export async function sendDemoRequestNotification(
   data: DemoRequestNotificationData
 ): Promise<void> {
-  const { name, email, phone, organization, message, requestedAt, adminEmail } =
-    data;
+  const {
+    name,
+    email,
+    phone,
+    organization,
+    message,
+    requestedAt,
+    adminEmails,
+  } = data;
 
   const subject = `New Demo Request from ${name}`;
   const requestDate = new Date(requestedAt).toLocaleString();
@@ -279,7 +286,7 @@ Reply to: ${email}
       },
       body: JSON.stringify({
         from: fromEmail,
-        to: adminEmail,
+        to: adminEmails, // Resend supports array of recipients
         subject,
         html: htmlBody,
         text: textBody,

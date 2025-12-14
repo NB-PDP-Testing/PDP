@@ -745,64 +745,237 @@ Keep only: `owner`, `admin`, `member`
 
 ### 3.5 Invitation Flow Design
 
-#### Enhanced Invitation Process
+#### Enhanced Invitation Process with Auto-Assignment
 
-**Step 1: Admin Invites User**
+**Why This Works**: Better Auth's `inviteMember` API supports a `metadata` field that can store custom data. This metadata is preserved in the invitation record and is accessible in the `onMemberAdded` hook when the user accepts. This allows us to:
+
+1. ✅ **UI collects functional roles** during invitation
+2. ✅ **Metadata stores functional roles** in invitation record
+3. ✅ **Hook auto-assigns functional roles** when user accepts
+4. ✅ **Zero manual steps** - fully automated
+
+**Step 1: Admin Invites User (Enhanced UI)**
+
+The invitation dialog is enhanced to allow selecting functional roles:
+
 ```typescript
-await authClient.organization.inviteMember({
-  email: "parent@example.com",
-  organizationId: orgId,
-  role: "member", // Better Auth role (hierarchy)
-  metadata: {
-    suggestedFunctionalRoles: ["parent"], // Functional roles (capabilities)
-    suggestedPlayerLinks: ["playerId1", "playerId2"], // Optional: specific players
-    roleSpecificData: {
-      teams: ["U12 Boys"],
-      ageGroups: ["U12"],
+// Enhanced Invitation Dialog UI
+const [inviteEmail, setInviteEmail] = useState("");
+const [inviteBetterAuthRole, setInviteBetterAuthRole] = useState<"member" | "admin">("member");
+const [inviteFunctionalRoles, setInviteFunctionalRoles] = useState<FunctionalRole[]>([]);
+const [invitePlayerLinks, setInvitePlayerLinks] = useState<string[]>([]); // Optional: specific players
+const [inviteTeamAssignments, setInviteTeamAssignments] = useState<string[]>([]); // Optional: teams for coach
+
+const handleInvite = async () => {
+  await authClient.organization.inviteMember({
+    email: inviteEmail,
+    organizationId: orgId,
+    role: inviteBetterAuthRole, // Better Auth role (hierarchy): "member" or "admin"
+    metadata: {
+      // Functional roles (capabilities) - stored in invitation metadata
+      suggestedFunctionalRoles: inviteFunctionalRoles, // ["coach", "parent"]
+      
+      // Optional: Specific player links for parent role
+      suggestedPlayerLinks: invitePlayerLinks, // ["playerId1", "playerId2"]
+      
+      // Optional: Team assignments for coach role
+      roleSpecificData: {
+        teams: inviteTeamAssignments,
+        ageGroups: [], // Can be added to UI if needed
+      },
     },
-  },
-});
+  });
+};
 ```
 
-**Step 2: User Accepts Invitation**
-- Better Auth creates `member` record with `role: "member"`
-- `onMemberAdded` hook fires
+**UI Components**:
+- **Better Auth Role Selector**: Dropdown with "Member" or "Admin" (hierarchy)
+- **Functional Roles Checkboxes**: 
+  - ☐ Coach
+  - ☐ Parent  
+  - ☐ Admin (only if Better Auth role is "admin")
+- **Optional Fields** (shown conditionally):
+  - If "Coach" selected: Team selector (multi-select)
+  - If "Parent" selected: Player search/selector (for specific children)
 
-**Step 3: Auto-Assignment Hook**
+**Step 2: Invitation Email Sent**
+
+Better Auth sends invitation email with link. The invitation record in the database contains:
+- `email`: Invitee's email
+- `role`: Better Auth role ("member" or "admin")
+- `metadata`: Our custom data:
+  ```json
+  {
+    "suggestedFunctionalRoles": ["coach", "parent"],
+    "suggestedPlayerLinks": ["playerId1", "playerId2"],
+    "roleSpecificData": {
+      "teams": ["U12 Boys"]
+    }
+  }
+  ```
+
+**Step 3: User Accepts Invitation**
+
+- User clicks invitation link
+- If not logged in, redirected to login/signup
+- After authentication, Better Auth creates `member` record with `role: "member"` (or "admin")
+- **`onMemberAdded` hook fires automatically**
+
+**Step 4: Auto-Assignment Hook (Fully Automated)**
+
+The hook reads the invitation metadata and auto-assigns everything:
+
 ```typescript
 async onMemberAdded(data) {
   const { member, organization, role, invitation } = data;
+  const userId = member.userId;
+  const organizationId = organization.id;
+  
+  console.log("[onMemberAdded] Member added via invitation:", {
+    userId,
+    organizationId,
+    betterAuthRole: role,
+    invitationId: invitation?.id,
+    metadata: invitation?.metadata,
+  });
   
   // 1. Auto-map Better Auth "admin"/"owner" to functional "admin"
   if (role === "admin" || role === "owner") {
-    await addFunctionalRole(member.userId, "admin");
+    console.log("[onMemberAdded] Auto-assigning functional 'admin' role");
+    await ctx.runMutation(api.models.members.addFunctionalRole, {
+      organizationId,
+      userId,
+      functionalRole: "admin",
+    });
   }
   
-  // 2. Auto-assign suggested functional roles from invitation
+  // 2. Auto-assign suggested functional roles from invitation metadata
   const suggestedRoles = invitation?.metadata?.suggestedFunctionalRoles || [];
-  for (const functionalRole of suggestedRoles) {
-    await addFunctionalRole(member.userId, functionalRole);
+  if (suggestedRoles.length > 0) {
+    console.log("[onMemberAdded] Auto-assigning suggested functional roles:", suggestedRoles);
+    for (const functionalRole of suggestedRoles) {
+      await ctx.runMutation(api.models.members.addFunctionalRole, {
+        organizationId,
+        userId,
+        functionalRole,
+      });
+    }
   }
   
   // 3. Auto-link parent to children (if parent role assigned)
   if (suggestedRoles.includes("parent")) {
-    await autoLinkParentToChildren(member.user, organization.id);
+    console.log("[onMemberAdded] Auto-linking parent to children");
+    const user = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [{ field: "_id", value: userId, operator: "eq" }],
+      }
+    );
+    
+    if (user?.email) {
+      // Auto-link based on email matching
+      await ctx.runMutation(api.models.players.autoLinkParentToChildren, {
+        parentEmail: user.email,
+        organizationId,
+      });
+      
+      // Auto-link specific players (if provided in invitation)
+      const suggestedPlayers = invitation?.metadata?.suggestedPlayerLinks || [];
+      if (suggestedPlayers.length > 0) {
+        console.log("[onMemberAdded] Auto-linking specific players:", suggestedPlayers);
+        await ctx.runMutation(api.models.players.linkPlayersToParent, {
+          playerIds: suggestedPlayers,
+          parentEmail: user.email,
+          organizationId,
+        });
+      }
+    }
   }
   
-  // 4. Auto-link specific players (if provided in invitation)
-  const suggestedPlayers = invitation?.metadata?.suggestedPlayerLinks || [];
-  if (suggestedPlayers.length > 0) {
-    await linkSpecificPlayers(member.user.email, suggestedPlayers);
+  // 4. Auto-create coach assignments (if coach role assigned)
+  if (suggestedRoles.includes("coach")) {
+    console.log("[onMemberAdded] Auto-creating coach assignments");
+    const roleData = invitation?.metadata?.roleSpecificData;
+    const teams = roleData?.teams || [];
+    
+    if (teams.length > 0) {
+      await ctx.runMutation(api.models.coaches.updateCoachAssignments, {
+        userId,
+        organizationId,
+        teams,
+        ageGroups: roleData?.ageGroups || [],
+      });
+    }
   }
+  
+  console.log("[onMemberAdded] ✅ Auto-assignment complete");
 }
 ```
 
-**Step 4: User Redirected**
+**Step 5: User Redirected**
+
 - Based on functional roles assigned
 - Parent → `/orgs/[orgId]/parents`
 - Coach → `/orgs/[orgId]/coach`
 - Admin → `/orgs/[orgId]/admin`
 - Multiple roles → Priority: Coach > Admin > Parent
+
+**Result**: User is fully set up with functional roles, player links, and coach assignments - **zero manual steps required!**
+
+#### Why This Approach Works
+
+**1. Better Auth Metadata Support**
+
+Better Auth's `inviteMember` API accepts a `metadata` field that:
+- ✅ Is stored in the invitation record
+- ✅ Is accessible in hooks (`onMemberAdded`, `afterInvitationAccepted`)
+- ✅ Is preserved through the entire invitation lifecycle
+- ✅ Can contain any JSON-serializable data
+
+**2. Hook Execution Timing**
+
+The `onMemberAdded` hook fires:
+- ✅ **After** Better Auth creates the `member` record
+- ✅ **Before** the user is redirected
+- ✅ **Automatically** - no manual trigger needed
+- ✅ **Reliably** - Better Auth guarantees hook execution
+
+**3. Complete Automation**
+
+This approach provides:
+- ✅ **Zero manual steps**: Admin selects roles in UI, everything else is automatic
+- ✅ **Immediate setup**: User has functional roles as soon as they accept
+- ✅ **Consistent**: Same process for all invitations
+- ✅ **Flexible**: Can add more metadata fields as needed
+
+**4. UI Enhancement Benefits**
+
+Adding functional role selection to invitation UI:
+- ✅ **Better UX**: Admin can set everything upfront
+- ✅ **Faster onboarding**: User doesn't need manual role assignment
+- ✅ **Less errors**: No chance of forgetting to assign roles
+- ✅ **Multi-role support**: Can invite as both coach AND parent in one step
+
+#### Current Limitation & Solution
+
+**Current State**:
+- ❌ Invitation UI only sets Better Auth role
+- ❌ Functional roles must be assigned manually after acceptance
+- ❌ Parent-player linking must be done manually
+- ❌ Coach assignments must be done manually
+
+**Solution**:
+- ✅ Enhance invitation UI to include functional role checkboxes
+- ✅ Store functional roles in invitation metadata
+- ✅ Hook auto-assigns functional roles on acceptance
+- ✅ Hook auto-links parent to players (if parent role)
+- ✅ Hook auto-creates coach assignments (if coach role)
+
+**Implementation**:
+- Update invitation dialog UI (Phase 1.4)
+- Implement `onMemberAdded` hook (Phase 1.2)
+- Add helper mutations for role assignment and linking (Phase 1.2)
 
 ---
 
@@ -858,16 +1031,84 @@ async onMemberAdded(data) {
 - `packages/backend/convex/models/orgJoinRequests.ts`
 - `apps/web/src/app/orgs/join/[orgId]/page.tsx`
 
-#### 1.4 Update Invitation UI
-**Goal**: Allow selecting functional roles during invitation
+#### 1.4 Update Invitation UI with Functional Role Selection
+**Goal**: Allow selecting functional roles during invitation for automatic assignment
+
+**Why This Works**:
+- Better Auth's `inviteMember` API supports `metadata` field
+- Metadata is stored in invitation record and accessible in hooks
+- `onMemberAdded` hook can read metadata and auto-assign functional roles
+- **Result**: Zero manual steps - fully automated role assignment
+
+**Current State**:
+- ❌ Invitation UI only sets Better Auth role (member/admin)
+- ❌ Functional roles must be assigned manually after user accepts
+- ❌ Parent-player linking must be done manually
+- ❌ Coach assignments must be done manually
 
 **Changes**:
-- Add functional role checkboxes to invitation dialog
-- Store selected roles in invitation metadata
-- Update invitation mutation to include metadata
+- **Update Invitation Dialog UI**:
+  - Add functional role checkboxes (Coach, Parent, Admin)
+  - Show conditional fields based on selected roles:
+    - If "Coach" selected: Team selector (multi-select)
+    - If "Parent" selected: Player search/selector (optional, for specific children)
+  - Update form state to track functional roles and role-specific data
+- **Update Invitation Handler**:
+  - Store functional roles in `metadata.suggestedFunctionalRoles`
+  - Store role-specific data in `metadata.roleSpecificData`
+  - Store player links in `metadata.suggestedPlayerLinks` (if parent)
+  - Store team assignments in `metadata.roleSpecificData.teams` (if coach)
+- **Validation**:
+  - Ensure at least one functional role is selected (or Better Auth role is "admin")
+  - If "Coach" selected, require at least one team (or allow empty for later assignment)
+  - If "Parent" selected, player links are optional (auto-matching will run)
 
 **Files**:
-- `apps/web/src/app/orgs/[orgId]/admin/users/page.tsx`
+- `apps/web/src/app/orgs/[orgId]/admin/users/page.tsx` (invitation dialog)
+
+**Example UI Flow**:
+```
+Admin clicks "Invite Member"
+  ↓
+Dialog opens with:
+  - Email input
+  - Better Auth Role: [Member ▼] or [Admin ▼]
+  - Functional Roles:
+    ☐ Coach
+    ☐ Parent
+    ☐ Admin (only if Better Auth role is "admin")
+  - If Coach selected:
+    - Teams: [Multi-select dropdown]
+  - If Parent selected:
+    - Link to specific players: [Search/Select players] (optional)
+  ↓
+Admin fills form and clicks "Send Invitation"
+  ↓
+Invitation sent with metadata:
+  {
+    suggestedFunctionalRoles: ["coach", "parent"],
+    roleSpecificData: { teams: ["U12 Boys"] },
+    suggestedPlayerLinks: ["playerId1"]
+  }
+  ↓
+User accepts invitation
+  ↓
+onMemberAdded hook fires automatically
+  ↓
+Hook reads metadata and auto-assigns:
+  - Functional roles: ["coach", "parent"]
+  - Coach assignments: teams ["U12 Boys"]
+  - Parent-player links: ["playerId1"] + auto-matched players
+  ↓
+User is fully set up - zero manual steps!
+```
+
+**Benefits**:
+- ✅ **Faster onboarding**: User has roles immediately after acceptance
+- ✅ **Less admin work**: No manual role assignment needed
+- ✅ **Fewer errors**: Can't forget to assign roles
+- ✅ **Multi-role support**: Can invite as both coach AND parent in one step
+- ✅ **Consistent**: Same automated process for all invitations
 
 ### Phase 2: Smart Matching & Enhanced Approval (Week 2-3)
 

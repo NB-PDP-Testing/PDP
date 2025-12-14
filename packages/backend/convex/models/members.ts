@@ -246,6 +246,77 @@ export const updateMemberFunctionalRoles = mutation({
 });
 
 /**
+ * Sync functional roles for members based on their Better Auth role
+ * This is useful for retroactively fixing members who were invited before
+ * the automatic functional role assignment was implemented
+ *
+ * Maps Better Auth roles to functional roles:
+ * - "admin" or "owner" → ["admin"]
+ * - "member" → [] (no functional roles, admin can assign later)
+ */
+export const syncFunctionalRolesFromBetterAuthRole = mutation({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    updated: v.number(),
+    skipped: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    // Get all members for the organization
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    let updated = 0;
+    let skipped = 0;
+
+    for (const member of membersResult.page) {
+      const betterAuthRole = member.role;
+      const currentFunctionalRoles = (member as any).functionalRoles || [];
+
+      // Only update if member doesn't already have functional roles
+      // and has an admin/owner Better Auth role
+      if (currentFunctionalRoles.length === 0) {
+        if (betterAuthRole === "admin" || betterAuthRole === "owner") {
+          // Set admin functional role
+          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+            input: {
+              model: "member",
+              where: [{ field: "_id", value: member._id, operator: "eq" }],
+              update: {
+                functionalRoles: ["admin"],
+              },
+            },
+          });
+          updated++;
+        } else {
+          skipped++;
+        }
+      } else {
+        skipped++;
+      }
+    }
+
+    return { updated, skipped };
+  },
+});
+
+/**
  * Get members with their coach assignments and player links
  * This provides all data needed for the user management dashboard
  */

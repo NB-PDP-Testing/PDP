@@ -230,11 +230,27 @@ export async function sendDemoRequestNotification(
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
-          <div style="display: inline-flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px; vertical-align: middle;">
-            <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 80px; height: auto; vertical-align: middle;" />
-            <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold; vertical-align: middle; line-height: 1;">PlayerARC</h1>
-          </div>
-          <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic; text-align: center;">As many as possible, for as long as possible…</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 0 auto;">
+            <tr>
+              <td style="text-align: center; padding-bottom: 8px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                  <tr>
+                    <td style="vertical-align: middle; padding-right: 12px;">
+                      <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 80px; height: auto; display: block;" />
+                    </td>
+                    <td style="vertical-align: middle;">
+                      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold; line-height: 1.2;">PlayerARC</h1>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: center;">
+                <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic;">As many as possible, for as long as possible…</p>
+              </td>
+            </tr>
+          </table>
         </div>
         <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #1E3A5F; margin-top: 0;">New Demo Request</h2>
@@ -353,11 +369,27 @@ export async function sendDemoRequestAcknowledgement(data: {
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
-          <div style="display: inline-flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px; vertical-align: middle;">
-            <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 80px; height: auto; vertical-align: middle;" />
-            <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold; vertical-align: middle; line-height: 1;">PlayerARC</h1>
-          </div>
-          <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic; text-align: center;">As many as possible, for as long as possible…</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 0 auto;">
+            <tr>
+              <td style="text-align: center; padding-bottom: 8px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                  <tr>
+                    <td style="vertical-align: middle; padding-right: 12px;">
+                      <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 80px; height: auto; display: block;" />
+                    </td>
+                    <td style="vertical-align: middle;">
+                      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold; line-height: 1.2;">PlayerARC</h1>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: center;">
+                <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic;">As many as possible, for as long as possible…</p>
+              </td>
+            </tr>
+          </table>
         </div>
         <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #1E3A5F; margin-top: 0;">Thank you for your interest, ${name}!</h2>

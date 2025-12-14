@@ -13,7 +13,9 @@ export default function CurrentOrgPage() {
   return (
     <>
       <Authenticated>
-        <RedirectToActiveOrg />
+        <Suspense fallback={<Loader />}>
+          <RedirectToActiveOrg />
+        </Suspense>
       </Authenticated>
       <Unauthenticated>
         <RedirectToLogin />
@@ -81,8 +83,17 @@ function RedirectToActiveOrg() {
   const { data: member } = authClient.useActiveMember();
   const user = useCurrentUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect");
 
   useEffect(() => {
+    // If there's a redirect parameter (e.g., from invitation link), use it
+    // This takes priority over all other redirects
+    if (redirect) {
+      router.push(redirect as Route);
+      return;
+    }
+
     // Platform staff should go directly to /orgs
     if (user?.isPlatformStaff) {
       router.push("/orgs");
@@ -131,7 +142,7 @@ function RedirectToActiveOrg() {
     }
 
     router.push(redirectRoute);
-  }, [router, activeOrganization, member, user]);
+  }, [router, activeOrganization, member, user, redirect]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

@@ -16,7 +16,8 @@ function LoginContent() {
 
   useEffect(() => {
     if (user) {
-      // If there's a redirect parameter, use it; otherwise go to default
+      // If there's a redirect parameter (e.g., from invitation link), use it
+      // Otherwise go to home page (which will redirect appropriately)
       if (redirect) {
         router.push(redirect as Route);
       } else {

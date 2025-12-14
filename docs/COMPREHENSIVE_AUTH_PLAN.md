@@ -2331,6 +2331,767 @@ export const getSharedPassportData = query({
 
 ---
 
+## 13. Future Feature Analysis: Knowledge Graph & Semantic Insights
+
+### 13.1 Feature Overview
+
+**Goal**: Augment PlayerARC with a knowledge graph and/or semantic graph to enable advanced insights, pattern recognition, and intelligent recommendations across the entire player development ecosystem.
+
+**What is a Knowledge Graph?**
+A knowledge graph is a structured representation of entities (players, coaches, teams, etc.) and their relationships (coaches, plays_for, has_skill, etc.) that enables:
+- **Semantic search**: Find players with similar skill profiles
+- **Pattern recognition**: Identify development patterns across players
+- **Relationship discovery**: Understand connections between entities
+- **Insight generation**: Generate actionable insights from data relationships
+- **Recommendation systems**: Suggest training plans, player comparisons, etc.
+
+**What is a Semantic Graph?**
+A semantic graph adds meaning and context to relationships:
+- **Typed relationships**: "coaches" vs "assists" vs "manages"
+- **Weighted relationships**: Strength of connection (e.g., primary coach vs. assistant)
+- **Temporal relationships**: How relationships change over time
+- **Contextual relationships**: Relationships within specific contexts (sport, age group, etc.)
+
+### 13.2 Current Data Relationships
+
+#### Existing Entity Relationships
+
+**Players**:
+- ✅ `organizationId` → Organization (many-to-one)
+- ✅ `parents[]` → Parent users (many-to-many via email)
+- ✅ `teamPlayers` → Teams (many-to-many via junction table)
+- ✅ `coachAssignments` → Coaches (indirect via teams)
+- ✅ Skills, goals, injuries, attendance (attributes)
+
+**Coaches**:
+- ✅ `organizationId` → Organization (many-to-one)
+- ✅ `coachAssignments.teams` → Teams (many-to-many)
+- ✅ `coachAssignments.teams` → Players (indirect via teams)
+
+**Parents**:
+- ✅ `organizationId` → Organization (many-to-one)
+- ✅ `players.parents[].email` → Players (many-to-many via email)
+- ✅ Can be in multiple organizations
+
+**Teams**:
+- ✅ `organizationId` → Organization (many-to-one)
+- ✅ `teamPlayers` → Players (many-to-many)
+- ✅ `coachAssignments` → Coaches (many-to-many)
+
+**Organizations**:
+- ✅ `members` → Users (many-to-many via Better Auth)
+- ✅ `players` → Players (one-to-many)
+- ✅ `teams` → Teams (one-to-many)
+
+#### Missing Relationships
+
+**Current Limitations**:
+- ❌ No explicit "similar players" relationships
+- ❌ No "development patterns" relationships
+- ❌ No "skill progression" temporal relationships
+- ❌ No "coach effectiveness" relationships
+- ❌ No "team dynamics" relationships
+- ❌ No semantic meaning to relationships (all are implicit)
+
+### 13.3 Knowledge Graph Structure
+
+#### Entity Types
+
+```typescript
+interface KnowledgeGraphEntity {
+  id: string;
+  type: "player" | "coach" | "parent" | "team" | "organization" | "skill" | "goal" | "injury";
+  properties: Record<string, any>;
+  createdAt: number;
+  updatedAt: number;
+}
+```
+
+#### Relationship Types
+
+```typescript
+interface KnowledgeGraphRelationship {
+  id: string;
+  source: string; // Entity ID
+  target: string; // Entity ID
+  type: RelationshipType;
+  weight?: number; // 0-1, strength of relationship
+  context?: {
+    organizationId?: string;
+    sport?: string;
+    ageGroup?: string;
+    timeRange?: { start: number; end: number };
+  };
+  metadata?: Record<string, any>;
+  createdAt: number;
+}
+
+type RelationshipType =
+  // Direct relationships
+  | "coaches" // Coach → Player
+  | "parent_of" // Parent → Player
+  | "plays_for" // Player → Team
+  | "manages" // Coach → Team
+  | "member_of" // User → Organization
+  
+  // Skill relationships
+  | "has_skill" // Player → Skill (with rating)
+  | "excels_at" // Player → Skill (rating >= 4)
+  | "needs_improvement_in" // Player → Skill (rating <= 2)
+  | "skill_progression" // Player → Skill (temporal, tracks improvement)
+  
+  // Development relationships
+  | "has_goal" // Player → Goal
+  | "goal_related_to_skill" // Goal → Skill
+  | "similar_skill_profile" // Player → Player (similarity score)
+  | "similar_development_path" // Player → Player (temporal similarity)
+  
+  // Team relationships
+  | "teammate_of" // Player → Player (same team)
+  | "coached_by_same" // Player → Player (same coach)
+  | "plays_same_sport" // Player → Player (same sport)
+  
+  // Coach relationships
+  | "coaches_similar_players" // Coach → Coach (similar player profiles)
+  | "coach_effectiveness" // Coach → Skill (improvement rate)
+  
+  // Cross-organization relationships
+  | "shares_passport_data" // Player → Player (cross-org sharing)
+  | "multi_sport_athlete" // Player → Player (different sports, same person)
+  
+  // Temporal relationships
+  | "preceded_by" // Player state → Player state (temporal)
+  | "followed_by" // Player state → Player state (temporal)
+  | "improved_from" // Skill rating → Skill rating (temporal)
+```
+
+### 13.4 Use Cases & Insights
+
+#### 1. Player Similarity & Recommendations
+
+**Use Case**: "Find players similar to John who improved their passing skills"
+
+**Graph Query**:
+```
+Find players where:
+- has_skill("passing") with rating < 3
+- similar_skill_profile to John (similarity > 0.7)
+- skill_progression("passing") shows improvement
+- Return: training plans that worked for similar players
+```
+
+**Insights Generated**:
+- Players with similar profiles who improved
+- Training plans that were effective
+- Time to improvement (average)
+- Common challenges and solutions
+
+#### 2. Coach Effectiveness Analysis
+
+**Use Case**: "Which coaches are most effective at developing specific skills?"
+
+**Graph Query**:
+```
+For each coach:
+- Find all players they coach
+- Track skill_progression for each skill
+- Calculate improvement rate per skill
+- Rank coaches by improvement rate
+```
+
+**Insights Generated**:
+- Coach effectiveness by skill type
+- Coaches who excel at specific skill development
+- Best practices from top-performing coaches
+- Skill-specific coaching recommendations
+
+#### 3. Development Pattern Recognition
+
+**Use Case**: "Identify common development patterns for U12 soccer players"
+
+**Graph Query**:
+```
+Find all U12 soccer players:
+- Extract skill progression patterns
+- Extract goal achievement patterns
+- Extract injury patterns
+- Cluster similar development paths
+```
+
+**Insights Generated**:
+- Common skill development sequences
+- Typical goal achievement timelines
+- Injury risk patterns
+- Optimal training progression paths
+
+#### 4. Team Dynamics & Chemistry
+
+**Use Case**: "Understand team dynamics and player relationships"
+
+**Graph Query**:
+```
+For a team:
+- Find all players (teammate_of relationships)
+- Find shared coaches (coached_by_same)
+- Find skill complementarity (players with complementary skills)
+- Find development synchrony (players improving together)
+```
+
+**Insights Generated**:
+- Team skill balance
+- Player chemistry indicators
+- Optimal team compositions
+- Development synchronization opportunities
+
+#### 5. Cross-Sport Development Insights
+
+**Use Case**: "How does rugby experience affect soccer development?"
+
+**Graph Query**:
+```
+Find players who:
+- plays_same_sport("soccer") in Org A
+- plays_same_sport("rugby") in Org B
+- shares_passport_data between orgs
+- Compare skill development across sports
+```
+
+**Insights Generated**:
+- Skill transfer between sports
+- Cross-sport development benefits
+- Optimal multi-sport training schedules
+- Sport-specific skill correlations
+
+#### 6. Parent Engagement Impact
+
+**Use Case**: "How does parent engagement affect player development?"
+
+**Graph Query**:
+```
+For each parent:
+- Find all children (parent_of relationships)
+- Track children's skill_progression
+- Track goal achievement rates
+- Compare engaged vs. less engaged parents
+```
+
+**Insights Generated**:
+- Parent engagement impact on development
+- Effective parent involvement strategies
+- Optimal parent-coach communication patterns
+- Parent support recommendations
+
+### 13.5 Technical Implementation
+
+#### Option A: Graph Database (Recommended for Scale)
+
+**Technology**: Neo4j, Amazon Neptune, or ArangoDB
+
+**Structure**:
+- Nodes: Players, Coaches, Teams, Skills, Goals, etc.
+- Edges: Relationships with properties (weight, context, metadata)
+- Indexes: Fast traversal and pattern matching
+
+**Pros**:
+- ✅ Native graph operations (Cypher queries)
+- ✅ Efficient relationship traversal
+- ✅ Built-in pattern matching
+- ✅ Scales to large datasets
+
+**Cons**:
+- ❌ Additional infrastructure
+- ❌ Data synchronization with Convex
+- ❌ More complex architecture
+
+#### Option B: Graph Layer on Convex (Recommended Initially)
+
+**Technology**: Build graph structure in Convex using existing tables
+
+**Structure**:
+- New table: `knowledgeGraphRelationships`
+- Queries compute graph relationships on-the-fly
+- Cached relationships for performance
+
+**Pros**:
+- ✅ No additional infrastructure
+- ✅ Uses existing Convex architecture
+- ✅ Real-time updates
+- ✅ Simpler to implement
+
+**Cons**:
+- ❌ May be slower for complex queries
+- ❌ Limited to Convex query capabilities
+- ❌ May need optimization for large datasets
+
+**Recommended**: Start with Option B, migrate to Option A if needed.
+
+#### Implementation Structure
+
+**New Schema**:
+```typescript
+// packages/backend/convex/schema.ts
+
+knowledgeGraphRelationships: defineTable({
+  sourceId: v.string(), // Entity ID (player, coach, etc.)
+  sourceType: v.union(
+    v.literal("player"),
+    v.literal("coach"),
+    v.literal("parent"),
+    v.literal("team"),
+    v.literal("organization"),
+    v.literal("skill"),
+    v.literal("goal")
+  ),
+  targetId: v.string(), // Entity ID
+  targetType: v.union(
+    v.literal("player"),
+    v.literal("coach"),
+    v.literal("parent"),
+    v.literal("team"),
+    v.literal("organization"),
+    v.literal("skill"),
+    v.literal("goal")
+  ),
+  relationshipType: v.string(), // "coaches", "similar_skill_profile", etc.
+  weight: v.optional(v.number()), // 0-1, strength of relationship
+  context: v.optional(v.object({
+    organizationId: v.optional(v.string()),
+    sport: v.optional(v.string()),
+    ageGroup: v.optional(v.string()),
+    timeRange: v.optional(v.object({
+      start: v.number(),
+      end: v.number(),
+    })),
+  })),
+  metadata: v.optional(v.any()), // Additional relationship data
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_source", ["sourceId", "sourceType"])
+  .index("by_target", ["targetId", "targetType"])
+  .index("by_relationshipType", ["relationshipType"])
+  .index("by_source_and_type", ["sourceId", "relationshipType"])
+  .index("by_context", ["context.organizationId"])
+```
+
+### 13.6 Relationship Generation Strategies
+
+#### 1. Explicit Relationships (Manual)
+
+**When**: Relationships that require human input
+- Parent-child relationships (already exist)
+- Coach-team assignments (already exist)
+- Team-player memberships (already exist)
+
+**Implementation**: Use existing data, no changes needed.
+
+#### 2. Computed Relationships (Automatic)
+
+**When**: Relationships that can be calculated from data
+
+**Examples**:
+
+**Similar Skill Profile**:
+```typescript
+// Calculate similarity between players based on skill ratings
+function calculateSkillSimilarity(player1: Player, player2: Player): number {
+  const skills1 = player1.skills;
+  const skills2 = player2.skills;
+  
+  // Cosine similarity or other metric
+  let dotProduct = 0;
+  let norm1 = 0;
+  let norm2 = 0;
+  
+  for (const skill in skills1) {
+    if (skills2[skill]) {
+      dotProduct += skills1[skill] * skills2[skill];
+      norm1 += skills1[skill] ** 2;
+      norm2 += skills2[skill] ** 2;
+    }
+  }
+  
+  return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
+}
+
+// Create relationship if similarity > threshold
+if (similarity > 0.7) {
+  createRelationship({
+    source: player1._id,
+    target: player2._id,
+    type: "similar_skill_profile",
+    weight: similarity,
+  });
+}
+```
+
+**Skill Progression**:
+```typescript
+// Track skill improvement over time
+function trackSkillProgression(playerId: string, skill: string) {
+  const skillHistory = getSkillHistory(playerId, skill);
+  
+  if (skillHistory.length >= 2) {
+    const improvement = skillHistory[skillHistory.length - 1] - skillHistory[0];
+    
+    if (improvement > 0) {
+      createRelationship({
+        source: playerId,
+        target: skill,
+        type: "skill_progression",
+        weight: improvement / 5, // Normalize to 0-1
+        metadata: {
+          improvement,
+          timeRange: {
+            start: skillHistory[0].timestamp,
+            end: skillHistory[skillHistory.length - 1].timestamp,
+          },
+        },
+      });
+    }
+  }
+}
+```
+
+**Coach Effectiveness**:
+```typescript
+// Calculate coach effectiveness for specific skills
+function calculateCoachEffectiveness(coachId: string, skill: string) {
+  const players = getPlayersCoachedBy(coachId);
+  const improvements = players.map(player => 
+    getSkillImprovement(player._id, skill, coachStartDate)
+  );
+  
+  const avgImprovement = improvements.reduce((a, b) => a + b, 0) / improvements.length;
+  
+  createRelationship({
+    source: coachId,
+    target: skill,
+    type: "coach_effectiveness",
+    weight: avgImprovement / 5, // Normalize
+    metadata: {
+      playerCount: players.length,
+      avgImprovement,
+    },
+  });
+}
+```
+
+#### 3. Temporal Relationships (Time-Based)
+
+**When**: Relationships that change over time
+
+**Examples**:
+- Skill progression over time
+- Goal achievement timelines
+- Team membership changes
+- Coach assignment history
+
+**Implementation**: Store relationship with time ranges, create new relationships as data changes.
+
+### 13.7 Graph Query Examples
+
+#### Query 1: Find Similar Players
+
+```typescript
+export const findSimilarPlayers = query({
+  args: {
+    playerId: v.id("players"),
+    organizationId: v.string(),
+    similarityThreshold: v.optional(v.number()), // Default 0.7
+  },
+  returns: v.array(v.object({
+    player: v.any(),
+    similarity: v.number(),
+    sharedSkills: v.array(v.string()),
+  })),
+  handler: async (ctx, args) => {
+    // Get target player
+    const targetPlayer = await ctx.db.get(args.playerId);
+    if (!targetPlayer) return [];
+    
+    // Find similar skill profile relationships
+    const similarRelationships = await ctx.db
+      .query("knowledgeGraphRelationships")
+      .withIndex("by_source_and_type", (q) =>
+        q.eq("sourceId", args.playerId)
+         .eq("relationshipType", "similar_skill_profile")
+      )
+      .filter((q) => 
+        q.gte(q.field("weight"), args.similarityThreshold || 0.7)
+      )
+      .collect();
+    
+    // Get similar players
+    const similarPlayers = await Promise.all(
+      similarRelationships.map(async (rel) => {
+        const player = await ctx.db.get(rel.targetId as any);
+        return {
+          player,
+          similarity: rel.weight || 0,
+          sharedSkills: rel.metadata?.sharedSkills || [],
+        };
+      })
+    );
+    
+    return similarPlayers.filter(p => p.player !== null);
+  },
+});
+```
+
+#### Query 2: Get Development Insights
+
+```typescript
+export const getDevelopmentInsights = query({
+  args: {
+    playerId: v.id("players"),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    skillProgression: v.array(v.any()),
+    similarPlayers: v.array(v.any()),
+    coachEffectiveness: v.any(),
+    recommendedGoals: v.array(v.any()),
+  }),
+  handler: async (ctx, args) => {
+    // Get skill progression relationships
+    const skillProgression = await ctx.db
+      .query("knowledgeGraphRelationships")
+      .withIndex("by_source_and_type", (q) =>
+        q.eq("sourceId", args.playerId)
+         .eq("relationshipType", "skill_progression")
+      )
+      .collect();
+    
+    // Get similar players
+    const similarPlayers = await findSimilarPlayers(ctx, {
+      playerId: args.playerId,
+      organizationId: args.organizationId,
+    });
+    
+    // Get coach effectiveness for player's coaches
+    const coaches = await getPlayerCoaches(ctx, args.playerId);
+    const coachEffectiveness = await Promise.all(
+      coaches.map(coach => 
+        getCoachEffectivenessForSkills(ctx, coach._id, args.organizationId)
+      )
+    );
+    
+    // Generate recommended goals based on similar players
+    const recommendedGoals = await generateGoalRecommendations(
+      ctx,
+      args.playerId,
+      similarPlayers
+    );
+    
+    return {
+      skillProgression,
+      similarPlayers,
+      coachEffectiveness,
+      recommendedGoals,
+    };
+  },
+});
+```
+
+### 13.8 UI Integration
+
+#### Coach Dashboard Insights Panel
+
+**Location**: `/orgs/[orgId]/coach` (new section)
+
+**Features**:
+- **Similar Players**: "Players with similar skill profiles"
+- **Development Patterns**: "Common development paths for U12 players"
+- **Coach Effectiveness**: "Your effectiveness by skill type"
+- **Team Insights**: "Team skill balance and chemistry"
+
+#### Player Passport Insights
+
+**Location**: `/orgs/[orgId]/players/[playerId]` (new section)
+
+**Features**:
+- **Similar Players**: "Players with similar profiles"
+- **Development Trajectory**: "Your skill progression over time"
+- **Goal Recommendations**: "Goals achieved by similar players"
+- **Cross-Sport Insights**: "How your [other sport] experience helps here"
+
+#### Parent Dashboard Insights
+
+**Location**: `/orgs/[orgId]/parents` (new section)
+
+**Features**:
+- **Development Comparison**: "How your child compares to similar players"
+- **Engagement Impact**: "How your involvement affects development"
+- **Multi-Sport Benefits**: "How playing multiple sports helps development"
+
+### 13.9 Implementation Phases
+
+#### Phase 1: Foundation (Future - Month 1-2)
+
+**Goals**: Build basic graph structure and relationship generation
+
+**Tasks**:
+- Create `knowledgeGraphRelationships` table
+- Implement explicit relationship extraction (from existing data)
+- Implement computed relationship generation:
+  - Similar skill profiles
+  - Skill progression tracking
+  - Teammate relationships
+- Create basic graph queries
+
+#### Phase 2: Insights Generation (Future - Month 2-3)
+
+**Goals**: Generate actionable insights from graph
+
+**Tasks**:
+- Implement coach effectiveness calculations
+- Implement development pattern recognition
+- Implement goal recommendations
+- Create insights API endpoints
+
+#### Phase 3: UI Integration (Future - Month 3-4)
+
+**Goals**: Surface insights in UI
+
+**Tasks**:
+- Add insights panel to coach dashboard
+- Add insights section to player passport
+- Add insights to parent dashboard
+- Create visualization components (charts, graphs)
+
+#### Phase 4: Advanced Features (Future - Month 4-6)
+
+**Goals**: Advanced graph features
+
+**Tasks**:
+- Temporal relationship tracking
+- Predictive insights (future development)
+- Anomaly detection (unusual patterns)
+- Recommendation engine
+
+### 13.10 Benefits & Value Proposition
+
+#### For Coaches
+
+- ✅ **Better Training Plans**: See what works for similar players
+- ✅ **Effectiveness Insights**: Understand your coaching strengths
+- ✅ **Player Matching**: Find players with similar needs
+- ✅ **Team Optimization**: Understand team dynamics
+
+#### For Parents
+
+- ✅ **Development Context**: See how child compares to peers
+- ✅ **Engagement Impact**: Understand how involvement helps
+- ✅ **Multi-Sport Benefits**: See cross-sport development effects
+- ✅ **Goal Setting**: Get recommendations based on similar players
+
+#### For Organizations
+
+- ✅ **Program Effectiveness**: Understand what programs work
+- ✅ **Resource Allocation**: Identify where to focus resources
+- ✅ **Coach Development**: Help coaches improve
+- ✅ **Player Retention**: Identify at-risk players early
+
+### 13.11 Technical Considerations
+
+#### Performance
+
+**Challenges**:
+- Graph queries can be expensive
+- Relationship computation can be slow
+- Real-time updates may be challenging
+
+**Solutions**:
+- Cache computed relationships
+- Batch relationship updates
+- Use background jobs for heavy computations
+- Consider graph database for scale (Option A)
+
+#### Data Quality
+
+**Challenges**:
+- Relationships depend on data quality
+- Similarity calculations need good data
+- Temporal relationships need historical data
+
+**Solutions**:
+- Data validation before relationship creation
+- Confidence scores for relationships
+- Handle missing data gracefully
+- Start with high-confidence relationships
+
+#### Privacy
+
+**Challenges**:
+- Graph reveals patterns that might be sensitive
+- Similarity relationships might expose personal information
+- Cross-organization insights need careful handling
+
+**Solutions**:
+- Aggregate insights (don't show individual comparisons without consent)
+- Respect organization boundaries
+- Allow parents to opt-out of similarity matching
+- Anonymize data in insights
+
+### 13.12 Open Questions
+
+**Q1**: Should similarity matching be opt-in or opt-out?
+- **Recommendation**: Opt-out by default, allow parents to enable
+
+**Q2**: How do we handle cross-organization insights?
+- **Recommendation**: Only if parent authorized passport sharing
+
+**Q3**: Should insights be real-time or batch-processed?
+- **Recommendation**: Batch-processed initially, real-time as enhancement
+
+**Q4**: How do we measure relationship confidence?
+- **Recommendation**: Use statistical measures (sample size, data quality)
+
+**Q5**: Should we use a dedicated graph database?
+- **Recommendation**: Start with Convex (Option B), migrate if needed
+
+**Q6**: How do we handle graph updates as data changes?
+- **Recommendation**: Incremental updates via background jobs
+
+### 13.13 Integration with Current Architecture
+
+#### How It Fits
+
+**Existing Data**:
+- ✅ Uses existing player, coach, parent, team data
+- ✅ No schema changes to existing tables
+- ✅ Adds new `knowledgeGraphRelationships` table
+
+**Access Control**:
+- ✅ Uses existing functional role checks
+- ✅ Uses existing organization membership checks
+- ✅ Respects parent consent for cross-org insights
+
+**Player Passport**:
+- ✅ Enhances existing passport with insights
+- ✅ Adds new "Insights" section
+- ✅ No breaking changes to existing passport
+
+**Parent Dashboard**:
+- ✅ Adds insights section
+- ✅ Shows development comparisons
+- ✅ Respects privacy settings
+
+### 13.14 Success Criteria
+
+- [ ] Graph relationships are automatically generated from existing data
+- [ ] Similar players can be found based on skill profiles
+- [ ] Coach effectiveness can be calculated
+- [ ] Development patterns can be identified
+- [ ] Insights are surfaced in UI (coach, parent, player passport)
+- [ ] Performance is acceptable (< 2s for graph queries)
+- [ ] Privacy is respected (opt-out available, organization boundaries)
+- [ ] Cross-organization insights work with passport sharing
+- [ ] Insights are actionable and useful
+
+---
+
 ## Appendix: Decision Log
 
 | Decision | Date | Rationale |

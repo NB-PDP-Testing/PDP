@@ -253,7 +253,7 @@ export default function AcceptInvitationPage() {
     };
 
     checkAndAcceptInvitation();
-  }, [invitationId, router, invitation]);
+  }, [invitationId, router, invitation, session]);
 
   const acceptInvitation = async (userEmail: string) => {
     try {

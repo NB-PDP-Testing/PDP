@@ -246,6 +246,86 @@ export const updateMemberFunctionalRoles = mutation({
 });
 
 /**
+ * Get member details including Better Auth role and functional roles
+ * Useful for debugging role assignment issues
+ */
+export const getMemberRoleDetails = query({
+  args: {
+    organizationId: v.string(),
+    userEmail: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      userId: v.string(),
+      email: v.string(),
+      name: v.union(v.string(), v.null()),
+      betterAuthRole: v.string(),
+      functionalRoles: v.array(
+        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+      ),
+      hasFunctionalRoles: v.boolean(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Find user by email
+    const userResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: args.userEmail,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!userResult) {
+      return null;
+    }
+
+    // Find member record
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: userResult._id,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      return null;
+    }
+
+    const functionalRoles = (memberResult as any).functionalRoles || [];
+
+    return {
+      userId: userResult._id,
+      email: userResult.email,
+      name: userResult.name || null,
+      betterAuthRole: memberResult.role,
+      functionalRoles,
+      hasFunctionalRoles: functionalRoles.length > 0,
+    };
+  },
+});
+
+/**
  * Sync functional roles for members based on their Better Auth role
  * This is useful for retroactively fixing members who were invited before
  * the automatic functional role assignment was implemented
@@ -261,6 +341,15 @@ export const syncFunctionalRolesFromBetterAuthRole = mutation({
   returns: v.object({
     updated: v.number(),
     skipped: v.number(),
+    details: v.array(
+      v.object({
+        email: v.string(),
+        betterAuthRole: v.string(),
+        functionalRolesSet: v.array(
+          v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+        ),
+      })
+    ),
   }),
   handler: async (ctx, args) => {
     // Get all members for the organization
@@ -284,10 +373,32 @@ export const syncFunctionalRolesFromBetterAuthRole = mutation({
 
     let updated = 0;
     let skipped = 0;
+    const details: Array<{
+      email: string;
+      betterAuthRole: string;
+      functionalRolesSet: ("coach" | "parent" | "admin")[];
+    }> = [];
 
     for (const member of membersResult.page) {
       const betterAuthRole = member.role;
       const currentFunctionalRoles = (member as any).functionalRoles || [];
+
+      // Get user email for details
+      const userResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "user",
+          where: [
+            {
+              field: "_id",
+              value: member.userId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+
+      const email = userResult?.email || "unknown";
 
       // Only update if member doesn't already have functional roles
       // and has an admin/owner Better Auth role
@@ -304,15 +415,30 @@ export const syncFunctionalRolesFromBetterAuthRole = mutation({
             },
           });
           updated++;
+          details.push({
+            email,
+            betterAuthRole,
+            functionalRolesSet: ["admin"],
+          });
         } else {
           skipped++;
+          details.push({
+            email,
+            betterAuthRole,
+            functionalRolesSet: [],
+          });
         }
       } else {
         skipped++;
+        details.push({
+          email,
+          betterAuthRole,
+          functionalRolesSet: currentFunctionalRoles,
+        });
       }
     }
 
-    return { updated, skipped };
+    return { updated, skipped, details };
   },
 });
 

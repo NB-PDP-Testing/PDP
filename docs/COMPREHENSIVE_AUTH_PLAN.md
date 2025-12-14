@@ -15,6 +15,89 @@ This document provides a comprehensive analysis and recommended path forward for
 
 ## 1. Current State Analysis
 
+### 1.0 MVP Signup & Approval Flow Analysis
+
+#### MVP Signup Flow (Single Organization Model)
+
+**Step 1: User Signs Up**
+- User creates account via Clerk (email/password or social)
+- `upsertUser` mutation creates user record in Convex
+- **First user**: Auto-approved as Admin, `onboardingCompleted: true`
+- **Subsequent users**: `approvalStatus: "pending"`, `onboardingCompleted: false`
+
+**Step 2: Onboarding (New Users Only)**
+- User sees `OnboardingForm` component
+- **Role Selection**: User can select multiple roles (Coach, Parent, Admin)
+- **Role-Specific Data Collection**:
+  - **Coach**: Sport, Teams, Age Groups, Gender
+  - **Parent**: Email (auto-filled from Clerk), Address, Children Names (manual entry or smart match)
+  - **Admin**: Confirmation message only
+- User submits → `completeOnboarding` mutation:
+  - Sets `onboardingCompleted: true`
+  - Sets `approvalStatus: "pending"` (unless first user)
+  - Stores `requestedRoles` array
+  - Stores role-specific data (teams, ageGroups, children, etc.)
+
+**Step 3: Approval Status Screens**
+- **Pending**: Yellow screen with clock icon, shows requested roles
+- **Rejected**: Red screen with X icon, shows rejection reason
+- User cannot access app until approved
+
+**Step 4: Admin Approval Dashboard**
+- Admin views `UserApprovalDashboard` component
+- Lists all pending users with:
+  - Requested roles (badges)
+  - Role-specific data (teams, children, etc.)
+  - Smart matches for parents (email, surname, phone, address matching)
+- Admin can:
+  - **Approve**: Configure role assignments (teams for coaches, linked players for parents)
+  - **Reject**: Provide rejection reason
+- `approveUser` mutation:
+  - Sets `approvalStatus: "approved"`
+  - Sets `roles` array (approved roles)
+  - Sets role-specific data (teams, ageGroups)
+  - Links parent to players (updates `player.parents[]` array)
+  - Creates audit trail entry
+
+**Key MVP Features**:
+- ✅ Multi-role selection during onboarding
+- ✅ Smart matching for parent-player linking (email, surname, phone, address, children names)
+- ✅ Role-specific data collection (teams for coaches, children for parents)
+- ✅ Admin configures role assignments during approval
+- ✅ Audit trail of all approval actions
+- ✅ Status screens (pending/rejected) prevent app access
+
+#### Current Main App Flow (Multi-Organization Model)
+
+**Step 1: User Signs Up**
+- User creates account via Better Auth
+- No onboarding required
+- User can immediately browse organizations
+
+**Step 2: Request to Join Organization**
+- User navigates to `/orgs/join`
+- Selects organization
+- Selects role (member, coach, parent)
+- Optionally adds message
+- Submits → `createJoinRequest` mutation creates `orgJoinRequests` record
+
+**Step 3: Admin Approval**
+- Admin views `/orgs/[orgId]/admin/users/approvals`
+- Lists pending requests for that organization
+- Admin can approve/reject
+- `approveJoinRequest` mutation:
+  - Creates Better Auth `member` record with requested role
+  - Updates request status to "approved"
+
+**Key Differences from MVP**:
+- ❌ No onboarding flow
+- ❌ No role-specific data collection during signup
+- ❌ No smart matching for parent-player linking
+- ❌ No functional role assignment during approval
+- ❌ No parent-player linking during approval
+- ✅ Organization-scoped (user can join multiple orgs)
+- ✅ Simpler flow (no status screens blocking access)
+
 ### 1.1 Role System Architecture
 
 #### Current Dual-Layer System
@@ -110,6 +193,19 @@ This document provides a comprehensive analysis and recommended path forward for
 - No automatic parent-player linking based on email
 - Invitation doesn't know what functional roles user should have
 
+### 1.5 Signup & Approval Flow Comparison
+
+| Feature | MVP (Single Org) | Current Main App (Multi-Org) | Recommended Hybrid |
+|---------|------------------|------------------------------|---------------------|
+| **Onboarding** | ✅ Required for all new users | ❌ None | ✅ Optional, organization-specific |
+| **Role Selection** | ✅ During onboarding (multi-role) | ✅ During join request (single role) | ✅ During join request (multi-role) |
+| **Role-Specific Data** | ✅ Collected during onboarding | ❌ Not collected | ✅ Collected during join request |
+| **Smart Matching** | ✅ Parent-player smart matching | ❌ None | ✅ Parent-player smart matching |
+| **Approval Dashboard** | ✅ User-level approval | ✅ Organization-level approval | ✅ Organization-level approval |
+| **Status Screens** | ✅ Blocks app access | ❌ No blocking | ✅ Blocks org access only |
+| **Parent-Player Linking** | ✅ During approval | ❌ Manual after approval | ✅ During approval (auto + manual) |
+| **Functional Roles** | ✅ Assigned during approval | ❌ Manual after approval | ✅ Assigned during approval |
+
 ---
 
 ## 2. Requirements Synthesis
@@ -147,6 +243,17 @@ This document provides a comprehensive analysis and recommended path forward for
 - ✅ Suggest functional roles during invitation
 - ✅ Auto-assign functional roles on acceptance
 - ✅ Auto-link parent to children (if email matches)
+
+#### F. Signup & Approval Requirements
+- ✅ Users can sign up without invitation
+- ✅ Users can request to join organizations
+- ✅ Users can select multiple roles during join request
+- ✅ Users can provide role-specific data (teams, children, etc.)
+- ✅ Smart matching for parent-player linking
+- ✅ Admin approval dashboard with role configuration
+- ✅ Status screens for pending/rejected requests
+- ✅ Parent-player linking during approval
+- ✅ Functional role assignment during approval
 
 ### 2.2 Access Control Requirements
 
@@ -295,7 +402,64 @@ function getParentChildren(member, organizationId) {
   - Parent email not in `players.parents[]` array
   - Need to link to different email address
 
-### 3.4 Invitation Flow Design
+### 3.4 Signup & Join Request Flow Design
+
+#### Enhanced Join Request Process (Hybrid Approach)
+
+**Step 1: User Signs Up**
+- User creates account via Better Auth (email/password or social)
+- No onboarding required
+- User can immediately browse organizations
+
+**Step 2: User Requests to Join Organization**
+- User navigates to `/orgs/join/[orgId]`
+- **Enhanced Join Request Form**:
+  - **Role Selection**: Multiple roles (coach, parent, admin) - checkboxes
+  - **Role-Specific Data Collection**:
+    - **Coach**: Sport, Teams, Age Groups (multi-select)
+    - **Parent**: Email (auto-filled), Address, Children Names (manual or smart match)
+    - **Admin**: Confirmation message
+  - **Optional Message**: User can add message to admins
+- User submits → `createJoinRequest` mutation:
+  - Creates `orgJoinRequests` record with:
+    - `requestedRole`: Primary role (for Better Auth)
+    - `requestedFunctionalRoles`: Array of functional roles
+    - `roleSpecificData`: Object with teams, ageGroups, children, etc.
+    - `status: "pending"`
+
+**Step 3: Status Screen (If Pending)**
+- User sees pending status on `/orgs` page
+- Cannot access organization until approved
+- Can still browse other organizations
+
+**Step 4: Admin Approval Dashboard**
+- Admin views `/orgs/[orgId]/admin/users/approvals`
+- Enhanced approval UI (similar to MVP):
+  - Shows requested roles (badges)
+  - Shows role-specific data
+  - **Smart Matching**: For parent role, shows matched players based on:
+    - Email matching
+    - Surname matching
+    - Phone matching
+    - Address matching (postcode, town)
+    - Children names matching
+  - Admin can:
+    - **Configure Role Assignments**:
+      - Coach: Select teams, age groups
+      - Parent: Select linked players (from smart matches or search)
+      - Admin: Confirm
+    - **Approve**: Creates member with functional roles and links
+    - **Reject**: Provide rejection reason
+
+**Step 5: Approval Processing**
+- `approveJoinRequest` mutation (enhanced):
+  - Creates Better Auth `member` record with `role: requestedRole`
+  - Calls `onMemberAdded` hook
+  - Hook auto-assigns functional roles
+  - Hook auto-links parent to players (if parent role)
+  - Updates request status to "approved"
+
+### 3.5 Invitation Flow Design
 
 #### Enhanced Invitation Process
 
@@ -308,6 +472,10 @@ await authClient.organization.inviteMember({
   metadata: {
     suggestedFunctionalRoles: ["parent"], // Functional roles (capabilities)
     suggestedPlayerLinks: ["playerId1", "playerId2"], // Optional: specific players
+    roleSpecificData: {
+      teams: ["U12 Boys"],
+      ageGroups: ["U12"],
+    },
   },
 });
 ```
@@ -337,7 +505,7 @@ async onMemberAdded(data) {
     await autoLinkParentToChildren(member.user, organization.id);
   }
   
-  // 4. Auto-link specific players (if provided)
+  // 4. Auto-link specific players (if provided in invitation)
   const suggestedPlayers = invitation?.metadata?.suggestedPlayerLinks || [];
   if (suggestedPlayers.length > 0) {
     await linkSpecificPlayers(member.user.email, suggestedPlayers);
@@ -391,7 +559,22 @@ async onMemberAdded(data) {
 - `packages/backend/convex/auth.ts`
 - `packages/backend/convex/models/members.ts` (helper functions)
 
-#### 1.3 Update Invitation UI
+#### 1.3 Enhance Join Request System
+**Goal**: Add role-specific data collection and multi-role support
+
+**Changes**:
+- Update `orgJoinRequests` schema to include:
+  - `requestedFunctionalRoles`: Array of functional roles
+  - `roleSpecificData`: Object with teams, ageGroups, children, etc.
+- Update `createJoinRequest` mutation to accept role-specific data
+- Update join request UI to collect role-specific data
+
+**Files**:
+- `packages/backend/convex/schema.ts`
+- `packages/backend/convex/models/orgJoinRequests.ts`
+- `apps/web/src/app/orgs/join/[orgId]/page.tsx`
+
+#### 1.4 Update Invitation UI
 **Goal**: Allow selecting functional roles during invitation
 
 **Changes**:
@@ -402,7 +585,53 @@ async onMemberAdded(data) {
 **Files**:
 - `apps/web/src/app/orgs/[orgId]/admin/users/page.tsx`
 
-### Phase 2: Parent-Player Auto-Linking (Week 2-3)
+### Phase 2: Smart Matching & Enhanced Approval (Week 2-3)
+
+#### 2.1 Implement Smart Matching for Parents
+**Goal**: Auto-match parents to players based on multiple criteria
+
+**Changes**:
+- Add `getSmartMatchesForParent` query (from MVP)
+- Match criteria: email, surname, phone, address (postcode/town), children names
+- Return confidence scores (high/medium/low)
+- Return match reasons for transparency
+
+**Files**:
+- `packages/backend/convex/models/players.ts`
+- `packages/backend/convex/models/orgJoinRequests.ts`
+
+#### 2.2 Enhance Approval Dashboard
+**Goal**: Admin can configure role assignments during approval
+
+**Changes**:
+- Update approval UI to show:
+  - Requested roles (badges)
+  - Role-specific data
+  - Smart matches for parents (with confidence scores)
+  - Role configuration options (teams for coaches, players for parents)
+- Update `approveJoinRequest` mutation to:
+  - Accept role configuration (teams, linked players)
+  - Assign functional roles
+  - Link parent to players
+  - Create coach assignments
+
+**Files**:
+- `apps/web/src/app/orgs/[orgId]/admin/users/approvals/page.tsx`
+- `packages/backend/convex/models/orgJoinRequests.ts`
+
+#### 2.3 Add Status Screens
+**Goal**: Show pending/rejected status for join requests
+
+**Changes**:
+- Add pending status indicator on `/orgs` page
+- Add rejected status screen (if request rejected)
+- Block organization access until approved
+
+**Files**:
+- `apps/web/src/app/orgs/page.tsx`
+- `apps/web/src/components/join-request-status.tsx`
+
+### Phase 3: Parent-Player Auto-Linking (Week 3-4)
 
 #### 2.1 Auto-Link on Role Assignment
 **Goal**: Automatically link parent to children when role assigned
@@ -440,7 +669,7 @@ async onMemberAdded(data) {
 **Files**:
 - `packages/backend/convex/models/players.ts`
 
-### Phase 3: Access Control Updates (Week 3-4)
+### Phase 4: Access Control Updates (Week 4-5)
 
 #### 3.1 Update Permission Checks
 **Goal**: Use functional roles for capability checks
@@ -467,7 +696,7 @@ async onMemberAdded(data) {
 - `apps/web/src/app/orgs/[orgId]/parents/page.tsx`
 - `packages/backend/convex/models/players.ts` (getPlayersForParent query)
 
-### Phase 4: Testing & Refinement (Week 4-5)
+### Phase 5: Testing & Refinement (Week 5-6)
 
 #### 4.1 Comprehensive Testing
 - Test invitation flow with all role combinations
@@ -631,7 +860,203 @@ export const autoLinkParentToChildren = mutation({
 });
 ```
 
-### 5.3 Enhanced Invitation UI
+### 5.3 Enhanced Join Request Form
+
+```typescript
+// apps/web/src/app/orgs/join/[orgId]/page.tsx
+
+// Enhanced form with multi-role selection and role-specific data
+const [selectedRoles, setSelectedRoles] = useState<FunctionalRole[]>([]);
+const [roleData, setRoleData] = useState({
+  coach: {
+    sport: "",
+    teams: [] as string[],
+    ageGroups: [] as string[],
+  },
+  parent: {
+    email: userEmail, // Auto-filled
+    address: "",
+    children: [] as Array<{ name: string; age: string }>,
+  },
+});
+
+const handleSubmit = async () => {
+  await createJoinRequest({
+    organizationId: orgId,
+    requestedRole: selectedRoles[0] || "member", // Primary role for Better Auth
+    requestedFunctionalRoles: selectedRoles,
+    roleSpecificData: {
+      coach: selectedRoles.includes("coach") ? roleData.coach : undefined,
+      parent: selectedRoles.includes("parent") ? roleData.parent : undefined,
+    },
+    message: optionalMessage,
+  });
+};
+```
+
+### 5.4 Smart Matching Query
+
+```typescript
+// packages/backend/convex/models/players.ts
+
+/**
+ * Get smart matches for a parent based on multiple criteria
+ * Returns players with confidence scores and match reasons
+ */
+export const getSmartMatchesForParent = query({
+  args: {
+    organizationId: v.string(),
+    email: v.optional(v.string()),
+    surname: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    postcode: v.optional(v.string()),
+    town: v.optional(v.string()),
+    children: v.optional(v.array(v.string())), // Children names
+  },
+  returns: v.array(v.object({
+    _id: v.id("players"),
+    name: v.string(),
+    team: v.string(),
+    ageGroup: v.string(),
+    sport: v.string(),
+    matchScore: v.number(), // 0-100
+    confidence: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    matchReasons: v.array(v.string()), // ["email", "surname", "phone", etc.]
+  })),
+  handler: async (ctx, args) => {
+    // Get all players in organization
+    const orgPlayers = await ctx.db
+      .query("players")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+    
+    const matches = [];
+    
+    for (const player of orgPlayers) {
+      let score = 0;
+      const reasons: string[] = [];
+      
+      // Email matching (40 points)
+      if (args.email && player.parentEmail) {
+        if (player.parentEmail.toLowerCase().trim() === args.email.toLowerCase().trim()) {
+          score += 40;
+          reasons.push("email");
+        }
+      }
+      
+      // Surname matching (20 points)
+      if (args.surname && player.parentSurname) {
+        if (player.parentSurname.toLowerCase().trim() === args.surname.toLowerCase().trim()) {
+          score += 20;
+          reasons.push("surname");
+        }
+      }
+      
+      // Phone matching (15 points)
+      if (args.phone && player.parentPhone) {
+        if (normalizePhone(player.parentPhone) === normalizePhone(args.phone)) {
+          score += 15;
+          reasons.push("phone");
+        }
+      }
+      
+      // Postcode matching (10 points)
+      if (args.postcode && player.postcode) {
+        if (player.postcode.toLowerCase().trim() === args.postcode.toLowerCase().trim()) {
+          score += 10;
+          reasons.push("postcode");
+        }
+      }
+      
+      // Town matching (5 points)
+      if (args.town && player.town) {
+        if (player.town.toLowerCase().trim() === args.town.toLowerCase().trim()) {
+          score += 5;
+          reasons.push("town");
+        }
+      }
+      
+      // Children names matching (10 points per match)
+      if (args.children && args.children.length > 0 && player.name) {
+        for (const childName of args.children) {
+          if (player.name.toLowerCase().includes(childName.toLowerCase())) {
+            score += 10;
+            reasons.push("childName");
+          }
+        }
+      }
+      
+      // Only include matches with score > 0
+      if (score > 0) {
+        matches.push({
+          _id: player._id,
+          name: player.name,
+          team: player.team || "",
+          ageGroup: player.ageGroup,
+          sport: player.sport,
+          matchScore: Math.min(score, 100), // Cap at 100
+          confidence: score >= 50 ? "high" : score >= 25 ? "medium" : "low",
+          matchReasons: reasons,
+        });
+      }
+    }
+    
+    // Sort by score (highest first)
+    return matches.sort((a, b) => b.matchScore - a.matchScore);
+  },
+});
+```
+
+### 5.5 Enhanced Approval Dashboard UI
+
+```typescript
+// apps/web/src/app/orgs/[orgId]/admin/users/approvals/page.tsx
+
+// Enhanced approval card with role configuration
+function ApprovalCard({ request }: { request: any }) {
+  const [roleConfig, setRoleConfig] = useState({
+    coach: { teams: [], ageGroups: [] },
+    parent: { linkedPlayers: [] },
+  });
+  
+  // Get smart matches for parent role
+  const smartMatches = useQuery(
+    api.models.players.getSmartMatchesForParent,
+    request.requestedFunctionalRoles?.includes("parent")
+      ? {
+          organizationId: request.organizationId,
+          email: request.userEmail,
+          // ... other parent data from roleSpecificData
+        }
+      : "skip"
+  );
+  
+  const handleApprove = async () => {
+    await approveJoinRequest({
+      requestId: request._id,
+      roleConfiguration: {
+        functionalRoles: request.requestedFunctionalRoles,
+        coach: roleConfig.coach,
+        parent: roleConfig.parent,
+      },
+    });
+  };
+  
+  return (
+    <Card>
+      {/* Request details */}
+      {/* Role configuration UI */}
+      {/* Smart matches for parent */}
+      {/* Approve/Reject buttons */}
+    </Card>
+  );
+}
+```
+
+### 5.6 Enhanced Invitation UI
 
 ```typescript
 // apps/web/src/app/orgs/[orgId]/admin/users/page.tsx

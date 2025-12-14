@@ -157,14 +157,31 @@ export default function AcceptInvitationPage() {
         }
       } else {
         setStatus("success");
-        // Redirect to the organization after a short delay
-        setTimeout(() => {
-          if (result.data?.invitation?.organizationId) {
-            router.push(`/orgs/${result.data.invitation.organizationId}`);
-          } else {
-            router.push("/orgs");
+
+        // Get the organization ID from the result
+        const organizationId = result.data?.invitation?.organizationId;
+
+        if (organizationId) {
+          // Set the organization as active before redirecting
+          // This ensures the user sees the correct organization context
+          try {
+            await authClient.organization.setActive({ organizationId });
+            console.log("Organization set as active:", organizationId);
+          } catch (error) {
+            console.error("Error setting active organization:", error);
+            // Continue with redirect even if setting active fails
           }
-        }, 2000);
+
+          // Redirect to the organization dashboard after a short delay
+          setTimeout(() => {
+            router.push(`/orgs/${organizationId}`);
+          }, 2000);
+        } else {
+          // Fallback: redirect to organizations list
+          setTimeout(() => {
+            router.push("/orgs");
+          }, 2000);
+        }
       }
     } catch (error: any) {
       setStatus("error");

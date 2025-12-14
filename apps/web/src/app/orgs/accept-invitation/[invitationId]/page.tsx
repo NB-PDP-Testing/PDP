@@ -27,6 +27,9 @@ export default function AcceptInvitationPage() {
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
 
+  // Use the session hook for better React integration
+  const { data: session } = authClient.useSession();
+
   // Fetch invitation details
   const invitation = useQuery(
     api.models.members.getInvitationById,
@@ -66,28 +69,47 @@ export default function AcceptInvitationPage() {
 
         // Check if user is logged in
         const session = await authClient.getSession();
+        console.log("[AcceptInvitation] Raw session object:", session);
         console.log("[AcceptInvitation] Session check result:", {
           hasSession: !!session,
-          hasError: session && "error" in session,
-          sessionData: session && "data" in session ? "exists" : "none",
+          isObject: typeof session === "object",
+          hasError:
+            session && typeof session === "object" && "error" in session,
+          hasData: session && typeof session === "object" && "data" in session,
+          keys:
+            session && typeof session === "object" ? Object.keys(session) : [],
         });
 
-        // Check if session is valid and has user data
-        if (!session || "error" in session) {
+        // Better Auth getSession can return different structures
+        // Check for error first
+        if (session && typeof session === "object" && "error" in session) {
           console.log(
-            "[AcceptInvitation] No valid session, redirecting to login"
+            "[AcceptInvitation] Session has error, redirecting to login"
           );
-          // Redirect to login with return URL
           router.push(
             `/login?redirect=/orgs/accept-invitation/${invitationId}`
           );
           return;
         }
 
-        // Type assertion: after error check, session should have data property
-        const sessionData = (session as { data?: { user?: { email: string } } })
-          .data;
+        // Check if session has data property (Better Auth structure)
+        let sessionData: { user?: { email: string } } | undefined;
+        if (session && typeof session === "object" && "data" in session) {
+          sessionData = (session as { data?: { user?: { email: string } } })
+            .data;
+        } else if (
+          session &&
+          typeof session === "object" &&
+          "user" in session
+        ) {
+          // Some Better Auth versions return session directly with user
+          sessionData = session as { user?: { email: string } };
+        }
+
         if (!sessionData?.user) {
+          console.log(
+            "[AcceptInvitation] No user in session data, redirecting to login"
+          );
           // Redirect to login with return URL
           router.push(
             `/login?redirect=/orgs/accept-invitation/${invitationId}`

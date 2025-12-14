@@ -232,7 +232,7 @@ export async function sendDemoRequestNotification(
         <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 0 auto;">
             <tr>
-              <td style="text-align: center; padding-bottom: 8px;">
+              <td style="text-align: center; padding-bottom: 4px;">
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
                   <tr>
                     <td style="vertical-align: middle; padding-right: 12px;">
@@ -246,7 +246,7 @@ export async function sendDemoRequestNotification(
               </td>
             </tr>
             <tr>
-              <td style="text-align: center;">
+              <td style="text-align: center; padding-top: 0;">
                 <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic;">As many as possible, for as long as possible…</p>
               </td>
             </tr>
@@ -371,7 +371,7 @@ export async function sendDemoRequestAcknowledgement(data: {
         <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 0 auto;">
             <tr>
-              <td style="text-align: center; padding-bottom: 8px;">
+              <td style="text-align: center; padding-bottom: 4px;">
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
                   <tr>
                     <td style="vertical-align: middle; padding-right: 12px;">
@@ -385,7 +385,7 @@ export async function sendDemoRequestAcknowledgement(data: {
               </td>
             </tr>
             <tr>
-              <td style="text-align: center;">
+              <td style="text-align: center; padding-top: 0;">
                 <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic;">As many as possible, for as long as possible…</p>
               </td>
             </tr>

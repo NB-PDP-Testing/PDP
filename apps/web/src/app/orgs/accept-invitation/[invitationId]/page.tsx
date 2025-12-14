@@ -41,8 +41,10 @@ export default function AcceptInvitationPage() {
 
     const checkAndAcceptInvitation = async () => {
       try {
+        console.log("[AcceptInvitation] Checking invitation:", invitationId);
         // Check if user is logged in
         const session = await authClient.getSession();
+        console.log("[AcceptInvitation] Session:", session ? "exists" : "none");
 
         // Check if session is valid and has user data
         if (!session || "error" in session) {

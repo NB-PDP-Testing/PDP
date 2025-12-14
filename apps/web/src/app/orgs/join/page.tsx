@@ -77,6 +77,18 @@ function OrganizationCard({
 
 export default function JoinOrganizationPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const router = useRouter();
+
+  // Check for pending invitation in sessionStorage (from OAuth flow)
+  useEffect(() => {
+    const pendingInvitationId = sessionStorage.getItem("pendingInvitationId");
+    if (pendingInvitationId) {
+      // Clear it from sessionStorage
+      sessionStorage.removeItem("pendingInvitationId");
+      // Redirect to invitation acceptance page
+      router.push(`/orgs/accept-invitation/${pendingInvitationId}` as Route);
+    }
+  }, [router]);
 
   const organizations = useQuery(
     api.models.orgJoinRequests.getAllOrganizations

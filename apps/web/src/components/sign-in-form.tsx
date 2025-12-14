@@ -54,10 +54,23 @@ function SignInFormContent() {
   const signInWithGoogle = async () => {
     try {
       console.log("Google sign-in clicked");
+      const callbackURL = redirect || "/orgs/current";
+      console.log("OAuth callback URL:", callbackURL);
+
+      // If redirecting to an invitation page, store the invitation ID in sessionStorage
+      // This ensures we can redirect back even if OAuth callback doesn't preserve the URL
+      if (redirect?.includes("/orgs/accept-invitation/")) {
+        const invitationId = redirect.split("/orgs/accept-invitation/")[1];
+        if (invitationId) {
+          sessionStorage.setItem("pendingInvitationId", invitationId);
+          console.log("Stored pending invitation ID:", invitationId);
+        }
+      }
+
       await authClient.signIn.social(
         {
           provider: "google",
-          callbackURL: redirect || "/orgs/current",
+          callbackURL,
         },
         {
           onError: (error: {
@@ -83,10 +96,21 @@ function SignInFormContent() {
   const signInWithMicrosoft = async () => {
     try {
       console.log("Microsoft sign-in clicked");
+      const callbackURL = redirect || "/orgs/current";
+
+      // If redirecting to an invitation page, store the invitation ID in sessionStorage
+      if (redirect?.includes("/orgs/accept-invitation/")) {
+        const invitationId = redirect.split("/orgs/accept-invitation/")[1];
+        if (invitationId) {
+          sessionStorage.setItem("pendingInvitationId", invitationId);
+          console.log("Stored pending invitation ID:", invitationId);
+        }
+      }
+
       await authClient.signIn.social(
         {
           provider: "microsoft",
-          callbackURL: redirect || "/orgs/current",
+          callbackURL,
         },
         {
           onError: (error: {

@@ -54,10 +54,21 @@ export default function SignUpForm({ redirect }: { redirect?: string | null }) {
   });
 
   const signUpWithGoogle = async () => {
+    const callbackURL = (redirect || "/orgs/current") as Route;
+
+    // If redirecting to an invitation page, store the invitation ID in sessionStorage
+    if (redirect?.includes("/orgs/accept-invitation/")) {
+      const invitationId = redirect.split("/orgs/accept-invitation/")[1];
+      if (invitationId) {
+        sessionStorage.setItem("pendingInvitationId", invitationId);
+        console.log("Stored pending invitation ID:", invitationId);
+      }
+    }
+
     await authClient.signIn.social(
       {
         provider: "google",
-        callbackURL: (redirect || "/orgs/current") as Route,
+        callbackURL,
       },
       {
         onError: (error: {
@@ -74,10 +85,21 @@ export default function SignUpForm({ redirect }: { redirect?: string | null }) {
   };
 
   const signUpWithMicrosoft = async () => {
+    const callbackURL = (redirect || "/orgs/current") as Route;
+
+    // If redirecting to an invitation page, store the invitation ID in sessionStorage
+    if (redirect?.includes("/orgs/accept-invitation/")) {
+      const invitationId = redirect.split("/orgs/accept-invitation/")[1];
+      if (invitationId) {
+        sessionStorage.setItem("pendingInvitationId", invitationId);
+        console.log("Stored pending invitation ID:", invitationId);
+      }
+    }
+
     await authClient.signIn.social(
       {
         provider: "microsoft",
-        callbackURL: (redirect || "/orgs/current") as Route,
+        callbackURL,
       },
       {
         onError: (error: {

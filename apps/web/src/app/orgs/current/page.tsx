@@ -87,6 +87,20 @@ function RedirectToActiveOrg() {
   const redirect = searchParams.get("redirect");
 
   useEffect(() => {
+    // Check for pending invitation in sessionStorage (from OAuth flow)
+    const pendingInvitationId =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("pendingInvitationId")
+        : null;
+
+    if (pendingInvitationId) {
+      // Clear it from sessionStorage
+      sessionStorage.removeItem("pendingInvitationId");
+      // Redirect to invitation acceptance page
+      router.push(`/orgs/accept-invitation/${pendingInvitationId}` as Route);
+      return;
+    }
+
     // If there's a redirect parameter (e.g., from invitation link), use it
     // This takes priority over all other redirects
     if (redirect) {

@@ -42,11 +42,15 @@ export default function AcceptInvitationPage() {
         }
 
         // Accept the invitation
+        console.log("Attempting to accept invitation:", invitationId);
         const result = await authClient.organization.acceptInvitation({
           invitationId,
         });
 
+        console.log("Invitation acceptance result:", result);
+
         if (result.error) {
+          console.error("Invitation acceptance error:", result.error);
           setStatus("error");
           setErrorMessage(
             result.error.message || "Failed to accept invitation"

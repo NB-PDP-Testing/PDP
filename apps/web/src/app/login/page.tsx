@@ -1,21 +1,29 @@
 "use client";
 
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import type { Route } from "next";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
 import Loader from "@/components/loader";
 import SignInForm from "@/components/sign-in-form";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
-export default function DashboardPage() {
+function LoginContent() {
   const user = useCurrentUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect");
 
   useEffect(() => {
     if (user) {
-      router.push("/");
+      // If there's a redirect parameter, use it; otherwise go to default
+      if (redirect) {
+        router.push(redirect as Route);
+      } else {
+        router.push("/" as Route);
+      }
     }
-  }, [user, router]);
+  }, [user, router, redirect]);
 
   return (
     <>
@@ -33,5 +41,13 @@ export default function DashboardPage() {
         </div>
       </AuthLoading>
     </>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<Loader />}>
+      <LoginContent />
+    </Suspense>
   );
 }

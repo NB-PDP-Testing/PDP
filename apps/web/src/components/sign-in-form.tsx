@@ -1,6 +1,7 @@
 import { useForm } from "@tanstack/react-form";
+import type { Route } from "next";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import z from "zod";
 import { authClient } from "@/lib/auth-client";
@@ -11,6 +12,8 @@ import { Label } from "./ui/label";
 
 export default function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect");
 
   const form = useForm({
     defaultValues: {
@@ -25,7 +28,9 @@ export default function SignInForm() {
         },
         {
           onSuccess: () => {
-            router.push("/orgs/current");
+            // Use redirect parameter if available, otherwise default to /orgs/current
+            const destination = (redirect || "/orgs/current") as Route;
+            router.push(destination);
             toast.success("Welcome back! Let's get to work.");
           },
           onError: (error) => {
@@ -52,7 +57,7 @@ export default function SignInForm() {
       await authClient.signIn.social(
         {
           provider: "google",
-          callbackURL: "/orgs/current",
+          callbackURL: redirect || "/orgs/current",
         },
         {
           onError: (error: {
@@ -81,7 +86,7 @@ export default function SignInForm() {
       await authClient.signIn.social(
         {
           provider: "microsoft",
-          callbackURL: "/orgs/current",
+          callbackURL: redirect || "/orgs/current",
         },
         {
           onError: (error: {

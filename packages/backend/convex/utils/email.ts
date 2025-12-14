@@ -35,6 +35,7 @@ export async function sendOrganizationInvitation(
 
   // Email template
   const subject = `Invitation to join ${organizationName} on PlayerARC`;
+  const logoUrl = getLogoUrl();
   const htmlBody = `
     <!DOCTYPE html>
     <html>
@@ -44,8 +45,8 @@ export async function sendOrganizationInvitation(
         <title>${subject}</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background-color: #1E3A5F; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0;">PlayerARC</h1>
+        <div style="background-color: #1E3A5F; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 180px; height: auto; margin-bottom: 10px;" />
         </div>
         <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #1E3A5F; margin-top: 0;">You've been invited!</h2>
@@ -176,6 +177,14 @@ export function generateWhatsAppInvitationMessage(
 }
 
 /**
+ * Get the PlayerARC logo URL for emails
+ */
+function getLogoUrl(): string {
+  const siteUrl = process.env.SITE_URL || "https://playerarc.io";
+  return `${siteUrl}/logos-landing/PDP-Logo-NavyOrbit_GreenHuman.png`;
+}
+
+/**
  * Demo request notification email data
  */
 interface DemoRequestNotificationData {
@@ -206,6 +215,7 @@ export async function sendDemoRequestNotification(
 
   const subject = `New Demo Request from ${name}`;
   const requestDate = new Date(requestedAt).toLocaleString();
+  const logoUrl = getLogoUrl();
 
   const htmlBody = `
     <!DOCTYPE html>
@@ -216,8 +226,8 @@ export async function sendDemoRequestNotification(
         <title>${subject}</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background-color: #1E3A5F; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="color: white; margin: 0;">PlayerARC</h1>
+        <div style="background-color: #1E3A5F; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 180px; height: auto; margin-bottom: 10px;" />
         </div>
         <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
           <h2 style="color: #1E3A5F; margin-top: 0;">New Demo Request</h2>
@@ -307,6 +317,127 @@ Reply to: ${email}
     console.log("✅ Demo request notification sent successfully:", result.id);
   } catch (error) {
     console.error("❌ Error sending demo request notification:", error);
+    // Don't throw - log the error but don't break the demo request creation
+  }
+}
+
+/**
+ * Send acknowledgement email to the demo request requester
+ */
+export async function sendDemoRequestAcknowledgement(data: {
+  name: string;
+  email: string;
+  requestedAt: number;
+}): Promise<void> {
+  const { name, email, requestedAt } = data;
+
+  const subject = "Thank you for your demo request - PlayerARC";
+  const requestDate = new Date(requestedAt).toLocaleString();
+  const logoUrl = getLogoUrl();
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #1E3A5F; padding: 30px 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 180px; height: auto; margin-bottom: 10px;" />
+        </div>
+        <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
+          <h2 style="color: #1E3A5F; margin-top: 0;">Thank you for your interest, ${name}!</h2>
+          <p>We've received your demo request submitted on ${requestDate} and our team will be in touch with you shortly.</p>
+          
+          <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #1E3A5F; margin-top: 0;">What happens next?</h3>
+            <ul style="color: #666; padding-left: 20px;">
+              <li>Our team will review your request within 24 hours</li>
+              <li>We'll contact you to schedule a convenient time for your personalized demo</li>
+              <li>During the demo, we'll show you how PlayerARC can help manage and develop young athletes</li>
+            </ul>
+          </div>
+          
+          <p style="color: #666;">
+            If you have any questions in the meantime, feel free to reply to this email and we'll be happy to help.
+          </p>
+          
+          <p style="color: #666; margin-top: 30px;">
+            Best regards,<br>
+            <strong>The PlayerARC Team</strong>
+          </p>
+        </div>
+        <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+          <p>© ${new Date().getFullYear()} PlayerARC. All rights reserved.</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const textBody = `
+Thank you for your interest, ${name}!
+
+We've received your demo request submitted on ${requestDate} and our team will be in touch with you shortly.
+
+What happens next?
+- Our team will review your request within 24 hours
+- We'll contact you to schedule a convenient time for your personalized demo
+- During the demo, we'll show you how PlayerARC can help manage and develop young athletes
+
+If you have any questions in the meantime, feel free to reply to this email and we'll be happy to help.
+
+Best regards,
+The PlayerARC Team
+
+© ${new Date().getFullYear()} PlayerARC. All rights reserved.
+  `.trim();
+
+  // Send email via Resend API
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS || "PlayerARC <notifications@playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Demo request acknowledgement will not be sent."
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ Failed to send demo request acknowledgement:", {
+        status: response.status,
+        error: errorData,
+      });
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log(
+      "✅ Demo request acknowledgement sent successfully:",
+      result.id
+    );
+  } catch (error) {
+    console.error("❌ Error sending demo request acknowledgement:", error);
     // Don't throw - log the error but don't break the demo request creation
   }
 }

@@ -47,6 +47,7 @@ export const sendNotification = internalAction({
     console.log("📧 Sending demo request notification to:", adminEmails);
 
     try {
+      // Send notification to admins
       await sendDemoRequestNotification({
         name: args.name,
         email: args.email,
@@ -57,6 +58,14 @@ export const sendNotification = internalAction({
         adminEmails,
       });
       console.log("✅ Demo request notification sent successfully");
+
+      // Send acknowledgement to requester
+      await sendDemoRequestAcknowledgement({
+        name: args.name,
+        email: args.email,
+        requestedAt: args.requestedAt,
+      });
+      console.log("✅ Demo request acknowledgement sent successfully");
     } catch (error) {
       console.error("❌ Error in demo request notification action:", error);
       throw error;

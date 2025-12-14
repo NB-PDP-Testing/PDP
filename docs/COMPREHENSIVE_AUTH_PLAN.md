@@ -334,13 +334,297 @@ function getParentChildren(member, organizationId) {
 **Principle**: Clear separation of concerns
 
 #### Layer 1: Better Auth Roles (Hierarchy)
-- **Purpose**: Organizational hierarchy and Better Auth permissions
-- **Roles**: `owner`, `admin`, `member` (ONLY these three)
-- **Removed**: `coach`, `parent` (moved to functional roles)
-- **Used For**:
-  - Organizational permissions (can manage org, can invite, etc.)
-  - Better Auth access control
-  - Invitation role assignment
+
+**Purpose**: Organizational hierarchy and Better Auth permissions
+
+**Roles**: `owner`, `admin`, `member` (ONLY these three)
+
+**Removed**: `coach`, `parent` (moved to functional roles)
+
+**Used For**:
+- Organizational permissions (can manage org, can invite, etc.)
+- Better Auth access control
+- Invitation role assignment
+
+##### Detailed Role Definitions
+
+###### 1. **Owner** Role
+
+**What It Is**:
+- The creator/founder of the organization
+- Highest level of organizational authority
+- Typically only one owner per organization (though Better Auth supports multiple)
+
+**What It Can Do**:
+- ✅ **Organization Management**: Full control over organization settings
+  - Update organization name, logo, colors
+  - Delete the organization
+  - Transfer ownership to another member
+- ✅ **Member Management**: Full control over all members
+  - Invite members with any role
+  - Remove any member (including admins)
+  - Change any member's Better Auth role
+- ✅ **Access Control**: Can perform any action in the organization
+  - All permissions granted by default
+  - Can override any access control check
+- ✅ **Better Auth Features**: Full access to Better Auth organization features
+  - Manage organization settings
+  - View organization audit logs
+  - Manage organization billing (if applicable)
+
+**When to Use**:
+- First user who creates the organization
+- Organization founder/principal
+- Person with ultimate responsibility for the organization
+
+**Example**:
+```typescript
+// Owner can do everything
+const owner = {
+  role: "owner",
+  canManageOrg: true,
+  canInviteMembers: true,
+  canRemoveMembers: true,
+  canChangeRoles: true,
+  canDeleteOrg: true,
+  // All Better Auth permissions granted
+};
+```
+
+###### 2. **Admin** Role
+
+**What It Is**:
+- Organizational administrator
+- Delegated authority to manage the organization
+- Can have multiple admins per organization
+
+**What It Can Do**:
+- ✅ **Organization Management**: Most organization settings
+  - Update organization name, logo, colors
+  - Cannot delete the organization
+  - Cannot transfer ownership
+- ✅ **Member Management**: Full control over members
+  - Invite members with any role
+  - Remove members (except owner)
+  - Change member roles (except cannot make/remove owner)
+  - Approve/reject join requests
+- ✅ **Access Control**: Can perform most actions
+  - All permissions granted by default
+  - Cannot override owner-level restrictions
+- ✅ **Better Auth Features**: Full access to Better Auth organization features
+  - Manage organization settings (except deletion/ownership)
+  - View organization audit logs
+  - Manage organization billing (if applicable)
+
+**What It Cannot Do**:
+- ❌ Delete the organization
+- ❌ Transfer ownership
+- ❌ Remove the owner
+- ❌ Change owner's role
+
+**When to Use**:
+- Club administrators
+- Organization managers
+- Delegated authority holders
+- People who need to manage members and settings
+
+**Example**:
+```typescript
+// Admin can manage org and members, but not delete org
+const admin = {
+  role: "admin",
+  canManageOrg: true, // Except deletion
+  canInviteMembers: true,
+  canRemoveMembers: true, // Except owner
+  canChangeRoles: true, // Except owner
+  canDeleteOrg: false,
+  // All Better Auth permissions granted (except owner-only)
+};
+```
+
+###### 3. **Member** Role
+
+**What It Is**:
+- Standard organization member
+- Default role for all new members
+- Most common role in the organization
+
+**What It Can Do**:
+- ✅ **Basic Access**: Standard member permissions
+  - View organization information
+  - View other members (depending on privacy settings)
+  - Access organization features based on functional roles
+- ✅ **Better Auth Features**: Standard member access
+  - View organization
+  - Leave the organization
+  - Update own profile
+
+**What It Cannot Do**:
+- ❌ Manage organization settings
+- ❌ Invite or remove members
+- ❌ Change member roles
+- ❌ Approve/reject join requests
+- ❌ Access admin-only features
+
+**When to Use**:
+- Default for all new members
+- Coaches (who don't need org management)
+- Parents (who don't need org management)
+- Regular users who just need access to features
+
+**Example**:
+```typescript
+// Member has basic access, features determined by functional roles
+const member = {
+  role: "member",
+  canManageOrg: false,
+  canInviteMembers: false,
+  canRemoveMembers: false,
+  canChangeRoles: false,
+  // Access to features based on functionalRoles
+  functionalRoles: ["coach", "parent"], // Determines actual capabilities
+};
+```
+
+##### Why NOT Have "Coach" and "Parent" in Better Auth?
+
+**Reason 1: Multi-Role Support**
+
+Better Auth roles are **mutually exclusive** - a user can only have ONE Better Auth role per organization. However, in PlayerARC:
+- A user can be BOTH a coach AND a parent
+- A user can be a coach AND an admin
+- A user can be all three simultaneously
+
+**Example Problem**:
+```typescript
+// ❌ CANNOT DO with Better Auth roles:
+const user = {
+  role: "coach", // Can only be ONE role
+  // But they also have children! They need "parent" role too!
+  // Better Auth doesn't support multiple roles
+};
+
+// ✅ CAN DO with functional roles:
+const user = {
+  role: "member", // Better Auth hierarchy
+  functionalRoles: ["coach", "parent"], // Multiple capabilities
+};
+```
+
+**Reason 2: Different Scopes**
+
+Better Auth roles define **organizational hierarchy** (who can manage the org), while "coach" and "parent" define **capabilities** (what features they can access).
+
+**Example**:
+```typescript
+// Better Auth "coach" role would imply:
+// - Can manage organization? (No, that's admin's job)
+// - Can invite members? (No, that's admin's job)
+// - Can only coach teams? (Yes, but that's a capability, not hierarchy)
+
+// Better Auth "parent" role would imply:
+// - Can manage organization? (No, that's admin's job)
+// - Can only view children? (Yes, but that's a capability, not hierarchy)
+```
+
+**Reason 3: Better Auth Best Practices**
+
+Better Auth's organization plugin is designed for **hierarchical organizations** with clear management structures:
+- **Owner**: Ultimate authority
+- **Admin**: Delegated management
+- **Member**: Standard access
+
+Adding domain-specific roles like "coach" and "parent" mixes concerns:
+- **Hierarchy** (who manages the org) vs **Capabilities** (what features they use)
+
+**Reason 4: Flexibility**
+
+Using functional roles allows:
+- ✅ Users can have multiple capabilities
+- ✅ Capabilities can be assigned/removed independently
+- ✅ Capabilities don't affect organizational hierarchy
+- ✅ Easier to add new capabilities (e.g., "referee", "volunteer") without changing Better Auth
+
+**Example**:
+```typescript
+// Easy to add new capabilities without touching Better Auth:
+const user = {
+  role: "member", // Better Auth hierarchy (unchanged)
+  functionalRoles: ["coach", "parent", "referee"], // New capability added easily
+};
+```
+
+**Reason 5: Clear Separation of Concerns**
+
+**Better Auth Roles** = "Who can manage the organization?"
+- Owner: Ultimate authority
+- Admin: Delegated management
+- Member: Standard access
+
+**Functional Roles** = "What features can they access?"
+- Coach: Can access coach dashboard, manage teams
+- Parent: Can access parent dashboard, view children
+- Admin: Can access admin dashboard, manage users
+
+**Example**:
+```typescript
+// Clear separation:
+const user = {
+  // Better Auth: Organizational hierarchy
+  role: "member", // Cannot manage organization
+  
+  // Functional: Feature capabilities
+  functionalRoles: ["coach", "parent"], // Can coach teams AND view children
+  
+  // Result: User can coach and parent, but cannot manage the organization
+};
+```
+
+##### Current Issues with Having "Coach" and "Parent" in Better Auth
+
+**Issue 1: Role Confusion**
+
+Currently, we have "coach" and "parent" in BOTH systems:
+- Better Auth role: `member.role = "coach"`
+- Functional role: `member.functionalRoles = ["coach"]`
+
+This causes confusion:
+- Which one should we check for permissions?
+- Which one should we display in the UI?
+- What if they don't match?
+
+**Issue 2: Cannot Support Multi-Role**
+
+If a user is a Better Auth "coach", they cannot also be a "parent" in Better Auth. But they might have children! We need both capabilities.
+
+**Issue 3: Access Control Mismatch**
+
+Better Auth access control checks `member.role`, but our UI and features use `functionalRoles`. This creates a mismatch:
+- User has Better Auth role "coach" but no functional role "coach"
+- UI shows "No roles" but Better Auth says they're a coach
+- Confusion for users and developers
+
+**Issue 4: Invitation Limitations**
+
+When inviting a user, we can only set ONE Better Auth role. But we want to invite someone as BOTH coach AND parent. We can't do this with Better Auth roles alone.
+
+##### Recommended Solution
+
+**Remove "coach" and "parent" from Better Auth roles**
+
+Keep only: `owner`, `admin`, `member`
+
+**Use functional roles for capabilities**:
+- `functionalRoles: ["coach"]` - Can access coach features
+- `functionalRoles: ["parent"]` - Can access parent features
+- `functionalRoles: ["coach", "parent"]` - Can access both
+
+**Benefits**:
+- ✅ Clear separation: hierarchy vs capabilities
+- ✅ Multi-role support: users can have multiple capabilities
+- ✅ No confusion: one system for hierarchy, one for capabilities
+- ✅ Flexible: easy to add new capabilities
+- ✅ Better Auth best practices: use standard hierarchy roles
 
 #### Layer 2: Functional Roles (Capabilities)
 - **Purpose**: User capabilities within sports club context

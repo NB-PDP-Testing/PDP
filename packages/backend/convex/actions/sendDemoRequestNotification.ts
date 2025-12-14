@@ -2,7 +2,10 @@
 
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
-import { sendDemoRequestNotification } from "../utils/email";
+import {
+  sendDemoRequestAcknowledgement,
+  sendDemoRequestNotification,
+} from "../utils/email";
 
 /**
  * Internal action to send demo request notification email

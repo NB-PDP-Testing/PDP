@@ -2,8 +2,8 @@
 
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import type { Route } from "next";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
 import Loader from "@/components/loader";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";

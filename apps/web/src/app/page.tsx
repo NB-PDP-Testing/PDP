@@ -16,6 +16,7 @@ import { SolutionSection } from "@/components/landing/solution-section";
 import { SportsShowcase } from "@/components/landing/sports-showcase";
 import { TestimonialsSection } from "@/components/landing/testimonials-section";
 import Loader from "@/components/loader";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 
 export default function Home() {

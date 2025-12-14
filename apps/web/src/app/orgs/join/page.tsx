@@ -81,13 +81,16 @@ export default function JoinOrganizationPage() {
   const router = useRouter();
 
   // Check for pending invitation in sessionStorage (from OAuth flow)
+  // This MUST run synchronously before any other logic
   useEffect(() => {
     const pendingInvitationId = sessionStorage.getItem("pendingInvitationId");
     if (pendingInvitationId) {
-      // Clear it from sessionStorage
+      console.log("[Join] Found pending invitation:", pendingInvitationId);
+      // Clear it from sessionStorage immediately
       sessionStorage.removeItem("pendingInvitationId");
-      // Redirect to invitation acceptance page
-      router.push(`/orgs/accept-invitation/${pendingInvitationId}` as Route);
+      // Redirect to invitation acceptance page immediately
+      router.replace(`/orgs/accept-invitation/${pendingInvitationId}` as Route);
+      return;
     }
   }, [router]);
 

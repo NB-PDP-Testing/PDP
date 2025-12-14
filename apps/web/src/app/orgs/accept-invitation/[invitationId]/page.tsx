@@ -39,6 +39,16 @@ export default function AcceptInvitationPage() {
       return;
     }
 
+    // Store invitation ID in sessionStorage immediately when page loads
+    // This ensures it's preserved through OAuth flow even if redirect doesn't work
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("pendingInvitationId", invitationId);
+      console.log(
+        "[AcceptInvitation] Stored invitation ID in sessionStorage:",
+        invitationId
+      );
+    }
+
     const checkAndAcceptInvitation = async () => {
       try {
         console.log("[AcceptInvitation] Checking invitation:", invitationId);
@@ -162,6 +172,11 @@ export default function AcceptInvitationPage() {
 
         // Get the organization ID from the result
         const organizationId = result.data?.invitation?.organizationId;
+
+        // Clear pending invitation from sessionStorage since we've accepted it
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("pendingInvitationId");
+        }
 
         if (organizationId) {
           // Set the organization as active before redirecting

@@ -36,6 +36,22 @@ function RedirectToOrgs() {
   const router = useRouter();
 
   useEffect(() => {
+    // Check for pending invitation FIRST (highest priority)
+    // This handles OAuth redirects that might not preserve the invitation URL
+    const pendingInvitationId =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("pendingInvitationId")
+        : null;
+
+    if (pendingInvitationId) {
+      console.log("[Home] Found pending invitation:", pendingInvitationId);
+      // Clear it from sessionStorage
+      sessionStorage.removeItem("pendingInvitationId");
+      // Redirect to invitation acceptance page
+      router.push(`/orgs/accept-invitation/${pendingInvitationId}` as Route);
+      return;
+    }
+
     if (activeOrganization) {
       router.push(`/orgs/${activeOrganization.id}/coach` as Route);
     } else {

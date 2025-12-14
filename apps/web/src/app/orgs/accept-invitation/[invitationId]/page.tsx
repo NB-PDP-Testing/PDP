@@ -1,8 +1,11 @@
 "use client";
 
-import { CheckCircle, XCircle } from "lucide-react";
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
+import { AlertCircle, CheckCircle, XCircle } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,9 +21,16 @@ export default function AcceptInvitationPage() {
   const router = useRouter();
   const invitationId = params.invitationId as string;
   const [status, setStatus] = useState<
-    "loading" | "success" | "error" | "idle"
+    "loading" | "checking" | "mismatch" | "success" | "error" | "idle"
   >("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+
+  // Fetch invitation details
+  const invitation = useQuery(
+    api.models.members.getInvitationById,
+    invitationId ? { invitationId } : "skip"
+  );
 
   useEffect(() => {
     if (!invitationId) {
@@ -29,7 +39,7 @@ export default function AcceptInvitationPage() {
       return;
     }
 
-    const acceptInvitation = async () => {
+    const checkAndAcceptInvitation = async () => {
       try {
         // Check if user is logged in
         const session = await authClient.getSession();
@@ -41,41 +51,115 @@ export default function AcceptInvitationPage() {
           return;
         }
 
-        // Accept the invitation
-        console.log("Attempting to accept invitation:", invitationId);
-        const result = await authClient.organization.acceptInvitation({
-          invitationId,
-        });
+        const userEmail = session.user.email;
+        setCurrentUserEmail(userEmail);
 
-        console.log("Invitation acceptance result:", result);
+        // Wait for invitation details to load
+        if (invitation === undefined) {
+          setStatus("checking");
+          return;
+        }
 
-        if (result.error) {
-          console.error("Invitation acceptance error:", result.error);
+        // Check if invitation exists
+        if (invitation === null) {
+          setStatus("error");
+          setErrorMessage("Invitation not found or has expired");
+          return;
+        }
+
+        // Check if invitation is expired
+        if (invitation.isExpired) {
           setStatus("error");
           setErrorMessage(
-            result.error.message || "Failed to accept invitation"
+            "This invitation has expired. Please request a new invitation."
           );
-        } else {
-          setStatus("success");
-          // Redirect to the organization after a short delay
-          setTimeout(() => {
-            if (result.data?.invitation?.organizationId) {
-              router.push(`/orgs/${result.data.invitation.organizationId}`);
-            } else {
-              router.push("/orgs");
-            }
-          }, 2000);
+          return;
         }
+
+        // Check if invitation is already accepted/cancelled
+        if (invitation.status !== "pending") {
+          setStatus("error");
+          setErrorMessage(
+            `This invitation has already been ${invitation.status}.`
+          );
+          return;
+        }
+
+        // Pre-check: Compare emails (case-insensitive)
+        const invitationEmail = invitation.email.toLowerCase();
+        const loggedInEmail = userEmail.toLowerCase();
+
+        if (invitationEmail !== loggedInEmail) {
+          // Emails don't match - show warning
+          setStatus("mismatch");
+          return;
+        }
+
+        // Emails match - proceed with acceptance
+        await acceptInvitation(userEmail);
       } catch (error: any) {
         setStatus("error");
         setErrorMessage(
-          error.message || "An error occurred while accepting the invitation"
+          error.message || "An error occurred while processing the invitation"
         );
       }
     };
 
-    acceptInvitation();
-  }, [invitationId, router]);
+    checkAndAcceptInvitation();
+  }, [invitationId, router, invitation]);
+
+  const acceptInvitation = async (userEmail: string) => {
+    try {
+      setStatus("loading");
+      console.log("Attempting to accept invitation:", invitationId);
+      console.log("Current user email:", userEmail);
+      console.log("Invitation email:", invitation?.email);
+
+      const result = await authClient.organization.acceptInvitation({
+        invitationId,
+      });
+
+      console.log("Invitation acceptance result:", result);
+
+      if (result.error) {
+        console.error("Invitation acceptance error:", result.error);
+        setStatus("error");
+
+        // Check if error is likely due to email mismatch
+        const errorMessage = result.error.message || "";
+        const isEmailMismatch =
+          errorMessage.toLowerCase().includes("email") ||
+          errorMessage.toLowerCase().includes("match") ||
+          errorMessage.toLowerCase().includes("invitation") ||
+          errorMessage.toLowerCase().includes("not found");
+
+        if (isEmailMismatch) {
+          setErrorMessage(
+            "This invitation was sent to a different email address. " +
+              `You're currently signed in as ${userEmail}. ` +
+              "Please sign out and sign in with the email address that received the invitation."
+          );
+        } else {
+          setErrorMessage(errorMessage || "Failed to accept invitation");
+        }
+      } else {
+        setStatus("success");
+        // Redirect to the organization after a short delay
+        setTimeout(() => {
+          if (result.data?.invitation?.organizationId) {
+            router.push(`/orgs/${result.data.invitation.organizationId}`);
+          } else {
+            router.push("/orgs");
+          }
+        }, 2000);
+      }
+    } catch (error: any) {
+      setStatus("error");
+      setErrorMessage(
+        error.message || "An error occurred while accepting the invitation"
+      );
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
@@ -89,6 +173,28 @@ export default function AcceptInvitationPage() {
               <CardTitle>Accepting Invitation...</CardTitle>
               <CardDescription>
                 Please wait while we process your invitation
+              </CardDescription>
+            </>
+          )}
+
+          {status === "checking" && (
+            <>
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
+              </div>
+              <CardTitle>Checking Invitation...</CardTitle>
+              <CardDescription>Verifying invitation details</CardDescription>
+            </>
+          )}
+
+          {status === "mismatch" && invitation && (
+            <>
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
+                <AlertCircle className="h-10 w-10 text-amber-600" />
+              </div>
+              <CardTitle className="text-amber-600">Email Mismatch</CardTitle>
+              <CardDescription>
+                This invitation was sent to a different email address.
               </CardDescription>
             </>
           )}
@@ -118,8 +224,66 @@ export default function AcceptInvitationPage() {
           )}
         </CardHeader>
 
+        {status === "mismatch" && invitation && (
+          <CardContent className="space-y-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Email Address Mismatch</AlertTitle>
+              <AlertDescription className="mt-2">
+                <p className="mb-2">
+                  This invitation was sent to:{" "}
+                  <strong>{invitation.email}</strong>
+                </p>
+                <p>
+                  You're currently signed in as:{" "}
+                  <strong>{currentUserEmail}</strong>
+                </p>
+              </AlertDescription>
+            </Alert>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="text-amber-900 text-sm">
+                To accept this invitation, you need to sign in with the email
+                address that received the invitation.
+              </p>
+            </div>
+            <Button
+              className="w-full"
+              onClick={async () => {
+                await authClient.signOut();
+                router.push(
+                  `/login?redirect=/orgs/accept-invitation/${invitationId}`
+                );
+              }}
+              variant="default"
+            >
+              Sign Out and Sign In with {invitation.email}
+            </Button>
+            <Button
+              className="w-full"
+              onClick={() => router.push("/orgs")}
+              variant="outline"
+            >
+              Go to Organizations
+            </Button>
+          </CardContent>
+        )}
+
         {status === "error" && (
           <CardContent className="space-y-4">
+            {errorMessage.includes("different email address") && (
+              <Button
+                className="w-full"
+                onClick={async () => {
+                  await authClient.signOut();
+                  router.push(
+                    `/login?redirect=/orgs/accept-invitation/${invitationId}`
+                  );
+                }}
+                variant="default"
+              >
+                Sign Out and Sign In with Correct Email
+              </Button>
+            )}
             <Button
               className="w-full"
               onClick={() => router.push("/orgs")}
@@ -130,10 +294,46 @@ export default function AcceptInvitationPage() {
             <Button
               className="w-full"
               onClick={() => router.push("/login")}
-              variant="default"
+              variant="outline"
             >
               Sign In
             </Button>
+          </CardContent>
+        )}
+
+        {status === "checking" && invitation && (
+          <CardContent>
+            <div className="space-y-3 text-center">
+              <p className="text-muted-foreground text-sm">
+                Invitation for: <strong>{invitation.email}</strong>
+              </p>
+              {invitation.organizationName && (
+                <p className="text-muted-foreground text-sm">
+                  Organization: <strong>{invitation.organizationName}</strong>
+                </p>
+              )}
+              {invitation.role && (
+                <p className="text-muted-foreground text-sm">
+                  Role:{" "}
+                  <strong className="capitalize">{invitation.role}</strong>
+                </p>
+              )}
+            </div>
+          </CardContent>
+        )}
+
+        {status === "loading" && invitation && (
+          <CardContent>
+            <div className="space-y-3 text-center">
+              <p className="text-muted-foreground text-sm">
+                Accepting invitation for: <strong>{invitation.email}</strong>
+              </p>
+              {invitation.organizationName && (
+                <p className="text-muted-foreground text-sm">
+                  Joining: <strong>{invitation.organizationName}</strong>
+                </p>
+              )}
+            </div>
           </CardContent>
         )}
       </Card>

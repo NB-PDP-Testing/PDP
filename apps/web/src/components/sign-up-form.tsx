@@ -8,7 +8,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 
-export default function SignUpForm() {
+export default function SignUpForm({ redirect }: { redirect?: string | null }) {
   const router = useRouter();
 
   const form = useForm({
@@ -26,7 +26,9 @@ export default function SignUpForm() {
         },
         {
           onSuccess: () => {
-            router.push("/orgs/current");
+            // Use redirect parameter if available (e.g., from invitation link)
+            const destination = (redirect || "/orgs/current") as Route;
+            router.push(destination);
             toast.success(
               "🎉 Welcome to PDP! Your account is ready. Let's build something great."
             );
@@ -54,7 +56,7 @@ export default function SignUpForm() {
     await authClient.signIn.social(
       {
         provider: "google",
-        callbackURL: "/orgs/current",
+        callbackURL: (redirect || "/orgs/current") as Route,
       },
       {
         onError: (error: {
@@ -74,7 +76,7 @@ export default function SignUpForm() {
     await authClient.signIn.social(
       {
         provider: "microsoft",
-        callbackURL: "/orgs/current",
+        callbackURL: (redirect || "/orgs/current") as Route,
       },
       {
         onError: (error: {

@@ -31,15 +31,21 @@ export default function Home() {
 
 function RedirectToOrgs() {
   const { data: activeOrganization } = authClient.useActiveOrganization();
+  const user = useCurrentUser();
   const router = useRouter();
 
   useEffect(() => {
     if (activeOrganization) {
       router.push(`/orgs/${activeOrganization.id}/coach` as Route);
     } else {
-      router.push("/orgs");
+      // Platform staff go to /orgs, regular users go to /orgs/join
+      if (user?.isPlatformStaff) {
+        router.push("/orgs" as Route);
+      } else {
+        router.push("/orgs/join" as Route);
+      }
     }
-  }, [router, activeOrganization]);
+  }, [router, activeOrganization, user]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

@@ -10,7 +10,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 
-export default function SignInForm() {
+function SignInFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
@@ -179,7 +179,11 @@ export default function SignInForm() {
               </span>
               <a
                 className="font-bold hover:underline"
-                href="/signup"
+                href={
+                  redirect
+                    ? `/signup?redirect=${encodeURIComponent(redirect)}`
+                    : "/signup"
+                }
                 style={{ color: "var(--pdp-green)" }}
               >
                 Sign up
@@ -336,5 +340,19 @@ export default function SignInForm() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignInForm() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <SignInFormContent />
+    </Suspense>
   );
 }

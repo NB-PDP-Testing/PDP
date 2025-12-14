@@ -456,6 +456,96 @@ export const cancelInvitation = mutation({
 });
 
 /**
+ * Get invitation details by invitation ID
+ * Returns invitation with organization and inviter details
+ */
+export const getInvitationById = query({
+  args: {
+    invitationId: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      _id: v.string(),
+      email: v.string(),
+      role: v.union(v.string(), v.null()),
+      organizationId: v.string(),
+      organizationName: v.union(v.string(), v.null()),
+      inviterName: v.union(v.string(), v.null()),
+      status: v.string(),
+      expiresAt: v.number(),
+      isExpired: v.boolean(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Find the invitation
+    const invitationResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "invitation",
+        where: [
+          {
+            field: "_id",
+            value: args.invitationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!invitationResult) {
+      return null;
+    }
+
+    // Get organization details
+    const orgResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "organization",
+        where: [
+          {
+            field: "_id",
+            value: invitationResult.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    // Get inviter details
+    const inviterResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "_id",
+            value: invitationResult.inviterId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    // Check if invitation is expired
+    const now = Date.now();
+    const isExpired = invitationResult.expiresAt < now;
+
+    return {
+      _id: invitationResult._id,
+      email: invitationResult.email,
+      role: invitationResult.role || null,
+      organizationId: invitationResult.organizationId,
+      organizationName: orgResult?.name || null,
+      inviterName: inviterResult?.name || null,
+      status: invitationResult.status,
+      expiresAt: invitationResult.expiresAt,
+      isExpired,
+    };
+  },
+});
+
+/**
  * Resend an invitation email
  * This schedules an action to resend the email
  */

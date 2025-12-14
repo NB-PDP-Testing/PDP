@@ -90,7 +90,9 @@ function RedirectToActiveOrg() {
     }
 
     if (!activeOrganization) {
-      router.push("/orgs");
+      // For new users without organizations, redirect to join page
+      // This allows them to browse and request to join organizations
+      router.push("/orgs/join" as Route);
       return;
     }
 

@@ -2,11 +2,12 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { Building2, ChevronRight, Search, Users } from "lucide-react";
+import { Building2, ChevronRight, Info, Search, Users } from "lucide-react";
 import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { authClient } from "@/lib/auth-client";
 
 function OrganizationCard({
   org,
@@ -74,7 +76,6 @@ function OrganizationCard({
 }
 
 export default function JoinOrganizationPage() {
-  // const { user } = useCurrentUser();
   const [searchTerm, setSearchTerm] = useState("");
 
   const organizations = useQuery(
@@ -83,6 +84,7 @@ export default function JoinOrganizationPage() {
   const userPendingRequests = useQuery(
     api.models.orgJoinRequests.getUserPendingRequests
   );
+  const { data: userOrganizations } = authClient.useListOrganizations();
 
   const isLoading =
     organizations === undefined || userPendingRequests === undefined;
@@ -91,6 +93,11 @@ export default function JoinOrganizationPage() {
   const pendingOrgIds = new Set(
     userPendingRequests?.map((req) => req.organizationId) || []
   );
+
+  // Check if this is a first-time user (no orgs, no pending requests)
+  const isFirstTimeUser =
+    (!userOrganizations || userOrganizations.length === 0) &&
+    (!userPendingRequests || userPendingRequests.length === 0);
 
   // Filter organizations
   const filteredOrgs = organizations?.filter((org: { name: string }) => {
@@ -125,15 +132,32 @@ export default function JoinOrganizationPage() {
           </p>
         </div>
 
-        {/* Back Link */}
-        <div className="mb-6">
-          <Link
-            className="flex items-center gap-1 text-sm text-white/80 hover:text-white"
-            href="/orgs"
-          >
-            ← Back to organizations
-          </Link>
-        </div>
+        {/* Back Link - Only show if user has organizations */}
+        {userOrganizations && userOrganizations.length > 0 && (
+          <div className="mb-6">
+            <Link
+              className="flex items-center gap-1 text-sm text-white/80 hover:text-white"
+              href="/orgs"
+            >
+              ← Back to organizations
+            </Link>
+          </div>
+        )}
+
+        {/* Welcome Message for First-Time Users */}
+        {isFirstTimeUser && !isLoading && (
+          <Alert className="mb-6 border-[#22c55e]/30 bg-[#22c55e]/10">
+            <Info className="h-4 w-4 text-[#22c55e]" />
+            <AlertDescription className="text-[#1E3A5F]">
+              <p className="font-semibold">Welcome to PlayerARC! 🎉</p>
+              <p className="mt-1 text-sm">
+                You're all set up. Browse the organizations below and request to
+                join one to get started. Once approved, you'll have access to
+                your organization's dashboard.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Main Content Card */}
         <Card className="shadow-lg">

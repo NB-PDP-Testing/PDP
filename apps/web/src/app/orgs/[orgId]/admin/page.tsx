@@ -6,6 +6,7 @@ import { Clock, Mail, Shield, UserCheck, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { getRoleColor } from "@/components/functional-role-indicator";
 import { OrgThemedButton } from "@/components/org-themed-button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -165,11 +166,8 @@ export default function OrgAdminOverviewPage() {
                       </div>
                     </div>
                     <Badge
-                      className="capitalize"
-                      style={{
-                        backgroundColor: "rgb(var(--org-secondary-rgb) / 0.2)",
-                        color: theme.secondary,
-                      }}
+                      className={`border capitalize ${getRoleColor(request.requestedRole)}`}
+                      variant="outline"
                     >
                       {request.requestedRole}
                     </Badge>

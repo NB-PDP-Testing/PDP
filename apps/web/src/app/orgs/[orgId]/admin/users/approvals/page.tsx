@@ -14,6 +14,7 @@ import {
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { getRoleColor } from "@/components/functional-role-indicator";
 import { OrgThemedButton } from "@/components/org-themed-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -124,11 +125,8 @@ export default function JoinRequestApprovalsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-semibold text-lg">{request.userName}</h3>
               <Badge
-                className="capitalize"
-                style={{
-                  backgroundColor: "rgb(var(--org-secondary-rgb) / 0.2)",
-                  color: theme.secondary,
-                }}
+                className={`border capitalize ${getRoleColor(request.requestedRole)}`}
+                variant="outline"
               >
                 {request.requestedRole}
               </Badge>

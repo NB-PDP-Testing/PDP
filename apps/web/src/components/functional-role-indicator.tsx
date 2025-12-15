@@ -11,14 +11,15 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
-type FunctionalRole = "coach" | "parent" | "admin";
+export type FunctionalRole = "coach" | "parent" | "admin";
 
 interface FunctionalRoleIndicatorProps {
   functionalRoles?: FunctionalRole[];
   className?: string;
 }
 
-function getRoleIcon(role: FunctionalRole) {
+// Exported for use in other components that display role badges
+export function getRoleIcon(role: FunctionalRole) {
   switch (role) {
     case "coach":
       return <Users className="h-4 w-4 text-green-600" />;
@@ -31,7 +32,8 @@ function getRoleIcon(role: FunctionalRole) {
   }
 }
 
-function getRoleLabel(role: FunctionalRole): string {
+// Exported for use in other components that display role badges
+export function getRoleLabel(role: FunctionalRole): string {
   switch (role) {
     case "coach":
       return "Coach";
@@ -44,7 +46,15 @@ function getRoleLabel(role: FunctionalRole): string {
   }
 }
 
-function getRoleColor(role: FunctionalRole): string {
+/**
+ * Get the semantic color classes for a functional role badge.
+ * These colors are FIXED and should NOT be overridden by org theme colors.
+ * - Coach: Green
+ * - Parent: Blue
+ * - Admin: Purple
+ * - Default: Gray
+ */
+export function getRoleColor(role: FunctionalRole | string): string {
   switch (role) {
     case "coach":
       return "bg-green-100 text-green-700 border-green-200";

@@ -42,7 +42,8 @@ import { authClient } from "@/lib/auth-client";
 
 // Regex patterns at module level for performance
 const HEX_COLOR_REGEX = /^#[0-9A-F]{6}$/i;
-const HEX_INPUT_REGEX = /^#[0-9A-F]{0,6}$/i;
+// Allow typing with or without # prefix, will be normalized
+const HEX_INPUT_REGEX = /^#?[0-9A-F]{0,6}$/i;
 
 // Default colors
 const DEFAULT_COLORS = {
@@ -834,7 +835,11 @@ export default function CreateOrganizationPage() {
                           className="flex-1 font-mono text-sm"
                           disabled={loading}
                           onChange={(e) => {
-                            const value = e.target.value.toUpperCase();
+                            let value = e.target.value.toUpperCase();
+                            // Add # prefix if missing and value has content
+                            if (value && !value.startsWith("#")) {
+                              value = "#" + value;
+                            }
                             if (HEX_INPUT_REGEX.test(value) || value === "") {
                               const newColors = [...colors];
                               newColors[0] = value;
@@ -872,7 +877,11 @@ export default function CreateOrganizationPage() {
                           className="flex-1 font-mono text-sm"
                           disabled={loading}
                           onChange={(e) => {
-                            const value = e.target.value.toUpperCase();
+                            let value = e.target.value.toUpperCase();
+                            // Add # prefix if missing and value has content
+                            if (value && !value.startsWith("#")) {
+                              value = "#" + value;
+                            }
                             if (HEX_INPUT_REGEX.test(value) || value === "") {
                               const newColors = [...colors];
                               newColors[1] = value;
@@ -910,7 +919,11 @@ export default function CreateOrganizationPage() {
                           className="flex-1 font-mono text-sm"
                           disabled={loading}
                           onChange={(e) => {
-                            const value = e.target.value.toUpperCase();
+                            let value = e.target.value.toUpperCase();
+                            // Add # prefix if missing and value has content
+                            if (value && !value.startsWith("#")) {
+                              value = "#" + value;
+                            }
                             if (HEX_INPUT_REGEX.test(value) || value === "") {
                               const newColors = [...colors];
                               newColors[2] = value;

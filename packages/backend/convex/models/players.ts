@@ -266,6 +266,74 @@ export const getPlayersForCoach = query({
 });
 
 /**
+ * Get players linked to a parent by email matching
+ * Matches against parentEmail, inferredParentEmail, parentEmails[], and parents[].email
+ *
+ * Access Control: This query filters players based on parent email match,
+ * so only the parent's own children are returned.
+ */
+export const getPlayersForParent = query({
+  args: {
+    organizationId: v.string(),
+    parentEmail: v.string(),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.parentEmail.toLowerCase().trim();
+
+    // Get all players in the organization
+    const allPlayers = await ctx.db
+      .query("players")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // Filter players that match the parent's email
+    const linkedPlayers = allPlayers.filter((player) => {
+      // Check direct parentEmail field
+      if (player.parentEmail?.toLowerCase().trim() === normalizedEmail) {
+        return true;
+      }
+
+      // Check inferredParentEmail field
+      if (
+        player.inferredParentEmail?.toLowerCase().trim() === normalizedEmail
+      ) {
+        return true;
+      }
+
+      // Check parentEmails array
+      if (
+        player.parentEmails?.some(
+          (email: string) => email.toLowerCase().trim() === normalizedEmail
+        )
+      ) {
+        return true;
+      }
+
+      // Check parents array
+      if (
+        player.parents?.some(
+          (parent: { email?: string }) =>
+            parent.email?.toLowerCase().trim() === normalizedEmail
+        )
+      ) {
+        return true;
+      }
+
+      return false;
+    });
+
+    console.log(
+      `[getPlayersForParent] Found ${linkedPlayers.length} players linked to ${normalizedEmail}`
+    );
+
+    return linkedPlayers;
+  },
+});
+
+/**
  * Get a single player by ID
  */
 export const getPlayerById = query({

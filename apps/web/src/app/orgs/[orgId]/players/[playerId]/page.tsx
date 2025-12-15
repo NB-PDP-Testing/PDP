@@ -5,7 +5,7 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { ArrowLeft, Edit, Loader2, Share2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { BasicInformationSection } from "./components/basic-info-section";
@@ -31,8 +31,38 @@ export default function PlayerPassportPage() {
   // Get current user session
   const { data: session } = authClient.useSession();
 
-  // Determine user role in organization (TODO: Implement proper role checking)
-  const isCoach = true; // For now, assume all logged-in users can edit
+  // Get user's role details in this organization
+  const roleDetails = useQuery(
+    api.models.members.getMemberRoleDetails,
+    session?.user?.email
+      ? { organizationId: orgId, userEmail: session.user.email }
+      : "skip"
+  );
+
+  // Determine user permissions based on functional roles
+  const permissions = useMemo(() => {
+    if (!roleDetails) {
+      return { canEdit: false, canViewNotes: false, isParent: false };
+    }
+
+    const { betterAuthRole, functionalRoles } = roleDetails;
+
+    // Check functional roles for capabilities
+    const isAdmin =
+      functionalRoles.includes("admin") ||
+      betterAuthRole === "owner" ||
+      betterAuthRole === "admin";
+    const isCoach = functionalRoles.includes("coach");
+    const isParent = functionalRoles.includes("parent");
+
+    // Coaches and admins can edit player data
+    const canEdit = isAdmin || isCoach;
+
+    // All roles can view notes, but only coaches/admins can edit
+    const canViewNotes = isAdmin || isCoach || isParent;
+
+    return { canEdit, canViewNotes, isParent, isAdmin, isCoach };
+  }, [roleDetails]);
 
   if (playerData === undefined) {
     return (
@@ -83,7 +113,7 @@ export default function PlayerPassportPage() {
           Back
         </Button>
 
-        {isCoach && (
+        {permissions.canEdit && (
           <Button onClick={handleEdit} variant="default">
             <Edit className="mr-2 h-4 w-4" />
             Edit Player
@@ -115,7 +145,7 @@ export default function PlayerPassportPage() {
         <GoalsSection player={playerData} />
         <SkillsSection player={playerData} />
         <PositionsFitnessSection player={playerData} />
-        <NotesSection isCoach={isCoach} player={playerData} />
+        <NotesSection isCoach={permissions.canEdit} player={playerData} />
       </div>
     </div>
   );

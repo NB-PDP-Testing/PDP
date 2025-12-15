@@ -13,7 +13,6 @@ import {
   BarChart3,
   Building2,
   ChevronRight,
-  Clock,
   Globe,
   Plus,
   Search,
@@ -24,13 +23,16 @@ import {
   Target,
   UserPlus,
   Users,
-  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+  type JoinRequest,
+  JoinRequestSection,
+} from "@/components/join-request-status";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -362,12 +364,20 @@ export default function OrganizationsPage() {
     }
   }, [user, router]);
 
-  // Get pending join requests
-  const pendingRequests = useQuery(
-    api.models.orgJoinRequests.getUserPendingRequests
+  // Get all user's join requests (pending and rejected)
+  const allJoinRequests = useQuery(
+    api.models.orgJoinRequests.getUserJoinRequests
   );
   const cancelRequest = useMutation(
     api.models.orgJoinRequests.cancelJoinRequest
+  );
+
+  // Filter requests by status
+  const pendingRequests = allJoinRequests?.filter(
+    (r) => r.status === "pending"
+  );
+  const rejectedRequests = allJoinRequests?.filter(
+    (r) => r.status === "rejected"
   );
 
   // Get all users for platform staff management (only if platform staff)
@@ -657,60 +667,12 @@ export default function OrganizationsPage() {
                 </Card>
               )}
 
-              {/* Pending Membership Requests */}
-              {pendingRequests && pendingRequests.length > 0 && (
-                <div className="mt-8">
-                  <h2 className="mb-4 font-semibold text-[#1E3A5F] text-xl">
-                    Pending Membership
-                  </h2>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {pendingRequests.map((request) => (
-                      <Card key={request._id}>
-                        <CardHeader>
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-500/10">
-                                <Clock className="h-5 w-5 text-yellow-600" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <CardTitle className="truncate text-base">
-                                  {request.organizationName}
-                                </CardTitle>
-                                <CardDescription className="mt-1">
-                                  <Badge
-                                    className="capitalize"
-                                    variant="secondary"
-                                  >
-                                    {request.requestedRole}
-                                  </Badge>
-                                </CardDescription>
-                              </div>
-                            </div>
-                            <Button
-                              onClick={() => handleCancelRequest(request._id)}
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="text-muted-foreground text-xs">
-                            Requested{" "}
-                            {new Date(request.requestedAt).toLocaleDateString()}
-                          </div>
-                          {request.message && (
-                            <p className="mt-2 text-muted-foreground text-sm">
-                              {request.message}
-                            </p>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Join Request Status Section */}
+              <JoinRequestSection
+                onCancelRequest={handleCancelRequest}
+                pendingRequests={(pendingRequests ?? []) as JoinRequest[]}
+                rejectedRequests={(rejectedRequests ?? []) as JoinRequest[]}
+              />
             </div>
 
             {/* All Platform Organizations - Only visible to platform staff */}

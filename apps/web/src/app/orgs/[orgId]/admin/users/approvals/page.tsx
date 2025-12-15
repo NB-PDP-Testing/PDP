@@ -5,10 +5,16 @@ import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   Calendar,
+  Check,
   CheckCircle,
+  ChevronDown,
+  ChevronUp,
   Mail,
   Search,
+  Shield,
+  Star,
   UserCircle,
+  Users,
   XCircle,
 } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -19,6 +25,7 @@ import { OrgThemedButton } from "@/components/org-themed-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -28,9 +35,48 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useOrgTheme } from "@/hooks/use-org-theme";
+
+// Types for smart match results
+interface SmartMatch {
+  _id: string;
+  name: string;
+  ageGroup: string;
+  sport: string;
+  matchScore: number;
+  matchReasons: string[];
+  confidence: "high" | "medium" | "low" | "none";
+  existingParentEmail: string | null;
+}
+
+// Confidence badge colors
+function getConfidenceBadge(confidence: SmartMatch["confidence"]) {
+  switch (confidence) {
+    case "high":
+      return (
+        <Badge className="border-green-300 bg-green-100 text-green-700">
+          <Star className="mr-1 h-3 w-3" /> High Match
+        </Badge>
+      );
+    case "medium":
+      return (
+        <Badge className="border-yellow-300 bg-yellow-100 text-yellow-700">
+          Medium Match
+        </Badge>
+      );
+    case "low":
+      return (
+        <Badge className="border-gray-300 bg-gray-100 text-gray-700">
+          Low Match
+        </Badge>
+      );
+    default:
+      return null;
+  }
+}
 
 export default function JoinRequestApprovalsPage() {
   const params = useParams();
@@ -48,14 +94,41 @@ export default function JoinRequestApprovalsPage() {
     api.models.orgJoinRequests.rejectJoinRequest
   );
 
+  // Get teams for coach assignment
+  const teams = useQuery(api.models.teams.getTeamsByOrganization, {
+    organizationId: orgId,
+  });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<{
     _id: string;
     userName: string;
+    userEmail: string;
+    requestedFunctionalRoles?: string[];
+    requestedRole: string;
   } | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
+
+  // Role configuration state for approval
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const [expandedMatches, setExpandedMatches] = useState(false);
+
+  // Fetch smart matches for the selected parent request
+  const smartMatches = useQuery(
+    api.models.players.getSmartMatchesForParent,
+    selectedRequest &&
+      (selectedRequest.requestedFunctionalRoles?.includes("parent") ||
+        selectedRequest.requestedRole === "parent")
+      ? {
+          organizationId: orgId,
+          email: selectedRequest.userEmail,
+        }
+      : "skip"
+  );
 
   const isLoading = pendingRequests === undefined;
 
@@ -68,7 +141,29 @@ export default function JoinRequestApprovalsPage() {
     return searchable.includes(searchTerm.toLowerCase());
   });
 
-  const handleApprove = async (requestId: string) => {
+  const handleApprove = async () => {
+    if (!selectedRequest) return;
+
+    setLoading(selectedRequest._id);
+    try {
+      await approveRequest({
+        requestId: selectedRequest._id as any,
+        coachTeams: selectedTeams.length > 0 ? selectedTeams : undefined,
+        linkedPlayerIds:
+          selectedPlayerIds.length > 0 ? selectedPlayerIds : undefined,
+      });
+      toast.success("Join request approved");
+      setApproveDialogOpen(false);
+      resetApprovalState();
+    } catch (error) {
+      console.error("Error approving request:", error);
+      toast.error("Failed to approve request");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleQuickApprove = async (requestId: string) => {
     setLoading(requestId);
     try {
       await approveRequest({ requestId: requestId as any });
@@ -102,10 +197,66 @@ export default function JoinRequestApprovalsPage() {
     }
   };
 
-  const openRejectDialog = (request: { _id: string; userName: string }) => {
-    setSelectedRequest(request);
+  const openRejectDialog = (request: {
+    _id: string;
+    userName: string;
+    userEmail: string;
+  }) => {
+    setSelectedRequest(request as any);
     setRejectionReason("");
     setRejectDialogOpen(true);
+  };
+
+  const openApproveDialog = (request: any) => {
+    setSelectedRequest(request);
+    setSelectedTeams([]);
+    setSelectedPlayerIds([]);
+    setExpandedMatches(false);
+    setApproveDialogOpen(true);
+  };
+
+  const resetApprovalState = () => {
+    setSelectedRequest(null);
+    setSelectedTeams([]);
+    setSelectedPlayerIds([]);
+    setExpandedMatches(false);
+  };
+
+  const toggleTeam = (teamName: string) => {
+    setSelectedTeams((prev) =>
+      prev.includes(teamName)
+        ? prev.filter((t) => t !== teamName)
+        : [...prev, teamName]
+    );
+  };
+
+  const togglePlayer = (playerId: string) => {
+    setSelectedPlayerIds((prev) =>
+      prev.includes(playerId)
+        ? prev.filter((p) => p !== playerId)
+        : [...prev, playerId]
+    );
+  };
+
+  // Check if request needs configuration
+  const needsConfiguration = (request: any) => {
+    const roles = request.requestedFunctionalRoles || [];
+    return (
+      roles.includes("coach") ||
+      roles.includes("parent") ||
+      request.requestedRole === "coach" ||
+      request.requestedRole === "parent"
+    );
+  };
+
+  const isCoachRequest = (request: any) => {
+    const roles = request.requestedFunctionalRoles || [];
+    return roles.includes("coach") || request.requestedRole === "coach";
+  };
+
+  const isParentRequest = (request: any) => {
+    const roles = request.requestedFunctionalRoles || [];
+    return roles.includes("parent") || request.requestedRole === "parent";
   };
 
   const RequestCard = ({ request }: { request: any }) => (
@@ -124,7 +275,7 @@ export default function JoinRequestApprovalsPage() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-semibold text-lg">{request.userName}</h3>
-              {/* Show functional roles (coach, parent) if available */}
+              {/* Show functional roles (coach, parent, admin) if available */}
               {request.requestedFunctionalRoles?.length > 0 ? (
                 request.requestedFunctionalRoles.map((role: string) => (
                   <Badge
@@ -132,6 +283,11 @@ export default function JoinRequestApprovalsPage() {
                     key={role}
                     variant="outline"
                   >
+                    {role === "admin" && <Shield className="mr-1 h-3 w-3" />}
+                    {role === "coach" && <Users className="mr-1 h-3 w-3" />}
+                    {role === "parent" && (
+                      <UserCircle className="mr-1 h-3 w-3" />
+                    )}
                     {role}
                   </Badge>
                 ))
@@ -177,6 +333,7 @@ export default function JoinRequestApprovalsPage() {
               openRejectDialog({
                 _id: request._id,
                 userName: request.userName,
+                userEmail: request.userEmail,
               })
             }
             size="sm"
@@ -185,15 +342,29 @@ export default function JoinRequestApprovalsPage() {
             <XCircle className="mr-2 h-4 w-4" />
             Reject
           </Button>
-          <OrgThemedButton
-            disabled={loading === request._id}
-            onClick={() => handleApprove(request._id)}
-            size="sm"
-            variant="primary"
-          >
-            <CheckCircle className="mr-2 h-4 w-4" />
-            {loading === request._id ? "Approving..." : "Approve & Add to Org"}
-          </OrgThemedButton>
+          {needsConfiguration(request) ? (
+            <OrgThemedButton
+              disabled={loading === request._id}
+              onClick={() => openApproveDialog(request)}
+              size="sm"
+              variant="primary"
+            >
+              <CheckCircle className="mr-2 h-4 w-4" />
+              Configure & Approve
+            </OrgThemedButton>
+          ) : (
+            <OrgThemedButton
+              disabled={loading === request._id}
+              onClick={() => handleQuickApprove(request._id)}
+              size="sm"
+              variant="primary"
+            >
+              <CheckCircle className="mr-2 h-4 w-4" />
+              {loading === request._id
+                ? "Approving..."
+                : "Approve & Add to Org"}
+            </OrgThemedButton>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -216,6 +387,12 @@ export default function JoinRequestApprovalsPage() {
       <p className="mt-1 text-muted-foreground">{description}</p>
     </div>
   );
+
+  // Get high confidence matches
+  const highConfidenceMatches =
+    smartMatches?.filter((m) => m.confidence === "high") || [];
+  const otherMatches =
+    smartMatches?.filter((m) => m.confidence !== "high") || [];
 
   return (
     <div className="space-y-6">
@@ -320,6 +497,236 @@ export default function JoinRequestApprovalsPage() {
             >
               {loading ? "Rejecting..." : "Confirm Rejection"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approval Configuration Dialog */}
+      <Dialog
+        onOpenChange={(open) => {
+          setApproveDialogOpen(open);
+          if (!open) resetApprovalState();
+        }}
+        open={approveDialogOpen}
+      >
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Configure & Approve Request
+            </DialogTitle>
+            <DialogDescription>
+              Configure role-specific settings for {selectedRequest?.userName}{" "}
+              before approving their request.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Requested Roles */}
+            <div>
+              <Label className="font-medium text-sm">Requested Roles</Label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {selectedRequest?.requestedFunctionalRoles?.map(
+                  (role: string) => (
+                    <Badge
+                      className={`border capitalize ${getRoleColor(role)}`}
+                      key={role}
+                      variant="outline"
+                    >
+                      {role}
+                    </Badge>
+                  )
+                ) || (
+                  <Badge
+                    className={`border capitalize ${getRoleColor(selectedRequest?.requestedRole || "")}`}
+                    variant="outline"
+                  >
+                    {selectedRequest?.requestedRole}
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Coach Team Assignment */}
+            {selectedRequest && isCoachRequest(selectedRequest) && (
+              <div className="space-y-3">
+                <Label className="font-medium text-sm">
+                  Assign Teams (Coach)
+                </Label>
+                <p className="text-muted-foreground text-sm">
+                  Select which teams this coach will be assigned to.
+                </p>
+                <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border p-3">
+                  {teams && teams.length > 0 ? (
+                    teams.map((team) => (
+                      <div
+                        className="flex items-center gap-3"
+                        key={team._id}
+                        onClick={() => toggleTeam(team.name)}
+                      >
+                        <Checkbox
+                          checked={selectedTeams.includes(team.name)}
+                          onCheckedChange={() => toggleTeam(team.name)}
+                        />
+                        <div className="flex-1">
+                          <span className="font-medium">{team.name}</span>
+                        </div>
+                        {selectedTeams.includes(team.name) && (
+                          <Check className="h-4 w-4 text-green-600" />
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="py-4 text-center text-muted-foreground text-sm">
+                      No teams available. Teams can be assigned later.
+                    </p>
+                  )}
+                </div>
+                {selectedTeams.length > 0 && (
+                  <p className="text-muted-foreground text-xs">
+                    {selectedTeams.length} team(s) selected
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Parent Player Linking */}
+            {selectedRequest && isParentRequest(selectedRequest) && (
+              <div className="space-y-3">
+                <Label className="font-medium text-sm">
+                  Link Children (Parent)
+                </Label>
+                <p className="text-muted-foreground text-sm">
+                  Select which players are this parent's children. Smart
+                  matching found potential matches based on email and other
+                  data.
+                </p>
+
+                {/* High Confidence Matches */}
+                {highConfidenceMatches.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="font-medium text-green-700 text-sm">
+                      High Confidence Matches
+                    </p>
+                    <div className="space-y-2 rounded-lg border border-green-200 bg-green-50 p-3">
+                      {highConfidenceMatches.map((match) => (
+                        <div
+                          className="flex cursor-pointer items-center gap-3 rounded p-2 hover:bg-green-100"
+                          key={match._id}
+                          onClick={() => togglePlayer(match._id)}
+                        >
+                          <Checkbox
+                            checked={selectedPlayerIds.includes(match._id)}
+                            onCheckedChange={() => togglePlayer(match._id)}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{match.name}</span>
+                              {getConfidenceBadge(match.confidence)}
+                            </div>
+                            <p className="text-muted-foreground text-xs">
+                              {match.ageGroup} • {match.sport}
+                            </p>
+                            <p className="text-green-700 text-xs">
+                              {match.matchReasons.join(" • ")}
+                            </p>
+                          </div>
+                          {selectedPlayerIds.includes(match._id) && (
+                            <Check className="h-4 w-4 text-green-600" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Other Matches (collapsed by default) */}
+                {otherMatches.length > 0 && (
+                  <div className="space-y-2">
+                    <button
+                      className="flex items-center gap-2 text-muted-foreground text-sm hover:text-foreground"
+                      onClick={() => setExpandedMatches(!expandedMatches)}
+                      type="button"
+                    >
+                      {expandedMatches ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                      {otherMatches.length} other potential matches
+                    </button>
+                    {expandedMatches && (
+                      <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border p-3">
+                        {otherMatches.map((match) => (
+                          <div
+                            className="flex cursor-pointer items-center gap-3 rounded p-2 hover:bg-muted"
+                            key={match._id}
+                            onClick={() => togglePlayer(match._id)}
+                          >
+                            <Checkbox
+                              checked={selectedPlayerIds.includes(match._id)}
+                              onCheckedChange={() => togglePlayer(match._id)}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">
+                                  {match.name}
+                                </span>
+                                {getConfidenceBadge(match.confidence)}
+                              </div>
+                              <p className="text-muted-foreground text-xs">
+                                {match.ageGroup} • {match.sport}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                {match.matchReasons.join(" • ")}
+                              </p>
+                            </div>
+                            {selectedPlayerIds.includes(match._id) && (
+                              <Check className="h-4 w-4 text-green-600" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {smartMatches?.length === 0 && (
+                  <div className="rounded-lg border border-dashed p-4 text-center">
+                    <p className="text-muted-foreground text-sm">
+                      No potential matches found. Players can be linked manually
+                      later.
+                    </p>
+                  </div>
+                )}
+
+                {selectedPlayerIds.length > 0 && (
+                  <p className="text-muted-foreground text-xs">
+                    {selectedPlayerIds.length} player(s) will be linked
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              disabled={loading !== null}
+              onClick={() => {
+                setApproveDialogOpen(false);
+                resetApprovalState();
+              }}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <OrgThemedButton
+              disabled={loading !== null}
+              onClick={handleApprove}
+              variant="primary"
+            >
+              {loading ? "Approving..." : "Approve & Add to Org"}
+            </OrgThemedButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -925,6 +925,344 @@ export const unlinkPlayersFromParent = mutation({
   },
 });
 
+// ============================================================================
+// SMART MATCHING FOR PARENTS
+// ============================================================================
+
+/**
+ * Helper: Normalize a name for matching - extracts first and last name, ignoring middle names
+ */
+function normalizeNameForMatching(name: string): {
+  normalized: string;
+  firstName: string;
+  lastName: string;
+} {
+  const parts = name.trim().toLowerCase().split(/\s+/);
+  if (parts.length === 0) {
+    return { normalized: "", firstName: "", lastName: "" };
+  }
+  const firstName = parts[0];
+  const lastName = parts.length > 1 ? parts[parts.length - 1] : "";
+  return {
+    normalized: `${firstName} ${lastName}`.trim(),
+    firstName,
+    lastName,
+  };
+}
+
+/**
+ * Helper: Clean postcode for comparison
+ */
+function cleanPostcode(postcode: string | undefined): string {
+  return (postcode || "").toUpperCase().replace(/\s/g, "");
+}
+
+/**
+ * Helper: Extract house number from address
+ */
+function extractHouseNumber(address: string | undefined): string {
+  const match = (address || "").match(/^\d+/);
+  return match ? match[0] : "";
+}
+
+/**
+ * Get smart matches for a parent joining an organization
+ * Returns players with confidence scores and match reasons
+ *
+ * Matching criteria:
+ * - Email match: 50 points (highest confidence)
+ * - Child name match: 25-40 points (tiered by match quality)
+ * - Age bonus: 20 points (when name matches AND age within 1 year)
+ * - Surname match: 25 points
+ * - Phone match: 15 points (last 10 digits)
+ * - Postcode match: 20 points
+ * - Town match: 10 points
+ * - House number match: 5 points
+ *
+ * Confidence tiers:
+ * - High: 60+ points
+ * - Medium: 30-59 points
+ * - Low: 10-29 points
+ * - None: 0-9 points
+ */
+export const getSmartMatchesForParent = query({
+  args: {
+    organizationId: v.string(),
+    email: v.string(),
+    surname: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    children: v.optional(v.string()), // JSON string of [{name, age?, team?}]
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("players"),
+      name: v.string(),
+      ageGroup: v.string(),
+      sport: v.string(),
+      dateOfBirth: v.union(v.string(), v.null()),
+      // Parent info from import
+      inferredParentFirstName: v.union(v.string(), v.null()),
+      inferredParentSurname: v.union(v.string(), v.null()),
+      inferredParentEmail: v.union(v.string(), v.null()),
+      inferredParentPhone: v.union(v.string(), v.null()),
+      // Address info
+      address: v.union(v.string(), v.null()),
+      town: v.union(v.string(), v.null()),
+      postcode: v.union(v.string(), v.null()),
+      // Match scoring
+      matchScore: v.number(),
+      matchReasons: v.array(v.string()),
+      confidence: v.union(
+        v.literal("high"),
+        v.literal("medium"),
+        v.literal("low"),
+        v.literal("none")
+      ),
+      // Existing links
+      existingParentEmail: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all players in the organization
+    const allPlayers = await ctx.db
+      .query("players")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // Parse children if provided
+    let childrenData: Array<{ name: string; age?: number; team?: string }> = [];
+    if (args.children) {
+      try {
+        childrenData = JSON.parse(args.children);
+      } catch (e) {
+        console.warn(
+          "[getSmartMatchesForParent] Failed to parse children JSON"
+        );
+      }
+    }
+
+    // Normalize input data
+    const normalizedEmail = args.email.toLowerCase().trim();
+    const normalizedSurname = args.surname?.toLowerCase().trim() || "";
+    const normalizedPhone = (args.phone || "").replace(/\D/g, "").slice(-10);
+    const inputPostcode = cleanPostcode(args.address);
+    const inputHouseNumber = extractHouseNumber(args.address);
+
+    // Common NI towns for address matching
+    const niTowns = [
+      "armagh",
+      "dungannon",
+      "portadown",
+      "lurgan",
+      "craigavon",
+      "moy",
+      "loughgall",
+      "richhill",
+      "markethill",
+      "keady",
+      "crossmaglen",
+      "newry",
+      "belfast",
+      "lisburn",
+      "banbridge",
+      "tandragee",
+    ];
+
+    // Extract town from address if present
+    const inputAddressLower = (args.address || "").toLowerCase();
+    const inputTown = niTowns.find((town) => inputAddressLower.includes(town));
+
+    // Score each player
+    const scoredPlayers = allPlayers.map((player) => {
+      let score = 0;
+      const matchReasons: string[] = [];
+
+      // 1. Email match - 50 points (highest confidence)
+      const playerEmail = (player.inferredParentEmail || "")
+        .toLowerCase()
+        .trim();
+      if (playerEmail && playerEmail === normalizedEmail) {
+        score += 50;
+        matchReasons.push("Email match");
+      }
+
+      // Also check parentEmail field
+      const directParentEmail = (player.parentEmail || "").toLowerCase().trim();
+      if (
+        directParentEmail &&
+        directParentEmail === normalizedEmail &&
+        !matchReasons.includes("Email match")
+      ) {
+        score += 50;
+        matchReasons.push("Email match");
+      }
+
+      // 2. Child name matching - 25-40 points (tiered)
+      if (childrenData.length > 0) {
+        const playerNameParts = normalizeNameForMatching(player.name);
+
+        for (const child of childrenData) {
+          const childNameParts = normalizeNameForMatching(child.name);
+
+          // Tier 1: Exact normalized match (ignores middle names) - 40 points
+          if (
+            playerNameParts.normalized === childNameParts.normalized &&
+            playerNameParts.normalized.length > 0
+          ) {
+            if (!matchReasons.some((r) => r.includes("Child name"))) {
+              score += 40;
+              matchReasons.push(`Child name exact match: ${child.name}`);
+            }
+
+            // Age bonus - 20 points if name matches AND age within 1 year
+            if (child.age && player.dateOfBirth) {
+              try {
+                const birthYear = new Date(player.dateOfBirth).getFullYear();
+                const currentYear = new Date().getFullYear();
+                const playerAge = currentYear - birthYear;
+                if (Math.abs(playerAge - child.age) <= 1) {
+                  score += 20;
+                  matchReasons.push(`Age confirmed: ~${playerAge} years`);
+                }
+              } catch (e) {
+                // Invalid date, skip age bonus
+              }
+            }
+          }
+          // Tier 2: First + Last name match - 35 points
+          else if (
+            playerNameParts.firstName === childNameParts.firstName &&
+            playerNameParts.lastName === childNameParts.lastName &&
+            playerNameParts.firstName.length > 0 &&
+            playerNameParts.lastName.length > 0
+          ) {
+            if (!matchReasons.some((r) => r.includes("Child name"))) {
+              score += 35;
+              matchReasons.push(`Child name match: ${child.name}`);
+            }
+          }
+          // Tier 3: First name only - 25 points
+          else if (
+            playerNameParts.firstName === childNameParts.firstName &&
+            playerNameParts.firstName.length > 2 &&
+            !matchReasons.some((r) => r.includes("Child name"))
+          ) {
+            score += 25;
+            matchReasons.push(
+              `Child first name match: ${childNameParts.firstName}`
+            );
+          }
+        }
+      }
+
+      // 3. Surname match - 25 points
+      if (normalizedSurname) {
+        const playerSurname = (
+          player.inferredParentSurname ||
+          player.parentSurname ||
+          ""
+        )
+          .toLowerCase()
+          .trim();
+        const playerNameParts = normalizeNameForMatching(player.name);
+
+        if (
+          (playerSurname && playerSurname === normalizedSurname) ||
+          playerNameParts.lastName === normalizedSurname
+        ) {
+          score += 25;
+          matchReasons.push("Surname match");
+        }
+      }
+
+      // 4. Phone match - 15 points (last 10 digits)
+      if (normalizedPhone.length >= 10) {
+        const playerPhone = (
+          player.inferredParentPhone ||
+          player.parentPhone ||
+          ""
+        )
+          .replace(/\D/g, "")
+          .slice(-10);
+        if (playerPhone.length >= 10 && playerPhone === normalizedPhone) {
+          score += 15;
+          matchReasons.push("Phone match");
+        }
+      }
+
+      // 5. Address matching
+      // Postcode - 20 points (strong signal)
+      const playerPostcode = cleanPostcode(player.postcode);
+      if (inputPostcode && playerPostcode && inputPostcode === playerPostcode) {
+        score += 20;
+        matchReasons.push("Postcode match");
+      }
+
+      // Town - 10 points (medium signal)
+      const playerAddressLower = (player.address || "").toLowerCase();
+      const playerTown =
+        (player.town || "").toLowerCase() ||
+        niTowns.find((town) => playerAddressLower.includes(town));
+      if (inputTown && playerTown && inputTown === playerTown) {
+        score += 10;
+        matchReasons.push(`Town match: ${inputTown}`);
+      }
+
+      // House number - 5 points (weak signal, tiebreaker)
+      const playerHouseNumber = extractHouseNumber(player.address);
+      if (
+        inputHouseNumber &&
+        playerHouseNumber &&
+        inputHouseNumber === playerHouseNumber
+      ) {
+        score += 5;
+        matchReasons.push("House number match");
+      }
+
+      // Determine confidence tier
+      let confidence: "high" | "medium" | "low" | "none";
+      if (score >= 60) {
+        confidence = "high";
+      } else if (score >= 30) {
+        confidence = "medium";
+      } else if (score >= 10) {
+        confidence = "low";
+      } else {
+        confidence = "none";
+      }
+
+      return {
+        _id: player._id,
+        name: player.name,
+        ageGroup: player.ageGroup,
+        sport: player.sport,
+        dateOfBirth: player.dateOfBirth || null,
+        inferredParentFirstName: player.inferredParentFirstName || null,
+        inferredParentSurname: player.inferredParentSurname || null,
+        inferredParentEmail: player.inferredParentEmail || null,
+        inferredParentPhone: player.inferredParentPhone || null,
+        address: player.address || null,
+        town: player.town || null,
+        postcode: player.postcode || null,
+        matchScore: score,
+        matchReasons,
+        confidence,
+        existingParentEmail: player.parentEmail || null,
+      };
+    });
+
+    // Filter out players with no matches and sort by score
+    const matches = scoredPlayers
+      .filter((p) => p.matchScore > 0)
+      .sort((a, b) => b.matchScore - a.matchScore);
+
+    return matches;
+  },
+});
+
 /**
  * Auto-link a parent to their children based on email matching
  * This is called by the afterAddMember hook when a parent joins an organization

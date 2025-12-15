@@ -238,11 +238,17 @@ export const getUserPendingRequests = query({
  * Architecture Note:
  * - Creates member with Better Auth role "member" (hierarchy)
  * - Sets functionalRoles array based on requested functional roles
+ * - Can optionally configure role-specific data:
+ *   - For coaches: teams to assign
+ *   - For parents: players to link
  * - See: docs/COMPREHENSIVE_AUTH_PLAN.md
  */
 export const approveJoinRequest = mutation({
   args: {
     requestId: v.id("orgJoinRequests"),
+    // Optional role configuration
+    coachTeams: v.optional(v.array(v.string())), // Team names/IDs for coaches
+    linkedPlayerIds: v.optional(v.array(v.string())), // Player IDs for parents
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -322,6 +328,72 @@ export const approveJoinRequest = mutation({
         },
       },
     });
+
+    // Create coach assignment if coach role and teams provided
+    if (functionalRoles.includes("coach") && args.coachTeams?.length) {
+      // Check if coach assignment already exists
+      const existingAssignment = await ctx.db
+        .query("coachAssignments")
+        .withIndex("by_user_and_org", (q) =>
+          q
+            .eq("userId", request.userId)
+            .eq("organizationId", request.organizationId)
+        )
+        .first();
+
+      if (existingAssignment) {
+        // Merge teams
+        const mergedTeams = [
+          ...new Set([...existingAssignment.teams, ...args.coachTeams]),
+        ];
+        await ctx.db.patch(existingAssignment._id, {
+          teams: mergedTeams,
+          updatedAt: Date.now(),
+        });
+      } else {
+        // Create new assignment
+        await ctx.db.insert("coachAssignments", {
+          userId: request.userId,
+          organizationId: request.organizationId,
+          teams: args.coachTeams,
+          ageGroups: [], // Will be populated based on teams later
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
+      console.log(
+        `[approveJoinRequest] Created coach assignment with teams: ${args.coachTeams.join(", ")}`
+      );
+    }
+
+    // Link parent to players if parent role and player IDs provided
+    if (functionalRoles.includes("parent") && args.linkedPlayerIds?.length) {
+      const normalizedEmail = request.userEmail.toLowerCase().trim();
+
+      // Get all players from the organization to find matches
+      const allPlayers = await ctx.db
+        .query("players")
+        .withIndex("by_organizationId", (q) =>
+          q.eq("organizationId", request.organizationId)
+        )
+        .collect();
+      const playerMap = new Map(allPlayers.map((p) => [p._id.toString(), p]));
+
+      // Link each player to the parent
+      let linked = 0;
+      for (const playerId of args.linkedPlayerIds) {
+        const player = playerMap.get(playerId);
+        if (player && !player.parentEmail) {
+          await ctx.db.patch(player._id, {
+            parentEmail: normalizedEmail,
+          });
+          linked++;
+        }
+      }
+      console.log(
+        `[approveJoinRequest] Linked ${linked} players to parent ${request.userEmail}`
+      );
+    }
 
     // Update request status
     await ctx.db.patch(args.requestId, {

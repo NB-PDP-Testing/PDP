@@ -36,9 +36,9 @@ export default function AcceptInvitationPage() {
     invitationId ? { invitationId } : "skip"
   );
 
-  // Mutation to update functional roles
-  const updateMemberFunctionalRoles = useMutation(
-    api.models.members.updateMemberFunctionalRoles
+  // Mutation to sync functional roles from invitation metadata
+  const syncFunctionalRolesFromInvitation = useMutation(
+    api.models.members.syncFunctionalRolesFromInvitation
   );
 
   useEffect(() => {
@@ -292,45 +292,38 @@ export default function AcceptInvitationPage() {
 
         // Get the organization ID from the result
         const organizationId = result.data?.invitation?.organizationId;
-        const memberRole = result.data?.member?.role; // Better Auth role from invitation
 
         // Clear pending invitation from sessionStorage since we've accepted it
         if (typeof window !== "undefined") {
           sessionStorage.removeItem("pendingInvitationId");
         }
 
-        if (organizationId && session?.user?.id) {
-          // Map Better Auth role to functional roles
-          // If user was invited as "admin", give them "admin" functional role
-          // This ensures they show up with roles in the UI
-          const functionalRoles: ("coach" | "parent" | "admin")[] = [];
-
-          if (memberRole === "admin" || memberRole === "owner") {
-            functionalRoles.push("admin");
+        if (organizationId && session?.user?.id && session?.user?.email) {
+          // Sync functional roles from invitation metadata
+          // This handles:
+          // - Suggested functional roles from invitation metadata (coach, parent, admin)
+          // - Coach team assignments if specified
+          // - Parent-player links if specified
+          // Note: Auto-mapping Better Auth "admin"/"owner" → functional "admin" is done in beforeAddMember hook
+          try {
+            const syncResult = await syncFunctionalRolesFromInvitation({
+              invitationId,
+              organizationId,
+              userId: session.user.id,
+              userEmail: session.user.email,
+            });
             console.log(
-              "[AcceptInvitation] User invited as admin, setting admin functional role"
+              "[AcceptInvitation] Sync result:",
+              `roles: ${syncResult.functionalRolesAssigned.join(", ")}`,
+              `teams: ${syncResult.coachTeamsAssigned}`,
+              `players: ${syncResult.playersLinked}`
             );
-          }
-
-          // Set functional roles if needed
-          if (functionalRoles.length > 0) {
-            try {
-              await updateMemberFunctionalRoles({
-                organizationId,
-                userId: session.user.id,
-                functionalRoles,
-              });
-              console.log(
-                "[AcceptInvitation] Functional roles set:",
-                functionalRoles
-              );
-            } catch (error) {
-              console.error(
-                "[AcceptInvitation] Error setting functional roles:",
-                error
-              );
-              // Don't fail the invitation acceptance if this fails
-            }
+          } catch (error) {
+            console.error(
+              "[AcceptInvitation] Error syncing functional roles:",
+              error
+            );
+            // Don't fail the invitation acceptance if this fails
           }
 
           // Set the organization as active before redirecting

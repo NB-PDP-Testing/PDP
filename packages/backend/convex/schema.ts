@@ -374,16 +374,27 @@ export default defineSchema({
     .index("by_organizationId", ["organizationId"]),
 
   // Organization Join Requests
+  // Architecture Note: requestedRole is Better Auth hierarchy role (auto-inferred from functional roles)
+  // requestedFunctionalRoles contains capabilities (coach, parent, admin)
+  // See: docs/COMPREHENSIVE_AUTH_PLAN.md
   orgJoinRequests: defineTable({
     userId: v.string(), // Better Auth user ID
     userEmail: v.string(),
     userName: v.string(),
     organizationId: v.string(), // Better Auth organization ID
     organizationName: v.string(),
+    // Better Auth hierarchy role - auto-inferred from functional roles
     requestedRole: v.union(
       v.literal("member"),
-      v.literal("coach"),
-      v.literal("parent")
+      v.literal("admin"),
+      v.literal("coach"), // Deprecated, kept for backwards compatibility
+      v.literal("parent") // Deprecated, kept for backwards compatibility
+    ),
+    // Functional roles (capabilities) - the actual roles user wants
+    requestedFunctionalRoles: v.optional(
+      v.array(
+        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+      )
     ),
     status: v.union(
       v.literal("pending"),

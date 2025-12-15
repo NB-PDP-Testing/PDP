@@ -124,12 +124,26 @@ export default function JoinRequestApprovalsPage() {
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-semibold text-lg">{request.userName}</h3>
-              <Badge
-                className={`border capitalize ${getRoleColor(request.requestedRole)}`}
-                variant="outline"
-              >
-                {request.requestedRole}
-              </Badge>
+              {/* Show functional roles (coach, parent) if available */}
+              {request.requestedFunctionalRoles?.length > 0 ? (
+                request.requestedFunctionalRoles.map((role: string) => (
+                  <Badge
+                    className={`border capitalize ${getRoleColor(role)}`}
+                    key={role}
+                    variant="outline"
+                  >
+                    {role}
+                  </Badge>
+                ))
+              ) : (
+                /* Fall back to legacy requestedRole for backwards compatibility */
+                <Badge
+                  className={`border capitalize ${getRoleColor(request.requestedRole)}`}
+                  variant="outline"
+                >
+                  {request.requestedRole}
+                </Badge>
+              )}
             </div>
 
             <div className="mt-2 space-y-1 text-muted-foreground text-sm">

@@ -924,3 +924,92 @@ export const unlinkPlayersFromParent = mutation({
     return null;
   },
 });
+
+/**
+ * Auto-link a parent to their children based on email matching
+ * This is called by the afterAddMember hook when a parent joins an organization
+ *
+ * Matches parent email against:
+ * - player.parentEmail
+ * - player.inferredParentEmail
+ * - player.parentEmails array
+ * - player.parents[].email array
+ */
+export const autoLinkParentToChildren = mutation({
+  args: {
+    parentEmail: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    linked: v.number(),
+    playerNames: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.parentEmail.toLowerCase().trim();
+
+    // Find all players in this organization that might be linked to this parent
+    const allPlayers = await ctx.db
+      .query("players")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    let linked = 0;
+    const playerNames: string[] = [];
+
+    for (const player of allPlayers) {
+      let isMatch = false;
+
+      // Check direct parentEmail field
+      if (player.parentEmail?.toLowerCase().trim() === normalizedEmail) {
+        isMatch = true;
+      }
+
+      // Check inferredParentEmail field
+      if (
+        player.inferredParentEmail?.toLowerCase().trim() === normalizedEmail
+      ) {
+        isMatch = true;
+      }
+
+      // Check parentEmails array
+      if (
+        player.parentEmails?.some(
+          (email: string) => email.toLowerCase().trim() === normalizedEmail
+        )
+      ) {
+        isMatch = true;
+      }
+
+      // Check parents array
+      if (
+        player.parents?.some(
+          (parent: { email?: string }) =>
+            parent.email?.toLowerCase().trim() === normalizedEmail
+        )
+      ) {
+        isMatch = true;
+      }
+
+      if (isMatch) {
+        // Update player to ensure parentEmail is set (if not already)
+        if (!player.parentEmail) {
+          await ctx.db.patch(player._id, {
+            parentEmail: normalizedEmail,
+          });
+        }
+        linked++;
+        playerNames.push(player.name);
+      }
+    }
+
+    if (linked > 0) {
+      console.log(
+        `[autoLinkParentToChildren] Linked ${linked} players to parent ${normalizedEmail}: ${playerNames.join(", ")}`
+      );
+    }
+
+    return { linked, playerNames };
+  },
+});

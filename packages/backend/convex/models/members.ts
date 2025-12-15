@@ -192,6 +192,80 @@ export const getMembersByRole = query({
 });
 
 /**
+ * Add a single functional role to a member
+ * Used by the onMemberAdded hook for automatic role assignment
+ */
+export const addFunctionalRole = mutation({
+  args: {
+    organizationId: v.string(),
+    userId: v.string(),
+    functionalRole: v.union(
+      v.literal("coach"),
+      v.literal("parent"),
+      v.literal("admin")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Find the member record
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: args.userId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      console.warn(
+        `[addFunctionalRole] Member not found for userId=${args.userId}, orgId=${args.organizationId}`
+      );
+      return null;
+    }
+
+    // Get current functional roles and add new one if not already present
+    const currentRoles: ("coach" | "parent" | "admin")[] =
+      (memberResult as any).functionalRoles || [];
+    if (currentRoles.includes(args.functionalRole)) {
+      console.log(
+        `[addFunctionalRole] User already has ${args.functionalRole} role`
+      );
+      return null;
+    }
+
+    const updatedRoles = [...currentRoles, args.functionalRole];
+
+    // Update functional roles using the adapter
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
+        update: {
+          functionalRoles: updatedRoles,
+        },
+      },
+    });
+
+    console.log(
+      `[addFunctionalRole] Added ${args.functionalRole} role to user ${args.userId}`
+    );
+    return null;
+  },
+});
+
+/**
  * Update a member's functional roles (coach, parent, admin capabilities)
  * This is separate from their Better Auth org role (owner/admin/member)
  */
@@ -738,6 +812,343 @@ export const getInvitationById = query({
       status: invitationResult.status,
       expiresAt: invitationResult.expiresAt,
       isExpired,
+    };
+  },
+});
+
+/**
+ * Migration: Convert legacy Better Auth roles to new architecture
+ *
+ * This migration:
+ * - Converts members with role "coach" or "parent" to role "member"
+ * - Preserves their capabilities in the functionalRoles array
+ *
+ * Run this once per organization after deploying the new role architecture.
+ * See: docs/COMPREHENSIVE_AUTH_PLAN.md
+ */
+export const migrateCoachParentRolesToMember = mutation({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    migrated: v.number(),
+    skipped: v.number(),
+    details: v.array(
+      v.object({
+        email: v.string(),
+        oldRole: v.string(),
+        newFunctionalRoles: v.array(v.string()),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    // Get all members for the organization
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    let migrated = 0;
+    let skipped = 0;
+    const details: Array<{
+      email: string;
+      oldRole: string;
+      newFunctionalRoles: string[];
+    }> = [];
+
+    for (const member of membersResult.page) {
+      const betterAuthRole = member.role;
+      const currentFunctionalRoles = (member as any).functionalRoles || [];
+
+      // Get user email for logging
+      const userResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "user",
+          where: [
+            {
+              field: "_id",
+              value: member.userId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+      const email = userResult?.email || "unknown";
+
+      // Only migrate members with role "coach" or "parent"
+      if (betterAuthRole === "coach" || betterAuthRole === "parent") {
+        // Determine new functional roles
+        const newFunctionalRoles: ("coach" | "parent" | "admin")[] = [
+          ...currentFunctionalRoles,
+        ];
+        if (
+          !newFunctionalRoles.includes(betterAuthRole as "coach" | "parent")
+        ) {
+          newFunctionalRoles.push(betterAuthRole as "coach" | "parent");
+        }
+
+        // Update member: change role to "member" and set functional roles
+        await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+          input: {
+            model: "member",
+            where: [{ field: "_id", value: member._id, operator: "eq" }],
+            update: {
+              role: "member",
+              functionalRoles: newFunctionalRoles,
+            },
+          },
+        });
+
+        migrated++;
+        details.push({
+          email,
+          oldRole: betterAuthRole,
+          newFunctionalRoles,
+        });
+      } else {
+        skipped++;
+      }
+    }
+
+    return { migrated, skipped, details };
+  },
+});
+
+/**
+ * Sync functional roles from invitation metadata after accepting an invitation
+ *
+ * This is called by the invitation acceptance page after the user accepts.
+ * It reads the invitation metadata and:
+ * 1. Assigns the suggested functional roles to the member
+ * 2. Creates coach assignments if teams were specified
+ * 3. Links parent to players if player IDs were specified
+ *
+ * Note: This exists because Better Auth hooks run in read-only context,
+ * so we can't modify member data directly in afterAcceptInvitation.
+ */
+export const syncFunctionalRolesFromInvitation = mutation({
+  args: {
+    invitationId: v.string(),
+    organizationId: v.string(),
+    userId: v.string(),
+    userEmail: v.string(), // Needed for parent-player linking
+  },
+  returns: v.object({
+    success: v.boolean(),
+    functionalRolesAssigned: v.array(
+      v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+    ),
+    coachTeamsAssigned: v.number(),
+    playersLinked: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const { userId, userEmail } = args;
+
+    // Find the invitation to get metadata
+    const invitationResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "invitation",
+        where: [
+          {
+            field: "_id",
+            value: args.invitationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!invitationResult) {
+      console.log(
+        "[syncFunctionalRolesFromInvitation] Invitation not found:",
+        args.invitationId
+      );
+      return {
+        success: false,
+        functionalRolesAssigned: [],
+        coachTeamsAssigned: 0,
+        playersLinked: 0,
+      };
+    }
+
+    // Extract metadata
+    const metadata = invitationResult.metadata as any;
+    const suggestedRoles: ("coach" | "parent" | "admin")[] =
+      metadata?.suggestedFunctionalRoles || [];
+    const roleSpecificData = metadata?.roleSpecificData || {};
+    const suggestedPlayerLinks: string[] = metadata?.suggestedPlayerLinks || [];
+
+    let coachTeamsAssigned = 0;
+    let playersLinked = 0;
+
+    // Find the member record for this user in this organization
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: userId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      console.log(
+        "[syncFunctionalRolesFromInvitation] Member not found for user:",
+        userId
+      );
+      return {
+        success: false,
+        functionalRolesAssigned: [],
+        coachTeamsAssigned: 0,
+        playersLinked: 0,
+      };
+    }
+
+    // 1. Update member with functional roles
+    if (suggestedRoles.length > 0) {
+      const currentRoles: ("coach" | "parent" | "admin")[] =
+        (memberResult as any).functionalRoles || [];
+      const newRoles = [...new Set([...currentRoles, ...suggestedRoles])] as (
+        | "coach"
+        | "parent"
+        | "admin"
+      )[];
+
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "member",
+          where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
+          update: {
+            functionalRoles: newRoles,
+          },
+        },
+      });
+
+      console.log(
+        "[syncFunctionalRolesFromInvitation] Assigned functional roles:",
+        suggestedRoles,
+        "to user:",
+        userId
+      );
+    }
+
+    // 2. Create coach assignments if coach role with teams
+    if (
+      suggestedRoles.includes("coach") &&
+      roleSpecificData.teams?.length > 0
+    ) {
+      const teams: string[] = roleSpecificData.teams;
+
+      // Check if coach assignment already exists
+      const existingAssignment = await ctx.db
+        .query("coachAssignments")
+        .withIndex("by_user_and_org", (q) =>
+          q.eq("userId", userId).eq("organizationId", args.organizationId)
+        )
+        .first();
+
+      if (existingAssignment) {
+        // Merge teams
+        const mergedTeams = [
+          ...new Set([...existingAssignment.teams, ...teams]),
+        ];
+        await ctx.db.patch(existingAssignment._id, {
+          teams: mergedTeams,
+          updatedAt: Date.now(),
+        });
+        coachTeamsAssigned = teams.length;
+      } else {
+        // Create new assignment
+        await ctx.db.insert("coachAssignments", {
+          userId,
+          organizationId: args.organizationId,
+          teams,
+          ageGroups: [], // Will be populated based on teams later
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+        coachTeamsAssigned = teams.length;
+      }
+
+      console.log(
+        "[syncFunctionalRolesFromInvitation] Created coach assignment with teams:",
+        teams
+      );
+    }
+
+    // 3. Link parent to players if parent role with player links
+    if (
+      suggestedRoles.includes("parent") &&
+      suggestedPlayerLinks.length > 0 &&
+      userEmail
+    ) {
+      const normalizedEmail = userEmail.toLowerCase().trim();
+
+      // Query players by ID from the players table
+      const players = await ctx.db.query("players").collect();
+      const playerMap = new Map(players.map((p) => [p._id, p]));
+
+      for (const playerId of suggestedPlayerLinks) {
+        try {
+          const player = playerMap.get(playerId as any);
+          if (
+            player &&
+            player.organizationId === args.organizationId &&
+            !player.parentEmail
+          ) {
+            await ctx.db.patch(player._id, {
+              parentEmail: normalizedEmail,
+            });
+            playersLinked++;
+          }
+        } catch (error) {
+          console.error(
+            "[syncFunctionalRolesFromInvitation] Error linking player:",
+            playerId,
+            error
+          );
+        }
+      }
+
+      console.log(
+        "[syncFunctionalRolesFromInvitation] Linked",
+        playersLinked,
+        "players to parent:",
+        userEmail
+      );
+    }
+
+    return {
+      success: true,
+      functionalRolesAssigned: suggestedRoles,
+      coachTeamsAssigned,
+      playersLinked,
     };
   },
 });

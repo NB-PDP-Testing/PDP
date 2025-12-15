@@ -17,12 +17,16 @@ import UserMenu from "./user-menu";
 
 function OrgNav({ member }: { member: Member }) {
   const role = member.role as OrgMemberRole;
-
   const effectiveOrgId = member?.organizationId;
-  const hasCoachFull = authClient.organization.checkRolePermission({
-    permissions: { coach: ["full"] },
-    role,
-  });
+
+  // Get functional roles from member record
+  // Functional roles determine capabilities (coach, parent)
+  // Better Auth roles determine hierarchy (owner, admin, member)
+  const functionalRoles = (member as any).functionalRoles || [];
+  const hasCoachRole = functionalRoles.includes("coach");
+  const hasParentRole = functionalRoles.includes("parent");
+
+  // Admin access: Check Better Auth role for organizational permissions
   const hasOrgAdmin = authClient.organization.checkRolePermission({
     permissions: { organization: ["update"] },
     role,
@@ -31,8 +35,11 @@ function OrgNav({ member }: { member: Member }) {
   return (
     <nav className="flex gap-4 text-lg">
       <Link href="/">Home</Link>
-      {hasCoachFull && (
+      {hasCoachRole && (
         <Link href={`/orgs/${effectiveOrgId}/coach` as Route}>Coach</Link>
+      )}
+      {hasParentRole && (
+        <Link href={`/orgs/${effectiveOrgId}/parents` as Route}>Parent</Link>
       )}
       {hasOrgAdmin && (
         <Link href={`/orgs/${effectiveOrgId}/admin` as Route}>Admin</Link>

@@ -28,8 +28,13 @@ export type InsightType =
   | "team_insight";
 export type InsightStatus = "pending" | "applied" | "dismissed";
 
-// User roles
-export type OrgMemberRole = "owner" | "admin" | "coach" | "parent" | "member";
+// Better Auth organizational roles (hierarchy)
+// Note: "coach" and "parent" are NOT Better Auth roles - they are functional roles
+// stored in member.functionalRoles array
+export type OrgMemberRole = "owner" | "admin" | "member";
+
+// Functional roles (capabilities) - stored in member.functionalRoles array
+export type FunctionalRole = "coach" | "parent" | "admin";
 
 // Approval status
 export type ApprovalStatus = "pending" | "approved" | "rejected";

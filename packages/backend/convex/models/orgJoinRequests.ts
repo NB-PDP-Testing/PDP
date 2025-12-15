@@ -9,14 +9,29 @@ import { authComponent } from "../auth";
 
 /**
  * Create a join request for an organization
+ *
+ * Architecture Note:
+ * - requestedRole is the Better Auth hierarchy role (auto-inferred from functional roles)
+ *   - If "admin" in functional roles → requestedRole = "admin"
+ *   - Otherwise → requestedRole = "member"
+ * - requestedFunctionalRoles contains the functional capabilities (coach, parent, admin)
+ * - See: docs/COMPREHENSIVE_AUTH_PLAN.md for architecture details
  */
 export const createJoinRequest = mutation({
   args: {
     organizationId: v.string(),
+    // Better Auth hierarchy role - auto-inferred from functional roles
     requestedRole: v.union(
       v.literal("member"),
-      v.literal("coach"),
-      v.literal("parent")
+      v.literal("admin"),
+      v.literal("coach"), // Deprecated, kept for backwards compatibility
+      v.literal("parent") // Deprecated, kept for backwards compatibility
+    ),
+    // Functional roles (capabilities) - includes admin, coach, parent
+    requestedFunctionalRoles: v.optional(
+      v.array(
+        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+      )
     ),
     message: v.optional(v.string()),
   },
@@ -83,6 +98,27 @@ export const createJoinRequest = mutation({
       throw new Error("Organization not found");
     }
 
+    // Handle backwards compatibility:
+    // If old-style requestedRole is "coach" or "parent", convert to functional roles
+    let functionalRoles = args.requestedFunctionalRoles || [];
+    if (args.requestedRole === "coach" && !functionalRoles.includes("coach")) {
+      functionalRoles = [...functionalRoles, "coach"];
+    }
+    if (
+      args.requestedRole === "parent" &&
+      !functionalRoles.includes("parent")
+    ) {
+      functionalRoles = [...functionalRoles, "parent"];
+    }
+
+    // Auto-infer Better Auth hierarchy role from functional roles:
+    // - If "admin" in functional roles → requestedRole = "admin"
+    // - Otherwise → requestedRole = "member"
+    const betterAuthRole: "member" | "admin" =
+      functionalRoles.includes("admin") || args.requestedRole === "admin"
+        ? "admin"
+        : "member";
+
     // Create the join request
     return await ctx.db.insert("orgJoinRequests", {
       userId: user._id,
@@ -90,7 +126,8 @@ export const createJoinRequest = mutation({
       userName: user.name,
       organizationId: args.organizationId,
       organizationName: org.name,
-      requestedRole: args.requestedRole,
+      requestedRole: betterAuthRole, // Auto-inferred from functional roles
+      requestedFunctionalRoles: functionalRoles, // Store functional roles separately
       status: "pending",
       message: args.message,
       requestedAt: Date.now(),
@@ -197,6 +234,11 @@ export const getUserPendingRequests = query({
 
 /**
  * Approve a join request
+ *
+ * Architecture Note:
+ * - Creates member with Better Auth role "member" (hierarchy)
+ * - Sets functionalRoles array based on requested functional roles
+ * - See: docs/COMPREHENSIVE_AUTH_PLAN.md
  */
 export const approveJoinRequest = mutation({
   args: {
@@ -246,14 +288,36 @@ export const approveJoinRequest = mutation({
       throw new Error("You must be an admin or owner to approve join requests");
     }
 
-    // Add user to organization with requested role
+    // Determine functional roles to assign
+    // Use requestedFunctionalRoles if available, otherwise infer from legacy requestedRole
+    let functionalRoles: ("coach" | "parent" | "admin")[] =
+      (request.requestedFunctionalRoles as ("coach" | "parent" | "admin")[]) ||
+      [];
+    if (functionalRoles.length === 0) {
+      // Legacy support: convert old-style requestedRole to functional roles
+      if (request.requestedRole === "coach") {
+        functionalRoles = ["coach"];
+      } else if (request.requestedRole === "parent") {
+        functionalRoles = ["parent"];
+      } else if (request.requestedRole === "admin") {
+        functionalRoles = ["admin"];
+      }
+    }
+
+    // Determine Better Auth hierarchy role from requested role
+    // If user requested admin, they get admin role; otherwise member
+    const betterAuthRole: "member" | "admin" =
+      request.requestedRole === "admin" ? "admin" : "member";
+
+    // Add user to organization
     await ctx.runMutation(components.betterAuth.adapter.create, {
       input: {
         model: "member",
         data: {
           userId: request.userId,
           organizationId: request.organizationId,
-          role: request.requestedRole,
+          role: betterAuthRole, // Auto-inferred from request
+          functionalRoles, // Functional roles (capabilities)
           createdAt: Date.now(),
         },
       },

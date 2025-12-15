@@ -14,7 +14,7 @@ export function HeroSection() {
       </div>
 
       {/* Content - add top margin to clear the fixed header (h-16 = 64px) */}
-      <div className="relative z-10 mx-auto mt-16 flex max-w-7xl flex-col items-center gap-8 text-center">
+      <div className="relative z-10 mx-auto mt-16 flex max-w-7xl flex-col items-center gap-8 text-center md:mt-24 lg:mt-32">
         {/* Logo */}
         <div className="flex flex-col items-center gap-4">
           <div className="relative h-32 w-32 drop-shadow-2xl sm:h-40 sm:w-40 md:h-48 md:w-48">

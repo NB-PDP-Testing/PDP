@@ -446,16 +446,19 @@ export default function OrgSettingsPage() {
                       className="flex-1 font-mono text-sm"
                       disabled={savingColors}
                       onChange={(e) => {
-                        let value = e.target.value.toUpperCase();
-                        // Add # prefix if missing and value has content
-                        if (value && !value.startsWith("#")) {
-                          value = "#" + value;
-                        }
-                        if (HEX_INPUT_REGEX.test(value) || value === "") {
-                          const newColors = [...colors];
-                          newColors[0] = value;
-                          setColors(newColors);
-                        }
+                        // Allow free typing - just normalize to uppercase
+                        // Strip any non-hex characters except #
+                        const raw = e.target.value.toUpperCase();
+                        const cleaned = raw.replace(/[^#0-9A-F]/g, "");
+                        // Ensure # prefix and limit to 7 chars (#XXXXXX)
+                        let value = cleaned.startsWith("#")
+                          ? cleaned.slice(0, 7)
+                          : "#" + cleaned.slice(0, 6);
+                        // Allow empty
+                        if (raw === "") value = "";
+                        const newColors = [...colors];
+                        newColors[0] = value;
+                        setColors(newColors);
                       }}
                       placeholder={DEFAULT_COLORS.primary}
                       value={colors[0]}
@@ -491,16 +494,19 @@ export default function OrgSettingsPage() {
                       className="flex-1 font-mono text-sm"
                       disabled={savingColors}
                       onChange={(e) => {
-                        let value = e.target.value.toUpperCase();
-                        // Add # prefix if missing and value has content
-                        if (value && !value.startsWith("#")) {
-                          value = "#" + value;
-                        }
-                        if (HEX_INPUT_REGEX.test(value) || value === "") {
-                          const newColors = [...colors];
-                          newColors[1] = value;
-                          setColors(newColors);
-                        }
+                        // Allow free typing - just normalize to uppercase
+                        // Strip any non-hex characters except #
+                        const raw = e.target.value.toUpperCase();
+                        const cleaned = raw.replace(/[^#0-9A-F]/g, "");
+                        // Ensure # prefix and limit to 7 chars (#XXXXXX)
+                        let value = cleaned.startsWith("#")
+                          ? cleaned.slice(0, 7)
+                          : "#" + cleaned.slice(0, 6);
+                        // Allow empty
+                        if (raw === "") value = "";
+                        const newColors = [...colors];
+                        newColors[1] = value;
+                        setColors(newColors);
                       }}
                       placeholder={DEFAULT_COLORS.secondary}
                       value={colors[1]}
@@ -536,16 +542,19 @@ export default function OrgSettingsPage() {
                       className="flex-1 font-mono text-sm"
                       disabled={savingColors}
                       onChange={(e) => {
-                        let value = e.target.value.toUpperCase();
-                        // Add # prefix if missing and value has content
-                        if (value && !value.startsWith("#")) {
-                          value = "#" + value;
-                        }
-                        if (HEX_INPUT_REGEX.test(value) || value === "") {
-                          const newColors = [...colors];
-                          newColors[2] = value;
-                          setColors(newColors);
-                        }
+                        // Allow free typing - just normalize to uppercase
+                        // Strip any non-hex characters except #
+                        const raw = e.target.value.toUpperCase();
+                        const cleaned = raw.replace(/[^#0-9A-F]/g, "");
+                        // Ensure # prefix and limit to 7 chars (#XXXXXX)
+                        let value = cleaned.startsWith("#")
+                          ? cleaned.slice(0, 7)
+                          : "#" + cleaned.slice(0, 6);
+                        // Allow empty
+                        if (raw === "") value = "";
+                        const newColors = [...colors];
+                        newColors[2] = value;
+                        setColors(newColors);
                       }}
                       placeholder={DEFAULT_COLORS.tertiary}
                       value={colors[2]}

@@ -53,6 +53,46 @@ export function createAuth(
           enabled: true,
         },
 
+        // Schema customization: add custom fields to organization
+        schema: {
+          organization: {
+            additionalFields: {
+              colors: {
+                type: "string[]",
+                input: true,
+                required: false,
+              },
+              // Social media links
+              socialFacebook: {
+                type: "string",
+                input: true,
+                required: false,
+              },
+              socialTwitter: {
+                type: "string",
+                input: true,
+                required: false,
+              },
+              socialInstagram: {
+                type: "string",
+                input: true,
+                required: false,
+              },
+              socialLinkedin: {
+                type: "string",
+                input: true,
+                required: false,
+              },
+              // Organization website
+              website: {
+                type: "string",
+                input: true,
+                required: false,
+              },
+            },
+          },
+        },
+
         async allowUserToCreateOrganization(user) {
           const fullUser = await ctx.runQuery(
             components.betterAuth.userFunctions.getUserById,

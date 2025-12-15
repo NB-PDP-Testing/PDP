@@ -190,6 +190,11 @@ export declare const components: {
                   metadata?: null | string;
                   name: string;
                   slug: string;
+                  socialFacebook?: null | string;
+                  socialInstagram?: null | string;
+                  socialLinkedin?: null | string;
+                  socialTwitter?: null | string;
+                  website?: null | string;
                 };
                 model: "organization";
               }
@@ -474,6 +479,11 @@ export declare const components: {
                     | "createdAt"
                     | "metadata"
                     | "colors"
+                    | "socialFacebook"
+                    | "socialTwitter"
+                    | "socialInstagram"
+                    | "socialLinkedin"
+                    | "website"
                     | "_id";
                   operator?:
                     | "lt"
@@ -828,6 +838,11 @@ export declare const components: {
                     | "createdAt"
                     | "metadata"
                     | "colors"
+                    | "socialFacebook"
+                    | "socialTwitter"
+                    | "socialInstagram"
+                    | "socialLinkedin"
+                    | "website"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1337,6 +1352,11 @@ export declare const components: {
                   metadata?: null | string;
                   name?: string;
                   slug?: string;
+                  socialFacebook?: null | string;
+                  socialInstagram?: null | string;
+                  socialLinkedin?: null | string;
+                  socialTwitter?: null | string;
+                  website?: null | string;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1347,6 +1367,11 @@ export declare const components: {
                     | "createdAt"
                     | "metadata"
                     | "colors"
+                    | "socialFacebook"
+                    | "socialTwitter"
+                    | "socialInstagram"
+                    | "socialLinkedin"
+                    | "website"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1786,6 +1811,11 @@ export declare const components: {
                   metadata?: null | string;
                   name?: string;
                   slug?: string;
+                  socialFacebook?: null | string;
+                  socialInstagram?: null | string;
+                  socialLinkedin?: null | string;
+                  socialTwitter?: null | string;
+                  website?: null | string;
                 };
                 where?: Array<{
                   connector?: "AND" | "OR";
@@ -1796,6 +1826,11 @@ export declare const components: {
                     | "createdAt"
                     | "metadata"
                     | "colors"
+                    | "socialFacebook"
+                    | "socialTwitter"
+                    | "socialInstagram"
+                    | "socialLinkedin"
+                    | "website"
                     | "_id";
                   operator?:
                     | "lt"

@@ -14,6 +14,7 @@ import {
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { OrgThemedButton } from "@/components/org-themed-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,10 +29,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { useOrgTheme } from "@/hooks/use-org-theme";
 
 export default function JoinRequestApprovalsPage() {
   const params = useParams();
   const orgId = params.orgId as string;
+  const { theme } = useOrgTheme();
 
   const pendingRequests = useQuery(
     api.models.orgJoinRequests.getPendingRequestsForOrg,
@@ -108,14 +111,25 @@ export default function JoinRequestApprovalsPage() {
     <Card className="overflow-hidden">
       <CardContent className="p-6">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <UserCircle className="h-6 w-6 text-primary" />
+          <div
+            className="flex h-12 w-12 items-center justify-center rounded-full"
+            style={{
+              backgroundColor: "rgb(var(--org-primary-rgb) / 0.1)",
+            }}
+          >
+            <UserCircle className="h-6 w-6" style={{ color: theme.primary }} />
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-semibold text-lg">{request.userName}</h3>
-              <Badge className="capitalize" variant="secondary">
+              <Badge
+                className="capitalize"
+                style={{
+                  backgroundColor: "rgb(var(--org-secondary-rgb) / 0.2)",
+                  color: theme.secondary,
+                }}
+              >
                 {request.requestedRole}
               </Badge>
             </div>
@@ -159,14 +173,15 @@ export default function JoinRequestApprovalsPage() {
             <XCircle className="mr-2 h-4 w-4" />
             Reject
           </Button>
-          <Button
+          <OrgThemedButton
             disabled={loading === request._id}
             onClick={() => handleApprove(request._id)}
             size="sm"
+            variant="primary"
           >
             <CheckCircle className="mr-2 h-4 w-4" />
             {loading === request._id ? "Approving..." : "Approve & Add to Org"}
-          </Button>
+          </OrgThemedButton>
         </div>
       </CardContent>
     </Card>

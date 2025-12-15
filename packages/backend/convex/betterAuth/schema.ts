@@ -62,7 +62,7 @@ const customTeamTable = defineTable(customTeamTableSchema)
   .index("season", ["season"])
   .index("isActive", ["isActive"]);
 
-// Extend the organization table with club colors
+// Extend the organization table with club colors and social links
 const customOrganizationTable = defineTable({
   // Better Auth base fields
   name: v.string(),
@@ -73,6 +73,15 @@ const customOrganizationTable = defineTable({
 
   // Custom field: club colors (array of hex codes)
   colors: v.optional(v.array(v.string())),
+
+  // Social media links
+  socialFacebook: v.optional(v.union(v.null(), v.string())),
+  socialTwitter: v.optional(v.union(v.null(), v.string())),
+  socialInstagram: v.optional(v.union(v.null(), v.string())),
+  socialLinkedin: v.optional(v.union(v.null(), v.string())),
+
+  // Organization website
+  website: v.optional(v.union(v.null(), v.string())),
 })
   .index("name", ["name"])
   .index("slug", ["slug"]);

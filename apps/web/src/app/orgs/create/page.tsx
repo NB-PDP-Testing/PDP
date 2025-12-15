@@ -12,9 +12,12 @@ import {
   AlertCircle,
   Building2,
   CheckCircle,
+  ExternalLink,
   Globe,
   Loader2,
+  Palette,
   ShieldAlert,
+  Sparkles,
   XCircle,
 } from "lucide-react";
 import Image from "next/image";
@@ -23,6 +26,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import Loader from "@/components/loader";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,27 +40,52 @@ import { Label } from "@/components/ui/label";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 
+// Regex patterns at module level for performance
+const HEX_COLOR_REGEX = /^#[0-9A-F]{6}$/i;
+const HEX_INPUT_REGEX = /^#[0-9A-F]{0,6}$/i;
+
+// Default colors
+const DEFAULT_COLORS = {
+  primary: "#16a34a",
+  secondary: "#0ea5e9",
+  tertiary: "#f59e0b",
+};
+
+type ScrapedData = {
+  logo: string | null;
+  colors: string[];
+  name: string | null;
+  description: string | null;
+  socialLinks: {
+    facebook: string | null;
+    twitter: string | null;
+    instagram: string | null;
+    linkedin: string | null;
+  };
+  colorSource: string;
+};
+
 export default function CreateOrganizationPage() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [logo, setLogo] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
-  const [colors, setColors] = useState<string[]>([]);
+  const [colors, setColors] = useState<string[]>(["", "", ""]);
   const [loading, setLoading] = useState(false);
   const [checkingSlug, setCheckingSlug] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [scraping, setScraping] = useState(false);
-  const [scrapedData, setScrapedData] = useState<{
-    logo: string | null;
-    colors: string[];
-  } | null>(null);
+  const [scrapedData, setScrapedData] = useState<ScrapedData | null>(null);
 
   // Use Convex query to get user with custom fields
   const user = useCurrentUser();
   const scrapeWebsite = useAction(api.models.organizationScraper.scrapeWebsite);
   const updateOrganizationColors = useMutation(
     api.models.organizations.updateOrganizationColors
+  );
+  const updateOrganizationSocialLinks = useMutation(
+    api.models.organizations.updateOrganizationSocialLinks
   );
 
   // Redirect if not platform staff
@@ -122,21 +151,45 @@ export default function CreateOrganizationPage() {
       const result = await scrapeWebsite({ url: websiteUrl });
       setScrapedData(result);
 
+      // Count what was extracted
+      const extracted: string[] = [];
+      if (result.name) {
+        extracted.push("name");
+      }
       if (result.logo) {
-        setLogo(result.logo);
-        toast.success("Logo and colors extracted successfully!");
-      } else {
-        toast.warning("Logo not found, but colors may have been extracted");
+        extracted.push("logo");
+      }
+      if (result.colors.length > 0) {
+        extracted.push(`${result.colors.length} colors`);
+      }
+      if (result.description) {
+        extracted.push("description");
       }
 
-      if (result.colors.length > 0) {
-        setColors(result.colors);
+      const socialCount = Object.values(result.socialLinks).filter(
+        Boolean
+      ).length;
+      if (socialCount > 0) {
+        extracted.push(`${socialCount} social links`);
+      }
+
+      if (extracted.length > 0) {
+        toast.success(`Extracted: ${extracted.join(", ")}`);
+      } else {
+        toast.warning("No data could be extracted from this website");
       }
     } catch (error) {
       console.error("Error scraping website:", error);
       toast.error("Failed to scrape website. Please try again.");
     } finally {
       setScraping(false);
+    }
+  };
+
+  const useScrapedName = () => {
+    if (scrapedData?.name) {
+      handleNameChange(scrapedData.name);
+      toast.success("Organization name applied");
     }
   };
 
@@ -149,9 +202,35 @@ export default function CreateOrganizationPage() {
 
   const useScrapedColors = () => {
     if (scrapedData?.colors && scrapedData.colors.length > 0) {
-      setColors(scrapedData.colors);
+      // Ensure we have exactly 3 positions
+      const newColors = ["", "", ""];
+      scrapedData.colors.forEach((color, index) => {
+        if (index < 3) {
+          newColors[index] = color;
+        }
+      });
+      setColors(newColors);
       toast.success("Colors applied");
     }
+  };
+
+  const useAllScrapedData = () => {
+    if (scrapedData?.name) {
+      handleNameChange(scrapedData.name);
+    }
+    if (scrapedData?.logo) {
+      setLogo(scrapedData.logo);
+    }
+    if (scrapedData?.colors && scrapedData.colors.length > 0) {
+      const newColors = ["", "", ""];
+      scrapedData.colors.forEach((color, index) => {
+        if (index < 3) {
+          newColors[index] = color;
+        }
+      });
+      setColors(newColors);
+    }
+    toast.success("All extracted data applied");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -174,8 +253,6 @@ export default function CreateOrganizationPage() {
         name,
         slug,
         logo: logo || undefined,
-        // Colors might need to be set via metadata or update after creation
-        metadata: colors.length > 0 ? { colors } : undefined,
       });
 
       if (error) {
@@ -185,28 +262,57 @@ export default function CreateOrganizationPage() {
       }
 
       if (data?.id) {
-        // If colors were provided, update the organization with colors
-        // Better Auth might support colors directly, but if not, we'll update via mutation
-        if (colors.length > 0) {
+        // If colors were provided, save them using the mutation
+        const validColors = colors.filter((c) => c && HEX_COLOR_REGEX.test(c));
+
+        if (validColors.length > 0) {
+          // Ensure we send exactly 3 positions
+          const colorsToSave = [
+            colors[0] && HEX_COLOR_REGEX.test(colors[0]) ? colors[0] : "",
+            colors[1] && HEX_COLOR_REGEX.test(colors[1]) ? colors[1] : "",
+            colors[2] && HEX_COLOR_REGEX.test(colors[2]) ? colors[2] : "",
+          ];
+
           try {
-            await authClient.organization.update({
+            await updateOrganizationColors({
               organizationId: data.id,
-              data: {
-                // Try passing colors directly - Better Auth should support custom fields
-                colors: colors as unknown as string[],
-              } as unknown as { name?: string; logo?: string },
+              colors: colorsToSave,
             });
-          } catch (updateError) {
-            // If direct update fails, colors might need to be set differently
-            console.warn(
-              "Could not set colors directly, may need backend update:",
-              updateError
+          } catch (colorError) {
+            console.error("Failed to save organization colors:", colorError);
+            toast.warning(
+              "Organization created, but colors could not be saved. You can update them in settings."
             );
           }
         }
 
+        // Save social links and website if scraped
+        if (scrapedData) {
+          const hasSocialLinks = Object.values(scrapedData.socialLinks).some(
+            Boolean
+          );
+          const hasWebsite = websiteUrl.trim();
+
+          if (hasSocialLinks || hasWebsite) {
+            try {
+              await updateOrganizationSocialLinks({
+                organizationId: data.id,
+                website: hasWebsite ? websiteUrl.trim() : null,
+                socialLinks: {
+                  facebook: scrapedData.socialLinks.facebook || null,
+                  twitter: scrapedData.socialLinks.twitter || null,
+                  instagram: scrapedData.socialLinks.instagram || null,
+                  linkedin: scrapedData.socialLinks.linkedin || null,
+                },
+              });
+            } catch (socialError) {
+              console.error("Failed to save social links:", socialError);
+              // Don't show warning for social links - not critical
+            }
+          }
+        }
+
         toast.success(`Organization "${name}" created successfully!`);
-        // Redirect to the new organization's admin page
         router.push(`/orgs/${data.id}/admin`);
       }
     } catch (error: unknown) {
@@ -214,6 +320,20 @@ export default function CreateOrganizationPage() {
       toast.error((error as Error)?.message || "Failed to create organization");
       setLoading(false);
     }
+  };
+
+  // Get preview color with fallback
+  const getPreviewColor = (index: number): string => {
+    const color = colors[index]?.trim();
+    if (color && HEX_COLOR_REGEX.test(color)) {
+      return color;
+    }
+    const defaults = [
+      DEFAULT_COLORS.primary,
+      DEFAULT_COLORS.secondary,
+      DEFAULT_COLORS.tertiary,
+    ];
+    return defaults[index];
   };
 
   const renderContent = () => {
@@ -288,6 +408,262 @@ export default function CreateOrganizationPage() {
               ← Back to organizations
             </Link>
           </div>
+
+          {/* Website Auto-Import Card */}
+          <Card className="mb-6 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
+                  <Sparkles className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-blue-900 text-lg">
+                    Quick Import from Website
+                  </CardTitle>
+                  <CardDescription>
+                    Enter the organization's website to auto-extract name, logo,
+                    and brand colors
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  className="flex-1"
+                  disabled={loading || scraping}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleScrapeWebsite();
+                    }
+                  }}
+                  placeholder="https://example-club.com"
+                  type="url"
+                  value={websiteUrl}
+                />
+                <Button
+                  disabled={loading || scraping || !websiteUrl.trim()}
+                  onClick={handleScrapeWebsite}
+                  type="button"
+                >
+                  {scraping ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Extracting...
+                    </>
+                  ) : (
+                    <>
+                      <Globe className="mr-2 h-4 w-4" />
+                      Extract Data
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Scraped Results */}
+              {scrapedData && (
+                <div className="space-y-4 rounded-lg border border-blue-200 bg-white p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="font-medium text-green-800">
+                        Data Extracted
+                      </span>
+                    </div>
+                    <Button
+                      onClick={useAllScrapedData}
+                      size="sm"
+                      type="button"
+                      variant="default"
+                    >
+                      <Sparkles className="mr-1 h-3 w-3" />
+                      Use All
+                    </Button>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {/* Organization Name */}
+                    {scrapedData.name && (
+                      <div className="rounded-lg border bg-gray-50 p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <Label className="text-gray-600 text-xs">
+                            Organization Name
+                          </Label>
+                          <Button
+                            onClick={useScrapedName}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            Use
+                          </Button>
+                        </div>
+                        <p className="font-medium">{scrapedData.name}</p>
+                      </div>
+                    )}
+
+                    {/* Logo */}
+                    {scrapedData.logo && (
+                      <div className="rounded-lg border bg-gray-50 p-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <Label className="text-gray-600 text-xs">Logo</Label>
+                          <Button
+                            onClick={useScrapedLogo}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            Use
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <img
+                            alt="Extracted logo"
+                            className="h-10 w-10 rounded object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                            }}
+                            src={scrapedData.logo}
+                          />
+                          <span className="truncate text-muted-foreground text-xs">
+                            {scrapedData.logo.substring(0, 40)}...
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Colors */}
+                  {scrapedData.colors.length > 0 && (
+                    <div className="rounded-lg border bg-gray-50 p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <Label className="text-gray-600 text-xs">
+                          Brand Colors
+                        </Label>
+                        <Button
+                          onClick={useScrapedColors}
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          Use
+                        </Button>
+                      </div>
+                      <div className="flex gap-2">
+                        {scrapedData.colors.map((color, index) => {
+                          const labels = ["Primary", "Secondary", "Tertiary"];
+                          return (
+                            <div
+                              className="flex flex-col items-center gap-1"
+                              key={color}
+                            >
+                              <div
+                                className="h-10 w-10 rounded-lg border shadow-sm"
+                                style={{ backgroundColor: color }}
+                                title={color}
+                              />
+                              <span className="text-muted-foreground text-xs">
+                                {labels[index]}
+                              </span>
+                              <span className="font-mono text-muted-foreground text-xs">
+                                {color}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {scrapedData.colorSource && (
+                        <p className="mt-2 text-amber-700 text-xs">
+                          Source: {scrapedData.colorSource}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* No colors found message */}
+                  {scrapedData.colors.length === 0 && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                      <p className="text-amber-800 text-xs">
+                        <strong>No brand colors found in CSS.</strong> The club
+                        colors may be defined in logo images. Please set colors
+                        manually based on the club's badge/logo.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Social Links */}
+                  {Object.values(scrapedData.socialLinks).some(Boolean) && (
+                    <div className="rounded-lg border bg-gray-50 p-3">
+                      <Label className="mb-2 block text-gray-600 text-xs">
+                        Social Media Found
+                      </Label>
+                      <div className="flex flex-wrap gap-2">
+                        {scrapedData.socialLinks.facebook && (
+                          <a
+                            className="inline-flex items-center gap-1 text-blue-600 text-xs hover:underline"
+                            href={scrapedData.socialLinks.facebook}
+                            rel="noopener noreferrer"
+                            target="_blank"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Facebook
+                          </a>
+                        )}
+                        {scrapedData.socialLinks.twitter && (
+                          <a
+                            className="inline-flex items-center gap-1 text-blue-600 text-xs hover:underline"
+                            href={scrapedData.socialLinks.twitter}
+                            rel="noopener noreferrer"
+                            target="_blank"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Twitter/X
+                          </a>
+                        )}
+                        {scrapedData.socialLinks.instagram && (
+                          <a
+                            className="inline-flex items-center gap-1 text-blue-600 text-xs hover:underline"
+                            href={scrapedData.socialLinks.instagram}
+                            rel="noopener noreferrer"
+                            target="_blank"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Instagram
+                          </a>
+                        )}
+                        {scrapedData.socialLinks.linkedin && (
+                          <a
+                            className="inline-flex items-center gap-1 text-blue-600 text-xs hover:underline"
+                            href={scrapedData.socialLinks.linkedin}
+                            rel="noopener noreferrer"
+                            target="_blank"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            LinkedIn
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Description */}
+                  {scrapedData.description && (
+                    <div className="rounded-lg border bg-gray-50 p-3">
+                      <Label className="mb-2 block text-gray-600 text-xs">
+                        Description
+                      </Label>
+                      <p className="line-clamp-2 text-muted-foreground text-sm">
+                        {scrapedData.description}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Form Card */}
           <Card className="shadow-lg">
@@ -382,136 +758,6 @@ export default function CreateOrganizationPage() {
                   )}
                 </div>
 
-                {/* Website URL for Auto-Detection */}
-                <div className="space-y-2">
-                  <Label htmlFor="websiteUrl">
-                    Organization Website (Optional)
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      disabled={loading || scraping}
-                      id="websiteUrl"
-                      onChange={(e) => setWebsiteUrl(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleScrapeWebsite();
-                        }
-                      }}
-                      placeholder="https://example.com"
-                      type="url"
-                      value={websiteUrl}
-                    />
-                    <Button
-                      disabled={loading || scraping || !websiteUrl.trim()}
-                      onClick={handleScrapeWebsite}
-                      type="button"
-                      variant="outline"
-                    >
-                      {scraping ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Scraping...
-                        </>
-                      ) : (
-                        <>
-                          <Globe className="mr-2 h-4 w-4" />
-                          Extract
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    Enter your organization's website URL to automatically
-                    extract logo and colors
-                  </p>
-                </div>
-
-                {/* Scraped Results Preview */}
-                {scrapedData && (
-                  <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4">
-                    <div className="mb-3 flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-blue-600" />
-                      <span className="font-medium text-blue-900">
-                        Extracted Data
-                      </span>
-                    </div>
-
-                    {/* Logo Preview */}
-                    {scrapedData.logo && (
-                      <div className="mb-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm">Logo</Label>
-                          <Button
-                            onClick={useScrapedLogo}
-                            size="sm"
-                            type="button"
-                            variant="ghost"
-                          >
-                            Use This
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-3 rounded border bg-white p-2">
-                          <img
-                            alt="Extracted logo"
-                            className="h-12 w-12 object-contain"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display =
-                                "none";
-                            }}
-                            src={scrapedData.logo}
-                          />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-muted-foreground text-xs">
-                              {scrapedData.logo}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Colors Preview */}
-                    {scrapedData.colors.length > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm">Colors</Label>
-                          <Button
-                            onClick={useScrapedColors}
-                            size="sm"
-                            type="button"
-                            variant="ghost"
-                          >
-                            Use These
-                          </Button>
-                        </div>
-                        <div className="flex gap-2 rounded border bg-white p-3">
-                          {scrapedData.colors.map((color, index) => {
-                            const labels = ["Primary", "Secondary", "Tertiary"];
-                            return (
-                              <div
-                                className="flex flex-col items-center gap-1"
-                                key={index}
-                              >
-                                <div
-                                  className="h-12 w-12 rounded border-2 border-gray-200"
-                                  style={{ backgroundColor: color }}
-                                  title={color}
-                                />
-                                <span className="font-medium text-xs">
-                                  {labels[index] || `Color ${index + 1}`}
-                                </span>
-                                <span className="text-muted-foreground text-xs">
-                                  {color}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {/* Logo URL (Optional) */}
                 <div className="space-y-2">
                   <Label htmlFor="logo">Logo URL (Optional)</Label>
@@ -523,19 +769,34 @@ export default function CreateOrganizationPage() {
                     type="url"
                     value={logo}
                   />
-                  <p className="text-muted-foreground text-xs">
-                    URL to your organization's logo image
-                  </p>
+                  {logo && (
+                    <div className="mt-2 flex items-center gap-3 rounded-lg border bg-muted/30 p-2">
+                      <img
+                        alt="Logo preview"
+                        className="h-10 w-10 rounded object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                        src={logo}
+                      />
+                      <span className="truncate text-muted-foreground text-xs">
+                        {logo}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Colors Selection */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label>Organization Colors</Label>
+                    <div className="flex items-center gap-2">
+                      <Palette className="h-4 w-4 text-muted-foreground" />
+                      <Label>Organization Colors</Label>
+                    </div>
                     {colors.some((c) => c) && (
                       <Button
                         onClick={() => {
-                          setColors([]);
+                          setColors(["", "", ""]);
                           toast.success("Colors cleared");
                         }}
                         size="sm"
@@ -546,24 +807,20 @@ export default function CreateOrganizationPage() {
                       </Button>
                     )}
                   </div>
-                  <p className="text-muted-foreground text-xs">
-                    Select up to 3 colors for your organization's branding
-                  </p>
 
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-4 sm:grid-cols-3">
                     {/* Primary Color */}
                     <div className="space-y-2">
-                      <Label className="text-sm">
-                        Primary Color{" "}
-                        {colors[0] && (
-                          <span className="text-muted-foreground text-xs">
-                            (Main)
-                          </span>
-                        )}
+                      <Label className="flex items-center gap-2 text-sm">
+                        <div
+                          className="h-3 w-3 rounded-full border"
+                          style={{ backgroundColor: getPreviewColor(0) }}
+                        />
+                        Primary
                       </Label>
                       <div className="flex gap-2">
                         <input
-                          className="h-12 w-12 cursor-pointer rounded border-2 border-gray-200"
+                          className="h-10 w-10 cursor-pointer rounded border"
                           disabled={loading}
                           onChange={(e) => {
                             const newColors = [...colors];
@@ -571,44 +828,37 @@ export default function CreateOrganizationPage() {
                             setColors(newColors);
                           }}
                           type="color"
-                          value={colors[0] || "#16a34a"}
+                          value={colors[0] || DEFAULT_COLORS.primary}
                         />
-                        <div className="flex-1">
-                          <Input
-                            disabled={loading}
-                            onChange={(e) => {
-                              const value = e.target.value.toUpperCase();
-                              if (/^#[0-9A-F]{0,6}$/i.test(value)) {
-                                const newColors = [...colors];
-                                newColors[0] = value;
-                                setColors(newColors);
-                              }
-                            }}
-                            placeholder="#16a34a"
-                            value={colors[0] || ""}
-                          />
-                          {colors[0] && (
-                            <p className="mt-1 text-muted-foreground text-xs">
-                              {colors[0]}
-                            </p>
-                          )}
-                        </div>
+                        <Input
+                          className="flex-1 font-mono text-sm"
+                          disabled={loading}
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase();
+                            if (HEX_INPUT_REGEX.test(value) || value === "") {
+                              const newColors = [...colors];
+                              newColors[0] = value;
+                              setColors(newColors);
+                            }
+                          }}
+                          placeholder={DEFAULT_COLORS.primary}
+                          value={colors[0]}
+                        />
                       </div>
                     </div>
 
                     {/* Secondary Color */}
                     <div className="space-y-2">
-                      <Label className="text-sm">
-                        Secondary Color{" "}
-                        {colors[1] && (
-                          <span className="text-muted-foreground text-xs">
-                            (Optional)
-                          </span>
-                        )}
+                      <Label className="flex items-center gap-2 text-sm">
+                        <div
+                          className="h-3 w-3 rounded-full border"
+                          style={{ backgroundColor: getPreviewColor(1) }}
+                        />
+                        Secondary
                       </Label>
                       <div className="flex gap-2">
                         <input
-                          className="h-12 w-12 cursor-pointer rounded border-2 border-gray-200"
+                          className="h-10 w-10 cursor-pointer rounded border"
                           disabled={loading}
                           onChange={(e) => {
                             const newColors = [...colors];
@@ -616,44 +866,37 @@ export default function CreateOrganizationPage() {
                             setColors(newColors);
                           }}
                           type="color"
-                          value={colors[1] || "#0ea5e9"}
+                          value={colors[1] || DEFAULT_COLORS.secondary}
                         />
-                        <div className="flex-1">
-                          <Input
-                            disabled={loading}
-                            onChange={(e) => {
-                              const value = e.target.value.toUpperCase();
-                              if (/^#[0-9A-F]{0,6}$/i.test(value)) {
-                                const newColors = [...colors];
-                                newColors[1] = value;
-                                setColors(newColors);
-                              }
-                            }}
-                            placeholder="#0ea5e9"
-                            value={colors[1] || ""}
-                          />
-                          {colors[1] && (
-                            <p className="mt-1 text-muted-foreground text-xs">
-                              {colors[1]}
-                            </p>
-                          )}
-                        </div>
+                        <Input
+                          className="flex-1 font-mono text-sm"
+                          disabled={loading}
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase();
+                            if (HEX_INPUT_REGEX.test(value) || value === "") {
+                              const newColors = [...colors];
+                              newColors[1] = value;
+                              setColors(newColors);
+                            }
+                          }}
+                          placeholder={DEFAULT_COLORS.secondary}
+                          value={colors[1]}
+                        />
                       </div>
                     </div>
 
                     {/* Tertiary Color */}
                     <div className="space-y-2">
-                      <Label className="text-sm">
-                        Tertiary Color{" "}
-                        {colors[2] && (
-                          <span className="text-muted-foreground text-xs">
-                            (Optional)
-                          </span>
-                        )}
+                      <Label className="flex items-center gap-2 text-sm">
+                        <div
+                          className="h-3 w-3 rounded-full border"
+                          style={{ backgroundColor: getPreviewColor(2) }}
+                        />
+                        Tertiary
                       </Label>
                       <div className="flex gap-2">
                         <input
-                          className="h-12 w-12 cursor-pointer rounded border-2 border-gray-200"
+                          className="h-10 w-10 cursor-pointer rounded border"
                           disabled={loading}
                           onChange={(e) => {
                             const newColors = [...colors];
@@ -661,62 +904,65 @@ export default function CreateOrganizationPage() {
                             setColors(newColors);
                           }}
                           type="color"
-                          value={colors[2] || "#f59e0b"}
+                          value={colors[2] || DEFAULT_COLORS.tertiary}
                         />
-                        <div className="flex-1">
-                          <Input
-                            disabled={loading}
-                            onChange={(e) => {
-                              const value = e.target.value.toUpperCase();
-                              if (/^#[0-9A-F]{0,6}$/i.test(value)) {
-                                const newColors = [...colors];
-                                newColors[2] = value;
-                                setColors(newColors);
-                              }
-                            }}
-                            placeholder="#f59e0b"
-                            value={colors[2] || ""}
-                          />
-                          {colors[2] && (
-                            <p className="mt-1 text-muted-foreground text-xs">
-                              {colors[2]}
-                            </p>
-                          )}
-                        </div>
+                        <Input
+                          className="flex-1 font-mono text-sm"
+                          disabled={loading}
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase();
+                            if (HEX_INPUT_REGEX.test(value) || value === "") {
+                              const newColors = [...colors];
+                              newColors[2] = value;
+                              setColors(newColors);
+                            }
+                          }}
+                          placeholder={DEFAULT_COLORS.tertiary}
+                          value={colors[2]}
+                        />
                       </div>
                     </div>
                   </div>
 
                   {/* Color Preview */}
-                  {colors.some((c) => c) && (
-                    <div className="rounded-lg border bg-muted/30 p-3">
-                      <Label className="mb-2 block text-sm">
-                        Color Preview
+                  {colors.some((c) => c && HEX_COLOR_REGEX.test(c)) && (
+                    <div className="rounded-lg border bg-muted/30 p-4">
+                      <Label className="mb-3 block text-sm">
+                        Theme Preview
                       </Label>
-                      <div className="flex gap-2">
-                        {colors
-                          .filter((c) => c)
-                          .map((color, index) => {
-                            const labels = ["Primary", "Secondary", "Tertiary"];
-                            return (
+                      <div className="flex gap-3">
+                        {[0, 1, 2].map((index) => {
+                          const labels = ["Primary", "Secondary", "Tertiary"];
+                          const color = getPreviewColor(index);
+                          const hasColor =
+                            colors[index] &&
+                            HEX_COLOR_REGEX.test(colors[index]);
+                          return (
+                            <div
+                              className="flex flex-col items-center gap-2"
+                              key={labels[index]}
+                            >
                               <div
-                                className="flex flex-1 flex-col items-center gap-2 rounded-lg bg-white p-3"
-                                key={index}
-                              >
-                                <div
-                                  className="h-16 w-16 rounded-lg border-2 shadow-sm"
-                                  style={{
-                                    backgroundColor: color,
-                                    borderColor: color,
-                                  }}
-                                  title={color}
-                                />
-                                <span className="font-medium text-xs">
-                                  {labels[index]}
-                                </span>
-                              </div>
-                            );
-                          })}
+                                className="h-14 w-14 rounded-lg shadow-sm"
+                                style={{ backgroundColor: color }}
+                              />
+                              <span className="text-xs">
+                                {labels[index]}
+                                {!hasColor && (
+                                  <Badge
+                                    className="ml-1 px-1 py-0"
+                                    variant="outline"
+                                  >
+                                    default
+                                  </Badge>
+                                )}
+                              </span>
+                              <span className="font-mono text-muted-foreground text-xs">
+                                {color}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -768,11 +1014,11 @@ export default function CreateOrganizationPage() {
                   </p>
                   <ul className="space-y-1 text-blue-800">
                     <li>• You'll be the organization owner with full access</li>
+                    <li>
+                      • Your theme colors will be applied across all pages
+                    </li>
                     <li>• You can invite coaches, admins, and parents</li>
                     <li>• You can create teams and manage players</li>
-                    <li>
-                      • Your organization will have its own dedicated space
-                    </li>
                   </ul>
                 </div>
               </div>

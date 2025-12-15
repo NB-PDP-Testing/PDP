@@ -51,6 +51,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useOrgTheme } from "@/hooks/use-org-theme";
 import { authClient } from "@/lib/auth-client";
 
 type FunctionalRole = "coach" | "parent" | "admin";
@@ -68,6 +69,7 @@ interface UserEditState {
 
 export default function ManageUsersPage() {
   const params = useParams();
+  const { theme } = useOrgTheme();
   const orgId = params.orgId as string;
 
   // Get members with all details (coach assignments, linked players)
@@ -540,12 +542,17 @@ export default function ManageUsersPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-orange-700 text-sm">Pending Invites</p>
-                  <p className="font-bold text-2xl text-orange-700">
+                  <p className="text-sm" style={{ color: theme.tertiary }}>
+                    Pending Invites
+                  </p>
+                  <p
+                    className="font-bold text-2xl"
+                    style={{ color: theme.tertiary }}
+                  >
                     {stats.pendingInvites}
                   </p>
                 </div>
-                <Mail className="h-8 w-8 text-orange-600" />
+                <Mail className="h-8 w-8" style={{ color: theme.tertiary }} />
               </div>
             </CardContent>
           </Card>
@@ -558,11 +565,14 @@ export default function ManageUsersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-muted-foreground text-sm">Coaches</p>
-                <p className="font-bold text-2xl text-green-600">
+                <p
+                  className="font-bold text-2xl"
+                  style={{ color: theme.primary }}
+                >
                   {stats.coaches}
                 </p>
               </div>
-              <Users className="h-8 w-8 text-green-600" />
+              <Users className="h-8 w-8" style={{ color: theme.primary }} />
             </div>
           </CardContent>
         </Card>
@@ -574,11 +584,17 @@ export default function ManageUsersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-muted-foreground text-sm">Parents</p>
-                <p className="font-bold text-2xl text-blue-600">
+                <p
+                  className="font-bold text-2xl"
+                  style={{ color: theme.secondary }}
+                >
                   {stats.parents}
                 </p>
               </div>
-              <UserCircle className="h-8 w-8 text-blue-600" />
+              <UserCircle
+                className="h-8 w-8"
+                style={{ color: theme.secondary }}
+              />
             </div>
           </CardContent>
         </Card>

@@ -2,6 +2,7 @@ import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import type { auth } from "@pdp/backend/convex/betterAuth/auth";
 import {
   inferAdditionalFields,
+  inferOrgAdditionalFields,
   organizationClient,
 } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
@@ -28,6 +29,8 @@ export const authClient = createAuthClient({
         coach,
         parent,
       },
+      // Infer additional fields (like colors) from auth config
+      schema: inferOrgAdditionalFields<typeof auth>(),
     }),
   ],
 });

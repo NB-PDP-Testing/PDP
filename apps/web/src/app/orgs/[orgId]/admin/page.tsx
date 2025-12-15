@@ -8,7 +8,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { OrgThemedButton } from "@/components/org-themed-button";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -75,7 +74,7 @@ export default function OrgAdminOverviewPage() {
               variant={
                 pendingRequests && pendingRequests.length > 0
                   ? "warning"
-                  : "default"
+                  : "primary"
               }
             />
             <StatCard
@@ -86,7 +85,7 @@ export default function OrgAdminOverviewPage() {
               value={
                 (memberCounts?.total || 0) + (pendingInvitations?.length || 0)
               }
-              variant="default"
+              variant="primary"
             />
             {pendingInvitations && pendingInvitations.length > 0 && (
               <StatCard
@@ -104,13 +103,14 @@ export default function OrgAdminOverviewPage() {
               icon={Shield}
               title="Teams"
               value={0}
-              variant="default"
+              variant="secondary"
             />
             <StatCard
               description="Registered players"
               icon={Users}
               title="Players"
               value={players?.length || 0}
+              variant="tertiary"
             />
           </>
         )}
@@ -203,9 +203,17 @@ export default function OrgAdminOverviewPage() {
         </Card>
 
         {/* Quick Link to Join Page */}
-        <Card>
+        <Card
+          style={{
+            backgroundColor: "rgb(var(--org-secondary-rgb) / 0.05)",
+            borderColor: "rgb(var(--org-secondary-rgb) / 0.2)",
+          }}
+        >
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle
+              className="flex items-center gap-2"
+              style={{ color: theme.secondary }}
+            >
               <UserCheck className="h-5 w-5" />
               Grow Your Organization
             </CardTitle>
@@ -217,9 +225,9 @@ export default function OrgAdminOverviewPage() {
               You'll receive their requests here for approval.
             </p>
             <Link href={`/orgs/join/${orgId}`}>
-              <Button className="w-full" variant="outline">
+              <OrgThemedButton className="w-full" variant="secondary">
                 View Join Page
-              </Button>
+              </OrgThemedButton>
             </Link>
           </CardContent>
         </Card>

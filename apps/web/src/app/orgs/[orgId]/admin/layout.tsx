@@ -120,11 +120,6 @@ export default function OrgAdminLayout({
       label: "Settings",
       icon: Settings,
     },
-    {
-      href: `/orgs/${orgId}/admin/theme-demo` as Route,
-      label: "Theme Preview",
-      icon: Settings,
-    },
   ];
 
   // Show loading while checking access

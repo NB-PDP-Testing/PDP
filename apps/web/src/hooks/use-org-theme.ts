@@ -1,14 +1,7 @@
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { authClient } from "@/lib/auth-client";
-
-type Organization = {
-  id: string;
-  name: string;
-  slug: string;
-  logo?: string | null;
-  colors?: string[];
-};
+import { useEffect } from "react";
 
 export type OrgTheme = {
   primary: string;
@@ -25,11 +18,14 @@ const DEFAULT_COLORS = {
   tertiary: "#f59e0b",
 };
 
+// Regex for parsing hex color to RGB components
+const HEX_COLOR_REGEX = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i;
+
 /**
  * Convert hex color to RGB values
  */
 function hexToRgb(hex: string): string {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  const result = HEX_COLOR_REGEX.exec(hex);
   if (!result) {
     return "22, 163, 74"; // Default green
   }
@@ -41,47 +37,34 @@ function hexToRgb(hex: string): string {
 
 /**
  * Hook to get and apply organization theme colors
+ * Uses Convex reactive query for real-time updates when colors change
  */
 export function useOrgTheme() {
   const params = useParams();
   const orgId = params?.orgId as string | undefined;
-  const [org, setOrg] = useState<Organization | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!orgId) {
-      setOrg(null);
-      setLoading(false);
-      return;
-    }
+  // Use Convex reactive query - automatically updates when org data changes
+  const org = useQuery(
+    api.models.organizations.getOrganization,
+    orgId ? { organizationId: orgId } : "skip"
+  );
 
-    const loadOrg = async () => {
-      try {
-        const { data } = await authClient.organization.getFullOrganization({
-          query: {
-            organizationId: orgId,
-          },
-        });
-        if (data) {
-          setOrg(data as Organization);
-        }
-      } catch (error) {
-        console.error("Error loading organization:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadOrg();
-  }, [orgId]);
+  const loading = org === undefined;
 
   // Build theme object
+  // Handle empty strings - if color is empty string, use default
+  // This ensures positions are preserved: colors[0]=primary, colors[1]=secondary, colors[2]=tertiary
+  const primaryColor = org?.colors?.[0]?.trim() || DEFAULT_COLORS.primary;
+  const secondaryColor = org?.colors?.[1]?.trim() || DEFAULT_COLORS.secondary;
+  const tertiaryColor = org?.colors?.[2]?.trim() || DEFAULT_COLORS.tertiary;
+
   const theme: OrgTheme = {
-    primary: org?.colors?.[0] || DEFAULT_COLORS.primary,
-    secondary: org?.colors?.[1] || DEFAULT_COLORS.secondary,
-    tertiary: org?.colors?.[2] || DEFAULT_COLORS.tertiary,
-    primaryRgb: hexToRgb(org?.colors?.[0] || DEFAULT_COLORS.primary),
-    secondaryRgb: hexToRgb(org?.colors?.[1] || DEFAULT_COLORS.secondary),
-    tertiaryRgb: hexToRgb(org?.colors?.[2] || DEFAULT_COLORS.tertiary),
+    primary: primaryColor,
+    secondary: secondaryColor,
+    tertiary: tertiaryColor,
+    primaryRgb: hexToRgb(primaryColor),
+    secondaryRgb: hexToRgb(secondaryColor),
+    tertiaryRgb: hexToRgb(tertiaryColor),
   };
 
   // Apply CSS variables to the document root
@@ -130,7 +113,15 @@ export function useOrgTheme() {
 
   return {
     theme,
-    org,
+    org: org
+      ? {
+          id: org._id,
+          name: org.name,
+          slug: org.slug,
+          logo: org.logo,
+          colors: org.colors,
+        }
+      : null,
     loading,
     hasTheme: !!orgId && !!org?.colors?.length,
   };

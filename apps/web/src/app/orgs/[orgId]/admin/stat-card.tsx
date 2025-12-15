@@ -9,19 +9,22 @@ export function StatCard({
   description,
   icon: Icon,
   href,
-  variant = "default",
+  variant = "primary",
 }: {
   title: string;
   value: number | string;
   description?: string;
   icon: React.ComponentType<{ className?: string }>;
   href?: Route;
-  variant?: "default" | "warning" | "success" | "danger";
+  variant?: "primary" | "secondary" | "tertiary" | "warning" | "danger";
 }) {
   const variantStyles = {
-    default: "bg-primary/10 text-primary",
+    primary: "bg-[rgb(var(--org-primary-rgb)/0.1)] text-[var(--org-primary)]",
+    secondary:
+      "bg-[rgb(var(--org-secondary-rgb)/0.1)] text-[var(--org-secondary)]",
+    tertiary:
+      "bg-[rgb(var(--org-tertiary-rgb)/0.1)] text-[var(--org-tertiary)]",
     warning: "bg-yellow-500/10 text-yellow-600",
-    success: "bg-green-500/10 text-green-600",
     danger: "bg-red-500/10 text-red-600",
   };
 

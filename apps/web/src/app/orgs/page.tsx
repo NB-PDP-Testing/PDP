@@ -14,6 +14,7 @@ import {
   Building2,
   ChevronRight,
   Clock,
+  Globe,
   Plus,
   Search,
   Settings,
@@ -374,6 +375,13 @@ export default function OrganizationsPage() {
     api.models.users.getAllUsers,
     user?.isPlatformStaff ? {} : "skip"
   );
+
+  // Get all organizations for platform staff
+  const allOrganizations = useQuery(
+    api.models.organizations.getAllOrganizations,
+    user?.isPlatformStaff ? {} : "skip"
+  );
+
   const updatePlatformStaffStatus = useMutation(
     api.models.users.updatePlatformStaffStatus
   );
@@ -704,6 +712,157 @@ export default function OrganizationsPage() {
                 </div>
               )}
             </div>
+
+            {/* All Platform Organizations - Only visible to platform staff */}
+            {user?.isPlatformStaff && (
+              <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
+                <div className="mb-6 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-blue-100 p-2">
+                      <Globe className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
+                        All Platform Organizations
+                      </h2>
+                      <p className="mt-1 text-muted-foreground">
+                        View and manage all organizations on the platform
+                      </p>
+                    </div>
+                  </div>
+                  {allOrganizations && (
+                    <Badge className="text-sm" variant="secondary">
+                      {allOrganizations.length} organization
+                      {allOrganizations.length !== 1 ? "s" : ""}
+                    </Badge>
+                  )}
+                </div>
+
+                {allOrganizations === undefined ? (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {[1, 2, 3].map((i) => (
+                      <Card key={i}>
+                        <CardHeader>
+                          <Skeleton className="mb-2 h-10 w-10 rounded-lg" />
+                          <Skeleton className="h-5 w-40" />
+                          <Skeleton className="h-4 w-24" />
+                        </CardHeader>
+                        <CardContent>
+                          <Skeleton className="h-9 w-full" />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : allOrganizations.length > 0 ? (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {allOrganizations.map((org) => {
+                      // Check if current user is a member
+                      const isMember = organizations?.some(
+                        (userOrg) => userOrg.id === org._id
+                      );
+                      return (
+                        <Card
+                          className={`transition-all hover:shadow-md ${
+                            isMember
+                              ? "border-green-200 bg-green-50/30"
+                              : "border-gray-200"
+                          }`}
+                          key={org._id}
+                        >
+                          <CardHeader className="pb-3">
+                            <div className="flex items-start gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                {org.logo ? (
+                                  <img
+                                    alt={org.name}
+                                    className="h-10 w-10 rounded-lg object-cover"
+                                    src={org.logo}
+                                  />
+                                ) : (
+                                  <Building2 className="h-5 w-5 text-primary" />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <CardTitle className="truncate text-base">
+                                  {org.name}
+                                </CardTitle>
+                                <CardDescription className="mt-0.5 font-mono text-xs">
+                                  {org.slug}
+                                </CardDescription>
+                              </div>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            <div className="mb-3 flex items-center justify-between text-xs">
+                              <span className="flex items-center gap-1 text-muted-foreground">
+                                <Users className="h-3 w-3" />
+                                {org.memberCount} member
+                                {org.memberCount !== 1 ? "s" : ""}
+                              </span>
+                              {isMember && (
+                                <Badge
+                                  className="border-green-300 bg-green-100 text-green-700"
+                                  variant="outline"
+                                >
+                                  Member
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                asChild
+                                className="flex-1"
+                                size="sm"
+                                variant="outline"
+                              >
+                                <Link href={`/orgs/${org._id}/admin`}>
+                                  <Settings className="mr-1 h-3 w-3" />
+                                  Admin
+                                </Link>
+                              </Button>
+                              <Button
+                                asChild
+                                className="flex-1"
+                                size="sm"
+                                variant="outline"
+                              >
+                                <Link href={`/orgs/${org._id}/coach`}>
+                                  Coach
+                                </Link>
+                              </Button>
+                            </div>
+                            <p className="mt-2 text-muted-foreground text-xs">
+                              Created{" "}
+                              {new Date(org.createdAt).toLocaleDateString()}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Card className="border-dashed">
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="mb-4 rounded-full bg-muted p-4">
+                        <Building2 className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="mb-2 font-semibold text-lg">
+                        No Organizations Yet
+                      </h3>
+                      <p className="mb-4 text-muted-foreground">
+                        No organizations have been created on the platform.
+                      </p>
+                      <Link href="/orgs/create">
+                        <Button>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create First Organization
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
 
             {/* Platform Staff Management - Only visible to platform staff */}
             {user?.isPlatformStaff && (

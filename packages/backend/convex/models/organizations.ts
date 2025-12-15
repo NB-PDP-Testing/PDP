@@ -63,6 +63,79 @@ export const getOrganization = query({
 });
 
 /**
+ * Get all organizations (platform staff only)
+ * Returns all organizations in the system for platform-wide management
+ */
+export const getAllOrganizations = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.string(),
+      name: v.string(),
+      slug: v.string(),
+      logo: v.optional(v.union(v.null(), v.string())),
+      createdAt: v.number(),
+      memberCount: v.number(),
+    })
+  ),
+  handler: async (ctx) => {
+    // Verify current user is platform staff
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
+      throw new Error("Only platform staff can view all organizations");
+    }
+
+    // Get all organizations
+    const orgsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "organization",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [],
+      }
+    );
+
+    // Get member counts for each organization
+    const orgsWithCounts = await Promise.all(
+      orgsResult.page.map(async (org: Record<string, unknown>) => {
+        // Get members for this org
+        const membersResult = await ctx.runQuery(
+          components.betterAuth.adapter.findMany,
+          {
+            model: "member",
+            paginationOpts: {
+              cursor: null,
+              numItems: 1000,
+            },
+            where: [
+              {
+                field: "organizationId",
+                value: org._id as string,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        return {
+          _id: org._id as string,
+          name: org.name as string,
+          slug: org.slug as string,
+          logo: org.logo as string | null | undefined,
+          createdAt: org.createdAt as number,
+          memberCount: membersResult.page.length,
+        };
+      })
+    );
+
+    return orgsWithCounts;
+  },
+});
+
+/**
  * Update organization colors
  * This allows setting custom colors for an organization
  * Only organization owners and admins can update colors

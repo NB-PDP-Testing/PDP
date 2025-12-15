@@ -139,11 +139,7 @@ function SignInFormContent() {
         {/* Header */}
         <div className="text-center">
           <div className="mb-6 flex justify-center">
-            <a
-              href="https://playerarc.io"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
+            <a href="https://playerarc.io">
               <PDPLogo size="lg" />
             </a>
           </div>

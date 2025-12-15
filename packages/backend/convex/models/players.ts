@@ -1,7 +1,12 @@
 import { v } from "convex/values";
 import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalQuery, mutation, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 
 /**
  * Player management functions
@@ -352,6 +357,9 @@ export const createPlayer = mutation({
   },
   returns: v.id("players"),
   handler: async (ctx, args) => {
+    // Normalize parent email if provided
+    const normalizedParentEmail = args.parentEmail?.toLowerCase().trim();
+
     const playerId = await ctx.db.insert("players", {
       name: args.name,
       ageGroup: args.ageGroup,
@@ -366,11 +374,64 @@ export const createPlayer = mutation({
       postcode: args.postcode,
       parentFirstName: args.parentFirstName,
       parentSurname: args.parentSurname,
-      parentEmail: args.parentEmail,
+      parentEmail: normalizedParentEmail,
       parentPhone: args.parentPhone,
       skills: {},
       reviewStatus: "Not Started",
     });
+
+    // Auto-link: Check if parent email matches an existing user in this organization
+    // If so, log for future parent dashboard access (the parentEmail field enables this)
+    if (normalizedParentEmail) {
+      // Find all members in this organization
+      const membersResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "member",
+          paginationOpts: {
+            cursor: null,
+            numItems: 1000,
+          },
+          where: [
+            {
+              field: "organizationId",
+              value: args.organizationId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+
+      // Get user IDs of members with parent functional role
+      const parentMembers = membersResult.page.filter(
+        (m: any) =>
+          m.functionalRoles?.includes("parent") ||
+          m.functionalRoles?.includes("admin")
+      );
+
+      if (parentMembers.length > 0) {
+        // Get all users for these members
+        const userIds = parentMembers.map((m: any) => m.userId);
+
+        for (const userId of userIds) {
+          const user = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "user",
+              where: [{ field: "_id", value: userId, operator: "eq" }],
+            }
+          );
+
+          if (user?.email?.toLowerCase().trim() === normalizedParentEmail) {
+            console.log(
+              `[createPlayer] Auto-linked player "${args.name}" to parent user ${user.email} (userId: ${userId})`
+            );
+            break;
+          }
+        }
+      }
+    }
+
     return playerId;
   },
 });
@@ -588,6 +649,12 @@ export const createPlayerForImport = mutation({
   },
   returns: v.id("players"),
   handler: async (ctx, args) => {
+    // Normalize emails for consistent matching
+    const normalizedParentEmail = args.parentEmail?.toLowerCase().trim();
+    const normalizedInferredEmail = args.inferredParentEmail
+      ?.toLowerCase()
+      .trim();
+
     const playerId = await ctx.db.insert("players", {
       name: args.name,
       ageGroup: args.ageGroup,
@@ -602,13 +669,13 @@ export const createPlayerForImport = mutation({
       postcode: args.postcode,
       parentFirstName: args.parentFirstName,
       parentSurname: args.parentSurname,
-      parentEmail: args.parentEmail,
+      parentEmail: normalizedParentEmail,
       parentPhone: args.parentPhone,
       skills: args.skills ?? {},
       familyId: args.familyId,
       inferredParentFirstName: args.inferredParentFirstName,
       inferredParentSurname: args.inferredParentSurname,
-      inferredParentEmail: args.inferredParentEmail,
+      inferredParentEmail: normalizedInferredEmail,
       inferredParentPhone: args.inferredParentPhone,
       inferredFromSource: args.inferredFromSource,
       createdFrom: args.createdFrom,
@@ -625,6 +692,12 @@ export const createPlayerForImport = mutation({
       playerNotes: args.playerNotes,
       reviewStatus: "Not Started",
     });
+
+    // Note: For bulk imports, parent auto-linking happens via:
+    // 1. autoLinkParentToChildren mutation (called when parent joins org)
+    // 2. Smart matching on the approval page
+    // We don't do per-player user lookup during import for performance reasons
+
     return playerId;
   },
 });
@@ -1345,6 +1418,89 @@ export const autoLinkParentToChildren = mutation({
     if (linked > 0) {
       console.log(
         `[autoLinkParentToChildren] Linked ${linked} players to parent ${normalizedEmail}: ${playerNames.join(", ")}`
+      );
+    }
+
+    return { linked, playerNames };
+  },
+});
+
+/**
+ * Internal version of autoLinkParentToChildren for use by other backend mutations
+ * Same logic as the public mutation but uses internalMutation for security
+ */
+export const autoLinkParentToChildrenInternal = internalMutation({
+  args: {
+    parentEmail: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    linked: v.number(),
+    playerNames: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.parentEmail.toLowerCase().trim();
+
+    // Find all players in this organization that might be linked to this parent
+    const allPlayers = await ctx.db
+      .query("players")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    let linked = 0;
+    const playerNames: string[] = [];
+
+    for (const player of allPlayers) {
+      let isMatch = false;
+
+      // Check direct parentEmail field
+      if (player.parentEmail?.toLowerCase().trim() === normalizedEmail) {
+        isMatch = true;
+      }
+
+      // Check inferredParentEmail field
+      if (
+        player.inferredParentEmail?.toLowerCase().trim() === normalizedEmail
+      ) {
+        isMatch = true;
+      }
+
+      // Check parentEmails array
+      if (
+        player.parentEmails?.some(
+          (email: string) => email.toLowerCase().trim() === normalizedEmail
+        )
+      ) {
+        isMatch = true;
+      }
+
+      // Check parents array
+      if (
+        player.parents?.some(
+          (parent: { email?: string }) =>
+            parent.email?.toLowerCase().trim() === normalizedEmail
+        )
+      ) {
+        isMatch = true;
+      }
+
+      if (isMatch) {
+        // Update player to ensure parentEmail is set (if not already)
+        if (!player.parentEmail) {
+          await ctx.db.patch(player._id, {
+            parentEmail: normalizedEmail,
+          });
+        }
+        linked++;
+        playerNames.push(player.name);
+      }
+    }
+
+    if (linked > 0) {
+      console.log(
+        `[autoLinkParentToChildrenInternal] Linked ${linked} players to parent ${normalizedEmail}: ${playerNames.join(", ")}`
       );
     }
 

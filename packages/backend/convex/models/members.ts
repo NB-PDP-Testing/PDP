@@ -1102,46 +1102,75 @@ export const syncFunctionalRolesFromInvitation = mutation({
       );
     }
 
-    // 3. Link parent to players if parent role with player links
-    if (
-      suggestedRoles.includes("parent") &&
-      suggestedPlayerLinks.length > 0 &&
-      userEmail
-    ) {
+    // 3. Link parent to players if parent role
+    if (suggestedRoles.includes("parent") && userEmail) {
       const normalizedEmail = userEmail.toLowerCase().trim();
 
-      // Query players by ID from the players table
-      const players = await ctx.db.query("players").collect();
-      const playerMap = new Map(players.map((p) => [p._id, p]));
+      // 3a. First, link specific players from invitation metadata
+      if (suggestedPlayerLinks.length > 0) {
+        // Query players by ID from the players table
+        const players = await ctx.db.query("players").collect();
+        const playerMap = new Map(players.map((p) => [p._id, p]));
 
-      for (const playerId of suggestedPlayerLinks) {
-        try {
-          const player = playerMap.get(playerId as any);
-          if (
-            player &&
-            player.organizationId === args.organizationId &&
-            !player.parentEmail
-          ) {
-            await ctx.db.patch(player._id, {
-              parentEmail: normalizedEmail,
-            });
-            playersLinked++;
+        for (const playerId of suggestedPlayerLinks) {
+          try {
+            const player = playerMap.get(playerId as any);
+            if (
+              player &&
+              player.organizationId === args.organizationId &&
+              !player.parentEmail
+            ) {
+              await ctx.db.patch(player._id, {
+                parentEmail: normalizedEmail,
+              });
+              playersLinked++;
+            }
+          } catch (error) {
+            console.error(
+              "[syncFunctionalRolesFromInvitation] Error linking player:",
+              playerId,
+              error
+            );
           }
-        } catch (error) {
-          console.error(
-            "[syncFunctionalRolesFromInvitation] Error linking player:",
-            playerId,
-            error
-          );
         }
+
+        console.log(
+          "[syncFunctionalRolesFromInvitation] Linked",
+          playersLinked,
+          "specific players to parent:",
+          userEmail
+        );
       }
 
-      console.log(
-        "[syncFunctionalRolesFromInvitation] Linked",
-        playersLinked,
-        "players to parent:",
-        userEmail
-      );
+      // 3b. Then, auto-link based on email matching across all player records
+      // This catches any players that have this parent's email in their
+      // parentEmail, inferredParentEmail, parentEmails, or parents[] fields
+      try {
+        const autoLinkResult: { linked: number; playerNames: string[] } =
+          await ctx.runMutation(
+            internal.models.players.autoLinkParentToChildrenInternal,
+            {
+              parentEmail: normalizedEmail,
+              organizationId: args.organizationId,
+            }
+          );
+
+        if (autoLinkResult.linked > 0) {
+          console.log(
+            "[syncFunctionalRolesFromInvitation] Auto-linked",
+            autoLinkResult.linked,
+            "additional players via email match:",
+            autoLinkResult.playerNames.join(", ")
+          );
+          // Add to total (avoid double counting - auto-link may have found same players)
+          playersLinked = Math.max(playersLinked, autoLinkResult.linked);
+        }
+      } catch (error) {
+        console.error(
+          "[syncFunctionalRolesFromInvitation] Error in auto-link:",
+          error
+        );
+      }
     }
 
     return {

@@ -7,23 +7,23 @@ import { Button } from "@/components/ui/button";
 
 export function HeroSection() {
   return (
-    <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-[#1E3A5F] via-[#1E3A5F] to-[#0F1F35] px-4 pt-32 pb-20 text-white sm:pt-24">
+    <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-[#1E3A5F] via-[#1E3A5F] to-[#0F1F35] px-4 pt-24 pb-20 text-white">
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] bg-repeat" />
       </div>
 
-      {/* Content */}
-      <div className="relative z-10 mx-auto flex max-w-7xl flex-col items-center gap-8 text-center">
+      {/* Content - add top margin to clear the fixed header (h-16 = 64px) */}
+      <div className="relative z-10 mx-auto mt-16 flex max-w-7xl flex-col items-center gap-8 text-center">
         {/* Logo */}
-        <div className="mt-8 flex flex-col items-center gap-4">
-          <div className="relative h-40 w-40 drop-shadow-2xl sm:h-48 sm:w-48">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative h-32 w-32 drop-shadow-2xl sm:h-40 sm:w-40 md:h-48 md:w-48">
             <Image
               alt="PlayerArc Logo"
               className="object-contain"
               fill
               priority
-              sizes="(max-width: 640px) 160px, 192px"
+              sizes="(max-width: 640px) 128px, (max-width: 768px) 160px, 192px"
               src="/logos-landing/PDP-Logo-OffWhiteOrbit_GreenHuman.png"
             />
           </div>

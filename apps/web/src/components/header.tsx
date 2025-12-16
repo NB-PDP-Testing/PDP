@@ -69,14 +69,20 @@ export default function Header() {
 
   // Track current org in user profile
   // Skip this on join pages - user isn't a member yet and can't set active org
+  // Also skip if user has no member record at all (not a member of any org)
   useEffect(() => {
     if (shouldHideOrgContent) {
       return; // Don't try to set active org on join/create pages
     }
-    if (user && orgId && member?.organizationId !== orgId) {
+    // Only try to set active org if:
+    // 1. User is logged in
+    // 2. We have an orgId in the URL
+    // 3. User has a member record (they're a member of at least one org)
+    // 4. The member's current org doesn't match the URL org
+    if (user && orgId && member && member.organizationId !== orgId) {
       authClient.organization.setActive({ organizationId: orgId });
     }
-  }, [user, orgId, member?.organizationId, shouldHideOrgContent]);
+  }, [user, orgId, member, shouldHideOrgContent]);
 
   // Get header styling based on context:
   // - Org pages: Use org primary color

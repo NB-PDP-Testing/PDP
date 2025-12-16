@@ -34,6 +34,18 @@ export const createJoinRequest = mutation({
       )
     ),
     message: v.optional(v.string()),
+
+    // Parent-specific fields for smart matching
+    phone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    // JSON string of [{name, age, team?}] - children info for matching
+    children: v.optional(v.string()),
+
+    // Coach-specific fields
+    coachSport: v.optional(v.string()),
+    coachGender: v.optional(v.string()),
+    coachTeams: v.optional(v.string()),
+    coachAgeGroups: v.optional(v.string()),
   },
   returns: v.id("orgJoinRequests"),
   handler: async (ctx, args) => {
@@ -131,6 +143,17 @@ export const createJoinRequest = mutation({
       status: "pending",
       message: args.message,
       requestedAt: Date.now(),
+
+      // Parent-specific fields for smart matching
+      phone: args.phone,
+      address: args.address,
+      children: args.children,
+
+      // Coach-specific fields
+      coachSport: args.coachSport,
+      coachGender: args.coachGender,
+      coachTeams: args.coachTeams,
+      coachAgeGroups: args.coachAgeGroups,
     });
   },
 });

@@ -404,6 +404,18 @@ export default defineSchema({
     message: v.optional(v.string()), // Optional message from user
     rejectionReason: v.optional(v.string()),
 
+    // Parent-specific fields for smart matching
+    phone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    // JSON string of [{name, age, team?}] - children info for matching
+    children: v.optional(v.string()),
+
+    // Coach-specific fields
+    coachSport: v.optional(v.string()), // Primary sport
+    coachGender: v.optional(v.string()), // Team gender preference (Boys, Girls, Mixed)
+    coachTeams: v.optional(v.string()), // Comma-separated team names
+    coachAgeGroups: v.optional(v.string()), // Comma-separated age groups
+
     // Timestamps
     requestedAt: v.number(),
     reviewedAt: v.optional(v.number()),

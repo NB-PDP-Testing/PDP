@@ -4,15 +4,19 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
+  Baby,
   Calendar,
   Check,
   CheckCircle,
   ChevronDown,
   ChevronUp,
   Mail,
+  MapPin,
+  Phone,
   Search,
   Shield,
   Star,
+  Trophy,
   UserCircle,
   UserPlus,
   Users,
@@ -121,6 +125,15 @@ export default function JoinRequestApprovalsPage() {
     userEmail: string;
     requestedFunctionalRoles?: string[];
     requestedRole: string;
+    // Parent/Coach additional fields for smart matching
+    phone?: string;
+    address?: string;
+    children?: string; // JSON string of [{name, age, team?}]
+    coachSport?: string;
+    coachGender?: string;
+    coachTeams?: string;
+    coachAgeGroups?: string;
+    message?: string;
   } | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [loading, setLoading] = useState<string | null>(null);
@@ -140,7 +153,15 @@ export default function JoinRequestApprovalsPage() {
   } | null>(null);
   const [roleRejectionReason, setRoleRejectionReason] = useState("");
 
+  // Extract surname from userName for better matching
+  const extractSurname = (fullName: string | undefined): string | undefined => {
+    if (!fullName) return;
+    const parts = fullName.trim().split(/\s+/);
+    return parts.length > 1 ? parts[parts.length - 1] : undefined;
+  };
+
   // Fetch smart matches for the selected parent request
+  // Now passes all available data for better matching
   const smartMatches = useQuery(
     api.models.players.getSmartMatchesForParent,
     selectedRequest &&
@@ -149,6 +170,10 @@ export default function JoinRequestApprovalsPage() {
       ? {
           organizationId: orgId,
           email: selectedRequest.userEmail,
+          surname: extractSurname(selectedRequest.userName),
+          phone: selectedRequest.phone,
+          address: selectedRequest.address,
+          children: selectedRequest.children,
         }
       : "skip"
   );
@@ -388,6 +413,12 @@ export default function JoinRequestApprovalsPage() {
                 <Mail className="h-4 w-4" />
                 <span className="truncate">{request.userEmail}</span>
               </div>
+              {request.phone && (
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  <span>{request.phone}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 <span>
@@ -395,6 +426,95 @@ export default function JoinRequestApprovalsPage() {
                 </span>
               </div>
             </div>
+
+            {/* Parent info display */}
+            {(request.requestedFunctionalRoles?.includes("parent") ||
+              request.requestedRole === "parent") && (
+              <div className="mt-3 space-y-2">
+                {request.address && (
+                  <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-2 text-sm dark:border-blue-800 dark:bg-blue-950/30">
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                    <span className="text-blue-800 dark:text-blue-200">
+                      {request.address}
+                    </span>
+                  </div>
+                )}
+                {request.children &&
+                  (() => {
+                    try {
+                      const childrenData = JSON.parse(
+                        request.children
+                      ) as Array<{
+                        name: string;
+                        age?: number;
+                        team?: string;
+                      }>;
+                      if (childrenData.length > 0) {
+                        return (
+                          <div className="rounded-lg border border-blue-200 bg-blue-50 p-2 dark:border-blue-800 dark:bg-blue-950/30">
+                            <p className="mb-1 flex items-center gap-1 font-medium text-blue-800 text-xs dark:text-blue-200">
+                              <Baby className="h-3 w-3" />
+                              Children ({childrenData.length})
+                            </p>
+                            <div className="space-y-1">
+                              {childrenData.map((child, idx) => (
+                                <div
+                                  className="text-blue-700 text-xs dark:text-blue-300"
+                                  key={idx}
+                                >
+                                  <span className="font-medium">
+                                    {child.name}
+                                  </span>
+                                  {child.age && <span> • Age {child.age}</span>}
+                                  {child.team && <span> • {child.team}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    } catch {
+                      return null;
+                    }
+                  })()}
+              </div>
+            )}
+
+            {/* Coach info display */}
+            {(request.requestedFunctionalRoles?.includes("coach") ||
+              request.requestedRole === "coach") &&
+              (request.coachSport ||
+                request.coachTeams ||
+                request.coachAgeGroups) && (
+                <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-2 dark:border-green-800 dark:bg-green-950/30">
+                  <p className="mb-1 flex items-center gap-1 font-medium text-green-800 text-xs dark:text-green-200">
+                    <Trophy className="h-3 w-3" />
+                    Coach Details
+                  </p>
+                  <div className="space-y-1 text-green-700 text-xs dark:text-green-300">
+                    {request.coachSport && (
+                      <div>
+                        <span className="font-medium">Sport:</span>{" "}
+                        {request.coachSport}
+                        {request.coachGender && ` (${request.coachGender})`}
+                      </div>
+                    )}
+                    {request.coachTeams && (
+                      <div>
+                        <span className="font-medium">Teams:</span>{" "}
+                        {request.coachTeams}
+                      </div>
+                    )}
+                    {request.coachAgeGroups && (
+                      <div>
+                        <span className="font-medium">Age Groups:</span>{" "}
+                        {request.coachAgeGroups}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
             {request.message && (
               <div className="mt-3 rounded-lg border bg-muted/50 p-3">

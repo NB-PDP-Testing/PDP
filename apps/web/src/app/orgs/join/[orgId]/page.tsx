@@ -6,8 +6,12 @@ import {
   Building2,
   Check,
   Loader2,
+  MapPin,
+  Phone,
+  Plus,
   Send,
   Shield,
+  Trash2,
   UserCircle,
   Users,
 } from "lucide-react";
@@ -23,10 +27,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 type FunctionalRole = "coach" | "parent" | "admin";
+
+type ChildEntry = {
+  name: string;
+  age: string;
+  team: string;
+};
+
+const SPORTS = ["GAA Football", "Soccer", "Rugby", "GAA Hurling"] as const;
+const GENDERS = ["Boys", "Girls", "Mixed"] as const;
 
 export default function JoinOrganizationRequestPage() {
   const params = useParams();
@@ -37,6 +58,21 @@ export default function JoinOrganizationRequestPage() {
   const [selectedRoles, setSelectedRoles] = useState<FunctionalRole[]>([]);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Common field - phone (used by both parent and coach)
+  const [phone, setPhone] = useState("");
+
+  // Parent-specific fields
+  const [address, setAddress] = useState("");
+  const [children, setChildren] = useState<ChildEntry[]>([
+    { name: "", age: "", team: "" },
+  ]);
+
+  // Coach-specific fields
+  const [coachSport, setCoachSport] = useState("");
+  const [coachGender, setCoachGender] = useState("");
+  const [coachTeams, setCoachTeams] = useState("");
+  const [coachAgeGroups, setCoachAgeGroups] = useState("");
 
   const createJoinRequest = useMutation(
     api.models.orgJoinRequests.createJoinRequest
@@ -49,28 +85,95 @@ export default function JoinOrganizationRequestPage() {
   };
 
   // Helper function to infer Better Auth role from functional roles
-  // If functional roles include "admin", Better Auth role should be "admin"
-  // Otherwise, default to "member"
   const inferBetterAuthRole = (
     functionalRoles: FunctionalRole[]
   ): "member" | "admin" =>
     functionalRoles.includes("admin") ? "admin" : "member";
+
+  // Child management functions
+  const addChild = () => {
+    setChildren([...children, { name: "", age: "", team: "" }]);
+  };
+
+  const removeChild = (index: number) => {
+    if (children.length > 1) {
+      setChildren(children.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateChild = (
+    index: number,
+    field: keyof ChildEntry,
+    value: string
+  ) => {
+    const updated = [...children];
+    updated[index] = { ...updated[index], [field]: value };
+    setChildren(updated);
+  };
+
+  // Check if parent fields are valid (at least one child with name)
+  const isParentDataValid = () => {
+    if (!selectedRoles.includes("parent")) return true;
+    // At least one child must have a name
+    return children.some((child) => child.name.trim().length > 0);
+  };
+
+  // Check if coach fields are valid
+  const isCoachDataValid = () => {
+    if (!selectedRoles.includes("coach")) return true;
+    // Sport is required for coaches
+    return coachSport.length > 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      // Auto-infer Better Auth role from functional roles:
-      // - If "admin" functional role selected → Better Auth role = "admin"
-      // - Otherwise → Better Auth role = "member"
       const betterAuthRole = inferBetterAuthRole(selectedRoles);
+
+      // Filter children to only include those with names
+      const validChildren = children.filter(
+        (child) => child.name.trim().length > 0
+      );
 
       await createJoinRequest({
         organizationId: orgId,
-        requestedRole: betterAuthRole, // Auto-inferred from functional roles
+        requestedRole: betterAuthRole,
         requestedFunctionalRoles: selectedRoles,
         message: message || undefined,
+
+        // Common field
+        phone: phone || undefined,
+
+        // Parent-specific fields
+        address: selectedRoles.includes("parent")
+          ? address || undefined
+          : undefined,
+        children:
+          selectedRoles.includes("parent") && validChildren.length > 0
+            ? JSON.stringify(
+                validChildren.map((c) => ({
+                  name: c.name.trim(),
+                  age: c.age ? Number.parseInt(c.age, 10) : undefined,
+                  team: c.team.trim() || undefined,
+                }))
+              )
+            : undefined,
+
+        // Coach-specific fields
+        coachSport: selectedRoles.includes("coach")
+          ? coachSport || undefined
+          : undefined,
+        coachGender: selectedRoles.includes("coach")
+          ? coachGender || undefined
+          : undefined,
+        coachTeams: selectedRoles.includes("coach")
+          ? coachTeams || undefined
+          : undefined,
+        coachAgeGroups: selectedRoles.includes("coach")
+          ? coachAgeGroups || undefined
+          : undefined,
       });
 
       toast.success("Join request submitted successfully!");
@@ -85,6 +188,9 @@ export default function JoinOrganizationRequestPage() {
     }
   };
 
+  const canSubmit =
+    selectedRoles.length > 0 && isParentDataValid() && isCoachDataValid();
+
   return (
     <div className="container mx-auto max-w-2xl space-y-6 py-8">
       {/* Header */}
@@ -93,7 +199,7 @@ export default function JoinOrganizationRequestPage() {
           Request to Join Organization
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Select your role(s) and submit your request
+          Select your role(s) and provide details to help with verification
         </p>
       </div>
 
@@ -114,7 +220,7 @@ export default function JoinOrganizationRequestPage() {
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {/* Role Selection - Multiple checkboxes */}
+            {/* Role Selection */}
             <div className="space-y-4">
               <Label>
                 Select Your Role(s) <span className="text-destructive">*</span>
@@ -128,7 +234,7 @@ export default function JoinOrganizationRequestPage() {
                 <button
                   className={`flex w-full cursor-pointer items-start gap-4 rounded-lg border p-4 text-left transition-colors ${
                     selectedRoles.includes("admin")
-                      ? "border-purple-500 bg-purple-50"
+                      ? "border-purple-500 bg-purple-50 dark:bg-purple-950/30"
                       : "hover:bg-accent/50"
                   }`}
                   disabled={isSubmitting}
@@ -162,7 +268,7 @@ export default function JoinOrganizationRequestPage() {
                 <button
                   className={`flex w-full cursor-pointer items-start gap-4 rounded-lg border p-4 text-left transition-colors ${
                     selectedRoles.includes("coach")
-                      ? "border-green-500 bg-green-50"
+                      ? "border-green-500 bg-green-50 dark:bg-green-950/30"
                       : "hover:bg-accent/50"
                   }`}
                   disabled={isSubmitting}
@@ -196,7 +302,7 @@ export default function JoinOrganizationRequestPage() {
                 <button
                   className={`flex w-full cursor-pointer items-start gap-4 rounded-lg border p-4 text-left transition-colors ${
                     selectedRoles.includes("parent")
-                      ? "border-blue-500 bg-blue-50"
+                      ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30"
                       : "hover:bg-accent/50"
                   }`}
                   disabled={isSubmitting}
@@ -234,15 +340,224 @@ export default function JoinOrganizationRequestPage() {
               )}
             </div>
 
+            {/* Phone Number - shown for parent or coach */}
+            {(selectedRoles.includes("parent") ||
+              selectedRoles.includes("coach")) && (
+              <div className="space-y-2">
+                <Label htmlFor="phone">
+                  <Phone className="mr-2 inline h-4 w-4" />
+                  Mobile Number
+                </Label>
+                <Input
+                  disabled={isSubmitting}
+                  id="phone"
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g., 07912 345678"
+                  type="tel"
+                  value={phone}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Helps verify your identity and for contact purposes
+                </p>
+              </div>
+            )}
+
+            {/* Parent-specific fields */}
+            {selectedRoles.includes("parent") && (
+              <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-800 dark:bg-blue-950/20">
+                <h3 className="flex items-center gap-2 font-medium text-blue-800 dark:text-blue-200">
+                  <UserCircle className="h-4 w-4" />
+                  Parent Information
+                </h3>
+
+                {/* Address */}
+                <div className="space-y-2">
+                  <Label htmlFor="address">
+                    <MapPin className="mr-2 inline h-4 w-4" />
+                    Home Address
+                  </Label>
+                  <Textarea
+                    className="min-h-20"
+                    disabled={isSubmitting}
+                    id="address"
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Enter your full address including postcode..."
+                    value={address}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Used to help match you with your children in the system
+                  </p>
+                </div>
+
+                {/* Children */}
+                <div className="space-y-3">
+                  <Label>
+                    Your Children <span className="text-destructive">*</span>
+                  </Label>
+                  <p className="text-muted-foreground text-xs">
+                    Add details about your children to help us match them to
+                    their records
+                  </p>
+
+                  {children.map((child, index) => (
+                    <div
+                      className="flex items-start gap-2 rounded border bg-white p-3 dark:bg-gray-900"
+                      key={index}
+                    >
+                      <div className="grid flex-1 grid-cols-3 gap-2">
+                        <Input
+                          disabled={isSubmitting}
+                          onChange={(e) =>
+                            updateChild(index, "name", e.target.value)
+                          }
+                          placeholder="Child's name *"
+                          value={child.name}
+                        />
+                        <Input
+                          disabled={isSubmitting}
+                          max={18}
+                          min={4}
+                          onChange={(e) =>
+                            updateChild(index, "age", e.target.value)
+                          }
+                          placeholder="Age"
+                          type="number"
+                          value={child.age}
+                        />
+                        <Input
+                          disabled={isSubmitting}
+                          onChange={(e) =>
+                            updateChild(index, "team", e.target.value)
+                          }
+                          placeholder="Team (optional)"
+                          value={child.team}
+                        />
+                      </div>
+                      {children.length > 1 && (
+                        <Button
+                          className="shrink-0"
+                          disabled={isSubmitting}
+                          onClick={() => removeChild(index)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+
+                  <Button
+                    className="w-full"
+                    disabled={isSubmitting}
+                    onClick={addChild}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Another Child
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Coach-specific fields */}
+            {selectedRoles.includes("coach") && (
+              <div className="space-y-4 rounded-lg border border-green-200 bg-green-50/50 p-4 dark:border-green-800 dark:bg-green-950/20">
+                <h3 className="flex items-center gap-2 font-medium text-green-800 dark:text-green-200">
+                  <Users className="h-4 w-4" />
+                  Coach Information
+                </h3>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Sport */}
+                  <div className="space-y-2">
+                    <Label htmlFor="coachSport">
+                      Primary Sport <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      disabled={isSubmitting}
+                      onValueChange={setCoachSport}
+                      value={coachSport}
+                    >
+                      <SelectTrigger id="coachSport">
+                        <SelectValue placeholder="Select sport" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SPORTS.map((sport) => (
+                          <SelectItem key={sport} value={sport}>
+                            {sport}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Gender */}
+                  <div className="space-y-2">
+                    <Label htmlFor="coachGender">Team Gender</Label>
+                    <Select
+                      disabled={isSubmitting}
+                      onValueChange={setCoachGender}
+                      value={coachGender}
+                    >
+                      <SelectTrigger id="coachGender">
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {GENDERS.map((gender) => (
+                          <SelectItem key={gender} value={gender}>
+                            {gender}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Teams */}
+                <div className="space-y-2">
+                  <Label htmlFor="coachTeams">Teams (optional)</Label>
+                  <Input
+                    disabled={isSubmitting}
+                    id="coachTeams"
+                    onChange={(e) => setCoachTeams(e.target.value)}
+                    placeholder="e.g., U12, U14 Boys, Senior"
+                    value={coachTeams}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Comma-separated list of teams you coach or want to coach
+                  </p>
+                </div>
+
+                {/* Age Groups */}
+                <div className="space-y-2">
+                  <Label htmlFor="coachAgeGroups">Age Groups (optional)</Label>
+                  <Input
+                    disabled={isSubmitting}
+                    id="coachAgeGroups"
+                    onChange={(e) => setCoachAgeGroups(e.target.value)}
+                    placeholder="e.g., U10, U12, U14"
+                    value={coachAgeGroups}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Comma-separated list of age groups you work with
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Optional Message */}
             <div className="space-y-2">
-              <Label htmlFor="message">Message (Optional)</Label>
+              <Label htmlFor="message">Additional Message (Optional)</Label>
               <Textarea
-                className="min-h-24"
+                className="min-h-20"
                 disabled={isSubmitting}
                 id="message"
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Add any additional information about why you want to join..."
+                placeholder="Any additional information you'd like to share..."
                 value={message}
               />
               <p className="text-muted-foreground text-xs">
@@ -254,7 +569,7 @@ export default function JoinOrganizationRequestPage() {
             <div className="flex gap-3">
               <Button
                 className="flex-1"
-                disabled={isSubmitting || selectedRoles.length === 0}
+                disabled={isSubmitting || !canSubmit}
                 type="submit"
                 variant="default"
               >

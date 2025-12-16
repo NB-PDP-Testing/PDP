@@ -54,7 +54,6 @@ export default function Header() {
   const user = useCurrentUser();
   const { data: org } = authClient.useActiveOrganization();
   const { data: member } = authClient.useActiveMember();
-  const { theme } = useOrgTheme();
 
   // Check if we're on an auth page or landing page
   const isAuthPage = pathname === "/login" || pathname === "/signup";
@@ -66,6 +65,10 @@ export default function Header() {
   const isOrgsCreatePage = pathname === "/orgs/create";
   const shouldHideOrgContent =
     isOrgsListingPage || isOrgsJoinPage || isOrgsCreatePage;
+
+  // Only fetch org theme when we're on a page where we need it
+  // Skip on join/create pages to avoid queries for orgs the user isn't a member of
+  const { theme } = useOrgTheme({ skip: shouldHideOrgContent });
 
   // Track current org in user profile
   // Skip this on join pages - user isn't a member yet and can't set active org

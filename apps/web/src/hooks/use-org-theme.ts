@@ -35,18 +35,24 @@ function hexToRgb(hex: string): string {
   return `${r}, ${g}, ${b}`;
 }
 
+type UseOrgThemeOptions = {
+  skip?: boolean;
+};
+
 /**
  * Hook to get and apply organization theme colors
  * Uses Convex reactive query for real-time updates when colors change
  */
-export function useOrgTheme() {
+export function useOrgTheme(options: UseOrgThemeOptions = {}) {
+  const { skip = false } = options;
   const params = useParams();
   const orgId = params?.orgId as string | undefined;
 
   // Use Convex reactive query - automatically updates when org data changes
+  // Skip query if explicitly told to skip (e.g., on join pages where user isn't a member)
   const org = useQuery(
     api.models.organizations.getOrganization,
-    orgId ? { organizationId: orgId } : "skip"
+    !skip && orgId ? { organizationId: orgId } : "skip"
   );
 
   const loading = org === undefined;
@@ -69,8 +75,9 @@ export function useOrgTheme() {
 
   // Apply CSS variables to the document root
   useEffect(() => {
-    if (!orgId) {
-      // Remove custom properties when not in org context
+    // Skip applying CSS variables when skip is true (e.g., on join pages)
+    if (skip || !orgId) {
+      // Remove custom properties when not in org context or skipping
       document.documentElement.style.removeProperty("--org-primary");
       document.documentElement.style.removeProperty("--org-primary-rgb");
       document.documentElement.style.removeProperty("--org-secondary");
@@ -102,6 +109,7 @@ export function useOrgTheme() {
       theme.tertiaryRgb
     );
   }, [
+    skip,
     orgId,
     theme.primary,
     theme.secondary,

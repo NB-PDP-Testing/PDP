@@ -31,7 +31,8 @@ export default function CurrentOrgPage() {
 
 /**
  * Determines the appropriate route based on user's roles
- * Priority:
+ *
+ * NEW: Uses activeFunctionalRole if set, otherwise falls back to priority logic:
  * 1. Coach (functional role "coach") → /coach (prioritized over admin for daily use)
  * 2. Admin (org role owner/admin OR functional role "admin") → /admin
  * 3. Parent (functional role "parent") → /parents
@@ -43,8 +44,22 @@ export default function CurrentOrgPage() {
 function getRedirectRoute(
   orgId: string,
   memberRole: OrgMemberRole | undefined,
-  functionalRoles: string[]
+  functionalRoles: string[],
+  activeFunctionalRole?: string | null
 ): Route {
+  // NEW: If user has an active functional role set, use it directly
+  if (activeFunctionalRole && functionalRoles.includes(activeFunctionalRole)) {
+    switch (activeFunctionalRole) {
+      case "coach":
+        return `/orgs/${orgId}/coach` as Route;
+      case "admin":
+        return `/orgs/${orgId}/admin` as Route;
+      case "parent":
+        return `/orgs/${orgId}/parents` as Route;
+    }
+  }
+
+  // Fallback to priority logic if no active role set
   // Check if user has org admin permissions (owner/admin roles)
   const hasOrgAdmin =
     memberRole &&
@@ -141,14 +156,20 @@ function RedirectToActiveOrg() {
     const functionalRoles =
       ((member as any)?.functionalRoles as string[] | undefined) || [];
 
+    // Get active functional role (NEW: respects user's role preference)
+    const activeFunctionalRole = (member as any)?.activeFunctionalRole as
+      | string
+      | undefined;
+
     // Get Better Auth org role
     const memberRole = member?.role as OrgMemberRole | undefined;
 
-    // Determine redirect route based on roles
+    // Determine redirect route based on roles (now respects activeFunctionalRole)
     const redirectRoute = getRedirectRoute(
       activeOrganization.id,
       memberRole,
-      functionalRoles
+      functionalRoles,
+      activeFunctionalRole
     );
 
     // Development logging for debugging
@@ -157,6 +178,7 @@ function RedirectToActiveOrg() {
         orgId: activeOrganization.id,
         memberRole,
         functionalRoles,
+        activeFunctionalRole,
         redirectRoute,
       });
     }

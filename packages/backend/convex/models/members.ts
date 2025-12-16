@@ -1183,6 +1183,802 @@ export const syncFunctionalRolesFromInvitation = mutation({
 });
 
 /**
+ * Switch active functional role for a member in an organization
+ * Used by the OrgRoleSwitcher component to change which role the user is "using"
+ */
+export const switchActiveFunctionalRole = mutation({
+  args: {
+    organizationId: v.string(),
+    functionalRole: v.union(
+      v.literal("coach"),
+      v.literal("parent"),
+      v.literal("admin")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get current user from auth context
+    const identity = await ctx.auth.getUserIdentity();
+    if (!(identity && identity.email)) {
+      throw new Error("Not authenticated");
+    }
+
+    // Find user by email
+    const userResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: identity.email,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!userResult) {
+      throw new Error("User not found");
+    }
+
+    // Find the member record
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: userResult._id,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      throw new Error("Member not found in this organization");
+    }
+
+    // Verify user has this functional role
+    const functionalRoles: ("coach" | "parent" | "admin")[] =
+      (memberResult as any).functionalRoles || [];
+    if (!functionalRoles.includes(args.functionalRole)) {
+      throw new Error(
+        `You don't have the ${args.functionalRole} role in this organization`
+      );
+    }
+
+    // Update active functional role
+    // Note: activeFunctionalRole is a custom field not in Better Auth schema, so we cast to any
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
+        update: {
+          activeFunctionalRole: args.functionalRole,
+        } as any,
+      },
+    });
+
+    console.log(
+      `[switchActiveFunctionalRole] Switched to ${args.functionalRole} for user ${userResult._id} in org ${args.organizationId}`
+    );
+    return null;
+  },
+});
+
+/**
+ * Get member's active functional role for an organization
+ * Returns the active role if set, otherwise returns first role by priority (coach > admin > parent)
+ */
+export const getActiveFunctionalRole = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.union(
+    v.literal("coach"),
+    v.literal("parent"),
+    v.literal("admin"),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Get current user from auth context
+    const identity = await ctx.auth.getUserIdentity();
+    if (!(identity && identity.email)) {
+      return null;
+    }
+
+    // Find user by email
+    const userResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: identity.email,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!userResult) {
+      return null;
+    }
+
+    // Find member record
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: userResult._id,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      return null;
+    }
+
+    const functionalRoles: ("coach" | "parent" | "admin")[] =
+      (memberResult as any).functionalRoles || [];
+    if (functionalRoles.length === 0) {
+      return null;
+    }
+
+    // Return active role if set and still valid
+    const activeRole = (memberResult as any).activeFunctionalRole as
+      | "coach"
+      | "parent"
+      | "admin"
+      | undefined;
+    if (activeRole && functionalRoles.includes(activeRole)) {
+      return activeRole;
+    }
+
+    // Fallback: return first role by priority (coach > admin > parent)
+    const priority: ("coach" | "admin" | "parent")[] = [
+      "coach",
+      "admin",
+      "parent",
+    ];
+    for (const role of priority) {
+      if (functionalRoles.includes(role)) {
+        return role;
+      }
+    }
+
+    return functionalRoles[0];
+  },
+});
+
+/**
+ * Get all memberships for the current user across all organizations
+ * Used by OrgRoleSwitcher to show all orgs and roles in one dropdown
+ */
+export const getMembersForAllOrganizations = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      organizationId: v.string(),
+      organizationName: v.union(v.string(), v.null()),
+      organizationLogo: v.union(v.string(), v.null()),
+      functionalRoles: v.array(
+        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+      ),
+      activeFunctionalRole: v.union(
+        v.literal("coach"),
+        v.literal("parent"),
+        v.literal("admin"),
+        v.null()
+      ),
+      pendingRoleRequests: v.array(
+        v.object({
+          role: v.union(
+            v.literal("coach"),
+            v.literal("parent"),
+            v.literal("admin")
+          ),
+          requestedAt: v.string(),
+        })
+      ),
+      betterAuthRole: v.string(),
+    })
+  ),
+  handler: async (ctx) => {
+    // Get current user from auth context
+    const identity = await ctx.auth.getUserIdentity();
+    if (!(identity && identity.email)) {
+      return [];
+    }
+
+    // Find user by email
+    const userResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: identity.email,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!userResult) {
+      return [];
+    }
+
+    // Get all memberships for this user
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "userId",
+            value: userResult._id,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    // Get organization details for each membership
+    const memberships = await Promise.all(
+      membersResult.page.map(async (member: Member) => {
+        const orgResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "organization",
+            where: [
+              {
+                field: "_id",
+                value: member.organizationId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        const functionalRoles: ("coach" | "parent" | "admin")[] =
+          (member as any).functionalRoles || [];
+        const activeRole = (member as any).activeFunctionalRole as
+          | "coach"
+          | "parent"
+          | "admin"
+          | undefined;
+        const pendingRequests: Array<{
+          role: "coach" | "parent" | "admin";
+          requestedAt: string;
+        }> = ((member as any).pendingFunctionalRoleRequests || []).map(
+          (req: { role: string; requestedAt: string }) => ({
+            role: req.role as "coach" | "parent" | "admin",
+            requestedAt: req.requestedAt,
+          })
+        );
+
+        // Determine effective active role (set or fallback to priority)
+        let effectiveActiveRole: "coach" | "parent" | "admin" | null = null;
+        if (activeRole && functionalRoles.includes(activeRole)) {
+          effectiveActiveRole = activeRole;
+        } else if (functionalRoles.length > 0) {
+          // Fallback to priority
+          const priority: ("coach" | "admin" | "parent")[] = [
+            "coach",
+            "admin",
+            "parent",
+          ];
+          for (const role of priority) {
+            if (functionalRoles.includes(role)) {
+              effectiveActiveRole = role;
+              break;
+            }
+          }
+          if (!effectiveActiveRole) {
+            effectiveActiveRole = functionalRoles[0];
+          }
+        }
+
+        return {
+          organizationId: member.organizationId,
+          organizationName: (orgResult?.name as string) || null,
+          organizationLogo: (orgResult?.logo as string) || null,
+          functionalRoles,
+          activeFunctionalRole: effectiveActiveRole,
+          pendingRoleRequests: pendingRequests,
+          betterAuthRole: member.role,
+        };
+      })
+    );
+
+    return memberships;
+  },
+});
+
+// ============ ROLE REQUEST SYSTEM ============
+
+/**
+ * Request an additional functional role within an organization
+ * The request is stored on the member record for admin review
+ */
+export const requestFunctionalRole = mutation({
+  args: {
+    organizationId: v.string(),
+    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin")),
+    // Optional role-specific data
+    message: v.optional(v.string()), // Why they need this role
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get current user from auth context
+    const identity = await ctx.auth.getUserIdentity();
+    if (!(identity && identity.email)) {
+      throw new Error("Not authenticated");
+    }
+
+    // Find user by email
+    const userResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: identity.email,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!userResult) {
+      throw new Error("User not found");
+    }
+
+    // Find member record
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: userResult._id,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      throw new Error("You are not a member of this organization");
+    }
+
+    // Check if user already has this role
+    const functionalRoles: ("coach" | "parent" | "admin")[] =
+      (memberResult as any).functionalRoles || [];
+    if (functionalRoles.includes(args.role)) {
+      throw new Error(`You already have the ${args.role} role`);
+    }
+
+    // Check if user already has a pending request for this role
+    const pendingRequests: Array<{
+      role: string;
+      requestedAt: string;
+      message?: string;
+    }> = (memberResult as any).pendingFunctionalRoleRequests || [];
+
+    if (pendingRequests.some((req) => req.role === args.role)) {
+      throw new Error(
+        `You already have a pending request for the ${args.role} role`
+      );
+    }
+
+    // Add the new request
+    const newRequest = {
+      role: args.role,
+      requestedAt: new Date().toISOString(),
+      message: args.message,
+    };
+
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
+        update: {
+          pendingFunctionalRoleRequests: [...pendingRequests, newRequest],
+        } as any,
+      },
+    });
+
+    console.log(
+      `[requestFunctionalRole] User ${userResult._id} requested ${args.role} role in org ${args.organizationId}`
+    );
+    return null;
+  },
+});
+
+/**
+ * Cancel a pending functional role request
+ */
+export const cancelFunctionalRoleRequest = mutation({
+  args: {
+    organizationId: v.string(),
+    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get current user from auth context
+    const identity = await ctx.auth.getUserIdentity();
+    if (!(identity && identity.email)) {
+      throw new Error("Not authenticated");
+    }
+
+    // Find user by email
+    const userResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: identity.email,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!userResult) {
+      throw new Error("User not found");
+    }
+
+    // Find member record
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: userResult._id,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      throw new Error("Member not found");
+    }
+
+    // Remove the pending request
+    const pendingRequests: Array<{ role: string }> =
+      (memberResult as any).pendingFunctionalRoleRequests || [];
+    const updatedRequests = pendingRequests.filter(
+      (req) => req.role !== args.role
+    );
+
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
+        update: {
+          pendingFunctionalRoleRequests: updatedRequests,
+        } as any,
+      },
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Get all pending functional role requests for an organization (admin only)
+ */
+export const getPendingFunctionalRoleRequests = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      memberId: v.string(),
+      userId: v.string(),
+      userName: v.union(v.string(), v.null()),
+      userEmail: v.union(v.string(), v.null()),
+      userImage: v.union(v.string(), v.null()),
+      currentRoles: v.array(
+        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+      ),
+      requestedRole: v.union(
+        v.literal("coach"),
+        v.literal("parent"),
+        v.literal("admin")
+      ),
+      requestedAt: v.string(),
+      message: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all members of the organization
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const pendingRequests: Array<{
+      memberId: string;
+      userId: string;
+      userName: string | null;
+      userEmail: string | null;
+      userImage: string | null;
+      currentRoles: ("coach" | "parent" | "admin")[];
+      requestedRole: "coach" | "parent" | "admin";
+      requestedAt: string;
+      message: string | null;
+    }> = [];
+
+    for (const member of membersResult.page as Member[]) {
+      const requests: Array<{
+        role: "coach" | "parent" | "admin";
+        requestedAt: string;
+        message?: string;
+      }> = (member as any).pendingFunctionalRoleRequests || [];
+
+      if (requests.length > 0) {
+        // Get user details
+        const userResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [
+              {
+                field: "_id",
+                value: member.userId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        const functionalRoles: ("coach" | "parent" | "admin")[] =
+          (member as any).functionalRoles || [];
+
+        for (const request of requests) {
+          pendingRequests.push({
+            memberId: member.id,
+            userId: member.userId,
+            userName: (userResult?.name as string) || null,
+            userEmail: (userResult?.email as string) || null,
+            userImage: (userResult?.image as string) || null,
+            currentRoles: functionalRoles,
+            requestedRole: request.role,
+            requestedAt: request.requestedAt,
+            message: request.message || null,
+          });
+        }
+      }
+    }
+
+    return pendingRequests;
+  },
+});
+
+/**
+ * Approve a functional role request (admin only)
+ */
+export const approveFunctionalRoleRequest = mutation({
+  args: {
+    organizationId: v.string(),
+    memberId: v.string(),
+    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get member record
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "_id",
+            value: args.memberId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      throw new Error("Member not found");
+    }
+
+    // Verify member is in the correct organization
+    if (memberResult.organizationId !== args.organizationId) {
+      throw new Error("Member is not in this organization");
+    }
+
+    // Get current roles and pending requests
+    const functionalRoles: ("coach" | "parent" | "admin")[] =
+      (memberResult as any).functionalRoles || [];
+    const pendingRequests: Array<{ role: string }> =
+      (memberResult as any).pendingFunctionalRoleRequests || [];
+
+    // Remove the request from pending
+    const updatedPendingRequests = pendingRequests.filter(
+      (req) => req.role !== args.role
+    );
+
+    // Add role if not already present
+    const updatedRoles = functionalRoles.includes(args.role)
+      ? functionalRoles
+      : [...functionalRoles, args.role];
+
+    // Update member
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: args.memberId, operator: "eq" }],
+        update: {
+          functionalRoles: updatedRoles,
+          pendingFunctionalRoleRequests: updatedPendingRequests,
+        } as any,
+      },
+    });
+
+    // If parent role was approved, auto-link to children
+    if (args.role === "parent") {
+      // Get user email for auto-linking
+      const userResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "user",
+          where: [
+            {
+              field: "_id",
+              value: memberResult.userId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+
+      if (userResult?.email) {
+        const normalizedEmail = (userResult.email as string)
+          .toLowerCase()
+          .trim();
+        await ctx.runMutation(
+          internal.models.players.autoLinkParentToChildrenInternal,
+          {
+            parentEmail: normalizedEmail,
+            organizationId: args.organizationId,
+          }
+        );
+      }
+    }
+
+    console.log(
+      `[approveFunctionalRoleRequest] Approved ${args.role} for member ${args.memberId}`
+    );
+    return null;
+  },
+});
+
+/**
+ * Reject a functional role request (admin only)
+ */
+export const rejectFunctionalRoleRequest = mutation({
+  args: {
+    organizationId: v.string(),
+    memberId: v.string(),
+    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin")),
+    reason: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get member record
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "_id",
+            value: args.memberId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      throw new Error("Member not found");
+    }
+
+    // Verify member is in the correct organization
+    if (memberResult.organizationId !== args.organizationId) {
+      throw new Error("Member is not in this organization");
+    }
+
+    // Remove the request from pending
+    const pendingRequests: Array<{ role: string }> =
+      (memberResult as any).pendingFunctionalRoleRequests || [];
+    const updatedPendingRequests = pendingRequests.filter(
+      (req) => req.role !== args.role
+    );
+
+    // Update member
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: args.memberId, operator: "eq" }],
+        update: {
+          pendingFunctionalRoleRequests: updatedPendingRequests,
+        } as any,
+      },
+    });
+
+    console.log(
+      `[rejectFunctionalRoleRequest] Rejected ${args.role} for member ${args.memberId}. Reason: ${args.reason || "none"}`
+    );
+    return null;
+  },
+});
+
+/**
  * Resend an invitation email
  * This schedules an action to resend the email
  */

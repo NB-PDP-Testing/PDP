@@ -14,6 +14,7 @@ import {
   Shield,
   Star,
   UserCircle,
+  UserPlus,
   Users,
   XCircle,
 } from "lucide-react";
@@ -99,6 +100,18 @@ export default function JoinRequestApprovalsPage() {
     organizationId: orgId,
   });
 
+  // Pending functional role requests from existing members
+  const pendingRoleRequests = useQuery(
+    api.models.members.getPendingFunctionalRoleRequests,
+    { organizationId: orgId }
+  );
+  const approveFunctionalRole = useMutation(
+    api.models.members.approveFunctionalRoleRequest
+  );
+  const rejectFunctionalRole = useMutation(
+    api.models.members.rejectFunctionalRoleRequest
+  );
+
   const [searchTerm, setSearchTerm] = useState("");
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
@@ -116,6 +129,16 @@ export default function JoinRequestApprovalsPage() {
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [expandedMatches, setExpandedMatches] = useState(false);
+
+  // Functional role request state
+  const [roleRejectDialogOpen, setRoleRejectDialogOpen] = useState(false);
+  const [selectedRoleRequest, setSelectedRoleRequest] = useState<{
+    memberId: string;
+    userName: string | null;
+    userEmail: string | null;
+    requestedRole: "coach" | "parent" | "admin";
+  } | null>(null);
+  const [roleRejectionReason, setRoleRejectionReason] = useState("");
 
   // Fetch smart matches for the selected parent request
   const smartMatches = useQuery(
@@ -259,6 +282,64 @@ export default function JoinRequestApprovalsPage() {
     return roles.includes("parent") || request.requestedRole === "parent";
   };
 
+  // Handlers for functional role requests (existing members)
+  const handleApproveFunctionalRole = async (
+    memberId: string,
+    role: "coach" | "parent" | "admin"
+  ) => {
+    setLoading(`role-${memberId}-${role}`);
+    try {
+      await approveFunctionalRole({
+        organizationId: orgId,
+        memberId,
+        role,
+      });
+      toast.success(
+        `${role.charAt(0).toUpperCase() + role.slice(1)} role approved`
+      );
+    } catch (error) {
+      console.error("Error approving role request:", error);
+      toast.error("Failed to approve role request");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleRejectFunctionalRole = async () => {
+    if (!selectedRoleRequest) return;
+
+    setLoading(
+      `role-${selectedRoleRequest.memberId}-${selectedRoleRequest.requestedRole}`
+    );
+    try {
+      await rejectFunctionalRole({
+        organizationId: orgId,
+        memberId: selectedRoleRequest.memberId,
+        role: selectedRoleRequest.requestedRole,
+      });
+      toast.success("Role request rejected");
+      setRoleRejectDialogOpen(false);
+      setSelectedRoleRequest(null);
+      setRoleRejectionReason("");
+    } catch (error) {
+      console.error("Error rejecting role request:", error);
+      toast.error("Failed to reject role request");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const openRoleRejectDialog = (request: {
+    memberId: string;
+    userName: string | null;
+    userEmail: string | null;
+    requestedRole: "coach" | "parent" | "admin";
+  }) => {
+    setSelectedRoleRequest(request);
+    setRoleRejectionReason("");
+    setRoleRejectDialogOpen(true);
+  };
+
   const RequestCard = ({ request }: { request: any }) => (
     <Card className="overflow-hidden">
       <CardContent className="p-6">
@@ -398,11 +479,9 @@ export default function JoinRequestApprovalsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="font-bold text-3xl tracking-tight">
-          Membership Requests
-        </h1>
+        <h1 className="font-bold text-3xl tracking-tight">Pending Approvals</h1>
         <p className="mt-2 text-muted-foreground">
-          Review and approve requests to join your organization
+          Review and approve membership requests and role requests
         </p>
       </div>
 
@@ -417,8 +496,15 @@ export default function JoinRequestApprovalsPage() {
         />
       </div>
 
-      {/* Requests List */}
+      {/* Membership Requests Section */}
       <div className="space-y-4">
+        <h2 className="flex items-center gap-2 font-semibold text-xl">
+          <UserPlus className="h-5 w-5" />
+          Membership Requests
+          {pendingRequests && pendingRequests.length > 0 && (
+            <Badge variant="secondary">{pendingRequests.length}</Badge>
+          )}
+        </h2>
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
@@ -452,7 +538,184 @@ export default function JoinRequestApprovalsPage() {
                     : "There are no pending membership requests at the moment."
                 }
                 icon={CheckCircle}
-                title="All Caught Up!"
+                title="No Membership Requests"
+              />
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Role Requests Section - Existing members requesting additional roles */}
+      <div className="space-y-4">
+        <h2 className="flex items-center gap-2 font-semibold text-xl">
+          <Shield className="h-5 w-5" />
+          Role Requests
+          {pendingRoleRequests && pendingRoleRequests.length > 0 && (
+            <Badge variant="secondary">{pendingRoleRequests.length}</Badge>
+          )}
+        </h2>
+        {pendingRoleRequests === undefined ? (
+          <div className="space-y-4">
+            {[1, 2].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <Skeleton className="h-12 w-12 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-5 w-48" />
+                      <Skeleton className="h-4 w-64" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : pendingRoleRequests.length > 0 ? (
+          <div className="grid gap-4">
+            {pendingRoleRequests.map((request) => (
+              <Card
+                className="overflow-hidden"
+                key={`${request.memberId}-${request.requestedRole}`}
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div
+                      className="flex h-12 w-12 items-center justify-center rounded-full"
+                      style={{
+                        backgroundColor: "rgb(var(--org-primary-rgb) / 0.1)",
+                      }}
+                    >
+                      {request.userImage ? (
+                        <img
+                          alt={request.userName || "User"}
+                          className="h-12 w-12 rounded-full object-cover"
+                          src={request.userImage}
+                        />
+                      ) : (
+                        <UserCircle
+                          className="h-6 w-6"
+                          style={{ color: theme.primary }}
+                        />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-semibold text-lg">
+                          {request.userName || "Unknown User"}
+                        </h3>
+                        <Badge className="border-amber-300 bg-amber-100 text-amber-700">
+                          Existing Member
+                        </Badge>
+                      </div>
+
+                      <div className="mt-2 space-y-1 text-muted-foreground text-sm">
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4" />
+                          <span className="truncate">{request.userEmail}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>
+                            Requested{" "}
+                            {new Date(request.requestedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        <p className="mb-2 text-muted-foreground text-sm">
+                          Requesting the{" "}
+                          <span className="font-medium">
+                            {request.requestedRole}
+                          </span>{" "}
+                          role
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="text-muted-foreground text-xs">
+                            Current roles:
+                          </span>
+                          {request.currentRoles.length > 0 ? (
+                            request.currentRoles.map((role) => (
+                              <Badge
+                                className={`border capitalize ${getRoleColor(role)}`}
+                                key={role}
+                                variant="outline"
+                              >
+                                {role}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground text-xs italic">
+                              No functional roles
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {request.message && (
+                        <div className="mt-3 rounded-lg border bg-muted/50 p-3">
+                          <p className="mb-1 font-medium text-xs">Message</p>
+                          <p className="text-muted-foreground text-sm">
+                            {request.message}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button
+                      disabled={
+                        loading ===
+                        `role-${request.memberId}-${request.requestedRole}`
+                      }
+                      onClick={() =>
+                        openRoleRejectDialog({
+                          memberId: request.memberId,
+                          userName: request.userName,
+                          userEmail: request.userEmail,
+                          requestedRole: request.requestedRole,
+                        })
+                      }
+                      size="sm"
+                      variant="outline"
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Reject
+                    </Button>
+                    <OrgThemedButton
+                      disabled={
+                        loading ===
+                        `role-${request.memberId}-${request.requestedRole}`
+                      }
+                      onClick={() =>
+                        handleApproveFunctionalRole(
+                          request.memberId,
+                          request.requestedRole
+                        )
+                      }
+                      size="sm"
+                      variant="primary"
+                    >
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      {loading ===
+                      `role-${request.memberId}-${request.requestedRole}`
+                        ? "Approving..."
+                        : `Grant ${request.requestedRole.charAt(0).toUpperCase() + request.requestedRole.slice(1)} Role`}
+                    </OrgThemedButton>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <CardContent className="p-0">
+              <EmptyState
+                description="There are no pending role requests from existing members."
+                icon={CheckCircle}
+                title="No Role Requests"
               />
             </CardContent>
           </Card>
@@ -727,6 +990,51 @@ export default function JoinRequestApprovalsPage() {
             >
               {loading ? "Approving..." : "Approve & Add to Org"}
             </OrgThemedButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Rejection Dialog */}
+      <Dialog
+        onOpenChange={setRoleRejectDialogOpen}
+        open={roleRejectDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Reject Role Request
+            </DialogTitle>
+            <DialogDescription>
+              Rejecting {selectedRoleRequest?.userName || "this user"}'s request
+              for the {selectedRoleRequest?.requestedRole} role.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Textarea
+              onChange={(e) => setRoleRejectionReason(e.target.value)}
+              placeholder="Optional: Enter a reason for rejection..."
+              rows={3}
+              value={roleRejectionReason}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              disabled={loading !== null}
+              onClick={() => setRoleRejectDialogOpen(false)}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={loading !== null}
+              onClick={handleRejectFunctionalRole}
+              variant="destructive"
+            >
+              {loading ? "Rejecting..." : "Confirm Rejection"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

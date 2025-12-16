@@ -10,9 +10,8 @@ import { useOrgTheme } from "@/hooks/use-org-theme";
 import { authClient } from "@/lib/auth-client";
 import type { OrgMemberRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { FunctionalRoleIndicator } from "./functional-role-indicator";
 import { ModeToggle } from "./mode-toggle";
-import { OrgSelector } from "./org-selector";
+import { OrgRoleSwitcher } from "./org-role-switcher";
 import UserMenu from "./user-menu";
 
 function OrgNav({ member }: { member: Member }) {
@@ -138,17 +137,8 @@ export default function Header() {
 
         {/* Right side - User controls */}
         <div className="flex items-center gap-2">
-          {/* Only show role indicator when on a specific org page */}
-          {member && !shouldHideOrgContent && (
-            <FunctionalRoleIndicator
-              functionalRoles={
-                ((member as any).functionalRoles as
-                  | ("coach" | "parent" | "admin")[]
-                  | undefined) || []
-              }
-            />
-          )}
-          <OrgSelector />
+          {/* Combined org + role switcher - replaces separate OrgSelector and FunctionalRoleIndicator */}
+          <OrgRoleSwitcher />
           <UserMenu />
           <ModeToggle />
         </div>

@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
 import {
   Building2,
+  Check,
   Loader2,
   Send,
   Shield,
@@ -22,7 +23,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -125,106 +125,106 @@ export default function JoinOrganizationRequestPage() {
 
               <div className="space-y-3">
                 {/* Admin Role */}
-                <div
-                  className={`flex cursor-pointer items-start gap-4 rounded-lg border p-4 transition-colors ${
+                <button
+                  className={`flex w-full cursor-pointer items-start gap-4 rounded-lg border p-4 text-left transition-colors ${
                     selectedRoles.includes("admin")
                       ? "border-purple-500 bg-purple-50"
                       : "hover:bg-accent/50"
                   }`}
+                  disabled={isSubmitting}
                   onClick={() => toggleRole("admin")}
+                  type="button"
                 >
-                  <Checkbox
-                    checked={selectedRoles.includes("admin")}
-                    className="mt-1"
-                    disabled={isSubmitting}
-                    id="role-admin"
-                    onCheckedChange={() => toggleRole("admin")}
-                    onClick={(e) => e.stopPropagation()}
-                  />
+                  <div
+                    className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
+                      selectedRoles.includes("admin")
+                        ? "border-purple-500 bg-purple-500 text-white"
+                        : "border-input"
+                    }`}
+                  >
+                    {selectedRoles.includes("admin") && (
+                      <Check className="h-3 w-3" />
+                    )}
+                  </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <Shield className="h-4 w-4 text-purple-600" />
-                      <Label
-                        className="cursor-pointer font-medium"
-                        htmlFor="role-admin"
-                      >
-                        Admin
-                      </Label>
+                      <span className="font-medium">Admin</span>
                     </div>
                     <p className="mt-1 text-muted-foreground text-sm">
                       Manage organization settings, users, and have full access
                       to all features.
                     </p>
                   </div>
-                </div>
+                </button>
 
                 {/* Coach Role */}
-                <div
-                  className={`flex cursor-pointer items-start gap-4 rounded-lg border p-4 transition-colors ${
+                <button
+                  className={`flex w-full cursor-pointer items-start gap-4 rounded-lg border p-4 text-left transition-colors ${
                     selectedRoles.includes("coach")
                       ? "border-green-500 bg-green-50"
                       : "hover:bg-accent/50"
                   }`}
+                  disabled={isSubmitting}
                   onClick={() => toggleRole("coach")}
+                  type="button"
                 >
-                  <Checkbox
-                    checked={selectedRoles.includes("coach")}
-                    className="mt-1"
-                    disabled={isSubmitting}
-                    id="role-coach"
-                    onCheckedChange={() => toggleRole("coach")}
-                    onClick={(e) => e.stopPropagation()}
-                  />
+                  <div
+                    className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
+                      selectedRoles.includes("coach")
+                        ? "border-green-500 bg-green-500 text-white"
+                        : "border-input"
+                    }`}
+                  >
+                    {selectedRoles.includes("coach") && (
+                      <Check className="h-3 w-3" />
+                    )}
+                  </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-green-600" />
-                      <Label
-                        className="cursor-pointer font-medium"
-                        htmlFor="role-coach"
-                      >
-                        Coach
-                      </Label>
+                      <span className="font-medium">Coach</span>
                     </div>
                     <p className="mt-1 text-muted-foreground text-sm">
                       Manage teams, players, and training sessions. View and
                       update player passports.
                     </p>
                   </div>
-                </div>
+                </button>
 
                 {/* Parent Role */}
-                <div
-                  className={`flex cursor-pointer items-start gap-4 rounded-lg border p-4 transition-colors ${
+                <button
+                  className={`flex w-full cursor-pointer items-start gap-4 rounded-lg border p-4 text-left transition-colors ${
                     selectedRoles.includes("parent")
                       ? "border-blue-500 bg-blue-50"
                       : "hover:bg-accent/50"
                   }`}
+                  disabled={isSubmitting}
                   onClick={() => toggleRole("parent")}
+                  type="button"
                 >
-                  <Checkbox
-                    checked={selectedRoles.includes("parent")}
-                    className="mt-1"
-                    disabled={isSubmitting}
-                    id="role-parent"
-                    onCheckedChange={() => toggleRole("parent")}
-                    onClick={(e) => e.stopPropagation()}
-                  />
+                  <div
+                    className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
+                      selectedRoles.includes("parent")
+                        ? "border-blue-500 bg-blue-500 text-white"
+                        : "border-input"
+                    }`}
+                  >
+                    {selectedRoles.includes("parent") && (
+                      <Check className="h-3 w-3" />
+                    )}
+                  </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <UserCircle className="h-4 w-4 text-blue-600" />
-                      <Label
-                        className="cursor-pointer font-medium"
-                        htmlFor="role-parent"
-                      >
-                        Parent
-                      </Label>
+                      <span className="font-medium">Parent</span>
                     </div>
                     <p className="mt-1 text-muted-foreground text-sm">
                       View your children&apos;s development progress, passports,
                       and provide feedback.
                     </p>
                   </div>
-                </div>
+                </button>
               </div>
 
               {selectedRoles.length === 0 && (

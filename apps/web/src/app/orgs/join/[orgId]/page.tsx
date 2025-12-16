@@ -139,6 +139,7 @@ export default function JoinOrganizationRequestPage() {
                     disabled={isSubmitting}
                     id="role-admin"
                     onCheckedChange={() => toggleRole("admin")}
+                    onClick={(e) => e.stopPropagation()}
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
@@ -172,6 +173,7 @@ export default function JoinOrganizationRequestPage() {
                     disabled={isSubmitting}
                     id="role-coach"
                     onCheckedChange={() => toggleRole("coach")}
+                    onClick={(e) => e.stopPropagation()}
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
@@ -205,6 +207,7 @@ export default function JoinOrganizationRequestPage() {
                     disabled={isSubmitting}
                     id="role-parent"
                     onCheckedChange={() => toggleRole("parent")}
+                    onClick={(e) => e.stopPropagation()}
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">

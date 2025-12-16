@@ -148,7 +148,8 @@ export default function Header() {
         {/* Right side - User controls */}
         <div className="flex items-center gap-2">
           {/* Combined org + role switcher - replaces separate OrgSelector and FunctionalRoleIndicator */}
-          <OrgRoleSwitcher />
+          {/* Hide on join/create pages where user isn't a member yet */}
+          {!shouldHideOrgContent && <OrgRoleSwitcher />}
           <UserMenu />
           <ModeToggle />
         </div>

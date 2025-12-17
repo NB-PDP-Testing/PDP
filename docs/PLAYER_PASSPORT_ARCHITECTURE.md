@@ -574,7 +574,9 @@ guardianIdentities: defineTable({
   .searchIndex("name_search", { searchField: "firstName" })
 ```
 
-#### `playerIdentities` - Platform-Level Player/Child
+#### `playerIdentities` - Platform-Level Player (Youth OR Adult)
+
+The `playerIdentities` table supports both youth players (managed by guardians) and adult players (self-managed).
 
 ```typescript
 playerIdentities: defineTable({
@@ -588,13 +590,29 @@ playerIdentities: defineTable({
     v.literal("other")
   ),
 
-  // NO guardians array - use guardianPlayerLinks instead!
+  // Player type - determines management mode
+  playerType: v.union(
+    v.literal("youth"),              // Managed by guardians
+    v.literal("adult")               // Self-managed
+  ),
+
+  // Self-management link (for adult players)
+  // If set, this player manages their own profile
+  userId: v.optional(v.string()),    // Better Auth user ID (adults only)
+
+  // Contact info (for adult players - youth use guardian contact)
+  email: v.optional(v.string()),
+  phone: v.optional(v.string()),
+  address: v.optional(v.string()),
+  town: v.optional(v.string()),
+  postcode: v.optional(v.string()),
 
   // Verification
   verificationStatus: v.union(
     v.literal("unverified"),
-    v.literal("guardian_verified"),  // Guardian confirmed identity
-    v.literal("document_verified")   // Birth cert or similar checked
+    v.literal("guardian_verified"),  // Guardian confirmed (youth)
+    v.literal("self_verified"),      // Adult self-verified via email
+    v.literal("document_verified")   // ID document checked
   ),
   verifiedAt: v.optional(v.string()),
   verifiedBy: v.optional(v.string()),
@@ -606,6 +624,9 @@ playerIdentities: defineTable({
   mergedFrom: v.optional(v.array(v.id("playerIdentities"))),
 })
   .index("by_name_dob", ["firstName", "lastName", "dateOfBirth"])
+  .index("by_userId", ["userId"])        // For adult self-lookup
+  .index("by_email", ["email"])          // For adult matching
+  .index("by_playerType", ["playerType"])
   .index("by_verification", ["verificationStatus"])
   .searchIndex("name_search", { searchField: "firstName" })
 ```
@@ -723,7 +744,275 @@ orgPlayerEnrollments: defineTable({
   .index("by_season", ["organizationId", "season"])
 ```
 
-### 3.10 Identity Matching Logic
+### 3.10 Adult/Senior Player Support
+
+A critical use case: **Senior teams where players are adults managing their own profiles**.
+
+#### The Adult Player Challenge
+
+| Youth Players | Adult Players |
+|---------------|---------------|
+| Managed by guardians | Self-managed |
+| Contact via parent | Direct contact |
+| Parent views dashboard | Player views own dashboard |
+| Guardian consent for sharing | Self-consent |
+| Emergency contact: parent | Emergency contact: next of kin |
+
+#### Solution: Unified Player Identity with Type Flag
+
+The `playerType` field in `playerIdentities` determines the management mode:
+
+```typescript
+// Youth player (U6-U18) - guardian managed
+{
+  playerType: "youth",
+  userId: null,                    // No direct login
+  email: null,                     // Contact via guardian
+  // Managed via guardianPlayerLinks
+}
+
+// Adult player (Senior/Adult teams) - self managed
+{
+  playerType: "adult",
+  userId: "user_abc",              // Direct login
+  email: "player@example.com",     // Direct contact
+  phone: "087-123-4567",
+  // No guardianPlayerLinks needed (optional emergency contacts instead)
+}
+```
+
+#### Emergency Contacts for Adults
+
+Adults don't have "guardians" but may have emergency contacts (next of kin). We handle this with a separate table:
+
+```typescript
+playerEmergencyContacts: defineTable({
+  playerIdentityId: v.id("playerIdentities"),
+
+  // Contact details
+  firstName: v.string(),
+  lastName: v.string(),
+  phone: v.string(),
+  email: v.optional(v.string()),
+
+  // Relationship
+  relationship: v.string(),        // "spouse", "partner", "parent", "sibling", "friend"
+
+  // Priority (1 = first call)
+  priority: v.number(),
+
+  // Availability notes
+  notes: v.optional(v.string()),   // "Only call after 6pm", "Works night shift"
+
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_player", ["playerIdentityId"])
+  .index("by_priority", ["playerIdentityId", "priority"])
+```
+
+#### Youth vs Adult Data Flow Comparison
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     YOUTH PLAYER FLOW                            │
+└─────────────────────────────────────────────────────────────────┘
+
+User (Parent) logs in
+       │
+       ▼
+guardianIdentities (find by userId/email)
+       │
+       ▼
+guardianPlayerLinks (find linked children)
+       │
+       ▼
+playerIdentities (playerType: "youth")
+       │
+       ▼
+orgPlayerEnrollments → sportPassports → skillAssessments
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│                     ADULT PLAYER FLOW                            │
+└─────────────────────────────────────────────────────────────────┘
+
+User (Player) logs in
+       │
+       ▼
+playerIdentities (find by userId, playerType: "adult")
+       │
+       ▼
+orgPlayerEnrollments → sportPassports → skillAssessments
+       │
+       ▼
+playerEmergencyContacts (optional, for club reference)
+```
+
+#### Age-Based Automatic Transition
+
+Players can transition from youth to adult as they age:
+
+```typescript
+// Check if player should transition to adult
+function shouldTransitionToAdult(player: PlayerIdentity): boolean {
+  const age = calculateAge(player.dateOfBirth);
+  // GAA/Soccer/Rugby typically: 18+ is adult
+  return age >= 18 && player.playerType === "youth";
+}
+
+// Transition process
+async function transitionToAdult(
+  ctx: MutationCtx,
+  playerId: Id<"playerIdentities">,
+  userEmail: string
+) {
+  // 1. Update player type
+  await ctx.db.patch(playerId, {
+    playerType: "adult",
+    email: userEmail,
+  });
+
+  // 2. Create user account invitation
+  await sendAdultTransitionInvite(userEmail, playerId);
+
+  // 3. Optionally: convert primary guardian to emergency contact
+  const guardianLink = await ctx.db
+    .query("guardianPlayerLinks")
+    .withIndex("by_player", (q) => q.eq("playerIdentityId", playerId))
+    .filter((q) => q.eq(q.field("isPrimary"), true))
+    .first();
+
+  if (guardianLink) {
+    const guardian = await ctx.db.get(guardianLink.guardianIdentityId);
+    if (guardian) {
+      await ctx.db.insert("playerEmergencyContacts", {
+        playerIdentityId: playerId,
+        firstName: guardian.firstName,
+        lastName: guardian.lastName,
+        phone: guardian.phone || "",
+        email: guardian.email,
+        relationship: guardianLink.relationship,  // "mother" → still valid
+        priority: 1,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+  }
+
+  // 4. Notify guardians their access will change
+  await notifyGuardiansOfTransition(playerId);
+}
+```
+
+#### Adult Player Dashboard
+
+Adult players see their own dashboard, not a "parent dashboard":
+
+```typescript
+// Get player profile for adult (self-managed)
+export const getMyPlayerProfile = query({
+  args: {},
+  returns: v.optional(v.object({
+    playerIdentityId: v.id("playerIdentities"),
+    firstName: v.string(),
+    lastName: v.string(),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    enrollments: v.array(v.object({
+      organizationId: v.string(),
+      organizationName: v.string(),
+      ageGroup: v.string(),
+      sports: v.array(v.string()),
+    })),
+    emergencyContacts: v.array(v.object({
+      name: v.string(),
+      phone: v.string(),
+      relationship: v.string(),
+    })),
+  })),
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return undefined;
+
+    // Find player identity linked to this user (adult self-management)
+    const player = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (!player || player.playerType !== "adult") return undefined;
+
+    // Get enrollments
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_identity", (q) => q.eq("playerIdentityId", player._id))
+      .collect();
+
+    // Get emergency contacts
+    const emergencyContacts = await ctx.db
+      .query("playerEmergencyContacts")
+      .withIndex("by_player", (q) => q.eq("playerIdentityId", player._id))
+      .collect();
+
+    return {
+      playerIdentityId: player._id,
+      firstName: player.firstName,
+      lastName: player.lastName,
+      email: player.email,
+      phone: player.phone,
+      enrollments: await Promise.all(enrollments.map(async (e) => ({
+        organizationId: e.organizationId,
+        organizationName: await getOrgName(ctx, e.organizationId),
+        ageGroup: e.ageGroup,
+        sports: await getSportsForEnrollment(ctx, e._id),
+      }))),
+      emergencyContacts: emergencyContacts.map((ec) => ({
+        name: `${ec.firstName} ${ec.lastName}`,
+        phone: ec.phone,
+        relationship: ec.relationship,
+      })),
+    };
+  },
+});
+```
+
+#### Scenarios Supported
+
+| Scenario | How It Works |
+|----------|--------------|
+| **Senior GAA player joins club** | Admin creates playerIdentity with `playerType: "adult"`, sends invite to player's email |
+| **Player registers themselves** | Self-registration creates playerIdentity with `playerType: "adult"` + links userId |
+| **U18 player turns 18** | System prompts for transition, converts guardian to emergency contact |
+| **Adult has children playing** | Same user can be BOTH a guardianIdentity (for their kids) AND have a playerIdentity (for themselves) |
+| **Adult adds emergency contact** | Player manages their own emergencyContacts via profile |
+| **Coach checks emergency info** | Views playerEmergencyContacts for adult, guardianPlayerLinks for youth |
+
+#### Mixed Household Example
+
+One user account can have multiple roles:
+
+```
+User: John Murphy (john@example.com)
+├── guardianIdentity (id: guardian_001)
+│   └── guardianPlayerLinks:
+│       ├── Sarah Murphy (daughter, U12) - isPrimary: true
+│       └── Tom Murphy (son, U10) - isPrimary: true
+│
+└── playerIdentity (id: player_002, playerType: "adult")
+    ├── Linked via userId to same account
+    ├── orgPlayerEnrollments: [Senior Football @ Club A]
+    └── playerEmergencyContacts: [Mary Murphy (wife)]
+```
+
+John can:
+- View **Parent Dashboard** → See Sarah and Tom's passports
+- View **My Player Profile** → See his own senior football passport
+- Both accessible from same account with role switching
+
+---
+
+### 3.11 Identity Matching Logic
 
 When creating a new player or guardian, the system should check for existing matches:
 

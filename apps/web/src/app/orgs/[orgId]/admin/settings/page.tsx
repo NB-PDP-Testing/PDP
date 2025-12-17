@@ -5,12 +5,15 @@ import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   CheckCircle,
+  Clock,
+  Crown,
   ExternalLink,
   Eye,
   Globe,
   Heart,
   Palette,
   Save,
+  Shield,
   Star,
   Trash2,
   Zap,
@@ -101,7 +104,9 @@ export default function OrgSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletionReason, setDeletionReason] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
 
   // Form state
@@ -118,6 +123,12 @@ export default function OrgSettingsPage() {
   const [socialLinkedin, setSocialLinkedin] = useState("");
   const [savingSocial, setSavingSocial] = useState(false);
 
+  // Owner transfer state
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [selectedNewOwner, setSelectedNewOwner] = useState<string | null>(null);
+  const [transferConfirmText, setTransferConfirmText] = useState("");
+  const [transferring, setTransferring] = useState(false);
+
   // Get current theme for live preview
   const { theme } = useOrgTheme();
 
@@ -125,9 +136,6 @@ export default function OrgSettingsPage() {
   const userRole = useQuery(api.models.organizations.getUserOrgRole, {
     organizationId: orgId,
   });
-  const deleteOrganization = useMutation(
-    api.models.organizations.deleteOrganization
-  );
   const updateOrganizationColors = useMutation(
     api.models.organizations.updateOrganizationColors
   );
@@ -139,6 +147,29 @@ export default function OrgSettingsPage() {
   const orgData = useQuery(api.models.organizations.getOrganization, {
     organizationId: orgId,
   });
+
+  // Deletion request queries and mutations
+  const deletionRequest = useQuery(
+    api.models.organizations.getDeletionRequest,
+    {
+      organizationId: orgId,
+    }
+  );
+  const requestDeletion = useMutation(
+    api.models.organizations.requestOrganizationDeletion
+  );
+  const cancelDeletionRequest = useMutation(
+    api.models.organizations.cancelDeletionRequest
+  );
+
+  // Owner management queries and mutations
+  const currentOwner = useQuery(api.models.members.getCurrentOwner, {
+    organizationId: orgId,
+  });
+  const members = useQuery(api.models.members.getMembersByOrganization, {
+    organizationId: orgId,
+  });
+  const transferOwnership = useMutation(api.models.members.transferOwnership);
 
   useEffect(() => {
     const loadOrg = async () => {
@@ -264,23 +295,93 @@ export default function OrgSettingsPage() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleRequestDeletion = async () => {
     if (deleteConfirmText !== org?.name) {
       toast.error("Organization name doesn't match");
       return;
     }
 
+    if (!deletionReason.trim()) {
+      toast.error("Please provide a reason for deletion");
+      return;
+    }
+
     setDeleting(true);
     try {
-      await deleteOrganization({ organizationId: orgId });
-      toast.success("Organization deleted successfully");
-      router.push("/orgs");
+      await requestDeletion({
+        organizationId: orgId,
+        reason: deletionReason.trim(),
+      });
+      toast.success(
+        "Deletion request submitted. Platform staff will review your request."
+      );
+      setDeleteDialogOpen(false);
+      setDeleteConfirmText("");
+      setDeletionReason("");
     } catch (error) {
-      console.error("Error deleting organization:", error);
-      toast.error((error as Error)?.message || "Failed to delete organization");
+      console.error("Error requesting deletion:", error);
+      toast.error(
+        (error as Error)?.message || "Failed to submit deletion request"
+      );
+    } finally {
       setDeleting(false);
     }
   };
+
+  const handleCancelDeletionRequest = async () => {
+    if (!deletionRequest?._id) return;
+
+    setCancelling(true);
+    try {
+      await cancelDeletionRequest({ requestId: deletionRequest._id });
+      toast.success("Deletion request cancelled");
+    } catch (error) {
+      console.error("Error cancelling deletion request:", error);
+      toast.error(
+        (error as Error)?.message || "Failed to cancel deletion request"
+      );
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleTransferOwnership = async () => {
+    if (!selectedNewOwner) {
+      toast.error("Please select a new owner");
+      return;
+    }
+
+    if (transferConfirmText !== "TRANSFER") {
+      toast.error('Please type "TRANSFER" to confirm');
+      return;
+    }
+
+    setTransferring(true);
+    try {
+      const result = await transferOwnership({
+        organizationId: orgId,
+        newOwnerUserId: selectedNewOwner,
+      });
+      toast.success(
+        `Ownership transferred to ${result.newOwnerEmail}. You are now an admin.`
+      );
+      setTransferDialogOpen(false);
+      setSelectedNewOwner(null);
+      setTransferConfirmText("");
+      // Refresh the page to update role-based UI
+      router.refresh();
+    } catch (error) {
+      console.error("Error transferring ownership:", error);
+      toast.error((error as Error)?.message || "Failed to transfer ownership");
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  // Get eligible members for ownership transfer (exclude current owner)
+  const eligibleNewOwners = members?.filter(
+    (member: any) => member.role !== "owner" && member.user
+  );
 
   // Get preview colors (use form values or defaults)
   const defaults = [
@@ -922,6 +1023,86 @@ export default function OrgSettingsPage() {
         </Card>
       )}
 
+      {/* Owner Management - Only for owners */}
+      {isOwner && (
+        <Card className="border-amber-500/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Crown className="h-5 w-5 text-amber-500" />
+              Owner Management
+            </CardTitle>
+            <CardDescription>
+              View and manage organization ownership. The owner has full control
+              over all settings and can transfer ownership to another member.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Current Owner Display */}
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <Label className="mb-3 block text-sm">Current Owner</Label>
+              {currentOwner ? (
+                <div className="flex items-center gap-3">
+                  {currentOwner.userImage ? (
+                    <img
+                      alt={currentOwner.userName || "Owner"}
+                      className="h-10 w-10 rounded-full object-cover"
+                      src={currentOwner.userImage}
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                      <Crown className="h-5 w-5" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium">
+                      {currentOwner.userName || "Unknown"}
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      {currentOwner.userEmail}
+                    </p>
+                  </div>
+                  <Badge className="ml-auto bg-amber-100 text-amber-700">
+                    <Crown className="mr-1 h-3 w-3" />
+                    Owner
+                  </Badge>
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  Loading owner information...
+                </p>
+              )}
+            </div>
+
+            {/* Transfer Ownership Section */}
+            <div className="flex items-start justify-between rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
+              <div className="flex-1">
+                <h3 className="font-semibold">Transfer Ownership</h3>
+                <p className="mt-1 text-muted-foreground text-sm">
+                  Transfer organization ownership to another member. You will
+                  become an admin after the transfer.
+                </p>
+              </div>
+              <Button
+                disabled={!eligibleNewOwners || eligibleNewOwners.length === 0}
+                onClick={() => setTransferDialogOpen(true)}
+                size="sm"
+                variant="outline"
+              >
+                <Shield className="mr-2 h-4 w-4" />
+                Transfer
+              </Button>
+            </div>
+
+            {eligibleNewOwners && eligibleNewOwners.length === 0 && (
+              <p className="text-muted-foreground text-sm">
+                No other members available for ownership transfer. Invite
+                members first.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Danger Zone - Only for owners */}
       {isOwner && (
         <Card className="border-destructive">
@@ -932,23 +1113,83 @@ export default function OrgSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-start justify-between rounded-lg border border-destructive/20 bg-destructive/5 p-4">
-              <div className="flex-1">
-                <h3 className="font-semibold">Delete Organization</h3>
-                <p className="mt-1 text-muted-foreground text-sm">
-                  Permanently delete this organization and all associated data.
-                  This action cannot be undone.
-                </p>
+            {/* Show pending/rejected deletion request status */}
+            {deletionRequest &&
+              (deletionRequest.status === "pending" ||
+                deletionRequest.status === "rejected") && (
+                <div
+                  className={`rounded-lg border p-4 ${
+                    deletionRequest.status === "pending"
+                      ? "border-yellow-500/30 bg-yellow-500/10"
+                      : "border-red-500/30 bg-red-500/10"
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="flex items-center gap-2 font-semibold">
+                        {deletionRequest.status === "pending" ? (
+                          <>
+                            <Clock className="h-4 w-4 text-yellow-600" />
+                            Deletion Request Pending
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="h-4 w-4 text-red-600" />
+                            Deletion Request Rejected
+                          </>
+                        )}
+                      </h3>
+                      <p className="mt-1 text-muted-foreground text-sm">
+                        {deletionRequest.status === "pending"
+                          ? "Your deletion request is awaiting platform staff review."
+                          : `Your request was rejected: ${deletionRequest.rejectionReason}`}
+                      </p>
+                      <p className="mt-2 text-muted-foreground text-xs">
+                        Requested on{" "}
+                        {new Date(
+                          deletionRequest.requestedAt
+                        ).toLocaleDateString()}
+                      </p>
+                    </div>
+                    {deletionRequest.status === "pending" && (
+                      <Button
+                        disabled={cancelling}
+                        onClick={handleCancelDeletionRequest}
+                        size="sm"
+                        variant="outline"
+                      >
+                        {cancelling ? "Cancelling..." : "Cancel Request"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+            {/* Show delete button only if no pending request */}
+            {(!deletionRequest ||
+              deletionRequest.status === "rejected" ||
+              deletionRequest.status === "cancelled") && (
+              <div className="flex items-start justify-between rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+                <div className="flex-1">
+                  <h3 className="font-semibold">
+                    Request Organization Deletion
+                  </h3>
+                  <p className="mt-1 text-muted-foreground text-sm">
+                    Submit a request to delete this organization. A platform
+                    administrator will review and approve the deletion. All
+                    associated data will be permanently removed.
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setDeleteDialogOpen(true)}
+                  size="sm"
+                  variant="destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Request Deletion
+                </Button>
               </div>
-              <Button
-                onClick={() => setDeleteDialogOpen(true)}
-                size="sm"
-                variant="destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </Button>
-            </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -971,16 +1212,30 @@ export default function OrgSettingsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
-              Delete Organization
+              Request Organization Deletion
             </DialogTitle>
             <DialogDescription>
-              This action cannot be undone. This will permanently delete the
-              organization <strong>{org.name}</strong> and remove all associated
-              data including teams, members, and players.
+              Your deletion request will be reviewed by platform staff before
+              execution. Once approved, the organization{" "}
+              <strong>{org.name}</strong> and all associated data will be
+              permanently deleted.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reason">
+                Why do you want to delete this organization?
+              </Label>
+              <textarea
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                id="reason"
+                onChange={(e) => setDeletionReason(e.target.value)}
+                placeholder="e.g., Organization is no longer active, merging with another org, etc."
+                value={deletionReason}
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="confirm">
                 Type <strong>{org.name}</strong> to confirm
@@ -999,25 +1254,159 @@ export default function OrgSettingsPage() {
               onClick={() => {
                 setDeleteDialogOpen(false);
                 setDeleteConfirmText("");
+                setDeletionReason("");
               }}
               variant="outline"
             >
               Cancel
             </Button>
             <Button
-              disabled={deleteConfirmText !== org.name || deleting}
-              onClick={handleDelete}
+              disabled={
+                deleteConfirmText !== org.name ||
+                !deletionReason.trim() ||
+                deleting
+              }
+              onClick={handleRequestDeletion}
               variant="destructive"
             >
               {deleting ? (
                 <>
                   <Trash2 className="mr-2 h-4 w-4 animate-pulse" />
-                  Deleting...
+                  Submitting...
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Organization
+                  Submit Deletion Request
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Ownership Dialog */}
+      <Dialog onOpenChange={setTransferDialogOpen} open={transferDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <Crown className="h-5 w-5" />
+              Transfer Ownership
+            </DialogTitle>
+            <DialogDescription>
+              This action will transfer full ownership of{" "}
+              <strong>{org.name}</strong> to another member. You will become an
+              admin after the transfer.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Warning Alert */}
+            <div className="flex items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              <div className="text-sm">
+                <p className="font-medium text-amber-700">Warning</p>
+                <ul className="mt-1 list-inside list-disc space-y-1 text-amber-600">
+                  <li>The new owner will have full control</li>
+                  <li>You will be demoted to admin role</li>
+                  <li>This action cannot be easily reversed</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Member Selection */}
+            <div className="space-y-2">
+              <Label>Select New Owner</Label>
+              <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-2">
+                {eligibleNewOwners?.map((member: any) => (
+                  <button
+                    className={`flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors ${
+                      selectedNewOwner === member.userId
+                        ? "bg-amber-100 ring-2 ring-amber-500"
+                        : "hover:bg-muted"
+                    }`}
+                    key={member.userId}
+                    onClick={() => setSelectedNewOwner(member.userId)}
+                    type="button"
+                  >
+                    {member.user?.image ? (
+                      <img
+                        alt={member.user.name || "Member"}
+                        className="h-8 w-8 rounded-full object-cover"
+                        src={member.user.image}
+                      />
+                    ) : (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                        <span className="font-medium text-sm">
+                          {(member.user?.name || member.user?.email || "?")
+                            .charAt(0)
+                            .toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex-1 overflow-hidden">
+                      <p className="truncate font-medium text-sm">
+                        {member.user?.name || "Unknown"}
+                      </p>
+                      <p className="truncate text-muted-foreground text-xs">
+                        {member.user?.email}
+                      </p>
+                    </div>
+                    <Badge className="text-xs" variant="outline">
+                      {member.role}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Confirmation Input */}
+            {selectedNewOwner && (
+              <div className="space-y-2">
+                <Label htmlFor="transfer-confirm">
+                  Type <strong>TRANSFER</strong> to confirm
+                </Label>
+                <Input
+                  id="transfer-confirm"
+                  onChange={(e) =>
+                    setTransferConfirmText(e.target.value.toUpperCase())
+                  }
+                  placeholder="TRANSFER"
+                  value={transferConfirmText}
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                setTransferDialogOpen(false);
+                setSelectedNewOwner(null);
+                setTransferConfirmText("");
+              }}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700"
+              disabled={
+                !selectedNewOwner ||
+                transferConfirmText !== "TRANSFER" ||
+                transferring
+              }
+              onClick={handleTransferOwnership}
+            >
+              {transferring ? (
+                <>
+                  <Crown className="mr-2 h-4 w-4 animate-pulse" />
+                  Transferring...
+                </>
+              ) : (
+                <>
+                  <Crown className="mr-2 h-4 w-4" />
+                  Transfer Ownership
                 </>
               )}
             </Button>

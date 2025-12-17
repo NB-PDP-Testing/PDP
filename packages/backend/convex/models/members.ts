@@ -2079,3 +2079,257 @@ export const resendInvitation = mutation({
     return null;
   },
 });
+
+// ============ OWNER ROLE MANAGEMENT (Section 18) ============
+
+/**
+ * Get the current owner of an organization
+ * Returns the owner member with their user details
+ */
+export const getCurrentOwner = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      memberId: v.string(),
+      userId: v.string(),
+      userName: v.union(v.string(), v.null()),
+      userEmail: v.union(v.string(), v.null()),
+      userImage: v.union(v.string(), v.null()),
+      role: v.literal("owner"),
+      functionalRoles: v.array(
+        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+      ),
+      createdAt: v.union(v.number(), v.null()),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Find the member with owner role
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "role",
+            value: "owner",
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    const ownerMember = membersResult.page[0];
+    if (!ownerMember) {
+      return null;
+    }
+
+    // Get user details
+    const userResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "_id",
+            value: ownerMember.userId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const functionalRoles: ("coach" | "parent" | "admin")[] =
+      (ownerMember as any).functionalRoles || [];
+
+    return {
+      memberId: ownerMember._id,
+      userId: ownerMember.userId,
+      userName: (userResult?.name as string) || null,
+      userEmail: (userResult?.email as string) || null,
+      userImage: (userResult?.image as string) || null,
+      role: "owner" as const,
+      functionalRoles,
+      createdAt: (ownerMember as any).createdAt || null,
+    };
+  },
+});
+
+/**
+ * Transfer organization ownership to another member
+ *
+ * Rules:
+ * - Only the current owner can transfer ownership
+ * - The new owner must be an existing member of the organization
+ * - The previous owner becomes an admin after transfer
+ * - The new owner gets the "owner" role
+ */
+export const transferOwnership = mutation({
+  args: {
+    organizationId: v.string(),
+    newOwnerUserId: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    previousOwnerEmail: v.union(v.string(), v.null()),
+    newOwnerEmail: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    // Get current user from auth context
+    const identity = await ctx.auth.getUserIdentity();
+    if (!(identity && identity.email)) {
+      throw new Error("Not authenticated");
+    }
+
+    // Find current user
+    const currentUserResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: identity.email,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!currentUserResult) {
+      throw new Error("User not found");
+    }
+
+    // Verify current user is the owner
+    const currentUserMember = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: currentUserResult._id,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!currentUserMember || currentUserMember.role !== "owner") {
+      throw new Error("Only the organization owner can transfer ownership");
+    }
+
+    // Check that new owner is not the same as current owner
+    if (currentUserResult._id === args.newOwnerUserId) {
+      throw new Error("Cannot transfer ownership to yourself");
+    }
+
+    // Find the new owner's member record
+    const newOwnerMember = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: args.newOwnerUserId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!newOwnerMember) {
+      throw new Error("The selected user is not a member of this organization");
+    }
+
+    // Get new owner user details for logging
+    const newOwnerUser = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "_id",
+            value: args.newOwnerUserId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    // Demote current owner to admin
+    const currentOwnerFunctionalRoles: ("coach" | "parent" | "admin")[] =
+      (currentUserMember as any).functionalRoles || [];
+    // Ensure admin is in functional roles after demotion
+    const updatedCurrentOwnerFunctionalRoles: ("coach" | "parent" | "admin")[] =
+      currentOwnerFunctionalRoles.includes("admin")
+        ? currentOwnerFunctionalRoles
+        : [...currentOwnerFunctionalRoles, "admin" as const];
+
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: currentUserMember._id, operator: "eq" }],
+        update: {
+          role: "admin",
+          functionalRoles: updatedCurrentOwnerFunctionalRoles,
+        },
+      },
+    });
+
+    // Promote new owner
+    const newOwnerFunctionalRoles: ("coach" | "parent" | "admin")[] =
+      (newOwnerMember as any).functionalRoles || [];
+    // Ensure admin is in functional roles for owner
+    const updatedNewOwnerFunctionalRoles: ("coach" | "parent" | "admin")[] =
+      newOwnerFunctionalRoles.includes("admin")
+        ? newOwnerFunctionalRoles
+        : [...newOwnerFunctionalRoles, "admin" as const];
+
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: newOwnerMember._id, operator: "eq" }],
+        update: {
+          role: "owner",
+          functionalRoles: updatedNewOwnerFunctionalRoles,
+        },
+      },
+    });
+
+    console.log(
+      `[transferOwnership] Ownership transferred from ${currentUserResult.email} to ${newOwnerUser?.email} in org ${args.organizationId}`
+    );
+
+    return {
+      success: true,
+      previousOwnerEmail: (currentUserResult.email as string) || null,
+      newOwnerEmail: (newOwnerUser?.email as string) || null,
+    };
+  },
+});

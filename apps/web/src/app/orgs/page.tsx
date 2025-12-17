@@ -12,6 +12,7 @@ import {
 import {
   BarChart3,
   Building2,
+  Check,
   ChevronRight,
   Globe,
   Plus,
@@ -21,8 +22,10 @@ import {
   ShieldCheck,
   ShieldX,
   Target,
+  Trash2,
   UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -350,8 +353,11 @@ function PlatformStaffManagement({
 
 export default function OrganizationsPage() {
   const router = useRouter();
-  const { data: organizations, isPending: loading } =
-    authClient.useListOrganizations();
+  const {
+    data: organizations,
+    isPending: loading,
+    refetch: refetchOrganizations,
+  } = authClient.useListOrganizations();
 
   // Use Convex query to get user with custom fields
   const user = useCurrentUser();
@@ -392,8 +398,20 @@ export default function OrganizationsPage() {
     user?.isPlatformStaff ? {} : "skip"
   );
 
+  // Get pending deletion requests for platform staff
+  const pendingDeletionRequests = useQuery(
+    api.models.organizations.getPendingDeletionRequests,
+    user?.isPlatformStaff ? {} : "skip"
+  );
+
   const updatePlatformStaffStatus = useMutation(
     api.models.users.updatePlatformStaffStatus
+  );
+  const approveDeletion = useMutation(
+    api.models.organizations.approveDeletionRequest
+  );
+  const rejectDeletion = useMutation(
+    api.models.organizations.rejectDeletionRequest
   );
 
   const handleCancelRequest = async (requestId: Id<"orgJoinRequests">) => {
@@ -421,6 +439,65 @@ export default function OrganizationsPage() {
     } catch (error: any) {
       console.error("Error updating platform staff status:", error);
       toast.error(error.message || "Failed to update platform staff status");
+    }
+  };
+
+  // State for deletion request handling
+  const [processingDeletionId, setProcessingDeletionId] = useState<
+    string | null
+  >(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [showRejectDialog, setShowRejectDialog] = useState<string | null>(null);
+
+  const handleApproveDeletion = async (
+    requestId: Id<"orgDeletionRequests">,
+    orgName: string
+  ) => {
+    if (
+      !confirm(
+        `Are you sure you want to PERMANENTLY DELETE "${orgName}" and ALL associated data? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    setProcessingDeletionId(requestId);
+    try {
+      await approveDeletion({ requestId });
+      toast.success(`Organization "${orgName}" has been deleted`);
+      // Refetch the organizations list to update the UI
+      refetchOrganizations();
+    } catch (error: any) {
+      console.error("Error approving deletion:", error);
+      toast.error(error.message || "Failed to approve deletion");
+    } finally {
+      setProcessingDeletionId(null);
+    }
+  };
+
+  const handleRejectDeletion = async (
+    requestId: Id<"orgDeletionRequests">,
+    orgName: string
+  ) => {
+    if (!rejectionReason.trim()) {
+      toast.error("Please provide a reason for rejection");
+      return;
+    }
+
+    setProcessingDeletionId(requestId);
+    try {
+      await rejectDeletion({
+        requestId,
+        rejectionReason: rejectionReason.trim(),
+      });
+      toast.success(`Deletion request for "${orgName}" has been rejected`);
+      setShowRejectDialog(null);
+      setRejectionReason("");
+    } catch (error: any) {
+      console.error("Error rejecting deletion:", error);
+      toast.error(error.message || "Failed to reject deletion");
+    } finally {
+      setProcessingDeletionId(null);
     }
   };
 
@@ -825,6 +902,192 @@ export default function OrganizationsPage() {
                 )}
               </div>
             )}
+
+            {/* Organization Deletion Requests - Only visible to platform staff */}
+            {user?.isPlatformStaff &&
+              pendingDeletionRequests &&
+              pendingDeletionRequests.length > 0 && (
+                <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
+                  <div className="mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-full bg-red-100 p-2">
+                        <Trash2 className="h-6 w-6 text-red-600" />
+                      </div>
+                      <div>
+                        <h2 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
+                          Organization Deletion Requests
+                        </h2>
+                        <p className="mt-1 text-muted-foreground">
+                          Review and approve or reject deletion requests
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className="text-sm" variant="destructive">
+                      {pendingDeletionRequests.length} pending
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-4">
+                    {pendingDeletionRequests.map((request) => (
+                      <Card
+                        className="border-red-200 bg-red-50/30"
+                        key={request._id}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-3">
+                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-red-100">
+                                {request.organizationLogo ? (
+                                  <img
+                                    alt={request.organizationName}
+                                    className="h-12 w-12 rounded-lg object-cover"
+                                    src={request.organizationLogo}
+                                  />
+                                ) : (
+                                  <Building2 className="h-6 w-6 text-red-600" />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h3 className="font-semibold text-lg">
+                                  {request.organizationName}
+                                </h3>
+                                <p className="text-muted-foreground text-sm">
+                                  Requested by {request.requestedByName} (
+                                  {request.requestedByEmail})
+                                </p>
+                                <p className="mt-1 text-muted-foreground text-xs">
+                                  {new Date(
+                                    request.requestedAt
+                                  ).toLocaleDateString()}{" "}
+                                  at{" "}
+                                  {new Date(
+                                    request.requestedAt
+                                  ).toLocaleTimeString()}
+                                </p>
+
+                                {/* Reason */}
+                                <div className="mt-3 rounded-md bg-white p-3">
+                                  <p className="font-medium text-sm">
+                                    Reason for deletion:
+                                  </p>
+                                  <p className="mt-1 text-muted-foreground text-sm">
+                                    {request.reason}
+                                  </p>
+                                </div>
+
+                                {/* Data Summary */}
+                                {request.dataSummary && (
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    <Badge variant="secondary">
+                                      {request.dataSummary.memberCount} members
+                                    </Badge>
+                                    <Badge variant="secondary">
+                                      {request.dataSummary.playerCount} players
+                                    </Badge>
+                                    <Badge variant="secondary">
+                                      {request.dataSummary.teamCount} teams
+                                    </Badge>
+                                    <Badge variant="secondary">
+                                      {request.dataSummary.coachCount} coaches
+                                    </Badge>
+                                    <Badge variant="secondary">
+                                      {request.dataSummary.parentCount} parents
+                                    </Badge>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex shrink-0 flex-col gap-2">
+                              {showRejectDialog === request._id ? (
+                                <div className="w-64 space-y-2">
+                                  <textarea
+                                    className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    onChange={(e) =>
+                                      setRejectionReason(e.target.value)
+                                    }
+                                    placeholder="Reason for rejection..."
+                                    value={rejectionReason}
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button
+                                      className="flex-1"
+                                      disabled={
+                                        processingDeletionId === request._id
+                                      }
+                                      onClick={() =>
+                                        handleRejectDeletion(
+                                          request._id,
+                                          request.organizationName
+                                        )
+                                      }
+                                      size="sm"
+                                      variant="destructive"
+                                    >
+                                      {processingDeletionId === request._id
+                                        ? "..."
+                                        : "Confirm"}
+                                    </Button>
+                                    <Button
+                                      onClick={() => {
+                                        setShowRejectDialog(null);
+                                        setRejectionReason("");
+                                      }}
+                                      size="sm"
+                                      variant="outline"
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <Button
+                                    className="bg-red-600 hover:bg-red-700"
+                                    disabled={
+                                      processingDeletionId === request._id
+                                    }
+                                    onClick={() =>
+                                      handleApproveDeletion(
+                                        request._id,
+                                        request.organizationName
+                                      )
+                                    }
+                                    size="sm"
+                                  >
+                                    {processingDeletionId === request._id ? (
+                                      "Deleting..."
+                                    ) : (
+                                      <>
+                                        <Check className="mr-1 h-4 w-4" />
+                                        Approve & Delete
+                                      </>
+                                    )}
+                                  </Button>
+                                  <Button
+                                    disabled={
+                                      processingDeletionId === request._id
+                                    }
+                                    onClick={() =>
+                                      setShowRejectDialog(request._id)
+                                    }
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    <X className="mr-1 h-4 w-4" />
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             {/* Platform Staff Management - Only visible to platform staff */}
             {user?.isPlatformStaff && (

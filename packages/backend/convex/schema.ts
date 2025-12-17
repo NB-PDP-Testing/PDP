@@ -492,6 +492,58 @@ export default defineSchema({
     .index("by_orgId", ["orgId"])
     .index("by_orgId_and_coachId", ["orgId", "coachId"]),
 
+  // Organization Deletion Requests
+  // Requires platform staff approval before deletion is executed
+  orgDeletionRequests: defineTable({
+    organizationId: v.string(), // Better Auth organization ID
+    organizationName: v.string(),
+    organizationLogo: v.optional(v.string()),
+
+    // Who requested the deletion
+    requestedBy: v.string(), // Better Auth user ID (must be owner)
+    requestedByEmail: v.string(),
+    requestedByName: v.string(),
+
+    // Reason for deletion
+    reason: v.string(),
+
+    // Status workflow
+    status: v.union(
+      v.literal("pending"), // Awaiting platform staff review
+      v.literal("approved"), // Platform staff approved, deletion pending
+      v.literal("rejected"), // Platform staff rejected
+      v.literal("cancelled"), // Owner cancelled the request
+      v.literal("completed") // Deletion has been executed
+    ),
+
+    // Timestamps
+    requestedAt: v.number(),
+    reviewedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+
+    // Platform staff reviewer
+    reviewedBy: v.optional(v.string()), // Platform staff user ID
+    reviewedByName: v.optional(v.string()),
+    reviewedByEmail: v.optional(v.string()),
+
+    // Rejection reason (if rejected)
+    rejectionReason: v.optional(v.string()),
+
+    // Data summary at time of request (for audit purposes)
+    dataSummary: v.optional(
+      v.object({
+        memberCount: v.number(),
+        playerCount: v.number(),
+        teamCount: v.number(),
+        coachCount: v.number(),
+        parentCount: v.number(),
+      })
+    ),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_status", ["status"])
+    .index("by_requestedAt", ["requestedAt"]),
+
   // Demo requests table
   demoAsks: defineTable({
     name: v.string(),

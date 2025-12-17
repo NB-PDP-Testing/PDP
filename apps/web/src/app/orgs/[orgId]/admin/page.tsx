@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { Clock, Mail, Shield, UserCheck, Users } from "lucide-react";
+import { Clock, Crown, Mail, Shield, UserCheck, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -36,6 +36,9 @@ export default function OrgAdminOverviewPage() {
     organizationId: orgId,
   });
   const memberCounts = useQuery(api.models.members.getMemberCountsByRole, {
+    organizationId: orgId,
+  });
+  const currentOwner = useQuery(api.models.members.getCurrentOwner, {
     organizationId: orgId,
   });
 
@@ -116,6 +119,31 @@ export default function OrgAdminOverviewPage() {
           </>
         )}
       </div>
+
+      {/* Owner Info Card */}
+      {currentOwner && (
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardContent className="flex items-center gap-4 py-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+              <Crown className="h-6 w-6 text-amber-600" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-amber-900">Organization Owner</p>
+              <p className="text-amber-700 text-sm">
+                {currentOwner.userName || "Unknown"}{" "}
+                <span className="text-amber-600">
+                  ({currentOwner.userEmail})
+                </span>
+              </p>
+            </div>
+            <Link href={`/orgs/${orgId}/admin/settings` as Route}>
+              <OrgThemedButton size="sm" variant="outline">
+                Manage Ownership
+              </OrgThemedButton>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Activity */}
       <div className="grid gap-4 lg:grid-cols-2">

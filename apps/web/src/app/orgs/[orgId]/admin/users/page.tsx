@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
+  Crown,
   Loader2,
   Mail,
   Save,
@@ -876,33 +877,41 @@ export default function ManageUsersPage() {
 
                     <div className="flex items-center gap-2">
                       <div className="flex flex-wrap gap-1">
-                        {state.functionalRoles.length === 0 ? (
-                          <Badge variant="secondary">No roles</Badge>
-                        ) : (
-                          state.functionalRoles.map((role) => {
-                            const roleHasWarning =
-                              (role === "coach" && state.teams.length === 0) ||
-                              (role === "parent" &&
-                                state.linkedPlayerIds.length === 0);
-                            return (
-                              <span
-                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium text-xs ${getRoleBadgeColor(role)} ${roleHasWarning ? "ring-2 ring-orange-400" : ""}`}
-                                key={role}
-                                title={
-                                  roleHasWarning
-                                    ? `${role} has incomplete configuration`
-                                    : ""
-                                }
-                              >
-                                {getRoleIcon(role)}
-                                {role}
-                                {roleHasWarning && (
-                                  <AlertTriangle className="h-3 w-3 text-orange-500" />
-                                )}
-                              </span>
-                            );
-                          })
+                        {/* Owner Badge - show if Better Auth role is "owner" */}
+                        {member.role === "owner" && (
+                          <Badge className="border-amber-300 bg-amber-100 text-amber-700">
+                            <Crown className="mr-1 h-3 w-3" />
+                            Owner
+                          </Badge>
                         )}
+                        {state.functionalRoles.length === 0
+                          ? member.role !== "owner" && (
+                              <Badge variant="secondary">No roles</Badge>
+                            )
+                          : state.functionalRoles.map((role) => {
+                              const roleHasWarning =
+                                (role === "coach" &&
+                                  state.teams.length === 0) ||
+                                (role === "parent" &&
+                                  state.linkedPlayerIds.length === 0);
+                              return (
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium text-xs ${getRoleBadgeColor(role)} ${roleHasWarning ? "ring-2 ring-orange-400" : ""}`}
+                                  key={role}
+                                  title={
+                                    roleHasWarning
+                                      ? `${role} has incomplete configuration`
+                                      : ""
+                                  }
+                                >
+                                  {getRoleIcon(role)}
+                                  {role}
+                                  {roleHasWarning && (
+                                    <AlertTriangle className="h-3 w-3 text-orange-500" />
+                                  )}
+                                </span>
+                              );
+                            })}
                       </div>
 
                       <Button

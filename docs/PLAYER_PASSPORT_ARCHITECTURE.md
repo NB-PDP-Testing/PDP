@@ -176,7 +176,7 @@ players: {
 
 ---
 
-## 3. Multi-Organization Player Identity
+## 3. Platform-Level Identity Architecture
 
 ### 3.1 The Multi-Org Problem
 
@@ -184,79 +184,319 @@ players: {
 - Players are **org-scoped** (`organizationId: v.string()`)
 - If a child plays GAA at Club A and Soccer at Club B, they exist as **two separate player records**
 - No linkage between the two records
-- Parent info, DOB, address all duplicated
+- Parent info, DOB, address all duplicated in each player record
 - Parent can't see unified view of their child across clubs
+- **Same problem exists for parents/guardians**: contact info duplicated across clubs and player records
 
 **Churn Scenarios Without Solution:**
 1. Admin at Club B manually re-enters child already at Club A
 2. Parent sees fragmented view - must switch orgs to see different children
 3. Cross-sport insights impossible (e.g., "Clodagh's agility transfers from GAA to Soccer")
+4. Parent updates phone number at Club A → Club B still has old number
+5. Guardian relationship data ("Mary is Clodagh's mother") stored redundantly everywhere
 
-### 3.2 Solution: Player Identity Layer
+### 3.2 Design Decision: Platform-Level vs Organization-Level Identities
 
-Separate **player identity** (global, cross-org) from **club membership** (org-specific):
+The fundamental question: **Where should identity live?**
+
+| Entity | Should Be | Rationale |
+|--------|-----------|-----------|
+| **Player (child)** | Platform-level | "Clodagh Barlow born 2013-05-15" is a fact independent of any club |
+| **Guardian (parent)** | Platform-level | "Mary Barlow, mary@example.com" is a fact independent of any club |
+| **Guardian-Player relationship** | Platform-level | "Mary is Clodagh's mother" is a fact, not club-specific |
+| **Club membership** | Organization-level | "Clodagh plays at St. Francis FC" is club-specific |
+| **Skill assessments** | Organization-level | "Coach John rated Clodagh's passing as 4/5" belongs to the assessing club |
+| **Communication preferences** | Organization-level | "Email Mary for match updates" is club-specific |
+
+### 3.3 Alternative Approaches Considered
+
+#### Approach A: Organization-Scoped Everything (Current State)
+
+```
+Organization
+└── Players (with embedded parent data)
+    └── Skills, Notes, etc.
+```
+
+**Pros:**
+- Simple mental model
+- Complete data isolation between clubs
+- No cross-org privacy concerns
+- Easy to implement
+
+**Cons:**
+- Data duplication (same child = multiple records)
+- No cross-org visibility for parents
+- Admin re-entry burden
+- Contact info gets stale
+- Can't do cross-sport analysis
+
+**Verdict:** ❌ Doesn't scale for multi-club families (very common in Ireland)
+
+---
+
+#### Approach B: Embedded Guardian Array in Player Identity
+
+```
+Platform Level:
+  playerIdentities
+    └── guardians: [{email, phone, relationship}]  // Embedded array
+
+Organization Level:
+  orgPlayerEnrollments
+  sportPassports
+```
+
+**Pros:**
+- Simpler than full normalization
+- Player and guardians travel together
+- Single query gets player + guardians
+
+**Cons:**
+- Guardian data duplicated if they have multiple children
+- Updates to guardian info require updating all their children's records
+- Can't have guardian-specific platform preferences
+- Can't track guardian verification independently
+- Guardian without registered children can't exist in system
+
+**Verdict:** ❌ Creates data consistency issues at scale
+
+---
+
+#### Approach C: Platform-Level Identity for Both (Recommended) ✅
+
+```
+Platform Level (Cross-Org):
+  guardianIdentities (parents/guardians as first-class entities)
+  playerIdentities (children as first-class entities)
+  guardianPlayerLinks (N:M relationships)
+
+Organization Level (Per-Club):
+  orgGuardianProfiles (club-specific preferences)
+  orgPlayerEnrollments (club membership)
+  sportPassports (skill tracking)
+```
+
+**Pros:**
+- Single source of truth for identity data
+- Update once, reflects everywhere
+- Guardians are first-class entities (can exist without children in system)
+- Clean N:M relationship between guardians and players
+- Proper normalization - no data duplication
+- Cross-org visibility with consent controls
+- GDPR-friendly (centralized data management)
+- Unregistered guardians can be tracked (from imports)
+- Easy to merge duplicates
+
+**Cons:**
+- More complex data model
+- More tables to manage
+- Queries require joins across tables
+- Must carefully manage cross-org privacy
+- Identity matching logic needed
+
+**Verdict:** ✅ Best long-term architecture for multi-club platform
+
+---
+
+#### Approach D: Federated Identity (External Provider)
+
+```
+External Identity Provider (Auth0, Okta, etc.)
+  └── User profiles with family relationships
+
+Platform:
+  └── References to external IDs
+```
+
+**Pros:**
+- Identity management handled by specialists
+- SSO across multiple platforms
+- Industry-standard security
+
+**Cons:**
+- Vendor dependency and cost
+- Can't track unregistered guardians (from imports)
+- Complex integration
+- Overkill for sports club platform
+- Less control over data model
+
+**Verdict:** ❌ Unnecessary complexity, doesn't solve import use case
+
+### 3.4 Recommended Architecture: Platform-Level Identity Model
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         PLATFORM LEVEL (Cross-Org)                               │
+│                         No organizationId - these are facts                      │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│   ┌─────────────────────────┐              ┌─────────────────────────┐          │
+│   │   guardianIdentities    │◄────────────►│    playerIdentities     │          │
+│   │   (parents/guardians)   │    N:M       │    (children/athletes)  │          │
+│   │                         │    link      │                         │          │
+│   │ • firstName, lastName   │              │ • firstName, lastName   │          │
+│   │ • email, phone          │              │ • dateOfBirth, gender   │          │
+│   │ • address               │              │ • verificationStatus    │          │
+│   │ • userId (if registered)│              │                         │          │
+│   └───────────┬─────────────┘              └────────────┬────────────┘          │
+│               │                                         │                        │
+│               │         ┌───────────────────┐           │                        │
+│               └────────►│guardianPlayerLinks│◄──────────┘                        │
+│                         │                   │                                    │
+│                         │ • relationship    │                                    │
+│                         │ • isPrimary       │                                    │
+│                         │ • consentSharing  │                                    │
+│                         └───────────────────┘                                    │
+│                                                                                  │
+│   ┌─────────────────────────┐                                                   │
+│   │     Better Auth         │  userId in guardianIdentities links to this       │
+│   │     user table          │  (only for registered/logged-in guardians)        │
+│   └─────────────────────────┘                                                   │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        │ Referenced by (via IDs)
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                       ORGANIZATION LEVEL (Per-Club)                              │
+│                       Has organizationId - club-specific data                    │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                  │
+│   ┌─────────────────────────┐              ┌─────────────────────────┐          │
+│   │  orgGuardianProfiles    │              │  orgPlayerEnrollments   │          │
+│   │  (club prefs for parent)│              │  (club membership)      │          │
+│   │                         │              │                         │          │
+│   │ • guardianIdentityId    │              │ • playerIdentityId      │          │
+│   │ • organizationId        │              │ • organizationId        │          │
+│   │ • emergencyPriority     │              │ • ageGroup, season      │          │
+│   │ • communicationPrefs    │              │ • status                │          │
+│   │ • clubNotes             │              │ • clubMembershipNumber  │          │
+│   └─────────────────────────┘              └───────────┬─────────────┘          │
+│                                                        │                         │
+│                                                        │ 1:many                  │
+│                                                        ▼                         │
+│                                            ┌─────────────────────────┐          │
+│                                            │    sportPassports       │          │
+│                                            │    (per-sport skills)   │          │
+│                                            │                         │          │
+│                                            │ • enrollmentId          │          │
+│                                            │ • sportCode             │          │
+│                                            │ • positions, ratings    │          │
+│                                            └───────────┬─────────────┘          │
+│                                                        │                         │
+│                                                        │ 1:many                  │
+│                                                        ▼                         │
+│                                            ┌─────────────────────────┐          │
+│                                            │   skillAssessments      │          │
+│                                            │   (temporal records)    │          │
+│                                            └─────────────────────────┘          │
+│                                                                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.5 Key Insight: Guardian ≠ Better Auth User
+
+A critical design insight: **Guardian identity can exist without a registered user account**.
+
+```
+Scenario: Club imports GAA membership CSV with parent contact info
+
+1. Import creates playerIdentity for each child
+2. Import creates guardianIdentity for each parent (from email/phone in CSV)
+3. guardianPlayerLinks created to connect them
+4. Guardian has NO userId yet (not registered)
+
+Later: Parent registers on platform
+
+5. Parent signs up with same email
+6. System: "We found your profile from Club A. Is this you?"
+7. Parent confirms → userId linked to existing guardianIdentity
+8. Parent now has full dashboard access to their children
+```
+
+**Why this matters:**
+- Clubs can import membership data before parents register
+- Guardian contact info is available for emergencies
+- When parent registers, they "claim" their existing identity
+- No data loss or re-entry required
+
+### 3.6 Pros and Cons Summary
+
+#### Pros of Platform-Level Identity Model
+
+| Benefit | Description |
+|---------|-------------|
+| **Single Source of Truth** | Guardian contact info updated once, reflects everywhere |
+| **No Data Duplication** | "Mary is Clodagh's mother" stored once, not per-club |
+| **Cross-Org Visibility** | Parent dashboard can show children across all clubs |
+| **Import-Friendly** | Can create identities from CSV before users register |
+| **GDPR Compliant** | Centralized data easier to export/delete on request |
+| **Future-Proof** | Supports knowledge graph, analytics, insights |
+| **Clean Relationships** | Proper N:M modeling (guardian with 3 kids, child with 2 guardians) |
+| **Merge Capability** | Can merge duplicate identities discovered later |
+
+#### Cons and Mitigations
+
+| Challenge | Mitigation |
+|-----------|------------|
+| **More Complex Queries** | Create well-designed query functions that abstract joins |
+| **Cross-Org Privacy Risk** | Consent flags on guardianPlayerLinks; org can only see own enrollments |
+| **Identity Matching Errors** | Conservative matching (require email + name + DOB); admin review for uncertain matches |
+| **More Tables to Manage** | Clear naming conventions; comprehensive documentation |
+| **Migration Complexity** | Clean slate option (delete test data); or simple one-time migration script |
+
+### 3.7 Data Ownership and Privacy Model
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     PLAYER IDENTITY                             │
-│  (Global, cross-org, platform-owned)                           │
+│                    DATA OWNERSHIP MATRIX                         │
 ├─────────────────────────────────────────────────────────────────┤
-│  _id: Id<"playerIdentities">                                    │
-│  firstName, lastName, dateOfBirth, gender                       │
-│  guardians: [{email, phone, relationship, userId?}]             │
-│  createdAt, verifiedAt, verificationSource                      │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              │ 1:many (one identity, many club memberships)
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   ORG PLAYER ENROLLMENT                         │
-│  (Per-org membership, club-owned)                               │
-├─────────────────────────────────────────────────────────────────┤
-│  _id: Id<"orgPlayerEnrollments">                                │
-│  playerIdentityId: Id<"playerIdentities">                       │
-│  organizationId: string                                         │
-│  enrolledAt, status (active/inactive/archived)                  │
-│  clubMembershipNumber, registrationSource                       │
-│  ageGroup, season                                               │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              │ 1:many (one enrollment, multiple sport passports)
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     SPORT PASSPORTS                             │
-│  (Per-org, per-sport skill container)                           │
-├─────────────────────────────────────────────────────────────────┤
-│  _id: Id<"sportPassports">                                      │
-│  enrollmentId: Id<"orgPlayerEnrollments">                       │
-│  sportCode: "gaa_football" | "soccer" | "rugby"                 │
-│  positions, notes, assessments[]                                │
+│                                                                  │
+│  Platform Owns (cross-org):                                     │
+│  ├── guardianIdentities.* (name, email, phone, address)         │
+│  ├── playerIdentities.* (name, DOB, gender)                     │
+│  └── guardianPlayerLinks.* (relationships)                      │
+│                                                                  │
+│  Organization Owns (per-club):                                  │
+│  ├── orgPlayerEnrollments.* (membership, age group)             │
+│  ├── orgGuardianProfiles.* (communication prefs, notes)         │
+│  ├── sportPassports.* (positions, sport-specific data)          │
+│  └── skillAssessments.* (ratings, coach notes)                  │
+│                                                                  │
+│  Guardian Controls:                                              │
+│  ├── guardianPlayerLinks.consentedToSharing                     │
+│  │   └── If false: other orgs can't see this guardian-player    │
+│  │       relationship exists                                     │
+│  └── Own profile data (can request update/deletion)             │
+│                                                                  │
+│  Cross-Org Visibility Rules:                                    │
+│  ├── Club A CANNOT see Club B's assessments                     │
+│  ├── Club A CANNOT see Club B's enrollment details              │
+│  ├── Club A CAN see "player exists" IF guardian consented       │
+│  └── Parent CAN see all their children across all clubs         │
+│                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.3 How This Minimizes Admin Churn
+### 3.8 How This Minimizes Admin Churn
 
 #### Scenario 1: Child Already Exists at Another Club
 
-**Without Identity Layer (painful):**
+**Without Platform Identity (painful):**
 1. Admin manually enters all player data again
 2. No knowledge child exists elsewhere
 3. Duplicate records, no linkage
 
-**With Identity Layer (smooth):**
-1. Admin starts adding player → enters name + DOB
-2. System checks `playerIdentities` for match (by guardian email OR name+DOB)
+**With Platform Identity (smooth):**
+1. Admin starts adding player → enters name + DOB + guardian email
+2. System checks `playerIdentities` AND `guardianIdentities` for match
 3. If match found: "This player may already exist. Link to existing identity?"
-4. If linked: Auto-populates guardian info, admin just adds org-specific data
-5. If no match: Creates new identity
+4. If linked: Auto-populates all identity data, admin just adds org-specific info
+5. If no match: Creates new player + guardian identities
 
 #### Scenario 2: Child Joins Second Sport at Same Club
 
-**Without Identity Layer:**
-- Either duplicate player record OR use same record with single sport field
-- Skills get muddled across sports
-
-**With Identity Layer:**
 1. Admin sees existing player in roster
 2. Clicks "Add Sport" → selects sport (Soccer, GAA, Rugby)
 3. Creates new `sportPassport` linked to same enrollment
@@ -264,51 +504,81 @@ Separate **player identity** (global, cross-org) from **club membership** (org-s
 
 #### Scenario 3: Parent Joins New Club
 
-**Without Identity Layer:**
-- Smart matching for local players only
-- No visibility into children at other clubs
+1. Parent registers with email mary@example.com
+2. System finds existing `guardianIdentity` (from Club A import)
+3. "Welcome Mary! We found your profile. Is this you?"
+4. Parent confirms → `userId` linked to existing identity
+5. System shows: "You have 2 children: Clodagh (at Club A), Sean (at Club A)"
+6. "Would you like to enroll them at this club?"
 
-**With Identity Layer:**
-1. Same smart matching for local players
-2. Additionally: "You have children registered at other clubs. Would you like to link?"
-3. Creates new `orgPlayerEnrollment` pointing to existing identity
-4. Parent dashboard shows unified view across all clubs
+#### Scenario 4: Guardian Updates Contact Info
 
-### 3.4 Key Design Decisions
+**Without Platform Identity:**
+- Must update at each club separately
+- Must update each child's record separately
+- Info gets stale, inconsistent
 
-1. **Identity matching is optional, not mandatory**
-   - Clubs can ignore cross-org linking entirely
-   - System suggests but doesn't force
-   - Privacy-first approach
+**With Platform Identity:**
+1. Guardian updates phone in their profile
+2. Single update to `guardianIdentities` table
+3. All clubs automatically see new phone number
+4. No per-child, per-club updates needed
 
-2. **Backwards compatible API**
-   - Existing `getPlayersByOrganization` continues working
-   - New queries available for identity-aware features
-   - Migration can be gradual
+### 3.9 Platform Identity Schema Design
 
-3. **Org retains data ownership**
-   - Club-specific notes, assessments stay with org
-   - Identity layer only shares common profile data (name, DOB, guardians)
-   - One club cannot see another club's assessments without consent
+#### `guardianIdentities` - Platform-Level Guardian/Parent
 
-4. **Parent consent for cross-org visibility**
-   - Parent explicitly links children across orgs
-   - Clubs can't see other clubs' data without consent
-   - Guardian controls cross-org sharing preferences
+```typescript
+guardianIdentities: defineTable({
+  // Core identity
+  firstName: v.string(),
+  lastName: v.string(),
+  email: v.string(),
+  phone: v.optional(v.string()),
 
-5. **Soft migration of existing players**
-   - Keep existing `players` table working
-   - Add optional `playerIdentityId` field
-   - Background job creates identities and links existing records
-   - No UI changes until migration complete
+  // Link to Better Auth user (when registered)
+  userId: v.optional(v.string()),
 
-### 3.5 Identity Schema Design
+  // Address (shared across all relationships)
+  address: v.optional(v.string()),
+  town: v.optional(v.string()),
+  postcode: v.optional(v.string()),
+  country: v.optional(v.string()),
 
-#### `playerIdentities` - Global Player Identity
+  // Verification
+  verificationStatus: v.union(
+    v.literal("unverified"),        // From import, not yet verified
+    v.literal("email_verified"),    // Email confirmed
+    v.literal("id_verified")        // Official ID checked
+  ),
+  verifiedAt: v.optional(v.string()),
+  verifiedBy: v.optional(v.string()),
+
+  // Platform preferences
+  preferredContactMethod: v.optional(v.union(
+    v.literal("email"),
+    v.literal("phone"),
+    v.literal("both")
+  )),
+
+  // Metadata
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  createdByOrgId: v.optional(v.string()), // Which org first created this
+  mergedFrom: v.optional(v.array(v.id("guardianIdentities"))),
+})
+  .index("by_email", ["email"])
+  .index("by_userId", ["userId"])
+  .index("by_phone", ["phone"])
+  .index("by_verification", ["verificationStatus"])
+  .searchIndex("name_search", { searchField: "firstName" })
+```
+
+#### `playerIdentities` - Platform-Level Player/Child
 
 ```typescript
 playerIdentities: defineTable({
-  // Core identity (immutable after verification)
+  // Core identity
   firstName: v.string(),
   lastName: v.string(),
   dateOfBirth: v.string(),           // ISO date
@@ -318,78 +588,127 @@ playerIdentities: defineTable({
     v.literal("other")
   ),
 
-  // Verification status
+  // NO guardians array - use guardianPlayerLinks instead!
+
+  // Verification
   verificationStatus: v.union(
-    v.literal("unverified"),         // Created but not verified
-    v.literal("email_verified"),     // Guardian email confirmed
-    v.literal("document_verified"),  // Official document checked
-    v.literal("merged")              // Merged from duplicates
+    v.literal("unverified"),
+    v.literal("guardian_verified"),  // Guardian confirmed identity
+    v.literal("document_verified")   // Birth cert or similar checked
   ),
   verifiedAt: v.optional(v.string()),
-  verifiedBy: v.optional(v.string()), // Admin userId who verified
-
-  // Guardians (enables cross-org matching)
-  guardians: v.array(v.object({
-    id: v.string(),                  // Unique ID for this guardian
-    firstName: v.string(),
-    lastName: v.string(),
-    email: v.string(),
-    phone: v.optional(v.string()),
-    relationship: v.optional(v.string()), // "parent", "guardian", "grandparent"
-    isPrimary: v.boolean(),
-    userId: v.optional(v.string()),  // Better Auth user ID if registered
-    consentedToSharing: v.boolean(), // Can this guardian see cross-org data?
-  })),
-
-  // Address (for matching, not required)
-  address: v.optional(v.string()),
-  town: v.optional(v.string()),
-  postcode: v.optional(v.string()),
-  country: v.optional(v.string()),
+  verifiedBy: v.optional(v.string()),
 
   // Metadata
   createdAt: v.number(),
   updatedAt: v.number(),
-  createdBy: v.optional(v.string()), // Organization that created
-  mergedFrom: v.optional(v.array(v.id("playerIdentities"))), // If merged
+  createdByOrgId: v.optional(v.string()),
+  mergedFrom: v.optional(v.array(v.id("playerIdentities"))),
 })
   .index("by_name_dob", ["firstName", "lastName", "dateOfBirth"])
-  .index("by_guardian_email", ["guardians"]) // Search by guardian email
   .index("by_verification", ["verificationStatus"])
   .searchIndex("name_search", { searchField: "firstName" })
 ```
 
-#### `orgPlayerEnrollments` - Organization Membership
+#### `guardianPlayerLinks` - N:M Relationship Table
+
+```typescript
+guardianPlayerLinks: defineTable({
+  guardianIdentityId: v.id("guardianIdentities"),
+  playerIdentityId: v.id("playerIdentities"),
+
+  // Relationship details
+  relationship: v.string(),          // "mother", "father", "guardian", "grandparent", "step-parent"
+  isPrimary: v.boolean(),            // Primary contact for this child
+
+  // Cross-org consent (guardian controls this)
+  consentedToSharing: v.boolean(),   // Can other orgs see this relationship exists?
+
+  // Legal/custody notes (sensitive)
+  custodyNotes: v.optional(v.string()), // E.g., "No contact with father"
+
+  // Verification
+  verifiedAt: v.optional(v.string()),
+  verifiedBy: v.optional(v.string()),
+
+  createdAt: v.number(),
+})
+  .index("by_guardian", ["guardianIdentityId"])
+  .index("by_player", ["playerIdentityId"])
+  .index("by_guardian_player", ["guardianIdentityId", "playerIdentityId"])
+```
+
+#### `orgGuardianProfiles` - Organization-Level Guardian Preferences
+
+```typescript
+orgGuardianProfiles: defineTable({
+  guardianIdentityId: v.id("guardianIdentities"),
+  organizationId: v.string(),
+
+  // Emergency contact priority (1 = first call)
+  emergencyContactPriority: v.optional(v.number()),
+
+  // Communication preferences for THIS club
+  communicationPrefs: v.optional(v.object({
+    receiveNewsletters: v.boolean(),
+    receiveMatchUpdates: v.boolean(),
+    receiveTrainingReminders: v.boolean(),
+    receiveEmergencyAlerts: v.boolean(),
+    preferredMethod: v.optional(v.union(
+      v.literal("email"),
+      v.literal("sms"),
+      v.literal("app_notification")
+    )),
+  })),
+
+  // Club-specific notes (only this club sees)
+  adminNotes: v.optional(v.string()),
+
+  // Volunteer/helper status at this club
+  volunteerRoles: v.optional(v.array(v.string())), // ["team_manager", "car_pool", "first_aid"]
+
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_guardian", ["guardianIdentityId"])
+  .index("by_organization", ["organizationId"])
+  .index("by_guardian_org", ["guardianIdentityId", "organizationId"])
+```
+
+#### `orgPlayerEnrollments` - Organization-Level Player Membership
 
 ```typescript
 orgPlayerEnrollments: defineTable({
-  // References
   playerIdentityId: v.id("playerIdentities"),
   organizationId: v.string(),
 
   // Enrollment status
   status: v.union(
-    v.literal("active"),             // Currently enrolled
+    v.literal("active"),
     v.literal("inactive"),           // Taking a break
     v.literal("archived"),           // Left the club
-    v.literal("pending_verification") // Awaiting identity verification
+    v.literal("pending_verification")
   ),
 
   // Organization-specific data
-  clubMembershipNumber: v.optional(v.string()), // Club's internal ID
-  ageGroup: v.string(),              // "U8", "U10", etc.
-  season: v.string(),                // "2024-2025"
+  clubMembershipNumber: v.optional(v.string()),
+  ageGroup: v.string(),
+  season: v.string(),
 
   // Registration source
   registrationSource: v.union(
     v.literal("manual"),             // Admin entered
-    v.literal("import"),             // Bulk import
-    v.literal("self_registration"),  // Parent registered
+    v.literal("import"),             // Bulk import (GAA membership, etc.)
+    v.literal("self_registration"),  // Parent registered online
     v.literal("identity_link")       // Linked from existing identity
   ),
 
-  // Notes (org-specific)
+  // Club-specific notes
   adminNotes: v.optional(v.string()),
+
+  // Medical consent (org-specific, not platform)
+  medicalConsentGiven: v.optional(v.boolean()),
+  photoConsentGiven: v.optional(v.boolean()),
 
   // Timestamps
   enrolledAt: v.number(),
@@ -401,53 +720,184 @@ orgPlayerEnrollments: defineTable({
   .index("by_identity_org", ["playerIdentityId", "organizationId"])
   .index("by_status", ["organizationId", "status"])
   .index("by_ageGroup", ["organizationId", "ageGroup"])
+  .index("by_season", ["organizationId", "season"])
 ```
 
-### 3.6 Migration Path (Zero Disruption)
+### 3.10 Identity Matching Logic
 
-**Phase 1: Shadow Identity Layer** (Background)
+When creating a new player or guardian, the system should check for existing matches:
+
 ```typescript
-// For each existing player, create identity if not exists
-for (const player of existingPlayers) {
-  // Check if identity exists by guardian email + name + DOB
-  const existingIdentity = await findIdentityMatch(
-    player.parentEmail,
-    player.name,
-    player.dateOfBirth
-  );
+// Guardian matching - find potential duplicates
+async function findGuardianMatches(
+  ctx: QueryCtx,
+  email: string,
+  phone?: string,
+  firstName?: string,
+  lastName?: string
+): Promise<{ identity: GuardianIdentity; confidence: "high" | "medium" | "low" }[]> {
+  const matches = [];
 
-  if (existingIdentity) {
-    // Link to existing identity
-    await updatePlayer(player._id, {
-      playerIdentityId: existingIdentity._id
-    });
-  } else {
-    // Create new identity
-    const identity = await createPlayerIdentity({
-      ...extractIdentityFields(player),
-      verificationStatus: "unverified",
-    });
-    await updatePlayer(player._id, {
-      playerIdentityId: identity._id
-    });
+  // High confidence: exact email match
+  const emailMatch = await ctx.db
+    .query("guardianIdentities")
+    .withIndex("by_email", (q) => q.eq("email", email.toLowerCase()))
+    .first();
+
+  if (emailMatch) {
+    matches.push({ identity: emailMatch, confidence: "high" });
+    return matches; // Email is unique, no need to check further
   }
+
+  // Medium confidence: phone match + name similarity
+  if (phone) {
+    const phoneMatches = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_phone", (q) => q.eq("phone", normalizePhone(phone)))
+      .collect();
+
+    for (const match of phoneMatches) {
+      if (isSimilarName(match.firstName, firstName) &&
+          isSimilarName(match.lastName, lastName)) {
+        matches.push({ identity: match, confidence: "medium" });
+      }
+    }
+  }
+
+  return matches;
+}
+
+// Player matching - find potential duplicates
+async function findPlayerMatches(
+  ctx: QueryCtx,
+  firstName: string,
+  lastName: string,
+  dateOfBirth: string,
+  guardianEmail?: string
+): Promise<{ identity: PlayerIdentity; confidence: "high" | "medium" | "low" }[]> {
+  const matches = [];
+
+  // High confidence: exact name + DOB match
+  const exactMatch = await ctx.db
+    .query("playerIdentities")
+    .withIndex("by_name_dob", (q) =>
+      q.eq("firstName", firstName)
+       .eq("lastName", lastName)
+       .eq("dateOfBirth", dateOfBirth)
+    )
+    .first();
+
+  if (exactMatch) {
+    matches.push({ identity: exactMatch, confidence: "high" });
+  }
+
+  // Medium confidence: guardian email links to player
+  if (guardianEmail) {
+    const guardian = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", guardianEmail.toLowerCase()))
+      .first();
+
+    if (guardian) {
+      const links = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) => q.eq("guardianIdentityId", guardian._id))
+        .collect();
+
+      for (const link of links) {
+        const player = await ctx.db.get(link.playerIdentityId);
+        if (player && isSimilarName(player.firstName, firstName)) {
+          matches.push({ identity: player, confidence: "medium" });
+        }
+      }
+    }
+  }
+
+  return matches;
 }
 ```
 
-**Phase 2: Admin Review UI**
-- "We found X potential duplicate players. Review?"
-- Admin can merge or keep separate
-- No action required - system works either way
+### 3.11 Migration: Clean Slate Approach
 
-**Phase 3: New Player Flow**
-- New players created through identity-first flow
-- Existing players continue working unchanged
-- Gradual adoption
+**Current Status:** The system is in early testing with minimal data. All test records can be deleted.
 
-**Phase 4: Parent Dashboard Integration**
-- Parent dashboard queries by identity
-- Shows children across all enrolled orgs
-- Cross-org insights become possible
+**Recommended Approach:**
+1. **Delete all existing player records** (test data only)
+2. **Deploy new schema** with platform-level tables
+3. **Start fresh** with identity-first player/guardian creation
+4. **No migration scripts needed**
+
+**If preserving test data:**
+```typescript
+// One-time migration script
+async function migrateToIdentityModel(ctx: MutationCtx) {
+  const players = await ctx.db.query("players").collect();
+
+  for (const player of players) {
+    // Create or find guardian identity
+    let guardianId: Id<"guardianIdentities"> | null = null;
+
+    if (player.parentEmail) {
+      const existingGuardian = await ctx.db
+        .query("guardianIdentities")
+        .withIndex("by_email", (q) => q.eq("email", player.parentEmail.toLowerCase()))
+        .first();
+
+      if (existingGuardian) {
+        guardianId = existingGuardian._id;
+      } else {
+        guardianId = await ctx.db.insert("guardianIdentities", {
+          firstName: player.parentFirstName || "Unknown",
+          lastName: player.parentSurname || player.name.split(" ").pop() || "",
+          email: player.parentEmail.toLowerCase(),
+          phone: player.parentPhone,
+          verificationStatus: "unverified",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
+    }
+
+    // Create player identity
+    const [firstName, ...lastNameParts] = player.name.split(" ");
+    const playerIdentityId = await ctx.db.insert("playerIdentities", {
+      firstName,
+      lastName: lastNameParts.join(" ") || "",
+      dateOfBirth: player.dateOfBirth || "",
+      gender: player.gender === "Boys" ? "male" : player.gender === "Girls" ? "female" : "other",
+      verificationStatus: "unverified",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Link guardian to player
+    if (guardianId) {
+      await ctx.db.insert("guardianPlayerLinks", {
+        guardianIdentityId: guardianId,
+        playerIdentityId,
+        relationship: "parent",
+        isPrimary: true,
+        consentedToSharing: false,
+        createdAt: Date.now(),
+      });
+    }
+
+    // Create enrollment
+    const enrollmentId = await ctx.db.insert("orgPlayerEnrollments", {
+      playerIdentityId,
+      organizationId: player.organizationId,
+      status: "active",
+      ageGroup: player.ageGroup,
+      season: player.season,
+      registrationSource: "import",
+      enrolledAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // Create sport passport and migrate skills...
+  }
+}
+```
 
 ---
 
@@ -466,51 +916,134 @@ The Parent Dashboard provides a unified view of all children's development acros
 | **Children Cards** | Per-child development summary | sportPassports + skillAssessments |
 | **Family Summary Stats** | Reviews completed/due/overdue | Aggregated from passports |
 
-### 4.2 Data Flow for Parent Dashboard
+### 4.2 Data Flow for Parent Dashboard (Using Platform Identity Model)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    PARENT DASHBOARD DATA FLOW                    │
+│                  (Using Guardian Identity Model)                 │
 └─────────────────────────────────────────────────────────────────┘
 
-1. Parent logs in with email: parent@example.com
-
-2. Find linked identities:
+1. Parent logs in with email: mary@example.com
    ┌────────────────────────────────────────────────────────────┐
-   │ SELECT * FROM playerIdentities                             │
-   │ WHERE guardians[].email = 'parent@example.com'             │
-   │   AND guardians[].consentedToSharing = true                │
+   │ Better Auth validates credentials                          │
+   │ Returns: { userId: "user_abc", email: "mary@example.com" } │
    └────────────────────────────────────────────────────────────┘
-   Result: [identity_123 (Clodagh), identity_456 (Sean)]
 
-3. For current organization context (/orgs/[orgId]/parents):
+2. Find guardian identity:
+   ┌────────────────────────────────────────────────────────────┐
+   │ SELECT * FROM guardianIdentities                           │
+   │ WHERE userId = 'user_abc'                                  │
+   │    OR email = 'mary@example.com'                           │
+   └────────────────────────────────────────────────────────────┘
+   Result: guardian_456 (Mary Barlow)
+
+3. Find linked children via guardianPlayerLinks:
+   ┌────────────────────────────────────────────────────────────┐
+   │ SELECT pl.*, p.*                                           │
+   │ FROM guardianPlayerLinks pl                                │
+   │ JOIN playerIdentities p ON p._id = pl.playerIdentityId     │
+   │ WHERE pl.guardianIdentityId = 'guardian_456'               │
+   └────────────────────────────────────────────────────────────┘
+   Result: [
+     { link: {relationship: "mother", isPrimary: true, consentedToSharing: true},
+       player: {firstName: "Clodagh", lastName: "Barlow", _id: "player_123"} },
+     { link: {relationship: "mother", isPrimary: true, consentedToSharing: true},
+       player: {firstName: "Sean", lastName: "Barlow", _id: "player_789"} }
+   ]
+
+4. For current organization context (/orgs/[orgId]/parents):
    ┌────────────────────────────────────────────────────────────┐
    │ SELECT * FROM orgPlayerEnrollments                         │
-   │ WHERE playerIdentityId IN [identity_123, identity_456]     │
+   │ WHERE playerIdentityId IN ['player_123', 'player_789']     │
    │   AND organizationId = 'current_org'                       │
    │   AND status = 'active'                                    │
    └────────────────────────────────────────────────────────────┘
-   Result: [enrollment_789 (Clodagh @ this club)]
+   Result: [enrollment_001 (Clodagh @ this club)]
+   Note: Sean not enrolled at this club
 
-4. Get sport passports for enrolled children:
+5. Get sport passports for enrolled children:
    ┌────────────────────────────────────────────────────────────┐
    │ SELECT * FROM sportPassports                               │
-   │ WHERE enrollmentId IN [enrollment_789]                     │
+   │ WHERE enrollmentId IN ['enrollment_001']                   │
    │   AND status = 'active'                                    │
    └────────────────────────────────────────────────────────────┘
-   Result: [passport_gaa (GAA), passport_soccer (Soccer)]
+   Result: [passport_gaa (GAA Football), passport_soccer (Soccer)]
 
-5. Get latest skill assessments:
+6. Get guardian's org-specific profile (for preferences):
+   ┌────────────────────────────────────────────────────────────┐
+   │ SELECT * FROM orgGuardianProfiles                          │
+   │ WHERE guardianIdentityId = 'guardian_456'                  │
+   │   AND organizationId = 'current_org'                       │
+   └────────────────────────────────────────────────────────────┘
+   Result: { emergencyContactPriority: 1, communicationPrefs: {...} }
+
+7. Get latest skill assessments:
    ┌────────────────────────────────────────────────────────────┐
    │ SELECT DISTINCT ON (skillCode) * FROM skillAssessments     │
-   │ WHERE passportId IN [passport_gaa, passport_soccer]        │
+   │ WHERE passportId IN ['passport_gaa', 'passport_soccer']    │
    │ ORDER BY assessmentDate DESC                               │
    └────────────────────────────────────────────────────────────┘
+
+8. Cross-org indicator (if guardian has children elsewhere):
+   ┌────────────────────────────────────────────────────────────┐
+   │ SELECT DISTINCT organizationId FROM orgPlayerEnrollments   │
+   │ WHERE playerIdentityId IN ['player_123', 'player_789']     │
+   │   AND organizationId != 'current_org'                      │
+   │   AND status = 'active'                                    │
+   └────────────────────────────────────────────────────────────┘
+   Result: ['other_club_id'] → "You have children at 1 other club"
 ```
 
-### 4.3 Parent Dashboard API Design
+### 4.3 Parent Dashboard API Design (Using Guardian Identity)
 
 ```typescript
+// Helper: Get guardian identity for current user
+async function getGuardianForUser(ctx: QueryCtx): Promise<GuardianIdentity | null> {
+  const user = await getCurrentUser(ctx);
+  if (!user) return null;
+
+  // First try by userId (registered users)
+  if (user._id) {
+    const byUserId = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first();
+    if (byUserId) return byUserId;
+  }
+
+  // Fallback to email (for users who haven't linked yet)
+  if (user.email) {
+    const byEmail = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", user.email.toLowerCase()))
+      .first();
+    return byEmail;
+  }
+
+  return null;
+}
+
+// Helper: Get all linked children for a guardian
+async function getLinkedChildren(
+  ctx: QueryCtx,
+  guardianId: Id<"guardianIdentities">
+): Promise<Array<{ link: GuardianPlayerLink; player: PlayerIdentity }>> {
+  const links = await ctx.db
+    .query("guardianPlayerLinks")
+    .withIndex("by_guardian", (q) => q.eq("guardianIdentityId", guardianId))
+    .collect();
+
+  const result = [];
+  for (const link of links) {
+    const player = await ctx.db.get(link.playerIdentityId);
+    if (player) {
+      result.push({ link, player });
+    }
+  }
+  return result;
+}
+
 // Get all children for a parent (current org context)
 export const getChildrenForParent = query({
   args: {
@@ -518,17 +1051,24 @@ export const getChildrenForParent = query({
   },
   returns: v.array(v.object({
     // Identity info
-    identityId: v.id("playerIdentities"),
+    playerIdentityId: v.id("playerIdentities"),
     firstName: v.string(),
     lastName: v.string(),
     dateOfBirth: v.string(),
 
-    // Enrollment info
-    enrollmentId: v.id("orgPlayerEnrollments"),
-    ageGroup: v.string(),
-    status: v.string(),
+    // Relationship info
+    relationship: v.string(),
+    isPrimaryGuardian: v.boolean(),
 
-    // Sport passports
+    // Enrollment info (null if not enrolled at this org)
+    enrollment: v.optional(v.object({
+      enrollmentId: v.id("orgPlayerEnrollments"),
+      ageGroup: v.string(),
+      status: v.string(),
+      clubMembershipNumber: v.optional(v.string()),
+    })),
+
+    // Sport passports (empty if not enrolled)
     passports: v.array(v.object({
       passportId: v.id("sportPassports"),
       sportCode: v.string(),
@@ -544,36 +1084,42 @@ export const getChildrenForParent = query({
     nextReviewDue: v.optional(v.string()),
   })),
   handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-    if (!user?.email) return [];
+    const guardian = await getGuardianForUser(ctx);
+    if (!guardian) return [];
 
-    // Find all identities where user is a guardian
-    const identities = await findIdentitiesByGuardianEmail(ctx, user.email);
+    // Get all linked children
+    const linkedChildren = await getLinkedChildren(ctx, guardian._id);
 
-    // Get enrollments for this organization
-    const children = [];
-    for (const identity of identities) {
+    const result = [];
+    for (const { link, player } of linkedChildren) {
+      // Get enrollment at this organization (if any)
       const enrollment = await ctx.db
         .query("orgPlayerEnrollments")
         .withIndex("by_identity_org", (q) =>
-          q.eq("playerIdentityId", identity._id)
+          q.eq("playerIdentityId", player._id)
            .eq("organizationId", args.organizationId)
         )
         .first();
 
-      if (!enrollment || enrollment.status !== "active") continue;
+      // Get passports if enrolled
+      let passports: PassportInfo[] = [];
+      if (enrollment && enrollment.status === "active") {
+        passports = await getPassportsForEnrollment(ctx, enrollment._id);
+      }
 
-      // Get passports for this enrollment
-      const passports = await getPassportsForEnrollment(ctx, enrollment._id);
-
-      children.push({
-        identityId: identity._id,
-        firstName: identity.firstName,
-        lastName: identity.lastName,
-        dateOfBirth: identity.dateOfBirth,
-        enrollmentId: enrollment._id,
-        ageGroup: enrollment.ageGroup,
-        status: enrollment.status,
+      result.push({
+        playerIdentityId: player._id,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        dateOfBirth: player.dateOfBirth,
+        relationship: link.relationship,
+        isPrimaryGuardian: link.isPrimary,
+        enrollment: enrollment ? {
+          enrollmentId: enrollment._id,
+          ageGroup: enrollment.ageGroup,
+          status: enrollment.status,
+          clubMembershipNumber: enrollment.clubMembershipNumber,
+        } : undefined,
         passports,
         totalSports: passports.length,
         averageRating: calculateAverageRating(passports),
@@ -581,40 +1127,44 @@ export const getChildrenForParent = query({
       });
     }
 
-    return children;
+    return result;
   },
 });
 
-// Get children across ALL organizations (cross-org view)
+// Get children across ALL organizations (cross-org family view)
 export const getChildrenAcrossOrganizations = query({
   args: {},
   returns: v.array(v.object({
-    identity: v.object({
+    player: v.object({
       id: v.id("playerIdentities"),
       firstName: v.string(),
       lastName: v.string(),
+      dateOfBirth: v.string(),
     }),
+    relationship: v.string(),
     enrollments: v.array(v.object({
       organizationId: v.string(),
       organizationName: v.string(),
       ageGroup: v.string(),
+      status: v.string(),
       sports: v.array(v.string()),
     })),
   })),
   handler: async (ctx) => {
-    const user = await getCurrentUser(ctx);
-    if (!user?.email) return [];
+    const guardian = await getGuardianForUser(ctx);
+    if (!guardian) return [];
 
-    // Only show cross-org data if guardian consented
-    const identities = await findIdentitiesByGuardianEmail(ctx, user.email, {
-      requireSharingConsent: true
-    });
+    const linkedChildren = await getLinkedChildren(ctx, guardian._id);
 
     const result = [];
-    for (const identity of identities) {
+    for (const { link, player } of linkedChildren) {
+      // Skip children where guardian hasn't consented to cross-org sharing
+      if (!link.consentedToSharing) continue;
+
+      // Get all enrollments for this child
       const enrollments = await ctx.db
         .query("orgPlayerEnrollments")
-        .withIndex("by_identity", (q) => q.eq("playerIdentityId", identity._id))
+        .withIndex("by_identity", (q) => q.eq("playerIdentityId", player._id))
         .collect();
 
       const enrollmentDetails = await Promise.all(
@@ -622,21 +1172,69 @@ export const getChildrenAcrossOrganizations = query({
           organizationId: e.organizationId,
           organizationName: await getOrgName(ctx, e.organizationId),
           ageGroup: e.ageGroup,
+          status: e.status,
           sports: await getSportsForEnrollment(ctx, e._id),
         }))
       );
 
       result.push({
-        identity: {
-          id: identity._id,
-          firstName: identity.firstName,
-          lastName: identity.lastName,
+        player: {
+          id: player._id,
+          firstName: player.firstName,
+          lastName: player.lastName,
+          dateOfBirth: player.dateOfBirth,
         },
+        relationship: link.relationship,
         enrollments: enrollmentDetails,
       });
     }
 
     return result;
+  },
+});
+
+// Get guardian's profile and preferences for an organization
+export const getGuardianOrgProfile = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.optional(v.object({
+    guardianIdentityId: v.id("guardianIdentities"),
+    firstName: v.string(),
+    lastName: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    emergencyContactPriority: v.optional(v.number()),
+    communicationPrefs: v.optional(v.object({
+      receiveNewsletters: v.boolean(),
+      receiveMatchUpdates: v.boolean(),
+      receiveTrainingReminders: v.boolean(),
+      receiveEmergencyAlerts: v.boolean(),
+    })),
+    volunteerRoles: v.optional(v.array(v.string())),
+  })),
+  handler: async (ctx, args) => {
+    const guardian = await getGuardianForUser(ctx);
+    if (!guardian) return undefined;
+
+    const orgProfile = await ctx.db
+      .query("orgGuardianProfiles")
+      .withIndex("by_guardian_org", (q) =>
+        q.eq("guardianIdentityId", guardian._id)
+         .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    return {
+      guardianIdentityId: guardian._id,
+      firstName: guardian.firstName,
+      lastName: guardian.lastName,
+      email: guardian.email,
+      phone: guardian.phone,
+      emergencyContactPriority: orgProfile?.emergencyContactPriority,
+      communicationPrefs: orgProfile?.communicationPrefs,
+      volunteerRoles: orgProfile?.volunteerRoles,
+    };
   },
 });
 ```

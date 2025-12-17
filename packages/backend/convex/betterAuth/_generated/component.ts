@@ -139,9 +139,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               }
             | {
                 data: {
+                  activeFunctionalRole?: "coach" | "parent" | "admin";
                   createdAt: number;
                   functionalRoles?: Array<"coach" | "parent" | "admin">;
                   organizationId: string;
+                  pendingFunctionalRoleRequests?: Array<{
+                    message?: string;
+                    requestedAt: string;
+                    role: "coach" | "parent" | "admin";
+                  }>;
                   role: string;
                   userId: string;
                 };
@@ -456,6 +462,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "role"
                     | "createdAt"
                     | "functionalRoles"
+                    | "activeFunctionalRole"
+                    | "pendingFunctionalRoleRequests"
                     | "_id";
                   operator?:
                     | "lt"
@@ -816,6 +824,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "role"
                     | "createdAt"
                     | "functionalRoles"
+                    | "activeFunctionalRole"
+                    | "pendingFunctionalRoleRequests"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1341,9 +1351,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "member";
                 update: {
+                  activeFunctionalRole?: "coach" | "parent" | "admin";
                   createdAt?: number;
                   functionalRoles?: Array<"coach" | "parent" | "admin">;
                   organizationId?: string;
+                  pendingFunctionalRoleRequests?: Array<{
+                    message?: string;
+                    requestedAt: string;
+                    role: "coach" | "parent" | "admin";
+                  }>;
                   role?: string;
                   userId?: string;
                 };
@@ -1355,6 +1371,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "role"
                     | "createdAt"
                     | "functionalRoles"
+                    | "activeFunctionalRole"
+                    | "pendingFunctionalRoleRequests"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1801,9 +1819,15 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "member";
                 update: {
+                  activeFunctionalRole?: "coach" | "parent" | "admin";
                   createdAt?: number;
                   functionalRoles?: Array<"coach" | "parent" | "admin">;
                   organizationId?: string;
+                  pendingFunctionalRoleRequests?: Array<{
+                    message?: string;
+                    requestedAt: string;
+                    role: "coach" | "parent" | "admin";
+                  }>;
                   role?: string;
                   userId?: string;
                 };
@@ -1815,6 +1839,8 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "role"
                     | "createdAt"
                     | "functionalRoles"
+                    | "activeFunctionalRole"
+                    | "pendingFunctionalRoleRequests"
                     | "_id";
                   operator?:
                     | "lt"

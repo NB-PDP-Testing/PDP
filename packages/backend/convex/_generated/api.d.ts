@@ -200,9 +200,15 @@ export declare const components: {
               }
             | {
                 data: {
+                  activeFunctionalRole?: "coach" | "parent" | "admin";
                   createdAt: number;
                   functionalRoles?: Array<"coach" | "parent" | "admin">;
                   organizationId: string;
+                  pendingFunctionalRoleRequests?: Array<{
+                    message?: string;
+                    requestedAt: string;
+                    role: "coach" | "parent" | "admin";
+                  }>;
                   role: string;
                   userId: string;
                 };
@@ -516,6 +522,8 @@ export declare const components: {
                     | "role"
                     | "createdAt"
                     | "functionalRoles"
+                    | "activeFunctionalRole"
+                    | "pendingFunctionalRoleRequests"
                     | "_id";
                   operator?:
                     | "lt"
@@ -875,6 +883,8 @@ export declare const components: {
                     | "role"
                     | "createdAt"
                     | "functionalRoles"
+                    | "activeFunctionalRole"
+                    | "pendingFunctionalRoleRequests"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1397,9 +1407,15 @@ export declare const components: {
             | {
                 model: "member";
                 update: {
+                  activeFunctionalRole?: "coach" | "parent" | "admin";
                   createdAt?: number;
                   functionalRoles?: Array<"coach" | "parent" | "admin">;
                   organizationId?: string;
+                  pendingFunctionalRoleRequests?: Array<{
+                    message?: string;
+                    requestedAt: string;
+                    role: "coach" | "parent" | "admin";
+                  }>;
                   role?: string;
                   userId?: string;
                 };
@@ -1411,6 +1427,8 @@ export declare const components: {
                     | "role"
                     | "createdAt"
                     | "functionalRoles"
+                    | "activeFunctionalRole"
+                    | "pendingFunctionalRoleRequests"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1856,9 +1874,15 @@ export declare const components: {
             | {
                 model: "member";
                 update: {
+                  activeFunctionalRole?: "coach" | "parent" | "admin";
                   createdAt?: number;
                   functionalRoles?: Array<"coach" | "parent" | "admin">;
                   organizationId?: string;
+                  pendingFunctionalRoleRequests?: Array<{
+                    message?: string;
+                    requestedAt: string;
+                    role: "coach" | "parent" | "admin";
+                  }>;
                   role?: string;
                   userId?: string;
                 };
@@ -1870,6 +1894,8 @@ export declare const components: {
                     | "role"
                     | "createdAt"
                     | "functionalRoles"
+                    | "activeFunctionalRole"
+                    | "pendingFunctionalRoleRequests"
                     | "_id";
                   operator?:
                     | "lt"

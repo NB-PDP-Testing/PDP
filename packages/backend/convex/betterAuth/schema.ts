@@ -99,6 +99,26 @@ const customMemberTable = defineTable({
       v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
     )
   ),
+
+  // Active functional role - which role the user is currently operating as
+  activeFunctionalRole: v.optional(
+    v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+  ),
+
+  // Pending role requests awaiting admin approval
+  pendingFunctionalRoleRequests: v.optional(
+    v.array(
+      v.object({
+        role: v.union(
+          v.literal("coach"),
+          v.literal("parent"),
+          v.literal("admin")
+        ),
+        requestedAt: v.string(),
+        message: v.optional(v.string()),
+      })
+    )
+  ),
 })
   .index("organizationId", ["organizationId"])
   .index("userId", ["userId"])

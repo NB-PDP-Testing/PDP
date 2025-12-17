@@ -4,11 +4,13 @@
 
 This document defines a modular, scalable architecture for the Player Passport system that:
 1. **Supports multiple sports** with sport-specific skills, benchmarks, and positions
-2. **Aligns with national governing body (NGB) frameworks** (FAI, IRFU, GAA)
-3. **Implements Long-Term Athlete Development (LTAD)** best practices
-4. **Prepares for knowledge graph augmentation** for insights and pattern recognition
-5. **Maintains backward compatibility** with existing data structures
-6. **Scales efficiently** as organizations and sports grow
+2. **Enables cross-organization player identity** without duplicating player records
+3. **Aligns with national governing body (NGB) frameworks** (FAI, IRFU, GAA)
+4. **Implements Long-Term Athlete Development (LTAD)** best practices
+5. **Prepares for knowledge graph augmentation** for insights and pattern recognition
+6. **Powers the Parent Dashboard** with unified views across sports and organizations
+7. **Maintains backward compatibility** with existing data structures
+8. **Scales efficiently** as organizations and sports grow
 
 ---
 
@@ -169,12 +171,715 @@ players: {
 - No benchmark integration
 - No skill definitions/taxonomy
 - Limited graph-ready structure
+- **Players are org-scoped** - same child at two clubs = two unlinked records
+- **No cross-org visibility** for parents with children at multiple clubs
 
 ---
 
-## 3. Proposed Architecture
+## 3. Multi-Organization Player Identity
 
-### 3.1 Core Design Principles
+### 3.1 The Multi-Org Problem
+
+**Current State:**
+- Players are **org-scoped** (`organizationId: v.string()`)
+- If a child plays GAA at Club A and Soccer at Club B, they exist as **two separate player records**
+- No linkage between the two records
+- Parent info, DOB, address all duplicated
+- Parent can't see unified view of their child across clubs
+
+**Churn Scenarios Without Solution:**
+1. Admin at Club B manually re-enters child already at Club A
+2. Parent sees fragmented view - must switch orgs to see different children
+3. Cross-sport insights impossible (e.g., "Clodagh's agility transfers from GAA to Soccer")
+
+### 3.2 Solution: Player Identity Layer
+
+Separate **player identity** (global, cross-org) from **club membership** (org-specific):
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     PLAYER IDENTITY                             │
+│  (Global, cross-org, platform-owned)                           │
+├─────────────────────────────────────────────────────────────────┤
+│  _id: Id<"playerIdentities">                                    │
+│  firstName, lastName, dateOfBirth, gender                       │
+│  guardians: [{email, phone, relationship, userId?}]             │
+│  createdAt, verifiedAt, verificationSource                      │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ 1:many (one identity, many club memberships)
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   ORG PLAYER ENROLLMENT                         │
+│  (Per-org membership, club-owned)                               │
+├─────────────────────────────────────────────────────────────────┤
+│  _id: Id<"orgPlayerEnrollments">                                │
+│  playerIdentityId: Id<"playerIdentities">                       │
+│  organizationId: string                                         │
+│  enrolledAt, status (active/inactive/archived)                  │
+│  clubMembershipNumber, registrationSource                       │
+│  ageGroup, season                                               │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ 1:many (one enrollment, multiple sport passports)
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     SPORT PASSPORTS                             │
+│  (Per-org, per-sport skill container)                           │
+├─────────────────────────────────────────────────────────────────┤
+│  _id: Id<"sportPassports">                                      │
+│  enrollmentId: Id<"orgPlayerEnrollments">                       │
+│  sportCode: "gaa_football" | "soccer" | "rugby"                 │
+│  positions, notes, assessments[]                                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 3.3 How This Minimizes Admin Churn
+
+#### Scenario 1: Child Already Exists at Another Club
+
+**Without Identity Layer (painful):**
+1. Admin manually enters all player data again
+2. No knowledge child exists elsewhere
+3. Duplicate records, no linkage
+
+**With Identity Layer (smooth):**
+1. Admin starts adding player → enters name + DOB
+2. System checks `playerIdentities` for match (by guardian email OR name+DOB)
+3. If match found: "This player may already exist. Link to existing identity?"
+4. If linked: Auto-populates guardian info, admin just adds org-specific data
+5. If no match: Creates new identity
+
+#### Scenario 2: Child Joins Second Sport at Same Club
+
+**Without Identity Layer:**
+- Either duplicate player record OR use same record with single sport field
+- Skills get muddled across sports
+
+**With Identity Layer:**
+1. Admin sees existing player in roster
+2. Clicks "Add Sport" → selects sport (Soccer, GAA, Rugby)
+3. Creates new `sportPassport` linked to same enrollment
+4. Each sport has independent skill tracking
+
+#### Scenario 3: Parent Joins New Club
+
+**Without Identity Layer:**
+- Smart matching for local players only
+- No visibility into children at other clubs
+
+**With Identity Layer:**
+1. Same smart matching for local players
+2. Additionally: "You have children registered at other clubs. Would you like to link?"
+3. Creates new `orgPlayerEnrollment` pointing to existing identity
+4. Parent dashboard shows unified view across all clubs
+
+### 3.4 Key Design Decisions
+
+1. **Identity matching is optional, not mandatory**
+   - Clubs can ignore cross-org linking entirely
+   - System suggests but doesn't force
+   - Privacy-first approach
+
+2. **Backwards compatible API**
+   - Existing `getPlayersByOrganization` continues working
+   - New queries available for identity-aware features
+   - Migration can be gradual
+
+3. **Org retains data ownership**
+   - Club-specific notes, assessments stay with org
+   - Identity layer only shares common profile data (name, DOB, guardians)
+   - One club cannot see another club's assessments without consent
+
+4. **Parent consent for cross-org visibility**
+   - Parent explicitly links children across orgs
+   - Clubs can't see other clubs' data without consent
+   - Guardian controls cross-org sharing preferences
+
+5. **Soft migration of existing players**
+   - Keep existing `players` table working
+   - Add optional `playerIdentityId` field
+   - Background job creates identities and links existing records
+   - No UI changes until migration complete
+
+### 3.5 Identity Schema Design
+
+#### `playerIdentities` - Global Player Identity
+
+```typescript
+playerIdentities: defineTable({
+  // Core identity (immutable after verification)
+  firstName: v.string(),
+  lastName: v.string(),
+  dateOfBirth: v.string(),           // ISO date
+  gender: v.union(
+    v.literal("male"),
+    v.literal("female"),
+    v.literal("other")
+  ),
+
+  // Verification status
+  verificationStatus: v.union(
+    v.literal("unverified"),         // Created but not verified
+    v.literal("email_verified"),     // Guardian email confirmed
+    v.literal("document_verified"),  // Official document checked
+    v.literal("merged")              // Merged from duplicates
+  ),
+  verifiedAt: v.optional(v.string()),
+  verifiedBy: v.optional(v.string()), // Admin userId who verified
+
+  // Guardians (enables cross-org matching)
+  guardians: v.array(v.object({
+    id: v.string(),                  // Unique ID for this guardian
+    firstName: v.string(),
+    lastName: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+    relationship: v.optional(v.string()), // "parent", "guardian", "grandparent"
+    isPrimary: v.boolean(),
+    userId: v.optional(v.string()),  // Better Auth user ID if registered
+    consentedToSharing: v.boolean(), // Can this guardian see cross-org data?
+  })),
+
+  // Address (for matching, not required)
+  address: v.optional(v.string()),
+  town: v.optional(v.string()),
+  postcode: v.optional(v.string()),
+  country: v.optional(v.string()),
+
+  // Metadata
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  createdBy: v.optional(v.string()), // Organization that created
+  mergedFrom: v.optional(v.array(v.id("playerIdentities"))), // If merged
+})
+  .index("by_name_dob", ["firstName", "lastName", "dateOfBirth"])
+  .index("by_guardian_email", ["guardians"]) // Search by guardian email
+  .index("by_verification", ["verificationStatus"])
+  .searchIndex("name_search", { searchField: "firstName" })
+```
+
+#### `orgPlayerEnrollments` - Organization Membership
+
+```typescript
+orgPlayerEnrollments: defineTable({
+  // References
+  playerIdentityId: v.id("playerIdentities"),
+  organizationId: v.string(),
+
+  // Enrollment status
+  status: v.union(
+    v.literal("active"),             // Currently enrolled
+    v.literal("inactive"),           // Taking a break
+    v.literal("archived"),           // Left the club
+    v.literal("pending_verification") // Awaiting identity verification
+  ),
+
+  // Organization-specific data
+  clubMembershipNumber: v.optional(v.string()), // Club's internal ID
+  ageGroup: v.string(),              // "U8", "U10", etc.
+  season: v.string(),                // "2024-2025"
+
+  // Registration source
+  registrationSource: v.union(
+    v.literal("manual"),             // Admin entered
+    v.literal("import"),             // Bulk import
+    v.literal("self_registration"),  // Parent registered
+    v.literal("identity_link")       // Linked from existing identity
+  ),
+
+  // Notes (org-specific)
+  adminNotes: v.optional(v.string()),
+
+  // Timestamps
+  enrolledAt: v.number(),
+  updatedAt: v.number(),
+  archivedAt: v.optional(v.number()),
+})
+  .index("by_identity", ["playerIdentityId"])
+  .index("by_organization", ["organizationId"])
+  .index("by_identity_org", ["playerIdentityId", "organizationId"])
+  .index("by_status", ["organizationId", "status"])
+  .index("by_ageGroup", ["organizationId", "ageGroup"])
+```
+
+### 3.6 Migration Path (Zero Disruption)
+
+**Phase 1: Shadow Identity Layer** (Background)
+```typescript
+// For each existing player, create identity if not exists
+for (const player of existingPlayers) {
+  // Check if identity exists by guardian email + name + DOB
+  const existingIdentity = await findIdentityMatch(
+    player.parentEmail,
+    player.name,
+    player.dateOfBirth
+  );
+
+  if (existingIdentity) {
+    // Link to existing identity
+    await updatePlayer(player._id, {
+      playerIdentityId: existingIdentity._id
+    });
+  } else {
+    // Create new identity
+    const identity = await createPlayerIdentity({
+      ...extractIdentityFields(player),
+      verificationStatus: "unverified",
+    });
+    await updatePlayer(player._id, {
+      playerIdentityId: identity._id
+    });
+  }
+}
+```
+
+**Phase 2: Admin Review UI**
+- "We found X potential duplicate players. Review?"
+- Admin can merge or keep separate
+- No action required - system works either way
+
+**Phase 3: New Player Flow**
+- New players created through identity-first flow
+- Existing players continue working unchanged
+- Gradual adoption
+
+**Phase 4: Parent Dashboard Integration**
+- Parent dashboard queries by identity
+- Shows children across all enrolled orgs
+- Cross-org insights become possible
+
+---
+
+## 4. Parent Dashboard Architecture
+
+### 4.1 Parent Dashboard Overview
+
+The Parent Dashboard provides a unified view of all children's development across sports and organizations. Key features from MVP analysis:
+
+| Feature | Description | Data Source |
+|---------|-------------|-------------|
+| **Family Header** | "Your Family's Journey" + child count | Player identities linked to parent |
+| **Weekly Schedule** | Training/match calendar | Future: events table |
+| **Coach Feedback** | Latest notes from coaches | sportPassports.coachNotes |
+| **AI Practice Assistant** | Personalized drill recommendations | skillAssessments + skillDefinitions |
+| **Children Cards** | Per-child development summary | sportPassports + skillAssessments |
+| **Family Summary Stats** | Reviews completed/due/overdue | Aggregated from passports |
+
+### 4.2 Data Flow for Parent Dashboard
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    PARENT DASHBOARD DATA FLOW                    │
+└─────────────────────────────────────────────────────────────────┘
+
+1. Parent logs in with email: parent@example.com
+
+2. Find linked identities:
+   ┌────────────────────────────────────────────────────────────┐
+   │ SELECT * FROM playerIdentities                             │
+   │ WHERE guardians[].email = 'parent@example.com'             │
+   │   AND guardians[].consentedToSharing = true                │
+   └────────────────────────────────────────────────────────────┘
+   Result: [identity_123 (Clodagh), identity_456 (Sean)]
+
+3. For current organization context (/orgs/[orgId]/parents):
+   ┌────────────────────────────────────────────────────────────┐
+   │ SELECT * FROM orgPlayerEnrollments                         │
+   │ WHERE playerIdentityId IN [identity_123, identity_456]     │
+   │   AND organizationId = 'current_org'                       │
+   │   AND status = 'active'                                    │
+   └────────────────────────────────────────────────────────────┘
+   Result: [enrollment_789 (Clodagh @ this club)]
+
+4. Get sport passports for enrolled children:
+   ┌────────────────────────────────────────────────────────────┐
+   │ SELECT * FROM sportPassports                               │
+   │ WHERE enrollmentId IN [enrollment_789]                     │
+   │   AND status = 'active'                                    │
+   └────────────────────────────────────────────────────────────┘
+   Result: [passport_gaa (GAA), passport_soccer (Soccer)]
+
+5. Get latest skill assessments:
+   ┌────────────────────────────────────────────────────────────┐
+   │ SELECT DISTINCT ON (skillCode) * FROM skillAssessments     │
+   │ WHERE passportId IN [passport_gaa, passport_soccer]        │
+   │ ORDER BY assessmentDate DESC                               │
+   └────────────────────────────────────────────────────────────┘
+```
+
+### 4.3 Parent Dashboard API Design
+
+```typescript
+// Get all children for a parent (current org context)
+export const getChildrenForParent = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(v.object({
+    // Identity info
+    identityId: v.id("playerIdentities"),
+    firstName: v.string(),
+    lastName: v.string(),
+    dateOfBirth: v.string(),
+
+    // Enrollment info
+    enrollmentId: v.id("orgPlayerEnrollments"),
+    ageGroup: v.string(),
+    status: v.string(),
+
+    // Sport passports
+    passports: v.array(v.object({
+      passportId: v.id("sportPassports"),
+      sportCode: v.string(),
+      sportName: v.string(),
+      currentOverallRating: v.optional(v.number()),
+      lastAssessmentDate: v.optional(v.string()),
+      reviewStatus: v.string(),
+    })),
+
+    // Aggregated stats
+    totalSports: v.number(),
+    averageRating: v.optional(v.number()),
+    nextReviewDue: v.optional(v.string()),
+  })),
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user?.email) return [];
+
+    // Find all identities where user is a guardian
+    const identities = await findIdentitiesByGuardianEmail(ctx, user.email);
+
+    // Get enrollments for this organization
+    const children = [];
+    for (const identity of identities) {
+      const enrollment = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_identity_org", (q) =>
+          q.eq("playerIdentityId", identity._id)
+           .eq("organizationId", args.organizationId)
+        )
+        .first();
+
+      if (!enrollment || enrollment.status !== "active") continue;
+
+      // Get passports for this enrollment
+      const passports = await getPassportsForEnrollment(ctx, enrollment._id);
+
+      children.push({
+        identityId: identity._id,
+        firstName: identity.firstName,
+        lastName: identity.lastName,
+        dateOfBirth: identity.dateOfBirth,
+        enrollmentId: enrollment._id,
+        ageGroup: enrollment.ageGroup,
+        status: enrollment.status,
+        passports,
+        totalSports: passports.length,
+        averageRating: calculateAverageRating(passports),
+        nextReviewDue: getEarliestReviewDue(passports),
+      });
+    }
+
+    return children;
+  },
+});
+
+// Get children across ALL organizations (cross-org view)
+export const getChildrenAcrossOrganizations = query({
+  args: {},
+  returns: v.array(v.object({
+    identity: v.object({
+      id: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+    }),
+    enrollments: v.array(v.object({
+      organizationId: v.string(),
+      organizationName: v.string(),
+      ageGroup: v.string(),
+      sports: v.array(v.string()),
+    })),
+  })),
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (!user?.email) return [];
+
+    // Only show cross-org data if guardian consented
+    const identities = await findIdentitiesByGuardianEmail(ctx, user.email, {
+      requireSharingConsent: true
+    });
+
+    const result = [];
+    for (const identity of identities) {
+      const enrollments = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_identity", (q) => q.eq("playerIdentityId", identity._id))
+        .collect();
+
+      const enrollmentDetails = await Promise.all(
+        enrollments.map(async (e) => ({
+          organizationId: e.organizationId,
+          organizationName: await getOrgName(ctx, e.organizationId),
+          ageGroup: e.ageGroup,
+          sports: await getSportsForEnrollment(ctx, e._id),
+        }))
+      );
+
+      result.push({
+        identity: {
+          id: identity._id,
+          firstName: identity.firstName,
+          lastName: identity.lastName,
+        },
+        enrollments: enrollmentDetails,
+      });
+    }
+
+    return result;
+  },
+});
+```
+
+### 4.4 Parent Dashboard Components
+
+```
+apps/web/src/app/orgs/[orgId]/parents/
+├── page.tsx                          # Main dashboard (org-scoped)
+├── layout.tsx                        # Parent layout with nav
+└── components/
+    ├── family-header.tsx             # "Your Family's Journey" + stats
+    ├── cross-org-indicator.tsx       # "2 children at other clubs"
+    ├── child-card.tsx                # Per-child summary card
+    ├── child-sport-tabs.tsx          # Multi-sport tabbed view
+    ├── skill-overview.tsx            # Top strengths, areas to improve
+    ├── weekly-schedule.tsx           # Training/match calendar
+    ├── coach-feedback.tsx            # Latest coach notes
+    ├── ai-practice-assistant.tsx     # Drill recommendations
+    ├── practice-plan-modal.tsx       # Detailed practice plan
+    └── review-status-badge.tsx       # Completed/Due Soon/Overdue
+```
+
+### 4.5 Child Card Component (MVP Feature Mapping)
+
+```typescript
+interface ChildCardProps {
+  child: {
+    identityId: Id<"playerIdentities">;
+    firstName: string;
+    lastName: string;
+    passports: SportPassport[];
+    // ... other fields
+  };
+}
+
+function ChildCard({ child }: ChildCardProps) {
+  const isMultiSport = child.passports.length > 1;
+
+  return (
+    <Card>
+      {/* Header with name and badges */}
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <h3>{child.firstName} {child.lastName}</h3>
+          {isMultiSport && <Badge variant="secondary">Multi-Sport</Badge>}
+          <ReviewStatusBadge status={child.nextReviewDue} />
+        </div>
+      </CardHeader>
+
+      <CardContent>
+        {/* Overall Performance Score */}
+        <OverallPerformance rating={child.averageRating} />
+
+        {/* Top Strengths (aggregated or per-sport) */}
+        <TopStrengths passports={child.passports} />
+
+        {/* Attendance */}
+        <AttendanceSummary passports={child.passports} />
+
+        {/* Development Goals */}
+        <GoalsPreview passports={child.passports} />
+
+        {/* Injury Status */}
+        <InjuryStatus playerId={child.identityId} />
+
+        {/* Action Buttons */}
+        <div className="flex gap-2 mt-4">
+          {child.passports.length === 1 ? (
+            <Button asChild>
+              <Link href={`/passport/${child.passports[0].passportId}`}>
+                View Full Passport
+              </Link>
+            </Button>
+          ) : (
+            child.passports.map(p => (
+              <Button key={p.sportCode} variant="outline" asChild>
+                <Link href={`/passport/${p.passportId}`}>
+                  View {p.sportName}
+                </Link>
+              </Button>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+### 4.6 AI Practice Assistant Integration
+
+The AI Practice Assistant analyzes skill gaps and generates personalized practice plans:
+
+```typescript
+// Get recommended practice focus based on skill assessments
+export const getPracticeRecommendations = query({
+  args: {
+    passportId: v.id("sportPassports"),
+  },
+  returns: v.object({
+    focusSkill: v.object({
+      code: v.string(),
+      name: v.string(),
+      currentRating: v.number(),
+      benchmarkRating: v.optional(v.number()),
+      gap: v.number(),
+    }),
+    drills: v.array(v.object({
+      name: v.string(),
+      duration: v.string(),
+      equipment: v.array(v.string()),
+      instructions: v.string(),
+      successMetrics: v.string(),
+    })),
+    weeklyGoal: v.string(),
+    practiceSchedule: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const passport = await ctx.db.get(args.passportId);
+    if (!passport) throw new Error("Passport not found");
+
+    // Get latest assessments and benchmarks
+    const assessments = await getLatestAssessments(ctx, args.passportId);
+    const benchmarks = await getBenchmarksForPassport(ctx, passport);
+
+    // Find skill with largest gap (most improvement potential)
+    const gaps = assessments.map(a => {
+      const benchmark = benchmarks.find(b => b.skillCode === a.skillCode);
+      return {
+        ...a,
+        benchmarkRating: benchmark?.expectedRating,
+        gap: (benchmark?.expectedRating || 3) - a.rating,
+      };
+    }).sort((a, b) => b.gap - a.gap);
+
+    const focusSkill = gaps[0];
+
+    // Get skill definition for drill generation
+    const skillDef = await getSkillDefinition(ctx, passport.sportCode, focusSkill.skillCode);
+
+    // Generate drills based on sport and skill
+    const drills = generateDrillsForSkill(passport.sportCode, skillDef);
+
+    return {
+      focusSkill: {
+        code: focusSkill.skillCode,
+        name: skillDef.name,
+        currentRating: focusSkill.rating,
+        benchmarkRating: focusSkill.benchmarkRating,
+        gap: focusSkill.gap,
+      },
+      drills,
+      weeklyGoal: `Improve ${skillDef.name} from ${focusSkill.rating} to ${focusSkill.rating + 0.5}`,
+      practiceSchedule: "3 sessions × 15 minutes",
+    };
+  },
+});
+```
+
+### 4.7 Cross-Organization Indicator
+
+When a parent has children at multiple clubs, show an indicator:
+
+```typescript
+function CrossOrgIndicator({ organizations }: { organizations: OrgSummary[] }) {
+  if (organizations.length <= 1) return null;
+
+  const otherOrgs = organizations.filter(o => o.id !== currentOrgId);
+
+  return (
+    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <Users className="h-4 w-4" />
+      <span>
+        You have children at {otherOrgs.length} other {otherOrgs.length === 1 ? 'club' : 'clubs'}
+      </span>
+      <Button variant="ghost" size="sm" asChild>
+        <Link href="/dashboard/family">View All</Link>
+      </Button>
+    </div>
+  );
+}
+```
+
+### 3.7 Migration Simplified: Clean Slate Option
+
+**Current Status:** The system is in early testing with a very small population. All test records can be deleted if needed, making migration trivial.
+
+**Recommended Approach:**
+1. **Delete all existing player records** (test data only)
+2. **Deploy new schema** with `playerIdentities`, `orgPlayerEnrollments`, and `sportPassports`
+3. **Start fresh** with identity-first player creation
+4. **No migration scripts needed** - clean implementation
+
+**Why This Is Better:**
+- No legacy data compatibility concerns
+- No duplicate detection needed
+- Simpler codebase without backward-compatibility code
+- Cleaner data model from day one
+
+**If Keeping Test Data (Optional):**
+If some test data should be preserved, run a simple one-time script:
+```typescript
+// Simple migration - only needed if preserving test data
+for (const player of existingPlayers) {
+  const identity = await ctx.db.insert("playerIdentities", {
+    firstName: player.name.split(" ")[0],
+    lastName: player.name.split(" ").slice(1).join(" "),
+    dateOfBirth: player.dateOfBirth || "",
+    gender: player.gender === "Boys" ? "male" : player.gender === "Girls" ? "female" : "other",
+    guardians: player.parentEmail ? [{
+      id: generateId(),
+      firstName: player.parentFirstName || "",
+      lastName: player.parentSurname || "",
+      email: player.parentEmail,
+      isPrimary: true,
+      consentedToSharing: false,
+    }] : [],
+    verificationStatus: "unverified",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  const enrollment = await ctx.db.insert("orgPlayerEnrollments", {
+    playerIdentityId: identity,
+    organizationId: player.organizationId,
+    status: "active",
+    ageGroup: player.ageGroup,
+    season: player.season,
+    registrationSource: "import",
+    enrolledAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+
+  // Create sport passport and migrate skills...
+}
+```
+
+---
+
+## 5. Reference Data Schema (Sport Configuration)
+
+### 5.1 Core Design Principles
 
 1. **Player-Centric**: Player identity separate from sport-specific data
 2. **LTAD-Aligned**: Age-appropriate expectations and benchmarks
@@ -182,9 +887,8 @@ players: {
 4. **Temporal**: All assessments are timestamped snapshots
 5. **Hierarchical**: Sport → Category → Skill → Assessment
 6. **Graph-Ready**: Entities and relationships suitable for knowledge graph
-7. **Backward Compatible**: Existing data migrates cleanly
 
-### 3.2 Entity Model
+### 5.2 Entity Model
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -244,9 +948,9 @@ KNOWLEDGE GRAPH LAYER (Future)
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.3 Detailed Schema Design
+### 5.3 Detailed Schema Design
 
-#### 3.3.1 `sports` - Sport Configuration
+#### 5.3.1 `sports` - Sport Configuration
 
 ```typescript
 sports: defineTable({
@@ -287,7 +991,7 @@ sports: defineTable({
   .index("by_isActive", ["isActive"])
 ```
 
-#### 3.3.2 `skillCategories` - Skill Groupings
+#### 5.3.2 `skillCategories` - Skill Groupings
 
 Aligned with NGB frameworks (FAI Technical/Tactical/Physical/Mental, IRFU 5 Capacities, GAA domains).
 
@@ -333,7 +1037,7 @@ skillCategories: defineTable({
   .index("by_displayOrder", ["sportCode", "displayOrder"])
 ```
 
-#### 3.3.3 `skillDefinitions` - Individual Skills
+#### 5.3.3 `skillDefinitions` - Individual Skills
 
 Each assessable skill with full metadata.
 
@@ -400,7 +1104,7 @@ skillDefinitions: defineTable({
   .index("by_displayOrder", ["sportCode", "categoryCode", "displayOrder"])
 ```
 
-#### 3.3.4 `benchmarks` - NGB Standards
+#### 5.3.4 `benchmarks` - NGB Standards
 
 Age/gender/level appropriate expectations from governing bodies.
 
@@ -456,7 +1160,7 @@ benchmarks: defineTable({
   .index("by_source", ["source", "sourceYear"])
 ```
 
-#### 3.3.5 `sportPassports` - Player's Sport-Specific Passport
+#### 5.3.5 `sportPassports` - Player's Sport-Specific Passport
 
 Links a player to a specific sport with their current status.
 
@@ -521,7 +1225,7 @@ sportPassports: defineTable({
   .index("by_status", ["organizationId", "sportCode", "status"])
 ```
 
-#### 3.3.6 `skillAssessments` - Point-in-Time Skill Records
+#### 5.3.6 `skillAssessments` - Point-in-Time Skill Records
 
 Individual skill assessments with full context for temporal tracking.
 
@@ -602,7 +1306,7 @@ skillAssessments: defineTable({
   .index("by_type", ["passportId", "assessmentType"])
 ```
 
-#### 3.3.7 `fitnessAssessments` - Physical Fitness Records
+#### 5.3.7 `fitnessAssessments` - Physical Fitness Records
 
 Sport-agnostic physical development tracking.
 
@@ -660,7 +1364,7 @@ fitnessAssessments: defineTable({
   .index("by_type", ["playerId", "assessmentType"])
 ```
 
-#### 3.3.8 `positionsBySport` - Sport-Specific Positions
+#### 5.3.8 `positionsBySport` - Sport-Specific Positions
 
 Reference data for positions by sport.
 
@@ -686,7 +1390,7 @@ positionsBySport: defineTable({
   .index("by_code", ["sportCode", "code"])
 ```
 
-#### 3.3.9 `ageGroupConfig` - Age Group Configuration
+#### 5.3.9 `ageGroupConfig` - Age Group Configuration
 
 Configurable age group settings per organization/sport.
 
@@ -733,9 +1437,9 @@ ageGroupConfig: defineTable({
 
 ---
 
-## 4. Multi-Sport Support
+## 6. Multi-Sport Support
 
-### 4.1 Player with Multiple Sports Example
+### 6.1 Player with Multiple Sports Example
 
 ```
 Player: "Clodagh Barlow" (playerId: "player_123")
@@ -762,7 +1466,7 @@ Player: "Clodagh Barlow" (playerId: "player_123")
 └── fitnessAssessments: [speed: 4, agility: 5, endurance: 4, ...]
 ```
 
-### 4.2 Cross-Sport Skill Transfer
+### 6.2 Cross-Sport Skill Transfer
 
 Some skills transfer between sports. The `transfersTo` field in `skillDefinitions` captures this:
 
@@ -787,7 +1491,7 @@ Some skills transfer between sports. The `transfersTo` field in `skillDefinition
 }
 ```
 
-### 4.3 UI Handling
+### 6.3 UI Handling
 
 ```typescript
 // In Player Passport page
@@ -825,9 +1529,9 @@ if (passports.length > 1) {
 
 ---
 
-## 5. Benchmark Integration
+## 7. Benchmark Integration
 
-### 5.1 Benchmark Sources by Sport
+### 7.1 Benchmark Sources by Sport
 
 | Sport | Source | Framework | Document |
 |-------|--------|-----------|----------|
@@ -835,7 +1539,7 @@ if (passports.length > 1) {
 | Rugby | IRFU | LTPD / 5 Capacities | [IRFU LTPD](https://www.irishrugby.ie/2007/06/14/long-term-player-development/) |
 | GAA | GAA | Gaelic Games Player Pathway | [GAA Pathway](https://learning.gaa.ie/playerpathway) |
 
-### 5.2 Benchmark Comparison Logic
+### 7.2 Benchmark Comparison Logic
 
 ```typescript
 function getBenchmarkStatus(
@@ -860,7 +1564,7 @@ function getBenchmarkColor(status: string): string {
 }
 ```
 
-### 5.3 Benchmark Display
+### 7.3 Benchmark Display
 
 ```typescript
 // In skill assessment display
@@ -879,9 +1583,9 @@ function getBenchmarkColor(status: string): string {
 
 ---
 
-## 6. Knowledge Graph Preparation
+## 8. Knowledge Graph Preparation
 
-### 6.1 Entity Types
+### 8.1 Entity Types
 
 ```typescript
 type GraphEntityType =
@@ -899,7 +1603,7 @@ type GraphEntityType =
   | "match";           // Match/game
 ```
 
-### 6.2 Relationship Types
+### 8.2 Relationship Types
 
 ```typescript
 type GraphRelationship =
@@ -925,7 +1629,7 @@ type GraphRelationship =
   | { type: "RECOMMENDED_FOCUS"; from: "player"; to: "skill"; priority: number };
 ```
 
-### 6.3 Graph Query Examples
+### 8.3 Graph Query Examples
 
 ```typescript
 // Find players with similar skill profiles
@@ -983,7 +1687,7 @@ export const getRecommendedFocusAreas = query({
 });
 ```
 
-### 6.4 Future Graph Database Migration
+### 8.4 Future Graph Database Migration
 
 ```
 Phase 1: Relational (Current - Convex)
@@ -1010,9 +1714,9 @@ Phase 3: Full Graph (Long-term)
 
 ---
 
-## 7. Seed Data: Initial Sport Configuration
+## 9. Seed Data: Initial Sport Configuration
 
-### 7.1 Soccer Skills (FAI-aligned)
+### 9.1 Soccer Skills (FAI-aligned)
 
 ```typescript
 const soccerCategories = [
@@ -1065,7 +1769,7 @@ const soccerSkills = [
 ];
 ```
 
-### 7.2 Rugby Skills (IRFU-aligned)
+### 9.2 Rugby Skills (IRFU-aligned)
 
 ```typescript
 const rugbyCategories = [
@@ -1081,7 +1785,7 @@ const rugbyCategories = [
 // Similar structure for rugby skills...
 ```
 
-### 7.3 GAA Football Skills (GAA-aligned)
+### 9.3 GAA Football Skills (GAA-aligned)
 
 ```typescript
 const gaaFootballCategories = [
@@ -1112,9 +1816,9 @@ const gaaSkills = [
 
 ---
 
-## 8. Migration Strategy
+## 10. Implementation Strategy
 
-### 8.1 Phase 1: Reference Data (Week 1)
+### 10.1 Phase 1: Reference Data (Week 1)
 
 **Tasks:**
 1. Create `sports` table and seed with Soccer, Rugby, GAA Football, GAA Hurling
@@ -1128,7 +1832,7 @@ const gaaSkills = [
 - Display order is correct
 - Skills map to existing MVP skill keys
 
-### 8.2 Phase 2: Player Passports (Week 2)
+### 10.2 Phase 2: Player Passports (Week 2)
 
 **Tasks:**
 1. Create `sportPassports` table
@@ -1162,7 +1866,7 @@ for (const [skillCode, rating] of Object.entries(player.skills)) {
 }
 ```
 
-### 8.3 Phase 3: UI Updates (Week 3)
+### 10.3 Phase 3: UI Updates (Week 3)
 
 **Tasks:**
 1. Update Player Passport page to read from new structure
@@ -1171,7 +1875,7 @@ for (const [skillCode, rating] of Object.entries(player.skills)) {
 4. Add benchmark comparison display
 5. Add skill history/progression view
 
-### 8.4 Phase 4: Benchmarks (Week 4)
+### 10.4 Phase 4: Benchmarks (Week 4)
 
 **Tasks:**
 1. Create `benchmarks` table
@@ -1180,7 +1884,7 @@ for (const [skillCode, rating] of Object.entries(player.skills)) {
 4. Add benchmark indicators to UI
 5. Create benchmark report view
 
-### 8.5 Phase 5: Knowledge Graph Prep (Week 5+)
+### 10.5 Phase 5: Knowledge Graph Prep (Week 5+)
 
 **Tasks:**
 1. Add `skillRelationships` table (prerequisite, transfer)
@@ -1191,9 +1895,9 @@ for (const [skillCode, rating] of Object.entries(player.skills)) {
 
 ---
 
-## 9. API Design
+## 11. API Design
 
-### 9.1 Core Queries
+### 11.1 Core Queries
 
 ```typescript
 // Reference data
@@ -1217,7 +1921,7 @@ findSimilarPlayers(passportId, minSimilarity?): SimilarPlayer[]
 getCrossSportInsights(playerId): CrossSportInsight[]
 ```
 
-### 9.2 Core Mutations
+### 11.2 Core Mutations
 
 ```typescript
 // Passport management
@@ -1236,9 +1940,9 @@ createFitnessAssessment(playerId, data)
 
 ---
 
-## 10. Success Criteria
+## 12. Success Criteria
 
-### 10.1 Functional Requirements
+### 12.1 Functional Requirements
 
 - [ ] Players can have multiple sport passports
 - [ ] Skills are hierarchically organized by sport → category → skill
@@ -1249,7 +1953,7 @@ createFitnessAssessment(playerId, data)
 - [ ] Backward compatible with existing player data
 - [ ] PDF export works with new structure
 
-### 10.2 Performance Requirements
+### 12.2 Performance Requirements
 
 - [ ] Passport page loads < 2s (including all sports)
 - [ ] Skill history query < 500ms for 100 assessments
@@ -1257,7 +1961,7 @@ createFitnessAssessment(playerId, data)
 - [ ] Batch skill update (20 skills) < 1s
 - [ ] Similar player search < 3s
 
-### 10.3 Data Quality
+### 12.3 Data Quality
 
 - [ ] 100% of existing skills mapped to new definitions
 - [ ] All assessments have valid dates
@@ -1266,7 +1970,7 @@ createFitnessAssessment(playerId, data)
 
 ---
 
-## 11. Open Questions
+## 13. Open Questions
 
 1. **Benchmark Sourcing**: How do we get official benchmark data from NGBs?
 2. **Assessment Frequency**: What's the recommended cadence per age group?
@@ -1278,7 +1982,7 @@ createFitnessAssessment(playerId, data)
 
 ---
 
-## 12. Related Documents
+## 14. Related Documents
 
 - [PLAYER_PASSPORT_ANALYSIS.md](./PLAYER_PASSPORT_ANALYSIS.md) - Original MVP analysis
 - [PARENT_DASHBOARD_ANALYSIS.md](./PARENT_DASHBOARD_ANALYSIS.md) - Parent view requirements
@@ -1287,7 +1991,7 @@ createFitnessAssessment(playerId, data)
 
 ---
 
-## 13. References
+## 15. References
 
 ### Industry Frameworks
 - [Long-Term Athlete Development (LTAD) Model](https://sportforlife.ca/long-term-development/)
@@ -1306,7 +2010,7 @@ createFitnessAssessment(playerId, data)
 
 ---
 
-## 14. Next Steps
+## 16. Next Steps
 
 1. **Review and approve** this architecture with stakeholders
 2. **Prioritize** initial sports (recommend: Soccer first, then GAA, then Rugby)

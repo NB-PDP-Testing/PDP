@@ -6,6 +6,7 @@ import { useQuery } from "convex/react";
 import { ArrowLeft, Edit, Loader2, Share2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { BenchmarkComparison } from "@/components/benchmark-comparison";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { BasicInformationSection } from "./components/basic-info-section";
@@ -22,11 +23,29 @@ export default function PlayerPassportPage() {
 
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
 
-  // Get player passport data
-  const playerData = useQuery(api.models.players.getPlayerPassport, {
-    playerId: playerId as Id<"players">,
-    organizationId: orgId,
-  });
+  // Try new identity system first
+  const playerIdentityData = useQuery(
+    api.models.sportPassports.getFullPlayerPassportView,
+    {
+      playerIdentityId: playerId as Id<"playerIdentities">,
+      organizationId: orgId,
+    }
+  );
+
+  // Fall back to legacy system if new system returns null (player not in new system)
+  const legacyPlayerData = useQuery(
+    api.models.players.getPlayerPassport,
+    // Only query legacy if new system returned null (not undefined = loading)
+    playerIdentityData === null
+      ? {
+          playerId: playerId as Id<"players">,
+          organizationId: orgId,
+        }
+      : "skip"
+  );
+
+  // Use new system data if available, otherwise fall back to legacy
+  const playerData = playerIdentityData ?? legacyPlayerData;
 
   // Get current user session
   const { data: session } = authClient.useSession();
@@ -141,11 +160,28 @@ export default function PlayerPassportPage() {
 
       {/* Player Passport Sections */}
       <div className="space-y-4">
-        <BasicInformationSection player={playerData} />
-        <GoalsSection player={playerData} />
-        <SkillsSection player={playerData} />
-        <PositionsFitnessSection player={playerData} />
-        <NotesSection isCoach={permissions.canEdit} player={playerData} />
+        {/* Cast to any since components define their own interfaces for the properties they need */}
+        <BasicInformationSection player={playerData as any} />
+
+        {/* Benchmark Comparison - only for new identity system with sport passport */}
+        {"playerIdentityId" in playerData &&
+          playerData.playerIdentityId &&
+          playerData.sportCode && (
+            <BenchmarkComparison
+              dateOfBirth={(playerData as any).dateOfBirth ?? ""}
+              playerId={playerData.playerIdentityId}
+              showAllSkills={true}
+              sportCode={playerData.sportCode}
+            />
+          )}
+
+        <GoalsSection player={playerData as any} />
+        <SkillsSection player={playerData as any} />
+        <PositionsFitnessSection player={playerData as any} />
+        <NotesSection
+          isCoach={permissions.canEdit}
+          player={playerData as any}
+        />
       </div>
     </div>
   );

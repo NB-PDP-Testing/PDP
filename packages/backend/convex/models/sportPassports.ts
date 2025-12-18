@@ -1,0 +1,733 @@
+import { v } from "convex/values";
+import { mutation, query } from "../_generated/server";
+
+// ============================================================
+// TYPE DEFINITIONS
+// ============================================================
+
+const passportStatusValidator = v.union(
+  v.literal("active"),
+  v.literal("inactive"),
+  v.literal("archived")
+);
+
+const dominantSideValidator = v.union(
+  v.literal("left"),
+  v.literal("right"),
+  v.literal("both")
+);
+
+// Passport validator for return types
+const passportValidator = v.object({
+  _id: v.id("sportPassports"),
+  _creationTime: v.number(),
+  playerIdentityId: v.id("playerIdentities"),
+  sportCode: v.string(),
+  organizationId: v.string(),
+  status: passportStatusValidator,
+  primaryPosition: v.optional(v.string()),
+  secondaryPositions: v.optional(v.array(v.string())),
+  coachPreferredPosition: v.optional(v.string()),
+  leastPreferredPosition: v.optional(v.string()),
+  dominantSide: v.optional(dominantSideValidator),
+  isGoalkeeper: v.optional(v.boolean()),
+  currentOverallRating: v.optional(v.number()),
+  currentTechnicalRating: v.optional(v.number()),
+  currentTacticalRating: v.optional(v.number()),
+  currentPhysicalRating: v.optional(v.number()),
+  currentMentalRating: v.optional(v.number()),
+  lastAssessmentDate: v.optional(v.string()),
+  lastAssessmentType: v.optional(v.string()),
+  assessmentCount: v.number(),
+  nextReviewDue: v.optional(v.string()),
+  coachNotes: v.optional(v.string()),
+  parentNotes: v.optional(v.string()),
+  playerNotes: v.optional(v.string()),
+  currentSeason: v.optional(v.string()),
+  seasonsPlayed: v.optional(v.array(v.string())),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+// ============================================================
+// QUERIES
+// ============================================================
+
+/**
+ * Get passport by ID
+ */
+export const getPassportById = query({
+  args: { passportId: v.id("sportPassports") },
+  returns: v.union(passportValidator, v.null()),
+  handler: async (ctx, args) => await ctx.db.get(args.passportId),
+});
+
+/**
+ * Get all passports for a player
+ */
+export const getPassportsForPlayer = query({
+  args: { playerIdentityId: v.id("playerIdentities") },
+  returns: v.array(passportValidator),
+  handler: async (ctx, args) =>
+    await ctx.db
+      .query("sportPassports")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect(),
+});
+
+/**
+ * Get passport for a specific player and sport
+ */
+export const getPassportForPlayerAndSport = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    sportCode: v.string(),
+  },
+  returns: v.union(passportValidator, v.null()),
+  handler: async (ctx, args) =>
+    await ctx.db
+      .query("sportPassports")
+      .withIndex("by_player_and_sport", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("sportCode", args.sportCode)
+      )
+      .first(),
+});
+
+/**
+ * Get all passports for an organization
+ */
+export const getPassportsForOrg = query({
+  args: {
+    organizationId: v.string(),
+    sportCode: v.optional(v.string()),
+    status: v.optional(passportStatusValidator),
+  },
+  returns: v.array(passportValidator),
+  handler: async (ctx, args) => {
+    let passports;
+
+    if (args.sportCode) {
+      passports = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_org_and_sport", (q) =>
+          q
+            .eq("organizationId", args.organizationId)
+            .eq("sportCode", args.sportCode!)
+        )
+        .collect();
+    } else {
+      passports = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_organizationId", (q) =>
+          q.eq("organizationId", args.organizationId)
+        )
+        .collect();
+    }
+
+    if (args.status) {
+      passports = passports.filter((p) => p.status === args.status);
+    }
+
+    return passports;
+  },
+});
+
+/**
+ * Get passports for organization with player details
+ */
+export const getPassportsWithPlayersForOrg = query({
+  args: {
+    organizationId: v.string(),
+    sportCode: v.optional(v.string()),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    let passports;
+
+    if (args.sportCode) {
+      passports = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_org_and_sport", (q) =>
+          q
+            .eq("organizationId", args.organizationId)
+            .eq("sportCode", args.sportCode!)
+        )
+        .collect();
+    } else {
+      passports = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_organizationId", (q) =>
+          q.eq("organizationId", args.organizationId)
+        )
+        .collect();
+    }
+
+    const results = [];
+    for (const passport of passports) {
+      const player = await ctx.db.get(passport.playerIdentityId);
+      if (player) {
+        results.push({ passport, player });
+      }
+    }
+
+    return results;
+  },
+});
+
+// ============================================================
+// MUTATIONS
+// ============================================================
+
+/**
+ * Create a sport passport for a player
+ */
+export const createPassport = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    sportCode: v.string(),
+    organizationId: v.string(),
+    status: v.optional(passportStatusValidator),
+    primaryPosition: v.optional(v.string()),
+    secondaryPositions: v.optional(v.array(v.string())),
+    dominantSide: v.optional(dominantSideValidator),
+    isGoalkeeper: v.optional(v.boolean()),
+    currentSeason: v.optional(v.string()),
+  },
+  returns: v.id("sportPassports"),
+  handler: async (ctx, args) => {
+    // Verify player exists
+    const player = await ctx.db.get(args.playerIdentityId);
+    if (!player) {
+      throw new Error("Player identity not found");
+    }
+
+    // Check if passport already exists for this player/sport combo
+    const existing = await ctx.db
+      .query("sportPassports")
+      .withIndex("by_player_and_sport", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("sportCode", args.sportCode)
+      )
+      .first();
+
+    if (existing) {
+      throw new Error("Player already has a passport for this sport");
+    }
+
+    const now = Date.now();
+
+    return await ctx.db.insert("sportPassports", {
+      playerIdentityId: args.playerIdentityId,
+      sportCode: args.sportCode,
+      organizationId: args.organizationId,
+      status: args.status ?? "active",
+      primaryPosition: args.primaryPosition,
+      secondaryPositions: args.secondaryPositions,
+      dominantSide: args.dominantSide,
+      isGoalkeeper: args.isGoalkeeper,
+      assessmentCount: 0,
+      currentSeason: args.currentSeason,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+/**
+ * Update passport position preferences
+ */
+export const updatePositions = mutation({
+  args: {
+    passportId: v.id("sportPassports"),
+    primaryPosition: v.optional(v.string()),
+    secondaryPositions: v.optional(v.array(v.string())),
+    coachPreferredPosition: v.optional(v.string()),
+    leastPreferredPosition: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.passportId);
+    if (!existing) {
+      throw new Error("Passport not found");
+    }
+
+    const updates: Record<string, unknown> = {
+      updatedAt: Date.now(),
+    };
+
+    if (args.primaryPosition !== undefined) {
+      updates.primaryPosition = args.primaryPosition;
+    }
+    if (args.secondaryPositions !== undefined) {
+      updates.secondaryPositions = args.secondaryPositions;
+    }
+    if (args.coachPreferredPosition !== undefined) {
+      updates.coachPreferredPosition = args.coachPreferredPosition;
+    }
+    if (args.leastPreferredPosition !== undefined) {
+      updates.leastPreferredPosition = args.leastPreferredPosition;
+    }
+
+    await ctx.db.patch(args.passportId, updates);
+    return null;
+  },
+});
+
+/**
+ * Update passport physical attributes
+ */
+export const updatePhysicalAttributes = mutation({
+  args: {
+    passportId: v.id("sportPassports"),
+    dominantSide: v.optional(dominantSideValidator),
+    isGoalkeeper: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.passportId);
+    if (!existing) {
+      throw new Error("Passport not found");
+    }
+
+    const updates: Record<string, unknown> = {
+      updatedAt: Date.now(),
+    };
+
+    if (args.dominantSide !== undefined) {
+      updates.dominantSide = args.dominantSide;
+    }
+    if (args.isGoalkeeper !== undefined) {
+      updates.isGoalkeeper = args.isGoalkeeper;
+    }
+
+    await ctx.db.patch(args.passportId, updates);
+    return null;
+  },
+});
+
+/**
+ * Update passport notes
+ */
+export const updateNotes = mutation({
+  args: {
+    passportId: v.id("sportPassports"),
+    coachNotes: v.optional(v.string()),
+    parentNotes: v.optional(v.string()),
+    playerNotes: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.passportId);
+    if (!existing) {
+      throw new Error("Passport not found");
+    }
+
+    const updates: Record<string, unknown> = {
+      updatedAt: Date.now(),
+    };
+
+    if (args.coachNotes !== undefined) {
+      updates.coachNotes = args.coachNotes;
+    }
+    if (args.parentNotes !== undefined) {
+      updates.parentNotes = args.parentNotes;
+    }
+    if (args.playerNotes !== undefined) {
+      updates.playerNotes = args.playerNotes;
+    }
+
+    await ctx.db.patch(args.passportId, updates);
+    return null;
+  },
+});
+
+/**
+ * Update passport ratings (called after assessments)
+ */
+export const updateRatings = mutation({
+  args: {
+    passportId: v.id("sportPassports"),
+    currentOverallRating: v.optional(v.number()),
+    currentTechnicalRating: v.optional(v.number()),
+    currentTacticalRating: v.optional(v.number()),
+    currentPhysicalRating: v.optional(v.number()),
+    currentMentalRating: v.optional(v.number()),
+    lastAssessmentDate: v.optional(v.string()),
+    lastAssessmentType: v.optional(v.string()),
+    incrementAssessmentCount: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.passportId);
+    if (!existing) {
+      throw new Error("Passport not found");
+    }
+
+    const updates: Record<string, unknown> = {
+      updatedAt: Date.now(),
+    };
+
+    if (args.currentOverallRating !== undefined) {
+      updates.currentOverallRating = args.currentOverallRating;
+    }
+    if (args.currentTechnicalRating !== undefined) {
+      updates.currentTechnicalRating = args.currentTechnicalRating;
+    }
+    if (args.currentTacticalRating !== undefined) {
+      updates.currentTacticalRating = args.currentTacticalRating;
+    }
+    if (args.currentPhysicalRating !== undefined) {
+      updates.currentPhysicalRating = args.currentPhysicalRating;
+    }
+    if (args.currentMentalRating !== undefined) {
+      updates.currentMentalRating = args.currentMentalRating;
+    }
+    if (args.lastAssessmentDate !== undefined) {
+      updates.lastAssessmentDate = args.lastAssessmentDate;
+    }
+    if (args.lastAssessmentType !== undefined) {
+      updates.lastAssessmentType = args.lastAssessmentType;
+    }
+    if (args.incrementAssessmentCount) {
+      updates.assessmentCount = existing.assessmentCount + 1;
+    }
+
+    await ctx.db.patch(args.passportId, updates);
+    return null;
+  },
+});
+
+/**
+ * Change passport status
+ */
+export const changeStatus = mutation({
+  args: {
+    passportId: v.id("sportPassports"),
+    status: passportStatusValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.passportId);
+    if (!existing) {
+      throw new Error("Passport not found");
+    }
+
+    await ctx.db.patch(args.passportId, {
+      status: args.status,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Set next review due date
+ */
+export const setNextReviewDue = mutation({
+  args: {
+    passportId: v.id("sportPassports"),
+    nextReviewDue: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.passportId);
+    if (!existing) {
+      throw new Error("Passport not found");
+    }
+
+    await ctx.db.patch(args.passportId, {
+      nextReviewDue: args.nextReviewDue,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Find or create passport (upsert pattern)
+ */
+export const findOrCreatePassport = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    sportCode: v.string(),
+    organizationId: v.string(),
+    currentSeason: v.optional(v.string()),
+  },
+  returns: v.object({
+    passportId: v.id("sportPassports"),
+    wasCreated: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Check if passport already exists
+    const existing = await ctx.db
+      .query("sportPassports")
+      .withIndex("by_player_and_sport", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("sportCode", args.sportCode)
+      )
+      .first();
+
+    if (existing) {
+      return {
+        passportId: existing._id,
+        wasCreated: false,
+      };
+    }
+
+    // Verify player exists
+    const player = await ctx.db.get(args.playerIdentityId);
+    if (!player) {
+      throw new Error("Player identity not found");
+    }
+
+    const now = Date.now();
+
+    const passportId = await ctx.db.insert("sportPassports", {
+      playerIdentityId: args.playerIdentityId,
+      sportCode: args.sportCode,
+      organizationId: args.organizationId,
+      status: "active",
+      assessmentCount: 0,
+      currentSeason: args.currentSeason,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      passportId,
+      wasCreated: true,
+    };
+  },
+});
+
+/**
+ * Get full player passport view (for player page)
+ * This combines player identity, enrollment, passport, assessments, guardians, and goals
+ */
+export const getFullPlayerPassportView = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    sportCode: v.optional(v.string()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    // Get player identity
+    const player = await ctx.db.get(args.playerIdentityId);
+    if (!player) {
+      return null;
+    }
+
+    // Get enrollment for this org
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!enrollment) {
+      return null;
+    }
+
+    // Get passports (all or specific sport)
+    let passports;
+    if (args.sportCode) {
+      const passport = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_player_and_sport", (q) =>
+          q
+            .eq("playerIdentityId", args.playerIdentityId)
+            .eq("sportCode", args.sportCode!)
+        )
+        .first();
+      passports = passport ? [passport] : [];
+    } else {
+      passports = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", args.playerIdentityId)
+        )
+        .collect();
+    }
+
+    // Get primary passport (first active one)
+    const primaryPassport = passports.find((p) => p.status === "active");
+
+    // Get guardians/parents
+    const guardianLinks = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    const guardians = [];
+    for (const link of guardianLinks) {
+      const guardian = await ctx.db.get(link.guardianIdentityId);
+      if (guardian) {
+        guardians.push({
+          id: guardian._id,
+          firstName: guardian.firstName,
+          surname: guardian.lastName,
+          email: guardian.email ?? "",
+          phone: guardian.phone ?? "",
+          relationship: link.relationship,
+          isPrimary: link.isPrimary,
+        });
+      }
+    }
+
+    // Get emergency contacts
+    const emergencyContacts = await ctx.db
+      .query("playerEmergencyContacts")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    // Get team assignments
+    const teamMemberships = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    // Filter to active memberships only
+    const activeTeamMemberships = teamMemberships.filter(
+      (m) => m.status === "active"
+    );
+
+    // Format team assignments for legacy compatibility
+    const teamAssignments = activeTeamMemberships.map((m) => ({
+      teamId: m.teamId,
+      role: m.role,
+      season: m.season,
+      joinedDate: m.joinedDate,
+    }));
+
+    // Get goals for primary passport
+    const goals = primaryPassport
+      ? await ctx.db
+          .query("passportGoals")
+          .withIndex("by_passportId", (q) =>
+            q.eq("passportId", primaryPassport._id)
+          )
+          .collect()
+      : [];
+
+    // Get latest assessments from primary passport
+    const assessments = primaryPassport
+      ? await ctx.db
+          .query("skillAssessments")
+          .withIndex("by_passportId", (q) =>
+            q.eq("passportId", primaryPassport._id)
+          )
+          .order("desc")
+          .take(50)
+      : [];
+
+    // Get sport name
+    const sport = primaryPassport
+      ? await ctx.db
+          .query("sports")
+          .withIndex("by_code", (q) => q.eq("code", primaryPassport.sportCode))
+          .first()
+      : null;
+
+    // Build legacy-compatible player data structure
+    return {
+      _id: player._id,
+      name: `${player.firstName} ${player.lastName}`,
+      firstName: player.firstName,
+      lastName: player.lastName,
+      ageGroup: enrollment.ageGroup ?? "Unknown",
+      sport: sport?.name ?? primaryPassport?.sportCode ?? "Unknown",
+      sportCode: primaryPassport?.sportCode,
+      gender: player.gender,
+      season: enrollment.season ?? primaryPassport?.currentSeason ?? "2024-25",
+      dateOfBirth: player.dateOfBirth,
+      // Position and fitness info
+      preferredPosition: primaryPassport?.primaryPosition,
+      secondaryPositions: primaryPassport?.secondaryPositions ?? [],
+      coachPreferredPosition: primaryPassport?.coachPreferredPosition,
+      leastPreferredPosition: primaryPassport?.leastPreferredPosition,
+      dominantSide: primaryPassport?.dominantSide,
+      isGoalkeeper: primaryPassport?.isGoalkeeper,
+      // Ratings
+      currentOverallRating: primaryPassport?.currentOverallRating,
+      currentTechnicalRating: primaryPassport?.currentTechnicalRating,
+      currentTacticalRating: primaryPassport?.currentTacticalRating,
+      currentPhysicalRating: primaryPassport?.currentPhysicalRating,
+      currentMentalRating: primaryPassport?.currentMentalRating,
+      // Parents/guardians (legacy format)
+      parents: guardians,
+      emergencyContacts,
+      // Teams - get from new identity system
+      teams: teamAssignments,
+      teamCount: teamAssignments.length,
+      // Notes
+      coachNotes: primaryPassport?.coachNotes,
+      parentNotes: primaryPassport?.parentNotes,
+      playerNotes: primaryPassport?.playerNotes,
+      // Goals (convert to legacy format)
+      goals: goals.map((g) => ({
+        id: g._id,
+        type: g.category,
+        title: g.title,
+        description: g.description,
+        status: g.status,
+        priority: g.priority,
+        progress: g.progress,
+        targetDate: g.targetDate,
+        completedDate: g.completedDate,
+        milestones: g.milestones,
+        linkedSkills: g.linkedSkills,
+        parentCanView: g.parentCanView,
+        coachNotes: g.coachNotes,
+        playerNotes: g.playerNotes,
+        createdAt: g.createdAt,
+      })),
+      // Skills/assessments (grouped by skill)
+      skills: assessments,
+      assessmentCount: primaryPassport?.assessmentCount ?? 0,
+      lastAssessmentDate: primaryPassport?.lastAssessmentDate,
+      // Enrollment info
+      enrollmentStatus: enrollment.status,
+      clubMembershipNumber: enrollment.clubMembershipNumber,
+      // Raw references for advanced features
+      playerIdentityId: player._id,
+      enrollmentId: enrollment._id,
+      passportId: primaryPassport?._id,
+      passports,
+    };
+  },
+});
+
+/**
+ * Delete a passport (hard delete)
+ */
+export const deletePassport = mutation({
+  args: { passportId: v.id("sportPassports") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.passportId);
+    if (!existing) {
+      throw new Error("Passport not found");
+    }
+
+    await ctx.db.delete(args.passportId);
+    return null;
+  },
+});

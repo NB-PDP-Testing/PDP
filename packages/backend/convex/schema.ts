@@ -2,6 +2,731 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  // ============================================================
+  // PHASE 1: FOUNDATION / REFERENCE DATA TABLES
+  // These tables provide reference data for sports, age groups,
+  // and skill definitions used across the platform.
+  // ============================================================
+
+  // Sports reference table
+  sports: defineTable({
+    code: v.string(), // "gaa_football", "soccer", "rugby"
+    name: v.string(), // "GAA Football", "Soccer", "Rugby"
+    governingBody: v.optional(v.string()), // "GAA", "FAI", "IRFU"
+    description: v.optional(v.string()),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_code", ["code"])
+    .index("by_isActive", ["isActive"]),
+
+  // Age group reference table
+  ageGroups: defineTable({
+    code: v.string(), // "u6", "u7", "u8", ... "senior"
+    name: v.string(), // "Under 6", "Under 7", ... "Senior"
+    minAge: v.optional(v.number()),
+    maxAge: v.optional(v.number()),
+    ltadStage: v.optional(v.string()), // "FUNdamentals", "Learn to Train", etc.
+    description: v.optional(v.string()),
+    sortOrder: v.number(),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_code", ["code"])
+    .index("by_isActive", ["isActive"])
+    .index("by_sortOrder", ["sortOrder"]),
+
+  // Skill categories (sport-specific groupings)
+  skillCategories: defineTable({
+    sportCode: v.string(), // FK to sports.code
+    code: v.string(), // "ball_mastery", "passing", "tactical"
+    name: v.string(), // "Ball Mastery", "Passing & Distribution"
+    description: v.optional(v.string()),
+    sortOrder: v.number(),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_sportCode", ["sportCode"])
+    .index("by_sportCode_and_code", ["sportCode", "code"])
+    .index("by_sortOrder", ["sportCode", "sortOrder"]),
+
+  // Skill definitions (individual skills within categories)
+  skillDefinitions: defineTable({
+    categoryId: v.id("skillCategories"),
+    sportCode: v.string(), // Denormalized for easier queries
+    code: v.string(), // "solo_run", "hand_pass", "ball_control"
+    name: v.string(), // "Solo Run", "Hand Pass", "Ball Control"
+    description: v.optional(v.string()),
+    // Level descriptors for 1-5 rating scale
+    level1Descriptor: v.optional(v.string()), // "Cannot perform consistently"
+    level2Descriptor: v.optional(v.string()), // "Developing, needs work"
+    level3Descriptor: v.optional(v.string()), // "Competent in training"
+    level4Descriptor: v.optional(v.string()), // "Proficient in matches"
+    level5Descriptor: v.optional(v.string()), // "Excellent, role model"
+    // Age group relevance (which age groups this skill applies to)
+    ageGroupRelevance: v.optional(v.array(v.string())), // ["u8", "u9", "u10"]
+    sortOrder: v.number(),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_categoryId", ["categoryId"])
+    .index("by_sportCode", ["sportCode"])
+    .index("by_sportCode_and_code", ["sportCode", "code"])
+    .index("by_sortOrder", ["categoryId", "sortOrder"]),
+
+  // ============================================================
+  // PHASE 2: GUARDIAN IDENTITY TABLES
+  // Platform-level guardian identity with org-specific profiles
+  // ============================================================
+
+  // Platform-level: Guardian identity (no orgId - exists across platform)
+  guardianIdentities: defineTable({
+    // Core identity
+    firstName: v.string(),
+    lastName: v.string(),
+    email: v.string(),
+    phone: v.optional(v.string()),
+
+    // Address (optional)
+    address: v.optional(v.string()),
+    town: v.optional(v.string()),
+    postcode: v.optional(v.string()),
+    country: v.optional(v.string()),
+
+    // Linking to Better Auth (if registered)
+    userId: v.optional(v.string()),
+
+    // Verification status
+    verificationStatus: v.union(
+      v.literal("unverified"), // Created from import
+      v.literal("email_verified"), // Email confirmed
+      v.literal("id_verified") // Full identity verified
+    ),
+
+    // Preferences
+    preferredContactMethod: v.optional(
+      v.union(v.literal("email"), v.literal("phone"), v.literal("both"))
+    ),
+
+    // Metadata
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    createdFrom: v.optional(v.string()), // "import", "registration", "manual"
+  })
+    .index("by_email", ["email"])
+    .index("by_userId", ["userId"])
+    .index("by_phone", ["phone"])
+    .index("by_name", ["lastName", "firstName"]),
+
+  // Organization-level: Guardian preferences per org
+  orgGuardianProfiles: defineTable({
+    guardianIdentityId: v.id("guardianIdentities"),
+    organizationId: v.string(),
+
+    // Emergency contact priority (1 = first call)
+    emergencyPriority: v.optional(v.number()),
+
+    // Communication preferences for this org
+    receiveMatchUpdates: v.optional(v.boolean()),
+    receiveTrainingUpdates: v.optional(v.boolean()),
+    receiveNewsletters: v.optional(v.boolean()),
+    preferredLanguage: v.optional(v.string()),
+
+    // Club-specific notes (admin only)
+    clubNotes: v.optional(v.string()),
+
+    // Status
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_guardianIdentityId", ["guardianIdentityId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_guardian_and_org", ["guardianIdentityId", "organizationId"]),
+
+  // ============================================================
+  // PHASE 3: PLAYER IDENTITY TABLES
+  // Platform-level player identity with guardian links and org enrollments
+  // ============================================================
+
+  // Platform-level: Player identity (no orgId - exists across platform)
+  playerIdentities: defineTable({
+    // Core identity
+    firstName: v.string(),
+    lastName: v.string(),
+    dateOfBirth: v.string(), // ISO format: "2015-03-20"
+    gender: v.union(v.literal("male"), v.literal("female"), v.literal("other")),
+
+    // Player type (youth vs adult)
+    playerType: v.union(
+      v.literal("youth"), // Managed by guardians
+      v.literal("adult") // Self-managed
+    ),
+
+    // For adult players - direct account link
+    userId: v.optional(v.string()), // Better Auth user ID
+    email: v.optional(v.string()), // Direct contact (adults)
+    phone: v.optional(v.string()),
+
+    // Address (optional, usually from guardian for youth)
+    address: v.optional(v.string()),
+    town: v.optional(v.string()),
+    postcode: v.optional(v.string()),
+    country: v.optional(v.string()),
+
+    // Verification
+    verificationStatus: v.union(
+      v.literal("unverified"), // From import
+      v.literal("guardian_verified"), // Guardian confirmed
+      v.literal("self_verified"), // Adult self-verified
+      v.literal("document_verified") // ID document verified
+    ),
+
+    // Metadata
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    createdFrom: v.optional(v.string()), // "import", "registration", "manual"
+  })
+    .index("by_name_dob", ["firstName", "lastName", "dateOfBirth"])
+    .index("by_userId", ["userId"])
+    .index("by_email", ["email"])
+    .index("by_playerType", ["playerType"]),
+
+  // Guardian-Player relationship (N:M)
+  guardianPlayerLinks: defineTable({
+    guardianIdentityId: v.id("guardianIdentities"),
+    playerIdentityId: v.id("playerIdentities"),
+
+    // Relationship type
+    relationship: v.union(
+      v.literal("mother"),
+      v.literal("father"),
+      v.literal("guardian"),
+      v.literal("grandparent"),
+      v.literal("other")
+    ),
+
+    // Flags
+    isPrimary: v.boolean(), // Primary contact for this player
+    hasParentalResponsibility: v.boolean(),
+    canCollectFromTraining: v.boolean(),
+
+    // Cross-org consent
+    consentedToSharing: v.boolean(), // Allow other orgs to see this link
+
+    // Metadata
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    verifiedAt: v.optional(v.number()),
+    verifiedBy: v.optional(v.string()), // "guardian" | "admin" | "system"
+  })
+    .index("by_guardian", ["guardianIdentityId"])
+    .index("by_player", ["playerIdentityId"])
+    .index("by_guardian_and_player", [
+      "guardianIdentityId",
+      "playerIdentityId",
+    ]),
+
+  // Organization-level: Player enrollment
+  orgPlayerEnrollments: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+
+    // Membership info
+    clubMembershipNumber: v.optional(v.string()),
+    ageGroup: v.string(),
+    season: v.string(),
+
+    // Status
+    status: v.union(
+      v.literal("active"),
+      v.literal("inactive"),
+      v.literal("pending"),
+      v.literal("suspended")
+    ),
+
+    // Review tracking (moved from players)
+    reviewStatus: v.optional(v.string()),
+    lastReviewDate: v.optional(v.string()),
+    nextReviewDue: v.optional(v.string()),
+
+    // Attendance (org-specific)
+    attendance: v.optional(
+      v.object({
+        training: v.optional(v.number()),
+        matches: v.optional(v.number()),
+      })
+    ),
+
+    // Notes (org-specific)
+    coachNotes: v.optional(v.string()),
+    adminNotes: v.optional(v.string()),
+
+    // Metadata
+    enrolledAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_playerIdentityId", ["playerIdentityId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_player_and_org", ["playerIdentityId", "organizationId"])
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_org_and_ageGroup", ["organizationId", "ageGroup"]),
+
+  // ============================================================
+  // PHASE 4: ADULT PLAYER SUPPORT
+  // Emergency contacts for adult players who don't have guardians
+  // ============================================================
+
+  // Emergency contacts for adult players (instead of guardians)
+  playerEmergencyContacts: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+
+    // Contact details
+    firstName: v.string(),
+    lastName: v.string(),
+    phone: v.string(),
+    email: v.optional(v.string()),
+
+    // Relationship
+    relationship: v.string(), // "spouse", "partner", "parent", "sibling", "friend", etc.
+
+    // Priority (1 = first call, 2 = second, etc.)
+    priority: v.number(),
+
+    // Notes
+    notes: v.optional(v.string()),
+
+    // Metadata
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_priority", ["playerIdentityId", "priority"]),
+
+  // ============================================================
+  // PHASE 7: SPORT PASSPORT & SKILL TRACKING
+  // Sport-specific skill tracking with temporal assessments
+  // and benchmark comparisons
+  // ============================================================
+
+  // Sport Passports - links a player to a specific sport
+  sportPassports: defineTable({
+    // References
+    playerIdentityId: v.id("playerIdentities"),
+    sportCode: v.string(), // FK to sports.code
+    organizationId: v.string(), // Which org this passport is for
+
+    // Status
+    status: v.union(
+      v.literal("active"),
+      v.literal("inactive"), // Taking a break
+      v.literal("archived") // Historical record
+    ),
+
+    // Position preferences (if sport has positions)
+    primaryPosition: v.optional(v.string()),
+    secondaryPositions: v.optional(v.array(v.string())),
+    coachPreferredPosition: v.optional(v.string()),
+    leastPreferredPosition: v.optional(v.string()),
+
+    // Physical attributes
+    dominantSide: v.optional(
+      v.union(v.literal("left"), v.literal("right"), v.literal("both"))
+    ),
+    isGoalkeeper: v.optional(v.boolean()), // For soccer/GAA
+
+    // Current computed values (denormalized for performance)
+    currentOverallRating: v.optional(v.number()),
+    currentTechnicalRating: v.optional(v.number()),
+    currentTacticalRating: v.optional(v.number()),
+    currentPhysicalRating: v.optional(v.number()),
+    currentMentalRating: v.optional(v.number()),
+
+    // Assessment tracking
+    lastAssessmentDate: v.optional(v.string()),
+    lastAssessmentType: v.optional(v.string()),
+    assessmentCount: v.number(),
+    nextReviewDue: v.optional(v.string()),
+
+    // Notes (sport-specific)
+    coachNotes: v.optional(v.string()),
+    parentNotes: v.optional(v.string()),
+    playerNotes: v.optional(v.string()),
+
+    // Season tracking
+    currentSeason: v.optional(v.string()),
+    seasonsPlayed: v.optional(v.array(v.string())),
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_playerIdentityId", ["playerIdentityId"])
+    .index("by_player_and_sport", ["playerIdentityId", "sportCode"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_org_and_sport", ["organizationId", "sportCode"])
+    .index("by_status", ["organizationId", "sportCode", "status"]),
+
+  // Skill Assessments - point-in-time skill records
+  skillAssessments: defineTable({
+    // References
+    passportId: v.id("sportPassports"),
+    playerIdentityId: v.id("playerIdentities"), // Denormalized for querying
+    sportCode: v.string(), // Denormalized
+    skillCode: v.string(), // FK to skillDefinitions.code
+    organizationId: v.string(), // Denormalized
+
+    // Assessment data
+    rating: v.number(), // 1-5 scale
+    previousRating: v.optional(v.number()), // For delta tracking
+
+    // Context
+    assessmentDate: v.string(), // ISO date
+    assessmentType: v.union(
+      v.literal("initial"), // First assessment
+      v.literal("training"), // Regular training observation
+      v.literal("match"), // Post-match assessment
+      v.literal("trial"), // Trial/tryout
+      v.literal("formal_review"), // Scheduled formal review
+      v.literal("self"), // Player self-assessment
+      v.literal("parent"), // Parent observation
+      v.literal("import") // Imported from external source
+    ),
+
+    // Assessor information
+    assessedBy: v.optional(v.string()), // User ID
+    assessedByName: v.optional(v.string()), // Denormalized name
+    assessorRole: v.optional(
+      v.union(
+        v.literal("coach"),
+        v.literal("head_coach"),
+        v.literal("assistant_coach"),
+        v.literal("parent"),
+        v.literal("self"),
+        v.literal("admin"),
+        v.literal("system")
+      )
+    ),
+
+    // Benchmark comparison (snapshot at time of assessment)
+    benchmarkRating: v.optional(v.number()),
+    benchmarkLevel: v.optional(v.string()), // "competitive", "recreational"
+    benchmarkDelta: v.optional(v.number()), // rating - benchmarkRating
+    benchmarkStatus: v.optional(
+      v.union(
+        v.literal("below"),
+        v.literal("developing"),
+        v.literal("on_track"),
+        v.literal("exceeding"),
+        v.literal("exceptional")
+      )
+    ),
+
+    // Notes
+    notes: v.optional(v.string()),
+    privateNotes: v.optional(v.string()), // Coach-only notes
+
+    // Session context (if applicable)
+    sessionId: v.optional(v.string()), // Link to training session
+    matchId: v.optional(v.string()), // Link to match record
+
+    // Metadata
+    confidence: v.optional(
+      v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_passportId", ["passportId"])
+    .index("by_playerIdentityId", ["playerIdentityId"])
+    .index("by_player_and_sport", ["playerIdentityId", "sportCode"])
+    .index("by_skill", ["passportId", "skillCode"])
+    .index("by_date", ["passportId", "assessmentDate"])
+    .index("by_assessor", ["assessedBy", "assessmentDate"])
+    .index("by_organizationId", ["organizationId", "assessmentDate"])
+    .index("by_type", ["passportId", "assessmentType"]),
+
+  // Passport Goals - Development goals linked to sport passports
+  passportGoals: defineTable({
+    // References
+    passportId: v.id("sportPassports"),
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+
+    // Goal details
+    title: v.string(),
+    description: v.string(),
+    category: v.union(
+      v.literal("technical"),
+      v.literal("tactical"),
+      v.literal("physical"),
+      v.literal("mental"),
+      v.literal("social")
+    ),
+    priority: v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    status: v.union(
+      v.literal("not_started"),
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("on_hold"),
+      v.literal("cancelled")
+    ),
+
+    // Progress tracking
+    progress: v.number(), // 0-100 percentage
+    targetDate: v.optional(v.string()),
+    completedDate: v.optional(v.string()),
+
+    // Linked skills (skill codes this goal relates to)
+    linkedSkills: v.optional(v.array(v.string())),
+
+    // Milestones
+    milestones: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          description: v.string(),
+          completed: v.boolean(),
+          completedDate: v.optional(v.string()),
+        })
+      )
+    ),
+
+    // Parent involvement
+    parentActions: v.optional(v.array(v.string())),
+    parentCanView: v.boolean(),
+
+    // Notes
+    coachNotes: v.optional(v.string()),
+    playerNotes: v.optional(v.string()),
+
+    // Metadata
+    createdBy: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_passportId", ["passportId"])
+    .index("by_playerIdentityId", ["playerIdentityId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_status", ["passportId", "status"])
+    .index("by_category", ["passportId", "category"]),
+
+  // Team Player Identities - links Better Auth teams to player identities
+  // This is the new identity system equivalent of teamPlayers
+  teamPlayerIdentities: defineTable({
+    teamId: v.string(), // Better Auth team ID
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+
+    // Role within the team
+    role: v.optional(v.string()), // "captain", "vice-captain", "player"
+
+    // Status
+    status: v.union(
+      v.literal("active"),
+      v.literal("inactive"),
+      v.literal("transferred") // Moved to another team
+    ),
+
+    // Season tracking
+    season: v.optional(v.string()), // "2024-25"
+    joinedDate: v.optional(v.string()),
+    leftDate: v.optional(v.string()),
+
+    // Metadata
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_teamId", ["teamId"])
+    .index("by_playerIdentityId", ["playerIdentityId"])
+    .index("by_team_and_player", ["teamId", "playerIdentityId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_org_and_status", ["organizationId", "status"]),
+
+  // Skill Benchmarks - NGB standards and expectations
+  skillBenchmarks: defineTable({
+    // References
+    sportCode: v.string(),
+    skillCode: v.string(),
+
+    // Context (what this benchmark applies to)
+    ageGroup: v.string(), // "U8", "U10", "U12", etc.
+    gender: v.union(v.literal("male"), v.literal("female"), v.literal("all")),
+    level: v.union(
+      v.literal("recreational"), // Fun/participation focused
+      v.literal("competitive"), // Club competitive
+      v.literal("development"), // Development pathway
+      v.literal("elite") // High performance
+    ),
+
+    // Benchmark values (1-5 scale)
+    expectedRating: v.number(), // Expected for this age/level
+    minAcceptable: v.number(), // Minimum acceptable
+    developingThreshold: v.number(), // Below this = needs work
+    excellentThreshold: v.number(), // Above this = exceptional
+
+    // Percentile data (if available from NGB)
+    percentile25: v.optional(v.number()),
+    percentile50: v.optional(v.number()),
+    percentile75: v.optional(v.number()),
+    percentile90: v.optional(v.number()),
+
+    // Source attribution
+    source: v.string(), // "FAI", "IRFU", "GAA", "internal"
+    sourceDocument: v.optional(v.string()), // "FAI Player Development Plan 2024"
+    sourceUrl: v.optional(v.string()),
+    sourceYear: v.number(),
+    validFrom: v.optional(v.string()), // ISO date
+    validTo: v.optional(v.string()), // ISO date (null = current)
+
+    // Notes
+    notes: v.optional(v.string()),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_sportCode", ["sportCode"])
+    .index("by_skill", ["sportCode", "skillCode"])
+    .index("by_context", [
+      "sportCode",
+      "skillCode",
+      "ageGroup",
+      "gender",
+      "level",
+    ])
+    .index("by_source", ["source", "sourceYear"]),
+
+  // Player Injuries - platform-level injury tracking (cross-org visible)
+  playerInjuries: defineTable({
+    // Platform-level reference
+    playerIdentityId: v.id("playerIdentities"),
+
+    // Injury details
+    injuryType: v.string(), // "sprain", "strain", "fracture", etc.
+    bodyPart: v.string(), // "ankle", "knee", "shoulder", etc.
+    side: v.optional(
+      v.union(v.literal("left"), v.literal("right"), v.literal("both"))
+    ),
+
+    // Dates
+    dateOccurred: v.string(), // ISO date
+    dateReported: v.string(), // ISO date
+
+    // Severity and status
+    severity: v.union(
+      v.literal("minor"), // 1-7 days
+      v.literal("moderate"), // 1-4 weeks
+      v.literal("severe"), // 4+ weeks
+      v.literal("long_term") // Season-ending or longer
+    ),
+    status: v.union(
+      v.literal("active"), // Currently injured
+      v.literal("recovering"), // In recovery
+      v.literal("cleared"), // Cleared to play
+      v.literal("healed") // Fully healed (historical)
+    ),
+
+    // Description (guardian/player provides)
+    description: v.string(),
+    mechanism: v.optional(v.string()), // How injury occurred
+
+    // Treatment
+    treatment: v.optional(v.string()),
+    medicalProvider: v.optional(v.string()),
+    medicalNotes: v.optional(v.string()), // Private medical notes
+
+    // Return to play
+    expectedReturn: v.optional(v.string()), // ISO date
+    actualReturn: v.optional(v.string()), // ISO date
+    daysOut: v.optional(v.number()),
+    returnToPlayProtocol: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          step: v.number(),
+          description: v.string(),
+          completed: v.boolean(),
+          completedDate: v.optional(v.string()),
+          clearedBy: v.optional(v.string()),
+        })
+      )
+    ),
+
+    // Context (where injury occurred)
+    occurredDuring: v.optional(
+      v.union(
+        v.literal("training"),
+        v.literal("match"),
+        v.literal("other_sport"),
+        v.literal("non_sport"),
+        v.literal("unknown")
+      )
+    ),
+    occurredAtOrgId: v.optional(v.string()), // Which org (if during club activity)
+    sportCode: v.optional(v.string()), // Which sport
+
+    // Visibility control
+    isVisibleToAllOrgs: v.boolean(), // Guardian can restrict visibility
+    restrictedToOrgIds: v.optional(v.array(v.string())), // If not visible to all
+
+    // Reported by
+    reportedBy: v.optional(v.string()), // User ID
+    reportedByRole: v.optional(
+      v.union(
+        v.literal("guardian"),
+        v.literal("player"),
+        v.literal("coach"),
+        v.literal("admin")
+      )
+    ),
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_playerIdentityId", ["playerIdentityId"])
+    .index("by_status", ["playerIdentityId", "status"])
+    .index("by_date", ["playerIdentityId", "dateOccurred"])
+    .index("by_sport", ["sportCode", "dateOccurred"]),
+
+  // Org Injury Notes - organization-specific notes on injuries
+  orgInjuryNotes: defineTable({
+    // References
+    injuryId: v.id("playerInjuries"),
+    organizationId: v.string(),
+
+    // Note content
+    note: v.string(),
+    noteType: v.union(
+      v.literal("observation"), // General observation
+      v.literal("training_restriction"), // What they can/can't do
+      v.literal("progress_update"), // Recovery progress
+      v.literal("clearance"), // Clearance to play
+      v.literal("follow_up") // Follow-up action needed
+    ),
+
+    // Who added the note
+    addedBy: v.string(), // User ID
+    addedByName: v.string(),
+    addedByRole: v.union(
+      v.literal("coach"),
+      v.literal("admin"),
+      v.literal("medical_officer")
+    ),
+
+    // Visibility
+    isPrivate: v.boolean(), // If true, only org admins can see
+
+    // Timestamps
+    createdAt: v.number(),
+  })
+    .index("by_injuryId", ["injuryId"])
+    .index("by_org_and_injury", ["organizationId", "injuryId"])
+    .index("by_date", ["injuryId", "createdAt"]),
+
+  // ============================================================
+  // EXISTING APPLICATION TABLES
+  // ============================================================
+
   // Simple todos (existing)
   todos: defineTable({
     text: v.string(),

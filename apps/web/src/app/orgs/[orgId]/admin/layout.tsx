@@ -2,6 +2,7 @@
 
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import {
+  BarChart3,
   Clipboard,
   GraduationCap,
   Home,
@@ -114,6 +115,11 @@ export default function OrgAdminLayout({
       href: `/orgs/${orgId}/admin/gaa-import` as Route,
       label: "GAA Players",
       icon: Upload,
+    },
+    {
+      href: `/orgs/${orgId}/admin/benchmarks` as Route,
+      label: "Benchmarks",
+      icon: BarChart3,
     },
     {
       href: `/orgs/${orgId}/admin/settings` as Route,

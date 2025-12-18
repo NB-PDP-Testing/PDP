@@ -43,13 +43,32 @@ export default function ManagePlayersPage() {
   const router = useRouter();
   const orgId = params.orgId as string;
 
-  // Get data
-  const players = useQuery(api.models.players.getPlayersByOrganization, {
-    organizationId: orgId,
-  });
+  // Get data from new identity system
+  const enrolledPlayers = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
+    {
+      organizationId: orgId,
+    }
+  );
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
+
+  // Transform to flat player structure for compatibility
+  const players = enrolledPlayers?.map(({ enrollment, player }) => ({
+    _id: player._id, // playerIdentityId
+    name: `${player.firstName} ${player.lastName}`,
+    firstName: player.firstName,
+    lastName: player.lastName,
+    ageGroup: enrollment.ageGroup,
+    gender: player.gender,
+    sport: "Soccer", // TODO: Get from passport or enrollment
+    lastReviewDate: enrollment.lastReviewDate,
+    reviewStatus: enrollment.reviewStatus,
+    dateOfBirth: player.dateOfBirth,
+    enrollmentId: enrollment._id,
+    enrollmentStatus: enrollment.status,
+  }));
 
   // State
   const [searchTerm, setSearchTerm] = useState("");
@@ -64,7 +83,7 @@ export default function ManagePlayersPage() {
   const [sortColumn, setSortColumn] = useState<SortColumn>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  const isLoading = players === undefined || teams === undefined;
+  const isLoading = enrolledPlayers === undefined || teams === undefined;
 
   // Get unique values for filters
   const uniqueAgeGroups = [

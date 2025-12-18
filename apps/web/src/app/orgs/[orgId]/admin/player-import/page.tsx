@@ -41,22 +41,32 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 type ParsedPlayer = {
-  name: string;
+  firstName: string;
+  lastName: string;
   ageGroup: string;
   sport: string;
-  gender: string;
+  gender: "male" | "female" | "other";
   season: string;
   parentFirstName?: string;
-  parentSurname?: string;
+  parentLastName?: string;
   parentEmail?: string;
   parentPhone?: string;
-  dateOfBirth?: string;
+  parentRelationship?:
+    | "mother"
+    | "father"
+    | "guardian"
+    | "grandparent"
+    | "other";
+  dateOfBirth: string;
   address?: string;
   town?: string;
   postcode?: string;
+  country?: string;
   matchedTeamId?: string;
   matchedTeamName?: string;
   rowIndex: number;
+  // Display name for backwards compatibility in UI
+  displayName: string;
 };
 
 type MissingTeam = {
@@ -67,11 +77,11 @@ type MissingTeam = {
   count: number;
 };
 
-const SAMPLE_CSV = `Name,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentSurname,ParentEmail,ParentPhone,DateOfBirth
-John Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567,2013-05-15
-Emma Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,0869876543,2015-08-22
-Liam Murphy,U14,GAA Football,Male,2025,Tom,Murphy,tom.murphy@email.com,0851112223,2011-03-10
-Sophie Brown,U12,Hurling,Female,2025,Anne,Brown,anne.brown@email.com,0857654321,2013-11-05`;
+const SAMPLE_CSV = `FirstName,LastName,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,ParentRelationship,DateOfBirth
+John,Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567,mother,2013-05-15
+Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,0869876543,mother,2015-08-22
+Liam,Murphy,U14,GAA Football,Male,2025,Tom,Murphy,tom.murphy@email.com,0851112223,father,2011-03-10
+Sophie,Brown,U12,Hurling,Female,2025,Anne,Brown,anne.brown@email.com,0857654321,mother,2013-11-05`;
 
 export default function PlayerImportPage() {
   const params = useParams();
@@ -82,8 +92,10 @@ export default function PlayerImportPage() {
     organizationId: orgId,
   });
 
-  // Mutations
-  const createPlayerMutation = useMutation(api.models.players.createPlayer);
+  // Mutations - Use identity-based import for new players
+  const batchImportMutation = useMutation(
+    api.models.playerImport.batchImportPlayersWithIdentity
+  );
   const createTeamMutation = useMutation(api.models.teams.createTeam);
 
   const [csvData, setCsvData] = useState("");
@@ -97,20 +109,65 @@ export default function PlayerImportPage() {
 
   const isLoading = teams === undefined;
 
-  // Parse CSV and normalize gender
-  const normalizeGender = (gender: string): string => {
+  // Parse CSV and normalize gender - returns identity system format
+  const normalizeGender = (gender: string): "male" | "female" | "other" => {
     const normalized = gender.trim().toUpperCase();
-    if (normalized === "MALE" || normalized === "M" || normalized === "BOY") {
-      return "Boys";
+    if (
+      normalized === "MALE" ||
+      normalized === "M" ||
+      normalized === "BOY" ||
+      normalized === "BOYS"
+    ) {
+      return "male";
     }
     if (
       normalized === "FEMALE" ||
       normalized === "F" ||
-      normalized === "GIRL"
+      normalized === "GIRL" ||
+      normalized === "GIRLS"
     ) {
-      return "Girls";
+      return "female";
     }
+    return "other";
+  };
+
+  // Convert gender from identity format to team format for matching
+  const genderToTeamFormat = (
+    gender: "male" | "female" | "other"
+  ): "Boys" | "Girls" | "Mixed" => {
+    if (gender === "male") return "Boys";
+    if (gender === "female") return "Girls";
     return "Mixed";
+  };
+
+  // Parse relationship string to typed value
+  const parseRelationship = (
+    rel?: string
+  ): "mother" | "father" | "guardian" | "grandparent" | "other" | undefined => {
+    if (!rel) return;
+    const normalized = rel.trim().toLowerCase();
+    if (normalized === "mother" || normalized === "mum" || normalized === "mom")
+      return "mother";
+    if (normalized === "father" || normalized === "dad") return "father";
+    if (normalized === "guardian") return "guardian";
+    if (
+      normalized === "grandparent" ||
+      normalized === "grandmother" ||
+      normalized === "grandfather"
+    )
+      return "grandparent";
+    return "other";
+  };
+
+  // Split a name into first and last name
+  const splitName = (name: string): { firstName: string; lastName: string } => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) {
+      return { firstName: parts[0], lastName: "" };
+    }
+    const firstName = parts[0];
+    const lastName = parts.slice(1).join(" ");
+    return { firstName, lastName };
   };
 
   const parseCsvLine = (line: string): string[] => {
@@ -149,25 +206,55 @@ export default function PlayerImportPage() {
         row[header] = values[index] || "";
       }
 
-      // Skip rows with missing required fields
-      if (!(row.Name && row.AgeGroup && row.Sport && row.Gender)) {
+      // Support both new format (FirstName, LastName) and legacy format (Name)
+      let firstName: string;
+      let lastName: string;
+
+      if (row.FirstName && row.LastName) {
+        firstName = row.FirstName.trim();
+        lastName = row.LastName.trim();
+      } else if (row.Name) {
+        const nameParts = splitName(row.Name);
+        firstName = nameParts.firstName;
+        lastName = nameParts.lastName;
+      } else {
+        // Skip rows without name
         continue;
       }
 
+      // Skip rows with missing required fields
+      if (
+        !(
+          firstName &&
+          row.AgeGroup &&
+          row.Sport &&
+          row.Gender &&
+          row.DateOfBirth
+        )
+      ) {
+        continue;
+      }
+
+      const gender = normalizeGender(row.Gender);
+
       players.push({
-        name: row.Name,
+        firstName,
+        lastName,
+        displayName: `${firstName} ${lastName}`.trim(),
         ageGroup: row.AgeGroup,
         sport: row.Sport,
-        gender: normalizeGender(row.Gender),
+        gender,
         season: row.Season || new Date().getFullYear().toString(),
         parentFirstName: row.ParentFirstName,
-        parentSurname: row.ParentSurname,
+        parentLastName: row.ParentLastName || row.ParentSurname, // Support both
         parentEmail: row.ParentEmail,
         parentPhone: row.ParentPhone,
+        parentRelationship: parseRelationship(row.ParentRelationship),
         dateOfBirth: row.DateOfBirth,
         address: row.Address,
         town: row.Town,
         postcode: row.Postcode,
+        country: row.Country,
         rowIndex: players.length,
       });
     }
@@ -188,11 +275,13 @@ export default function PlayerImportPage() {
     }>
   ): ParsedPlayer[] =>
     players.map((player) => {
+      // Convert player gender to team format for matching
+      const teamGender = genderToTeamFormat(player.gender);
       const matchedTeam = allTeams.find(
         (team) =>
           team.sport === player.sport &&
           team.ageGroup === player.ageGroup &&
-          team.gender === player.gender &&
+          team.gender === teamGender &&
           team.season === player.season
       );
 
@@ -264,9 +353,9 @@ export default function PlayerImportPage() {
   };
 
   const downloadTemplate = () => {
-    const template = `Name,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentSurname,ParentEmail,ParentPhone,DateOfBirth,Address,Town,Postcode
-John Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567,2013-05-15,123 Main St,Dublin,D01 X123
-Emma Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,0869876543,2015-08-22,456 Park Ave,Cork,T12 Y456`;
+    const template = `FirstName,LastName,AgeGroup,Sport,Gender,Season,ParentFirstName,ParentLastName,ParentEmail,ParentPhone,ParentRelationship,DateOfBirth,Address,Town,Postcode,Country
+John,Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567,mother,2013-05-15,123 Main St,Dublin,D01 X123,Ireland
+Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,0869876543,mother,2015-08-22,456 Park Ave,Cork,T12 Y456,Ireland`;
 
     const blob = new Blob([template], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -332,50 +421,76 @@ Emma Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
     setImporting(true);
     setImportProgress({ current: 0, total: playersToImport.length });
 
-    let successCount = 0;
-    let failedCount = 0;
+    try {
+      // Format players for the identity-based batch import
+      const formattedPlayers = playersToImport.map((player) => ({
+        firstName: player.firstName,
+        lastName: player.lastName,
+        dateOfBirth: player.dateOfBirth,
+        gender: player.gender,
+        ageGroup: player.ageGroup,
+        season: player.season,
+        address: player.address,
+        town: player.town,
+        postcode: player.postcode,
+        country: player.country,
+        parentFirstName: player.parentFirstName,
+        parentLastName: player.parentLastName,
+        parentEmail: player.parentEmail,
+        parentPhone: player.parentPhone,
+        parentRelationship: player.parentRelationship,
+      }));
 
-    for (const [index, playerData] of playersToImport.entries()) {
-      if (!playerData.matchedTeamId) {
-        continue;
+      // Use batch import for better efficiency
+      const result = await batchImportMutation({
+        organizationId: orgId,
+        players: formattedPlayers,
+      });
+
+      setImportProgress({
+        current: result.totalProcessed,
+        total: playersToImport.length,
+      });
+
+      // Build result message
+      const parts: string[] = [];
+      parts.push(`${result.totalProcessed} processed`);
+      if (result.playersCreated > 0) {
+        parts.push(`${result.playersCreated} new players`);
+      }
+      if (result.playersReused > 0) {
+        parts.push(`${result.playersReused} existing players`);
+      }
+      if (result.guardiansCreated > 0) {
+        parts.push(`${result.guardiansCreated} new guardians`);
+      }
+      if (result.enrollmentsCreated > 0) {
+        parts.push(`${result.enrollmentsCreated} new enrollments`);
+      }
+      if (result.errors.length > 0) {
+        parts.push(`${result.errors.length} errors`);
       }
 
-      try {
-        await createPlayerMutation({
-          name: playerData.name,
-          ageGroup: playerData.ageGroup,
-          sport: playerData.sport,
-          gender: playerData.gender,
-          // teamId: playerData.matchedTeamId,
-          organizationId: orgId,
-          season: playerData.season,
-          dateOfBirth: playerData.dateOfBirth,
-          address: playerData.address,
-          town: playerData.town,
-          postcode: playerData.postcode,
-          parentFirstName: playerData.parentFirstName,
-          parentSurname: playerData.parentSurname,
-          parentEmail: playerData.parentEmail,
-          parentPhone: playerData.parentPhone,
-        });
-        successCount += 1;
-      } catch (error) {
-        console.error("Failed to import player:", playerData.name, error);
-        failedCount += 1;
+      toast.success(`Import complete: ${parts.join(", ")}`);
+
+      // Log any errors
+      if (result.errors.length > 0) {
+        console.error("Import errors:", result.errors);
       }
-      setImportProgress({ current: index + 1, total: playersToImport.length });
+
+      // Clear data after successful import
+      if (result.totalProcessed > 0) {
+        setCsvData("");
+        setParsedPlayers([]);
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to import players";
+      console.error("Import error:", error);
+      toast.error(errorMessage);
     }
 
     setImporting(false);
-    toast.success(
-      `Import complete: ${successCount} players imported${failedCount > 0 ? `, ${failedCount} failed` : ""}`
-    );
-
-    // Clear data after successful import
-    if (successCount > 0) {
-      setCsvData("");
-      setParsedPlayers([]);
-    }
   };
 
   // Re-match when teams update (but not when parsedPlayers change to avoid infinite loop)
@@ -553,14 +668,16 @@ John Smith,U12,GAA Football,Male,2025,Mary,Smith,mary.smith@email.com,0871234567
                       className={
                         player.matchedTeamId ? undefined : "bg-red-500/30"
                       }
-                      key={`${player.name}-${player.ageGroup}-${player.rowIndex}`}
+                      key={`${player.displayName}-${player.ageGroup}-${player.rowIndex}`}
                     >
                       <TableCell className="font-medium">
-                        {player.name}
+                        {player.displayName}
                       </TableCell>
                       <TableCell>{player.ageGroup}</TableCell>
                       <TableCell>{player.sport}</TableCell>
-                      <TableCell>{player.gender}</TableCell>
+                      <TableCell className="capitalize">
+                        {player.gender}
+                      </TableCell>
                       <TableCell>{player.season}</TableCell>
                       <TableCell>
                         {player.matchedTeamId ? (

@@ -51,6 +51,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
+import { SportsManagement } from "./sports-management";
 
 // Platform Staff User type
 interface PlatformUser {
@@ -1097,6 +1098,9 @@ export default function OrganizationsPage() {
                 onToggleStaff={handleTogglePlatformStaff}
               />
             )}
+
+            {/* Sports & Skills Management - Only visible to platform staff */}
+            {user?.isPlatformStaff && <SportsManagement />}
           </div>
         </div>
       </Authenticated>

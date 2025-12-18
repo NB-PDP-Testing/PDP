@@ -23,6 +23,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 
 function ParentDashboardContent() {
@@ -40,8 +41,16 @@ function ParentDashboardContent() {
       : "skip"
   );
 
-  // Get players linked to this parent by email
-  const linkedPlayers = useQuery(
+  // NEW: Get children from guardian identity system
+  const {
+    guardianIdentity,
+    children: identityChildren,
+    isLoading: identityLoading,
+    hasIdentity,
+  } = useGuardianChildrenInOrg(orgId);
+
+  // LEGACY: Fall back to old email-based lookup for backward compatibility
+  const legacyLinkedPlayers = useQuery(
     api.models.players.getPlayersForParent,
     session?.user?.email
       ? { organizationId: orgId, parentEmail: session.user.email }
@@ -59,7 +68,11 @@ function ParentDashboardContent() {
     );
   }, [roleDetails]);
 
-  const playerCount = linkedPlayers?.length ?? 0;
+  // Use identity-based children if available, otherwise fall back to legacy
+  const useIdentitySystem = hasIdentity && identityChildren.length > 0;
+  const playerCount = useIdentitySystem
+    ? identityChildren.length
+    : (legacyLinkedPlayers?.length ?? 0);
 
   // Show loading state while checking roles
   if (roleDetails === undefined) {
@@ -188,8 +201,8 @@ function ParentDashboardContent() {
         </Card>
       </div>
 
-      {/* Linked Children Section */}
-      {playerCount > 0 && (
+      {/* Linked Children Section - Identity System */}
+      {useIdentitySystem && playerCount > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Your Children</CardTitle>
@@ -199,7 +212,47 @@ function ParentDashboardContent() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {linkedPlayers?.map((player: any) => (
+              {identityChildren.map(
+                (child: (typeof identityChildren)[number]) => (
+                  <Link
+                    className="group flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-accent"
+                    href={`/orgs/${orgId}/players/${child.player._id}`}
+                    key={child.player._id}
+                  >
+                    <div>
+                      <div className="font-medium">
+                        {child.player.firstName} {child.player.lastName}
+                      </div>
+                      <div className="flex gap-2 text-muted-foreground text-sm">
+                        {child.enrollment && (
+                          <>
+                            <span>{child.enrollment.ageGroup}</span>
+                            <span>• {child.enrollment.status}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                  </Link>
+                )
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Linked Children Section - Legacy System (fallback) */}
+      {!useIdentitySystem && playerCount > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Children</CardTitle>
+            <CardDescription>
+              Click on a child to view their player passport
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {legacyLinkedPlayers?.map((player: any) => (
                 <Link
                   className="group flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-accent"
                   href={`/orgs/${orgId}/players/${player._id}`}

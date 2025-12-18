@@ -71,6 +71,7 @@ interface SmartCoachDashboardProps {
   onEditPlayer?: (player: any) => void;
   onClearTeamSelection?: () => void;
   onViewVoiceNotes?: () => void;
+  onViewInjuries?: () => void;
   selectedTeam?: string | null;
   isClubView?: boolean;
   // Search and filter props
@@ -101,6 +102,7 @@ export function SmartCoachDashboard({
   onEditPlayer,
   onClearTeamSelection,
   onViewVoiceNotes,
+  onViewInjuries,
   selectedTeam,
   isClubView = false,
   // Search and filter props
@@ -976,6 +978,15 @@ export function SmartCoachDashboard({
             >
               <Mic className="flex-shrink-0" size={16} />
               <span className="truncate">Voice Notes</span>
+            </Button>
+          )}
+          {onViewInjuries && (
+            <Button
+              className="flex items-center justify-center gap-2 bg-red-600 py-3 font-medium text-sm transition-colors hover:bg-red-700"
+              onClick={onViewInjuries}
+            >
+              <AlertCircle className="flex-shrink-0" size={16} />
+              <span className="truncate">Injury Tracking</span>
             </Button>
           )}
         </CardContent>

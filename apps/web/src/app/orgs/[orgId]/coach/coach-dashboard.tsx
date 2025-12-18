@@ -485,6 +485,11 @@ export function CoachDashboard() {
     router.push(`/orgs/${orgId}/coach/voice-notes`);
   };
 
+  const handleViewInjuries = () => {
+    // Navigate to injury tracking page
+    router.push(`/orgs/${orgId}/coach/injuries`);
+  };
+
   return (
     <div className="space-y-6">
       <SmartCoachDashboard
@@ -503,6 +508,7 @@ export function CoachDashboard() {
         onSportFilterChange={setSportFilter}
         onTeamFilterChange={setTeamFilter}
         onViewAnalytics={handleViewAnalytics}
+        onViewInjuries={handleViewInjuries}
         onViewPlayer={handleViewPlayer}
         onViewTeam={handleViewTeam}
         onViewVoiceNotes={handleViewVoiceNotes}

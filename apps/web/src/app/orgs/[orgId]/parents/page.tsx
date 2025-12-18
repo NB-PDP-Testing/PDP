@@ -1,12 +1,16 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import {
   AlertCircle,
+  AlertTriangle,
   Calendar,
   ChevronRight,
   FileText,
+  Heart,
+  Target,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -25,6 +29,25 @@ import {
 } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
+
+// Severity config for injuries
+const SEVERITY_CONFIG: Record<
+  string,
+  { label: string; color: string; bgColor: string }
+> = {
+  minor: { label: "Minor", color: "text-yellow-700", bgColor: "bg-yellow-100" },
+  moderate: {
+    label: "Moderate",
+    color: "text-orange-700",
+    bgColor: "bg-orange-100",
+  },
+  severe: { label: "Severe", color: "text-red-700", bgColor: "bg-red-100" },
+  long_term: {
+    label: "Long Term",
+    color: "text-purple-700",
+    bgColor: "bg-purple-100",
+  },
+};
 
 function ParentDashboardContent() {
   const params = useParams();
@@ -67,6 +90,50 @@ function ParentDashboardContent() {
       roleDetails.betterAuthRole === "admin"
     );
   }, [roleDetails]);
+
+  // Get the first child's player identity ID for queries
+  const firstChildId = useMemo(() => {
+    if (identityChildren.length > 0) {
+      return identityChildren[0].player._id as Id<"playerIdentities">;
+    }
+    return null;
+  }, [identityChildren]);
+
+  // Get all children's IDs for aggregated queries
+  const allChildrenIds = useMemo(
+    () =>
+      identityChildren.map(
+        (child) => child.player._id as Id<"playerIdentities">
+      ),
+    [identityChildren]
+  );
+
+  // Query injuries for all children
+  const childrenInjuries = useQuery(
+    api.models.playerInjuries.getInjuriesForPlayer,
+    firstChildId ? { playerIdentityId: firstChildId } : "skip"
+  );
+
+  // Get active injuries (not healed/cleared) for display
+  const activeInjuries = useMemo(() => {
+    if (!childrenInjuries) return [];
+    return childrenInjuries.filter(
+      (injury: any) =>
+        injury.status === "active" || injury.status === "recovering"
+    );
+  }, [childrenInjuries]);
+
+  // Query goals for first child (we'll show a summary)
+  const childGoals = useQuery(
+    api.models.passportGoals.getGoalsForPlayer,
+    firstChildId ? { playerIdentityId: firstChildId } : "skip"
+  );
+
+  // Get visible goals for parents
+  const visibleGoals = useMemo(() => {
+    if (!childGoals) return [];
+    return childGoals.filter((goal: any) => goal.isVisibleToParent !== false);
+  }, [childGoals]);
 
   // Use identity-based children if available, otherwise fall back to legacy
   const useIdentitySystem = hasIdentity && identityChildren.length > 0;
@@ -200,6 +267,140 @@ function ParentDashboardContent() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Active Injuries Alert */}
+      {activeInjuries.length > 0 && (
+        <Card className="border-red-200 bg-red-50/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="h-5 w-5" />
+              Active Injuries ({activeInjuries.length})
+            </CardTitle>
+            <CardDescription>
+              Current injuries that require attention
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {activeInjuries.map((injury: any) => (
+                <div
+                  className="flex items-center justify-between rounded-lg border border-red-200 bg-white p-3"
+                  key={injury._id}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                      <Heart className="h-5 w-5 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium">
+                        {injury.bodyPart}
+                        {injury.side && ` (${injury.side})`} -{" "}
+                        {injury.injuryType}
+                      </p>
+                      <p className="text-muted-foreground text-sm">
+                        {injury.description}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        Occurred: {injury.dateOccurred}
+                        {injury.expectedReturn &&
+                          ` | Expected return: ${injury.expectedReturn}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge
+                      className={`${SEVERITY_CONFIG[injury.severity]?.bgColor || "bg-gray-100"} ${SEVERITY_CONFIG[injury.severity]?.color || "text-gray-700"}`}
+                    >
+                      {SEVERITY_CONFIG[injury.severity]?.label ||
+                        injury.severity}
+                    </Badge>
+                    <Badge
+                      variant={
+                        injury.status === "active" ? "destructive" : "secondary"
+                      }
+                    >
+                      {injury.status === "active" ? "Active" : "Recovering"}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Development Goals */}
+      {visibleGoals.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Development Goals
+            </CardTitle>
+            <CardDescription>
+              Current goals and progress for your child
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {visibleGoals.slice(0, 5).map((goal: any) => (
+                <div className="rounded-lg border p-4" key={goal._id}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="font-medium">{goal.title}</p>
+                      {goal.description && (
+                        <p className="mt-1 text-muted-foreground text-sm">
+                          {goal.description}
+                        </p>
+                      )}
+                      <div className="mt-2 flex items-center gap-2">
+                        <Badge variant="outline">{goal.category}</Badge>
+                        <Badge
+                          variant={
+                            goal.status === "completed"
+                              ? "default"
+                              : goal.status === "in_progress"
+                                ? "secondary"
+                                : "outline"
+                          }
+                        >
+                          {goal.status === "in_progress"
+                            ? "In Progress"
+                            : goal.status === "completed"
+                              ? "Completed"
+                              : goal.status === "not_started"
+                                ? "Not Started"
+                                : goal.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    {goal.progressPercentage !== undefined && (
+                      <div className="ml-4 text-right">
+                        <div className="font-bold text-2xl text-primary">
+                          {goal.progressPercentage}%
+                        </div>
+                        <p className="text-muted-foreground text-xs">
+                          Progress
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {goal.targetDate && (
+                    <p className="mt-2 text-muted-foreground text-xs">
+                      Target: {goal.targetDate}
+                    </p>
+                  )}
+                </div>
+              ))}
+              {visibleGoals.length > 5 && (
+                <p className="text-center text-muted-foreground text-sm">
+                  And {visibleGoals.length - 5} more goals...
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Linked Children Section - Identity System */}
       {useIdentitySystem && playerCount > 0 && (

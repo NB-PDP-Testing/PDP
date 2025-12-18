@@ -173,6 +173,67 @@ export const getActiveInjuriesForOrg = query({
 });
 
 /**
+ * Get all active injuries across all players in an organization
+ * Returns injuries with player details for dashboard display
+ */
+export const getAllActiveInjuriesForOrg = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    // Get all enrolled players in this org
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    const activeEnrollments = enrollments.filter((e) => e.status === "active");
+    const results = [];
+
+    for (const enrollment of activeEnrollments) {
+      const injuries = await ctx.db
+        .query("playerInjuries")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", enrollment.playerIdentityId)
+        )
+        .collect();
+
+      // Filter to active/recovering injuries visible to this org
+      const activeInjuries = injuries.filter((injury) => {
+        if (injury.status === "healed" || injury.status === "cleared")
+          return false;
+        if (injury.isVisibleToAllOrgs) return true;
+        if (injury.restrictedToOrgIds?.includes(args.organizationId))
+          return true;
+        if (injury.occurredAtOrgId === args.organizationId) return true;
+        return false;
+      });
+
+      if (activeInjuries.length > 0) {
+        const player = await ctx.db.get(enrollment.playerIdentityId);
+        for (const injury of activeInjuries) {
+          results.push({
+            ...injury,
+            player: player
+              ? {
+                  _id: player._id,
+                  firstName: player.firstName,
+                  lastName: player.lastName,
+                }
+              : null,
+          });
+        }
+      }
+    }
+
+    return results;
+  },
+});
+
+/**
  * Get injury history for a specific body part
  */
 export const getInjuryHistoryByBodyPart = query({

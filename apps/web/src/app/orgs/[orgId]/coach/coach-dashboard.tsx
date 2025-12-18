@@ -43,10 +43,33 @@ export function CoachDashboard() {
     organizationId: orgId,
   });
 
-  // Get all players for the organization
-  const allPlayers = useQuery(api.models.players.getPlayersByOrganization, {
-    organizationId: orgId,
-  });
+  // NEW: Get all players from identity system
+  const enrolledPlayersData = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
+    {
+      organizationId: orgId,
+    }
+  );
+
+  // Transform identity-based players to legacy format for compatibility
+  const allPlayers = useMemo(() => {
+    if (!enrolledPlayersData) return;
+    return enrolledPlayersData.map(({ enrollment, player }: any) => ({
+      _id: player._id, // playerIdentityId for navigation
+      name: `${player.firstName} ${player.lastName}`,
+      firstName: player.firstName,
+      lastName: player.lastName,
+      ageGroup: enrollment.ageGroup,
+      gender: player.gender,
+      sport: "Soccer", // TODO: Get from passport
+      dateOfBirth: player.dateOfBirth,
+      lastReviewDate: enrollment.lastReviewDate,
+      reviewStatus: enrollment.reviewStatus,
+      coachNotes: enrollment.coachNotes,
+      enrollmentId: enrollment._id,
+      enrollmentStatus: enrollment.status,
+    }));
+  }, [enrolledPlayersData]);
 
   // Get team-player links to map players to teams
   const teamPlayerLinks = useQuery(api.models.teams.getTeamPlayerLinks, {

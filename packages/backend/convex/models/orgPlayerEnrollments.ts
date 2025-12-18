@@ -195,7 +195,22 @@ export const getPlayersForOrg = query({
     for (const enrollment of enrollments) {
       const player = await ctx.db.get(enrollment.playerIdentityId);
       if (player) {
-        results.push({ enrollment, player });
+        // Get primary sport passport for this player (first active one)
+        const passports = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", enrollment.playerIdentityId)
+          )
+          .collect();
+
+        const activePassport = passports.find((p) => p.status === "active");
+        const sportCode = activePassport?.sportCode;
+
+        results.push({
+          enrollment,
+          player,
+          sportCode,
+        });
       }
     }
 

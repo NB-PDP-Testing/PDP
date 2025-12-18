@@ -54,27 +54,33 @@ export function CoachDashboard() {
   // Transform identity-based players to legacy format for compatibility
   const allPlayers = useMemo(() => {
     if (!enrolledPlayersData) return;
-    return enrolledPlayersData.map(({ enrollment, player }: any) => ({
-      _id: player._id, // playerIdentityId for navigation
-      name: `${player.firstName} ${player.lastName}`,
-      firstName: player.firstName,
-      lastName: player.lastName,
-      ageGroup: enrollment.ageGroup,
-      gender: player.gender,
-      sport: "Soccer", // TODO: Get from passport
-      dateOfBirth: player.dateOfBirth,
-      lastReviewDate: enrollment.lastReviewDate,
-      reviewStatus: enrollment.reviewStatus,
-      coachNotes: enrollment.coachNotes,
-      enrollmentId: enrollment._id,
-      enrollmentStatus: enrollment.status,
-    }));
+    return enrolledPlayersData.map(
+      ({ enrollment, player, sportCode }: any) => ({
+        _id: player._id, // playerIdentityId for navigation
+        name: `${player.firstName} ${player.lastName}`,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        ageGroup: enrollment.ageGroup,
+        gender: player.gender,
+        sport: sportCode || "Not assigned", // From sport passport
+        dateOfBirth: player.dateOfBirth,
+        lastReviewDate: enrollment.lastReviewDate,
+        reviewStatus: enrollment.reviewStatus,
+        coachNotes: enrollment.coachNotes,
+        enrollmentId: enrollment._id,
+        enrollmentStatus: enrollment.status,
+      })
+    );
   }, [enrolledPlayersData]);
 
-  // Get team-player links to map players to teams
-  const teamPlayerLinks = useQuery(api.models.teams.getTeamPlayerLinks, {
-    organizationId: orgId,
-  });
+  // Get team-player links from new identity system
+  const teamPlayerLinks = useQuery(
+    api.models.teamPlayerIdentities.getTeamMembersForOrg,
+    {
+      organizationId: orgId,
+      status: "active",
+    }
+  );
 
   // Get coach's assigned team IDs (convert names to IDs if needed)
   const coachTeamIds = useMemo(() => {
@@ -111,10 +117,13 @@ export function CoachDashboard() {
   }, [teamPlayerLinks, coachTeamIds]);
 
   // Get unique player IDs from coach's team links
+  // Note: new identity system uses playerIdentityId instead of playerId
   const coachPlayerIds = useMemo(
     () =>
       new Set(
-        coachTeamPlayerLinks.map((link: any) => link.playerId.toString())
+        coachTeamPlayerLinks.map((link: any) =>
+          link.playerIdentityId.toString()
+        )
       ),
     [coachTeamPlayerLinks]
   );
@@ -144,8 +153,10 @@ export function CoachDashboard() {
 
     const mapped = coachPlayers.map((player) => {
       // Find team links for this player (only from coach's assigned teams)
+      // Note: new identity system uses playerIdentityId instead of playerId
       const links = coachTeamPlayerLinks.filter(
-        (link: any) => link.playerId.toString() === player._id.toString()
+        (link: any) =>
+          link.playerIdentityId.toString() === player._id.toString()
       );
 
       // Get team names from links

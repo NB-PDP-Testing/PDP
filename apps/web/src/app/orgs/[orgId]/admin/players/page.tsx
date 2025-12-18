@@ -55,20 +55,22 @@ export default function ManagePlayersPage() {
   });
 
   // Transform to flat player structure for compatibility
-  const players = enrolledPlayers?.map(({ enrollment, player }) => ({
-    _id: player._id, // playerIdentityId
-    name: `${player.firstName} ${player.lastName}`,
-    firstName: player.firstName,
-    lastName: player.lastName,
-    ageGroup: enrollment.ageGroup,
-    gender: player.gender,
-    sport: "Soccer", // TODO: Get from passport or enrollment
-    lastReviewDate: enrollment.lastReviewDate,
-    reviewStatus: enrollment.reviewStatus,
-    dateOfBirth: player.dateOfBirth,
-    enrollmentId: enrollment._id,
-    enrollmentStatus: enrollment.status,
-  }));
+  const players = enrolledPlayers?.map(
+    ({ enrollment, player, sportCode }: any) => ({
+      _id: player._id, // playerIdentityId
+      name: `${player.firstName} ${player.lastName}`,
+      firstName: player.firstName,
+      lastName: player.lastName,
+      ageGroup: enrollment.ageGroup,
+      gender: player.gender,
+      sport: sportCode || "Not assigned", // From sport passport
+      lastReviewDate: enrollment.lastReviewDate,
+      reviewStatus: enrollment.reviewStatus,
+      dateOfBirth: player.dateOfBirth,
+      enrollmentId: enrollment._id,
+      enrollmentStatus: enrollment.status,
+    })
+  );
 
   // State
   const [searchTerm, setSearchTerm] = useState("");

@@ -2,6 +2,17 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
+
+// Type for organization from better-auth
+interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  logo?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: Date;
+}
+
 import {
   Building2,
   Check,
@@ -49,6 +60,15 @@ import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 type FunctionalRole = "coach" | "parent" | "admin";
+
+interface OrgRoleItem {
+  org: Organization;
+  // biome-ignore lint/suspicious/noExplicitAny: Membership type is complex
+  membership: any;
+  roles: FunctionalRole[];
+  activeRole: FunctionalRole | null;
+  pendingRequests: Array<{ role: FunctionalRole; requestedAt: string }>;
+}
 
 function getRoleIcon(role: FunctionalRole) {
   switch (role) {
@@ -134,7 +154,9 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   );
 
   // Find current org and membership
-  const currentOrg = organizations?.find((org) => org.id === urlOrgId);
+  const currentOrg = organizations?.find(
+    (org: Organization) => org.id === urlOrgId
+  );
   const currentMembership = allMemberships?.find(
     (m) => m.organizationId === urlOrgId
   );
@@ -257,7 +279,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   };
 
   // Check if any org has roles available to request
-  const hasAnyRolesToRequest = organizations?.some((org) =>
+  const hasAnyRolesToRequest = organizations?.some((org: Organization) =>
     getAvailableRolesToRequest(org.id).some((r) => !r.isPending)
   );
 
@@ -280,7 +302,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   }
 
   // Build org-role structure for display
-  const orgRoleStructure = organizations.map((org) => {
+  const orgRoleStructure = organizations.map((org: Organization) => {
     const membership = allMemberships?.find((m) => m.organizationId === org.id);
     return {
       org,
@@ -354,7 +376,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
             <CommandList>
               <CommandEmpty>No organization found.</CommandEmpty>
               {orgRoleStructure.map(
-                ({ org, roles, activeRole, pendingRequests }) => (
+                ({ org, roles, activeRole, pendingRequests }: OrgRoleItem) => (
                   <CommandGroup
                     heading={
                       <div className="flex items-center gap-2">
@@ -503,7 +525,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
                   <SelectValue placeholder="Select organization" />
                 </SelectTrigger>
                 <SelectContent>
-                  {organizations?.map((org) => (
+                  {organizations?.map((org: Organization) => (
                     <SelectItem key={org.id} value={org.id}>
                       <div className="flex items-center gap-2">
                         {org.logo ? (

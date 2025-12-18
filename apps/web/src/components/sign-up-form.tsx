@@ -34,7 +34,9 @@ export default function SignUpForm({ redirect }: { redirect?: string | null }) {
               "🎉 Welcome to PDP! Your account is ready. Let's build something great."
             );
           },
-          onError: (error) => {
+          onError: (error: {
+            error: { message?: string; statusText?: string };
+          }) => {
             toast.error(
               error.error.message ||
                 error.error.statusText ||

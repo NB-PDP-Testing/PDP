@@ -2,6 +2,17 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+
+// Type for organization from better-auth
+interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  logo?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: Date;
+}
+
 import {
   Authenticated,
   AuthLoading,
@@ -642,7 +653,7 @@ export default function OrganizationsPage() {
                 </div>
               ) : organizations && organizations.length > 0 ? (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {organizations.map((org) => (
+                  {organizations.map((org: Organization) => (
                     <Card
                       className="group transition-all hover:shadow-lg"
                       key={org.id}
@@ -798,7 +809,7 @@ export default function OrganizationsPage() {
                     {allOrganizations.map((org) => {
                       // Check if current user is a member
                       const isMember = organizations?.some(
-                        (userOrg) => userOrg.id === org._id
+                        (userOrg: Organization) => userOrg.id === org._id
                       );
                       return (
                         <Card

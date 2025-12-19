@@ -15,6 +15,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { ReviewStatus, Team } from "@/lib/types";
 
@@ -222,6 +223,10 @@ const GAAMembershipWizard = ({
     skipped?: number;
     replaced?: number;
     teamsCreated?: number;
+    guardiansCreated?: number;
+    guardiansReused?: number;
+    guardiansLinkedToVerifiedAccounts?: number;
+    guardiansAwaitingClaim?: number;
   } | null>(null);
   const [duplicates, setDuplicates] = useState<
     Array<{ index: number; member: any; existingPlayer: IdentityPlayer }>
@@ -739,10 +744,6 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
 
         // For youth members, try to match with parent records
         if (isYouth) {
-          // Map contact fields for youth
-          row.ParentEmail = row.Email || "";
-          row.ParentPhone = row.Phone || "";
-
           // Try to find matching parent record
           let parentRecord = null;
           const childAddressKey =
@@ -785,12 +786,17 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
             parentRecord = parentsByAddress.get(childAddressKey);
           }
 
-          // If we found a parent record, use their name
+          // If we found a parent record, use their contact info
           if (parentRecord) {
             row.ParentFirstName = parentRecord.FirstName || "";
             row.ParentSurname = parentRecord.Surname || "";
+            // ✅ FIX: Use PARENT's email and phone, not child's
+            row.ParentEmail = parentRecord.Email || "";
+            row.ParentPhone = parentRecord.Phone || "";
           } else {
-            // Fallback: infer surname from child's surname
+            // Fallback: use child's contact info and infer surname from child
+            row.ParentEmail = row.Email || "";
+            row.ParentPhone = row.Phone || "";
             row.ParentSurname = row.Surname || "";
           }
         } else {
@@ -1471,6 +1477,11 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
         skipped,
         replaced: importResult.playersReused,
         teamsCreated: playersByTeam.size,
+        guardiansCreated: importResult.guardiansCreated,
+        guardiansReused: importResult.guardiansReused,
+        guardiansLinkedToVerifiedAccounts:
+          importResult.guardiansLinkedToVerifiedAccounts,
+        guardiansAwaitingClaim: importResult.guardiansAwaitingClaim,
       });
     } catch (error) {
       console.error("❌ Identity import failed:", error);
@@ -2697,26 +2708,67 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
                   Import Complete!
                 </h3>
                 <p className="mb-6 text-center text-gray-600">
-                  Player passports have been successfully created
+                  Player identities and guardian links have been successfully
+                  created
                 </p>
 
-                <div
-                  className={`mb-6 grid w-full max-w-md grid-cols-1 gap-4 sm:grid-cols-2 ${results.skipped || results.replaced ? "sm:grid-cols-2 md:grid-cols-4" : ""}`}
-                >
+                <div className="mb-6 grid w-full max-w-4xl grid-cols-2 gap-4 md:grid-cols-3">
+                  {/* Players Created */}
                   <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center">
                     <p className="mb-1 text-gray-600 text-sm">
-                      Passports Created
+                      Players Created
                     </p>
                     <p className="font-bold text-3xl text-green-700">
                       {results.created}
                     </p>
                   </div>
+
+                  {/* Families */}
                   <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-center">
                     <p className="mb-1 text-gray-600 text-sm">Families</p>
                     <p className="font-bold text-3xl text-blue-700">
                       {results.families}
                     </p>
                   </div>
+
+                  {/* Guardians Linked */}
+                  <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 text-center">
+                    <p className="mb-1 text-gray-600 text-sm">
+                      Guardians Linked
+                    </p>
+                    <p className="font-bold text-3xl text-purple-700">
+                      {(results.guardiansCreated || 0) +
+                        (results.guardiansReused || 0)}
+                    </p>
+                  </div>
+
+                  {/* Verified Accounts */}
+                  {results.guardiansLinkedToVerifiedAccounts !== undefined &&
+                  results.guardiansLinkedToVerifiedAccounts > 0 ? (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-center">
+                      <p className="mb-1 text-gray-600 text-sm">
+                        Verified Accounts
+                      </p>
+                      <p className="font-bold text-3xl text-emerald-700">
+                        {results.guardiansLinkedToVerifiedAccounts}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {/* Awaiting Claim */}
+                  {results.guardiansAwaitingClaim !== undefined &&
+                  results.guardiansAwaitingClaim > 0 ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center">
+                      <p className="mb-1 text-gray-600 text-sm">
+                        Awaiting Claim
+                      </p>
+                      <p className="font-bold text-3xl text-amber-700">
+                        {results.guardiansAwaitingClaim}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {/* Replaced */}
                   {results.replaced && results.replaced > 0 ? (
                     <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 text-center">
                       <p className="mb-1 text-gray-600 text-sm">Replaced</p>
@@ -2725,6 +2777,8 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
                       </p>
                     </div>
                   ) : null}
+
+                  {/* Skipped */}
                   {results.skipped && results.skipped > 0 ? (
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center">
                       <p className="mb-1 text-gray-600 text-sm">Skipped</p>
@@ -2735,12 +2789,12 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
                   ) : null}
                 </div>
 
-                <button
+                <Link
                   className="rounded-lg bg-green-600 px-8 py-3 font-medium text-white transition-colors hover:bg-green-700"
-                  onClick={onClose}
+                  href={`/orgs/${organizationId}/admin`}
                 >
                   View Dashboard
-                </button>
+                </Link>
               </div>
             </>
           )}

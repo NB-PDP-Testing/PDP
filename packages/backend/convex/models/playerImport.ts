@@ -551,6 +551,8 @@ export const batchImportPlayersWithIdentity = mutation({
     playersReused: v.number(),
     guardiansCreated: v.number(),
     guardiansReused: v.number(),
+    guardiansLinkedToVerifiedAccounts: v.number(), // Guardians with userId set
+    guardiansAwaitingClaim: v.number(), // Guardians without userId (holding accounts)
     enrollmentsCreated: v.number(),
     enrollmentsReused: v.number(),
     errors: v.array(v.string()),
@@ -570,6 +572,8 @@ export const batchImportPlayersWithIdentity = mutation({
       playersReused: 0,
       guardiansCreated: 0,
       guardiansReused: 0,
+      guardiansLinkedToVerifiedAccounts: 0,
+      guardiansAwaitingClaim: 0,
       enrollmentsCreated: 0,
       enrollmentsReused: 0,
       errors: [] as string[],
@@ -579,6 +583,9 @@ export const batchImportPlayersWithIdentity = mutation({
         wasCreated: boolean;
       }>,
     };
+
+    // Track all guardian IDs created/reused to check verification status at the end
+    const guardianIdsProcessed = new Set<Id<"guardianIdentities">>();
 
     const now = Date.now();
 
@@ -732,6 +739,7 @@ export const batchImportPlayersWithIdentity = mutation({
             if (existingGuardian) {
               guardianIdentityId = existingGuardian._id;
               results.guardiansReused++;
+              guardianIdsProcessed.add(guardianIdentityId);
             }
           }
 
@@ -760,6 +768,7 @@ export const batchImportPlayersWithIdentity = mutation({
               createdFrom: "import",
             });
             results.guardiansCreated++;
+            guardianIdsProcessed.add(guardianIdentityId);
           }
 
           guardianIdentityByAdultIndex.set(
@@ -873,6 +882,7 @@ export const batchImportPlayersWithIdentity = mutation({
             if (!wasAlreadyCounted) {
               results.guardiansReused++;
             }
+            guardianIdsProcessed.add(guardianIdentityId);
           } else {
             // Create new guardian with email as optional
             // Copy address from player if guardian shares same household
@@ -891,6 +901,7 @@ export const batchImportPlayersWithIdentity = mutation({
               createdFrom: "import",
             });
             results.guardiansCreated++;
+            guardianIdsProcessed.add(guardianIdentityId);
           }
 
           // Create guardian-player link
@@ -1003,6 +1014,18 @@ export const batchImportPlayersWithIdentity = mutation({
         results.errors.push(
           `Enrollment for ${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`
         );
+      }
+    }
+
+    // ========== COUNT VERIFIED VS UNCLAIMED GUARDIANS ==========
+    for (const guardianId of guardianIdsProcessed) {
+      const guardian = await ctx.db.get(guardianId);
+      if (guardian) {
+        if (guardian.userId) {
+          results.guardiansLinkedToVerifiedAccounts++;
+        } else {
+          results.guardiansAwaitingClaim++;
+        }
       }
     }
 

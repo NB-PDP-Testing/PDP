@@ -521,6 +521,326 @@ export const findMatchingGuardian = query({
   },
 });
 
+/**
+ * Get all unclaimed guardian identities for admin dashboard
+ * Only for platform staff or org admins
+ */
+export const getUnclaimedGuardians = query({
+  args: {
+    organizationId: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      guardian: guardianIdentityValidator,
+      childrenCount: v.number(),
+      children: v.array(
+        v.object({
+          firstName: v.string(),
+          lastName: v.string(),
+          dateOfBirth: v.string(),
+        })
+      ),
+      organizationIds: v.array(v.string()),
+      daysSinceCreated: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all guardians without userId (unclaimed)
+    const allGuardians = await ctx.db
+      .query("guardianIdentities")
+      .filter((q) => q.eq(q.field("userId"), undefined))
+      .collect();
+
+    const results = [];
+
+    for (const guardian of allGuardians) {
+      // Get linked children
+      const links = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", guardian._id)
+        )
+        .collect();
+
+      const children = [];
+      const orgSet = new Set<string>();
+
+      for (const link of links) {
+        const player = await ctx.db.get(link.playerIdentityId);
+        if (player) {
+          children.push({
+            firstName: player.firstName,
+            lastName: player.lastName,
+            dateOfBirth: player.dateOfBirth,
+          });
+
+          // Get enrollments to find organizations
+          const enrollments = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", player._id)
+            )
+            .collect();
+
+          for (const enrollment of enrollments) {
+            orgSet.add(enrollment.organizationId);
+          }
+        }
+      }
+
+      const organizationIds = Array.from(orgSet);
+
+      // Filter by organization if specified
+      if (
+        args.organizationId &&
+        !organizationIds.includes(args.organizationId)
+      ) {
+        continue;
+      }
+
+      // Calculate days since created
+      const daysSinceCreated = Math.floor(
+        (Date.now() - guardian.createdAt) / (1000 * 60 * 60 * 24)
+      );
+
+      results.push({
+        guardian,
+        childrenCount: children.length,
+        children,
+        organizationIds,
+        daysSinceCreated,
+      });
+    }
+
+    // Sort by most recent first
+    results.sort((a, b) => b.guardian.createdAt - a.guardian.createdAt);
+
+    // Apply limit if specified
+    if (args.limit && args.limit > 0) {
+      return results.slice(0, args.limit);
+    }
+
+    return results;
+  },
+});
+
+/**
+ * Find all claimable identities for the current logged-in user
+ * Used for bulk claiming when a user logs in and has multiple unclaimed profiles
+ */
+export const findAllClaimableForCurrentUser = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      guardianIdentity: guardianIdentityValidator,
+      children: v.array(
+        v.object({
+          playerIdentityId: v.id("playerIdentities"),
+          firstName: v.string(),
+          lastName: v.string(),
+          dateOfBirth: v.string(),
+          relationship: v.string(),
+        })
+      ),
+      organizations: v.array(
+        v.object({
+          organizationId: v.string(),
+          organizationName: v.optional(v.string()),
+        })
+      ),
+      confidence: v.number(),
+    })
+  ),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+
+    const userEmail = identity.email;
+    if (!userEmail) {
+      return [];
+    }
+
+    const normalizedEmail = userEmail.toLowerCase().trim();
+
+    // Find all guardians with this email that don't have a userId
+    const matchingGuardians = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .filter((q) => q.eq(q.field("userId"), undefined))
+      .collect();
+
+    const results = [];
+
+    for (const guardian of matchingGuardians) {
+      // Get all linked children
+      const links = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", guardian._id)
+        )
+        .collect();
+
+      const children = [];
+      const orgSet = new Set<string>();
+
+      for (const link of links) {
+        const player = await ctx.db.get(link.playerIdentityId);
+        if (player) {
+          children.push({
+            playerIdentityId: player._id,
+            firstName: player.firstName,
+            lastName: player.lastName,
+            dateOfBirth: player.dateOfBirth,
+            relationship: link.relationship,
+          });
+
+          // Collect organizations
+          const enrollments = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", player._id)
+            )
+            .collect();
+
+          for (const enrollment of enrollments) {
+            orgSet.add(enrollment.organizationId);
+          }
+        }
+      }
+
+      const organizations = Array.from(orgSet).map((orgId) => ({
+        organizationId: orgId,
+        organizationName: undefined,
+      }));
+
+      // Email match = high confidence
+      results.push({
+        guardianIdentity: guardian,
+        children,
+        organizations,
+        confidence: 100,
+      });
+    }
+
+    return results;
+  },
+});
+
+/**
+ * Check if guardian identity exists for signup claiming flow
+ * Returns guardian with linked children and organizations for claiming UI
+ */
+export const checkForClaimableIdentity = query({
+  args: {
+    email: v.string(),
+    name: v.optional(v.string()),
+  },
+  returns: v.union(
+    v.object({
+      guardianIdentity: guardianIdentityValidator,
+      children: v.array(
+        v.object({
+          playerIdentityId: v.id("playerIdentities"),
+          firstName: v.string(),
+          lastName: v.string(),
+          dateOfBirth: v.string(),
+          relationship: v.string(),
+        })
+      ),
+      organizations: v.array(
+        v.object({
+          organizationId: v.string(),
+          organizationName: v.optional(v.string()),
+        })
+      ),
+      confidence: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.email.toLowerCase().trim();
+
+    // Find guardian by email
+    const guardian = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .first();
+
+    if (!guardian) {
+      return null;
+    }
+
+    // Only show claiming flow for unverified guardians (no userId yet)
+    if (guardian.userId) {
+      return null;
+    }
+
+    // Calculate confidence based on name match
+    let confidence = 80; // Base for email match
+    if (args.name) {
+      const fullName = `${guardian.firstName} ${guardian.lastName}`
+        .toLowerCase()
+        .trim();
+      const providedName = args.name.toLowerCase().trim();
+
+      // Check if provided name matches (could be in any order)
+      if (fullName.includes(providedName) || providedName.includes(fullName)) {
+        confidence = 100;
+      }
+    }
+
+    // Get all linked children
+    const links = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian", (q) => q.eq("guardianIdentityId", guardian._id))
+      .collect();
+
+    const children = [];
+    const orgSet = new Set<string>();
+
+    for (const link of links) {
+      const player = await ctx.db.get(link.playerIdentityId);
+      if (player) {
+        children.push({
+          playerIdentityId: player._id,
+          firstName: player.firstName,
+          lastName: player.lastName,
+          dateOfBirth: player.dateOfBirth,
+          relationship: link.relationship,
+        });
+
+        // Collect organizations where this player is enrolled
+        const enrollments = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", player._id)
+          )
+          .collect();
+
+        for (const enrollment of enrollments) {
+          orgSet.add(enrollment.organizationId);
+        }
+      }
+    }
+
+    // Get organization names (from Better Auth organizations)
+    const organizations = Array.from(orgSet).map((orgId) => ({
+      organizationId: orgId,
+      organizationName: undefined, // Will be fetched from Better Auth on frontend
+    }));
+
+    return {
+      guardianIdentity: guardian,
+      children,
+      organizations,
+      confidence,
+    };
+  },
+});
+
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================

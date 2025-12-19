@@ -358,25 +358,53 @@ export const importPlayerWithIdentity = mutation({
     let guardianWasCreated: boolean | undefined;
     let guardianLinkId: Id<"guardianPlayerLinks"> | undefined;
 
-    // Only create guardian if we have at least name and email
-    if (args.parentFirstName && args.parentLastName && args.parentEmail) {
-      const normalizedEmail = args.parentEmail.toLowerCase().trim();
+    // Create guardian if we have at least name and either email OR phone
+    if (
+      args.parentFirstName &&
+      args.parentLastName &&
+      (args.parentEmail || args.parentPhone)
+    ) {
+      const normalizedEmail = args.parentEmail
+        ? args.parentEmail.toLowerCase().trim()
+        : undefined;
 
-      // Try to find existing guardian by email
-      const existingGuardian = await ctx.db
-        .query("guardianIdentities")
-        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
-        .first();
+      let existingGuardian = null;
+
+      // Try to find existing guardian by email first (if provided)
+      if (normalizedEmail) {
+        existingGuardian = await ctx.db
+          .query("guardianIdentities")
+          .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+          .first();
+      }
+
+      // If no email match, try to find by name + phone (if phone provided)
+      if (!existingGuardian && args.parentPhone) {
+        const normalizedPhone = args.parentPhone.trim();
+        const guardiansByName = await ctx.db
+          .query("guardianIdentities")
+          .withIndex("by_name", (q) =>
+            q
+              .eq("firstName", args.parentFirstName!.trim())
+              .eq("lastName", args.parentLastName!.trim())
+          )
+          .collect();
+
+        // Find one with matching phone
+        existingGuardian = guardiansByName.find(
+          (g) => g.phone === normalizedPhone
+        );
+      }
 
       if (existingGuardian) {
         guardianIdentityId = existingGuardian._id;
         guardianWasCreated = false;
       } else {
-        // Create new guardian identity
+        // Create new guardian identity with email as optional
         guardianIdentityId = await ctx.db.insert("guardianIdentities", {
           firstName: args.parentFirstName.trim(),
           lastName: args.parentLastName.trim(),
-          email: normalizedEmail,
+          email: normalizedEmail, // Can be undefined
           phone: args.parentPhone?.trim(),
           verificationStatus: "unverified",
           createdAt: now,
@@ -780,28 +808,55 @@ export const batchImportPlayersWithIdentity = mutation({
 
     // ========== PHASE 3: EXPLICIT PARENT INFO ==========
 
-    // Process explicit parent info (parentFirstName, parentLastName, parentEmail)
+    // Process explicit parent info (parentFirstName, parentLastName, parentEmail/Phone)
     // This handles cases where parent info is provided in the CSV but parent isn't a member
+    // Email is now optional - we can create guardians with just name + phone
     for (let i = 0; i < args.players.length; i++) {
       const playerData = args.players[i];
       const playerIdentityId = playerIdentityMap.get(i);
 
       if (!playerIdentityId) continue;
 
+      // Require at least first name, last name, and either email OR phone
       if (
         playerData.parentFirstName &&
         playerData.parentLastName &&
-        playerData.parentEmail
+        (playerData.parentEmail || playerData.parentPhone)
       ) {
-        const normalizedEmail = playerData.parentEmail.toLowerCase().trim();
+        const normalizedEmail = playerData.parentEmail
+          ? playerData.parentEmail.toLowerCase().trim()
+          : undefined;
 
         try {
-          const existingGuardian = await ctx.db
-            .query("guardianIdentities")
-            .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
-            .first();
+          let existingGuardian = null;
 
-          let guardianIdentityId: NonNullable<typeof existingGuardian>["_id"];
+          // Try to find existing guardian by email first (if provided)
+          if (normalizedEmail) {
+            existingGuardian = await ctx.db
+              .query("guardianIdentities")
+              .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+              .first();
+          }
+
+          // If no email match, try to find by name + phone (if phone provided)
+          if (!existingGuardian && playerData.parentPhone) {
+            const normalizedPhone = playerData.parentPhone.trim();
+            const guardiansByName = await ctx.db
+              .query("guardianIdentities")
+              .withIndex("by_name", (q) =>
+                q
+                  .eq("firstName", playerData.parentFirstName!.trim())
+                  .eq("lastName", playerData.parentLastName!.trim())
+              )
+              .collect();
+
+            // Find one with matching phone
+            existingGuardian = guardiansByName.find(
+              (g) => g.phone === normalizedPhone
+            );
+          }
+
+          let guardianIdentityId: Id<"guardianIdentities">;
 
           if (existingGuardian) {
             guardianIdentityId = existingGuardian._id;
@@ -814,10 +869,11 @@ export const batchImportPlayersWithIdentity = mutation({
               results.guardiansReused++;
             }
           } else {
+            // Create new guardian with email as optional
             guardianIdentityId = await ctx.db.insert("guardianIdentities", {
               firstName: playerData.parentFirstName.trim(),
               lastName: playerData.parentLastName.trim(),
-              email: normalizedEmail,
+              email: normalizedEmail, // Can be undefined now
               phone: playerData.parentPhone?.trim(),
               verificationStatus: "unverified",
               createdAt: now,

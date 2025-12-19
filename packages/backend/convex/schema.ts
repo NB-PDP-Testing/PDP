@@ -84,7 +84,7 @@ export default defineSchema({
     // Core identity
     firstName: v.string(),
     lastName: v.string(),
-    email: v.string(),
+    email: v.optional(v.string()), // Optional - some guardians only have phone
     phone: v.optional(v.string()),
 
     // Address (optional)

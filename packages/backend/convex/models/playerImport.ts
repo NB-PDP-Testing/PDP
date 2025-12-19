@@ -401,11 +401,16 @@ export const importPlayerWithIdentity = mutation({
         guardianWasCreated = false;
       } else {
         // Create new guardian identity with email as optional
+        // Copy address from player if guardian shares same household
         guardianIdentityId = await ctx.db.insert("guardianIdentities", {
           firstName: args.parentFirstName.trim(),
           lastName: args.parentLastName.trim(),
           email: normalizedEmail, // Can be undefined
           phone: args.parentPhone?.trim(),
+          address: args.address?.trim(), // ✅ Copy from player
+          town: args.town?.trim(), // ✅ Copy from player
+          postcode: args.postcode?.trim(), // ✅ Copy from player
+          country: args.country?.trim(), // ✅ Copy from player
           verificationStatus: "unverified",
           createdAt: now,
           updatedAt: now,
@@ -870,11 +875,16 @@ export const batchImportPlayersWithIdentity = mutation({
             }
           } else {
             // Create new guardian with email as optional
+            // Copy address from player if guardian shares same household
             guardianIdentityId = await ctx.db.insert("guardianIdentities", {
               firstName: playerData.parentFirstName.trim(),
               lastName: playerData.parentLastName.trim(),
               email: normalizedEmail, // Can be undefined now
               phone: playerData.parentPhone?.trim(),
+              address: playerData.address?.trim(), // ✅ Copy from player
+              town: playerData.town?.trim(), // ✅ Copy from player
+              postcode: playerData.postcode?.trim(), // ✅ Copy from player
+              country: playerData.country?.trim(), // ✅ Copy from player
               verificationStatus: "unverified",
               createdAt: now,
               updatedAt: now,

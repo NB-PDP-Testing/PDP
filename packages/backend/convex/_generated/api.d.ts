@@ -19,6 +19,7 @@ import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_coaches from "../models/coaches.js";
 import type * as models_demoAsks from "../models/demoAsks.js";
 import type * as models_guardianIdentities from "../models/guardianIdentities.js";
+import type * as models_guardianManagement from "../models/guardianManagement.js";
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
 import type * as models_members from "../models/members.js";
 import type * as models_orgGuardianProfiles from "../models/orgGuardianProfiles.js";
@@ -42,6 +43,10 @@ import type * as models_teams from "../models/teams.js";
 import type * as models_users from "../models/users.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
 import type * as privateData from "../privateData.js";
+import type * as scripts_analyzeReimport from "../scripts/analyzeReimport.js";
+import type * as scripts_clearDevData from "../scripts/clearDevData.js";
+import type * as scripts_getOrgId from "../scripts/getOrgId.js";
+import type * as scripts_queryExisting from "../scripts/queryExisting.js";
 import type * as todos from "../todos.js";
 import type * as utils_email from "../utils/email.js";
 
@@ -63,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   "models/coaches": typeof models_coaches;
   "models/demoAsks": typeof models_demoAsks;
   "models/guardianIdentities": typeof models_guardianIdentities;
+  "models/guardianManagement": typeof models_guardianManagement;
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
   "models/members": typeof models_members;
   "models/orgGuardianProfiles": typeof models_orgGuardianProfiles;
@@ -86,6 +92,10 @@ declare const fullApi: ApiFromModules<{
   "models/users": typeof models_users;
   "models/voiceNotes": typeof models_voiceNotes;
   privateData: typeof privateData;
+  "scripts/analyzeReimport": typeof scripts_analyzeReimport;
+  "scripts/clearDevData": typeof scripts_clearDevData;
+  "scripts/getOrgId": typeof scripts_getOrgId;
+  "scripts/queryExisting": typeof scripts_queryExisting;
   todos: typeof todos;
   "utils/email": typeof utils_email;
 }>;

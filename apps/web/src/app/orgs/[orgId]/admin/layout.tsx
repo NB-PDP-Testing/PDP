@@ -11,6 +11,7 @@ import {
   Upload,
   UserCheck,
   Users,
+  UsersRound,
   Wrench,
 } from "lucide-react";
 import type { Route } from "next";
@@ -96,6 +97,11 @@ export default function OrgAdminLayout({
       href: `/orgs/${orgId}/admin/coaches` as Route,
       label: "Coaches",
       icon: GraduationCap,
+    },
+    {
+      href: `/orgs/${orgId}/admin/guardians` as Route,
+      label: "Guardians",
+      icon: UsersRound,
     },
     {
       href: `/orgs/${orgId}/admin/users`,

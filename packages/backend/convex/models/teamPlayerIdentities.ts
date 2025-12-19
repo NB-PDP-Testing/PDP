@@ -54,15 +54,25 @@ export const getPlayersForTeam = query({
     for (const member of members) {
       const player = await ctx.db.get(member.playerIdentityId);
       if (player) {
+        // Get enrollment for ageGroup
+        const enrollment = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_player_and_org", (q) =>
+            q
+              .eq("playerIdentityId", player._id)
+              .eq("organizationId", member.organizationId)
+          )
+          .first();
+
         results.push({
-          ...member,
-          player: {
-            _id: player._id,
-            firstName: player.firstName,
-            lastName: player.lastName,
-            dateOfBirth: player.dateOfBirth,
-            gender: player.gender,
-          },
+          _id: player._id, // Use player identity ID for compatibility
+          name: `${player.firstName} ${player.lastName}`,
+          firstName: player.firstName,
+          lastName: player.lastName,
+          dateOfBirth: player.dateOfBirth,
+          gender: player.gender,
+          ageGroup: enrollment?.ageGroup || "",
+          playerIdentityId: player._id,
         });
       }
     }

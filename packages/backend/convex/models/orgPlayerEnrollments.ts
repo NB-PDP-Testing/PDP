@@ -206,10 +206,23 @@ export const getPlayersForOrg = query({
         const activePassport = passports.find((p) => p.status === "active");
         const sportCode = activePassport?.sportCode;
 
+        // Return flat format for UI compatibility
         results.push({
+          _id: player._id, // Player identity ID (for UI compatibility)
+          name: `${player.firstName} ${player.lastName}`,
+          firstName: player.firstName,
+          lastName: player.lastName,
+          dateOfBirth: player.dateOfBirth,
+          gender: player.gender,
+          ageGroup: enrollment.ageGroup,
+          season: enrollment.season,
+          sportCode,
+          playerIdentityId: player._id,
+          enrollmentId: enrollment._id,
+          organizationId: enrollment.organizationId,
+          // Legacy nested format for backwards compatibility
           enrollment,
           player,
-          sportCode,
         });
       }
     }

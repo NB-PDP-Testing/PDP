@@ -11,6 +11,7 @@ import {
   Upload,
   UserCheck,
   Users,
+  Wrench,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -125,6 +126,11 @@ export default function OrgAdminLayout({
       href: `/orgs/${orgId}/admin/settings` as Route,
       label: "Settings",
       icon: Settings,
+    },
+    {
+      href: `/orgs/${orgId}/admin/dev-tools` as Route,
+      label: "Dev Tools",
+      icon: Wrench,
     },
   ];
 

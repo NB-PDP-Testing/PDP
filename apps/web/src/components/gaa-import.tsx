@@ -186,7 +186,6 @@ const GAAMembershipWizard = ({
   existingTeams,
   batchImportWithIdentity,
   bulkAddToTeam,
-  createPassport,
   createTeamMutation,
   organizationId,
 }: {
@@ -194,17 +193,15 @@ const GAAMembershipWizard = ({
   onComplete: () => Promise<void>;
   existingPlayers: IdentityPlayer[];
   existingTeams: Team[];
-  batchImportWithIdentity: (
-    players: IdentityImportPlayer[]
-  ) => Promise<BatchImportResult>;
+  batchImportWithIdentity: (args: {
+    organizationId: string;
+    sportCode?: string;
+    players: IdentityImportPlayer[];
+  }) => Promise<BatchImportResult>;
   bulkAddToTeam: (
     teamId: string,
     playerIdentityIds: Id<"playerIdentities">[]
   ) => Promise<{ added: number; skipped: number }>;
-  createPassport: (
-    playerIdentityId: Id<"playerIdentities">,
-    sportCode: string
-  ) => Promise<Id<"sportPassports">>;
   createTeamMutation: (data: TeamCreateData) => Promise<string>;
   organizationId: string;
 }) => {
@@ -232,6 +229,10 @@ const GAAMembershipWizard = ({
   const [duplicateResolutions, setDuplicateResolutions] = useState<
     Record<number, "replace" | "keep" | "skip">
   >({});
+  const [duplicateSearch, setDuplicateSearch] = useState("");
+  const [selectedDuplicates, setSelectedDuplicates] = useState<Set<number>>(
+    new Set()
+  );
   const [importFilter, setImportFilter] = useState<"all" | "youth" | "senior">(
     "all"
   );
@@ -809,6 +810,61 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
     return members;
   };
 
+  // Helper: Get team name by team ID
+  const getTeamNameById = (teamId: string | undefined): string => {
+    if (!teamId) return "No Team";
+    const team = localTeams.find((t) => t._id === teamId);
+    return team ? `${team.name} (${team.ageGroup} ${team.gender})` : teamId;
+  };
+
+  // Helper: Filter duplicates by search term
+  const filteredDuplicates = duplicates.filter((dup) => {
+    if (!duplicateSearch) return true;
+    const search = duplicateSearch.toLowerCase();
+    const memberName = dup.member.FullName?.toLowerCase() || "";
+    const memberDOB = dup.member.DateOfBirth?.toLowerCase() || "";
+    const existingName = dup.existingPlayer.name?.toLowerCase() || "";
+    const teamName = getTeamNameById(dup.existingPlayer.teamId).toLowerCase();
+    return (
+      memberName.includes(search) ||
+      memberDOB.includes(search) ||
+      existingName.includes(search) ||
+      teamName.includes(search)
+    );
+  });
+
+  // Helper: Toggle all duplicates selection
+  const toggleSelectAll = () => {
+    if (selectedDuplicates.size === filteredDuplicates.length) {
+      setSelectedDuplicates(new Set());
+    } else {
+      setSelectedDuplicates(
+        new Set(filteredDuplicates.map((dup) => dup.index))
+      );
+    }
+  };
+
+  // Helper: Toggle individual duplicate selection
+  const toggleDuplicateSelection = (index: number) => {
+    const newSelected = new Set(selectedDuplicates);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    setSelectedDuplicates(newSelected);
+  };
+
+  // Helper: Apply bulk decision to selected duplicates
+  const applyBulkDecision = (decision: "replace" | "keep" | "skip") => {
+    const newResolutions = { ...duplicateResolutions };
+    selectedDuplicates.forEach((index) => {
+      newResolutions[index] = decision;
+    });
+    setDuplicateResolutions(newResolutions);
+    setSelectedDuplicates(new Set()); // Clear selection after applying
+  };
+
   const checkForDuplicates = async (members: any[]) => {
     // Use existing players from Convex (passed as prop)
     // Find duplicates based on name + date of birth match
@@ -1051,8 +1107,10 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
   const handleCreateMissingTeams = async () => {
     setCreatingTeams(true);
     const teamsCreated: Team[] = [];
+    const teamIdMap = new Map<string, string>(); // Track created team IDs by teamKey
 
     try {
+      // ✅ FIX #1: Create teams and track IDs
       for (const team of detectedTeams) {
         const teamKey = getTeamKey(team);
         if (teamsToCreate.has(teamKey) && !team.existingTeamId) {
@@ -1065,11 +1123,14 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
             season: team.season,
           });
 
-          // Add to local teams
+          // Track the created team ID
+          teamIdMap.set(teamKey, teamId);
+
+          // Add to local teams array
           teamsCreated.push({
             _id: teamId,
             name: team.name,
-            organizationId: "", // Will be set by the backend
+            organizationId: organizationId,
             createdAt: Date.now(),
             sport: team.sport,
             ageGroup: team.ageGroup,
@@ -1078,17 +1139,35 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
             isActive: true,
           });
 
-          // Update detected team with new ID
-          team.existingTeamId = teamId;
+          console.log(`✅ Created team: ${team.name} (ID: ${teamId})`);
         }
       }
 
-      // Update local teams state
-      setLocalTeams([...localTeams, ...teamsCreated]);
-      setDetectedTeams([...detectedTeams]);
+      // ✅ FIX #2: Update detectedTeams immutably with new team IDs
+      const updatedDetectedTeams = detectedTeams.map((team) => {
+        const teamKey = getTeamKey(team);
+        const newTeamId = teamIdMap.get(teamKey);
+        if (newTeamId) {
+          return { ...team, existingTeamId: newTeamId };
+        }
+        return team;
+      });
 
-      // Now assign teams to members
+      // ✅ FIX #3: Update state with new immutable array
+      const updatedLocalTeams = [...localTeams, ...teamsCreated];
+      setLocalTeams(updatedLocalTeams);
+      setDetectedTeams(updatedDetectedTeams);
+
+      console.log(
+        `📊 Team creation complete: ${teamsCreated.length} teams created`
+      );
+      console.log(`📊 Total teams available: ${updatedLocalTeams.length}`);
+
+      // ✅ FIX #4: Assign teams using the updated localTeams
       const assignments: Record<string, string> = {};
+      let successfulAssignments = 0;
+      let failedAssignments = 0;
+
       parsedMembers.forEach((member, idx) => {
         const normalizedGender =
           member.Gender?.toUpperCase() === "MALE"
@@ -1097,19 +1176,31 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
               ? "Girls"
               : "Mixed";
 
-        // Find the team in detected teams
-        const matchedTeam = detectedTeams.find(
+        // ✅ FIX #5: Use getTeamIdByProperties with updated localTeams
+        // Note: This will work immediately because we have updatedLocalTeams in scope
+        const teamId = updatedLocalTeams.find(
           (t) =>
             t.sport === "GAA Football" &&
             t.ageGroup === member.AgeGroup &&
             t.gender === normalizedGender &&
             t.season === "2025"
-        );
+        )?._id;
 
-        if (matchedTeam?.existingTeamId) {
-          assignments[idx] = matchedTeam.existingTeamId;
+        if (teamId) {
+          assignments[idx] = teamId;
+          successfulAssignments++;
+        } else {
+          console.warn(
+            `⚠️ No team found for ${member.FullName} (${member.AgeGroup} ${normalizedGender})`
+          );
+          failedAssignments++;
         }
       });
+
+      console.log(
+        `📊 Team assignments: ${successfulAssignments} successful, ${failedAssignments} failed`
+      );
+
       setTeamAssignments(assignments);
 
       // Check for duplicates
@@ -1178,7 +1269,12 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
 
       const assignedTeamId = teamAssignments[i];
       if (!assignedTeamId) {
-        console.error(`❌ No team assigned for ${member.FullName}`);
+        console.error(
+          `❌ No team assigned for ${member.FullName} (${member.AgeGroup} ${member.Gender})`
+        );
+        console.error(
+          `   This player will be skipped. Please ensure teams exist for all age groups.`
+        );
         skipped++;
         continue;
       }
@@ -1228,9 +1324,12 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
     );
 
     try {
-      // Step 1: Batch import player identities, guardians, and enrollments
-      const importResult = await batchImportWithIdentity(
-        playersToImport.map((p) => ({
+      // Step 1: Batch import player identities, guardians, enrollments, AND sport passports
+      console.log("   (passports will be auto-created during enrollment)");
+      const importResult = await batchImportWithIdentity({
+        organizationId: organizationId,
+        sportCode: "gaa_football", // Auto-create passports during enrollment
+        players: playersToImport.map((p) => ({
           firstName: p.firstName,
           lastName: p.lastName,
           dateOfBirth: p.dateOfBirth,
@@ -1246,8 +1345,8 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
           parentEmail: p.parentEmail,
           parentPhone: p.parentPhone,
           parentRelationship: p.parentRelationship,
-        }))
-      );
+        })),
+      });
 
       console.log(
         `✅ Identity import complete! Created ${importResult.playersCreated} players, reused ${importResult.playersReused}`
@@ -1278,51 +1377,40 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
         }
       }
 
-      // Add players to each team
+      // Add players to each team (PARALLEL)
       let totalTeamAssignments = 0;
-      for (const [teamId, playerIds] of playersByTeam) {
-        try {
-          const teamResult = await bulkAddToTeam(teamId, playerIds);
-          totalTeamAssignments += teamResult.added;
-          console.log(
-            `   Team ${teamId}: ${teamResult.added} added, ${teamResult.skipped} already on team`
-          );
-        } catch (error) {
-          console.error(
-            `   ❌ Failed to add players to team ${teamId}:`,
-            error
-          );
-        }
-      }
+
       console.log(
-        `✅ Team assignments complete! ${totalTeamAssignments} players assigned to teams`
+        `   Assigning players to ${playersByTeam.size} teams in parallel...`
       );
 
-      // Step 3: Create sport passports for each player
-      console.log("📋 Phase 5: Creating sport passports...");
-
-      let passportsCreated = 0;
-      let passportErrors = 0;
-
-      for (const identity of importResult.playerIdentities) {
-        try {
-          await createPassport(identity.playerIdentityId, "gaa_football");
-          passportsCreated++;
-        } catch (error) {
-          // Passport may already exist - that's OK
-          const errorMsg = error instanceof Error ? error.message : "";
-          if (!errorMsg.includes("already has a passport")) {
+      const teamAssignmentPromises = Array.from(playersByTeam.entries()).map(
+        async ([teamId, playerIds]) => {
+          try {
+            const teamResult = await bulkAddToTeam(teamId, playerIds);
+            console.log(
+              `   Team ${getTeamNameById(teamId)}: ${teamResult.added} added, ${teamResult.skipped} already on team`
+            );
+            return { success: true, added: teamResult.added };
+          } catch (error) {
             console.error(
-              `   ❌ Failed to create passport for player ${identity.playerIdentityId}:`,
+              `   ❌ Failed to add players to team ${getTeamNameById(teamId)}:`,
               error
             );
-            passportErrors++;
+            return { success: false, added: 0 };
           }
         }
-      }
-      console.log(
-        `✅ Sport passports complete! ${passportsCreated} created, ${passportErrors} errors`
       );
+
+      const teamResults = await Promise.all(teamAssignmentPromises);
+      totalTeamAssignments = teamResults.reduce((sum, r) => sum + r.added, 0);
+
+      console.log(
+        `✅ Team assignments complete! ${totalTeamAssignments} players assigned to ${playersByTeam.size} teams`
+      );
+
+      // Sport passports were auto-created during enrollment (Phase 3)
+      console.log("✅ Sport passports were auto-created during enrollment!");
 
       // Log audit
       const filterDesc =
@@ -1340,7 +1428,7 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
         guardiansCreated: importResult.guardiansCreated,
         enrollmentsCreated: importResult.enrollmentsCreated,
         teamAssignments: totalTeamAssignments,
-        passportsCreated,
+        passportsCreated: importResult.enrollmentsCreated, // Auto-created during enrollment
         familyCount: familyMap.size,
         fileName: "membership_import.csv",
         metadata: {
@@ -1352,8 +1440,30 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
       });
 
       console.log(
-        `🎉 Import complete! Players: ${importResult.playersCreated} created, ${importResult.playersReused} reused | Teams: ${totalTeamAssignments} assigned | Passports: ${passportsCreated} created | Skipped: ${skipped}`
+        `🎉 Import complete! Players: ${importResult.playersCreated} created, ${importResult.playersReused} reused | Teams: ${totalTeamAssignments} assigned | Passports: ${importResult.enrollmentsCreated} auto-created | Skipped: ${skipped}`
       );
+
+      // ✅ FIX #6: Warn user if players were skipped due to missing teams
+      if (skipped > 0) {
+        const playersWithoutTeams = parsedMembers.filter(
+          (_, idx) => !teamAssignments[idx]
+        );
+        const missingTeamInfo = playersWithoutTeams
+          .map((m) => `${m.AgeGroup} ${m.Gender}`)
+          .filter((v, i, a) => a.indexOf(v) === i) // unique
+          .join(", ");
+
+        console.warn(
+          `⚠️ WARNING: ${skipped} players were skipped due to missing team assignments`
+        );
+        console.warn(`   Missing teams for: ${missingTeamInfo}`);
+
+        alert(
+          `⚠️ Import completed with warnings:\n\n` +
+            `${skipped} player(s) were skipped because no teams exist for:\n${missingTeamInfo}\n\n` +
+            `Please create teams for these age groups and re-import these players.`
+        );
+      }
 
       setResults({
         created: importResult.playersCreated,
@@ -1943,20 +2053,105 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
                 </p>
               </div>
 
+              {/* Search and Bulk Actions */}
+              <div className="mb-4 space-y-3">
+                {/* Search Box */}
+                <div className="relative">
+                  <input
+                    className="w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 focus:border-blue-500 focus:outline-none"
+                    onChange={(e) => setDuplicateSearch(e.target.value)}
+                    placeholder="Search duplicates by name, DOB, or team..."
+                    type="text"
+                    value={duplicateSearch}
+                  />
+                  <svg
+                    className="-translate-y-1/2 absolute top-1/2 left-3 h-5 w-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                    />
+                  </svg>
+                </div>
+
+                {/* Select All and Bulk Actions */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2 text-gray-700 text-sm">
+                    <input
+                      checked={
+                        filteredDuplicates.length > 0 &&
+                        selectedDuplicates.size === filteredDuplicates.length
+                      }
+                      className="h-4 w-4 rounded border-gray-300"
+                      onChange={toggleSelectAll}
+                      type="checkbox"
+                    />
+                    Select All ({selectedDuplicates.size} selected)
+                  </label>
+
+                  {selectedDuplicates.size > 0 && (
+                    <div className="flex gap-2">
+                      <button
+                        className="rounded bg-green-600 px-3 py-1 text-white text-xs hover:bg-green-700"
+                        onClick={() => applyBulkDecision("replace")}
+                      >
+                        Replace All Selected
+                      </button>
+                      <button
+                        className="rounded bg-blue-600 px-3 py-1 text-white text-xs hover:bg-blue-700"
+                        onClick={() => applyBulkDecision("keep")}
+                      >
+                        Keep All Selected
+                      </button>
+                      <button
+                        className="rounded bg-gray-600 px-3 py-1 text-white text-xs hover:bg-gray-700"
+                        onClick={() => applyBulkDecision("skip")}
+                      >
+                        Skip All Selected
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {filteredDuplicates.length < duplicates.length && (
+                  <p className="text-gray-600 text-sm">
+                    Showing {filteredDuplicates.length} of {duplicates.length}{" "}
+                    duplicates
+                  </p>
+                )}
+              </div>
+
               <div className="max-h-96 space-y-4 overflow-y-auto">
-                {duplicates.map((dup, idx) => (
+                {filteredDuplicates.map((dup, idx) => (
                   <div
-                    className="rounded-lg border border-gray-300 bg-white p-4"
+                    className={`rounded-lg border p-4 ${
+                      selectedDuplicates.has(dup.index)
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-300 bg-white"
+                    }`}
                     key={idx}
                   >
-                    <div className="mb-3">
-                      <h4 className="font-bold text-gray-800">
-                        {dup.member.FullName}
-                      </h4>
-                      <p className="text-gray-600 text-sm">
-                        DOB: {dup.member.DateOfBirth} • Team:{" "}
-                        {teamAssignments[dup.index]}
-                      </p>
+                    <div className="mb-3 flex items-start gap-3">
+                      <input
+                        checked={selectedDuplicates.has(dup.index)}
+                        className="mt-1 h-4 w-4 rounded border-gray-300"
+                        onChange={() => toggleDuplicateSelection(dup.index)}
+                        type="checkbox"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-bold text-gray-800">
+                          {dup.member.FullName}
+                        </h4>
+                        <p className="text-gray-600 text-sm">
+                          DOB: {dup.member.DateOfBirth} • Team:{" "}
+                          {getTeamNameById(teamAssignments[dup.index])}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1966,7 +2161,8 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
                         </h5>
                         <div className="space-y-1 text-gray-700 text-xs">
                           <p>
-                            <strong>Team:</strong> {dup.existingPlayer.teamId}
+                            <strong>Team:</strong>{" "}
+                            {getTeamNameById(dup.existingPlayer.teamId)}
                           </p>
                           <p>
                             <strong>Season:</strong> {dup.existingPlayer.season}
@@ -1990,7 +2186,8 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
                         </h5>
                         <div className="space-y-1 text-gray-700 text-xs">
                           <p>
-                            <strong>Team:</strong> {teamAssignments[dup.index]}
+                            <strong>Team:</strong>{" "}
+                            {getTeamNameById(teamAssignments[dup.index])}
                           </p>
                           <p>
                             <strong>Season:</strong> 2025

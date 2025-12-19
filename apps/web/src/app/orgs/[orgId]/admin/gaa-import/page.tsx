@@ -64,9 +64,7 @@ export default function GAAImportPage() {
   const bulkAddToTeamMutation = useMutation(
     api.models.teamPlayerIdentities.bulkAddPlayersToTeam
   );
-  const createPassportMutation = useMutation(
-    api.models.sportPassports.createPassport
-  );
+  // Passport creation is now handled inline during batch import
 
   const isLoading = existingPlayersRaw === undefined || teamsRaw === undefined;
 
@@ -137,8 +135,10 @@ export default function GAAImportPage() {
     return teamId;
   };
 
-  // Batch import using NEW identity system
-  const handleBatchImport = async (
+  // Batch import using NEW identity system (with inline passport creation)
+  const handleBatchImport = async (args: {
+    organizationId: string;
+    sportCode?: string;
     players: Array<{
       firstName: string;
       lastName: string;
@@ -161,12 +161,13 @@ export default function GAAImportPage() {
         | "grandparent"
         | "other";
       teamId?: string;
-    }>
-  ) => {
-    // Step 1: Import player identities, guardians, and enrollments
+    }>;
+  }) => {
+    // Import player identities, guardians, enrollments, AND sport passports
     const importResult = await batchImportWithIdentityMutation({
-      organizationId: orgId,
-      players: players.map((p) => ({
+      organizationId: args.organizationId,
+      sportCode: args.sportCode, // Auto-create passports during enrollment
+      players: args.players.map((p) => ({
         firstName: p.firstName,
         lastName: p.lastName,
         dateOfBirth: p.dateOfBirth,
@@ -198,19 +199,6 @@ export default function GAAImportPage() {
       playerIdentityIds,
       organizationId: orgId,
       season: "2025",
-    });
-
-  // Create sport passport for a player
-  const handleCreatePassport = async (
-    playerIdentityId: Id<"playerIdentities">,
-    sportCode: string
-  ) =>
-    await createPassportMutation({
-      playerIdentityId,
-      sportCode,
-      organizationId: orgId,
-      status: "active",
-      currentSeason: "2025",
     });
 
   const handleComplete = async () => {
@@ -344,7 +332,6 @@ export default function GAAImportPage() {
         <GAAMembershipWizard
           batchImportWithIdentity={handleBatchImport}
           bulkAddToTeam={handleBulkAddToTeam}
-          createPassport={handleCreatePassport}
           createTeamMutation={handleCreateTeam}
           existingPlayers={existingPlayers}
           existingTeams={existingTeams}

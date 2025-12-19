@@ -115,7 +115,10 @@ const AGE_GROUPS = [
 
 // Component to fetch and display player count for a single team
 function TeamPlayerCount({ teamId }: { teamId: string }) {
-  const count = useQuery(api.models.players.getPlayerCountByTeam, { teamId });
+  const count = useQuery(
+    api.models.teamPlayerIdentities.getPlayerCountForTeam,
+    { teamId }
+  );
 
   if (count === undefined) {
     return <span className="text-muted-foreground">...</span>;
@@ -138,7 +141,10 @@ function TeamRoster({
   teamName: string;
   onManageClick: () => void;
 }) {
-  const players = useQuery(api.models.players.getPlayersByTeam, { teamId });
+  const players = useQuery(
+    api.models.teamPlayerIdentities.getPlayersForTeam,
+    { teamId }
+  );
 
   if (!players) {
     return (
@@ -223,9 +229,12 @@ function PlayerAssignmentGrid({
     React.SetStateAction<{ add: string[]; remove: string[] }>
   >;
 }) {
-  const teamPlayers = useQuery(api.models.players.getPlayersByTeam, {
-    teamId,
-  });
+  const teamPlayers = useQuery(
+    api.models.teamPlayerIdentities.getPlayersForTeam,
+    {
+      teamId,
+    }
+  );
 
   if (!teamPlayers) {
     return (
@@ -436,24 +445,30 @@ export default function ManageTeamsPage() {
   const orgId = params.orgId as string;
 
   // Get teams from backend (uses Better Auth component adapter)
-  const teams = useQuery(api.models.teams.getTeamsByOrganization, {
+  const teamsRaw = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
 
-  // Get all players for player assignment
-  const allPlayers = useQuery(api.models.players.getPlayersByOrganization, {
-    organizationId: orgId,
-  });
+  // Sort teams from oldest to youngest (by creation time)
+  const teams = teamsRaw?.sort((a, b) => a.createdAt - b.createdAt);
+
+  // Get all players for player assignment (using NEW identity system)
+  const allPlayers = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
+    {
+      organizationId: orgId,
+    }
+  );
 
   // Mutations
   const createTeamMutation = useMutation(api.models.teams.createTeam);
   const updateTeamMutation = useMutation(api.models.teams.updateTeam);
   const deleteTeamMutation = useMutation(api.models.teams.deleteTeam);
   const addPlayerToTeamMutation = useMutation(
-    api.models.players.addPlayerToTeam
+    api.models.teamPlayerIdentities.addPlayerToTeam
   );
   const removePlayerFromTeamMutation = useMutation(
-    api.models.players.removePlayerFromTeam
+    api.models.teamPlayerIdentities.removePlayerFromTeam
   );
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -568,19 +583,21 @@ export default function ManageTeamsPage() {
           isActive: formData.isActive,
         });
 
-        // Process player assignments
+        // Process player assignments (using NEW identity system)
         // Add new players
-        for (const playerId of pendingAssignments.add) {
+        for (const playerIdentityId of pendingAssignments.add) {
           await addPlayerToTeamMutation({
-            playerId: playerId as Id<"players">,
+            playerIdentityId: playerIdentityId as Id<"playerIdentities">,
             teamId: editingTeamId,
+            organizationId: orgId,
+            season: formData.season,
           });
         }
 
         // Remove players
-        for (const playerId of pendingAssignments.remove) {
+        for (const playerIdentityId of pendingAssignments.remove) {
           await removePlayerFromTeamMutation({
-            playerId: playerId as Id<"players">,
+            playerIdentityId: playerIdentityId as Id<"playerIdentities">,
             teamId: editingTeamId,
           });
         }

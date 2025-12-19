@@ -10,6 +10,242 @@ import { calculateAge } from "./playerIdentities";
 // platform-level identities instead of org-scoped player records.
 // ============================================================
 
+// ============================================================
+// HELPER FUNCTIONS FOR GUARDIAN MATCHING
+// ============================================================
+
+/**
+ * Normalize a name for matching - extracts first and last name
+ */
+function normalizeNameForMatching(name: string): {
+  normalized: string;
+  firstName: string;
+  lastName: string;
+} {
+  const parts = name.trim().toLowerCase().split(/\s+/);
+  if (parts.length === 0) {
+    return { normalized: "", firstName: "", lastName: "" };
+  }
+  const firstName = parts[0];
+  const lastName = parts.length > 1 ? parts[parts.length - 1] : "";
+  return {
+    normalized: `${firstName} ${lastName}`.trim(),
+    firstName,
+    lastName,
+  };
+}
+
+/**
+ * Clean postcode for comparison (remove spaces, uppercase)
+ */
+function cleanPostcode(postcode: string | undefined): string {
+  return (postcode || "").toUpperCase().replace(/\s/g, "");
+}
+
+/**
+ * Extract house number from address
+ */
+function extractHouseNumber(address: string | undefined): string {
+  const match = (address || "").match(/^\d+/);
+  return match ? match[0] : "";
+}
+
+/**
+ * Common towns for address matching (can be extended)
+ */
+const commonTowns = [
+  "armagh",
+  "dungannon",
+  "portadown",
+  "lurgan",
+  "craigavon",
+  "moy",
+  "loughgall",
+  "richhill",
+  "markethill",
+  "keady",
+  "crossmaglen",
+  "newry",
+  "belfast",
+  "lisburn",
+  "banbridge",
+  "tandragee",
+];
+
+/**
+ * Extract town from address string
+ */
+function extractTown(
+  address: string | undefined,
+  town: string | undefined
+): string {
+  if (town) return town.toLowerCase().trim();
+  const addressLower = (address || "").toLowerCase();
+  return commonTowns.find((t) => addressLower.includes(t)) || "";
+}
+
+// ============================================================
+// GUARDIAN MATCHING TYPES
+// ============================================================
+
+type PlayerForMatching = {
+  index: number;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  age: number;
+  playerType: "youth" | "adult";
+  gender: "male" | "female" | "other";
+  email?: string;
+  phone?: string;
+  address?: string;
+  town?: string;
+  postcode?: string;
+  // Explicit parent info if provided
+  parentFirstName?: string;
+  parentLastName?: string;
+  parentEmail?: string;
+  parentPhone?: string;
+};
+
+type GuardianMatch = {
+  youthPlayerIndex: number;
+  adultPlayerIndex: number;
+  score: number;
+  matchReasons: string[];
+  confidence: "high" | "medium" | "low";
+};
+
+/**
+ * Find potential guardian-child matches within a batch import.
+ * Uses multi-signal scoring to match youth players with adult members.
+ *
+ * Scoring system:
+ * - Email match: 50 points (highest confidence)
+ * - Surname + Postcode: 45 points (strong family signal)
+ * - Phone match: 30 points (strong signal)
+ * - Surname + Town: 35 points (medium family signal)
+ * - Postcode only: 20 points
+ * - Town only: 10 points
+ * - House number: 5 points
+ *
+ * Confidence tiers:
+ * - High: 60+ points (auto-link)
+ * - Medium: 40-59 points (suggest)
+ * - Low: 20-39 points (possible)
+ */
+function findGuardianMatchesInBatch(
+  players: PlayerForMatching[]
+): GuardianMatch[] {
+  const matches: GuardianMatch[] = [];
+
+  // Separate youth and adult players
+  const youthPlayers = players.filter((p) => p.playerType === "youth");
+  const adultPlayers = players.filter((p) => p.playerType === "adult");
+
+  // For each youth player, find potential guardian matches
+  for (const youth of youthPlayers) {
+    const youthSurname = normalizeNameForMatching(
+      `${youth.firstName} ${youth.lastName}`
+    ).lastName;
+    const youthPostcode = cleanPostcode(youth.postcode);
+    const youthTown = extractTown(youth.address, youth.town);
+    const youthHouseNumber = extractHouseNumber(youth.address);
+
+    for (const adult of adultPlayers) {
+      let score = 0;
+      const matchReasons: string[] = [];
+
+      const adultSurname = normalizeNameForMatching(
+        `${adult.firstName} ${adult.lastName}`
+      ).lastName;
+
+      // 1. Email match - 50 points (highest confidence)
+      if (youth.email && adult.email) {
+        const youthEmail = youth.email.toLowerCase().trim();
+        const adultEmail = adult.email.toLowerCase().trim();
+        if (youthEmail === adultEmail) {
+          score += 50;
+          matchReasons.push("Email match");
+        }
+      }
+
+      // 2. Phone match - 30 points (strong signal)
+      if (youth.phone && adult.phone) {
+        const youthPhone = youth.phone.replace(/\D/g, "").slice(-10);
+        const adultPhone = adult.phone.replace(/\D/g, "").slice(-10);
+        if (
+          youthPhone.length >= 10 &&
+          adultPhone.length >= 10 &&
+          youthPhone === adultPhone
+        ) {
+          score += 30;
+          matchReasons.push("Phone match");
+        }
+      }
+
+      // 3. Surname + Address matching (strong family signal)
+      const surnameMatch = youthSurname && youthSurname === adultSurname;
+      const adultPostcode = cleanPostcode(adult.postcode);
+      const postcodeMatch =
+        youthPostcode && adultPostcode && youthPostcode === adultPostcode;
+
+      if (surnameMatch && postcodeMatch) {
+        score += 45;
+        matchReasons.push("Surname + Postcode match (same household)");
+      } else if (surnameMatch) {
+        const adultTown = extractTown(adult.address, adult.town);
+        const townMatch = youthTown && adultTown && youthTown === adultTown;
+        if (townMatch) {
+          score += 35;
+          matchReasons.push("Surname + Town match (same area)");
+        } else {
+          score += 15;
+          matchReasons.push("Surname match");
+        }
+      } else if (postcodeMatch) {
+        score += 20;
+        matchReasons.push("Postcode match");
+      }
+
+      // 4. House number match - 5 points (tiebreaker)
+      const adultHouseNumber = extractHouseNumber(adult.address);
+      if (
+        youthHouseNumber &&
+        adultHouseNumber &&
+        youthHouseNumber === adultHouseNumber &&
+        !matchReasons.some((r) => r.includes("household"))
+      ) {
+        score += 5;
+        matchReasons.push("House number match");
+      }
+
+      // Determine confidence tier
+      let confidence: "high" | "medium" | "low";
+      if (score >= 60) {
+        confidence = "high";
+      } else if (score >= 40) {
+        confidence = "medium";
+      } else if (score >= 20) {
+        confidence = "low";
+      } else {
+        continue; // Skip matches below threshold
+      }
+
+      matches.push({
+        youthPlayerIndex: youth.index,
+        adultPlayerIndex: adult.index,
+        score,
+        matchReasons,
+        confidence,
+      });
+    }
+  }
+
+  // Sort by confidence and score
+  return matches.sort((a, b) => b.score - a.score);
+}
+
 const genderValidator = v.union(
   v.literal("male"),
   v.literal("female"),
@@ -247,6 +483,7 @@ export const importPlayerWithIdentity = mutation({
 export const batchImportPlayersWithIdentity = mutation({
   args: {
     organizationId: v.string(),
+    sportCode: v.optional(v.string()), // Optional: auto-create sport passports during enrollment
     players: v.array(
       v.object({
         firstName: v.string(),
@@ -312,11 +549,19 @@ export const batchImportPlayersWithIdentity = mutation({
 
     const now = Date.now();
 
+    // ========== PHASE 1: CREATE ALL PLAYER IDENTITIES ==========
+
+    // First pass: Create/find all player identities
+    // We need this to build the matching data structure
+    const playersForMatching: PlayerForMatching[] = [];
+    const playerIdentityMap = new Map<
+      number,
+      Id<"playerIdentities">
+    >(); // index -> playerIdentityId
+
     for (let i = 0; i < args.players.length; i++) {
       const playerData = args.players[i];
       try {
-        // ========== 1. FIND OR CREATE PLAYER IDENTITY ==========
-
         const existingPlayer = await ctx.db
           .query("playerIdentities")
           .withIndex("by_name_dob", (q) =>
@@ -356,22 +601,201 @@ export const batchImportPlayersWithIdentity = mutation({
           wasCreated = true;
         }
 
-        // Track the player identity with its original index
+        playerIdentityMap.set(i, playerIdentityId);
+
         results.playerIdentities.push({
           index: i,
           playerIdentityId,
           wasCreated,
         });
 
-        // ========== 2. FIND OR CREATE GUARDIAN IDENTITY ==========
+        // Build matching data
+        const age = calculateAge(playerData.dateOfBirth);
+        playersForMatching.push({
+          index: i,
+          firstName: playerData.firstName,
+          lastName: playerData.lastName,
+          dateOfBirth: playerData.dateOfBirth,
+          age,
+          playerType: age >= 18 ? "adult" : "youth",
+          gender: playerData.gender,
+          email: playerData.parentEmail,
+          phone: playerData.parentPhone,
+          address: playerData.address,
+          town: playerData.town,
+          postcode: playerData.postcode,
+          parentFirstName: playerData.parentFirstName,
+          parentLastName: playerData.parentLastName,
+          parentEmail: playerData.parentEmail,
+          parentPhone: playerData.parentPhone,
+        });
 
-        if (
-          playerData.parentFirstName &&
-          playerData.parentLastName &&
-          playerData.parentEmail
-        ) {
-          const normalizedEmail = playerData.parentEmail.toLowerCase().trim();
+        results.totalProcessed++;
+      } catch (error) {
+        results.errors.push(
+          `${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
+      }
+    }
 
+    // ========== PHASE 2: ENHANCED GUARDIAN MATCHING ==========
+
+    console.log(
+      `[Guardian Matching] Processing ${playersForMatching.length} players for guardian relationships`
+    );
+
+    // Find potential guardian-child matches within the batch
+    const guardianMatches = findGuardianMatchesInBatch(playersForMatching);
+
+    console.log(
+      `[Guardian Matching] Found ${guardianMatches.length} potential matches`
+    );
+    console.log(
+      `[Guardian Matching] High confidence: ${guardianMatches.filter((m) => m.confidence === "high").length}`
+    );
+    console.log(
+      `[Guardian Matching] Medium confidence: ${guardianMatches.filter((m) => m.confidence === "medium").length}`
+    );
+
+    // Track created guardians by adult player index to avoid duplicates
+    const guardianIdentityByAdultIndex = new Map<
+      number,
+      Id<"guardianIdentities">
+    >();
+
+    // Create guardians and links for high-confidence matches
+    for (const match of guardianMatches) {
+      // Only auto-link high confidence matches (60+ points)
+      if (match.confidence !== "high") {
+        console.log(
+          `[Guardian Matching] Skipping ${match.confidence} confidence match (${match.score} points): ${match.matchReasons.join(", ")}`
+        );
+        continue;
+      }
+
+      const youthPlayerIdentityId = playerIdentityMap.get(
+        match.youthPlayerIndex
+      );
+      const adultPlayerData = args.players[match.adultPlayerIndex];
+
+      if (!youthPlayerIdentityId || !adultPlayerData) continue;
+
+      try {
+        // Get or create guardian identity for this adult
+        let guardianIdentityId = guardianIdentityByAdultIndex.get(
+          match.adultPlayerIndex
+        );
+
+        if (!guardianIdentityId) {
+          // Try to find existing guardian by email first
+          if (adultPlayerData.parentEmail) {
+            const normalizedEmail =
+              adultPlayerData.parentEmail.toLowerCase().trim();
+            const existingGuardian = await ctx.db
+              .query("guardianIdentities")
+              .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+              .first();
+
+            if (existingGuardian) {
+              guardianIdentityId = existingGuardian._id;
+              results.guardiansReused++;
+            }
+          }
+
+          // If not found, create new guardian (only if email exists - required field)
+          if (!guardianIdentityId) {
+            // Skip if no email - guardian identities require email
+            if (!adultPlayerData.parentEmail) {
+              console.log(
+                `[Guardian Matching] Skipping guardian creation for ${adultPlayerData.firstName} ${adultPlayerData.lastName} - no email`
+              );
+              continue;
+            }
+
+            guardianIdentityId = await ctx.db.insert("guardianIdentities", {
+              firstName: adultPlayerData.firstName.trim(),
+              lastName: adultPlayerData.lastName.trim(),
+              email: adultPlayerData.parentEmail.toLowerCase().trim(),
+              phone: adultPlayerData.parentPhone?.trim(),
+              address: adultPlayerData.address?.trim(),
+              town: adultPlayerData.town?.trim(),
+              postcode: adultPlayerData.postcode?.trim(),
+              country: adultPlayerData.country?.trim(),
+              verificationStatus: "unverified",
+              createdAt: now,
+              updatedAt: now,
+              createdFrom: "import",
+            });
+            results.guardiansCreated++;
+          }
+
+          guardianIdentityByAdultIndex.set(
+            match.adultPlayerIndex,
+            guardianIdentityId
+          );
+        }
+
+        // Check if link already exists
+        const existingLink = await ctx.db
+          .query("guardianPlayerLinks")
+          .withIndex("by_guardian_and_player", (q) =>
+            q
+              .eq("guardianIdentityId", guardianIdentityId!)
+              .eq("playerIdentityId", youthPlayerIdentityId)
+          )
+          .first();
+
+        if (!existingLink) {
+          const existingLinks = await ctx.db
+            .query("guardianPlayerLinks")
+            .withIndex("by_player", (q) =>
+              q.eq("playerIdentityId", youthPlayerIdentityId)
+            )
+            .collect();
+
+          const isPrimary = existingLinks.length === 0;
+
+          await ctx.db.insert("guardianPlayerLinks", {
+            guardianIdentityId: guardianIdentityId!,
+            playerIdentityId: youthPlayerIdentityId,
+            relationship: "guardian",
+            isPrimary,
+            hasParentalResponsibility: true,
+            canCollectFromTraining: true,
+            consentedToSharing: true,
+            createdAt: now,
+            updatedAt: now,
+          });
+
+          console.log(
+            `[Guardian Matching] ✓ Linked guardian ${adultPlayerData.firstName} ${adultPlayerData.lastName} to player at index ${match.youthPlayerIndex} (${match.score} points: ${match.matchReasons.join(", ")})`
+          );
+        }
+      } catch (error) {
+        console.error(
+          `[Guardian Matching] Failed to create link: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
+      }
+    }
+
+    // ========== PHASE 3: EXPLICIT PARENT INFO ==========
+
+    // Process explicit parent info (parentFirstName, parentLastName, parentEmail)
+    // This handles cases where parent info is provided in the CSV but parent isn't a member
+    for (let i = 0; i < args.players.length; i++) {
+      const playerData = args.players[i];
+      const playerIdentityId = playerIdentityMap.get(i);
+
+      if (!playerIdentityId) continue;
+
+      if (
+        playerData.parentFirstName &&
+        playerData.parentLastName &&
+        playerData.parentEmail
+      ) {
+        const normalizedEmail = playerData.parentEmail.toLowerCase().trim();
+
+        try {
           const existingGuardian = await ctx.db
             .query("guardianIdentities")
             .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
@@ -381,7 +805,14 @@ export const batchImportPlayersWithIdentity = mutation({
 
           if (existingGuardian) {
             guardianIdentityId = existingGuardian._id;
-            results.guardiansReused++;
+            // Don't increment guardiansReused here if already counted
+            const wasAlreadyCounted =
+              Array.from(guardianIdentityByAdultIndex.values()).includes(
+                existingGuardian._id
+              );
+            if (!wasAlreadyCounted) {
+              results.guardiansReused++;
+            }
           } else {
             guardianIdentityId = await ctx.db.insert("guardianIdentities", {
               firstName: playerData.parentFirstName.trim(),
@@ -396,8 +827,7 @@ export const batchImportPlayersWithIdentity = mutation({
             results.guardiansCreated++;
           }
 
-          // ========== 3. CREATE GUARDIAN-PLAYER LINK ==========
-
+          // Create guardian-player link
           const existingLink = await ctx.db
             .query("guardianPlayerLinks")
             .withIndex("by_guardian_and_player", (q) =>
@@ -428,11 +858,28 @@ export const batchImportPlayersWithIdentity = mutation({
               createdAt: now,
               updatedAt: now,
             });
+
+            console.log(
+              `[Explicit Guardian] ✓ Linked explicit parent ${playerData.parentFirstName} ${playerData.parentLastName} to player at index ${i}`
+            );
           }
+        } catch (error) {
+          console.error(
+            `[Explicit Guardian] Failed to create guardian for ${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`
+          );
         }
+      }
+    }
 
-        // ========== 4. FIND OR CREATE ORG ENROLLMENT ==========
+    // ========== PHASE 4: CREATE ORG ENROLLMENTS ==========
 
+    for (let i = 0; i < args.players.length; i++) {
+      const playerData = args.players[i];
+      const playerIdentityId = playerIdentityMap.get(i);
+
+      if (!playerIdentityId) continue;
+
+      try {
         const existingEnrollment = await ctx.db
           .query("orgPlayerEnrollments")
           .withIndex("by_player_and_org", (q) =>
@@ -462,10 +909,33 @@ export const batchImportPlayersWithIdentity = mutation({
           results.enrollmentsCreated++;
         }
 
-        results.totalProcessed++;
+        // Auto-create sport passport if sportCode provided (inline optimization)
+        if (args.sportCode) {
+          const existingPassport = await ctx.db
+            .query("sportPassports")
+            .withIndex("by_player_and_sport", (q) =>
+              q
+                .eq("playerIdentityId", playerIdentityId)
+                .eq("sportCode", args.sportCode!)
+            )
+            .first();
+
+          if (!existingPassport) {
+            await ctx.db.insert("sportPassports", {
+              playerIdentityId,
+              sportCode: args.sportCode,
+              organizationId: args.organizationId,
+              status: "active",
+              assessmentCount: 0,
+              currentSeason: playerData.season,
+              createdAt: now,
+              updatedAt: now,
+            });
+          }
+        }
       } catch (error) {
         results.errors.push(
-          `${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`
+          `Enrollment for ${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`
         );
       }
     }

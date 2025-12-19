@@ -242,6 +242,7 @@ export const importPlayerWithIdentity = mutation({
  * Batch import multiple players using the identity system.
  *
  * More efficient than calling importPlayerWithIdentity multiple times.
+ * Returns player identity IDs with their original index for team assignment.
  */
 export const batchImportPlayersWithIdentity = mutation({
   args: {
@@ -283,6 +284,14 @@ export const batchImportPlayersWithIdentity = mutation({
     enrollmentsCreated: v.number(),
     enrollmentsReused: v.number(),
     errors: v.array(v.string()),
+    // NEW: Return player identity IDs with their original index
+    playerIdentities: v.array(
+      v.object({
+        index: v.number(),
+        playerIdentityId: v.id("playerIdentities"),
+        wasCreated: v.boolean(),
+      })
+    ),
   }),
   handler: async (ctx, args) => {
     const results = {
@@ -294,11 +303,17 @@ export const batchImportPlayersWithIdentity = mutation({
       enrollmentsCreated: 0,
       enrollmentsReused: 0,
       errors: [] as string[],
+      playerIdentities: [] as Array<{
+        index: number;
+        playerIdentityId: Id<"playerIdentities">;
+        wasCreated: boolean;
+      }>,
     };
 
     const now = Date.now();
 
-    for (const playerData of args.players) {
+    for (let i = 0; i < args.players.length; i++) {
+      const playerData = args.players[i];
       try {
         // ========== 1. FIND OR CREATE PLAYER IDENTITY ==========
 
@@ -313,6 +328,7 @@ export const batchImportPlayersWithIdentity = mutation({
           .first();
 
         let playerIdentityId: NonNullable<typeof existingPlayer>["_id"];
+        let wasCreated = false;
 
         if (existingPlayer) {
           playerIdentityId = existingPlayer._id;
@@ -337,7 +353,15 @@ export const batchImportPlayersWithIdentity = mutation({
             createdFrom: "import",
           });
           results.playersCreated++;
+          wasCreated = true;
         }
+
+        // Track the player identity with its original index
+        results.playerIdentities.push({
+          index: i,
+          playerIdentityId,
+          wasCreated,
+        });
 
         // ========== 2. FIND OR CREATE GUARDIAN IDENTITY ==========
 

@@ -17,7 +17,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { Player, Team } from "@/lib/types";
+import type { Team } from "@/lib/types";
+
+// Player type adapted for the new identity system
+type IdentityPlayer = {
+  _id: string;
+  name: string;
+  ageGroup: string;
+  sport?: string;
+  gender: string;
+  teamId: string;
+  organizationId: string;
+  season: string;
+  dateOfBirth?: string;
+  parentFirstName?: string;
+  parentSurname?: string;
+  lastReviewDate?: string;
+  playerIdentityId?: Id<"playerIdentities">;
+  enrollmentId?: Id<"orgPlayerEnrollments">;
+};
 
 export default function GAAImportPage() {
   const params = useParams();
@@ -25,9 +43,9 @@ export default function GAAImportPage() {
 
   const [showWizard, setShowWizard] = useState(false);
 
-  // Get existing players for duplicate detection
+  // Get existing players for duplicate detection - using NEW identity system
   const existingPlayersRaw = useQuery(
-    api.models.players.getPlayersByOrganization,
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
     {
       organizationId: orgId,
     }
@@ -38,36 +56,53 @@ export default function GAAImportPage() {
     organizationId: orgId,
   });
 
-  // Mutations
-  const createPlayerMutation = useMutation(
-    api.models.players.createPlayerForImport
+  // NEW identity system mutations
+  const batchImportWithIdentityMutation = useMutation(
+    api.models.playerImport.batchImportPlayersWithIdentity
   );
-  const bulkImportPlayersMutation = useMutation(
-    api.models.players.bulkImportPlayers
-  );
-  const deletePlayerMutation = useMutation(api.models.players.deletePlayer);
   const createTeamMutation = useMutation(api.models.teams.createTeam);
-  const addPlayerToTeamMutation = useMutation(
-    api.models.players.addPlayerToTeam
+  const bulkAddToTeamMutation = useMutation(
+    api.models.teamPlayerIdentities.bulkAddPlayersToTeam
+  );
+  const createPassportMutation = useMutation(
+    api.models.sportPassports.createPassport
   );
 
   const isLoading = existingPlayersRaw === undefined || teamsRaw === undefined;
 
-  // Transform raw player data to Player type
-  const existingPlayers: Player[] = (existingPlayersRaw ?? []).map((p) => ({
-    _id: p._id,
-    name: p.name,
-    ageGroup: p.ageGroup,
-    sport: p.sport,
-    gender: p.gender,
-    teamId: "", // No longer on player directly
-    organizationId: p.organizationId,
-    season: p.season,
-    dateOfBirth: p.dateOfBirth,
-    parentFirstName: p.parentFirstName,
-    parentSurname: p.parentSurname,
-    lastReviewDate: p.lastReviewDate,
-  }));
+  // Transform raw player data to IdentityPlayer type (from new enrollment system)
+  const existingPlayers: IdentityPlayer[] = (existingPlayersRaw ?? []).map(
+    (p: {
+      enrollment: {
+        _id: Id<"orgPlayerEnrollments">;
+        ageGroup: string;
+        season: string;
+        organizationId: string;
+      };
+      player: {
+        _id: Id<"playerIdentities">;
+        firstName: string;
+        lastName: string;
+        dateOfBirth: string;
+        gender: string;
+      };
+    }) => ({
+      _id: p.player._id, // Use player identity ID as primary ID
+      name: `${p.player.firstName} ${p.player.lastName}`,
+      ageGroup: p.enrollment.ageGroup,
+      sport: "GAA Football", // Default for GAA import
+      gender: p.player.gender === "male" ? "MALE" : "FEMALE",
+      teamId: "", // Will be looked up from teamPlayerIdentities if needed
+      organizationId: p.enrollment.organizationId,
+      season: p.enrollment.season,
+      dateOfBirth: p.player.dateOfBirth,
+      parentFirstName: undefined, // Would need to join guardian data
+      parentSurname: undefined,
+      lastReviewDate: undefined,
+      playerIdentityId: p.player._id,
+      enrollmentId: p.enrollment._id,
+    })
+  );
 
   // Transform teams to proper type
   const existingTeams: Team[] = (teamsRaw ?? []).map((t) => ({
@@ -102,117 +137,81 @@ export default function GAAImportPage() {
     return teamId;
   };
 
-  // Create player wrapper - now creates player and adds to team separately
-  const handleCreatePlayer = async (playerData: {
-    name: string;
-    ageGroup: string;
-    sport: string;
-    gender: string;
-    teamId: string; // Now required - team must be created/selected first
-    completionDate?: string;
-    season: string;
-    reviewedWith?: {
-      coach: boolean;
-      parent: boolean;
-      player: boolean;
-      forum: boolean;
-    };
-    attendance?: { training: string; matches: string };
-    injuryNotes?: string;
-    reviewStatus?: string;
-    lastReviewDate?: string | null;
-    nextReviewDue?: string | null;
-    skills: Record<string, number>;
-    positions?: {
-      favourite: string;
-      leastFavourite: string;
-      coachesPref: string;
-      dominantSide: string;
-      goalkeeper: string;
-    };
-    fitness?: {
-      pushPull: string;
-      core: string;
-      endurance: string;
-      speed: string;
-      broncoBeep: string;
-    };
-    otherInterests?: string;
-    communications?: string;
-    actions?: string;
-    coachNotes?: string;
-    parentNotes?: string;
-    playerNotes?: string;
-    seasonReviews?: unknown[];
-    createdFrom?: string;
-    familyId?: string;
-    inferredParentFirstName?: string;
-    inferredParentSurname?: string;
-    inferredParentEmail?: string;
-    inferredParentPhone?: string;
-    inferredFromSource?: string;
-    parentFirstName?: string;
-    parentSurname?: string;
-    parentEmail?: string;
-    parentPhone?: string;
-    dateOfBirth?: string;
-    address?: string;
-    town?: string;
-    postcode?: string;
-  }) => {
-    // Create player (without team reference - that's now in teamPlayers)
-    const playerId = await createPlayerMutation({
-      name: playerData.name,
-      ageGroup: playerData.ageGroup,
-      sport: playerData.sport,
-      gender: playerData.gender,
+  // Batch import using NEW identity system
+  const handleBatchImport = async (
+    players: Array<{
+      firstName: string;
+      lastName: string;
+      dateOfBirth: string;
+      gender: "male" | "female" | "other";
+      ageGroup: string;
+      season: string;
+      address?: string;
+      town?: string;
+      postcode?: string;
+      country?: string;
+      parentFirstName?: string;
+      parentLastName?: string;
+      parentEmail?: string;
+      parentPhone?: string;
+      parentRelationship?:
+        | "mother"
+        | "father"
+        | "guardian"
+        | "grandparent"
+        | "other";
+      teamId?: string;
+    }>
+  ) => {
+    // Step 1: Import player identities, guardians, and enrollments
+    const importResult = await batchImportWithIdentityMutation({
       organizationId: orgId,
-      season: playerData.season,
-      completionDate: playerData.completionDate,
-      dateOfBirth: playerData.dateOfBirth,
-      address: playerData.address,
-      town: playerData.town,
-      postcode: playerData.postcode,
-      parentFirstName: playerData.parentFirstName,
-      parentSurname: playerData.parentSurname,
-      parentEmail: playerData.parentEmail,
-      parentPhone: playerData.parentPhone,
-      skills: playerData.skills,
-      familyId: playerData.familyId,
-      inferredParentFirstName: playerData.inferredParentFirstName,
-      inferredParentSurname: playerData.inferredParentSurname,
-      inferredParentEmail: playerData.inferredParentEmail,
-      inferredParentPhone: playerData.inferredParentPhone,
-      inferredFromSource: playerData.inferredFromSource,
-      createdFrom: playerData.createdFrom,
-      coachNotes: playerData.coachNotes,
-      reviewedWith: playerData.reviewedWith,
-      attendance: playerData.attendance,
-      positions: playerData.positions,
-      fitness: playerData.fitness,
-      injuryNotes: playerData.injuryNotes,
-      otherInterests: playerData.otherInterests,
-      communications: playerData.communications,
-      actions: playerData.actions,
-      parentNotes: playerData.parentNotes,
-      playerNotes: playerData.playerNotes,
+      players: players.map((p) => ({
+        firstName: p.firstName,
+        lastName: p.lastName,
+        dateOfBirth: p.dateOfBirth,
+        gender: p.gender,
+        ageGroup: p.ageGroup,
+        season: p.season,
+        address: p.address,
+        town: p.town,
+        postcode: p.postcode,
+        country: p.country,
+        parentFirstName: p.parentFirstName,
+        parentLastName: p.parentLastName,
+        parentEmail: p.parentEmail,
+        parentPhone: p.parentPhone,
+        parentRelationship: p.parentRelationship,
+      })),
     });
 
-    // Add player to team (many-to-many relationship)
-    await addPlayerToTeamMutation({
-      playerId,
-      teamId: playerData.teamId,
-    });
-
-    return playerId;
+    return importResult;
   };
 
-  // Delete player wrapper
-  const handleDeletePlayer = async ({ id }: { id: string }) => {
-    await deletePlayerMutation({
-      playerId: id as Id<"players">,
+  // Add players to teams using new teamPlayerIdentities system
+  const handleBulkAddToTeam = async (
+    teamId: string,
+    playerIdentityIds: Id<"playerIdentities">[]
+  ) =>
+    await bulkAddToTeamMutation({
+      teamId,
+      playerIdentityIds,
+      organizationId: orgId,
+      season: "2025",
     });
-  };
+
+  // Create sport passport for a player
+  const handleCreatePassport = async (
+    playerIdentityId: Id<"playerIdentities">,
+    sportCode: string
+  ) =>
+    await createPassportMutation({
+      playerIdentityId,
+      sportCode,
+      organizationId: orgId,
+      status: "active",
+      currentSeason: "2025",
+    });
 
   const handleComplete = async () => {
     toast.success("Import completed successfully!");
@@ -343,14 +342,15 @@ export default function GAAImportPage() {
       {/* Wizard Modal */}
       {showWizard && (
         <GAAMembershipWizard
-          bulkImportPlayersMutation={bulkImportPlayersMutation}
-          createPlayerMutation={handleCreatePlayer}
+          batchImportWithIdentity={handleBatchImport}
+          bulkAddToTeam={handleBulkAddToTeam}
+          createPassport={handleCreatePassport}
           createTeamMutation={handleCreateTeam}
-          deletePlayerMutation={handleDeletePlayer}
           existingPlayers={existingPlayers}
           existingTeams={existingTeams}
           onClose={handleClose}
           onComplete={handleComplete}
+          organizationId={orgId}
         />
       )}
     </div>

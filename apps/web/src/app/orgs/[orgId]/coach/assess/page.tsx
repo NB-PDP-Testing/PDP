@@ -566,7 +566,13 @@ export default function AssessPlayerPage() {
   return (
     <div className="space-y-6">
       {/* Header with gradient background - matching coach dashboard */}
-      <div className="rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 p-6 text-white shadow-lg">
+      <div
+        className="rounded-lg p-6 text-white shadow-lg"
+        style={{
+          background: "linear-gradient(to right, var(--org-primary), var(--org-primary))",
+          filter: "brightness(0.95)",
+        }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
@@ -580,16 +586,17 @@ export default function AssessPlayerPage() {
             </Button>
             <div>
               <h1 className="font-bold text-2xl">Assess Player Skills</h1>
-              <p className="text-emerald-100 text-sm">
+              <p className="text-white/80 text-sm">
                 Record skill assessments with automatic benchmark comparison
               </p>
             </div>
           </div>
           {unsavedCount > 0 && (
             <Button
-              className="bg-white text-emerald-600 hover:bg-emerald-50"
+              className="bg-white hover:bg-white/90"
               disabled={isSaving}
               onClick={handleSaveAll}
+              style={{ color: "var(--org-primary)" }}
             >
               {isSaving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -603,7 +610,12 @@ export default function AssessPlayerPage() {
       </div>
 
       {/* Search and Filter Bar */}
-      <Card className="border-emerald-200 bg-emerald-50/50">
+      <Card
+        style={{
+          borderColor: "rgb(var(--org-primary-rgb) / 0.2)",
+          backgroundColor: "rgb(var(--org-primary-rgb) / 0.05)",
+        }}
+      >
         <CardContent className="pt-6">
           <div className="grid gap-4 md:grid-cols-2">
             {/* Search Input */}

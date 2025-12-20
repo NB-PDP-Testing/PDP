@@ -583,13 +583,19 @@ export function SmartCoachDashboard({
   return (
     <div className="space-y-4 md:space-y-6">
       {/* My Teams Section */}
-      <div className="rounded-lg bg-gradient-to-r from-green-600 to-green-700 p-4 text-white shadow-md md:p-6">
+      <div
+        className="rounded-lg p-4 text-white shadow-md md:p-6"
+        style={{
+          background: "linear-gradient(to right, var(--org-primary), var(--org-primary))",
+          filter: "brightness(0.95)",
+        }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 md:gap-3">
             <Users className="flex-shrink-0" size={28} />
             <div>
               <h2 className="font-bold text-xl md:text-2xl">My Teams</h2>
-              <p className="text-green-100 text-xs md:text-sm">
+              <p className="text-white/80 text-xs md:text-sm">
                 Dashboard & Insights
               </p>
             </div>

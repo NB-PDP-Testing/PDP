@@ -804,6 +804,35 @@ export const recordAssessmentWithBenchmark = mutation({
       createdAt: now,
     });
 
+    // Auto-update review status for formal reviews and training sessions
+    if (
+      args.assessmentType === "formal_review" ||
+      args.assessmentType === "training"
+    ) {
+      // Find the player's enrollment in this organization
+      const enrollment = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_playerIdentity", (q) =>
+          q.eq("playerIdentityId", passport.playerIdentityId)
+        )
+        .filter((q) => q.eq(q.field("organizationId"), passport.organizationId))
+        .first();
+
+      if (enrollment) {
+        // Calculate next review due date (90 days from assessment date)
+        const assessmentDateObj = new Date(args.assessmentDate);
+        const nextReviewDate = new Date(assessmentDateObj);
+        nextReviewDate.setDate(nextReviewDate.getDate() + 90);
+
+        // Update enrollment with review completion
+        await ctx.db.patch(enrollment._id, {
+          reviewStatus: "Completed",
+          lastReviewDate: args.assessmentDate,
+          nextReviewDue: nextReviewDate.toISOString().split("T")[0],
+        });
+      }
+    }
+
     return {
       assessmentId,
       benchmarkFound: benchmarkRating !== undefined,

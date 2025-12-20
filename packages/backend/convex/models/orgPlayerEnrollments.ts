@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -569,5 +569,125 @@ export const deleteEnrollment = mutation({
 
     await ctx.db.delete(args.enrollmentId);
     return null;
+  },
+});
+
+/**
+ * Internal mutation to update review statuses based on due dates
+ * Called daily by cron job to mark reviews as overdue or due soon
+ */
+export const updateReviewStatuses = internalMutation({
+  args: {},
+  returns: v.object({
+    updated: v.number(),
+    overdue: v.number(),
+    dueSoon: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0];
+
+    // Calculate "due soon" threshold (7 days from now)
+    const dueSoonDate = new Date();
+    dueSoonDate.setDate(dueSoonDate.getDate() + 7);
+    const dueSoonStr = dueSoonDate.toISOString().split("T")[0];
+
+    let updated = 0;
+    let overdue = 0;
+    let dueSoon = 0;
+
+    // Get all active enrollments that have a next review due date
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    for (const enrollment of enrollments) {
+      if (!enrollment.nextReviewDue) continue;
+
+      const nextDue = enrollment.nextReviewDue;
+      let newStatus: string | null = null;
+
+      // Check if overdue (due date is in the past)
+      if (nextDue < todayStr && enrollment.reviewStatus !== "Overdue") {
+        newStatus = "Overdue";
+        overdue++;
+      }
+      // Check if due soon (within next 7 days)
+      else if (
+        nextDue >= todayStr &&
+        nextDue <= dueSoonStr &&
+        enrollment.reviewStatus !== "Due Soon"
+      ) {
+        newStatus = "Due Soon";
+        dueSoon++;
+      }
+
+      // Update if status needs to change
+      if (newStatus) {
+        await ctx.db.patch(enrollment._id, {
+          reviewStatus: newStatus,
+          updatedAt: Date.now(),
+        });
+        updated++;
+      }
+    }
+
+    console.log(
+      `Review status update complete: ${updated} updated (${overdue} overdue, ${dueSoon} due soon)`
+    );
+
+    return { updated, overdue, dueSoon };
+  },
+});
+
+/**
+ * Mark a player's review as complete
+ * Sets review status to "Completed" and calculates next review due date
+ */
+export const markReviewComplete = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    reviewPeriodDays: v.optional(v.number()), // Default 90 days
+  },
+  returns: v.object({
+    enrollmentId: v.id("orgPlayerEnrollments"),
+    nextReviewDue: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    // Find the enrollment
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentity", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
+      .first();
+
+    if (!enrollment) {
+      throw new Error("Player enrollment not found in this organization");
+    }
+
+    // Calculate next review due date
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0];
+    const reviewPeriod = args.reviewPeriodDays ?? 90;
+    const nextReviewDate = new Date();
+    nextReviewDate.setDate(nextReviewDate.getDate() + reviewPeriod);
+    const nextReviewDueStr = nextReviewDate.toISOString().split("T")[0];
+
+    // Update enrollment
+    await ctx.db.patch(enrollment._id, {
+      reviewStatus: "Completed",
+      lastReviewDate: todayStr,
+      nextReviewDue: nextReviewDueStr,
+      updatedAt: Date.now(),
+    });
+
+    return {
+      enrollmentId: enrollment._id,
+      nextReviewDue: nextReviewDueStr,
+    };
   },
 });

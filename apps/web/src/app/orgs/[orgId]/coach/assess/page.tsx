@@ -8,6 +8,7 @@ import {
   Award,
   BarChart3,
   Check,
+  CheckCircle,
   ChevronRight,
   History,
   Loader2,
@@ -376,6 +377,9 @@ export default function AssessPlayerPage() {
   const recordAssessment = useMutation(
     api.models.skillAssessments.recordAssessmentWithBenchmark
   );
+  const markReviewComplete = useMutation(
+    api.models.orgPlayerEnrollments.markReviewComplete
+  );
 
   // Group skills by category
   type SkillDefinition = NonNullable<typeof skills>[number];
@@ -523,6 +527,30 @@ export default function AssessPlayerPage() {
     () => Object.keys(ratings).filter((code) => !savedSkills.has(code)).length,
     [ratings, savedSkills]
   );
+
+  // Handle marking review as complete
+  const handleCompleteReview = useCallback(async () => {
+    if (!selectedPlayerId) {
+      toast.error("No player selected");
+      return;
+    }
+
+    try {
+      const result = await markReviewComplete({
+        playerIdentityId: selectedPlayerId as Id<"playerIdentities">,
+        organizationId: orgId,
+        reviewPeriodDays: 90, // Default to 90 days
+      });
+
+      toast.success("Review marked as complete!", {
+        description: `Next review due: ${new Date(result.nextReviewDue).toLocaleDateString()}`,
+      });
+    } catch (error) {
+      toast.error("Failed to complete review", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }, [selectedPlayerId, markReviewComplete, orgId]);
 
   // Loading state
   const isLoading = sports === undefined || allPlayers === undefined;
@@ -731,7 +759,7 @@ export default function AssessPlayerPage() {
 
       {/* Player Stats & Info */}
       {selectedPlayer && selectedSportCode && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           {/* Player Info Card */}
           <Card className="border-blue-200 bg-blue-50/50">
             <CardContent className="flex items-center gap-4 py-4">
@@ -811,6 +839,29 @@ export default function AssessPlayerPage() {
                   )}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Complete Review Card */}
+          <Card className="border-green-200 bg-green-50/50">
+            <CardContent className="flex flex-col items-center justify-center gap-3 py-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-sm">Mark Review Complete</p>
+                <p className="text-muted-foreground text-xs">
+                  Formal assessment done
+                </p>
+              </div>
+              <Button
+                className="w-full bg-green-600 hover:bg-green-700"
+                onClick={handleCompleteReview}
+                size="sm"
+              >
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Complete Review
+              </Button>
             </CardContent>
           </Card>
         </div>

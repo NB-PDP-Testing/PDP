@@ -12,6 +12,7 @@ import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
 import type * as auth from "../auth.js";
+import type * as crons from "../crons.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
   "actions/voiceNotes": typeof actions_voiceNotes;
   auth: typeof auth;
+  crons: typeof crons;
   healthCheck: typeof healthCheck;
   http: typeof http;
   "migrations/cleanSlate": typeof migrations_cleanSlate;

@@ -32,6 +32,7 @@ export const getOrganization = query({
       colors: v.optional(v.array(v.string())),
       website: v.optional(v.union(v.null(), v.string())),
       socialLinks: socialLinksValidator,
+      supportedSports: v.optional(v.array(v.string())),
     })
   ),
   handler: async (ctx, args) => {
@@ -58,6 +59,7 @@ export const getOrganization = query({
         instagram: org.socialInstagram as string | null | undefined,
         linkedin: org.socialLinkedin as string | null | undefined,
       },
+      supportedSports: org.supportedSports as string[] | undefined,
     };
   },
 });
@@ -363,6 +365,88 @@ export const updateOrganizationSocialLinks = mutation({
         update,
       },
     });
+
+    return null;
+  },
+});
+
+/**
+ * Update organization supported sports
+ * Allows setting which sports the organization supports (multi-sport organizations)
+ * Only organization owners and admins can update supported sports
+ */
+export const updateOrganizationSports = mutation({
+  args: {
+    organizationId: v.string(),
+    supportedSports: v.array(v.string()), // Array of sport codes: ["gaa_football", "hurling", etc.]
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Check if user is owner or admin of this organization
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "userId",
+            value: user._id,
+            operator: "eq",
+          },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      throw new Error("You are not a member of this organization");
+    }
+
+    const role = memberResult.role;
+    if (role !== "owner" && role !== "admin") {
+      throw new Error(
+        "Only organization owners and admins can update supported sports"
+      );
+    }
+
+    // Validate sport codes exist in the sports table
+    if (args.supportedSports.length > 0) {
+      for (const sportCode of args.supportedSports) {
+        const sport = await ctx.db
+          .query("sports")
+          .withIndex("by_code", (q) => q.eq("code", sportCode))
+          .first();
+
+        if (!sport) {
+          throw new Error(
+            `Invalid sport code: ${sportCode}. Please select from available sports.`
+          );
+        }
+      }
+    }
+
+    // Update the organization using Better Auth component adapter
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "organization",
+        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+        update: {
+          supportedSports: args.supportedSports,
+        },
+      },
+    });
+
+    console.log(`[updateOrganizationSports] Updated supported sports for org ${args.organizationId}:`, args.supportedSports);
 
     return null;
   },

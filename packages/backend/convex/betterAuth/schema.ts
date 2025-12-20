@@ -82,6 +82,11 @@ const customOrganizationTable = defineTable({
 
   // Organization website
   website: v.optional(v.union(v.null(), v.string())),
+
+  // Supported sports for this organization (array of sport codes)
+  // Allows multi-sport organizations (e.g., GAA clubs with football, hurling, camogie)
+  // Sport codes reference the sports table: "gaa_football", "soccer", "rugby", etc.
+  supportedSports: v.optional(v.array(v.string())),
 })
   .index("name", ["name"])
   .index("slug", ["slug"]);

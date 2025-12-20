@@ -452,6 +452,14 @@ export default function ManageTeamsPage() {
   // Sort teams from oldest to youngest (by creation time)
   const teams = teamsRaw?.sort((a, b) => a.createdAt - b.createdAt);
 
+  // Get organization data (for supported sports)
+  const organization = useQuery(api.models.organizations.getOrganization, {
+    organizationId: orgId,
+  });
+
+  // Get available sports from reference data
+  const availableSports = useQuery(api.models.referenceData.getSports, {});
+
   // Get all players for player assignment (using NEW identity system)
   const allPlayers = useQuery(
     api.models.orgPlayerEnrollments.getPlayersForOrg,
@@ -531,7 +539,16 @@ export default function ManageTeamsPage() {
   const openCreateDialog = () => {
     setEditingTeamId(null);
     setEditingTeamName("");
-    setFormData(defaultFormData);
+
+    // Default sport from organization's supported sports (use first sport if available)
+    const defaultSport = organization?.supportedSports && organization.supportedSports.length > 0
+      ? organization.supportedSports[0]
+      : "";
+
+    setFormData({
+      ...defaultFormData,
+      sport: defaultSport,
+    });
     setPendingAssignments({ add: [], remove: [] });
     setPlayerSearch("");
     setFormDialogOpen(true);
@@ -1041,13 +1058,18 @@ export default function ManageTeamsPage() {
                     <SelectValue placeholder="Select sport" />
                   </SelectTrigger>
                   <SelectContent>
-                    {SPORTS.map((sport) => (
-                      <SelectItem key={sport} value={sport}>
-                        {sport}
+                    {availableSports?.map((sport) => (
+                      <SelectItem key={sport.code} value={sport.code}>
+                        {sport.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {organization?.supportedSports && organization.supportedSports.length > 0 && formData.sport === organization.supportedSports[0] && (
+                  <p className="text-xs text-muted-foreground">
+                    Auto-selected from organization
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

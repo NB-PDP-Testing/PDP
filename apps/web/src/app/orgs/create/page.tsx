@@ -7,6 +7,7 @@ import {
   Unauthenticated,
   useAction,
   useMutation,
+  useQuery,
 } from "convex/react";
 import {
   AlertCircle,
@@ -78,15 +79,20 @@ export default function CreateOrganizationPage() {
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [scraping, setScraping] = useState(false);
   const [scrapedData, setScrapedData] = useState<ScrapedData | null>(null);
+  const [selectedSports, setSelectedSports] = useState<string[]>([]);
 
   // Use Convex query to get user with custom fields
   const user = useCurrentUser();
+  const availableSports = useQuery(api.models.referenceData.getSports, {});
   const scrapeWebsite = useAction(api.models.organizationScraper.scrapeWebsite);
   const updateOrganizationColors = useMutation(
     api.models.organizations.updateOrganizationColors
   );
   const updateOrganizationSocialLinks = useMutation(
     api.models.organizations.updateOrganizationSocialLinks
+  );
+  const updateOrganizationSports = useMutation(
+    api.models.organizations.updateOrganizationSports
   );
 
   // Redirect if not platform staff
@@ -310,6 +316,21 @@ export default function CreateOrganizationPage() {
               console.error("Failed to save social links:", socialError);
               // Don't show warning for social links - not critical
             }
+          }
+        }
+
+        // Save supported sports if selected
+        if (selectedSports.length > 0) {
+          try {
+            await updateOrganizationSports({
+              organizationId: data.id,
+              supportedSports: selectedSports,
+            });
+          } catch (sportsError) {
+            console.error("Failed to save supported sports:", sportsError);
+            toast.warning(
+              "Organization created, but sports could not be saved. You can update them in settings."
+            );
           }
         }
 
@@ -783,6 +804,84 @@ export default function CreateOrganizationPage() {
                       <span className="truncate text-muted-foreground text-xs">
                         {logo}
                       </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Supported Sports Selection */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>Supported Sports (Optional)</Label>
+                      <p className="text-muted-foreground text-xs">
+                        Select the sports your organization supports. Teams will default to these sports.
+                      </p>
+                    </div>
+                    {selectedSports.length > 0 && (
+                      <Button
+                        onClick={() => {
+                          setSelectedSports([]);
+                          toast.success("Sports cleared");
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        Clear All
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {availableSports?.map((sport) => (
+                      <label
+                        className="flex cursor-pointer items-center gap-3 rounded-lg border bg-background p-3 hover:bg-muted/50"
+                        htmlFor={`sport-${sport.code}`}
+                        key={sport.code}
+                      >
+                        <input
+                          checked={selectedSports.includes(sport.code)}
+                          className="h-4 w-4"
+                          disabled={loading}
+                          id={`sport-${sport.code}`}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedSports([...selectedSports, sport.code]);
+                            } else {
+                              setSelectedSports(
+                                selectedSports.filter((s) => s !== sport.code)
+                              );
+                            }
+                          }}
+                          type="checkbox"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{sport.name}</div>
+                          {sport.governingBody && (
+                            <div className="text-muted-foreground text-xs">
+                              {sport.governingBody}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+
+                  {selectedSports.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      <span className="text-muted-foreground text-sm">
+                        Selected:
+                      </span>
+                      {selectedSports.map((sportCode) => {
+                        const sport = availableSports?.find(
+                          (s) => s.code === sportCode
+                        );
+                        return (
+                          <Badge key={sportCode} variant="secondary">
+                            {sport?.name || sportCode}
+                          </Badge>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

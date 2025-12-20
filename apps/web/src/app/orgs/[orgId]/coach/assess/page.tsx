@@ -142,6 +142,18 @@ export default function AssessPlayerPage() {
     console.log("🐛 ASSIGNED TEAM EXISTS?", teamExists ? `Yes: ${teamExists.name}` : "NO - TEAM NOT FOUND!");
   }
 
+  // DEBUG: Check coach assignments and team sport data
+  if (coachAssignments) {
+    console.log("🏀 COACH ASSIGNMENTS:", coachAssignments);
+    console.log("🏀 ASSIGNED TEAMS:", coachAssignments.teams);
+    console.log("🏀 TEAMS WITH SPORT CODES:", coachAssignments.teams.map((t) => ({
+      teamId: t.teamId,
+      teamName: t.teamName,
+      sportCode: t.sportCode,
+      hasSportCode: !!t.sportCode,
+    })));
+  }
+
   // Get ALL players from coach's assigned teams
   const allCoachTeamPlayers = useQuery(
     api.models.teamPlayerIdentities.getTeamMembersForOrg,
@@ -323,12 +335,22 @@ export default function AssessPlayerPage() {
 
   // Auto-select sport from team or default to first team's sport
   useMemo(() => {
-    if (!coachAssignments?.teams) return;
+    if (!coachAssignments?.teams) {
+      console.log("⚽ AUTO-SELECT: No coach assignments teams");
+      return;
+    }
+
+    console.log("⚽ AUTO-SELECT: Running auto-selection logic");
+    console.log("⚽ selectedTeamId:", selectedTeamId);
+    console.log("⚽ selectedSportCode:", selectedSportCode);
+    console.log("⚽ coachAssignments.teams:", coachAssignments.teams);
 
     // If team is selected, use that team's sport
     if (selectedTeamId) {
       const team = coachAssignments.teams.find((t) => t.teamId === selectedTeamId);
+      console.log("⚽ AUTO-SELECT: Found team for selectedTeamId:", team);
       if (team?.sportCode && team.sportCode !== selectedSportCode) {
+        console.log("⚽ AUTO-SELECT: Setting sport from selected team:", team.sportCode);
         setSelectedSportCode(team.sportCode);
       }
       return;
@@ -337,8 +359,12 @@ export default function AssessPlayerPage() {
     // Otherwise, default to the first team's sport (if not already set)
     if (!selectedSportCode && coachAssignments.teams.length > 0) {
       const firstTeamSport = coachAssignments.teams[0]?.sportCode;
+      console.log("⚽ AUTO-SELECT: First team sport:", firstTeamSport);
       if (firstTeamSport) {
+        console.log("⚽ AUTO-SELECT: Setting sport from first team:", firstTeamSport);
         setSelectedSportCode(firstTeamSport);
+      } else {
+        console.log("⚽ AUTO-SELECT: First team has NO sportCode!");
       }
     }
   }, [selectedTeamId, coachAssignments, selectedSportCode]);

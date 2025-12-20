@@ -253,6 +253,11 @@ export default function CreateOrganizationPage() {
       return;
     }
 
+    if (selectedSports.length === 0) {
+      toast.error("Please select at least one sport for this organization");
+      return;
+    }
+
     setLoading(true);
     try {
       // Create organization using Better Auth client API
@@ -319,19 +324,17 @@ export default function CreateOrganizationPage() {
           }
         }
 
-        // Save supported sports if selected
-        if (selectedSports.length > 0) {
-          try {
-            await updateOrganizationSports({
-              organizationId: data.id,
-              supportedSports: selectedSports,
-            });
-          } catch (sportsError) {
-            console.error("Failed to save supported sports:", sportsError);
-            toast.warning(
-              "Organization created, but sports could not be saved. You can update them in settings."
-            );
-          }
+        // Save supported sports (required)
+        try {
+          await updateOrganizationSports({
+            organizationId: data.id,
+            supportedSports: selectedSports,
+          });
+        } catch (sportsError) {
+          console.error("Failed to save supported sports:", sportsError);
+          toast.error(
+            "Organization created, but sports could not be saved. Please update them in settings."
+          );
         }
 
         toast.success(`Organization "${name}" created successfully!`);
@@ -812,9 +815,11 @@ export default function CreateOrganizationPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <Label>Supported Sports (Optional)</Label>
+                      <Label>
+                        Supported Sports <span className="text-destructive">*</span>
+                      </Label>
                       <p className="text-muted-foreground text-xs">
-                        Select the sports your organization supports. Teams will default to these sports.
+                        Select at least one sport your organization supports. Teams will default to these sports.
                       </p>
                     </div>
                     {selectedSports.length > 0 && (
@@ -831,6 +836,21 @@ export default function CreateOrganizationPage() {
                       </Button>
                     )}
                   </div>
+
+                  {/* Warning if no sports available */}
+                  {(!availableSports || availableSports.length === 0) && (
+                    <div className="flex items-start gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+                      <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="font-medium text-destructive text-sm">
+                          Required Reference Data Missing
+                        </p>
+                        <p className="text-destructive/90 text-xs">
+                          Cannot create organization: <strong>sports, skill categories, and skill definitions</strong> are required to assign a club/org ID. Please contact platform staff to set up this reference data before proceeding.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid gap-2 sm:grid-cols-2">
                     {availableSports?.map((sport) => (
@@ -1098,7 +1118,9 @@ export default function CreateOrganizationPage() {
                       !name ||
                       !slug ||
                       slugAvailable === false ||
-                      checkingSlug
+                      checkingSlug ||
+                      !availableSports ||
+                      availableSports.length === 0
                     }
                     type="submit"
                   >

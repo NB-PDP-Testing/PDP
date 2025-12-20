@@ -6,6 +6,8 @@ import { useParams } from "next/navigation";
 import { api } from "@pdp/backend/convex/_generated/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { AlertCircle, Trash2, RefreshCw, Upload, FileUp } from "lucide-react";
 
 export default function DevToolsPage() {
@@ -15,11 +17,75 @@ export default function DevToolsPage() {
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Selection state for Clear All Dev Data
+  const [clearAllSelections, setClearAllSelections] = useState({
+    playerIdentities: true,
+    guardianIdentities: true,
+    guardianPlayerLinks: true,
+    orgPlayerEnrollments: true,
+    teamPlayerIdentities: true,
+    sportPassports: true,
+    coachAssignments: true,
+    skillAssessments: true,
+    teams: true,
+    membersRoles: true,
+    sports: true,
+    referenceData: true,
+  });
+
+  // Selection state for Clear Org Data
+  const [clearOrgSelections, setClearOrgSelections] = useState({
+    orgPlayerEnrollments: true,
+    teamPlayerIdentities: true,
+    sportPassports: true,
+    coachAssignments: true,
+    skillAssessments: true,
+    teams: true,
+  });
+
   const clearAllDevData = useMutation(api.scripts.clearDevData.clearAllDevData);
   const clearOrgData = useMutation(api.scripts.clearDevData.clearOrgData);
   const importCompleteSkillsData = useMutation(
     api.models.referenceData.importCompleteSkillsData
   );
+  const migrateSportNamesToCodes = useMutation(
+    api.models.teams.migrateSportNamesToCodes
+  );
+
+  const handleMigrateSports = async () => {
+    if (!orgId) {
+      setError("Organization ID is not available");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `This will convert sport NAMES to sport CODES for all teams in this organization. Continue?`
+      )
+    ) {
+      return;
+    }
+
+    setIsClearing(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const result = await migrateSportNamesToCodes({
+        organizationId: orgId,
+      });
+      setResult({
+        migrated: {
+          teamsUpdated: result.teamsUpdated,
+          updates: result.updates,
+        },
+      });
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   const handleClearAllData = async () => {
     if (
@@ -43,7 +109,10 @@ export default function DevToolsPage() {
     setResult(null);
 
     try {
-      const result = await clearAllDevData({ confirmDelete: true });
+      const result = await clearAllDevData({
+        confirmDelete: true,
+        selections: clearAllSelections,
+      });
       setResult(result);
     } catch (err: any) {
       setError(err.message);
@@ -74,6 +143,7 @@ export default function DevToolsPage() {
       const result = await clearOrgData({
         organizationId: orgId,
         confirmDelete: true,
+        selections: clearOrgSelections,
       });
       setResult(result);
     } catch (err: any) {
@@ -149,17 +219,225 @@ export default function DevToolsPage() {
                   development!
                 </p>
                 <div className="text-sm text-red-700">
-                  <p className="mb-1 font-medium">This will delete:</p>
-                  <ul className="ml-4 list-disc space-y-1">
-                    <li>All player identities and guardian identities</li>
-                    <li>All guardian-player links</li>
-                    <li>All org player enrollments</li>
-                    <li>All team-player assignments</li>
-                    <li>All sport passports</li>
-                    <li>All teams (Convex teams table)</li>
-                    <li>All sports reference data</li>
-                    <li>All other reference data</li>
-                  </ul>
+                  <p className="mb-2 font-medium">Select what to delete:</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll-playerIdentities"
+                        checked={clearAllSelections.playerIdentities}
+                        onCheckedChange={(checked) =>
+                          setClearAllSelections({
+                            ...clearAllSelections,
+                            playerIdentities: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearAll-playerIdentities"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Player identities
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll-guardianIdentities"
+                        checked={clearAllSelections.guardianIdentities}
+                        onCheckedChange={(checked) =>
+                          setClearAllSelections({
+                            ...clearAllSelections,
+                            guardianIdentities: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearAll-guardianIdentities"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Guardian identities
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll-guardianPlayerLinks"
+                        checked={clearAllSelections.guardianPlayerLinks}
+                        onCheckedChange={(checked) =>
+                          setClearAllSelections({
+                            ...clearAllSelections,
+                            guardianPlayerLinks: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearAll-guardianPlayerLinks"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Guardian-player links
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll-orgPlayerEnrollments"
+                        checked={clearAllSelections.orgPlayerEnrollments}
+                        onCheckedChange={(checked) =>
+                          setClearAllSelections({
+                            ...clearAllSelections,
+                            orgPlayerEnrollments: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearAll-orgPlayerEnrollments"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Org player enrollments
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll-teamPlayerIdentities"
+                        checked={clearAllSelections.teamPlayerIdentities}
+                        onCheckedChange={(checked) =>
+                          setClearAllSelections({
+                            ...clearAllSelections,
+                            teamPlayerIdentities: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearAll-teamPlayerIdentities"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Team-player assignments
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll-sportPassports"
+                        checked={clearAllSelections.sportPassports}
+                        onCheckedChange={(checked) =>
+                          setClearAllSelections({
+                            ...clearAllSelections,
+                            sportPassports: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearAll-sportPassports"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Sport passports
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll-coachAssignments"
+                        checked={clearAllSelections.coachAssignments}
+                        onCheckedChange={(checked) =>
+                          setClearAllSelections({
+                            ...clearAllSelections,
+                            coachAssignments: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearAll-coachAssignments"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Coach assignments
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll-skillAssessments"
+                        checked={clearAllSelections.skillAssessments}
+                        onCheckedChange={(checked) =>
+                          setClearAllSelections({
+                            ...clearAllSelections,
+                            skillAssessments: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearAll-skillAssessments"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Skill assessments
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll-teams"
+                        checked={clearAllSelections.teams}
+                        onCheckedChange={(checked) =>
+                          setClearAllSelections({
+                            ...clearAllSelections,
+                            teams: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearAll-teams"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Teams
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll-membersRoles"
+                        checked={clearAllSelections.membersRoles}
+                        onCheckedChange={(checked) =>
+                          setClearAllSelections({
+                            ...clearAllSelections,
+                            membersRoles: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearAll-membersRoles"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Functional roles (coach/parent/admin) from members
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll-sports"
+                        checked={clearAllSelections.sports}
+                        onCheckedChange={(checked) =>
+                          setClearAllSelections({
+                            ...clearAllSelections,
+                            sports: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearAll-sports"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Sports reference data
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll-referenceData"
+                        checked={clearAllSelections.referenceData}
+                        onCheckedChange={(checked) =>
+                          setClearAllSelections({
+                            ...clearAllSelections,
+                            referenceData: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearAll-referenceData"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Other reference data
+                      </Label>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -246,6 +524,56 @@ export default function DevToolsPage() {
           </div>
         </Card>
 
+        {/* Migrate Sport Names to Codes */}
+        <Card className="border-green-200 bg-green-50">
+          <div className="p-6">
+            <div className="mb-4 flex items-start gap-3">
+              <RefreshCw className="mt-1 h-5 w-5 text-green-600" />
+              <div>
+                <h2 className="mb-2 text-xl font-semibold text-green-900">
+                  Migrate Sport Names to Codes
+                </h2>
+                <p className="mb-4 text-sm text-green-800">
+                  Converts team sport values from NAMES (e.g., "GAA Football") to
+                  CODES (e.g., "gaa_football") for this organization's teams.
+                </p>
+                <div className="text-sm text-green-700">
+                  <p className="mb-1 font-medium">This will update:</p>
+                  <ul className="ml-4 list-disc space-y-1">
+                    <li>"GAA Football" → "gaa_football"</li>
+                    <li>"Hurling" → "hurling"</li>
+                    <li>"Camogie" → "camogie"</li>
+                    <li>"Ladies Football" → "ladies_football"</li>
+                    <li>And other sports as needed</li>
+                  </ul>
+                  <p className="mt-2 text-xs italic">
+                    This fixes the issue where assess page can't find skills because
+                    sport codes don't match.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="default"
+              onClick={handleMigrateSports}
+              disabled={isClearing}
+              className="gap-2 bg-green-600 hover:bg-green-700"
+            >
+              {isClearing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Migrating...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4" />
+                  Migrate Sports
+                </>
+              )}
+            </Button>
+          </div>
+        </Card>
+
         {/* Clear Org Data */}
         <Card className="border-orange-200 bg-orange-50">
           <div className="p-6">
@@ -261,19 +589,121 @@ export default function DevToolsPage() {
                   orgs).
                 </p>
                 <div className="text-sm text-orange-700">
-                  <p className="mb-1 font-medium">This will delete:</p>
-                  <ul className="ml-4 list-disc space-y-1">
-                    <li>All org player enrollments for this org</li>
-                    <li>All team-player assignments for this org's teams</li>
-                    <li>All sport passports for this org</li>
-                    <li>All teams for this org</li>
-                    <li>
-                      Player identities ONLY if not enrolled in any other org
-                    </li>
-                    <li>
-                      Guardian identities ONLY if no linked players remain
-                    </li>
-                  </ul>
+                  <p className="mb-2 font-medium">Select what to delete:</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearOrg-orgPlayerEnrollments"
+                        checked={clearOrgSelections.orgPlayerEnrollments}
+                        onCheckedChange={(checked) =>
+                          setClearOrgSelections({
+                            ...clearOrgSelections,
+                            orgPlayerEnrollments: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearOrg-orgPlayerEnrollments"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Org player enrollments
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearOrg-teamPlayerIdentities"
+                        checked={clearOrgSelections.teamPlayerIdentities}
+                        onCheckedChange={(checked) =>
+                          setClearOrgSelections({
+                            ...clearOrgSelections,
+                            teamPlayerIdentities: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearOrg-teamPlayerIdentities"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Team-player assignments
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearOrg-sportPassports"
+                        checked={clearOrgSelections.sportPassports}
+                        onCheckedChange={(checked) =>
+                          setClearOrgSelections({
+                            ...clearOrgSelections,
+                            sportPassports: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearOrg-sportPassports"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Sport passports
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearOrg-coachAssignments"
+                        checked={clearOrgSelections.coachAssignments}
+                        onCheckedChange={(checked) =>
+                          setClearOrgSelections({
+                            ...clearOrgSelections,
+                            coachAssignments: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearOrg-coachAssignments"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Coach assignments
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearOrg-skillAssessments"
+                        checked={clearOrgSelections.skillAssessments}
+                        onCheckedChange={(checked) =>
+                          setClearOrgSelections({
+                            ...clearOrgSelections,
+                            skillAssessments: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearOrg-skillAssessments"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Skill assessments
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearOrg-teams"
+                        checked={clearOrgSelections.teams}
+                        onCheckedChange={(checked) =>
+                          setClearOrgSelections({
+                            ...clearOrgSelections,
+                            teams: checked === true,
+                          })
+                        }
+                      />
+                      <Label
+                        htmlFor="clearOrg-teams"
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        Teams
+                      </Label>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs italic">
+                    Note: Player and guardian identities are only deleted if orphaned
+                    (not used by other orgs).
+                  </p>
                 </div>
               </div>
             </div>

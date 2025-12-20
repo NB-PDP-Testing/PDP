@@ -194,3 +194,122 @@ export const getTeamPlayerLinks = query({
     return allLinks.flat();
   },
 });
+
+/**
+ * Debug query to check team sport data
+ */
+export const debugTeamSports = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "team",
+      paginationOpts: {
+        cursor: null,
+        numItems: 1000,
+      },
+      where: [
+        {
+          field: "organizationId",
+          value: args.organizationId,
+          operator: "eq",
+        },
+      ],
+    });
+
+    const teams = result.page as BetterAuthDoc<"team">[];
+    return teams.map((team) => ({
+      _id: team._id,
+      name: team.name,
+      sport: team.sport,
+      sportType: typeof team.sport,
+      hasSport: team.sport !== undefined && team.sport !== null,
+    }));
+  },
+});
+
+/**
+ * Migration: Convert sport NAMES to sport CODES
+ * This fixes teams that have "GAA Football" instead of "gaa_football"
+ */
+export const migrateSportNamesToCodes = mutation({
+  args: {
+    organizationId: v.optional(v.string()),
+  },
+  returns: v.object({
+    teamsUpdated: v.number(),
+    updates: v.array(
+      v.object({
+        teamId: v.string(),
+        teamName: v.string(),
+        oldSport: v.string(),
+        newSport: v.string(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    // Sport name to code mapping
+    const sportNameToCode: Record<string, string> = {
+      "GAA Football": "gaa_football",
+      "Hurling": "hurling",
+      "Camogie": "camogie",
+      "Ladies Football": "ladies_football",
+      "Handball": "handball",
+      "Rounders": "rounders",
+      "Soccer": "soccer",
+      "Rugby": "rugby",
+      "Basketball": "basketball",
+      "GAA Gaelic Football": "gaa_football", // Alternative name
+    };
+
+    // Get teams to migrate
+    const where = args.organizationId
+      ? [{ field: "organizationId", value: args.organizationId, operator: "eq" as const }]
+      : [];
+
+    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "team",
+      paginationOpts: {
+        cursor: null,
+        numItems: 1000,
+      },
+      where,
+    });
+
+    const teams = result.page as BetterAuthDoc<"team">[];
+    const updates = [];
+    let teamsUpdated = 0;
+
+    for (const team of teams) {
+      if (!team.sport) continue;
+
+      // Check if sport is a NAME (not a code)
+      const sportCode = sportNameToCode[team.sport];
+      if (sportCode && sportCode !== team.sport) {
+        // Update the team
+        await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+          input: {
+            model: "team",
+            where: [{ field: "_id", value: team._id, operator: "eq" }],
+            update: { sport: sportCode },
+          },
+        });
+
+        updates.push({
+          teamId: team._id,
+          teamName: team.name,
+          oldSport: team.sport,
+          newSport: sportCode,
+        });
+        teamsUpdated++;
+      }
+    }
+
+    return {
+      teamsUpdated,
+      updates,
+    };
+  },
+});

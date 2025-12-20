@@ -20,7 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -452,6 +452,17 @@ export default function ManageTeamsPage() {
   // Sort teams from oldest to youngest (by creation time)
   const teams = teamsRaw?.sort((a, b) => a.createdAt - b.createdAt);
 
+  // DEBUG: Log team sport data
+  if (teams) {
+    console.log("🏟️ TEAMS PAGE - All teams:", teams);
+    console.log("🏟️ TEAMS PAGE - Teams with sport data:", teams.map((t) => ({
+      _id: t._id,
+      name: t.name,
+      sport: t.sport,
+      hasSport: !!t.sport,
+    })));
+  }
+
   // Get organization data (for supported sports)
   const organization = useQuery(api.models.organizations.getOrganization, {
     organizationId: orgId,
@@ -459,6 +470,18 @@ export default function ManageTeamsPage() {
 
   // Get available sports from reference data
   const availableSports = useQuery(api.models.referenceData.getSports, {});
+
+  // Create sport code to name mapping
+  const sportCodeToName = useMemo(() => {
+    if (!availableSports) return new Map<string, string>();
+    return new Map(availableSports.map((sport) => [sport.code, sport.name]));
+  }, [availableSports]);
+
+  // Helper function to get sport display name
+  const getSportDisplayName = (sportCode: string | undefined) => {
+    if (!sportCode) return undefined;
+    return sportCodeToName.get(sportCode) || sportCode;
+  };
 
   // Get all players for player assignment (using NEW identity system)
   const allPlayers = useQuery(
@@ -765,7 +788,7 @@ export default function ManageTeamsPage() {
             <SelectItem value="all">All Sports</SelectItem>
             {uniqueSports.map((sport: string) => (
               <SelectItem key={sport} value={sport}>
-                {sport}
+                {getSportDisplayName(sport)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -846,7 +869,9 @@ export default function ManageTeamsPage() {
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               {team.sport && (
-                                <Badge variant="outline">{team.sport}</Badge>
+                                <Badge variant="outline">
+                                  {getSportDisplayName(team.sport)}
+                                </Badge>
                               )}
                               {team.ageGroup && (
                                 <Badge variant="outline">{team.ageGroup}</Badge>

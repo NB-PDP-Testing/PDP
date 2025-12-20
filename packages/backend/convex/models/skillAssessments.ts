@@ -194,6 +194,67 @@ export const getAssessmentsForPlayer = query({
 });
 
 /**
+ * Get assessment history for a player with enriched skill names
+ */
+export const getAssessmentHistory = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    sportCode: v.string(),
+    organizationId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("skillAssessments"),
+      _creationTime: v.number(),
+      passportId: v.id("sportPassports"),
+      playerIdentityId: v.id("playerIdentities"),
+      sportCode: v.string(),
+      skillCode: v.string(),
+      skillName: v.string(),
+      organizationId: v.string(),
+      rating: v.number(),
+      previousRating: v.optional(v.number()),
+      assessmentDate: v.string(),
+      assessmentType: assessmentTypeValidator,
+      assessedBy: v.optional(v.string()),
+      assessedByName: v.optional(v.string()),
+      assessorRole: v.optional(assessorRoleValidator),
+      benchmarkRating: v.optional(v.number()),
+      benchmarkLevel: v.optional(v.string()),
+      benchmarkDelta: v.optional(v.number()),
+      benchmarkStatus: v.optional(benchmarkStatusValidator),
+      notes: v.optional(v.string()),
+      confidence: v.optional(confidenceValidator),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const assessments = await ctx.db
+      .query("skillAssessments")
+      .withIndex("by_player_and_sport", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("sportCode", args.sportCode)
+      )
+      .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
+      .order("desc")
+      .take(args.limit ?? 100);
+
+    const skillDefinitions = await ctx.db
+      .query("skillDefinitions")
+      .withIndex("by_sportCode", (q) => q.eq("sportCode", args.sportCode))
+      .collect();
+
+    const skillMap = new Map(skillDefinitions.map((s) => [s.code, s.name]));
+
+    return assessments.map((assessment) => ({
+      ...assessment,
+      skillName: skillMap.get(assessment.skillCode) ?? assessment.skillCode,
+    }));
+  },
+});
+
+/**
  * Get assessments by assessor
  */
 export const getAssessmentsByAssessor = query({
@@ -1166,5 +1227,89 @@ export const bulkMigrateLegacySkills = mutation({
     }
 
     return { playersProcessed, totalMigrated, totalSkipped, errors };
+  },
+});
+
+/**
+ * Get latest skill assessments for coach's team players
+ * Returns grouped by player with latest rating for each skill
+ */
+export const getLatestSkillsForCoachPlayers = query({
+  args: {
+    organizationId: v.string(),
+    playerIdentityIds: v.array(v.id("playerIdentities")),
+  },
+  returns: v.array(
+    v.object({
+      playerIdentityId: v.id("playerIdentities"),
+      skills: v.record(v.string(), v.number()), // { skillCode: rating }
+    })
+  ),
+  handler: async (ctx, args) => {
+    const { organizationId, playerIdentityIds } = args;
+
+    // Fetch assessments for requested players
+    // Use by_playerIdentityId index and filter by org (more efficient than full scan)
+    const allAssessments = [];
+
+    for (const playerId of playerIdentityIds) {
+      const playerAssessments = await ctx.db
+        .query("skillAssessments")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .filter((q) => q.eq(q.field("organizationId"), organizationId))
+        .collect();
+
+      allAssessments.push(...playerAssessments);
+    }
+
+    const relevantAssessments = allAssessments;
+
+    // Group by player and skill, keeping only latest
+    const latestByPlayerAndSkill = new Map<
+      string,
+      Map<string, (typeof relevantAssessments)[0]>
+    >();
+
+    for (const assessment of relevantAssessments) {
+      const playerId = assessment.playerIdentityId;
+      const skillCode = assessment.skillCode;
+
+      if (!latestByPlayerAndSkill.has(playerId)) {
+        latestByPlayerAndSkill.set(playerId, new Map());
+      }
+
+      const playerMap = latestByPlayerAndSkill.get(playerId)!;
+      const existing = playerMap.get(skillCode);
+
+      if (
+        !existing ||
+        new Date(assessment.assessmentDate) >
+          new Date(existing.assessmentDate)
+      ) {
+        playerMap.set(skillCode, assessment);
+      }
+    }
+
+    // Convert to return format
+    const result = [];
+    for (const playerId of playerIdentityIds) {
+      const skills: Record<string, number> = {};
+      const playerMap = latestByPlayerAndSkill.get(playerId);
+
+      if (playerMap) {
+        for (const [skillCode, assessment] of playerMap.entries()) {
+          skills[skillCode] = assessment.rating;
+        }
+      }
+
+      result.push({
+        playerIdentityId: playerId,
+        skills,
+      });
+    }
+
+    return result;
   },
 });

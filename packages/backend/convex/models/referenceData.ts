@@ -3136,3 +3136,411 @@ export const getBenchmarksForPlayer = query({
       }));
   },
 });
+
+// ============================================================
+// EXPORT QUERIES - For data export and backup
+// ============================================================
+
+/**
+ * Export all skill categories (for all sports, including inactive)
+ * Used for data backup and reference
+ */
+export const exportAllSkillCategories = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("skillCategories"),
+      _creationTime: v.number(),
+      sportCode: v.string(),
+      code: v.string(),
+      name: v.string(),
+      description: v.optional(v.string()),
+      sortOrder: v.number(),
+      isActive: v.boolean(),
+      createdAt: v.number(),
+    })
+  ),
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("skillCategories")
+      .collect()
+      .then((cats) =>
+        cats.sort((a, b) => {
+          // Sort by sportCode first, then sortOrder
+          if (a.sportCode !== b.sportCode) {
+            return a.sportCode.localeCompare(b.sportCode);
+          }
+          return a.sortOrder - b.sortOrder;
+        })
+      );
+  },
+});
+
+/**
+ * Export all skill definitions (for all sports, including inactive)
+ * Used for data backup and reference
+ */
+export const exportAllSkillDefinitions = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("skillDefinitions"),
+      _creationTime: v.number(),
+      categoryId: v.id("skillCategories"),
+      sportCode: v.string(),
+      code: v.string(),
+      name: v.string(),
+      description: v.optional(v.string()),
+      level1Descriptor: v.optional(v.string()),
+      level2Descriptor: v.optional(v.string()),
+      level3Descriptor: v.optional(v.string()),
+      level4Descriptor: v.optional(v.string()),
+      level5Descriptor: v.optional(v.string()),
+      ageGroupRelevance: v.optional(v.array(v.string())),
+      sortOrder: v.number(),
+      isActive: v.boolean(),
+      createdAt: v.number(),
+    })
+  ),
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("skillDefinitions")
+      .collect()
+      .then((skills) =>
+        skills.sort((a, b) => {
+          // Sort by sportCode first, then sortOrder
+          if (a.sportCode !== b.sportCode) {
+            return a.sportCode.localeCompare(b.sportCode);
+          }
+          return a.sortOrder - b.sortOrder;
+        })
+      );
+  },
+});
+
+/**
+ * Export complete skills data structure (categories + definitions grouped)
+ * Returns a structured export with categories and their skills nested
+ */
+export const exportCompleteSkillsData = query({
+  args: {},
+  returns: v.object({
+    exportedAt: v.number(),
+    sports: v.array(
+      v.object({
+        sportCode: v.string(),
+        categories: v.array(
+          v.object({
+            _id: v.id("skillCategories"),
+            _creationTime: v.number(),
+            code: v.string(),
+            name: v.string(),
+            description: v.optional(v.string()),
+            sortOrder: v.number(),
+            isActive: v.boolean(),
+            createdAt: v.number(),
+            skills: v.array(
+              v.object({
+                _id: v.id("skillDefinitions"),
+                _creationTime: v.number(),
+                code: v.string(),
+                name: v.string(),
+                description: v.optional(v.string()),
+                level1Descriptor: v.optional(v.string()),
+                level2Descriptor: v.optional(v.string()),
+                level3Descriptor: v.optional(v.string()),
+                level4Descriptor: v.optional(v.string()),
+                level5Descriptor: v.optional(v.string()),
+                ageGroupRelevance: v.optional(v.array(v.string())),
+                sortOrder: v.number(),
+                isActive: v.boolean(),
+                createdAt: v.number(),
+              })
+            ),
+          })
+        ),
+      })
+    ),
+  }),
+  handler: async (ctx) => {
+    // Get all categories
+    const allCategories = await ctx.db.query("skillCategories").collect();
+
+    // Get all skills
+    const allSkills = await ctx.db.query("skillDefinitions").collect();
+
+    // Group by sport
+    const sportsMap = new Map<string, typeof allCategories>();
+    for (const category of allCategories) {
+      if (!sportsMap.has(category.sportCode)) {
+        sportsMap.set(category.sportCode, []);
+      }
+      sportsMap.get(category.sportCode)!.push(category);
+    }
+
+    // Build structured export
+    const sports = Array.from(sportsMap.entries()).map(
+      ([sportCode, categories]) => {
+        // Sort categories by sortOrder
+        const sortedCategories = categories.sort(
+          (a, b) => a.sortOrder - b.sortOrder
+        );
+
+        // For each category, get its skills
+        const categoriesWithSkills = sortedCategories.map((category) => {
+          const categorySkills = allSkills
+            .filter((skill) => skill.categoryId === category._id)
+            .sort((a, b) => a.sortOrder - b.sortOrder);
+
+          return {
+            _id: category._id,
+            _creationTime: category._creationTime,
+            code: category.code,
+            name: category.name,
+            description: category.description,
+            sortOrder: category.sortOrder,
+            isActive: category.isActive,
+            createdAt: category.createdAt,
+            skills: categorySkills.map((skill) => ({
+              _id: skill._id,
+              _creationTime: skill._creationTime,
+              code: skill.code,
+              name: skill.name,
+              description: skill.description,
+              level1Descriptor: skill.level1Descriptor,
+              level2Descriptor: skill.level2Descriptor,
+              level3Descriptor: skill.level3Descriptor,
+              level4Descriptor: skill.level4Descriptor,
+              level5Descriptor: skill.level5Descriptor,
+              ageGroupRelevance: skill.ageGroupRelevance,
+              sortOrder: skill.sortOrder,
+              isActive: skill.isActive,
+              createdAt: skill.createdAt,
+            })),
+          };
+        });
+
+        return {
+          sportCode,
+          categories: categoriesWithSkills,
+        };
+      }
+    );
+
+    return {
+      exportedAt: Date.now(),
+      sports: sports.sort((a, b) => a.sportCode.localeCompare(b.sportCode)),
+    };
+  },
+});
+
+/**
+ * Import complete skills data from exported JSON file
+ * This is used for restoring benchmark data after dev data cleanup
+ */
+export const importCompleteSkillsData = mutation({
+  args: {
+    skillsData: v.object({
+      exportedAt: v.optional(v.union(v.number(), v.string())),
+      sports: v.array(
+        v.object({
+          sportCode: v.string(),
+          categories: v.array(
+            v.object({
+              // Core fields needed for import
+              code: v.string(),
+              name: v.string(),
+              description: v.optional(v.string()),
+              sortOrder: v.number(),
+              // Extra fields from export (ignored during import)
+              _id: v.optional(v.id("skillCategories")),
+              _creationTime: v.optional(v.number()),
+              sportCode: v.optional(v.string()),
+              isActive: v.optional(v.boolean()),
+              createdAt: v.optional(v.number()),
+              skills: v.array(
+                v.object({
+                  // Core fields needed for import
+                  code: v.string(),
+                  name: v.string(),
+                  description: v.optional(v.string()),
+                  level1Descriptor: v.optional(v.string()),
+                  level2Descriptor: v.optional(v.string()),
+                  level3Descriptor: v.optional(v.string()),
+                  level4Descriptor: v.optional(v.string()),
+                  level5Descriptor: v.optional(v.string()),
+                  ageGroupRelevance: v.optional(v.array(v.string())),
+                  sortOrder: v.number(),
+                  // Extra fields from export (ignored during import)
+                  _id: v.optional(v.id("skillDefinitions")),
+                  _creationTime: v.optional(v.number()),
+                  categoryId: v.optional(v.id("skillCategories")),
+                  sportCode: v.optional(v.string()),
+                  isActive: v.optional(v.boolean()),
+                  createdAt: v.optional(v.number()),
+                })
+              ),
+            })
+          ),
+        })
+      ),
+    }),
+    replaceExisting: v.optional(v.boolean()),
+    ensureSportsExist: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    sportsProcessed: v.number(),
+    totalCategoriesCreated: v.number(),
+    totalCategoriesUpdated: v.number(),
+    totalSkillsCreated: v.number(),
+    totalSkillsUpdated: v.number(),
+    details: v.array(
+      v.object({
+        sportCode: v.string(),
+        categoriesCreated: v.number(),
+        categoriesUpdated: v.number(),
+        skillsCreated: v.number(),
+        skillsUpdated: v.number(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const results = {
+      sportsProcessed: 0,
+      totalCategoriesCreated: 0,
+      totalCategoriesUpdated: 0,
+      totalSkillsCreated: 0,
+      totalSkillsUpdated: 0,
+      details: [] as Array<{
+        sportCode: string;
+        categoriesCreated: number;
+        categoriesUpdated: number;
+        skillsCreated: number;
+        skillsUpdated: number;
+      }>,
+    };
+
+    // Ensure sports exist if requested
+    if (args.ensureSportsExist) {
+      await seedSportsHandler(ctx);
+    }
+
+    // Import skills for each sport
+    for (const sportData of args.skillsData.sports) {
+      // Verify sport exists
+      const sport = await ctx.db
+        .query("sports")
+        .withIndex("by_code", (q) => q.eq("code", sportData.sportCode))
+        .first();
+
+      if (!sport) {
+        throw new Error(
+          `Sport with code '${sportData.sportCode}' not found. Set ensureSportsExist: true to auto-create sports.`
+        );
+      }
+
+      // Import skills using existing importSkillsForSport logic
+      let categoriesCreated = 0;
+      let categoriesUpdated = 0;
+      let skillsCreated = 0;
+      let skillsUpdated = 0;
+
+      for (const categoryData of sportData.categories) {
+        // Find or create category
+        let categoryId: Id<"skillCategories">;
+        const existingCategory = await ctx.db
+          .query("skillCategories")
+          .withIndex("by_sportCode_and_code", (q) =>
+            q.eq("sportCode", sportData.sportCode).eq("code", categoryData.code)
+          )
+          .first();
+
+        if (existingCategory) {
+          categoryId = existingCategory._id;
+          if (args.replaceExisting) {
+            await ctx.db.patch(categoryId, {
+              name: categoryData.name,
+              description: categoryData.description,
+              sortOrder: categoryData.sortOrder,
+              isActive: true,
+            });
+            categoriesUpdated++;
+          }
+        } else {
+          categoryId = await ctx.db.insert("skillCategories", {
+            sportCode: sportData.sportCode,
+            code: categoryData.code,
+            name: categoryData.name,
+            description: categoryData.description,
+            sortOrder: categoryData.sortOrder,
+            isActive: true,
+            createdAt: Date.now(),
+          });
+          categoriesCreated++;
+        }
+
+        // Process skills in this category
+        for (const skillData of categoryData.skills) {
+          const existingSkill = await ctx.db
+            .query("skillDefinitions")
+            .withIndex("by_sportCode_and_code", (q) =>
+              q.eq("sportCode", sportData.sportCode).eq("code", skillData.code)
+            )
+            .first();
+
+          if (existingSkill) {
+            if (args.replaceExisting) {
+              await ctx.db.patch(existingSkill._id, {
+                categoryId,
+                name: skillData.name,
+                description: skillData.description,
+                level1Descriptor: skillData.level1Descriptor,
+                level2Descriptor: skillData.level2Descriptor,
+                level3Descriptor: skillData.level3Descriptor,
+                level4Descriptor: skillData.level4Descriptor,
+                level5Descriptor: skillData.level5Descriptor,
+                ageGroupRelevance: skillData.ageGroupRelevance,
+                sortOrder: skillData.sortOrder,
+                isActive: true,
+              });
+              skillsUpdated++;
+            }
+          } else {
+            await ctx.db.insert("skillDefinitions", {
+              categoryId,
+              sportCode: sportData.sportCode,
+              code: skillData.code,
+              name: skillData.name,
+              description: skillData.description,
+              level1Descriptor: skillData.level1Descriptor,
+              level2Descriptor: skillData.level2Descriptor,
+              level3Descriptor: skillData.level3Descriptor,
+              level4Descriptor: skillData.level4Descriptor,
+              level5Descriptor: skillData.level5Descriptor,
+              ageGroupRelevance: skillData.ageGroupRelevance,
+              sortOrder: skillData.sortOrder,
+              isActive: true,
+              createdAt: Date.now(),
+            });
+            skillsCreated++;
+          }
+        }
+      }
+
+      results.sportsProcessed++;
+      results.totalCategoriesCreated += categoriesCreated;
+      results.totalCategoriesUpdated += categoriesUpdated;
+      results.totalSkillsCreated += skillsCreated;
+      results.totalSkillsUpdated += skillsUpdated;
+      results.details.push({
+        sportCode: sportData.sportCode,
+        categoriesCreated,
+        categoriesUpdated,
+        skillsCreated,
+        skillsUpdated,
+      });
+    }
+
+    return results;
+  },
+});

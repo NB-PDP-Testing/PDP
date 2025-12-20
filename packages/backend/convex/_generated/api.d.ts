@@ -238,6 +238,7 @@ export declare const components: {
                   socialInstagram?: null | string;
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
+                  supportedSports?: Array<string>;
                   website?: null | string;
                 };
                 model: "organization";
@@ -534,6 +535,7 @@ export declare const components: {
                     | "socialInstagram"
                     | "socialLinkedin"
                     | "website"
+                    | "supportedSports"
                     | "_id";
                   operator?:
                     | "lt"
@@ -895,6 +897,7 @@ export declare const components: {
                     | "socialInstagram"
                     | "socialLinkedin"
                     | "website"
+                    | "supportedSports"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1410,6 +1413,7 @@ export declare const components: {
                   socialInstagram?: null | string;
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
+                  supportedSports?: Array<string>;
                   website?: null | string;
                 };
                 where?: Array<{
@@ -1426,6 +1430,7 @@ export declare const components: {
                     | "socialInstagram"
                     | "socialLinkedin"
                     | "website"
+                    | "supportedSports"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1877,6 +1882,7 @@ export declare const components: {
                   socialInstagram?: null | string;
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
+                  supportedSports?: Array<string>;
                   website?: null | string;
                 };
                 where?: Array<{
@@ -1893,6 +1899,7 @@ export declare const components: {
                     | "socialInstagram"
                     | "socialLinkedin"
                     | "website"
+                    | "supportedSports"
                     | "_id";
                   operator?:
                     | "lt"

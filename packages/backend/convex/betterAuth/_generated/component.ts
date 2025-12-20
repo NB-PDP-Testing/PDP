@@ -133,6 +133,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   socialInstagram?: null | string;
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
+                  supportedSports?: Array<string>;
                   website?: null | string;
                 };
                 model: "organization";
@@ -430,6 +431,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialInstagram"
                     | "socialLinkedin"
                     | "website"
+                    | "supportedSports"
                     | "_id";
                   operator?:
                     | "lt"
@@ -792,6 +794,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialInstagram"
                     | "socialLinkedin"
                     | "website"
+                    | "supportedSports"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1310,6 +1313,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   socialInstagram?: null | string;
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
+                  supportedSports?: Array<string>;
                   website?: null | string;
                 };
                 where?: Array<{
@@ -1326,6 +1330,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialInstagram"
                     | "socialLinkedin"
                     | "website"
+                    | "supportedSports"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1778,6 +1783,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   socialInstagram?: null | string;
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
+                  supportedSports?: Array<string>;
                   website?: null | string;
                 };
                 where?: Array<{
@@ -1794,6 +1800,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialInstagram"
                     | "socialLinkedin"
                     | "website"
+                    | "supportedSports"
                     | "_id";
                   operator?:
                     | "lt"

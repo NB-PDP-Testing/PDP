@@ -83,6 +83,36 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
 Liam,Murphy,U14,GAA Football,Male,2025,Tom,Murphy,tom.murphy@email.com,0851112223,father,2011-03-10
 Sophie,Brown,U12,Hurling,Female,2025,Anne,Brown,anne.brown@email.com,0857654321,mother,2013-11-05`;
 
+// Helper: Map sport name to sport code
+const mapSportNameToCode = (sportName: string): string => {
+  const normalized = sportName.trim().toLowerCase();
+
+  // GAA Sports
+  if (normalized.includes("gaa") && normalized.includes("football")) {
+    return "gaa_football";
+  }
+  if (normalized.includes("hurling")) {
+    return "hurling";
+  }
+  if (normalized.includes("camogie")) {
+    return "camogie";
+  }
+
+  // Other sports
+  if (normalized.includes("soccer") || normalized === "football") {
+    return "soccer";
+  }
+  if (normalized.includes("rugby")) {
+    return "rugby";
+  }
+  if (normalized.includes("basketball")) {
+    return "basketball";
+  }
+
+  // Default: convert to lowercase with underscores
+  return sportName.toLowerCase().replace(/\s+/g, "_");
+};
+
 export default function PlayerImportPage() {
   const params = useParams();
   const orgId = params.orgId as string;
@@ -97,6 +127,12 @@ export default function PlayerImportPage() {
     api.models.playerImport.batchImportPlayersWithIdentity
   );
   const createTeamMutation = useMutation(api.models.teams.createTeam);
+  const bulkAddToTeamMutation = useMutation(
+    api.models.teamPlayerIdentities.bulkAddPlayersToTeam
+  );
+  const findOrCreatePassportMutation = useMutation(
+    api.models.sportPassports.findOrCreatePassport
+  );
 
   const [csvData, setCsvData] = useState("");
   const [parsedPlayers, setParsedPlayers] = useState<ParsedPlayer[]>([]);
@@ -422,7 +458,9 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
     setImportProgress({ current: 0, total: playersToImport.length });
 
     try {
-      // Format players for the identity-based batch import
+      // ========== STEP 1: Create player identities, guardians, and enrollments ==========
+      console.log("📋 Step 1: Creating player identities and enrollments...");
+
       const formattedPlayers = playersToImport.map((player) => ({
         firstName: player.firstName,
         lastName: player.lastName,
@@ -441,18 +479,90 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
         parentRelationship: player.parentRelationship,
       }));
 
-      // Use batch import for better efficiency
       const result = await batchImportMutation({
         organizationId: orgId,
         players: formattedPlayers,
       });
+
+      console.log(
+        `✅ Step 1 complete: ${result.playersCreated} players created, ${result.playersReused} reused`
+      );
+
+      // ========== STEP 2: Assign players to teams ==========
+      console.log("👥 Step 2: Assigning players to teams...");
+
+      const playersByTeam = new Map<
+        string,
+        Array<(typeof result.playerIdentities)[0]["playerIdentityId"]>
+      >();
+
+      for (const identity of result.playerIdentities) {
+        const originalPlayer = playersToImport[identity.index];
+        if (originalPlayer?.matchedTeamId) {
+          const teamPlayers =
+            playersByTeam.get(originalPlayer.matchedTeamId) || [];
+          teamPlayers.push(identity.playerIdentityId);
+          playersByTeam.set(originalPlayer.matchedTeamId, teamPlayers);
+        }
+      }
+
+      let totalTeamAssignments = 0;
+      for (const [teamId, playerIds] of playersByTeam) {
+        try {
+          const teamResult = await bulkAddToTeamMutation({
+            teamId,
+            playerIdentityIds: playerIds,
+            organizationId: orgId,
+            season: playersToImport[0]?.season || "2025",
+          });
+          totalTeamAssignments += teamResult.added;
+          console.log(
+            `   Team ${teamId}: ${teamResult.added} added, ${teamResult.skipped} already on team`
+          );
+        } catch (error) {
+          console.error(`   ❌ Failed to add players to team ${teamId}:`, error);
+        }
+      }
+
+      console.log(`✅ Step 2 complete: ${totalTeamAssignments} team assignments`);
+
+      // ========== STEP 3: Create sport passports ==========
+      console.log("📋 Step 3: Creating sport passports...");
+
+      let passportsCreated = 0;
+      let passportErrors = 0;
+
+      for (const identity of result.playerIdentities) {
+        try {
+          const originalPlayer = playersToImport[identity.index];
+          const sportCode = mapSportNameToCode(originalPlayer.sport);
+
+          await findOrCreatePassportMutation({
+            playerIdentityId: identity.playerIdentityId,
+            sportCode,
+            organizationId: orgId,
+            currentSeason: originalPlayer.season,
+          });
+          passportsCreated++;
+        } catch (error) {
+          console.error(
+            `   ❌ Failed to create passport for player ${identity.playerIdentityId}:`,
+            error
+          );
+          passportErrors++;
+        }
+      }
+
+      console.log(
+        `✅ Step 3 complete: ${passportsCreated} passports processed, ${passportErrors} errors`
+      );
 
       setImportProgress({
         current: result.totalProcessed,
         total: playersToImport.length,
       });
 
-      // Build result message
+      // ========== Build comprehensive result message ==========
       const parts: string[] = [];
       parts.push(`${result.totalProcessed} processed`);
       if (result.playersCreated > 0) {
@@ -467,8 +577,16 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
       if (result.enrollmentsCreated > 0) {
         parts.push(`${result.enrollmentsCreated} new enrollments`);
       }
-      if (result.errors.length > 0) {
-        parts.push(`${result.errors.length} errors`);
+      if (totalTeamAssignments > 0) {
+        parts.push(`${totalTeamAssignments} team assignments`);
+      }
+      if (passportsCreated > 0) {
+        parts.push(`${passportsCreated} passports`);
+      }
+      if (result.errors.length > 0 || passportErrors > 0) {
+        parts.push(
+          `${result.errors.length + passportErrors} errors`
+        );
       }
 
       toast.success(`Import complete: ${parts.join(", ")}`);

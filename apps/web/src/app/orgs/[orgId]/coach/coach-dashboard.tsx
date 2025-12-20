@@ -14,6 +14,11 @@ export function CoachDashboard() {
   const params = useParams();
   const router = useRouter();
   const orgId = params.orgId as string;
+
+  // Handler for navigating to assess page
+  const handleAssessPlayers = () => {
+    router.push(`/orgs/${orgId}/coach/assess`);
+  };
   const currentUser = useCurrentUser();
   const { data: session } = authClient.useSession();
   const [searchTerm, setSearchTerm] = useState("");
@@ -82,6 +87,17 @@ export function CoachDashboard() {
     }
   );
 
+  // Get skill assessments for all players
+  const playerSkillsData = useQuery(
+    api.models.skillAssessments.getLatestSkillsForCoachPlayers,
+    allPlayers && orgId
+      ? {
+          organizationId: orgId,
+          playerIdentityIds: allPlayers.map((p) => p._id),
+        }
+      : "skip"
+  );
+
   // Get coach's assigned team IDs (convert names to IDs if needed)
   const coachTeamIds = useMemo(() => {
     if (!(coachAssignments && teams)) return [];
@@ -136,7 +152,7 @@ export function CoachDashboard() {
     );
   }, [allPlayers, coachPlayerIds]);
 
-  // Map players with team names (similar to admin/coaches approach)
+  // Map players with team names and skills (similar to admin/coaches approach)
   const playersWithTeams = useMemo(() => {
     if (!(coachPlayers && teamPlayerLinks && teams)) {
       console.log("[coach-dashboard] playersWithTeams: missing data", {
@@ -150,6 +166,14 @@ export function CoachDashboard() {
     console.log(
       `[coach-dashboard] Mapping ${coachPlayers.length} players with ${teamPlayerLinks.length} links and ${teams.length} teams`
     );
+
+    // Create skills lookup map
+    const skillsMap = new Map<string, Record<string, number>>();
+    if (playerSkillsData) {
+      for (const playerSkills of playerSkillsData) {
+        skillsMap.set(playerSkills.playerIdentityId, playerSkills.skills);
+      }
+    }
 
     const mapped = coachPlayers.map((player) => {
       // Find team links for this player (only from coach's assigned teams)
@@ -180,19 +204,23 @@ export function CoachDashboard() {
         );
       }
 
+      // Get skills for this player
+      const skills = skillsMap.get(player._id) || {};
+
       return {
         ...player,
         teamName,
         team: teamName, // For compatibility
+        skills, // Add skills data for analytics
       };
     });
 
     console.log(
-      `[coach-dashboard] Mapped ${mapped.length} players, ${mapped.filter((p) => p.teamName).length} with team names`
+      `[coach-dashboard] Mapped ${mapped.length} players, ${mapped.filter((p) => p.teamName).length} with team names, ${mapped.filter((p) => Object.keys(p.skills || {}).length > 0).length} with skills`
     );
 
     return mapped;
-  }, [coachPlayers, coachTeamPlayerLinks, teams]);
+  }, [coachPlayers, coachTeamPlayerLinks, teams, playerSkillsData]);
 
   // Get unique values for filters from coach's players
   const uniqueAgeGroups = useMemo(() => {
@@ -320,6 +348,7 @@ export function CoachDashboard() {
     teams === undefined ||
     teamPlayerLinks === undefined ||
     allPlayers === undefined ||
+    playerSkillsData === undefined ||
     // Only check coachAssignments if we have a user
     (hasUser && coachAssignments === undefined);
 
@@ -498,6 +527,7 @@ export function CoachDashboard() {
         genderFilter={genderFilter}
         isClubView={false}
         onAgeGroupFilterChange={setAgeGroupFilter}
+        onAssessPlayers={handleAssessPlayers}
         onClearTeamSelection={handleClearTeamSelection}
         onEditPlayer={handleEditPlayer}
         onFilterAllPlayers={handleFilterAllPlayers}

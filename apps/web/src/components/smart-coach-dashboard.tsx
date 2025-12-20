@@ -72,6 +72,7 @@ interface SmartCoachDashboardProps {
   onClearTeamSelection?: () => void;
   onViewVoiceNotes?: () => void;
   onViewInjuries?: () => void;
+  onAssessPlayers?: () => void;
   selectedTeam?: string | null;
   isClubView?: boolean;
   // Search and filter props
@@ -103,6 +104,7 @@ export function SmartCoachDashboard({
   onClearTeamSelection,
   onViewVoiceNotes,
   onViewInjuries,
+  onAssessPlayers,
   selectedTeam,
   isClubView = false,
   // Search and filter props
@@ -956,7 +958,16 @@ export function SmartCoachDashboard({
             Quick Actions
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 md:gap-3">
+        <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4 md:gap-3">
+          {onAssessPlayers && (
+            <Button
+              className="flex items-center justify-center gap-2 bg-emerald-600 py-3 font-medium text-sm transition-colors hover:bg-emerald-700"
+              onClick={onAssessPlayers}
+            >
+              <Edit className="flex-shrink-0" size={16} />
+              <span className="truncate">Assess Players</span>
+            </Button>
+          )}
           <Button
             className="flex items-center justify-center gap-2 bg-green-600 py-3 font-medium text-sm transition-colors hover:bg-green-700"
             onClick={handleGenerateSessionPlan}
@@ -992,17 +1003,17 @@ export function SmartCoachDashboard({
         </CardContent>
       </Card>
 
-      {/* Data Insights */}
-      {insights.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="flex-shrink-0 text-blue-600" size={20} />
-              {isClubView ? "Club-Wide Data Insights" : "Team Data Insights"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 md:space-y-3">
-            {insights.map((insight, idx) => (
+      {/* Data Insights - Always show, even if empty */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="flex-shrink-0 text-blue-600" size={20} />
+            {isClubView ? "Club-Wide Data Insights" : "Team Data Insights"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 md:space-y-3">
+          {insights.length > 0 ? (
+            insights.map((insight, idx) => (
               <div
                 className={`flex items-start gap-2 rounded-lg p-3 md:gap-3 ${
                   insight.severity === "warning"
@@ -1028,10 +1039,28 @@ export function SmartCoachDashboard({
                   {insight.message}
                 </p>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+            ))
+          ) : (
+            <div className="py-8 text-center">
+              <BarChart3
+                className="mx-auto mb-3 text-gray-300"
+                size={48}
+              />
+              <p className="mb-2 font-medium text-gray-600">
+                No insights yet
+              </p>
+              <p className="mb-3 text-gray-500 text-sm">
+                Insights will appear automatically when players have skill
+                assessments recorded.
+              </p>
+              <p className="text-gray-400 text-xs">
+                💡 Navigate to the Assess page to record player skills, or import
+                benchmark data from Dev Tools.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* AI Recommendations */}
       <Card>
@@ -1074,7 +1103,8 @@ export function SmartCoachDashboard({
             </div>
           ) : (
             <div className="space-y-3 md:space-y-4">
-              {aiRecommendations.map((rec, idx) => (
+              {aiRecommendations.length > 0 ? (
+                aiRecommendations.map((rec, idx) => (
                 <div
                   className="rounded-lg border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-3 md:p-4"
                   key={idx}
@@ -1142,7 +1172,19 @@ export function SmartCoachDashboard({
                     </div>
                   </div>
                 </div>
-              ))}
+                ))
+              ) : (
+                <div className="py-8 text-center">
+                  <Brain className="mx-auto mb-3 text-purple-300" size={48} />
+                  <p className="mb-2 font-medium text-gray-600">
+                    Ready to generate AI recommendations
+                  </p>
+                  <p className="mb-4 text-gray-500 text-sm">
+                    Click the button below to get personalized coaching insights
+                    powered by AI.
+                  </p>
+                </div>
+              )}
 
               <Button
                 className="w-full bg-purple-600 py-2.5 font-medium transition-colors hover:bg-purple-700"

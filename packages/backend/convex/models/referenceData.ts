@@ -801,6 +801,36 @@ export const getSkillCategoriesBySport = query({
 // ============================================================
 
 /**
+ * Get all skill definitions across all sports (for linking goals to skills)
+ */
+export const getAllSkillDefinitions = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("skillDefinitions"),
+      code: v.string(),
+      name: v.string(),
+      sportCode: v.string(),
+    })
+  ),
+  handler: async (ctx) => {
+    const skills = await ctx.db
+      .query("skillDefinitions")
+      .collect();
+    
+    return skills
+      .filter((s) => s.isActive)
+      .map((s) => ({
+        _id: s._id,
+        code: s.code,
+        name: s.name,
+        sportCode: s.sportCode,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
+
+/**
  * Get all skill definitions for a sport (sorted by category and sortOrder)
  */
 export const getSkillDefinitionsBySport = query({

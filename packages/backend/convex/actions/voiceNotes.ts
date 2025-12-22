@@ -28,7 +28,7 @@ const insightSchema = z.object({
           .string()
           .nullable()
           .describe(
-            "Category: injury, skill_progress, behavior, performance, attendance, team_culture"
+            "Category: injury, skill_rating, skill_progress, behavior, performance, attendance, team_culture. Use 'skill_rating' when the coach mentions a specific skill rating (e.g., 'hand_pass is now 4/5' or 'ball_control improved to rating 3')."
           ),
         recommendedUpdate: z
           .string()
@@ -166,11 +166,10 @@ export const buildInsights = internalAction({
         status: "processing",
       });
 
-      // Get players for context
-      // TODO update to use only the players that the coach is attached to
+      // Get players for context (using identity system)
       const players = await ctx.runQuery(
-        internal.models.players.getPlayersByOrgId,
-        { orgId: note.orgId }
+        internal.models.orgPlayerEnrollments.getPlayersForOrgInternal,
+        { organizationId: note.orgId }
       );
 
       // Build roster context for AI
@@ -178,7 +177,7 @@ export const buildInsights = internalAction({
         ? players
             .map(
               (player) =>
-                `- ${player.name} (ID: ${player._id})${
+                `- ${player.firstName} ${player.lastName} (ID: ${player.playerIdentityId})${
                   player.ageGroup ? `, Age Group: ${player.ageGroup}` : ""
                 }${player.sport ? `, Sport: ${player.sport}` : ""}`
             )
@@ -201,8 +200,17 @@ Your task is to:
 1. Summarize the key points from the voice note
 2. Extract specific insights about individual players or the team
 3. Match player names to the roster when possible
-4. Categorize insights (injury, skill_progress, behavior, performance, attendance, team_culture)
+4. Categorize insights:
+   - injury: physical injuries, knocks, strains
+   - skill_rating: when coach mentions a specific numeric rating/score for a skill (e.g., "set to 3", "rating 4/5", "improved to level 4")
+   - skill_progress: general skill improvement comments without specific numeric ratings
+   - behavior: attitude, effort, teamwork
+   - performance: match/training performance observations
+   - attendance: presence/absence at sessions
+   - team_culture: team morale, culture, collective behavior
 5. Suggest concrete actions the coach should take
+
+IMPORTANT for skill_rating: When the coach mentions setting or updating a skill to a specific number (1-5), use category "skill_rating" and include the rating number in the recommendedUpdate field like "Set to 3/5" or "Rating: 4".
 
 Team Roster:
 ${rosterContext}
@@ -241,11 +249,12 @@ Important:
       }
 
       // Resolve player IDs and build insights array
+      // Now using playerIdentityId for the new identity system
       const resolvedInsights = parsed.data.insights.map((insight) => {
         const matchedPlayer = findMatchingPlayer(insight, players);
         return {
           id: `insight_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
-          playerId: matchedPlayer?._id ?? undefined,
+          playerIdentityId: matchedPlayer?.playerIdentityId ?? undefined,
           playerName: matchedPlayer?.name ?? insight.playerName ?? undefined,
           title: insight.title,
           description: insight.description,
@@ -285,18 +294,29 @@ function getOpenAI() {
   });
 }
 
+// Player type from identity system
+type PlayerFromOrg = {
+  _id: Id<"playerIdentities">;
+  playerIdentityId: Id<"playerIdentities">;
+  firstName: string;
+  lastName: string;
+  name: string;
+  ageGroup: string;
+  sport: string | null;
+};
+
 function findMatchingPlayer(
   insight: z.infer<typeof insightSchema>["insights"][number],
-  players: Array<{ _id: Id<"players">; name: string }>
-) {
+  players: PlayerFromOrg[]
+): PlayerFromOrg | undefined {
   if (!players.length) {
     return;
   }
 
-  // Try to match by ID first
+  // Try to match by ID first (from AI response)
   if (insight.playerId) {
     const matchById = players.find(
-      (player) => player._id === (insight.playerId as Id<"players">)
+      (player) => player.playerIdentityId === insight.playerId
     );
     if (matchById) {
       return matchById;
@@ -306,19 +326,38 @@ function findMatchingPlayer(
   // Try to match by name
   const name = insight.playerName;
   if (name !== null && typeof name === "string") {
+    const normalizedSearch = name.toLowerCase().trim();
+    
     // Exact match
     const exactMatch = players.find(
-      (player) => player.name.toLowerCase() === name.toLowerCase()
+      (player) => player.name.toLowerCase() === normalizedSearch
     );
     if (exactMatch) {
       return exactMatch;
     }
 
+    // First name + Last name match
+    const nameMatch = players.find((player) => {
+      const fullName = `${player.firstName} ${player.lastName}`.toLowerCase();
+      return fullName === normalizedSearch;
+    });
+    if (nameMatch) {
+      return nameMatch;
+    }
+
+    // First name only match (for shorter references like "Liam")
+    const firstNameMatch = players.find(
+      (player) => player.firstName.toLowerCase() === normalizedSearch
+    );
+    if (firstNameMatch) {
+      return firstNameMatch;
+    }
+
     // Partial match (name contains the search term)
     const partialMatch = players.find(
       (player) =>
-        player.name.toLowerCase().includes(name.toLowerCase()) ||
-        name.toLowerCase().includes(player.name.toLowerCase())
+        player.name.toLowerCase().includes(normalizedSearch) ||
+        normalizedSearch.includes(player.name.toLowerCase())
     );
     if (partialMatch) {
       return partialMatch;

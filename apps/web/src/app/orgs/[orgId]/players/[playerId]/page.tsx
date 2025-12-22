@@ -23,29 +23,14 @@ export default function PlayerPassportPage() {
 
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
 
-  // Try new identity system first
-  const playerIdentityData = useQuery(
+  // Use new identity system (legacy fallback removed)
+  const playerData = useQuery(
     api.models.sportPassports.getFullPlayerPassportView,
     {
       playerIdentityId: playerId as Id<"playerIdentities">,
       organizationId: orgId,
     }
   );
-
-  // Fall back to legacy system if new system returns null (player not in new system)
-  const legacyPlayerData = useQuery(
-    api.models.players.getPlayerPassport,
-    // Only query legacy if new system returned null (not undefined = loading)
-    playerIdentityData === null
-      ? {
-          playerId: playerId as Id<"players">,
-          organizationId: orgId,
-        }
-      : "skip"
-  );
-
-  // Use new system data if available, otherwise fall back to legacy
-  const playerData = playerIdentityData ?? legacyPlayerData;
 
   // Get current user session
   const { data: session } = authClient.useSession();
@@ -176,12 +161,12 @@ export default function PlayerPassportPage() {
           )}
 
         <GoalsSection player={playerData as any} />
-        <SkillsSection player={playerData as any} />
-        <PositionsFitnessSection player={playerData as any} />
         <NotesSection
           isCoach={permissions.canEdit}
           player={playerData as any}
         />
+        <SkillsSection player={playerData as any} />
+        <PositionsFitnessSection player={playerData as any} />
       </div>
     </div>
   );

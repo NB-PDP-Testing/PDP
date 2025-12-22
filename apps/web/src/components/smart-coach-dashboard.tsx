@@ -59,6 +59,12 @@ interface CorrelationInsight {
   severity: "info" | "warning" | "success";
 }
 
+interface TeamData {
+  _id: string;
+  name: string;
+  coachNotes?: string;
+}
+
 interface SmartCoachDashboardProps {
   players: any[];
   coachTeams?: string[];
@@ -72,8 +78,11 @@ interface SmartCoachDashboardProps {
   onClearTeamSelection?: () => void;
   onViewVoiceNotes?: () => void;
   onViewInjuries?: () => void;
+  onViewGoals?: () => void;
   onAssessPlayers?: () => void;
   selectedTeam?: string | null;
+  selectedTeamData?: TeamData | null; // Team data with coachNotes
+  onSaveTeamNote?: (teamId: string, note: string) => Promise<boolean>;
   isClubView?: boolean;
   // Search and filter props
   searchTerm?: string;
@@ -104,8 +113,11 @@ export function SmartCoachDashboard({
   onClearTeamSelection,
   onViewVoiceNotes,
   onViewInjuries,
+  onViewGoals,
   onAssessPlayers,
   selectedTeam,
+  selectedTeamData,
+  onSaveTeamNote,
   isClubView = false,
   // Search and filter props
   searchTerm = "",
@@ -140,6 +152,27 @@ export function SmartCoachDashboard({
     "name" | "team" | "ageGroup" | "lastReview"
   >("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Team notes state
+  const [showAddTeamNote, setShowAddTeamNote] = useState(false);
+  const [newTeamNote, setNewTeamNote] = useState("");
+  const [savingTeamNote, setSavingTeamNote] = useState(false);
+
+  // Handle saving team note
+  const handleSaveTeamNote = async () => {
+    if (!selectedTeamData || !newTeamNote.trim() || !onSaveTeamNote) return;
+    
+    setSavingTeamNote(true);
+    try {
+      const success = await onSaveTeamNote(selectedTeamData._id, newTeamNote.trim());
+      if (success) {
+        setNewTeamNote("");
+        setShowAddTeamNote(false);
+      }
+    } finally {
+      setSavingTeamNote(false);
+    }
+  };
 
   useEffect(() => {
     calculateTeamAnalytics();
@@ -445,9 +478,9 @@ export function SmartCoachDashboard({
       });
     }
 
-    // Review status
-    const overdueCount = allPlayers.filter(
-      (p) => p.reviewStatus === "Overdue"
+    // Review status - count players who need review (overdue OR never reviewed)
+    const needsReviewCount = allPlayers.filter(
+      (p) => p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate
     ).length;
     const completedCount = allPlayers.filter(
       (p) => p.reviewStatus === "Completed"
@@ -455,10 +488,27 @@ export function SmartCoachDashboard({
     const reviewRate =
       allPlayers.length > 0 ? (completedCount / allPlayers.length) * 100 : 0;
 
-    if (overdueCount > 0) {
+    if (needsReviewCount > 0) {
+      const neverReviewedCount = allPlayers.filter(
+        (p) => !p.lastReviewDate
+      ).length;
+      const overdueCount = allPlayers.filter(
+        (p) => p.reviewStatus === "Overdue"
+      ).length;
+      
+      let message = `⏰ ${needsReviewCount} player${needsReviewCount > 1 ? "s need" : " needs"} passport reviews`;
+      if (neverReviewedCount > 0 && overdueCount > 0) {
+        message += ` (${neverReviewedCount} never reviewed, ${overdueCount} overdue)`;
+      } else if (neverReviewedCount > 0) {
+        message += ` (never assessed)`;
+      } else {
+        message += ` (90+ days overdue)`;
+      }
+      message += `. Review completion rate: ${reviewRate.toFixed(0)}%.`;
+      
       insights.push({
         type: "attendance",
-        message: `⏰ ${overdueCount} player${overdueCount > 1 ? "s have" : " has"} overdue passport reviews (90+ days). Review completion rate: ${reviewRate.toFixed(0)}%.`,
+        message,
         severity: "warning",
       });
     } else if (reviewRate >= 80) {
@@ -683,11 +733,11 @@ export function SmartCoachDashboard({
             <div className="mb-2 flex items-center justify-between">
               <AlertCircle className="text-red-600" size={20} />
               <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
-                {players.filter((p) => p.reviewStatus === "Overdue").length}
+                {players.filter((p) => p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate).length}
               </div>
             </div>
             <div className="font-medium text-gray-600 text-xs md:text-sm">
-              Reviews Overdue
+              Needs Review
             </div>
             <div className="mt-1 text-red-600 text-xs">Click to view</div>
             <div className="mt-2 h-1 w-full rounded-full bg-red-100">
@@ -695,7 +745,7 @@ export function SmartCoachDashboard({
                 className="h-1 rounded-full bg-red-600 transition-all duration-500"
                 style={{
                   width: `${
-                    (players.filter((p) => p.reviewStatus === "Overdue")
+                    (players.filter((p) => p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate)
                       .length /
                       players.length) *
                     100
@@ -711,28 +761,30 @@ export function SmartCoachDashboard({
             <div className="mb-2 flex items-center justify-between">
               <TrendingUp className="text-purple-600" size={20} />
               <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
-                {(
-                  players.reduce(
-                    (sum, p) => sum + calculatePlayerAvgSkill(p),
-                    0
-                  ) / players.length
-                ).toFixed(1)}
+                {(() => {
+                  const playersWithSkills = players.filter(p => Object.keys(p.skills || {}).length > 0);
+                  if (playersWithSkills.length === 0) return "—";
+                  const avg = playersWithSkills.reduce((sum, p) => sum + calculatePlayerAvgSkill(p), 0) / playersWithSkills.length;
+                  return avg.toFixed(1);
+                })()}
               </div>
             </div>
             <div className="text-gray-600 text-sm">Avg Skill Level</div>
+            <div className="mt-1 text-purple-600 text-xs">
+              {players.filter(p => Object.keys(p.skills || {}).length > 0).length === 0 
+                ? "No assessments yet" 
+                : `${players.filter(p => Object.keys(p.skills || {}).length > 0).length} assessed`}
+            </div>
             <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
               <div
                 className="h-1 rounded-full bg-purple-600 transition-all duration-500"
                 style={{
-                  width: `${
-                    (players.reduce(
-                      (sum, p) => sum + calculatePlayerAvgSkill(p),
-                      0
-                    ) /
-                      players.length /
-                      5) *
-                    100
-                  }%`,
+                  width: `${(() => {
+                    const playersWithSkills = players.filter(p => Object.keys(p.skills || {}).length > 0);
+                    if (playersWithSkills.length === 0) return 0;
+                    const avg = playersWithSkills.reduce((sum, p) => sum + calculatePlayerAvgSkill(p), 0) / playersWithSkills.length;
+                    return (avg / 5) * 100;
+                  })()}%`,
                 }}
               />
             </div>
@@ -1006,6 +1058,15 @@ export function SmartCoachDashboard({
               <span className="truncate">Injury Tracking</span>
             </Button>
           )}
+          {onViewGoals && (
+            <Button
+              className="flex items-center justify-center gap-2 bg-amber-600 py-3 font-medium text-sm transition-colors hover:bg-amber-700"
+              onClick={onViewGoals}
+            >
+              <Target className="flex-shrink-0" size={16} />
+              <span className="truncate">Goals Dashboard</span>
+            </Button>
+          )}
         </CardContent>
       </Card>
 
@@ -1205,6 +1266,99 @@ export function SmartCoachDashboard({
           )}
         </CardContent>
       </Card>
+
+      {/* Team Notes Section - Shown when a team is selected (even when empty) */}
+      {selectedTeam && (
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="text-blue-600" size={20} />
+                Team Notes: {selectedTeam}
+              </CardTitle>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={() => setShowAddTeamNote(!showAddTeamNote)}
+                size="sm"
+              >
+                {showAddTeamNote ? (
+                  <>
+                    <X size={16} className="mr-1" />
+                    Cancel
+                  </>
+                ) : (
+                  <>
+                    <Edit size={16} className="mr-1" />
+                    Add Note
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Add Note Form */}
+            {showAddTeamNote && (
+              <div className="space-y-3 rounded-lg border border-blue-200 bg-white p-4">
+                <textarea
+                  className="min-h-[100px] w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => setNewTeamNote(e.target.value)}
+                  placeholder="Add a note about this team (e.g., training observations, match notes, areas to focus on)..."
+                  value={newTeamNote}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    onClick={() => {
+                      setShowAddTeamNote(false);
+                      setNewTeamNote("");
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700"
+                    disabled={!newTeamNote.trim() || savingTeamNote}
+                    onClick={handleSaveTeamNote}
+                    size="sm"
+                  >
+                    {savingTeamNote ? (
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-white border-b-2" />
+                    ) : null}
+                    Save Note
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Display existing notes */}
+            {selectedTeamData?.coachNotes ? (
+              <div className="space-y-3">
+                {selectedTeamData.coachNotes.split("\n\n").map((note: string, idx: number) => (
+                  <div
+                    className="rounded-lg border border-blue-200 bg-white p-3"
+                    key={idx}
+                  >
+                    <p className="whitespace-pre-wrap text-gray-700 text-sm">
+                      {note}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-6 text-center">
+                <FileText className="mx-auto mb-2 text-gray-300" size={32} />
+                <p className="text-gray-500 text-sm">
+                  No notes yet for this team
+                </p>
+                <p className="text-gray-400 text-xs">
+                  Add notes about training sessions, matches, or team development
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Search and Filters Section - Positioned right above player table */}
       {(onSearchChange ||
@@ -1432,9 +1586,17 @@ export function SmartCoachDashboard({
                             <p className="font-medium text-gray-900">
                               {player.name || "Unnamed"}
                             </p>
-                            <p className="text-gray-500 text-xs md:hidden">
-                              {player.ageGroup}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-gray-500 text-xs md:hidden">
+                                {player.ageGroup}
+                              </p>
+                              {player.coachNotes && (
+                                <span className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-blue-700 text-[10px]" title={player.coachNotes}>
+                                  <FileText size={10} />
+                                  Notes
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>

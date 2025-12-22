@@ -56,7 +56,7 @@ export default function ManageCoachesPage() {
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
-  const allPlayers = useQuery(api.models.players.getPlayersByOrganization, {
+  const allPlayersData = useQuery(api.models.orgPlayerEnrollments.getPlayersForOrg, {
     organizationId: orgId,
   });
 
@@ -108,7 +108,7 @@ export default function ManageCoachesPage() {
   const isLoading =
     membersLoading ||
     teams === undefined ||
-    allPlayers === undefined ||
+    allPlayersData === undefined ||
     coachAssignments === undefined ||
     teamPlayerLinks === undefined;
 

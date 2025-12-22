@@ -4,7 +4,11 @@
   "scripts": {
     "dev": "convex dev",
     "dev:setup": "convex dev --configure --until-success",
-    "generate-better-auth-schema": "@better-auth/cli generate --output ./convex/betterAuth/generatedSchema.ts -y"
+    "generate-better-auth-schema": "@better-auth/cli generate --output ./convex/betterAuth/generatedSchema.ts -y",
+    "migrate:preview": "convex run migrations/migrateLegacyData:getMigrationPreview",
+    "migrate:injuries": "convex run migrations/migrateLegacyData:migrateInjuries",
+    "migrate:goals": "convex run migrations/migrateLegacyData:migrateGoals",
+    "migrate:notes": "convex run migrations/migrateLegacyData:migrateCoachNotes"
   },
   "author": "",
   "license": "ISC",

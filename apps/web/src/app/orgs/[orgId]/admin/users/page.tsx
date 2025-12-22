@@ -82,7 +82,7 @@ export default function ManageUsersPage() {
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
-  const allPlayers = useQuery(api.models.players.getPlayersByOrganization, {
+  const allPlayersData = useQuery(api.models.orgPlayerEnrollments.getPlayersForOrg, {
     organizationId: orgId,
   });
 
@@ -93,10 +93,19 @@ export default function ManageUsersPage() {
   const updateCoachAssignments = useMutation(
     api.models.coaches.updateCoachAssignments
   );
-  const linkPlayers = useMutation(api.models.players.linkPlayersToParent);
-  const unlinkPlayers = useMutation(api.models.players.unlinkPlayersFromParent);
+  // Player linking uses new identity-based guardian system
+  const linkPlayers = useMutation(api.models.guardianPlayerLinks.linkPlayersToGuardian);
+  const unlinkPlayers = useMutation(api.models.guardianPlayerLinks.unlinkPlayersFromGuardian);
   const resendInvitation = useMutation(api.models.members.resendInvitation);
   const cancelInvitation = useMutation(api.models.members.cancelInvitation);
+  
+  // Transform enrollment data to match expected player format
+  const allPlayers = allPlayersData?.map((enrollment: any) => ({
+    _id: enrollment.playerIdentityId, // Use identity ID as key
+    name: `${enrollment.firstName} ${enrollment.lastName}`,
+    ageGroup: enrollment.ageGroup,
+    sport: enrollment.sport || "Unknown",
+  })) || [];
 
   const [editStates, setEditStates] = useState<UserEditState>({});
   const [loading, setLoading] = useState<string | null>(null);
@@ -358,16 +367,16 @@ export default function ManageUsersPage() {
 
         if (toLink.length > 0) {
           await linkPlayers({
-            playerIds: toLink as Id<"players">[],
-            parentEmail: member.user.email,
+            playerIdentityIds: toLink as Id<"playerIdentities">[],
+            guardianEmail: member.user.email,
             organizationId: orgId,
           });
         }
 
         if (toUnlink.length > 0) {
           await unlinkPlayers({
-            playerIds: toUnlink as Id<"players">[],
-            parentEmail: member.user.email,
+            playerIdentityIds: toUnlink as Id<"playerIdentities">[],
+            guardianEmail: member.user.email,
             organizationId: orgId,
           });
         }

@@ -226,6 +226,7 @@ export const getAssessmentHistory = query({
       benchmarkStatus: v.optional(benchmarkStatusValidator),
       notes: v.optional(v.string()),
       confidence: v.optional(confidenceValidator),
+      createdAt: v.optional(v.number()),
     })
   ),
   handler: async (ctx, args) => {
@@ -812,10 +813,11 @@ export const recordAssessmentWithBenchmark = mutation({
       // Find the player's enrollment in this organization
       const enrollment = await ctx.db
         .query("orgPlayerEnrollments")
-        .withIndex("by_playerIdentity", (q) =>
-          q.eq("playerIdentityId", passport.playerIdentityId)
+        .withIndex("by_player_and_org", (q) =>
+          q
+            .eq("playerIdentityId", passport.playerIdentityId)
+            .eq("organizationId", passport.organizationId)
         )
-        .filter((q) => q.eq(q.field("organizationId"), passport.organizationId))
         .first();
 
       if (enrollment) {

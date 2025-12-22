@@ -234,6 +234,76 @@ export const getAllActiveInjuriesForOrg = query({
 });
 
 /**
+ * Get ALL injuries across all players in an organization (including healed)
+ * Returns injuries with player details for dashboard display
+ */
+export const getAllInjuriesForOrg = query({
+  args: {
+    organizationId: v.string(),
+    status: v.optional(injuryStatusValidator),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    // Get all enrolled players in this org
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    const activeEnrollments = enrollments.filter((e) => e.status === "active");
+    const results = [];
+
+    for (const enrollment of activeEnrollments) {
+      const injuries = await ctx.db
+        .query("playerInjuries")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", enrollment.playerIdentityId)
+        )
+        .collect();
+
+      // Filter by status if provided, otherwise return all visible to this org
+      const filteredInjuries = injuries.filter((injury) => {
+        // Status filter
+        if (args.status && injury.status !== args.status) return false;
+        
+        // Visibility filter
+        if (injury.isVisibleToAllOrgs) return true;
+        if (injury.restrictedToOrgIds?.includes(args.organizationId))
+          return true;
+        if (injury.occurredAtOrgId === args.organizationId) return true;
+        return false;
+      });
+
+      if (filteredInjuries.length > 0) {
+        const player = await ctx.db.get(enrollment.playerIdentityId);
+        for (const injury of filteredInjuries) {
+          results.push({
+            ...injury,
+            player: player
+              ? {
+                  _id: player._id,
+                  firstName: player.firstName,
+                  lastName: player.lastName,
+                }
+              : null,
+            ageGroup: enrollment.ageGroup,
+          });
+        }
+      }
+    }
+
+    // Sort by date occurred descending
+    results.sort((a, b) => 
+      new Date(b.dateOccurred).getTime() - new Date(a.dateOccurred).getTime()
+    );
+
+    return results;
+  },
+});
+
+/**
  * Get injury history for a specific body part
  */
 export const getInjuryHistoryByBodyPart = query({

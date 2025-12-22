@@ -72,13 +72,7 @@ function ParentDashboardContent() {
     hasIdentity,
   } = useGuardianChildrenInOrg(orgId);
 
-  // LEGACY: Fall back to old email-based lookup for backward compatibility
-  const legacyLinkedPlayers = useQuery(
-    api.models.players.getPlayersForParent,
-    session?.user?.email
-      ? { organizationId: orgId, parentEmail: session.user.email }
-      : "skip"
-  );
+  // Legacy player data query removed - now using identity system only via useGuardianChildrenInOrg hook
 
   // Check if user has parent functional role or is admin/owner
   const hasParentRole = useMemo(() => {
@@ -135,11 +129,8 @@ function ParentDashboardContent() {
     return childGoals.filter((goal: any) => goal.isVisibleToParent !== false);
   }, [childGoals]);
 
-  // Use identity-based children if available, otherwise fall back to legacy
-  const useIdentitySystem = hasIdentity && identityChildren.length > 0;
-  const playerCount = useIdentitySystem
-    ? identityChildren.length
-    : (legacyLinkedPlayers?.length ?? 0);
+  // Use identity-based children (legacy fallback removed)
+  const playerCount = identityChildren.length;
 
   // Show loading state while checking roles
   if (roleDetails === undefined) {
@@ -402,8 +393,8 @@ function ParentDashboardContent() {
         </Card>
       )}
 
-      {/* Linked Children Section - Identity System */}
-      {useIdentitySystem && playerCount > 0 && (
+      {/* Linked Children Section */}
+      {playerCount > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Your Children</CardTitle>
@@ -437,38 +428,6 @@ function ParentDashboardContent() {
                   </Link>
                 )
               )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Linked Children Section - Legacy System (fallback) */}
-      {!useIdentitySystem && playerCount > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Children</CardTitle>
-            <CardDescription>
-              Click on a child to view their player passport
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {legacyLinkedPlayers?.map((player: any) => (
-                <Link
-                  className="group flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-accent"
-                  href={`/orgs/${orgId}/players/${player._id}`}
-                  key={player._id}
-                >
-                  <div>
-                    <div className="font-medium">{player.name}</div>
-                    <div className="flex gap-2 text-muted-foreground text-sm">
-                      <span>{player.ageGroup}</span>
-                      {player.sport && <span>• {player.sport}</span>}
-                    </div>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
-                </Link>
-              ))}
             </div>
           </CardContent>
         </Card>

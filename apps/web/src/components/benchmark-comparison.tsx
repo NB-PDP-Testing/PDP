@@ -230,6 +230,25 @@ export function BenchmarkComparison({
     );
   }
 
+  // No date of birth provided
+  if (!dateOfBirth) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Benchmark Comparison
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm">
+            Date of birth is required to show benchmark comparisons. Please update the player's profile with their date of birth.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // No benchmarks available
   if (benchmarks.length === 0) {
     return (
@@ -242,7 +261,8 @@ export function BenchmarkComparison({
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
-            No benchmarks are available for this player's age group and sport.
+            No benchmarks are available for this player's age group and sport ({sportCode}).
+            Benchmarks are set by platform administrators based on NGB standards.
           </p>
         </CardContent>
       </Card>

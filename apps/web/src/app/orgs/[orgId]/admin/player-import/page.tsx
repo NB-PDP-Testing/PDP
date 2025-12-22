@@ -313,9 +313,12 @@ export default function PlayerImportPage() {
     players.map((player) => {
       // Convert player gender to team format for matching
       const teamGender = genderToTeamFormat(player.gender);
+      // Convert player sport to code format for matching (teams store sport codes)
+      const playerSportCode = mapSportNameToCode(player.sport);
+      
       const matchedTeam = allTeams.find(
         (team) =>
-          team.sport === player.sport &&
+          team.sport === playerSportCode &&
           team.ageGroup === player.ageGroup &&
           team.gender === teamGender &&
           team.season === player.season
@@ -419,13 +422,15 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
   const handleCreateMissingTeams = async (teamsToCreate: MissingTeam[]) => {
     try {
       for (const team of teamsToCreate) {
-        const name = `${team.ageGroup} ${team.gender}`;
+        // Convert gender from identity format (male/female/other) to team format (Boys/Girls/Mixed)
+        const teamGender = genderToTeamFormat(team.gender as "male" | "female" | "other");
+        const name = `${team.ageGroup} ${teamGender}`;
         await createTeamMutation({
           name,
           organizationId: orgId,
-          sport: team.sport,
+          sport: mapSportNameToCode(team.sport),
           ageGroup: team.ageGroup,
-          gender: team.gender as "Boys" | "Girls" | "Mixed",
+          gender: teamGender,
           season: team.season,
           isActive: true,
         });

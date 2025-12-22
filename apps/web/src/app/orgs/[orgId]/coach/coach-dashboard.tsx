@@ -1,7 +1,8 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { Brain } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -28,6 +29,7 @@ export function CoachDashboard() {
   const [genderFilter, setGenderFilter] = useState<string>("all");
   const [reviewStatusFilter, setReviewStatusFilter] = useState<string>("all");
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
   // Fallback: use session user ID if Convex user query returns null
   const userId = currentUser?._id || session?.user?.id;
@@ -167,11 +169,12 @@ export function CoachDashboard() {
       `[coach-dashboard] Mapping ${coachPlayers.length} players with ${teamPlayerLinks.length} links and ${teams.length} teams`
     );
 
-    // Create skills lookup map
+    // Create skills lookup map - use string keys for reliable lookups
     const skillsMap = new Map<string, Record<string, number>>();
     if (playerSkillsData) {
       for (const playerSkills of playerSkillsData) {
-        skillsMap.set(playerSkills.playerIdentityId, playerSkills.skills);
+        // Convert ID to string for consistent map key lookup
+        skillsMap.set(String(playerSkills.playerIdentityId), playerSkills.skills);
       }
     }
 
@@ -204,8 +207,8 @@ export function CoachDashboard() {
         );
       }
 
-      // Get skills for this player
-      const skills = skillsMap.get(player._id) || {};
+      // Get skills for this player - use string key for lookup
+      const skills = skillsMap.get(String(player._id)) || {};
 
       return {
         ...player,
@@ -310,6 +313,45 @@ export function CoachDashboard() {
       reviewStatusFilter,
     ]
   );
+
+  // Get selected team data (for team notes)
+  const selectedTeamData = useMemo(() => {
+    if (!selectedTeam || !teams) return null;
+    const team = teams.find((t: any) => t.name === selectedTeam);
+    if (!team) return null;
+    return {
+      _id: team._id,
+      name: team.name,
+      coachNotes: team.coachNotes,
+    };
+  }, [selectedTeam, teams]);
+
+  // Mutation for updating team notes
+  const updateTeamNotes = useMutation(api.models.teams.updateTeamNotes);
+
+  // Handler for saving team notes
+  const handleSaveTeamNote = async (teamId: string, note: string): Promise<boolean> => {
+    try {
+      const result = await updateTeamNotes({
+        teamId,
+        note,
+        appendMode: true,
+      });
+      if (result.success) {
+        toast.success("Team note saved!", {
+          description: `Note added to ${result.teamName}`,
+        });
+        return true;
+      }
+      toast.error("Failed to save note");
+      return false;
+    } catch (error) {
+      toast.error("Failed to save note", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+      return false;
+    }
+  };
 
   // Get coach team names from assignments
   // Convert team IDs to team names if needed
@@ -519,6 +561,11 @@ export function CoachDashboard() {
     router.push(`/orgs/${orgId}/coach/injuries`);
   };
 
+  const handleViewGoals = () => {
+    // Navigate to goals dashboard
+    router.push(`/orgs/${orgId}/coach/goals`);
+  };
+
   return (
     <div className="space-y-6">
       <SmartCoachDashboard
@@ -534,10 +581,12 @@ export function CoachDashboard() {
         onFilterCompletedReviews={handleFilterCompletedReviews}
         onFilterOverdueReviews={handleFilterOverdueReviews}
         onGenderFilterChange={setGenderFilter}
+        onSaveTeamNote={handleSaveTeamNote}
         onSearchChange={setSearchTerm}
         onSportFilterChange={setSportFilter}
         onTeamFilterChange={setTeamFilter}
         onViewAnalytics={handleViewAnalytics}
+        onViewGoals={handleViewGoals}
         onViewInjuries={handleViewInjuries}
         onViewPlayer={handleViewPlayer}
         onViewTeam={handleViewTeam}
@@ -545,6 +594,7 @@ export function CoachDashboard() {
         players={filteredPlayers}
         searchTerm={searchTerm}
         selectedTeam={selectedTeam}
+        selectedTeamData={selectedTeamData}
         sportFilter={sportFilter}
         teamFilter={teamFilter}
         uniqueAgeGroups={uniqueAgeGroups}

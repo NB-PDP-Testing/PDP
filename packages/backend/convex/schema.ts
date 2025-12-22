@@ -1183,19 +1183,12 @@ export default defineSchema({
     insights: v.array(
       v.object({
         id: v.string(),
-        playerId: v.optional(v.id("players")),
+        playerIdentityId: v.optional(v.id("playerIdentities")),
         playerName: v.optional(v.string()),
         title: v.string(),
         description: v.string(),
         category: v.optional(v.string()),
         recommendedUpdate: v.optional(v.string()),
-        // relatingTo: v.union(
-        //   v.literal("player"),
-        //   v.literal("team"),
-        //   v.literal("coach"),
-        //   v.literal("parent"),
-        //   v.literal("other")
-        // ),
         status: v.union(
           v.literal("pending"),
           v.literal("applied"),

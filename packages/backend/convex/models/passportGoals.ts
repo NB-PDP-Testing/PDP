@@ -397,6 +397,30 @@ export const completeMilestone = mutation({
 });
 
 /**
+ * Update linked skills for a goal
+ */
+export const updateLinkedSkills = mutation({
+  args: {
+    goalId: v.id("passportGoals"),
+    linkedSkills: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.goalId);
+    if (!existing) {
+      throw new Error("Goal not found");
+    }
+
+    await ctx.db.patch(args.goalId, {
+      linkedSkills: args.linkedSkills,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
  * Delete a goal
  */
 export const deleteGoal = mutation({

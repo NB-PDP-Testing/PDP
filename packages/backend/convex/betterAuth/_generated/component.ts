@@ -99,6 +99,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 data: {
                   ageGroup?: string;
+                  coachNotes?: string;
                   createdAt: number;
                   description?: string;
                   gender?: "Boys" | "Girls" | "Mixed";
@@ -367,6 +368,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "trainingSchedule"
                     | "homeVenue"
                     | "isActive"
+                    | "coachNotes"
                     | "_id";
                   operator?:
                     | "lt"
@@ -730,6 +732,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "trainingSchedule"
                     | "homeVenue"
                     | "isActive"
+                    | "coachNotes"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1220,6 +1223,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "team";
                 update: {
                   ageGroup?: string;
+                  coachNotes?: string;
                   createdAt?: number;
                   description?: string;
                   gender?: "Boys" | "Girls" | "Mixed";
@@ -1247,6 +1251,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "trainingSchedule"
                     | "homeVenue"
                     | "isActive"
+                    | "coachNotes"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1690,6 +1695,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                 model: "team";
                 update: {
                   ageGroup?: string;
+                  coachNotes?: string;
                   createdAt?: number;
                   description?: string;
                   gender?: "Boys" | "Girls" | "Mixed";
@@ -1717,6 +1723,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "trainingSchedule"
                     | "homeVenue"
                     | "isActive"
+                    | "coachNotes"
                     | "_id";
                   operator?:
                     | "lt"

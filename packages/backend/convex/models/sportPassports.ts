@@ -628,15 +628,26 @@ export const getFullPlayerPassportView = query({
       : [];
 
     // Get latest assessments from primary passport
-    const assessments = primaryPassport
+    const assessmentsRaw = primaryPassport
       ? await ctx.db
           .query("skillAssessments")
           .withIndex("by_passportId", (q) =>
             q.eq("passportId", primaryPassport._id)
           )
           .order("desc")
-          .take(50)
+          .take(100)
       : [];
+    
+    // Transform assessments into skills Record<string, number>
+    // Take the most recent rating for each skill (since we ordered by desc, first occurrence wins)
+    const skillsMap: Record<string, number> = {};
+    for (const assessment of assessmentsRaw) {
+      // Use skillCode as the key
+      const key = assessment.skillCode;
+      if (!skillsMap[key]) {
+        skillsMap[key] = assessment.rating;
+      }
+    }
 
     // Get sport name
     const sport = primaryPassport
@@ -699,8 +710,8 @@ export const getFullPlayerPassportView = query({
         playerNotes: g.playerNotes,
         createdAt: g.createdAt,
       })),
-      // Skills/assessments (grouped by skill)
-      skills: assessments,
+      // Skills/assessments (grouped by skill code)
+      skills: skillsMap,
       assessmentCount: primaryPassport?.assessmentCount ?? 0,
       lastAssessmentDate: primaryPassport?.lastAssessmentDate,
       // Enrollment info

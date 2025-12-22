@@ -8,6 +8,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  RatingBar,
+  getColorForRating,
+  getRatingLabel,
+} from "@/components/rating-slider";
 
 interface PlayerData {
   sport: string;
@@ -71,25 +76,10 @@ export function SkillsSection({ player }: Props) {
   );
 }
 
-// Rating Display Component
+// Rating Display Component - uses shared RatingBar from rating-slider
 function RatingDisplay({ label, value }: { label: string; value: number }) {
-  const getColorForRating = (rating: number): string => {
-    if (rating === 0) return "#9CA3AF"; // gray-400 - Not Rated
-    if (rating <= 1) return "#dc2626"; // red-600 - Developing
-    if (rating <= 2) return "#f97316"; // orange-500 - Emerging
-    if (rating <= 3) return "#eab308"; // yellow-500 - Competent
-    if (rating <= 4) return "#84cc16"; // lime-500 - Proficient
-    return "#22c55e"; // green-500 - Excellent
-  };
-
-  const getRatingLabel = (rating: number): string => {
-    if (rating === 0) return "Not Rated";
-    if (rating <= 1) return "Developing";
-    if (rating <= 2) return "Emerging";
-    if (rating <= 3) return "Competent";
-    if (rating <= 4) return "Proficient";
-    return "Excellent";
-  };
+  const color = value === 0 ? "#9CA3AF" : getColorForRating(value);
+  const ratingLabel = value === 0 ? "Not Rated" : getRatingLabel(value);
 
   return (
     <div className="mb-3">
@@ -97,20 +87,12 @@ function RatingDisplay({ label, value }: { label: string; value: number }) {
         <span className="font-medium text-gray-700 text-sm">{label}</span>
         <span
           className="font-semibold text-sm"
-          style={{ color: getColorForRating(value) }}
+          style={{ color }}
         >
-          {value} - {getRatingLabel(value)}
+          {value} - {ratingLabel}
         </span>
       </div>
-      <div className="h-3 overflow-hidden rounded-full bg-gray-200">
-        <div
-          className="h-full rounded-full transition-all duration-300"
-          style={{
-            width: `${(value / 5) * 100}%`,
-            backgroundColor: getColorForRating(value),
-          }}
-        />
-      </div>
+      <RatingBar value={value} height="md" />
     </div>
   );
 }

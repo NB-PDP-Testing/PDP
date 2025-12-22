@@ -127,6 +127,7 @@ export default function InjuryTrackingPage() {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("active");
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<string>("all");
 
   // Form state
   const [newInjury, setNewInjury] = useState({
@@ -154,12 +155,20 @@ export default function InjuryTrackingPage() {
   const injuries = useQuery(
     api.models.playerInjuries.getInjuriesForPlayer,
     selectedPlayerId
-      ? { playerIdentityId: selectedPlayerId as Id<"playerIdentities"> }
+      ? { 
+          playerIdentityId: selectedPlayerId as Id<"playerIdentities">,
+          includeHealed: true, // Include all injuries including healed ones
+        }
       : "skip"
   );
 
   const activeInjuriesForOrg = useQuery(
     api.models.playerInjuries.getAllActiveInjuriesForOrg,
+    { organizationId: orgId }
+  );
+
+  const allInjuriesForOrg = useQuery(
+    api.models.playerInjuries.getAllInjuriesForOrg,
     { organizationId: orgId }
   );
 
@@ -175,6 +184,13 @@ export default function InjuryTrackingPage() {
     if (statusFilter === "all") return injuries;
     return injuries.filter((i: any) => i.status === statusFilter);
   }, [injuries, statusFilter]);
+
+  // Filter complete history by status
+  const filteredHistoryInjuries = useMemo(() => {
+    if (!allInjuriesForOrg) return [];
+    if (historyStatusFilter === "all") return allInjuriesForOrg;
+    return allInjuriesForOrg.filter((i: any) => i.status === historyStatusFilter);
+  }, [allInjuriesForOrg, historyStatusFilter]);
 
   // Handle add injury
   const handleAddInjury = useCallback(async () => {
@@ -489,6 +505,120 @@ export default function InjuryTrackingPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* All Injuries History */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Complete Injury History
+            </CardTitle>
+            <CardDescription>
+              All injuries recorded across all players in the organization
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-4">
+            <Select onValueChange={setHistoryStatusFilter} value={historyStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="recovering">Recovering</SelectItem>
+                <SelectItem value="cleared">Cleared</SelectItem>
+                <SelectItem value="healed">Healed</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="text-muted-foreground text-sm">
+              {filteredHistoryInjuries.length} of {allInjuriesForOrg?.length ?? 0} injuries
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {allInjuriesForOrg === undefined ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : filteredHistoryInjuries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Heart className="mb-4 h-12 w-12 text-muted-foreground" />
+              <h3 className="font-medium">No Injuries Found</h3>
+              <p className="text-muted-foreground text-sm">
+                {historyStatusFilter === "all"
+                  ? "No injury records have been created yet"
+                  : `No ${historyStatusFilter} injuries found`}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredHistoryInjuries.map((injury: any) => (
+                <div
+                  className="flex items-start justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                  key={injury._id}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100">
+                      <Heart className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">
+                          {injury.player?.firstName} {injury.player?.lastName}
+                        </span>
+                        {injury.ageGroup && (
+                          <span className="text-muted-foreground text-xs">
+                            ({injury.ageGroup})
+                          </span>
+                        )}
+                        <span className="text-muted-foreground">•</span>
+                        <span className="font-medium">
+                          {injury.bodyPart}
+                          {injury.side && ` (${injury.side})`} -{" "}
+                          {injury.injuryType}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground text-sm">
+                        {injury.description}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {injury.dateOccurred}
+                        </span>
+                        {injury.occurredDuring && (
+                          <span>During: {injury.occurredDuring}</span>
+                        )}
+                        {injury.treatment && (
+                          <span>Treatment: {injury.treatment}</span>
+                        )}
+                        {injury.daysOut && (
+                          <span className="font-medium text-orange-600">
+                            {injury.daysOut} days out
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    <Badge
+                      className={`${SEVERITY_CONFIG[injury.severity as Severity].bgColor} ${SEVERITY_CONFIG[injury.severity as Severity].color}`}
+                    >
+                      {SEVERITY_CONFIG[injury.severity as Severity].label}
+                    </Badge>
+                    <Badge
+                      className={`${STATUS_CONFIG[injury.status as InjuryStatus].bgColor} ${STATUS_CONFIG[injury.status as InjuryStatus].color}`}
+                    >
+                      {STATUS_CONFIG[injury.status as InjuryStatus].label}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Add Injury Dialog */}
       <Dialog onOpenChange={setShowAddDialog} open={showAddDialog}>

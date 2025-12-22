@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -482,5 +482,599 @@ export const deleteGuardianPlayerLink = mutation({
     }
 
     return null;
+  },
+});
+
+// ============================================================
+// ADMIN LINKING FUNCTIONS
+// These replace the legacy players.linkPlayersToParent functions
+// ============================================================
+
+/**
+ * Link multiple players to a parent/guardian by email
+ * Creates guardian identity if needed, then creates links
+ * 
+ * Replaces: api.models.players.linkPlayersToParent
+ */
+export const linkPlayersToGuardian = mutation({
+  args: {
+    playerIdentityIds: v.array(v.id("playerIdentities")),
+    guardianEmail: v.string(),
+    organizationId: v.string(),
+    relationship: v.optional(relationshipValidator),
+  },
+  returns: v.object({
+    linked: v.number(),
+    guardianIdentityId: v.id("guardianIdentities"),
+    errors: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.guardianEmail.toLowerCase().trim();
+    const errors: string[] = [];
+    let linked = 0;
+
+    // Find or create guardian identity
+    let guardian = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .first();
+
+    if (!guardian) {
+      // Create guardian identity
+      const guardianId = await ctx.db.insert("guardianIdentities", {
+        firstName: "",
+        lastName: "",
+        email: normalizedEmail,
+        verificationStatus: "unverified",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        createdFrom: "admin_link",
+      });
+      guardian = await ctx.db.get(guardianId);
+    }
+
+    if (!guardian) {
+      throw new Error("Failed to create guardian identity");
+    }
+
+    // Link each player
+    for (const playerIdentityId of args.playerIdentityIds) {
+      // Verify player exists
+      const player = await ctx.db.get(playerIdentityId);
+      if (!player) {
+        errors.push(`Player ${playerIdentityId} not found`);
+        continue;
+      }
+
+      // Verify player is enrolled in this org
+      const enrollment = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_player_and_org", (q) =>
+          q
+            .eq("playerIdentityId", playerIdentityId)
+            .eq("organizationId", args.organizationId)
+        )
+        .first();
+
+      if (!enrollment) {
+        errors.push(`Player ${player.firstName} ${player.lastName} not enrolled in this organization`);
+        continue;
+      }
+
+      // Check if link already exists
+      const existing = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian_and_player", (q) =>
+          q
+            .eq("guardianIdentityId", guardian!._id)
+            .eq("playerIdentityId", playerIdentityId)
+        )
+        .first();
+
+      if (existing) {
+        // Already linked, skip
+        continue;
+      }
+
+      // Check if this is the first guardian for this player
+      const existingLinks = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_player", (q) => q.eq("playerIdentityId", playerIdentityId))
+        .collect();
+
+      const isPrimary = existingLinks.length === 0;
+
+      // Create link
+      await ctx.db.insert("guardianPlayerLinks", {
+        guardianIdentityId: guardian._id,
+        playerIdentityId,
+        relationship: args.relationship ?? "guardian",
+        isPrimary,
+        hasParentalResponsibility: true,
+        canCollectFromTraining: true,
+        consentedToSharing: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      linked++;
+    }
+
+    return {
+      linked,
+      guardianIdentityId: guardian._id,
+      errors,
+    };
+  },
+});
+
+/**
+ * Unlink players from a guardian
+ * 
+ * Replaces: api.models.players.unlinkPlayersFromParent
+ */
+export const unlinkPlayersFromGuardian = mutation({
+  args: {
+    playerIdentityIds: v.array(v.id("playerIdentities")),
+    guardianEmail: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    unlinked: v.number(),
+    errors: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.guardianEmail.toLowerCase().trim();
+    const errors: string[] = [];
+    let unlinked = 0;
+
+    // Find guardian identity
+    const guardian = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .first();
+
+    if (!guardian) {
+      return { unlinked: 0, errors: ["Guardian not found"] };
+    }
+
+    // Unlink each player
+    for (const playerIdentityId of args.playerIdentityIds) {
+      const link = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian_and_player", (q) =>
+          q
+            .eq("guardianIdentityId", guardian._id)
+            .eq("playerIdentityId", playerIdentityId)
+        )
+        .first();
+
+      if (!link) {
+        continue; // Not linked, skip
+      }
+
+      await ctx.db.delete(link._id);
+
+      // If this was primary, set another guardian as primary
+      if (link.isPrimary) {
+        const remainingLink = await ctx.db
+          .query("guardianPlayerLinks")
+          .withIndex("by_player", (q) => q.eq("playerIdentityId", playerIdentityId))
+          .first();
+
+        if (remainingLink) {
+          await ctx.db.patch(remainingLink._id, {
+            isPrimary: true,
+            updatedAt: Date.now(),
+          });
+        }
+      }
+
+      unlinked++;
+    }
+
+    return { unlinked, errors };
+  },
+});
+
+/**
+ * Get linked children for a guardian in a specific organization
+ * Used by parent dashboard and admin pages
+ */
+export const getLinkedChildrenInOrg = query({
+  args: {
+    guardianEmail: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.guardianEmail.toLowerCase().trim();
+
+    // Find guardian identity
+    const guardian = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .first();
+
+    if (!guardian) {
+      return [];
+    }
+
+    // Get all links for this guardian
+    const links = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian", (q) => q.eq("guardianIdentityId", guardian._id))
+      .collect();
+
+    const results = [];
+
+    for (const link of links) {
+      // Get player identity
+      const player = await ctx.db.get(link.playerIdentityId);
+      if (!player) continue;
+
+      // Check if player is enrolled in this org
+      const enrollment = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_player_and_org", (q) =>
+          q
+            .eq("playerIdentityId", link.playerIdentityId)
+            .eq("organizationId", args.organizationId)
+        )
+        .first();
+
+      if (enrollment && enrollment.status === "active") {
+        // Get sport passport if exists
+        const passport = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", link.playerIdentityId)
+          )
+          .first();
+
+        results.push({
+          link,
+          player,
+          enrollment,
+          passport,
+        });
+      }
+    }
+
+    return results;
+  },
+});
+
+// ============================================================
+// SMART MATCHING FUNCTIONS
+// These replace the legacy players.getSmartMatchesForParent
+// ============================================================
+
+/**
+ * Internal mutation to auto-link guardian to players by email match
+ * Used by members.ts when a parent role is approved/granted
+ */
+export const autoLinkGuardianToPlayersInternal = internalMutation({
+  args: {
+    guardianEmail: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    linked: v.number(),
+    playerNames: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.guardianEmail.toLowerCase().trim();
+    const linkedPlayerNames: string[] = [];
+
+    // Find or create guardian identity
+    let guardian = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .first();
+
+    if (!guardian) {
+      // Create guardian identity
+      const guardianId = await ctx.db.insert("guardianIdentities", {
+        firstName: "",
+        lastName: "",
+        email: normalizedEmail,
+        verificationStatus: "unverified",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        createdFrom: "auto_link",
+      });
+      guardian = await ctx.db.get(guardianId);
+    }
+
+    if (!guardian) {
+      return { linked: 0, playerNames: [] };
+    }
+
+    // Get all players enrolled in this organization
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
+
+    for (const enrollment of enrollments) {
+      const player = await ctx.db.get(enrollment.playerIdentityId);
+      if (!player) continue;
+
+      // Check if link already exists
+      const existingLink = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian_and_player", (q) =>
+          q
+            .eq("guardianIdentityId", guardian!._id)
+            .eq("playerIdentityId", enrollment.playerIdentityId)
+        )
+        .first();
+
+      if (existingLink) continue;
+
+      // Check if player email matches guardian email (self-guardian)
+      if (player.email?.toLowerCase().trim() === normalizedEmail) {
+        // Create link
+        await ctx.db.insert("guardianPlayerLinks", {
+          guardianIdentityId: guardian._id,
+          playerIdentityId: enrollment.playerIdentityId,
+          relationship: "guardian",
+          isPrimary: true,
+          hasParentalResponsibility: true,
+          canCollectFromTraining: true,
+          consentedToSharing: true,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+        linkedPlayerNames.push(`${player.firstName} ${player.lastName}`);
+        continue;
+      }
+
+      // Check existing guardian links for email match
+      const playerLinks = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_player", (q) =>
+          q.eq("playerIdentityId", enrollment.playerIdentityId)
+        )
+        .collect();
+
+      for (const link of playerLinks) {
+        const existingGuardian = await ctx.db.get(link.guardianIdentityId);
+        if (existingGuardian?.email?.toLowerCase().trim() === normalizedEmail) {
+          // Already has this guardian linked via different identity - skip
+          break;
+        }
+      }
+    }
+
+    return {
+      linked: linkedPlayerNames.length,
+      playerNames: linkedPlayerNames,
+    };
+  },
+});
+
+/**
+ * Get smart matches for a guardian joining an organization
+ * Uses identity-based matching instead of legacy players table
+ * 
+ * Replaces: api.models.players.getSmartMatchesForParent
+ * 
+ * Matching criteria:
+ * - Guardian email match: 50 points
+ * - Child name match: 25-40 points
+ * - Surname match: 25 points
+ * - Phone match: 15 points
+ * - Address match: 5-20 points
+ */
+export const getSmartMatchesForGuardian = query({
+  args: {
+    organizationId: v.string(),
+    email: v.string(),
+    surname: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    children: v.optional(v.string()), // JSON string of [{name, age?, team?}]
+  },
+  returns: v.array(
+    v.object({
+      playerIdentityId: v.id("playerIdentities"),
+      name: v.string(),
+      ageGroup: v.string(),
+      dateOfBirth: v.union(v.string(), v.null()),
+      matchScore: v.number(),
+      matchReasons: v.array(v.string()),
+      confidence: v.union(
+        v.literal("high"),
+        v.literal("medium"),
+        v.literal("low"),
+        v.literal("none")
+      ),
+      existingGuardianEmail: v.union(v.string(), v.null()),
+      isAlreadyLinked: v.boolean(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.email.toLowerCase().trim();
+    const normalizedSurname = args.surname?.toLowerCase().trim() || "";
+    const normalizedPhone = (args.phone || "").replace(/\D/g, "").slice(-10);
+
+    // Parse children if provided
+    let childrenData: Array<{ name: string; age?: number; team?: string }> = [];
+    if (args.children) {
+      try {
+        childrenData = JSON.parse(args.children);
+      } catch (e) {
+        console.warn("[getSmartMatchesForGuardian] Failed to parse children JSON");
+      }
+    }
+
+    // Get all players enrolled in this organization
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
+
+    // Check if this guardian already exists
+    const existingGuardian = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .first();
+
+    // Get existing links for this guardian
+    const existingLinks = new Set<string>();
+    if (existingGuardian) {
+      const links = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", existingGuardian._id)
+        )
+        .collect();
+      for (const link of links) {
+        existingLinks.add(link.playerIdentityId);
+      }
+    }
+
+    const results = [];
+
+    for (const enrollment of enrollments) {
+      const player = await ctx.db.get(enrollment.playerIdentityId);
+      if (!player) continue;
+
+      let score = 0;
+      const matchReasons: string[] = [];
+
+      // 1. Check if there's already a guardian with matching email linked to this player
+      const playerGuardianLinks = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_player", (q) =>
+          q.eq("playerIdentityId", enrollment.playerIdentityId)
+        )
+        .collect();
+
+      let existingGuardianEmail: string | null = null;
+      for (const link of playerGuardianLinks) {
+        const guardian = await ctx.db.get(link.guardianIdentityId);
+        if (guardian?.email?.toLowerCase().trim() === normalizedEmail) {
+          score += 50;
+          matchReasons.push("Email match");
+          existingGuardianEmail = guardian.email;
+          break;
+        }
+        if (guardian?.email) {
+          existingGuardianEmail = guardian.email;
+        }
+      }
+
+      // 2. Child name matching
+      if (childrenData.length > 0) {
+        const playerFirstName = player.firstName.toLowerCase();
+        const playerLastName = player.lastName.toLowerCase();
+
+        for (const child of childrenData) {
+          const nameParts = child.name.trim().toLowerCase().split(/\s+/);
+          const childFirstName = nameParts[0] || "";
+          const childLastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+
+          // Exact first + last name match
+          if (playerFirstName === childFirstName && playerLastName === childLastName) {
+            if (!matchReasons.some((r) => r.includes("Child name"))) {
+              score += 40;
+              matchReasons.push(`Child name exact match: ${child.name}`);
+
+              // Age bonus
+              if (child.age && player.dateOfBirth) {
+                try {
+                  const birthYear = new Date(player.dateOfBirth).getFullYear();
+                  const currentYear = new Date().getFullYear();
+                  const playerAge = currentYear - birthYear;
+                  if (Math.abs(playerAge - child.age) <= 1) {
+                    score += 20;
+                    matchReasons.push(`Age confirmed: ~${playerAge} years`);
+                  }
+                } catch (e) {
+                  // Invalid date
+                }
+              }
+            }
+          }
+          // First name only match
+          else if (playerFirstName === childFirstName && playerFirstName.length > 2) {
+            if (!matchReasons.some((r) => r.includes("Child"))) {
+              score += 25;
+              matchReasons.push(`Child first name match: ${childFirstName}`);
+            }
+          }
+        }
+      }
+
+      // 3. Surname match
+      if (normalizedSurname && player.lastName.toLowerCase() === normalizedSurname) {
+        score += 25;
+        matchReasons.push("Surname match");
+      }
+
+      // 4. Phone match (check guardian phone)
+      if (normalizedPhone.length >= 10) {
+        for (const link of playerGuardianLinks) {
+          const guardian = await ctx.db.get(link.guardianIdentityId);
+          if (guardian?.phone) {
+            const guardianPhone = guardian.phone.replace(/\D/g, "").slice(-10);
+            if (guardianPhone === normalizedPhone) {
+              score += 15;
+              matchReasons.push("Phone match");
+              break;
+            }
+          }
+        }
+      }
+
+      // 5. Address matching
+      if (args.address && player.postcode) {
+        const inputPostcode = args.address.toUpperCase().replace(/\s/g, "");
+        const playerPostcode = player.postcode.toUpperCase().replace(/\s/g, "");
+        if (inputPostcode.includes(playerPostcode) || playerPostcode.includes(inputPostcode)) {
+          score += 20;
+          matchReasons.push("Postcode match");
+        }
+      }
+
+      // Determine confidence tier
+      let confidence: "high" | "medium" | "low" | "none";
+      if (score >= 60) {
+        confidence = "high";
+      } else if (score >= 30) {
+        confidence = "medium";
+      } else if (score >= 10) {
+        confidence = "low";
+      } else {
+        confidence = "none";
+      }
+
+      // Only include matches with score > 0
+      if (score > 0) {
+        results.push({
+          playerIdentityId: enrollment.playerIdentityId,
+          name: `${player.firstName} ${player.lastName}`,
+          ageGroup: enrollment.ageGroup,
+          dateOfBirth: player.dateOfBirth,
+          matchScore: score,
+          matchReasons,
+          confidence,
+          existingGuardianEmail,
+          isAlreadyLinked: existingLinks.has(enrollment.playerIdentityId),
+        });
+      }
+    }
+
+    // Sort by score descending
+    results.sort((a, b) => b.matchScore - a.matchScore);
+
+    return results;
   },
 });

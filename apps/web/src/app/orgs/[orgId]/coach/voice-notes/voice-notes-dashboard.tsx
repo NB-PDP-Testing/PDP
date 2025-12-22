@@ -11,6 +11,7 @@ import {
   Loader2,
   Mic,
   MicOff,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -24,6 +25,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 
 type NoteType = "training" | "match" | "general";
@@ -56,6 +68,7 @@ export function VoiceNotesDashboard() {
   const updateInsightStatus = useMutation(
     api.models.voiceNotes.updateInsightStatus
   );
+  const deleteVoiceNote = useMutation(api.models.voiceNotes.deleteVoiceNote);
 
   const showSuccessMessage = (message: string) => {
     setSuccessMessage(message);
@@ -179,12 +192,36 @@ export function VoiceNotesDashboard() {
     insightId: string
   ) => {
     try {
-      await updateInsightStatus({
+      const result = await updateInsightStatus({
         noteId,
         insightId,
         status: "applied",
       });
-      showSuccessMessage("✓ Insight applied!");
+      
+      // Build success message based on where it was routed
+      let message = "✓ Insight applied!";
+      if (result.appliedTo && result.message) {
+        // Show where the insight was routed
+        const destination = 
+          result.appliedTo === "playerInjuries" 
+            ? "🩹 Injury Record Created"
+          : result.appliedTo === "passportGoals"
+            ? "🎯 Development Goal Created"
+          : result.appliedTo === "orgPlayerEnrollments.coachNotes"
+            ? "📝 Added to Player Notes"
+          : result.appliedTo === "sportPassports.coachNotes"
+            ? "📝 Added to Passport Notes"
+          : result.appliedTo === "team.coachNotes"
+            ? "🏆 Added to Team Notes"
+          : result.appliedTo === "skillAssessments"
+            ? "📊 Skill Rating Updated"
+          : "📋 Applied";
+        message = `${destination}: ${result.message}`;
+      } else if (result.message) {
+        message = `⚠️ ${result.message}`;
+      }
+      
+      showSuccessMessage(message);
     } catch (error) {
       console.error("Failed to apply insight:", error);
       showErrorMessage("⚠️ Failed to apply insight.");
@@ -204,6 +241,16 @@ export function VoiceNotesDashboard() {
     } catch (error) {
       console.error("Failed to dismiss insight:", error);
       showErrorMessage("⚠️ Failed to dismiss insight.");
+    }
+  };
+
+  const handleDeleteNote = async (noteId: Id<"voiceNotes">) => {
+    try {
+      await deleteVoiceNote({ noteId });
+      showSuccessMessage("✓ Voice note deleted.");
+    } catch (error) {
+      console.error("Failed to delete note:", error);
+      showErrorMessage("⚠️ Failed to delete note.");
     }
   };
 
@@ -426,8 +473,10 @@ Example: 'Emma Murphy had a great session today. Her left foot passing is really
                       <span className="font-semibold text-gray-800">
                         {insight.title}
                       </span>
-                      {insight.playerName && (
+                      {insight.playerName ? (
                         <Badge variant="secondary">{insight.playerName}</Badge>
+                      ) : (
+                        <Badge className="bg-purple-100 text-purple-700">🏆 Team</Badge>
                       )}
                       {insight.category && (
                         <Badge variant="outline">{insight.category}</Badge>
@@ -537,6 +586,38 @@ Example: 'Emma Murphy had a great session today. Her left foot passing is really
                         ) : note.insightsStatus === "completed" ? (
                           <Badge variant="secondary">No insights</Badge>
                         ) : null}
+                        
+                        {/* Delete button */}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                              size="sm"
+                              title="Delete note"
+                              variant="ghost"
+                            >
+                              <Trash2 size={16} />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Voice Note?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete this voice note and all its insights. 
+                                This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 hover:bg-red-700"
+                                onClick={() => handleDeleteNote(note._id)}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
 

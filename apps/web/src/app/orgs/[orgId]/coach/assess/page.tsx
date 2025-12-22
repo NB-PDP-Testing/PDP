@@ -40,43 +40,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
+import {
+  RatingSlider,
+  type Rating,
+  getRatingConfig,
+} from "@/components/rating-slider";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
-// Rating level descriptions
-const RATING_LABELS: Record<
-  number,
-  { label: string; description: string; color: string }
-> = {
-  1: {
-    label: "Beginning",
-    description: "Just starting to learn this skill",
-    color: "bg-red-500",
-  },
-  2: {
-    label: "Developing",
-    description: "Shows basic understanding, needs practice",
-    color: "bg-orange-500",
-  },
-  3: {
-    label: "Competent",
-    description: "Consistent at age-appropriate level",
-    color: "bg-yellow-500",
-  },
-  4: {
-    label: "Proficient",
-    description: "Above average for age group",
-    color: "bg-green-500",
-  },
-  5: {
-    label: "Expert",
-    description: "Exceptional skill for age group",
-    color: "bg-emerald-500",
-  },
-};
-
 type AssessmentType = "training" | "match" | "formal_review" | "trial";
+type AssessmentMode = "individual" | "batch";
+
+// Batch assessment state for multiple players
+type BatchRatings = Record<string, Record<string, number>>; // playerId -> skillCode -> rating
+type BatchNotes = Record<string, Record<string, string>>; // playerId -> skillCode -> notes
 
 export default function AssessPlayerPage() {
   const params = useParams();
@@ -98,6 +75,14 @@ export default function AssessPlayerPage() {
   const [generalNotes, setGeneralNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [savedSkills, setSavedSkills] = useState<Set<string>>(new Set());
+  
+  // Batch assessment mode state
+  const [assessmentMode, setAssessmentMode] = useState<AssessmentMode>("individual");
+  const [selectedBatchPlayers, setSelectedBatchPlayers] = useState<Set<string>>(new Set());
+  const [batchSelectedSkills, setBatchSelectedSkills] = useState<Set<string>>(new Set());
+  const [batchRatings, setBatchRatings] = useState<BatchRatings>({});
+  const [batchNotes, setBatchNotes] = useState<BatchNotes>({});
+  const [batchSavedCount, setBatchSavedCount] = useState(0);
 
   // Queries
   const sports = useQuery(api.models.referenceData.getSports);
@@ -130,16 +115,16 @@ export default function AssessPlayerPage() {
   // Log debug data
   if (debugData) {
     console.log("🐛 DEBUG DATA:", debugData);
-    console.log("🐛 ASSIGNED TEAM IDS:", debugData.assignedTeamIds);
-    console.log("🐛 ALL TEAMS:", debugData.allTeams);
+    console.log("🐛 ASSIGNED TEAM IDS:", debugData.assignedTeamIds ?? []);
+    console.log("🐛 ALL TEAMS:", debugData.allTeams ?? []);
 
     // Show unique team IDs from memberships
-    const uniqueTeamIds = new Set(debugData.teamMemberships.map((tm: any) => tm.teamId));
+    const uniqueTeamIds = new Set(debugData.teamMemberships?.map((tm: any) => tm.teamId) ?? []);
     console.log("🐛 UNIQUE TEAM IDS IN MEMBERSHIPS:", Array.from(uniqueTeamIds));
 
     // Check if assigned team exists
-    const assignedTeamId = debugData.assignedTeamIds[0];
-    const teamExists = debugData.allTeams.find((t: any) => t._id === assignedTeamId);
+    const assignedTeamId = debugData.assignedTeamIds?.[0];
+    const teamExists = debugData.allTeams?.find((t: any) => t._id === assignedTeamId);
     console.log("🐛 ASSIGNED TEAM EXISTS?", teamExists ? `Yes: ${teamExists.name}` : "NO - TEAM NOT FOUND!");
   }
 
@@ -380,6 +365,9 @@ export default function AssessPlayerPage() {
   const markReviewComplete = useMutation(
     api.models.orgPlayerEnrollments.markReviewComplete
   );
+  const updatePassportNotes = useMutation(
+    api.models.sportPassports.updateNotes
+  );
 
   // Group skills by category
   type SkillDefinition = NonNullable<typeof skills>[number];
@@ -585,27 +573,74 @@ export default function AssessPlayerPage() {
               Back
             </Button>
             <div>
-              <h1 className="font-bold text-2xl">Assess Player Skills</h1>
+              <h1 className="font-bold text-2xl">
+                {assessmentMode === "batch" ? "Team Session Assessment" : "Assess Player Skills"}
+              </h1>
               <p className="text-white/80 text-sm">
-                Record skill assessments with automatic benchmark comparison
+                {assessmentMode === "batch"
+                  ? "Record the same assessment for multiple players at once"
+                  : "Record skill assessments with automatic benchmark comparison"}
               </p>
             </div>
           </div>
-          {unsavedCount > 0 && (
-            <Button
-              className="bg-white hover:bg-white/90"
-              disabled={isSaving}
-              onClick={handleSaveAll}
-              style={{ color: "var(--org-primary)" }}
-            >
-              {isSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Save All ({unsavedCount})
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Mode Toggle */}
+            <div className="flex rounded-lg border border-white/30 bg-white/10 p-1">
+              <Button
+                className={`text-sm ${
+                  assessmentMode === "individual"
+                    ? "bg-white text-gray-800"
+                    : "bg-transparent text-white hover:bg-white/20"
+                }`}
+                onClick={() => {
+                  setAssessmentMode("individual");
+                  setSelectedBatchPlayers(new Set());
+                  setBatchSelectedSkills(new Set());
+                  setBatchRatings({});
+                  setBatchNotes({});
+                }}
+                size="sm"
+                variant="ghost"
+              >
+                <User className="mr-1 h-4 w-4" />
+                Individual
+              </Button>
+              <Button
+                className={`text-sm ${
+                  assessmentMode === "batch"
+                    ? "bg-white text-gray-800"
+                    : "bg-transparent text-white hover:bg-white/20"
+                }`}
+                onClick={() => {
+                  setAssessmentMode("batch");
+                  setSelectedPlayerId(null);
+                  setRatings({});
+                  setSavedSkills(new Set());
+                }}
+                size="sm"
+                variant="ghost"
+              >
+                <Users className="mr-1 h-4 w-4" />
+                Team Session
+              </Button>
+            </div>
+            
+            {assessmentMode === "individual" && unsavedCount > 0 && (
+              <Button
+                className="bg-white hover:bg-white/90"
+                disabled={isSaving}
+                onClick={handleSaveAll}
+                style={{ color: "var(--org-primary)" }}
+              >
+                {isSaving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Save All ({unsavedCount})
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -805,7 +840,7 @@ export default function AssessPlayerPage() {
                   <BarChart3 className="h-6 w-6 text-purple-600" />
                 </div>
                 <div className="flex-1">
-                  {playerStats ? (
+                  {playerStats && playerStats.totalAssessments > 0 ? (
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
                         <p className="text-muted-foreground text-xs">
@@ -828,7 +863,7 @@ export default function AssessPlayerPage() {
                           Avg Rating
                         </p>
                         <p className="font-semibold">
-                          {playerStats.avgRating}
+                          {playerStats.avgRating}/5
                         </p>
                       </div>
                       <div>
@@ -843,6 +878,15 @@ export default function AssessPlayerPage() {
                             : "Never"}
                         </p>
                       </div>
+                    </div>
+                  ) : playerStats ? (
+                    <div className="text-center">
+                      <p className="text-muted-foreground text-sm">
+                        No assessments yet
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        Start recording skills below
+                      </p>
                     </div>
                   ) : (
                     <p className="text-muted-foreground text-sm">
@@ -900,6 +944,7 @@ export default function AssessPlayerPage() {
                   const ratingChange = assessment.previousRating
                     ? assessment.rating - assessment.previousRating
                     : null;
+                  const ratingConfig = getRatingConfig(assessment.rating);
 
                   return (
                     <div
@@ -908,9 +953,9 @@ export default function AssessPlayerPage() {
                     >
                       <div className="flex items-center gap-3">
                         <Badge
-                          className={`${RATING_LABELS[assessment.rating]?.color} text-white`}
+                          className={`${ratingConfig.bgColor} text-white`}
                         >
-                          {assessment.rating}
+                          {assessment.rating} - {ratingConfig.label}
                         </Badge>
                         <div>
                           <p className="font-medium">{assessment.skillName}</p>
@@ -1110,8 +1155,33 @@ export default function AssessPlayerPage() {
         </>
       )}
 
-      {/* Skills Assessment */}
-      {selectedPlayerId && selectedSportCode && skills && skills.length > 0 ? (
+      {/* BATCH MODE: Team Session Assessment */}
+      {assessmentMode === "batch" && selectedSportCode && skills && skills.length > 0 && (
+        <BatchAssessmentSection
+          filteredPlayers={filteredPlayers}
+          selectedBatchPlayers={selectedBatchPlayers}
+          setSelectedBatchPlayers={setSelectedBatchPlayers}
+          batchSelectedSkills={batchSelectedSkills}
+          setBatchSelectedSkills={setBatchSelectedSkills}
+          batchRatings={batchRatings}
+          setBatchRatings={setBatchRatings}
+          skills={skills}
+          skillsByCategory={skillsByCategory}
+          assessmentType={assessmentType}
+          orgId={orgId}
+          selectedSportCode={selectedSportCode}
+          currentUser={currentUser}
+          findOrCreatePassport={findOrCreatePassport}
+          recordAssessment={recordAssessment}
+          isSaving={isSaving}
+          setIsSaving={setIsSaving}
+          batchSavedCount={batchSavedCount}
+          setBatchSavedCount={setBatchSavedCount}
+        />
+      )}
+
+      {/* INDIVIDUAL MODE: Skills Assessment */}
+      {assessmentMode === "individual" && selectedPlayerId && selectedSportCode && skills && skills.length > 0 ? (
         <div className="space-y-6">
           {Array.from(skillsByCategory.entries()).map(
             ([categoryName, categorySkills]) => (
@@ -1170,37 +1240,17 @@ export default function AssessPlayerPage() {
 
                         {/* Rating Slider */}
                         <div className="space-y-3">
-                          <div className="flex items-center gap-4">
-                            <Slider
-                              className="flex-1"
-                              max={5}
-                              min={0}
-                              onValueChange={([value]) =>
-                                handleRatingChange(skill.code, value)
-                              }
-                              step={1}
-                              value={[currentRating]}
-                            />
-                            <div className="w-32 text-right">
-                              {currentRating > 0 ? (
-                                <Badge
-                                  className={`${RATING_LABELS[currentRating]?.color} text-white`}
-                                >
-                                  {currentRating} -{" "}
-                                  {RATING_LABELS[currentRating]?.label}
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline">Not rated</Badge>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Rating description */}
-                          {currentRating > 0 && (
-                            <p className="text-muted-foreground text-xs">
-                              {RATING_LABELS[currentRating]?.description}
-                            </p>
-                          )}
+                          <RatingSlider
+                            label=""
+                            value={(currentRating || 1) as Rating}
+                            onChange={(value) =>
+                              handleRatingChange(skill.code, value)
+                            }
+                            previousValue={existingRatings.get(skill.code)}
+                            isSaved={isSaved}
+                            showLabels={true}
+                            compact={true}
+                          />
 
                           {/* Notes */}
                           <div className="flex items-start gap-2">
@@ -1239,22 +1289,63 @@ export default function AssessPlayerPage() {
           {/* General Notes */}
           <Card>
             <CardHeader>
-              <CardTitle>General Notes</CardTitle>
+              <CardTitle>Development Notes</CardTitle>
               <CardDescription>
-                Add any overall observations about the player's performance
+                Add overall observations - these will be saved to the player's profile
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <Textarea
                 className="min-h-[100px]"
                 onChange={(e) => setGeneralNotes(e.target.value)}
                 placeholder="Overall observations, areas for improvement, notable strengths..."
                 value={generalNotes}
               />
+              <div className="flex justify-end">
+                <Button
+                  disabled={!generalNotes.trim() || !passport || isSaving}
+                  onClick={async () => {
+                    if (!passport) {
+                      toast.error("No passport found for this player");
+                      return;
+                    }
+                    setIsSaving(true);
+                    try {
+                      // Append to existing notes with timestamp
+                      const timestamp = new Date().toLocaleDateString();
+                      const newNote = `[${timestamp}] ${generalNotes.trim()}`;
+                      await updatePassportNotes({
+                        passportId: passport._id,
+                        coachNotes: passport.coachNotes
+                          ? `${passport.coachNotes}\n\n${newNote}`
+                          : newNote,
+                      });
+                      toast.success("Development notes saved!", {
+                        description: "Notes added to player profile",
+                      });
+                      setGeneralNotes("");
+                    } catch (error) {
+                      toast.error("Failed to save notes", {
+                        description: error instanceof Error ? error.message : "Unknown error",
+                      });
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                  variant="outline"
+                >
+                  {isSaving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-2 h-4 w-4" />
+                  )}
+                  Save to Player Profile
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
-      ) : selectedPlayerId && selectedSportCode ? (
+      ) : assessmentMode === "individual" && selectedPlayerId && selectedSportCode ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Award className="mb-4 h-12 w-12 text-muted-foreground" />
@@ -1265,7 +1356,7 @@ export default function AssessPlayerPage() {
             </p>
           </CardContent>
         </Card>
-      ) : (
+      ) : assessmentMode === "individual" ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Target className="mb-4 h-12 w-12 text-muted-foreground" />
@@ -1275,6 +1366,548 @@ export default function AssessPlayerPage() {
             <p className="text-muted-foreground">
               Choose a player and sport above to begin recording assessments
             </p>
+          </CardContent>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
+// Batch Assessment Section Component
+function BatchAssessmentSection({
+  filteredPlayers,
+  selectedBatchPlayers,
+  setSelectedBatchPlayers,
+  batchSelectedSkills,
+  setBatchSelectedSkills,
+  batchRatings,
+  setBatchRatings,
+  skills,
+  skillsByCategory,
+  assessmentType,
+  orgId,
+  selectedSportCode,
+  currentUser,
+  findOrCreatePassport,
+  recordAssessment,
+  isSaving,
+  setIsSaving,
+  batchSavedCount,
+  setBatchSavedCount,
+}: {
+  filteredPlayers: Array<{ enrollment: { playerIdentityId: string; ageGroup?: string | null }; player: { firstName: string; lastName: string } }>;
+  selectedBatchPlayers: Set<string>;
+  setSelectedBatchPlayers: React.Dispatch<React.SetStateAction<Set<string>>>;
+  batchSelectedSkills: Set<string>;
+  setBatchSelectedSkills: React.Dispatch<React.SetStateAction<Set<string>>>;
+  batchRatings: BatchRatings;
+  setBatchRatings: React.Dispatch<React.SetStateAction<BatchRatings>>;
+  skills: Array<{ code: string; name: string; description?: string; categoryId: Id<"skillCategories"> }>;
+  skillsByCategory: Map<string, Array<{ code: string; name: string; description?: string; categoryId: Id<"skillCategories"> }>>;
+  assessmentType: AssessmentType;
+  orgId: string;
+  selectedSportCode: string;
+  currentUser: any;
+  findOrCreatePassport: any;
+  recordAssessment: any;
+  isSaving: boolean;
+  setIsSaving: (value: boolean) => void;
+  batchSavedCount: number;
+  setBatchSavedCount: (value: number) => void;
+}) {
+  const [batchStep, setBatchStep] = useState<"players" | "skills" | "rate">("players");
+  const [batchSkillRating, setBatchSkillRating] = useState<Record<string, number>>({});
+  const [batchNotes, setBatchNotes] = useState<string>("");
+
+  const totalAssessments = selectedBatchPlayers.size * batchSelectedSkills.size;
+
+  // Handle select all players
+  const handleSelectAllPlayers = () => {
+    if (selectedBatchPlayers.size === filteredPlayers.length) {
+      setSelectedBatchPlayers(new Set());
+    } else {
+      setSelectedBatchPlayers(new Set(filteredPlayers.map((p) => p.enrollment.playerIdentityId)));
+    }
+  };
+
+  // Handle select all skills in a category
+  const handleSelectCategorySkills = (categorySkills: Array<{ code: string }>) => {
+    const codes = categorySkills.map((s) => s.code);
+    const allSelected = codes.every((code) => batchSelectedSkills.has(code));
+    
+    if (allSelected) {
+      setBatchSelectedSkills((prev) => {
+        const next = new Set(prev);
+        codes.forEach((code) => next.delete(code));
+        return next;
+      });
+    } else {
+      setBatchSelectedSkills((prev) => {
+        const next = new Set(prev);
+        codes.forEach((code) => next.add(code));
+        return next;
+      });
+    }
+  };
+
+  // Handle batch save
+  const handleBatchSave = async () => {
+    if (selectedBatchPlayers.size === 0 || batchSelectedSkills.size === 0) {
+      toast.error("Please select players and skills first");
+      return;
+    }
+
+    const unratedSkills = Array.from(batchSelectedSkills).filter(
+      (code) => !batchSkillRating[code]
+    );
+    if (unratedSkills.length > 0) {
+      toast.error("Please rate all selected skills", {
+        description: `${unratedSkills.length} skills need ratings`,
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    let saved = 0;
+    let errors = 0;
+
+    for (const playerId of selectedBatchPlayers) {
+      try {
+        // Ensure passport exists for each player
+        const { passportId } = await findOrCreatePassport({
+          playerIdentityId: playerId as Id<"playerIdentities">,
+          sportCode: selectedSportCode,
+          organizationId: orgId,
+        });
+
+        // Save each skill assessment
+        for (const skillCode of batchSelectedSkills) {
+          try {
+            await recordAssessment({
+              passportId,
+              skillCode,
+              rating: batchSkillRating[skillCode],
+              assessmentDate: new Date().toISOString().split("T")[0],
+              assessmentType,
+              assessedBy: currentUser?._id,
+              assessedByName: currentUser?.name ?? currentUser?.email ?? "Coach",
+              assessorRole: "coach",
+              notes: batchNotes || undefined,
+            });
+            saved++;
+          } catch {
+            errors++;
+          }
+        }
+      } catch {
+        errors += batchSelectedSkills.size;
+      }
+    }
+
+    setIsSaving(false);
+    setBatchSavedCount(saved);
+
+    if (errors === 0) {
+      toast.success("Team assessment complete!", {
+        description: `${saved} assessments saved for ${selectedBatchPlayers.size} players`,
+      });
+      // Reset batch mode
+      setSelectedBatchPlayers(new Set());
+      setBatchSelectedSkills(new Set());
+      setBatchSkillRating({});
+      setBatchNotes("");
+      setBatchStep("players");
+    } else {
+      toast.warning("Batch save completed with some errors", {
+        description: `${saved} saved, ${errors} failed`,
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Progress Steps */}
+      <Card className="border-blue-200 bg-blue-50/50">
+        <CardContent className="py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-8">
+              {/* Step 1: Players */}
+              <button
+                className={`flex items-center gap-2 ${
+                  batchStep === "players"
+                    ? "font-bold text-blue-700"
+                    : selectedBatchPlayers.size > 0
+                    ? "text-green-600"
+                    : "text-gray-400"
+                }`}
+                onClick={() => setBatchStep("players")}
+              >
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                    batchStep === "players"
+                      ? "bg-blue-600 text-white"
+                      : selectedBatchPlayers.size > 0
+                      ? "bg-green-500 text-white"
+                      : "bg-gray-200 text-gray-500"
+                  }`}
+                >
+                  {selectedBatchPlayers.size > 0 ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    "1"
+                  )}
+                </div>
+                <span>Select Players ({selectedBatchPlayers.size})</span>
+              </button>
+
+              <ChevronRight className="h-5 w-5 text-gray-300" />
+
+              {/* Step 2: Skills */}
+              <button
+                className={`flex items-center gap-2 ${
+                  batchStep === "skills"
+                    ? "font-bold text-blue-700"
+                    : batchSelectedSkills.size > 0
+                    ? "text-green-600"
+                    : "text-gray-400"
+                }`}
+                onClick={() => selectedBatchPlayers.size > 0 && setBatchStep("skills")}
+                disabled={selectedBatchPlayers.size === 0}
+              >
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                    batchStep === "skills"
+                      ? "bg-blue-600 text-white"
+                      : batchSelectedSkills.size > 0
+                      ? "bg-green-500 text-white"
+                      : "bg-gray-200 text-gray-500"
+                  }`}
+                >
+                  {batchSelectedSkills.size > 0 ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    "2"
+                  )}
+                </div>
+                <span>Select Skills ({batchSelectedSkills.size})</span>
+              </button>
+
+              <ChevronRight className="h-5 w-5 text-gray-300" />
+
+              {/* Step 3: Rate */}
+              <button
+                className={`flex items-center gap-2 ${
+                  batchStep === "rate"
+                    ? "font-bold text-blue-700"
+                    : "text-gray-400"
+                }`}
+                onClick={() =>
+                  selectedBatchPlayers.size > 0 &&
+                  batchSelectedSkills.size > 0 &&
+                  setBatchStep("rate")
+                }
+                disabled={selectedBatchPlayers.size === 0 || batchSelectedSkills.size === 0}
+              >
+                <div
+                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                    batchStep === "rate"
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-200 text-gray-500"
+                  }`}
+                >
+                  3
+                </div>
+                <span>Rate & Save</span>
+              </button>
+            </div>
+
+            {/* Total count */}
+            <Badge variant="outline" className="text-lg px-4 py-2">
+              {totalAssessments} total assessments
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Step 1: Player Selection */}
+      {batchStep === "players" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-blue-600" />
+                Select Players for Session
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSelectAllPlayers}
+              >
+                {selectedBatchPlayers.size === filteredPlayers.length
+                  ? "Deselect All"
+                  : "Select All"}
+              </Button>
+            </CardTitle>
+            <CardDescription>
+              Choose players who participated in this training session
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredPlayers.map(({ enrollment, player }) => {
+                const isSelected = selectedBatchPlayers.has(enrollment.playerIdentityId);
+                return (
+                  <button
+                    key={enrollment.playerIdentityId}
+                    className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+                      isSelected
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-blue-300"
+                    }`}
+                    onClick={() => {
+                      setSelectedBatchPlayers((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(enrollment.playerIdentityId)) {
+                          next.delete(enrollment.playerIdentityId);
+                        } else {
+                          next.add(enrollment.playerIdentityId);
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                        isSelected ? "bg-blue-600" : "bg-gray-200"
+                      }`}
+                    >
+                      {isSelected ? (
+                        <Check className="h-4 w-4 text-white" />
+                      ) : (
+                        <User className="h-4 w-4 text-gray-500" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">
+                        {player.firstName} {player.lastName}
+                      </p>
+                      {enrollment.ageGroup && (
+                        <p className="text-muted-foreground text-xs">
+                          {enrollment.ageGroup.toUpperCase()}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {selectedBatchPlayers.size > 0 && (
+              <div className="mt-6 flex justify-end">
+                <Button onClick={() => setBatchStep("skills")}>
+                  Next: Select Skills
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 2: Skill Selection */}
+      {batchStep === "skills" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-blue-600" />
+              Select Skills to Assess
+            </CardTitle>
+            <CardDescription>
+              Choose skills that were focused on during this session
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {Array.from(skillsByCategory.entries()).map(([categoryName, categorySkills]) => {
+              const allSelected = categorySkills.every((s) =>
+                batchSelectedSkills.has(s.code)
+              );
+              const someSelected = categorySkills.some((s) =>
+                batchSelectedSkills.has(s.code)
+              );
+
+              return (
+                <div key={categoryName} className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-gray-700">{categoryName}</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleSelectCategorySkills(categorySkills)}
+                    >
+                      {allSelected ? "Deselect All" : "Select All"}
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {categorySkills.map((skill) => {
+                      const isSelected = batchSelectedSkills.has(skill.code);
+                      return (
+                        <Badge
+                          key={skill.code}
+                          className={`cursor-pointer px-3 py-1.5 text-sm transition-colors ${
+                            isSelected
+                              ? "bg-blue-600 text-white hover:bg-blue-700"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }`}
+                          onClick={() => {
+                            setBatchSelectedSkills((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(skill.code)) {
+                                next.delete(skill.code);
+                              } else {
+                                next.add(skill.code);
+                              }
+                              return next;
+                            });
+                          }}
+                        >
+                          {isSelected && <Check className="mr-1 h-3 w-3" />}
+                          {skill.name}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="flex justify-between pt-4">
+              <Button variant="outline" onClick={() => setBatchStep("players")}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+              {batchSelectedSkills.size > 0 && (
+                <Button onClick={() => setBatchStep("rate")}>
+                  Next: Rate Skills
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Step 3: Rating */}
+      {batchStep === "rate" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-blue-600" />
+              Rate Selected Skills
+            </CardTitle>
+            <CardDescription>
+              Set ratings for {selectedBatchPlayers.size} players × {batchSelectedSkills.size} skills = {totalAssessments} assessments
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Player Preview */}
+            <div className="rounded-lg border bg-blue-50 p-4">
+              <p className="mb-2 font-medium text-blue-900 text-sm">
+                Applying to {selectedBatchPlayers.size} players:
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {Array.from(selectedBatchPlayers).slice(0, 10).map((playerId) => {
+                  const player = filteredPlayers.find(
+                    (p) => p.enrollment.playerIdentityId === playerId
+                  );
+                  return (
+                    <Badge key={playerId} variant="secondary" className="text-xs">
+                      {player?.player.firstName} {player?.player.lastName}
+                    </Badge>
+                  );
+                })}
+                {selectedBatchPlayers.size > 10 && (
+                  <Badge variant="secondary" className="text-xs">
+                    +{selectedBatchPlayers.size - 10} more
+                  </Badge>
+                )}
+              </div>
+            </div>
+
+            {/* Skills to Rate */}
+            <div className="space-y-4">
+              {Array.from(batchSelectedSkills).map((skillCode) => {
+                const skill = skills.find((s) => s.code === skillCode);
+                if (!skill) return null;
+
+                return (
+                  <div
+                    key={skillCode}
+                    className="rounded-lg border p-4"
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{skill.name}</p>
+                        {skill.description && (
+                          <p className="text-muted-foreground text-sm">
+                            {skill.description}
+                          </p>
+                        )}
+                      </div>
+                      {batchSkillRating[skillCode] && (
+                        <Badge className="bg-green-100 text-green-700">
+                          <Check className="mr-1 h-3 w-3" />
+                          {batchSkillRating[skillCode]}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <RatingSlider
+                      label=""
+                      value={(batchSkillRating[skillCode] || 1) as Rating}
+                      onChange={(value) =>
+                        setBatchSkillRating((prev) => ({
+                          ...prev,
+                          [skillCode]: value,
+                        }))
+                      }
+                      showLabels={true}
+                      compact={true}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Session Notes */}
+            <div className="space-y-2">
+              <Label>Session Notes (Optional)</Label>
+              <Textarea
+                value={batchNotes}
+                onChange={(e) => setBatchNotes(e.target.value)}
+                placeholder="Add any notes about this training session..."
+                rows={3}
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-between pt-4">
+              <Button variant="outline" onClick={() => setBatchStep("skills")}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+              <Button
+                onClick={handleBatchSave}
+                disabled={isSaving}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isSaving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Save All {totalAssessments} Assessments
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

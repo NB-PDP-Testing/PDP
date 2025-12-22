@@ -52,6 +52,10 @@ export const customTeamTableSchema = {
   trainingSchedule: v.optional(v.string()), // e.g., "Tuesdays & Thursdays 6-7pm"
   homeVenue: v.optional(v.string()),
   isActive: v.optional(v.boolean()),
+
+  // Coach notes - timestamped notes from coaches about the team
+  // Format: "[date] note content\n\n[date] note content..."
+  coachNotes: v.optional(v.string()),
 };
 
 // Extend the team table with sports-specific fields

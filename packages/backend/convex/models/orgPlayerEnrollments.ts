@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "../_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -573,6 +573,61 @@ export const deleteEnrollment = mutation({
 });
 
 /**
+ * Internal query to get players for an org (used by AI actions)
+ */
+export const getPlayersForOrgInternal = internalQuery({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("playerIdentities"),
+      playerIdentityId: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      name: v.string(),
+      ageGroup: v.string(),
+      sport: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
+
+    const results = [];
+
+    for (const enrollment of enrollments) {
+      const player = await ctx.db.get(enrollment.playerIdentityId);
+      if (!player) continue;
+
+      // Get sport from passport if available
+      const passport = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", enrollment.playerIdentityId)
+        )
+        .first();
+
+      results.push({
+        _id: player._id,
+        playerIdentityId: player._id,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        name: `${player.firstName} ${player.lastName}`,
+        ageGroup: enrollment.ageGroup,
+        sport: passport?.sportCode ?? null,
+      });
+    }
+
+    return results;
+  },
+});
+
+/**
  * Internal mutation to update review statuses based on due dates
  * Called daily by cron job to mark reviews as overdue or due soon
  */
@@ -659,10 +714,11 @@ export const markReviewComplete = mutation({
     // Find the enrollment
     const enrollment = await ctx.db
       .query("orgPlayerEnrollments")
-      .withIndex("by_playerIdentity", (q) =>
-        q.eq("playerIdentityId", args.playerIdentityId)
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("organizationId", args.organizationId)
       )
-      .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
       .first();
 
     if (!enrollment) {

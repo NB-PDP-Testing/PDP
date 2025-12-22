@@ -16,6 +16,7 @@ import type * as crons from "../crons.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
+import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_coaches from "../models/coaches.js";
 import type * as models_demoAsks from "../models/demoAsks.js";
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   healthCheck: typeof healthCheck;
   http: typeof http;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
+  "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
   "models/adultPlayers": typeof models_adultPlayers;
   "models/coaches": typeof models_coaches;
   "models/demoAsks": typeof models_demoAsks;
@@ -206,6 +208,7 @@ export declare const components: {
             | {
                 data: {
                   ageGroup?: string;
+                  coachNotes?: string;
                   createdAt: number;
                   description?: string;
                   gender?: "Boys" | "Girls" | "Mixed";
@@ -473,6 +476,7 @@ export declare const components: {
                     | "trainingSchedule"
                     | "homeVenue"
                     | "isActive"
+                    | "coachNotes"
                     | "_id";
                   operator?:
                     | "lt"
@@ -835,6 +839,7 @@ export declare const components: {
                     | "trainingSchedule"
                     | "homeVenue"
                     | "isActive"
+                    | "coachNotes"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1322,6 +1327,7 @@ export declare const components: {
                 model: "team";
                 update: {
                   ageGroup?: string;
+                  coachNotes?: string;
                   createdAt?: number;
                   description?: string;
                   gender?: "Boys" | "Girls" | "Mixed";
@@ -1349,6 +1355,7 @@ export declare const components: {
                     | "trainingSchedule"
                     | "homeVenue"
                     | "isActive"
+                    | "coachNotes"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1791,6 +1798,7 @@ export declare const components: {
                 model: "team";
                 update: {
                   ageGroup?: string;
+                  coachNotes?: string;
                   createdAt?: number;
                   description?: string;
                   gender?: "Boys" | "Girls" | "Mixed";
@@ -1818,6 +1826,7 @@ export declare const components: {
                     | "trainingSchedule"
                     | "homeVenue"
                     | "isActive"
+                    | "coachNotes"
                     | "_id";
                   operator?:
                     | "lt"

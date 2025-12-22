@@ -127,6 +127,87 @@ export const updateTeam = mutation({
 });
 
 /**
+ * Update team coach notes
+ * Appends a new timestamped note to the team's coachNotes field
+ */
+export const updateTeamNotes = mutation({
+  args: {
+    teamId: v.string(),
+    note: v.string(),
+    appendMode: v.optional(v.boolean()), // true = append to existing, false = replace
+  },
+  returns: v.object({
+    success: v.boolean(),
+    teamName: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Get current team to access existing notes
+    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "team",
+      paginationOpts: { cursor: null, numItems: 1 },
+      where: [{ field: "_id", value: args.teamId, operator: "eq" }],
+    });
+
+    const team = result.page[0] as BetterAuthDoc<"team"> | undefined;
+    if (!team) {
+      return { success: false };
+    }
+
+    let newNotes: string;
+    if (args.appendMode !== false) {
+      // Append mode (default): add timestamp and append to existing
+      const timestamp = new Date().toLocaleDateString();
+      const newNote = `[${timestamp}] ${args.note.trim()}`;
+      const existingNotes = team.coachNotes || "";
+      newNotes = existingNotes ? `${existingNotes}\n\n${newNote}` : newNote;
+    } else {
+      // Replace mode: just set the note directly
+      newNotes = args.note;
+    }
+
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "team",
+        where: [{ field: "_id", value: args.teamId, operator: "eq" }],
+        update: {
+          coachNotes: newNotes,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+
+    return { success: true, teamName: team.name };
+  },
+});
+
+/**
+ * Get team by ID with coach notes
+ */
+export const getTeamById = query({
+  args: {
+    teamId: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      ...customTeamTableSchema,
+      _creationTime: v.number(),
+      _id: v.string(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "team",
+      paginationOpts: { cursor: null, numItems: 1 },
+      where: [{ field: "_id", value: args.teamId, operator: "eq" }],
+    });
+
+    const team = result.page[0] as BetterAuthDoc<"team"> | undefined;
+    return team || null;
+  },
+});
+
+/**
  * Delete a team
  */
 export const deleteTeam = mutation({

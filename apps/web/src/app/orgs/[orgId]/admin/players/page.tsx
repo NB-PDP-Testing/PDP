@@ -1,21 +1,25 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   CheckSquare,
   ChevronDown,
   ChevronUp,
   Edit,
   Eye,
+  Loader2,
   Plus,
   Search,
   Square,
+  Upload,
   UserCircle,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +31,15 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -35,13 +48,56 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// Age group options
+const AGE_GROUPS = [
+  "U6", "U7", "U8", "U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U17", "U18", "U19", "U21", "Senior", "Adult"
+];
+
+// Get current season (e.g., "2024/2025")
+const getCurrentSeason = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  // If after August, use current/next year, otherwise previous/current
+  if (month >= 7) {
+    return `${year}/${year + 1}`;
+  }
+  return `${year - 1}/${year}`;
+};
+
 type SortColumn = "name" | "team" | "ageGroup" | "lastReview";
 type SortDirection = "asc" | "desc";
+
+interface AddPlayerFormData {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  gender: "male" | "female" | "other";
+  ageGroup: string;
+}
+
+const emptyFormData: AddPlayerFormData = {
+  firstName: "",
+  lastName: "",
+  dateOfBirth: "",
+  gender: "male",
+  ageGroup: "",
+};
 
 export default function ManagePlayersPage() {
   const params = useParams();
   const router = useRouter();
   const orgId = params.orgId as string;
+
+  // Add Player Dialog state
+  const [showAddPlayerDialog, setShowAddPlayerDialog] = useState(false);
+  const [addPlayerForm, setAddPlayerForm] = useState<AddPlayerFormData>(emptyFormData);
+  const [isAddingPlayer, setIsAddingPlayer] = useState(false);
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof AddPlayerFormData, string>>>({});
+
+  // Mutations
+  const createPlayerIdentity = useMutation(api.models.playerIdentities.createPlayerIdentity);
+  const enrollPlayer = useMutation(api.models.orgPlayerEnrollments.enrollPlayer);
 
   // Get data from new identity system
   const enrolledPlayers = useQuery(
@@ -86,6 +142,82 @@ export default function ManagePlayersPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   const isLoading = enrolledPlayers === undefined || teams === undefined;
+
+  // Validate add player form
+  const validateForm = (): boolean => {
+    const errors: Partial<Record<keyof AddPlayerFormData, string>> = {};
+
+    if (!addPlayerForm.firstName.trim()) {
+      errors.firstName = "First name is required";
+    }
+    if (!addPlayerForm.lastName.trim()) {
+      errors.lastName = "Last name is required";
+    }
+    if (!addPlayerForm.dateOfBirth) {
+      errors.dateOfBirth = "Date of birth is required";
+    } else {
+      // Check if date is valid
+      const dob = new Date(addPlayerForm.dateOfBirth);
+      const now = new Date();
+      if (dob > now) {
+        errors.dateOfBirth = "Date of birth cannot be in the future";
+      } else if (now.getFullYear() - dob.getFullYear() > 100) {
+        errors.dateOfBirth = "Please enter a valid date of birth";
+      }
+    }
+    if (!addPlayerForm.ageGroup) {
+      errors.ageGroup = "Age group is required";
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle add player submit
+  const handleAddPlayer = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsAddingPlayer(true);
+    try {
+      // Step 1: Create player identity
+      const playerIdentityId = await createPlayerIdentity({
+        firstName: addPlayerForm.firstName.trim(),
+        lastName: addPlayerForm.lastName.trim(),
+        dateOfBirth: addPlayerForm.dateOfBirth,
+        gender: addPlayerForm.gender,
+        createdFrom: "manual_admin",
+      });
+
+      // Step 2: Enroll in organization
+      await enrollPlayer({
+        playerIdentityId,
+        organizationId: orgId,
+        ageGroup: addPlayerForm.ageGroup,
+        season: getCurrentSeason(),
+      });
+
+      toast.success("Player added successfully", {
+        description: `${addPlayerForm.firstName} ${addPlayerForm.lastName} has been added to the organization.`,
+      });
+
+      // Reset form and close dialog
+      setAddPlayerForm(emptyFormData);
+      setFormErrors({});
+      setShowAddPlayerDialog(false);
+
+      // Navigate to the new player
+      router.push(`/orgs/${orgId}/players/${playerIdentityId}`);
+    } catch (error) {
+      console.error("Error adding player:", error);
+      toast.error("Failed to add player", {
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+      });
+    } finally {
+      setIsAddingPlayer(false);
+    }
+  };
 
   // Get unique values for filters
   const uniqueAgeGroups = [
@@ -228,12 +360,22 @@ export default function ManagePlayersPage() {
             View and manage all player passports
           </p>
         </div>
-        <Button
-          onClick={() => router.push(`/orgs/${orgId}/admin/player-import`)}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Import Players
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowAddPlayerDialog(true)}
+            variant="default"
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Add Player
+          </Button>
+          <Button
+            onClick={() => router.push(`/orgs/${orgId}/admin/player-import`)}
+            variant="outline"
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Import Players
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -613,6 +755,174 @@ export default function ManagePlayersPage() {
           )}
         </CardContent>
       </Card>
+      {/* Add Player Dialog */}
+      <Dialog open={showAddPlayerDialog} onOpenChange={(open) => {
+        if (!open) {
+          setAddPlayerForm(emptyFormData);
+          setFormErrors({});
+        }
+        setShowAddPlayerDialog(open);
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Player</DialogTitle>
+            <DialogDescription>
+              Create a new player and enroll them in your organization.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* First Name */}
+            <div className="space-y-2">
+              <Label htmlFor="firstName">
+                First Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="firstName"
+                placeholder="Enter first name"
+                value={addPlayerForm.firstName}
+                onChange={(e) => {
+                  setAddPlayerForm({ ...addPlayerForm, firstName: e.target.value });
+                  if (formErrors.firstName) {
+                    setFormErrors({ ...formErrors, firstName: undefined });
+                  }
+                }}
+                className={formErrors.firstName ? "border-red-500" : ""}
+              />
+              {formErrors.firstName && (
+                <p className="text-red-500 text-sm">{formErrors.firstName}</p>
+              )}
+            </div>
+
+            {/* Last Name */}
+            <div className="space-y-2">
+              <Label htmlFor="lastName">
+                Last Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="lastName"
+                placeholder="Enter last name"
+                value={addPlayerForm.lastName}
+                onChange={(e) => {
+                  setAddPlayerForm({ ...addPlayerForm, lastName: e.target.value });
+                  if (formErrors.lastName) {
+                    setFormErrors({ ...formErrors, lastName: undefined });
+                  }
+                }}
+                className={formErrors.lastName ? "border-red-500" : ""}
+              />
+              {formErrors.lastName && (
+                <p className="text-red-500 text-sm">{formErrors.lastName}</p>
+              )}
+            </div>
+
+            {/* Date of Birth */}
+            <div className="space-y-2">
+              <Label htmlFor="dateOfBirth">
+                Date of Birth <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="dateOfBirth"
+                type="date"
+                value={addPlayerForm.dateOfBirth}
+                onChange={(e) => {
+                  setAddPlayerForm({ ...addPlayerForm, dateOfBirth: e.target.value });
+                  if (formErrors.dateOfBirth) {
+                    setFormErrors({ ...formErrors, dateOfBirth: undefined });
+                  }
+                }}
+                className={formErrors.dateOfBirth ? "border-red-500" : ""}
+                max={new Date().toISOString().split("T")[0]}
+              />
+              {formErrors.dateOfBirth && (
+                <p className="text-red-500 text-sm">{formErrors.dateOfBirth}</p>
+              )}
+            </div>
+
+            {/* Gender */}
+            <div className="space-y-2">
+              <Label htmlFor="gender">
+                Gender <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={addPlayerForm.gender}
+                onValueChange={(value: "male" | "female" | "other") => 
+                  setAddPlayerForm({ ...addPlayerForm, gender: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Age Group */}
+            <div className="space-y-2">
+              <Label htmlFor="ageGroup">
+                Age Group <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={addPlayerForm.ageGroup}
+                onValueChange={(value) => {
+                  setAddPlayerForm({ ...addPlayerForm, ageGroup: value });
+                  if (formErrors.ageGroup) {
+                    setFormErrors({ ...formErrors, ageGroup: undefined });
+                  }
+                }}
+              >
+                <SelectTrigger className={formErrors.ageGroup ? "border-red-500" : ""}>
+                  <SelectValue placeholder="Select age group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AGE_GROUPS.map((ag) => (
+                    <SelectItem key={ag} value={ag}>
+                      {ag}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {formErrors.ageGroup && (
+                <p className="text-red-500 text-sm">{formErrors.ageGroup}</p>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddPlayerDialog(false);
+                setAddPlayerForm(emptyFormData);
+                setFormErrors({});
+              }}
+              disabled={isAddingPlayer}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddPlayer}
+              disabled={isAddingPlayer}
+            >
+              {isAddingPlayer ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                <>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add Player
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

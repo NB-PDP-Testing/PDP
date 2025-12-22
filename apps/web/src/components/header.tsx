@@ -33,7 +33,6 @@ function OrgNav({ member }: { member: Member }) {
 
   return (
     <nav className="flex gap-4 text-lg">
-      <Link href="/">Home</Link>
       {hasCoachRole && (
         <Link href={`/orgs/${effectiveOrgId}/coach` as Route}>Coach</Link>
       )}
@@ -65,6 +64,22 @@ export default function Header() {
   const isOrgsCreatePage = pathname === "/orgs/create";
   const shouldHideOrgContent =
     isOrgsListingPage || isOrgsJoinPage || isOrgsCreatePage;
+
+  // Debug logging for nav links
+  if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+    console.log("[Header] Navigation Debug:", {
+      org: org ? { name: org.name, id: (org as any).id } : "null",
+      member: member ? { 
+        role: member.role, 
+        organizationId: member.organizationId,
+        functionalRoles: (member as any).functionalRoles 
+      } : "null",
+      pathname,
+      orgId,
+      shouldHideOrgContent,
+      showOrgNav: !!(org && !shouldHideOrgContent && member),
+    });
+  }
 
   // Only fetch org theme when we're on a page where we need it
   // Skip on join/create pages to avoid queries for orgs the user isn't a member of
@@ -119,8 +134,12 @@ export default function Header() {
         className="flex flex-row items-center justify-start space-x-4 px-2 py-1"
         style={headerBackgroundStyle}
       >
-        {/* Left side - Org logo and nav */}
-        {/* Only show org info when on a specific org page, not on /orgs listing, join, or create */}
+        {/* Left side - Home link always visible + Org logo and nav */}
+        <nav className={cn("flex items-center gap-4 text-lg", headerTextStyle)}>
+          <Link href="/">Home</Link>
+        </nav>
+
+        {/* Org-specific content - only show when on a specific org page, not on /orgs listing, join, or create */}
         {org && !shouldHideOrgContent && (
           <>
             <div className={cn("flex items-center gap-4", headerTextStyle)}>

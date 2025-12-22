@@ -32,11 +32,13 @@ const teamMemberValidator = v.object({
 
 /**
  * Get all players for a team
+ * By default, only returns active players. Pass status to override.
  */
 export const getPlayersForTeam = query({
   args: {
     teamId: v.string(),
     status: v.optional(teamMemberStatusValidator),
+    includeAll: v.optional(v.boolean()), // Set true to include all statuses
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
@@ -45,8 +47,18 @@ export const getPlayersForTeam = query({
       .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
       .collect();
 
-    if (args.status) {
+    // Filter by status - default to 'active' unless includeAll is true
+    if (args.includeAll) {
+      // Return all players regardless of status
+      if (args.status) {
+        members = members.filter((m) => m.status === args.status);
+      }
+    } else if (args.status) {
+      // Filter by specific status
       members = members.filter((m) => m.status === args.status);
+    } else {
+      // Default: only active players
+      members = members.filter((m) => m.status === "active");
     }
 
     // Enrich with player details
@@ -466,21 +478,25 @@ export const bulkAddPlayersToTeam = mutation({
 
 /**
  * Get player count for a team
+ * By default, only counts active players
  */
 export const getPlayerCountForTeam = query({
   args: {
     teamId: v.string(),
-    activeOnly: v.optional(v.boolean()),
+    activeOnly: v.optional(v.boolean()), // Defaults to true
   },
   returns: v.number(),
   handler: async (ctx, args) => {
-    let members = await ctx.db
+    const members = await ctx.db
       .query("teamPlayerIdentities")
       .withIndex("by_teamId", (q) => q.eq("teamId", args.teamId))
       .collect();
 
-    if (args.activeOnly) {
-      members = members.filter((m) => m.status === "active");
+    // Default to active only (unless explicitly set to false)
+    const countActiveOnly = args.activeOnly !== false;
+    
+    if (countActiveOnly) {
+      return members.filter((m) => m.status === "active").length;
     }
 
     return members.length;

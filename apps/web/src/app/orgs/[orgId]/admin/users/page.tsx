@@ -48,7 +48,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { authClient } from "@/lib/auth-client";
 
-type FunctionalRole = "coach" | "parent" | "admin";
+type FunctionalRole = "coach" | "parent" | "admin" | "player";
 
 interface UserEditState {
   [userId: string]: {
@@ -157,6 +157,8 @@ export default function ManageUsersPage() {
         return <UserCircle className="h-4 w-4" />;
       case "admin":
         return <Shield className="h-4 w-4" />;
+      case "player":
+        return <UserCircle className="h-4 w-4" />;
       default:
         return <UserCheck className="h-4 w-4" />;
     }
@@ -170,6 +172,8 @@ export default function ManageUsersPage() {
         return "bg-blue-100 text-blue-700 border-blue-300";
       case "admin":
         return "bg-purple-100 text-purple-700 border-purple-300";
+      case "player":
+        return "bg-orange-100 text-orange-700 border-orange-300";
       default:
         return "bg-gray-100 text-gray-700 border-gray-300";
     }
@@ -946,7 +950,7 @@ export default function ManageUsersPage() {
                         Functional Roles (select multiple)
                       </Label>
                       <div className="flex flex-wrap gap-2">
-                        {(["coach", "parent", "admin"] as const).map((role) => (
+                        {(["coach", "parent", "admin", "player"] as const).map((role) => (
                           <label
                             className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
                               state.functionalRoles.includes(role)

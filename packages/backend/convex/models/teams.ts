@@ -52,7 +52,10 @@ export const createTeam = mutation({
     sport: v.optional(v.string()),
     ageGroup: v.optional(v.string()),
     gender: v.optional(
-      v.union(v.literal("Boys"), v.literal("Girls"), v.literal("Mixed"))
+      v.union(
+        v.literal("Male"), v.literal("Female"), v.literal("Mixed"),
+        v.literal("Boys"), v.literal("Girls")
+      )
     ),
     season: v.optional(v.string()),
     description: v.optional(v.string()),
@@ -88,6 +91,7 @@ export const createTeam = mutation({
 
 /**
  * Update a team
+ * Also updates coach assignments when team name changes to keep them in sync
  */
 export const updateTeam = mutation({
   args: {
@@ -96,7 +100,10 @@ export const updateTeam = mutation({
     sport: v.optional(v.string()),
     ageGroup: v.optional(v.string()),
     gender: v.optional(
-      v.union(v.literal("Boys"), v.literal("Girls"), v.literal("Mixed"))
+      v.union(
+        v.literal("Male"), v.literal("Female"), v.literal("Mixed"),
+        v.literal("Boys"), v.literal("Girls")
+      )
     ),
     season: v.optional(v.string()),
     description: v.optional(v.string()),
@@ -106,10 +113,30 @@ export const updateTeam = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const { teamId, ...updates } = args;
+    const { teamId, name: newName, ...otherUpdates } = args;
+    
+    // Get the current team to check if name is changing
+    let oldName: string | undefined;
+    let organizationId: string | undefined;
+    
+    if (newName) {
+      const teamResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+        model: "team",
+        paginationOpts: { cursor: null, numItems: 1 },
+        where: [{ field: "_id", value: teamId, operator: "eq" }],
+      });
+      const team = teamResult.page[0] as BetterAuthDoc<"team"> | undefined;
+      if (team && team.name !== newName) {
+        oldName = team.name;
+        organizationId = team.organizationId;
+      }
+    }
+    
+    // Build updates object
     const filteredUpdates = Object.fromEntries(
-      Object.entries(updates).filter(([_, val]) => val !== undefined)
+      Object.entries({ name: newName, ...otherUpdates }).filter(([_, val]) => val !== undefined)
     );
+    
     if (Object.keys(filteredUpdates).length > 0) {
       await ctx.runMutation(components.betterAuth.adapter.updateOne, {
         input: {
@@ -122,6 +149,28 @@ export const updateTeam = mutation({
         },
       });
     }
+    
+    // If name changed, update all coach assignments that reference the old name
+    if (oldName && newName && organizationId) {
+      const coachAssignments = await ctx.db
+        .query("coachAssignments")
+        .withIndex("by_organizationId", (q) => q.eq("organizationId", organizationId))
+        .collect();
+      
+      for (const assignment of coachAssignments) {
+        if (assignment.teams.includes(oldName)) {
+          // Replace old name with new name in teams array
+          const updatedTeams = assignment.teams.map((t: string) => 
+            t === oldName ? newName : t
+          );
+          await ctx.db.patch(assignment._id, {
+            teams: updatedTeams,
+            updatedAt: Date.now(),
+          });
+        }
+      }
+    }
+    
     return null;
   },
 });
@@ -308,6 +357,152 @@ export const debugTeamSports = query({
       sportType: typeof team.sport,
       hasSport: team.sport !== undefined && team.sport !== null,
     }));
+  },
+});
+
+/**
+ * Migration: Convert old gender values (Boys/Girls/Mixed) to new values (male/female/mixed)
+ * Run this after deploying the schema that accepts both old and new values
+ */
+export const migrateTeamGenderValues = mutation({
+  args: {
+    organizationId: v.optional(v.string()),
+  },
+  returns: v.object({
+    teamsUpdated: v.number(),
+    updates: v.array(
+      v.object({
+        teamId: v.string(),
+        teamName: v.string(),
+        oldGender: v.string(),
+        newGender: v.string(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    // Old to new gender mapping (Boys/Girls to Male/Female)
+    const genderMapping: Record<string, "Male" | "Female" | "Mixed"> = {
+      "Boys": "Male",
+      "Girls": "Female",
+    };
+
+    // Get teams to migrate
+    const where = args.organizationId
+      ? [{ field: "organizationId", value: args.organizationId, operator: "eq" as const }]
+      : [];
+
+    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "team",
+      paginationOpts: {
+        cursor: null,
+        numItems: 1000,
+      },
+      where,
+    });
+
+    const teams = result.page as BetterAuthDoc<"team">[];
+    const updates = [];
+    let teamsUpdated = 0;
+
+    for (const team of teams) {
+      if (!team.gender) continue;
+
+      // Check if gender is an old value
+      const newGender = genderMapping[team.gender];
+      if (newGender) {
+        // Update the team
+        await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+          input: {
+            model: "team",
+            where: [{ field: "_id", value: team._id, operator: "eq" }],
+            update: { gender: newGender, updatedAt: Date.now() },
+          },
+        });
+
+        updates.push({
+          teamId: team._id,
+          teamName: team.name,
+          oldGender: team.gender,
+          newGender,
+        });
+        teamsUpdated++;
+      }
+    }
+
+    return {
+      teamsUpdated,
+      updates,
+    };
+  },
+});
+
+/**
+ * Migration: Clean up coach assignments with stale team names
+ * Removes team names from coach assignments that no longer exist as teams
+ */
+export const cleanupStaleCoachTeamAssignments = mutation({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    assignmentsUpdated: v.number(),
+    teamsRemoved: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Get all current teams for this organization
+    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "team",
+      paginationOpts: {
+        cursor: null,
+        numItems: 1000,
+      },
+      where: [
+        {
+          field: "organizationId",
+          value: args.organizationId,
+          operator: "eq",
+        },
+      ],
+    });
+    
+    const teams = result.page as BetterAuthDoc<"team">[];
+    const validTeamNames = new Set(teams.map(t => t.name));
+    
+    // Get all coach assignments for this organization
+    const coachAssignments = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
+      .collect();
+    
+    let assignmentsUpdated = 0;
+    const teamsRemoved: string[] = [];
+    
+    for (const assignment of coachAssignments) {
+      // Filter to only valid team names
+      const validTeams = assignment.teams.filter((teamName: string) => 
+        validTeamNames.has(teamName)
+      );
+      
+      // Check if any teams were removed
+      const removedTeams = assignment.teams.filter((teamName: string) => 
+        !validTeamNames.has(teamName)
+      );
+      
+      if (removedTeams.length > 0) {
+        // Update the assignment with only valid teams
+        await ctx.db.patch(assignment._id, {
+          teams: validTeams,
+          updatedAt: Date.now(),
+        });
+        assignmentsUpdated++;
+        teamsRemoved.push(...removedTeams);
+      }
+    }
+    
+    return {
+      assignmentsUpdated,
+      teamsRemoved: [...new Set(teamsRemoved)], // Unique team names
+    };
   },
 });
 

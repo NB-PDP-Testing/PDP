@@ -120,7 +120,7 @@ export default function GAAImportPage() {
     name: string;
     sport: string;
     ageGroup: string;
-    gender: "Boys" | "Girls" | "Mixed";
+    gender: "male" | "female" | "mixed";
     season: string;
   }) => {
     const teamId = await createTeamMutation({

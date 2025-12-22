@@ -1186,13 +1186,29 @@ function BulkCreateGoalsDialog({
   // Get players in selected team
   const teamPlayers = useMemo(() => {
     if (!selectedTeamId) return [];
-    return teamPlayerLinks.filter((link) => link.teamId === selectedTeamId);
+    const players = teamPlayerLinks.filter((link) => link.teamId === selectedTeamId);
+    console.log(`[BulkGoals] Team ${selectedTeamId} has ${players.length} player links:`, 
+      players.map(p => p.playerIdentityId));
+    return players;
   }, [selectedTeamId, teamPlayerLinks]);
 
   // Get passports for team players
   const teamPassports = useMemo(() => {
     const playerIds = new Set(teamPlayers.map((tp) => tp.playerIdentityId));
-    return passports.filter((p) => playerIds.has(p.playerIdentityId));
+    const foundPassports = passports.filter((p) => playerIds.has(p.playerIdentityId));
+    
+    // Debug: show which players don't have passports
+    if (teamPlayers.length > 0 && foundPassports.length < teamPlayers.length) {
+      const passportPlayerIds = new Set(foundPassports.map(p => p.playerIdentityId));
+      const missingPlayers = teamPlayers
+        .filter(tp => !passportPlayerIds.has(tp.playerIdentityId))
+        .map(tp => tp.playerIdentityId);
+      console.warn(`[BulkGoals] ${missingPlayers.length} players in team don't have sport passports:`, 
+        missingPlayers);
+    }
+    
+    console.log(`[BulkGoals] Found ${foundPassports.length} passports for ${teamPlayers.length} team players`);
+    return foundPassports;
   }, [teamPlayers, passports]);
 
   const handleSubmit = async () => {
@@ -1261,10 +1277,18 @@ function BulkCreateGoalsDialog({
                 ))}
               </SelectContent>
             </Select>
-            {selectedTeamId && (
-              <p className="text-muted-foreground text-sm">
-                {teamPassports.length} player(s) will receive this goal
-              </p>
+          {selectedTeamId && (
+              <div className="space-y-1">
+                <p className="text-muted-foreground text-sm">
+                  {teamPassports.length} player(s) will receive this goal
+                </p>
+                {teamPlayers.length > teamPassports.length && (
+                  <p className="text-amber-600 text-xs">
+                    ⚠️ {teamPlayers.length - teamPassports.length} player(s) in this team don't have sport passports yet.
+                    Goals require sport passports to be created first.
+                  </p>
+                )}
+              </div>
             )}
           </div>
 

@@ -59,7 +59,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
-type FunctionalRole = "coach" | "parent" | "admin";
+type FunctionalRole = "coach" | "parent" | "admin" | "player";
 
 interface OrgRoleItem {
   org: Organization;
@@ -78,6 +78,8 @@ function getRoleIcon(role: FunctionalRole) {
       return <UserCircle className="h-4 w-4 text-blue-600" />;
     case "admin":
       return <Shield className="h-4 w-4 text-purple-600" />;
+    case "player":
+      return <UserCircle className="h-4 w-4 text-orange-600" />;
   }
 }
 
@@ -89,6 +91,8 @@ function getRoleLabel(role: FunctionalRole): string {
       return "Parent";
     case "admin":
       return "Admin";
+    case "player":
+      return "Player";
   }
 }
 
@@ -100,6 +104,8 @@ function getRoleDescription(role: FunctionalRole): string {
       return "View your children's progress";
     case "admin":
       return "Full club administration access";
+    case "player":
+      return "Access your player passport";
   }
 }
 
@@ -111,6 +117,8 @@ function getRoleDashboardRoute(orgId: string, role: FunctionalRole): Route {
       return `/orgs/${orgId}/parents` as Route;
     case "admin":
       return `/orgs/${orgId}/admin` as Route;
+    case "player":
+      return `/orgs/${orgId}/player` as Route;
   }
 }
 
@@ -269,7 +277,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
       (r: { role: FunctionalRole; requestedAt: string }) => r.role
     );
 
-    const allRoles: FunctionalRole[] = ["coach", "parent", "admin"];
+    const allRoles: FunctionalRole[] = ["coach", "parent", "admin", "player"];
     return allRoles
       .filter((role) => !currentRoles.includes(role))
       .map((role) => ({

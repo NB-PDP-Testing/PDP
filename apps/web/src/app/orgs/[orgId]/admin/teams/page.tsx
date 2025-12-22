@@ -71,7 +71,7 @@ interface TeamFormData {
   name: string;
   sport: string;
   ageGroup: string;
-  gender: "Boys" | "Girls" | "Mixed" | "";
+  gender: "Male" | "Female" | "Mixed" | "Boys" | "Girls" | "";
   season: string;
   description: string;
   trainingSchedule: string;
@@ -580,11 +580,15 @@ export default function ManageTeamsPage() {
   const openEditDialog = (team: any) => {
     setEditingTeamId(team._id);
     setEditingTeamName(team.name);
+    
+    // Keep the original gender value (no mapping needed since schema accepts all)
+    const mappedGender = team.gender || "";
+    
     setFormData({
       name: team.name,
       sport: team.sport || "",
       ageGroup: team.ageGroup || "",
-      gender: (team.gender as TeamFormData["gender"]) || "",
+      gender: mappedGender,
       season: team.season || new Date().getFullYear().toString(),
       description: team.description || "",
       trainingSchedule: team.trainingSchedule || "",
@@ -615,7 +619,7 @@ export default function ManageTeamsPage() {
           name: formData.name,
           sport: formData.sport,
           ageGroup: formData.ageGroup,
-          gender: formData.gender as "Boys" | "Girls" | "Mixed" | undefined,
+          gender: formData.gender as "Male" | "Female" | "Mixed" | "Boys" | "Girls" | undefined,
           season: formData.season,
           description: formData.description || undefined,
           trainingSchedule: formData.trainingSchedule || undefined,
@@ -636,10 +640,24 @@ export default function ManageTeamsPage() {
 
         // Remove players
         for (const playerIdentityId of pendingAssignments.remove) {
-          await removePlayerFromTeamMutation({
-            playerIdentityId: playerIdentityId as Id<"playerIdentities">,
+          console.log("[Teams] Removing player from team:", {
+            playerIdentityId,
             teamId: editingTeamId,
           });
+          try {
+            await removePlayerFromTeamMutation({
+              playerIdentityId: playerIdentityId as Id<"playerIdentities">,
+              teamId: editingTeamId,
+            });
+            console.log("[Teams] Player removed successfully:", playerIdentityId);
+          } catch (removeError) {
+            console.error("[Teams] Error removing player:", {
+              playerIdentityId,
+              teamId: editingTeamId,
+              error: removeError,
+            });
+            throw removeError; // Re-throw to be caught by outer try-catch
+          }
         }
 
         toast.success(`${formData.name} has been updated successfully.`);
@@ -649,7 +667,7 @@ export default function ManageTeamsPage() {
           organizationId: orgId,
           sport: formData.sport,
           ageGroup: formData.ageGroup,
-          gender: formData.gender as "Boys" | "Girls" | "Mixed" | undefined,
+          gender: formData.gender as "Male" | "Female" | "Mixed" | "Boys" | "Girls" | undefined,
           season: formData.season,
           description: formData.description || undefined,
           trainingSchedule: formData.trainingSchedule || undefined,
@@ -693,8 +711,10 @@ export default function ManageTeamsPage() {
 
   const getGenderBadgeColor = (gender?: string) => {
     switch (gender) {
+      case "Male":
       case "Boys":
         return "bg-blue-500/10 text-blue-600 border-blue-500/20";
+      case "Female":
       case "Girls":
         return "bg-pink-500/10 text-pink-600 border-pink-500/20";
       case "Mixed":
@@ -1135,9 +1155,11 @@ export default function ManageTeamsPage() {
                     <SelectValue placeholder="Select gender" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Mixed">Mixed</SelectItem>
                     <SelectItem value="Boys">Boys</SelectItem>
                     <SelectItem value="Girls">Girls</SelectItem>
-                    <SelectItem value="Mixed">Mixed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

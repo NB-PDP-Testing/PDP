@@ -100,30 +100,35 @@ export function CoachDashboard() {
       : "skip"
   );
 
-  // Get coach's assigned team IDs (convert names to IDs if needed)
+  // Get coach's assigned team IDs
+  // Note: Some coach assignments may have team names instead of IDs (legacy data)
+  // We need to handle both cases
   const coachTeamIds = useMemo(() => {
     if (!(coachAssignments && teams)) return [];
     const assignmentTeams = coachAssignments.teams || [];
-
-    // Convert team names/IDs to team IDs
-    return assignmentTeams
-      .map((teamValue: string) => {
-        // Check if it's already a team ID (exists in teams array by _id)
-        const teamById = teams.find((t: any) => t._id === teamValue);
-        if (teamById) {
-          return teamValue; // It's already an ID
-        }
-
-        // Check if it's a team name (exists in teams array by name)
-        const teamByName = teams.find((t: any) => t.name === teamValue);
-        if (teamByName) {
-          return teamByName._id; // Convert name to ID
-        }
-
-        // Fallback: return as-is (might be an ID that doesn't match)
-        return teamValue;
-      })
-      .filter(Boolean);
+    
+    // Create maps for both ID and name lookup
+    const teamIdSet = new Set(teams.map((t: any) => t._id));
+    const teamNameToId = new Map(teams.map((t: any) => [t.name, t._id]));
+    
+    // Convert assignment values to team IDs (handles both ID and name formats)
+    const resolvedIds = assignmentTeams.map((value: string) => {
+      // If it's already a valid team ID, use it
+      if (teamIdSet.has(value)) {
+        return value;
+      }
+      // Otherwise, try to look up by name
+      const idFromName = teamNameToId.get(value);
+      if (idFromName) {
+        console.log(`[coach-dashboard] Resolved team name "${value}" to ID "${idFromName}"`);
+        return idFromName;
+      }
+      console.warn(`[coach-dashboard] Could not resolve team: "${value}"`);
+      return null;
+    }).filter((id: string | null): id is string => id !== null);
+    
+    // Deduplicate
+    return Array.from(new Set(resolvedIds));
   }, [coachAssignments, teams]);
 
   // Filter team-player links to only those for coach's assigned teams
@@ -280,9 +285,16 @@ export function CoachDashboard() {
     }
 
     // Filter by review status
-    if (reviewStatusFilter !== "all") {
-      filtered = filtered.filter((p) => p.reviewStatus === reviewStatusFilter);
+    if (reviewStatusFilter === "Completed") {
+      // Show only completed reviews
+      filtered = filtered.filter((p) => p.reviewStatus === "Completed");
+    } else if (reviewStatusFilter === "Overdue") {
+      // Show players who need review: overdue, no status, or never reviewed
+      filtered = filtered.filter(
+        (p) => p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate
+      );
     }
+    // "all" shows all players (no filter applied)
 
     return filtered;
   }, [
@@ -353,30 +365,19 @@ export function CoachDashboard() {
     }
   };
 
-  // Get coach team names from assignments
-  // Convert team IDs to team names if needed
+  // Get coach team names from team IDs
+  // Coach assignments now store IDs directly, so just look up the names
   const coachTeamNames = useMemo(() => {
-    if (!(coachAssignments && teams)) return [];
-    const assignmentTeams = coachAssignments.teams || [];
-
-    // Convert team IDs to team names
-    return assignmentTeams.map((teamValue: string) => {
-      // Check if it's already a team name (exists in teams array)
-      const teamByName = teams.find((t: any) => t.name === teamValue);
-      if (teamByName) {
-        return teamValue; // It's already a name
-      }
-
-      // Check if it's a team ID
-      const teamById = teams.find((t: any) => t._id === teamValue);
-      if (teamById) {
-        return teamById.name; // Convert ID to name
-      }
-
-      // Fallback: return as-is (might be a name that doesn't match exactly)
-      return teamValue;
-    });
-  }, [coachAssignments, teams]);
+    if (!teams) return [];
+    
+    // Create a map of team ID to name for quick lookup
+    const teamIdToName = new Map(teams.map((t: any) => [t._id, t.name]));
+    
+    // Convert valid team IDs to team names
+    return coachTeamIds
+      .map((teamId: string) => teamIdToName.get(teamId))
+      .filter((name): name is string => !!name);
+  }, [coachTeamIds, teams]);
 
   // Check if any query is still loading
   // Note: null means loaded but no data found, undefined means still loading
@@ -571,10 +572,16 @@ export function CoachDashboard() {
     router.push(`/orgs/${orgId}/coach/medical`);
   };
 
+  const handleViewMatchDay = () => {
+    // Navigate to match day ICE contacts page
+    router.push(`/orgs/${orgId}/coach/match-day`);
+  };
+
   return (
     <div className="space-y-6">
       <SmartCoachDashboard
         ageGroupFilter={ageGroupFilter}
+        allPlayers={playersWithTeams}
         coachTeams={coachTeamNames}
         genderFilter={genderFilter}
         isClubView={false}
@@ -594,6 +601,7 @@ export function CoachDashboard() {
         onViewGoals={handleViewGoals}
         onViewInjuries={handleViewInjuries}
         onViewMedical={handleViewMedical}
+        onViewMatchDay={handleViewMatchDay}
         onViewPlayer={handleViewPlayer}
         onViewTeam={handleViewTeam}
         onViewVoiceNotes={handleViewVoiceNotes}

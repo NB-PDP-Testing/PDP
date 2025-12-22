@@ -20,6 +20,7 @@ import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyD
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_coaches from "../models/coaches.js";
 import type * as models_demoAsks from "../models/demoAsks.js";
+import type * as models_emergencyContacts from "../models/emergencyContacts.js";
 import type * as models_guardianIdentities from "../models/guardianIdentities.js";
 import type * as models_guardianManagement from "../models/guardianManagement.js";
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   "models/adultPlayers": typeof models_adultPlayers;
   "models/coaches": typeof models_coaches;
   "models/demoAsks": typeof models_demoAsks;
+  "models/emergencyContacts": typeof models_emergencyContacts;
   "models/guardianIdentities": typeof models_guardianIdentities;
   "models/guardianManagement": typeof models_guardianManagement;
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
@@ -213,7 +215,7 @@ export declare const components: {
                   coachNotes?: string;
                   createdAt: number;
                   description?: string;
-                  gender?: "Boys" | "Girls" | "Mixed";
+                  gender?: "Male" | "Female" | "Mixed" | "Boys" | "Girls";
                   homeVenue?: string;
                   isActive?: boolean;
                   name: string;
@@ -252,14 +254,20 @@ export declare const components: {
               }
             | {
                 data: {
-                  activeFunctionalRole?: "coach" | "parent" | "admin";
+                  activeFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   createdAt: number;
-                  functionalRoles?: Array<"coach" | "parent" | "admin">;
+                  functionalRoles?: Array<
+                    "coach" | "parent" | "admin" | "player"
+                  >;
                   organizationId: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
                     requestedAt: string;
-                    role: "coach" | "parent" | "admin";
+                    role: "coach" | "parent" | "admin" | "player";
                   }>;
                   role: string;
                   userId: string;
@@ -1332,7 +1340,7 @@ export declare const components: {
                   coachNotes?: string;
                   createdAt?: number;
                   description?: string;
-                  gender?: "Boys" | "Girls" | "Mixed";
+                  gender?: "Male" | "Female" | "Mixed" | "Boys" | "Girls";
                   homeVenue?: string;
                   isActive?: boolean;
                   name?: string;
@@ -1467,14 +1475,20 @@ export declare const components: {
             | {
                 model: "member";
                 update: {
-                  activeFunctionalRole?: "coach" | "parent" | "admin";
+                  activeFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   createdAt?: number;
-                  functionalRoles?: Array<"coach" | "parent" | "admin">;
+                  functionalRoles?: Array<
+                    "coach" | "parent" | "admin" | "player"
+                  >;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
                     requestedAt: string;
-                    role: "coach" | "parent" | "admin";
+                    role: "coach" | "parent" | "admin" | "player";
                   }>;
                   role?: string;
                   userId?: string;
@@ -1803,7 +1817,7 @@ export declare const components: {
                   coachNotes?: string;
                   createdAt?: number;
                   description?: string;
-                  gender?: "Boys" | "Girls" | "Mixed";
+                  gender?: "Male" | "Female" | "Mixed" | "Boys" | "Girls";
                   homeVenue?: string;
                   isActive?: boolean;
                   name?: string;
@@ -1938,14 +1952,20 @@ export declare const components: {
             | {
                 model: "member";
                 update: {
-                  activeFunctionalRole?: "coach" | "parent" | "admin";
+                  activeFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   createdAt?: number;
-                  functionalRoles?: Array<"coach" | "parent" | "admin">;
+                  functionalRoles?: Array<
+                    "coach" | "parent" | "admin" | "player"
+                  >;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
                     requestedAt: string;
-                    role: "coach" | "parent" | "admin";
+                    role: "coach" | "parent" | "admin" | "player";
                   }>;
                   role?: string;
                   userId?: string;

@@ -274,6 +274,16 @@ export default function AssessPlayerPage() {
       });
     }
 
+    // DEDUPLICATE: Same player can appear on multiple teams, keep only first occurrence
+    const seenPlayerIds = new Set<string>();
+    filtered = filtered.filter((p) => {
+      if (seenPlayerIds.has(p.enrollment.playerIdentityId)) {
+        return false;
+      }
+      seenPlayerIds.add(p.enrollment.playerIdentityId);
+      return true;
+    });
+
     return filtered;
   }, [
     allPlayers,
@@ -683,16 +693,21 @@ export default function AssessPlayerPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Teams</SelectItem>
-                  {coachAssignments?.teams.map((team) => (
-                    <SelectItem key={team.teamId} value={team.teamId}>
-                      {team.teamName}
-                      {team.sportCode && (
-                        <span className="ml-2 text-muted-foreground text-xs">
-                          ({team.sportCode.toUpperCase()})
-                        </span>
-                      )}
-                    </SelectItem>
-                  ))}
+                  {(() => {
+                    const uniqueTeams = coachAssignments?.teams.filter((team, index, self) => 
+                      index === self.findIndex(t => t.teamId === team.teamId)
+                    ) ?? [];
+                    return uniqueTeams.map((team, index) => (
+                      <SelectItem key={`${team.teamId}-${index}`} value={team.teamId}>
+                        {team.teamName}
+                        {team.sportCode && (
+                          <span className="ml-2 text-muted-foreground text-xs">
+                            ({team.sportCode.toUpperCase()})
+                          </span>
+                        )}
+                      </SelectItem>
+                    ));
+                  })()}
                 </SelectContent>
               </Select>
             </div>
@@ -735,9 +750,9 @@ export default function AssessPlayerPage() {
                 <SelectValue placeholder="Select a player" />
               </SelectTrigger>
               <SelectContent>
-                {filteredPlayers.map(({ enrollment, player }) => (
+  {filteredPlayers.map(({ enrollment, player }, index) => (
                   <SelectItem
-                    key={enrollment.playerIdentityId}
+                    key={`${enrollment.playerIdentityId}-${index}`}
                     value={enrollment.playerIdentityId}
                   >
                     {player.firstName} {player.lastName}
@@ -1654,11 +1669,11 @@ function BatchAssessmentSection({
           </CardHeader>
           <CardContent>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredPlayers.map(({ enrollment, player }) => {
+              {filteredPlayers.map(({ enrollment, player }, index) => {
                 const isSelected = selectedBatchPlayers.has(enrollment.playerIdentityId);
                 return (
                   <button
-                    key={enrollment.playerIdentityId}
+                    key={`${enrollment.playerIdentityId}-${index}`}
                     className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
                       isSelected
                         ? "border-blue-500 bg-blue-50"
@@ -1815,12 +1830,12 @@ function BatchAssessmentSection({
                 Applying to {selectedBatchPlayers.size} players:
               </p>
               <div className="flex flex-wrap gap-1">
-                {Array.from(selectedBatchPlayers).slice(0, 10).map((playerId) => {
+                {Array.from(selectedBatchPlayers).slice(0, 10).map((playerId, idx) => {
                   const player = filteredPlayers.find(
                     (p) => p.enrollment.playerIdentityId === playerId
                   );
                   return (
-                    <Badge key={playerId} variant="secondary" className="text-xs">
+                    <Badge key={`${playerId}-${idx}`} variant="secondary" className="text-xs">
                       {player?.player.firstName} {player?.player.lastName}
                     </Badge>
                   );

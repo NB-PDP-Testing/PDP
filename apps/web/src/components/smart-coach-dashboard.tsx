@@ -4,6 +4,7 @@ import {
   AlertCircle,
   BarChart3,
   Brain,
+  Calendar,
   CheckCircle,
   ChevronDown,
   ChevronUp,
@@ -68,6 +69,7 @@ interface TeamData {
 
 interface SmartCoachDashboardProps {
   players: any[];
+  allPlayers?: any[]; // Unfiltered list for stat counts - if not provided, uses players
   coachTeams?: string[];
   onViewTeam?: (teamName: string) => void;
   onViewAnalytics?: (teamName?: string) => void;
@@ -81,6 +83,7 @@ interface SmartCoachDashboardProps {
   onViewInjuries?: () => void;
   onViewGoals?: () => void;
   onViewMedical?: () => void;
+  onViewMatchDay?: () => void;
   onAssessPlayers?: () => void;
   selectedTeam?: string | null;
   selectedTeamData?: TeamData | null; // Team data with coachNotes
@@ -104,6 +107,7 @@ interface SmartCoachDashboardProps {
 
 export function SmartCoachDashboard({
   players,
+  allPlayers: allPlayersProp,
   coachTeams,
   onViewTeam,
   onViewAnalytics,
@@ -117,6 +121,7 @@ export function SmartCoachDashboard({
   onViewInjuries,
   onViewGoals,
   onViewMedical,
+  onViewMatchDay,
   onAssessPlayers,
   selectedTeam,
   selectedTeamData,
@@ -671,129 +676,123 @@ export function SmartCoachDashboard({
         </div>
       </div>
 
-      {/* Overall Statistics */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-        <Card
-          className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-blue-50 hover:shadow-lg"
-          onClick={() => onFilterAllPlayers?.()}
-        >
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <Users className="text-blue-600" size={20} />
-              <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
-                {players.length}
-              </div>
-            </div>
-            <div className="font-medium text-gray-600 text-xs md:text-sm">
-              Total Players
-            </div>
-            <div className="mt-1 text-blue-600 text-xs">Click to view all</div>
-            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
-              <div
-                className="h-1 rounded-full bg-blue-600"
-                style={{ width: "100%" }}
-              />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Overall Statistics - Always use allPlayers for counts (unfiltered) */}
+      {(() => {
+        // Use allPlayers for stats if provided, otherwise fall back to players
+        const statsPlayers = allPlayersProp || players;
+        const totalCount = statsPlayers.length;
+        const completedCount = statsPlayers.filter((p) => p.reviewStatus === "Completed").length;
+        const needsReviewCount = statsPlayers.filter((p) => p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate).length;
+        const playersWithSkills = statsPlayers.filter(p => Object.keys(p.skills || {}).length > 0);
+        const avgSkill = playersWithSkills.length > 0 
+          ? playersWithSkills.reduce((sum, p) => sum + calculatePlayerAvgSkill(p), 0) / playersWithSkills.length 
+          : 0;
+        
+        return (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            <Card
+              className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-blue-50 hover:shadow-lg"
+              onClick={() => onFilterAllPlayers?.()}
+            >
+              <CardContent className="pt-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <Users className="text-blue-600" size={20} />
+                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                    {totalCount}
+                  </div>
+                </div>
+                <div className="font-medium text-gray-600 text-xs md:text-sm">
+                  Total Players
+                </div>
+                <div className="mt-1 text-blue-600 text-xs">Click to view all</div>
+                <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+                  <div
+                    className="h-1 rounded-full bg-blue-600"
+                    style={{ width: "100%" }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card
-          className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-green-50 hover:shadow-lg"
-          onClick={() => onFilterCompletedReviews?.()}
-        >
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <CheckCircle className="text-green-600" size={20} />
-              <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
-                {players.filter((p) => p.reviewStatus === "Completed").length}
-              </div>
-            </div>
-            <div className="font-medium text-gray-600 text-xs md:text-sm">
-              Reviews Complete
-            </div>
-            <div className="mt-1 text-green-600 text-xs">Click to view</div>
-            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
-              <div
-                className="h-1 rounded-full bg-green-600 transition-all duration-500"
-                style={{
-                  width: `${
-                    (players.filter((p) => p.reviewStatus === "Completed")
-                      .length /
-                      players.length) *
-                    100
-                  }%`,
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
+            <Card
+              className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-green-50 hover:shadow-lg"
+              onClick={() => onFilterCompletedReviews?.()}
+            >
+              <CardContent className="pt-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <CheckCircle className="text-green-600" size={20} />
+                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                    {completedCount}
+                  </div>
+                </div>
+                <div className="font-medium text-gray-600 text-xs md:text-sm">
+                  Reviews Complete
+                </div>
+                <div className="mt-1 text-green-600 text-xs">Click to view</div>
+                <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+                  <div
+                    className="h-1 rounded-full bg-green-600 transition-all duration-500"
+                    style={{
+                      width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card
-          className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-red-50 hover:shadow-lg"
-          onClick={() => onFilterOverdueReviews?.()}
-        >
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <AlertCircle className="text-red-600" size={20} />
-              <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
-                {players.filter((p) => p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate).length}
-              </div>
-            </div>
-            <div className="font-medium text-gray-600 text-xs md:text-sm">
-              Needs Review
-            </div>
-            <div className="mt-1 text-red-600 text-xs">Click to view</div>
-            <div className="mt-2 h-1 w-full rounded-full bg-red-100">
-              <div
-                className="h-1 rounded-full bg-red-600 transition-all duration-500"
-                style={{
-                  width: `${
-                    (players.filter((p) => p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate)
-                      .length /
-                      players.length) *
-                    100
-                  }%`,
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
+            <Card
+              className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-red-50 hover:shadow-lg"
+              onClick={() => onFilterOverdueReviews?.()}
+            >
+              <CardContent className="pt-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <AlertCircle className="text-red-600" size={20} />
+                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                    {needsReviewCount}
+                  </div>
+                </div>
+                <div className="font-medium text-gray-600 text-xs md:text-sm">
+                  Needs Review
+                </div>
+                <div className="mt-1 text-red-600 text-xs">Click to view</div>
+                <div className="mt-2 h-1 w-full rounded-full bg-red-100">
+                  <div
+                    className="h-1 rounded-full bg-red-600 transition-all duration-500"
+                    style={{
+                      width: `${totalCount > 0 ? (needsReviewCount / totalCount) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="transition-shadow duration-200 hover:shadow-lg">
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <TrendingUp className="text-purple-600" size={20} />
-              <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
-                {(() => {
-                  const playersWithSkills = players.filter(p => Object.keys(p.skills || {}).length > 0);
-                  if (playersWithSkills.length === 0) return "—";
-                  const avg = playersWithSkills.reduce((sum, p) => sum + calculatePlayerAvgSkill(p), 0) / playersWithSkills.length;
-                  return avg.toFixed(1);
-                })()}
-              </div>
-            </div>
-            <div className="text-gray-600 text-sm">Avg Skill Level</div>
-            <div className="mt-1 text-purple-600 text-xs">
-              {players.filter(p => Object.keys(p.skills || {}).length > 0).length === 0 
-                ? "No assessments yet" 
-                : `${players.filter(p => Object.keys(p.skills || {}).length > 0).length} assessed`}
-            </div>
-            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
-              <div
-                className="h-1 rounded-full bg-purple-600 transition-all duration-500"
-                style={{
-                  width: `${(() => {
-                    const playersWithSkills = players.filter(p => Object.keys(p.skills || {}).length > 0);
-                    if (playersWithSkills.length === 0) return 0;
-                    const avg = playersWithSkills.reduce((sum, p) => sum + calculatePlayerAvgSkill(p), 0) / playersWithSkills.length;
-                    return (avg / 5) * 100;
-                  })()}%`,
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            <Card className="transition-shadow duration-200 hover:shadow-lg">
+              <CardContent className="pt-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <TrendingUp className="text-purple-600" size={20} />
+                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                    {playersWithSkills.length === 0 ? "—" : avgSkill.toFixed(1)}
+                  </div>
+                </div>
+                <div className="text-gray-600 text-sm">Avg Skill Level</div>
+                <div className="mt-1 text-purple-600 text-xs">
+                  {playersWithSkills.length === 0 
+                    ? "No assessments yet" 
+                    : `${playersWithSkills.length} assessed`}
+                </div>
+                <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+                  <div
+                    className="h-1 rounded-full bg-purple-600 transition-all duration-500"
+                    style={{
+                      width: `${playersWithSkills.length === 0 ? 0 : (avgSkill / 5) * 100}%`,
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* Show selected team indicator if a team is selected */}
       {selectedTeam && (
@@ -1077,6 +1076,15 @@ export function SmartCoachDashboard({
             >
               <Heart className="flex-shrink-0" size={16} />
               <span className="truncate">Medical Info</span>
+            </Button>
+          )}
+          {onViewMatchDay && (
+            <Button
+              className="flex items-center justify-center gap-2 bg-red-600 py-3 font-medium text-sm transition-colors hover:bg-red-700"
+              onClick={onViewMatchDay}
+            >
+              <Calendar className="flex-shrink-0" size={16} />
+              <span className="truncate">Match Day ICE</span>
             </Button>
           )}
         </CardContent>

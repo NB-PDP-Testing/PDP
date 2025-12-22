@@ -44,8 +44,12 @@ export const customTeamTableSchema = {
   // Sports-specific fields
   sport: v.optional(v.string()), // e.g., "GAA Football", "Hurling"
   ageGroup: v.optional(v.string()), // e.g., "U12", "U14"
+  // Accepts: Male, Female, Mixed (capitals) and legacy Boys/Girls
   gender: v.optional(
-    v.union(v.literal("Boys"), v.literal("Girls"), v.literal("Mixed"))
+    v.union(
+      v.literal("Male"), v.literal("Female"), v.literal("Mixed"),
+      v.literal("Boys"), v.literal("Girls")
+    )
   ),
   season: v.optional(v.string()), // e.g., "2025"
   description: v.optional(v.string()),
@@ -103,15 +107,16 @@ const customMemberTable = defineTable({
   createdAt: v.number(),
 
   // Custom field: functional roles for sports club capabilities
+  // Includes: coach, parent, admin, player (for adult players)
   functionalRoles: v.optional(
     v.array(
-      v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+      v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
     )
   ),
 
   // Active functional role - which role the user is currently operating as
   activeFunctionalRole: v.optional(
-    v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+    v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
   ),
 
   // Pending role requests awaiting admin approval
@@ -121,7 +126,8 @@ const customMemberTable = defineTable({
         role: v.union(
           v.literal("coach"),
           v.literal("parent"),
-          v.literal("admin")
+          v.literal("admin"),
+          v.literal("player")
         ),
         requestedAt: v.string(),
         message: v.optional(v.string()),

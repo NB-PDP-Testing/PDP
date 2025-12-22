@@ -25,7 +25,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
-type FunctionalRole = "coach" | "parent" | "admin";
+type FunctionalRole = "coach" | "parent" | "admin" | "player";
 
 const ROLE_INFO: Record<
   FunctionalRole,
@@ -60,6 +60,14 @@ const ROLE_INFO: Record<
       "Full access to organization settings, user management, and all player data.",
     color: "border-purple-200 bg-purple-50",
     bgColor: "bg-purple-100",
+  },
+  player: {
+    icon: <UserCircle className="h-6 w-6 text-orange-600" />,
+    label: "Player",
+    description:
+      "Access your own player passport, track your development, and view your goals and assessments.",
+    color: "border-orange-200 bg-orange-50",
+    bgColor: "bg-orange-100",
   },
 };
 
@@ -107,7 +115,7 @@ export default function RequestRolePage() {
 
   // Roles the user can request (ones they don't have and haven't requested)
   const availableRoles = useMemo(() => {
-    const allRoles: FunctionalRole[] = ["coach", "parent", "admin"];
+    const allRoles: FunctionalRole[] = ["coach", "parent", "admin", "player"];
     const pendingRoleNames = pendingRequests.map((r) => r.role);
     return allRoles.filter(
       (role) =>

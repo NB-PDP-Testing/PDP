@@ -104,7 +104,7 @@ type TeamCreateData = {
   name: string;
   sport: string;
   ageGroup: string;
-  gender: "Boys" | "Girls" | "Mixed";
+  gender: "male" | "female" | "mixed";
   season: string;
 };
 
@@ -113,7 +113,7 @@ type DetectedTeam = {
   name: string;
   sport: string;
   ageGroup: string;
-  gender: "Boys" | "Girls" | "Mixed";
+  gender: "male" | "female" | "mixed";
   season: string;
   playerCount: number;
   existingTeamId?: string; // If matched to existing team
@@ -293,10 +293,10 @@ const GAAMembershipWizard = ({
     members.forEach((member) => {
       const normalizedGender =
         member.Gender?.toUpperCase() === "MALE"
-          ? "Boys"
+          ? "male"
           : member.Gender?.toUpperCase() === "FEMALE"
-            ? "Girls"
-            : "Mixed";
+            ? "female"
+            : "mixed";
 
       const teamKey = getTeamKey({
         sport: "GAA Football",
@@ -307,8 +307,8 @@ const GAAMembershipWizard = ({
 
       const teamName =
         member.AgeGroup === "Senior"
-          ? `Senior ${normalizedGender === "Boys" ? "Men" : normalizedGender === "Girls" ? "Women" : "Mixed"}`
-          : `${member.AgeGroup} ${normalizedGender}`;
+          ? `Senior ${normalizedGender === "male" ? "Men" : normalizedGender === "female" ? "Women" : "Mixed"}`
+          : `${member.AgeGroup} ${normalizedGender === "male" ? "Male" : normalizedGender === "female" ? "Female" : "Mixed"}`;
 
       if (teamMap.has(teamKey)) {
         const existing = teamMap.get(teamKey)!;
@@ -327,7 +327,7 @@ const GAAMembershipWizard = ({
           name: teamName,
           sport: "GAA Football",
           ageGroup: member.AgeGroup,
-          gender: normalizedGender as "Boys" | "Girls" | "Mixed",
+          gender: normalizedGender as "male" | "female" | "mixed",
           season: "2025",
           playerCount: 1,
           existingTeamId: existingTeam?._id,
@@ -1075,12 +1075,12 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
       // All teams exist, assign team IDs directly
       const assignments: Record<string, string> = {};
       data.forEach((member, idx) => {
-        const normalizedGender =
+      const normalizedGender =
           member.Gender?.toUpperCase() === "MALE"
-            ? "Boys"
+            ? "male"
             : member.Gender?.toUpperCase() === "FEMALE"
-              ? "Girls"
-              : "Mixed";
+              ? "female"
+              : "mixed";
         const teamId = getTeamIdByProperties(
           "GAA Football",
           member.AgeGroup,
@@ -1177,10 +1177,10 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
       parsedMembers.forEach((member, idx) => {
         const normalizedGender =
           member.Gender?.toUpperCase() === "MALE"
-            ? "Boys"
+            ? "male"
             : member.Gender?.toUpperCase() === "FEMALE"
-              ? "Girls"
-              : "Mixed";
+              ? "female"
+              : "mixed";
 
         // ✅ FIX #5: Use getTeamIdByProperties with updated localTeams
         // Note: This will work immediately because we have updatedLocalTeams in scope

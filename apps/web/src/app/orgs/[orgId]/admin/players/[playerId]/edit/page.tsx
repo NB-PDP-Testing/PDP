@@ -37,6 +37,7 @@ export default function EditPlayerPage() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    email: "",
     dateOfBirth: "",
     gender: "male" as "male" | "female" | "other",
     ageGroup: "",
@@ -72,6 +73,7 @@ export default function EditPlayerPage() {
       setFormData({
         firstName: playerIdentity.firstName || "",
         lastName: playerIdentity.lastName || "",
+        email: playerIdentity.email || "",
         dateOfBirth: playerIdentity.dateOfBirth || "",
         gender: playerIdentity.gender || "male",
         ageGroup: enrollment.ageGroup || "",
@@ -89,6 +91,7 @@ export default function EditPlayerPage() {
         playerIdentityId: playerId as Id<"playerIdentities">,
         firstName: formData.firstName,
         lastName: formData.lastName,
+        email: formData.email || undefined,
         dateOfBirth: formData.dateOfBirth || undefined,
         gender: formData.gender,
       });
@@ -225,6 +228,22 @@ export default function EditPlayerPage() {
                   value={formData.lastName}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                placeholder="player@example.com"
+                type="email"
+                value={formData.email}
+              />
+              <p className="text-muted-foreground text-xs">
+                For adult players, this must match their login email to link their account to this player profile.
+              </p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

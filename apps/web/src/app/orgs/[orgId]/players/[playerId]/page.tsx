@@ -10,6 +10,7 @@ import { BenchmarkComparison } from "@/components/benchmark-comparison";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { BasicInformationSection } from "./components/basic-info-section";
+import { EmergencyContactsSection } from "./components/emergency-contacts-section";
 import { GoalsSection } from "./components/goals-section";
 import { NotesSection } from "./components/notes-section";
 import { PositionsFitnessSection } from "./components/positions-fitness-section";
@@ -147,6 +148,15 @@ export default function PlayerPassportPage() {
       <div className="space-y-4">
         {/* Cast to any since components define their own interfaces for the properties they need */}
         <BasicInformationSection player={playerData as any} />
+
+        {/* Emergency Contacts - for adult players, shown right after basic info */}
+        {"playerType" in playerData && playerData.playerType === "adult" && (
+          <EmergencyContactsSection
+            playerIdentityId={playerId as Id<"playerIdentities">}
+            isEditable={false} // Coaches can view but not edit adult player's contacts
+            playerType="adult"
+          />
+        )}
 
         {/* Benchmark Comparison - only for new identity system with sport passport */}
         {"playerIdentityId" in playerData &&

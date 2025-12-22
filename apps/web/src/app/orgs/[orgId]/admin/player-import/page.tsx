@@ -152,7 +152,8 @@ export default function PlayerImportPage() {
       normalized === "MALE" ||
       normalized === "M" ||
       normalized === "BOY" ||
-      normalized === "BOYS"
+      normalized === "BOYS" ||
+      normalized === "MEN"
     ) {
       return "male";
     }
@@ -160,9 +161,13 @@ export default function PlayerImportPage() {
       normalized === "FEMALE" ||
       normalized === "F" ||
       normalized === "GIRL" ||
-      normalized === "GIRLS"
+      normalized === "GIRLS" ||
+      normalized === "WOMEN"
     ) {
       return "female";
+    }
+    if (normalized === "MIXED" || normalized === "ALL") {
+      return "other"; // For players, "mixed" doesn't apply - use "other"
     }
     return "other";
   };
@@ -170,10 +175,10 @@ export default function PlayerImportPage() {
   // Convert gender from identity format to team format for matching
   const genderToTeamFormat = (
     gender: "male" | "female" | "other"
-  ): "Boys" | "Girls" | "Mixed" => {
-    if (gender === "male") return "Boys";
-    if (gender === "female") return "Girls";
-    return "Mixed";
+  ): "male" | "female" | "mixed" => {
+    if (gender === "male") return "male";
+    if (gender === "female") return "female";
+    return "mixed";
   };
 
   // Parse relationship string to typed value
@@ -422,7 +427,7 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
   const handleCreateMissingTeams = async (teamsToCreate: MissingTeam[]) => {
     try {
       for (const team of teamsToCreate) {
-        // Convert gender from identity format (male/female/other) to team format (Boys/Girls/Mixed)
+        // Convert gender from identity format (male/female/other) to team format (male/female/mixed)
         const teamGender = genderToTeamFormat(team.gender as "male" | "female" | "other");
         const name = `${team.ageGroup} ${teamGender}`;
         await createTeamMutation({

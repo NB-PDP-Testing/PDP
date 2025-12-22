@@ -37,6 +37,7 @@ export default function EditPlayerPassportPage() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    email: "",
     dateOfBirth: "",
     gender: "male" as "male" | "female" | "other",
     ageGroup: "",
@@ -73,6 +74,7 @@ export default function EditPlayerPassportPage() {
         ...prev,
         firstName: playerIdentity.firstName || "",
         lastName: playerIdentity.lastName || "",
+        email: playerIdentity.email || "",
         dateOfBirth: playerIdentity.dateOfBirth || "",
         gender: playerIdentity.gender || "male",
       }));
@@ -94,6 +96,7 @@ export default function EditPlayerPassportPage() {
         playerIdentityId: playerId as Id<"playerIdentities">,
         firstName: formData.firstName,
         lastName: formData.lastName,
+        email: formData.email || undefined,
         dateOfBirth: formData.dateOfBirth || undefined,
         gender: formData.gender,
       });
@@ -229,6 +232,22 @@ export default function EditPlayerPassportPage() {
                   value={formData.lastName}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                placeholder="player@example.com"
+                type="email"
+                value={formData.email}
+              />
+              <p className="text-muted-foreground text-xs">
+                For adult players, this must match their login email to link their account.
+              </p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">

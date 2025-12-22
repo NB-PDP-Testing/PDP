@@ -202,7 +202,8 @@ export const addFunctionalRole = mutation({
     functionalRole: v.union(
       v.literal("coach"),
       v.literal("parent"),
-      v.literal("admin")
+      v.literal("admin"),
+      v.literal("player")
     ),
   },
   returns: v.null(),
@@ -236,7 +237,7 @@ export const addFunctionalRole = mutation({
     }
 
     // Get current functional roles and add new one if not already present
-    const currentRoles: ("coach" | "parent" | "admin")[] =
+    const currentRoles: ("coach" | "parent" | "admin" | "player")[] =
       (memberResult as any).functionalRoles || [];
     if (currentRoles.includes(args.functionalRole)) {
       console.log(
@@ -274,7 +275,7 @@ export const updateMemberFunctionalRoles = mutation({
     organizationId: v.string(),
     userId: v.string(),
     functionalRoles: v.array(
-      v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+      v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
     ),
   },
   returns: v.null(),
@@ -335,7 +336,7 @@ export const getMemberRoleDetails = query({
       name: v.union(v.string(), v.null()),
       betterAuthRole: v.string(),
       functionalRoles: v.array(
-        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
       ),
       hasFunctionalRoles: v.boolean(),
     }),
@@ -1220,7 +1221,8 @@ export const switchActiveFunctionalRole = mutation({
     functionalRole: v.union(
       v.literal("coach"),
       v.literal("parent"),
-      v.literal("admin")
+      v.literal("admin"),
+      v.literal("player")
     ),
   },
   returns: v.null(),
@@ -1276,7 +1278,7 @@ export const switchActiveFunctionalRole = mutation({
     }
 
     // Verify user has this functional role
-    const functionalRoles: ("coach" | "parent" | "admin")[] =
+    const functionalRoles: ("coach" | "parent" | "admin" | "player")[] =
       (memberResult as any).functionalRoles || [];
     if (!functionalRoles.includes(args.functionalRole)) {
       throw new Error(
@@ -1412,12 +1414,13 @@ export const getMembersForAllOrganizations = query({
       organizationName: v.union(v.string(), v.null()),
       organizationLogo: v.union(v.string(), v.null()),
       functionalRoles: v.array(
-        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
       ),
       activeFunctionalRole: v.union(
         v.literal("coach"),
         v.literal("parent"),
         v.literal("admin"),
+        v.literal("player"),
         v.null()
       ),
       pendingRoleRequests: v.array(
@@ -1425,7 +1428,8 @@ export const getMembersForAllOrganizations = query({
           role: v.union(
             v.literal("coach"),
             v.literal("parent"),
-            v.literal("admin")
+            v.literal("admin"),
+            v.literal("player")
           ),
           requestedAt: v.string(),
         })
@@ -1559,7 +1563,7 @@ export const getMembersForAllOrganizations = query({
 export const requestFunctionalRole = mutation({
   args: {
     organizationId: v.string(),
-    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin")),
+    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player")),
     // Optional role-specific data
     message: v.optional(v.string()), // Why they need this role
   },
@@ -1616,7 +1620,7 @@ export const requestFunctionalRole = mutation({
     }
 
     // Check if user already has this role
-    const functionalRoles: ("coach" | "parent" | "admin")[] =
+    const functionalRoles: ("coach" | "parent" | "admin" | "player")[] =
       (memberResult as any).functionalRoles || [];
     if (functionalRoles.includes(args.role)) {
       throw new Error(`You already have the ${args.role} role`);
@@ -1665,7 +1669,7 @@ export const requestFunctionalRole = mutation({
 export const cancelFunctionalRoleRequest = mutation({
   args: {
     organizationId: v.string(),
-    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin")),
+    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1851,7 +1855,7 @@ export const approveFunctionalRoleRequest = mutation({
   args: {
     organizationId: v.string(),
     memberId: v.string(),
-    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin")),
+    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1880,7 +1884,7 @@ export const approveFunctionalRoleRequest = mutation({
     }
 
     // Get current roles and pending requests
-    const functionalRoles: ("coach" | "parent" | "admin")[] =
+    const functionalRoles: ("coach" | "parent" | "admin" | "player")[] =
       (memberResult as any).functionalRoles || [];
     const pendingRequests: Array<{ role: string }> =
       (memberResult as any).pendingFunctionalRoleRequests || [];
@@ -1956,7 +1960,7 @@ export const rejectFunctionalRoleRequest = mutation({
   args: {
     organizationId: v.string(),
     memberId: v.string(),
-    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin")),
+    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player")),
     reason: v.optional(v.string()),
   },
   returns: v.null(),
@@ -2131,7 +2135,7 @@ export const getCurrentOwner = query({
       userImage: v.union(v.string(), v.null()),
       role: v.literal("owner"),
       functionalRoles: v.array(
-        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
       ),
       createdAt: v.union(v.number(), v.null()),
     }),

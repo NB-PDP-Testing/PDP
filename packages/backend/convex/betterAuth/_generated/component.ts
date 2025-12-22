@@ -102,7 +102,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   coachNotes?: string;
                   createdAt: number;
                   description?: string;
-                  gender?: "Boys" | "Girls" | "Mixed";
+                  gender?: "Male" | "Female" | "Mixed" | "Boys" | "Girls";
                   homeVenue?: string;
                   isActive?: boolean;
                   name: string;
@@ -141,14 +141,20 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
               }
             | {
                 data: {
-                  activeFunctionalRole?: "coach" | "parent" | "admin";
+                  activeFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   createdAt: number;
-                  functionalRoles?: Array<"coach" | "parent" | "admin">;
+                  functionalRoles?: Array<
+                    "coach" | "parent" | "admin" | "player"
+                  >;
                   organizationId: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
                     requestedAt: string;
-                    role: "coach" | "parent" | "admin";
+                    role: "coach" | "parent" | "admin" | "player";
                   }>;
                   role: string;
                   userId: string;
@@ -1226,7 +1232,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   coachNotes?: string;
                   createdAt?: number;
                   description?: string;
-                  gender?: "Boys" | "Girls" | "Mixed";
+                  gender?: "Male" | "Female" | "Mixed" | "Boys" | "Girls";
                   homeVenue?: string;
                   isActive?: boolean;
                   name?: string;
@@ -1361,14 +1367,20 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "member";
                 update: {
-                  activeFunctionalRole?: "coach" | "parent" | "admin";
+                  activeFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   createdAt?: number;
-                  functionalRoles?: Array<"coach" | "parent" | "admin">;
+                  functionalRoles?: Array<
+                    "coach" | "parent" | "admin" | "player"
+                  >;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
                     requestedAt: string;
-                    role: "coach" | "parent" | "admin";
+                    role: "coach" | "parent" | "admin" | "player";
                   }>;
                   role?: string;
                   userId?: string;
@@ -1698,7 +1710,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   coachNotes?: string;
                   createdAt?: number;
                   description?: string;
-                  gender?: "Boys" | "Girls" | "Mixed";
+                  gender?: "Male" | "Female" | "Mixed" | "Boys" | "Girls";
                   homeVenue?: string;
                   isActive?: boolean;
                   name?: string;
@@ -1833,14 +1845,20 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
             | {
                 model: "member";
                 update: {
-                  activeFunctionalRole?: "coach" | "parent" | "admin";
+                  activeFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   createdAt?: number;
-                  functionalRoles?: Array<"coach" | "parent" | "admin">;
+                  functionalRoles?: Array<
+                    "coach" | "parent" | "admin" | "player"
+                  >;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
                     requestedAt: string;
-                    role: "coach" | "parent" | "admin";
+                    role: "coach" | "parent" | "admin" | "player";
                   }>;
                   role?: string;
                   userId?: string;

@@ -737,7 +737,7 @@ export default defineSchema({
   coachAssignments: defineTable({
     userId: v.string(), // Better Auth user ID
     organizationId: v.string(),
-    teams: v.array(v.string()), // Team names they're assigned to
+    teams: v.array(v.string()), // Team IDs (Better Auth team._id) they're assigned to
     ageGroups: v.array(v.string()), // Age groups they coach
     sport: v.optional(v.string()), // Primary sport
     roles: v.optional(v.array(v.string())), // Additional roles
@@ -1118,7 +1118,7 @@ export default defineSchema({
     // Functional roles (capabilities) - the actual roles user wants
     requestedFunctionalRoles: v.optional(
       v.array(
-        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
+        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
       )
     ),
     status: v.union(
@@ -1137,7 +1137,7 @@ export default defineSchema({
 
     // Coach-specific fields
     coachSport: v.optional(v.string()), // Primary sport
-    coachGender: v.optional(v.string()), // Team gender preference (Boys, Girls, Mixed)
+    coachGender: v.optional(v.string()), // Team gender preference (male, female, mixed)
     coachTeams: v.optional(v.string()), // Comma-separated team names
     coachAgeGroups: v.optional(v.string()), // Comma-separated age groups
 

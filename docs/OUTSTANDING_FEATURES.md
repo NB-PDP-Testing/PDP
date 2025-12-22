@@ -1,170 +1,395 @@
-# Outstanding Features - Identity System Migration
+# Outstanding Features - PDP/PlayerARC System
 
-> Last Updated: 2025-12-18
-> Branch: `feature/identity-system-migration`
+> **Last Updated:** 2025-12-22
+> **Status:** Comprehensive backlog for MVP parity and enhancement
 
 ## Overview
 
-This document tracks features that have backend implementation but are missing frontend UI, along with recommended priorities for implementation.
+This document tracks all outstanding features that need to be built to achieve MVP parity and beyond. Features are organized by priority and complexity.
 
 ---
 
-## HIGH PRIORITY - Core Functionality Missing UI
+## System Architecture Summary
 
-| Feature | Backend | Frontend | Impact |
-|---------|---------|----------|--------|
-| **Guardian Profile Management** | ✅ Full | ❌ None | Guardians can't manage their org-specific preferences |
-| **Emergency Contacts (Adult Players)** | ✅ Full CRUD | ❌ None | Adult players can't add emergency contacts |
-| **Injury View for Parents** | ✅ Full | ❌ None | Parents can't see their child's injuries |
-| **Goals View for Parents** | ✅ Full | ❌ None | Parents can't see their child's development goals |
-| **Dedicated Goals Management** | ✅ Full | ⚠️ Nested only | Coaches need a better interface to manage goals |
-
-### Details
-
-#### Guardian Profile Management
-- **Backend**: `orgGuardianProfiles` table with full CRUD in `orgGuardianProfiles.ts`
-- **Missing UI**: No page for guardians to manage communication preferences, emergency priority, or view club notes
-- **Location**: Should be at `/orgs/[orgId]/parents/profile` or similar
-
-#### Emergency Contacts (Adult Players)
-- **Backend**: `playerEmergencyContacts` table with full CRUD in `playerEmergencyContacts.ts`
-- **Missing UI**: No page for adult players to add/edit/delete emergency contacts
-- **Location**: Should be at `/orgs/[orgId]/profile/emergency-contacts` or in player settings
-
-#### Injury View for Parents
-- **Backend**: `playerInjuries` with visibility controls already implemented
-- **Missing UI**: Parent dashboard doesn't show injuries for their children
-- **Location**: Add to `/orgs/[orgId]/parents` page
-
-#### Goals View for Parents
-- **Backend**: `passportGoals` with `isVisibleToParent` field
-- **Missing UI**: Parent dashboard doesn't show goals for their children
-- **Location**: Add to `/orgs/[orgId]/parents` page
-
-#### Dedicated Goals Management
-- **Backend**: Full CRUD in `passportGoals.ts`
-- **Current UI**: Goals only visible nested in player passport view
-- **Missing UI**: Dedicated page for coaches to create/manage goals
-- **Location**: Should be at `/orgs/[orgId]/coach/goals`
+| Component | Current State |
+|-----------|--------------|
+| **Authentication** | ✅ Complete - Better Auth with Google/Microsoft OAuth |
+| **User Management** | ✅ Complete - Role assignment, approval workflow |
+| **Voice Notes** | ✅ Complete - Recording, AI transcription (OpenAI), insights |
+| **Player Passports** | ⚠️ Partial - View only, no skill editing sliders |
+| **Parent Dashboard** | ⚠️ Partial - Basic view, missing MVP features |
+| **Coach Dashboard** | ⚠️ Partial - Smart dashboard exists but needs enhancement |
+| **Goals System** | ❌ Schema only - No UI built |
+| **Injuries System** | ⚠️ Partial - Coach injury page exists, parent view missing |
+| **Medical Profiles** | ❌ Schema only - No UI built |
+| **PDF/Sharing** | ❌ Not started |
+| **Analytics** | ❌ Not started |
 
 ---
 
-## MEDIUM PRIORITY - Extended Functionality
+## HIGH PRIORITY - Core Missing UI
 
-| Feature | Backend | Frontend | Impact |
-|---------|---------|----------|--------|
-| **Benchmark Analytics Dashboard** | ✅ Full | ❌ None | No visualization of skill benchmarks across org |
-| **Guardian Registration Flow** | ✅ Full | ❌ None | No self-service guardian signup |
-| **Guardian-Player Linking UI** | ✅ Full | ❌ None | Manual linking only via import |
-| **Player Profile Edit (by Guardian)** | ✅ Full | ❌ None | Guardians can't update player info |
-| **Team Roster Management** | ✅ Full | ⚠️ Limited | No dedicated UI to manage team assignments |
+### 1. Goals Dashboard for Coaches
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ✅ `passportGoals.ts` with full CRUD |
+| **UI** | ❌ No dedicated page |
+| **Location** | `/orgs/[orgId]/coach/goals` |
+| **MVP Reference** | `GoalsDashboard.tsx` in MVP |
 
-### Details
-
-#### Benchmark Analytics Dashboard
-- **Backend**: `getClubBenchmarkAnalytics` query in `skillAssessments.ts`
-- **Missing UI**: No dashboard showing skills needing attention, player progress vs benchmarks
-- **Location**: Should be at `/orgs/[orgId]/admin/analytics` or `/orgs/[orgId]/coach/analytics`
-
-#### Guardian Registration Flow
-- **Backend**: `guardianIdentities.ts` with find-or-create functionality
-- **Missing UI**: No self-service registration for guardians
-- **Current**: Guardians created only via player import
-
-#### Guardian-Player Linking UI
-- **Backend**: `guardianPlayerLinks.ts` with full relationship management
-- **Missing UI**: No UI for guardians to link to players or admins to manage links
-- **Current**: Links created only via player import
-
-#### Player Profile Edit (by Guardian)
-- **Backend**: Update operations exist in `playerIdentities.ts`
-- **Missing UI**: Guardians cannot update their child's contact info, address, etc.
-- **Current**: Only coaches/admins can edit player data
-
-#### Team Roster Management
-- **Backend**: `teamPlayerIdentities.ts` with full CRUD, transfers, bulk operations
-- **Missing UI**: No dedicated interface to manage team rosters
-- **Current**: Team assignments only visible in player passport
+**Features Needed:**
+- Goal creation wizard with skill linking
+- Milestone tracking interface
+- Progress visualization
+- Bulk goal creation for teams
+- Goal-to-skill linkage
 
 ---
 
-## LOW PRIORITY - Admin/Reference Data
+### 2. Skill Assessment Rating Sliders
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ✅ `skillAssessments.ts` |
+| **UI** | ❌ View only - no editing |
+| **Location** | `/orgs/[orgId]/coach/assess` (enhance) |
+| **MVP Reference** | `RatingSlider`, `EditPlayer` in MVP |
 
-| Feature | Backend | Frontend | Status |
-|---------|---------|----------|--------|
-| **Reference Data Management** | ✅ Full | ❌ None | Sports, age groups, skill definitions - admin only |
-| **Org Injury Notes** | ✅ Full | ⚠️ Minimal | Notes exist but not surfaced in UI |
-| **Multi-Sport Passport Views** | ✅ Full | ❌ None | Players can have multiple sports but no multi-view |
-
----
-
-## Implementation Plan
-
-### Quick Wins (1-2 hours each)
-- [x] ~~Add `/coach/injuries` page~~ (Completed 2025-12-18)
-- [x] ~~Parent injury view - expose existing injury data to parent role~~ (Completed 2025-12-18)
-- [x] ~~Parent goals view - expose existing goals to parent dashboard~~ (Completed 2025-12-18)
-- [x] ~~Add navigation link to `/coach/injuries` from coach dashboard~~ (Completed 2025-12-18)
-
-### Medium Effort (half day each)
-- [ ] Emergency contacts management page for adult players
-- [ ] Dedicated goals management page for coaches
-- [ ] Benchmark analytics dashboard
-
-### Larger Features (1+ day each)
-- [ ] Guardian registration and profile management
-- [ ] Guardian-player linking flow
-- [ ] Team roster management UI
+**Features Needed:**
+- Rating slider component (1-5 scale with colors)
+- Skill assessment form
+- Before/after comparison
+- Assessment history view
 
 ---
 
-## Backend Models Reference
+### 3. Apply Voice Note Insights to Player Profiles
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ✅ Insights extracted |
+| **Integration** | ❌ Insights marked as "applied" but no actual update |
+| **Impact** | Critical - breaks coach workflow |
 
-### New Identity System Tables
-
-| Table | Model File | Status |
-|-------|-----------|--------|
-| `playerIdentities` | `playerIdentities.ts` | ✅ Complete |
-| `guardianIdentities` | `guardianIdentities.ts` | ✅ Complete |
-| `orgPlayerEnrollments` | `orgPlayerEnrollments.ts` | ✅ Complete |
-| `guardianPlayerLinks` | `guardianPlayerLinks.ts` | ✅ Complete |
-| `orgGuardianProfiles` | `orgGuardianProfiles.ts` | ✅ Complete |
-| `sportPassports` | `sportPassports.ts` | ✅ Complete |
-| `skillAssessments` | `skillAssessments.ts` | ✅ Complete |
-| `skillBenchmarks` | `skillBenchmarks.ts` | ✅ Complete |
-| `passportGoals` | `passportGoals.ts` | ✅ Complete |
-| `teamPlayerIdentities` | `teamPlayerIdentities.ts` | ✅ Complete |
-| `playerInjuries` | `playerInjuries.ts` | ✅ Complete |
-| `orgInjuryNotes` | `orgInjuryNotes.ts` | ✅ Complete |
-| `playerEmergencyContacts` | `playerEmergencyContacts.ts` | ✅ Complete |
+**Features Needed:**
+- Route insights to correct tables (injuries, goals, notes)
+- Update player skill assessments from insights
+- Create injury records from injury insights
+- Add notes to player profiles
 
 ---
 
-## Frontend Pages Status
+### 4. Parent Dashboard Enhancement
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ✅ Parent linking works |
+| **UI** | ⚠️ Basic - missing MVP features |
+| **Location** | `/orgs/[orgId]/parents` |
+| **MVP Reference** | `ParentInsightsDashboard` |
 
-### Coach Section (`/orgs/[orgId]/coach/`)
-- [x] Dashboard (`/coach`)
-- [x] Skill Assessment (`/coach/assess`)
-- [x] Voice Notes (`/coach/voice-notes`)
-- [x] Injury Tracking (`/coach/injuries`)
-- [ ] Goals Management (`/coach/goals`) - **TODO**
+**Features Needed:**
+- Children overview cards with all metrics
+- Top strengths display
+- Attendance visualization
+- Coach feedback section
+- Weekly schedule calendar (with mock data initially)
+- AI Practice Assistant
+- Injury status for children
+- Goals view for children (parent-visible only)
 
-### Parent Section (`/orgs/[orgId]/parents/`)
-- [x] Dashboard (`/parents`)
-- [ ] Profile Management (`/parents/profile`) - **TODO**
-- [ ] Injury View - **TODO** (add to dashboard)
-- [ ] Goals View - **TODO** (add to dashboard)
+---
 
-### Admin Section (`/orgs/[orgId]/admin/`)
-- [x] Players (`/admin/players`)
-- [x] Teams (`/admin/teams`)
-- [x] Coaches (`/admin/coaches`)
-- [x] Users (`/admin/users`)
-- [x] Benchmarks (`/admin/benchmarks`)
-- [x] Settings (`/admin/settings`)
-- [ ] Analytics Dashboard - **TODO**
-- [ ] Team Roster Management - **TODO**
+### 5. Medical Profiles Dashboard
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ✅ `medicalProfiles` table exists |
+| **UI** | ❌ No page built |
+| **Location** | `/orgs/[orgId]/admin/medical` or coach section |
+| **MVP Reference** | `MedicalProfilesDashboard.tsx` |
 
-### Player Section (`/orgs/[orgId]/players/`)
-- [x] Player Passport (`/players/[playerId]`)
-- [ ] Edit Player (guardian access) - **TODO**
+**Features Needed:**
+- Medical profile viewing
+- Allergy tracking
+- Medication management
+- Emergency contact display
+- Medical notes
+
+---
+
+### 6. Emergency Contacts Management (Adult Players)
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ✅ `playerEmergencyContacts.ts` with full CRUD |
+| **UI** | ❌ No page built |
+| **Location** | Player profile settings |
+
+**Features Needed:**
+- Add/edit/delete emergency contacts
+- Priority ordering
+- Contact type selection
+
+---
+
+## MEDIUM PRIORITY - Enhanced Functionality
+
+### 7. PDF Generation & Sharing
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ⚠️ `pdf-generator.ts` file exists but not wired |
+| **UI** | ❌ No ShareModal |
+| **MVP Reference** | `pdfGenerator.ts`, `ShareModal.tsx` |
+
+**Features Needed:**
+- Player passport PDF export
+- Customizable templates
+- Share via email
+- Share via WhatsApp
+- Direct download
+
+---
+
+### 8. Analytics Dashboard
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ✅ `getClubBenchmarkAnalytics` query exists |
+| **UI** | ❌ No page built |
+| **Location** | `/orgs/[orgId]/admin/analytics` |
+| **MVP Reference** | `AnalyticsDashboard.tsx` |
+
+**Features Needed:**
+- Club-wide skill distribution
+- Team comparison charts
+- Progress over time visualization
+- Radar chart for individual/team skills
+- Benchmark comparison across age groups
+
+---
+
+### 9. Team Roster Management UI
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ✅ `teamPlayerIdentities.ts` with full CRUD |
+| **UI** | ⚠️ Basic team list only |
+| **Location** | `/orgs/[orgId]/admin/teams/[teamId]` |
+
+**Features Needed:**
+- Drag-and-drop roster management
+- Bulk player assignment
+- Transfer between teams
+- Squad/position visualization
+- Coach assignment interface
+
+---
+
+### 10. Guardian Profile Management
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ✅ `orgGuardianProfiles.ts` with full CRUD |
+| **UI** | ❌ No page |
+| **Location** | `/orgs/[orgId]/parents/profile` |
+
+**Features Needed:**
+- Communication preferences
+- Emergency priority settings
+- View club notes
+- Notification settings
+
+---
+
+### 11. Guardian Registration & Self-Service Linking
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ✅ `guardianIdentities.ts` find-or-create |
+| **UI** | ❌ No self-service flow |
+
+**Features Needed:**
+- Guardian self-registration
+- Child linking workflow (verification code)
+- Multiple guardian support
+- Primary guardian designation
+
+---
+
+### 12. Voice Notes Enhancements
+| Aspect | Status |
+|--------|--------|
+| **Core** | ✅ Recording + AI works |
+| **Missing** | Multiple UX features |
+| **Reference** | `VOICE_NOTES_MVP_COMPARISON_AND_ENHANCEMENTS.md` |
+
+**Features Needed:**
+- Apply All / Reject All buttons
+- Edit insight before applying
+- Real-time transcription display while speaking
+- Search & filter notes
+- View source note link from insight
+- Coach stats panel
+- Export to CSV
+- Success/warning animated banners
+
+---
+
+## LOW PRIORITY - Nice to Have
+
+### 13. Reference Data Management (Admin)
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ✅ `referenceData.ts` |
+| **UI** | ❌ No admin interface |
+| **Impact** | Admin-only, low urgency |
+
+**Features Needed:**
+- Sports management
+- Age group management
+- Skill category editing
+- Skill definition management
+
+---
+
+### 14. Parent Notification System
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ❌ Not built |
+| **UI** | ❌ Not built |
+
+**Features Needed:**
+- Notify parents when insights applied
+- Injury notifications
+- Review due reminders
+- Parent-friendly message templates
+
+---
+
+### 15. Team Briefing Generator
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ❌ Not built |
+| **UI** | ❌ Not built |
+
+**Features Needed:**
+- Auto-generate weekly briefing from voice notes
+- Injury summary
+- Top performers
+- Focus areas
+- Shareable parent report
+
+---
+
+### 16. Multi-Sport Passport Views
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ✅ Players can have multiple sports |
+| **UI** | ❌ Single sport view only |
+
+**Features Needed:**
+- Sport switcher in passport view
+- Cross-sport skill comparison
+- Combined development view
+
+---
+
+### 17. Audit Logging
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ❌ Not built |
+| **UI** | ❌ Not built |
+| **MVP Reference** | `AuditLogViewer` |
+
+**Features Needed:**
+- Track all data changes
+- User action logging
+- Admin audit dashboard
+- Export audit logs
+
+---
+
+### 18. Schedule/Calendar System
+| Aspect | Status |
+|--------|--------|
+| **Backend** | ❌ No schema |
+| **UI** | ❌ Not built |
+
+**Features Needed:**
+- Training sessions table
+- Match fixtures table
+- Parent schedule view
+- Coach schedule management
+
+---
+
+## Implementation Checklist by Sprint
+
+### Sprint A: Core Coach Features (1 week)
+- [ ] Skill assessment rating sliders
+- [ ] Apply insight to player profile (injuries, goals, notes)
+- [ ] Goals dashboard basic CRUD
+
+### Sprint B: Parent Experience (1 week)
+- [ ] Enhanced parent dashboard with child cards
+- [ ] Goals view for parents
+- [ ] Injury view for parents
+- [ ] Coach feedback section
+
+### Sprint C: Voice Notes UX (1 week)
+- [ ] Apply All / Reject All
+- [ ] Edit insight before applying
+- [ ] Search & filter notes
+- [ ] Success/warning messages
+
+### Sprint D: Analytics & Visualization (1 week)
+- [ ] Analytics dashboard
+- [ ] Radar charts
+- [ ] Benchmark comparison visualization
+
+### Sprint E: Export & Sharing (1 week)
+- [ ] PDF generation
+- [ ] Share modal
+- [ ] Email/WhatsApp sharing
+
+### Sprint F: Advanced Features (1+ week)
+- [ ] Team roster management
+- [ ] Guardian self-service
+- [ ] Medical profiles dashboard
+- [ ] Parent notification system
+
+---
+
+## Backend Status Summary
+
+### Complete Models (Frontend UI Needed)
+| Model | Status |
+|-------|--------|
+| `passportGoals.ts` | ✅ Full CRUD |
+| `playerInjuries.ts` | ✅ Full CRUD |
+| `orgInjuryNotes.ts` | ✅ Full CRUD |
+| `medicalProfiles` (schema) | ✅ Defined |
+| `playerEmergencyContacts.ts` | ✅ Full CRUD |
+| `orgGuardianProfiles.ts` | ✅ Full CRUD |
+| `skillAssessments.ts` | ✅ Full CRUD |
+| `skillBenchmarks.ts` | ✅ Full CRUD |
+| `teamPlayerIdentities.ts` | ✅ Full CRUD |
+
+### Complete UI (Working)
+| Component | Status |
+|-----------|--------|
+| Voice notes dashboard | ✅ Working |
+| Coach injury tracking | ✅ Working |
+| User management | ✅ Working |
+| Player passport view | ✅ Working |
+| GAA import | ✅ Working |
+| Benchmarks admin | ✅ Working |
+
+---
+
+## Feature Count Summary
+
+| Category | Count |
+|----------|-------|
+| **High Priority (Core Missing)** | 6 features |
+| **Medium Priority (Enhanced)** | 6 features |
+| **Low Priority (Nice to Have)** | 6 features |
+| **Total Outstanding** | 18 features |
+
+---
+
+**Document Version:** 2.0
+**Previous Update:** 2025-12-18
+**Next Review:** After Sprint A completion

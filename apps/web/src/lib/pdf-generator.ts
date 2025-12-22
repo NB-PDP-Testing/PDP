@@ -307,17 +307,31 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
           color: textColor,
         });
 
-        // Star rating
-        const starWidth = 10;
+        // Rating visualization using filled/empty circles
+        const circleRadius = 4;
+        const circleSpacing = 12;
         for (let i = 1; i <= 5; i++) {
-          const starX = xStart + 140 + (i - 1) * starWidth;
-          page.drawText(i <= rating ? "★" : "☆", {
-            x: starX,
-            y,
-            font: helvetica,
-            size: 10,
-            color: i <= rating ? accentColor : lightGray,
-          });
+          const circleX = xStart + 145 + (i - 1) * circleSpacing;
+          const circleY = y + 3;
+          
+          if (i <= rating) {
+            // Filled circle for achieved rating
+            page.drawCircle({
+              x: circleX,
+              y: circleY,
+              size: circleRadius,
+              color: accentColor,
+            });
+          } else {
+            // Empty circle for remaining
+            page.drawCircle({
+              x: circleX,
+              y: circleY,
+              size: circleRadius,
+              borderColor: lightGray,
+              borderWidth: 1,
+            });
+          }
         }
 
         y -= 18;
@@ -448,10 +462,10 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
     yPosition -= 20;
 
     const medicalItems = [];
-    if (data.hasAllergies) medicalItems.push("⚠️ Has allergies - check medical record");
-    if (data.hasMedications) medicalItems.push("💊 Taking medications - check medical record");
-    if (data.hasConditions) medicalItems.push("❤️ Medical conditions - check medical record");
-    if (data.emergencyContact) medicalItems.push(`📞 Emergency: ${data.emergencyContact}`);
+    if (data.hasAllergies) medicalItems.push("[!] Has allergies - check medical record");
+    if (data.hasMedications) medicalItems.push("[Rx] Taking medications - check medical record");
+    if (data.hasConditions) medicalItems.push("[+] Medical conditions - check medical record");
+    if (data.emergencyContact) medicalItems.push(`[ICE] Emergency: ${data.emergencyContact}`);
 
     for (const item of medicalItems) {
       page.drawText(item, {
@@ -512,4 +526,294 @@ export function downloadPDF(pdfBytes: Uint8Array, filename: string) {
 export function previewPDF(pdfBytes: Uint8Array): string {
   const blob = pdfToBlob(pdfBytes);
   return URL.createObjectURL(blob);
+}
+
+// ============ SESSION PLAN PDF ============
+
+export interface SessionPlanPDFData {
+  teamName: string;
+  sessionPlan: string;
+  sport?: string;
+  ageGroup?: string;
+  playerCount?: number;
+}
+
+export async function generateSessionPlanPDF(data: SessionPlanPDFData): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  const pageWidth = 595;
+  const pageHeight = 842;
+  const margin = 50;
+  const contentWidth = pageWidth - margin * 2;
+
+  let page = pdfDoc.addPage([pageWidth, pageHeight]);
+  let yPosition = pageHeight - margin;
+
+  const primaryColor = rgb(0.05, 0.27, 0.52);
+  const accentColor = rgb(0.13, 0.59, 0.42);
+  const textColor = rgb(0.2, 0.2, 0.2);
+  const lightGray = rgb(0.6, 0.6, 0.6);
+
+  // Header
+  page.drawRectangle({
+    x: 0,
+    y: pageHeight - 80,
+    width: pageWidth,
+    height: 80,
+    color: accentColor,
+  });
+
+  page.drawText("TRAINING SESSION PLAN", {
+    x: margin,
+    y: pageHeight - 35,
+    font: helveticaBold,
+    size: 20,
+    color: rgb(1, 1, 1),
+  });
+
+  page.drawText(data.teamName, {
+    x: margin,
+    y: pageHeight - 55,
+    font: helvetica,
+    size: 14,
+    color: rgb(0.9, 0.9, 0.9),
+  });
+
+  const generatedDate = new Date().toLocaleDateString("en-IE", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  page.drawText(`Generated: ${generatedDate}`, {
+    x: margin,
+    y: pageHeight - 70,
+    font: helvetica,
+    size: 9,
+    color: rgb(0.8, 0.8, 0.8),
+  });
+
+  yPosition = pageHeight - 110;
+
+  // Info row
+  const infoItems = [];
+  if (data.sport) infoItems.push(`Sport: ${data.sport}`);
+  if (data.ageGroup) infoItems.push(`Age Group: ${data.ageGroup}`);
+  if (data.playerCount) infoItems.push(`Players: ${data.playerCount}`);
+
+  if (infoItems.length > 0) {
+    page.drawText(infoItems.join("  •  "), {
+      x: margin,
+      y: yPosition,
+      font: helvetica,
+      size: 10,
+      color: lightGray,
+    });
+    yPosition -= 25;
+  }
+
+  // Session plan content
+  const lines = data.sessionPlan.split("\n");
+  const lineHeight = 14;
+
+  for (const line of lines) {
+    if (yPosition < margin + 50) {
+      page = pdfDoc.addPage([pageWidth, pageHeight]);
+      yPosition = pageHeight - margin;
+    }
+
+    // Check for headers (lines starting with #)
+    if (line.startsWith("##")) {
+      yPosition -= 10;
+      page.drawText(line.replace(/^#+\s*/, ""), {
+        x: margin,
+        y: yPosition,
+        font: helveticaBold,
+        size: 12,
+        color: primaryColor,
+      });
+      yPosition -= lineHeight + 5;
+    } else if (line.startsWith("#")) {
+      yPosition -= 15;
+      page.drawText(line.replace(/^#+\s*/, ""), {
+        x: margin,
+        y: yPosition,
+        font: helveticaBold,
+        size: 14,
+        color: primaryColor,
+      });
+      yPosition -= lineHeight + 8;
+    } else if (line.startsWith("-") || line.startsWith("•")) {
+      page.drawText("•", {
+        x: margin,
+        y: yPosition,
+        font: helvetica,
+        size: 10,
+        color: accentColor,
+      });
+      page.drawText(line.replace(/^[-•]\s*/, ""), {
+        x: margin + 15,
+        y: yPosition,
+        font: helvetica,
+        size: 10,
+        color: textColor,
+      });
+      yPosition -= lineHeight;
+    } else if (line.trim()) {
+      page.drawText(line, {
+        x: margin,
+        y: yPosition,
+        font: helvetica,
+        size: 10,
+        color: textColor,
+      });
+      yPosition -= lineHeight;
+    } else {
+      yPosition -= 8;
+    }
+  }
+
+  // Footer
+  page.drawText("Generated by Player Development Passport (PDP)", {
+    x: margin,
+    y: 30,
+    font: helvetica,
+    size: 8,
+    color: lightGray,
+  });
+
+  return pdfDoc.save();
+}
+
+// ============ SHARE HELPERS ============
+
+// Detect if user is on mobile device
+function isMobileDevice(): boolean {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+}
+
+// Check if Web Share API is supported with file sharing
+async function canUseWebShare(file?: File): Promise<boolean> {
+  if (!navigator.share) return false;
+
+  // Check if we can share files (not all browsers support this)
+  if (file && navigator.canShare) {
+    return navigator.canShare({ files: [file] });
+  }
+
+  return true;
+}
+
+// Helper to convert Uint8Array to File
+function createFileFromBytes(pdfBytes: Uint8Array, filename: string): File {
+  const buffer = new ArrayBuffer(pdfBytes.length);
+  const view = new Uint8Array(buffer);
+  view.set(pdfBytes);
+  const blob = new Blob([buffer], { type: "application/pdf" });
+  return new File([blob], filename, { type: "application/pdf" });
+}
+
+export async function shareViaEmail(pdfBytes: Uint8Array, name: string): Promise<void> {
+  const filename = `${name.replace(/\s+/g, "_")}_PDP.pdf`;
+  const file = createFileFromBytes(pdfBytes, filename);
+
+  // Try Web Share API first (works great on mobile)
+  if (await canUseWebShare(file)) {
+    try {
+      await navigator.share({
+        title: `Player Development Passport - ${name}`,
+        text: `Player Development Passport for ${name}`,
+        files: [file],
+      });
+      return;
+    } catch (err) {
+      // User cancelled or share failed, continue to fallback
+      if ((err as Error).name !== "AbortError") {
+        console.error("Share failed:", err);
+      } else {
+        return; // User cancelled
+      }
+    }
+  }
+
+  // Fallback to mailto (no attachment support)
+  const subject = encodeURIComponent(`Player Development Passport - ${name}`);
+  const body = encodeURIComponent(
+    `Please find the Player Development Passport for ${name}.\n\n` +
+    `Generated from PDP Portal.\n` +
+    `Date: ${new Date().toLocaleDateString("en-IE")}\n\n` +
+    `Note: Please download the PDF from the portal and attach it to your email.`
+  );
+
+  window.location.href = `mailto:?subject=${subject}&body=${body}`;
+}
+
+export async function shareViaWhatsApp(pdfBytes: Uint8Array, name: string): Promise<{ shared: boolean; method: "native" | "fallback" }> {
+  const filename = `${name.replace(/\s+/g, "_")}_PDP.pdf`;
+  const file = createFileFromBytes(pdfBytes, filename);
+
+  // Try Web Share API first (works on mobile - opens native share sheet with WhatsApp option)
+  if (await canUseWebShare(file)) {
+    try {
+      await navigator.share({
+        title: `Player Development Passport - ${name}`,
+        text: `Player Development Passport for ${name}\n\nGenerated from PDP Portal`,
+        files: [file],
+      });
+      return { shared: true, method: "native" };
+    } catch (err) {
+      // User cancelled or share failed
+      if ((err as Error).name === "AbortError") {
+        return { shared: false, method: "native" }; // User cancelled
+      }
+      console.error("Share failed:", err);
+      // Fall through to fallback
+    }
+  }
+
+  // Fallback: Download PDF first, then open WhatsApp with instructions
+  downloadPDF(pdfBytes, filename);
+  
+  const text = encodeURIComponent(
+    `Player Development Passport - ${name}\n` +
+    `Generated: ${new Date().toLocaleDateString("en-IE")}\n\n` +
+    `[PDF downloaded - please attach it to this message]`
+  );
+
+  if (isMobileDevice()) {
+    // Use WhatsApp mobile app URL scheme
+    window.location.href = `whatsapp://send?text=${text}`;
+  } else {
+    // Use WhatsApp Web for desktop
+    window.open(`https://web.whatsapp.com/send?text=${text}`, "_blank");
+  }
+  
+  return { shared: true, method: "fallback" };
+}
+
+export async function shareViaNative(pdfBytes: Uint8Array, name: string): Promise<void> {
+  const filename = `${name.replace(/\s+/g, "_")}_PDP.pdf`;
+  const file = createFileFromBytes(pdfBytes, filename);
+
+  if (await canUseWebShare(file)) {
+    try {
+      await navigator.share({
+        title: `Player Development Passport - ${name}`,
+        text: `Player Development Passport for ${name}`,
+        files: [file],
+      });
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        console.error("Share failed:", err);
+        // Fallback to download if Web Share API not available
+        downloadPDF(pdfBytes, filename);
+      }
+    }
+  } else {
+    // Fallback to download if Web Share API not available
+    downloadPDF(pdfBytes, filename);
+  }
 }

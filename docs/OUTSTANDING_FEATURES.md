@@ -30,7 +30,7 @@ This document tracks all outstanding features that need to be built to achieve M
 | **Goals System**            | ✅ Complete         | Full dashboard with CRUD, milestones, skill linking, bulk team goals                 |
 | **Injuries System**         | ✅ Complete         | Full coach injury dashboard + org-wide history, parent view pending                  |
 | **Player Self-Access**      | ❌ Design Only      | Schema designed, no implementation                                                   |
-| **PDF/Sharing**             | ❌ Not Started      | No ShareModal, no PDF export                                                         |
+| **PDF/Sharing**             | ✅ Complete         | PDF generation, download, and sharing via WhatsApp/Email/Native                      |
 | **Analytics Dashboard**     | ❌ Not Started      | Backend query exists, no UI                                                          |
 
 ---
@@ -313,22 +313,32 @@ The new identity-based skills and passport system is fully implemented in the ba
 
 ---
 
-### 8. PDF Generation & Sharing
+### 8. PDF Generation & Sharing ✅ COMPLETE
 
-| Aspect            | Status                              |
-| ----------------- | ----------------------------------- |
-| **Backend**       | ⚠️ No PDF library integrated        |
-| **UI**            | ❌ No ShareModal                    |
-| **MVP Reference** | `pdfGenerator.ts`, `ShareModal.tsx` |
+| Aspect       | Status                                          |
+| ------------ | ----------------------------------------------- |
+| **Backend**  | ✅ `pdf-lib` library integrated                 |
+| **UI**       | ✅ ShareModal component                         |
+| **Location** | `/orgs/[orgId]/players/[playerId]` Share button |
 
-**Features Needed:**
+**Completed Features (Dec 22):**
 
-- Player passport PDF export
-- Customizable PDF templates
-- Share via email
-- Share via WhatsApp
-- Direct download option
-- Club branding on PDF
+- ✅ Player passport PDF generation with `pdf-lib`
+- ✅ PDF includes: player info, skill ratings (circle indicators), goals, coach notes, medical summary
+- ✅ Download PDF functionality
+- ✅ Preview PDF in new tab
+- ✅ Share via WhatsApp (with PDF attachment on mobile via Web Share API)
+- ✅ Share via Email (with PDF attachment on mobile via Web Share API)
+- ✅ Share via Device (native share sheet)
+- ✅ Copy link to passport page
+- ✅ Session plan PDF generation for Smart Coach dashboard
+- ✅ Mobile detection with fallback behavior for desktop
+
+**Components Created:**
+
+- `pdf-generator.ts` - PDF generation service with `generatePassportPDF()`, `generateSessionPlanPDF()`
+- `share-modal.tsx` - Share dialog with download, preview, and share options
+- Share helper functions: `shareViaWhatsApp()`, `shareViaEmail()`, `shareViaNative()`
 
 ---
 
@@ -566,13 +576,15 @@ The new identity-based skills and passport system is fully implemented in the ba
 - [ ] Benchmark comparison charts
 - [ ] Progress over time visualization
 
-### Sprint F: Export & Sharing (1 week)
+### Sprint F: Export & Sharing ✅ COMPLETE
 
-- [ ] PDF generation library integration
-- [ ] Player passport PDF template
-- [ ] Share modal component
-- [ ] Email/WhatsApp sharing
-- [ ] Download functionality
+- [x] PDF generation library integration (`pdf-lib`) ✅
+- [x] Player passport PDF template ✅
+- [x] Session plan PDF template ✅
+- [x] Share modal component ✅
+- [x] Email/WhatsApp sharing ✅
+- [x] Download functionality ✅
+- [x] Preview in new tab ✅
 
 ### Sprint G: Advanced Features (1+ weeks)
 
@@ -624,12 +636,12 @@ The new identity-based skills and passport system is fully implemented in the ba
 
 | Category                            | Count       | Status         |
 | ----------------------------------- | ----------- | -------------- |
-| **HIGH Priority (Core Missing UI)** | 3 features  | 🔴 Blocking    |
-| **MEDIUM Priority (Enhanced)**      | 5 features  | 🟡 Important   |
+| **HIGH Priority (Core Missing UI)** | 2 features  | 🔴 Blocking    |
+| **MEDIUM Priority (Enhanced)**      | 4 features  | 🟡 Important   |
 | **LOW Priority (Nice to Have)**     | 6 features  | 🟢 Future      |
 | **Backend Complete, UI Missing**    | 7+ models   | Ready to build |
 | **Total Outstanding**               | 14 features |                |
-| **Sprints Complete**                | 3 (A+B+D)   | ✅ Done        |
+| **Sprints Complete**                | 4 (A+B+D+F) | ✅ Done        |
 
 ---
 
@@ -665,6 +677,36 @@ The new identity-based skills and passport system is fully implemented in the ba
 ---
 
 ## Recent Development Log (December 22, 2024)
+
+### Session 4: PDF Generation & Sharing (Dec 22 Late Evening)
+
+- ✅ Added `pdf-lib` dependency for PDF generation
+- ✅ Created `pdf-generator.ts` service with:
+  - `generatePassportPDF()` - Full player passport PDF (A4, multi-page support)
+  - `generateSessionPlanPDF()` - Training session plan PDF from AI coach
+  - `downloadPDF()` - Download helper
+  - `previewPDF()` - Preview in new tab
+  - `shareViaWhatsApp()` - Uses Web Share API on mobile, fallback for desktop
+  - `shareViaEmail()` - Uses Web Share API on mobile, mailto fallback
+  - `shareViaNative()` - Device native share sheet
+- ✅ Created `share-modal.tsx` component with:
+  - PDF status indicator (generating/ready)
+  - Download PDF button
+  - Preview in new tab button
+  - Share via device (native share)
+  - Share via Email with address input
+  - Share via WhatsApp (includes PDF on mobile)
+  - Copy link to passport page
+  - Info box showing what's included in PDF
+- ✅ Fixed WinAnsi encoding error (replaced Unicode stars/emojis with ASCII)
+- ✅ Skill ratings use colored circles instead of star characters
+- ✅ Medical icons use ASCII: `[!]`, `[Rx]`, `[+]`, `[ICE]`
+- ✅ WhatsApp sharing works on mobile via Web Share API with file attachment
+- ✅ Desktop fallback: downloads PDF + opens WhatsApp with instructions
+
+---
+
+## Recent Development Log (December 22, 2024 - Earlier Sessions)
 
 ### Session 1: Voice Notes → Skill Assessments
 

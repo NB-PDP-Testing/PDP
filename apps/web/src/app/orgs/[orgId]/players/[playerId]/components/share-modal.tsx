@@ -31,6 +31,9 @@ import {
   generatePassportPDF,
   type PassportPDFData,
   previewPDF,
+  shareViaEmail,
+  shareViaWhatsApp,
+  shareViaNative,
 } from "@/lib/pdf-generator";
 
 interface ShareModalProps {
@@ -98,47 +101,61 @@ export function ShareModal({
     window.open(previewUrl, "_blank");
   }, [previewUrl]);
 
-  const handleEmailShare = useCallback(() => {
-    if (!emailAddress) {
-      toast.error("Please enter an email address");
+  const handleEmailShare = useCallback(async () => {
+    if (!pdfBytes) {
+      toast.error("PDF not ready yet");
       return;
     }
     
-    const subject = encodeURIComponent(`Player Development Passport - ${playerName}`);
-    const body = encodeURIComponent(
-      `Hi,\n\nPlease find attached the Player Development Passport for ${playerName}.\n\n` +
-      `This document contains:\n` +
-      `- Player Information\n` +
-      `- Skill Ratings\n` +
-      `- Development Goals\n` +
-      `- Coach Feedback\n\n` +
-      `Best regards`
-    );
-    
-    // Open default email client
-    window.location.href = `mailto:${emailAddress}?subject=${subject}&body=${body}`;
-    
-    toast.info("Email client opened", {
-      description: "Please attach the downloaded PDF to your email",
-    });
-  }, [emailAddress, playerName]);
+    try {
+      await shareViaEmail(pdfBytes, playerName);
+      toast.success("Share opened", {
+        description: "Select your email app to share the PDF",
+      });
+    } catch (error) {
+      console.error("Email share failed:", error);
+      // Fallback with email address
+      if (emailAddress) {
+        const subject = encodeURIComponent(`Player Development Passport - ${playerName}`);
+        const body = encodeURIComponent(
+          `Hi,\n\nPlease find attached the Player Development Passport for ${playerName}.\n\n` +
+          `Best regards`
+        );
+        window.location.href = `mailto:${emailAddress}?subject=${subject}&body=${body}`;
+        toast.info("Email client opened", {
+          description: "Please download and attach the PDF manually",
+        });
+      }
+    }
+  }, [pdfBytes, playerName, emailAddress]);
 
-  const handleWhatsAppShare = useCallback(() => {
-    const text = encodeURIComponent(
-      `📋 Player Development Passport\n\n` +
-      `Player: ${playerName}\n` +
-      `Generated: ${new Date().toLocaleDateString("en-IE")}\n\n` +
-      `I've shared the development passport for ${playerName}. The PDF contains skill ratings, goals, and coach feedback.`
-    );
+  const handleWhatsAppShare = useCallback(async () => {
+    if (!pdfBytes) {
+      toast.error("PDF not ready yet");
+      return;
+    }
     
-    // WhatsApp Web/Mobile URL
-    const whatsappUrl = `https://wa.me/?text=${text}`;
-    window.open(whatsappUrl, "_blank");
-    
-    toast.info("WhatsApp opened", {
-      description: "Don't forget to attach the PDF after downloading",
-    });
-  }, [playerName]);
+    try {
+      const result = await shareViaWhatsApp(pdfBytes, playerName);
+      
+      if (result.method === "native") {
+        if (result.shared) {
+          toast.success("Shared successfully via WhatsApp");
+        }
+        // If not shared (cancelled), don't show anything
+      } else {
+        // Fallback method - PDF was downloaded, WhatsApp opened
+        toast.info("PDF downloaded", {
+          description: "WhatsApp opened - please attach the downloaded PDF to your message",
+        });
+      }
+    } catch (error) {
+      console.error("WhatsApp share failed:", error);
+      toast.error("Share failed", {
+        description: "Please try downloading the PDF and sharing manually",
+      });
+    }
+  }, [pdfBytes, playerName]);
 
   const handleCopyLink = useCallback(() => {
     // Copy current page URL
@@ -149,38 +166,19 @@ export function ShareModal({
   }, []);
 
   const handleNativeShare = useCallback(async () => {
-    if (!pdfBytes) return;
+    if (!pdfBytes) {
+      toast.error("PDF not ready yet");
+      return;
+    }
 
-    // Check if Web Share API is supported
-    if (navigator.share) {
-      try {
-        // Convert Uint8Array to Blob first, then to File
-        const buffer = new ArrayBuffer(pdfBytes.length);
-        const view = new Uint8Array(buffer);
-        view.set(pdfBytes);
-        const blob = new Blob([buffer], { type: "application/pdf" });
-        const file = new File(
-          [blob],
-          `${playerName.replace(/\s+/g, "_")}_Passport.pdf`,
-          { type: "application/pdf" }
-        );
-
-        await navigator.share({
-          title: `Player Passport - ${playerName}`,
-          text: `Player Development Passport for ${playerName}`,
-          files: [file],
-        });
-        toast.success("Shared successfully");
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          console.error("Share failed:", error);
-          toast.error("Share failed. Try downloading and sharing manually.");
-        }
+    try {
+      await shareViaNative(pdfBytes, playerName);
+      toast.success("Shared successfully");
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") {
+        console.error("Share failed:", error);
+        toast.error("Share failed. Try downloading and sharing manually.");
       }
-    } else {
-      toast.info("Native sharing not supported", {
-        description: "Please use download and share via email or WhatsApp",
-      });
     }
   }, [pdfBytes, playerName]);
 
@@ -288,10 +286,12 @@ export function ShareModal({
             {/* WhatsApp Share */}
             <Button
               className="w-full justify-start bg-green-600 text-white hover:bg-green-700"
+              disabled={isGenerating || !pdfBytes}
               onClick={handleWhatsAppShare}
             >
               <MessageCircle className="mr-3 h-4 w-4" />
               Share via WhatsApp
+              <span className="ml-auto text-green-200 text-xs">includes PDF</span>
             </Button>
 
             {/* Copy Link */}

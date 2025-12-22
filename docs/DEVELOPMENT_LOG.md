@@ -774,3 +774,263 @@ This session focused on **Complete Parent Dashboard Enhancement** with all featu
 | `apps/web/src/app/orgs/[orgId]/parents/components/guardian-settings.tsx`     | Created  | Privacy settings (from Guardian)   |
 | `apps/web/src/app/orgs/[orgId]/guardian/`                                    | Deleted  | Entire directory removed           |
 | `docs/OUTSTANDING_FEATURES.md`                                               | Modified | Updated to v3.3, Sprint D complete |
+
+---
+
+# Development Log - December 22, 2024 (Session 4)
+
+## Executive Summary
+
+This session focused on **PDF Generation and Sharing** for player passports. The key achievements were:
+
+1. **PDF Generator Service** - Full A4 document generation using pdf-lib
+2. **ShareModal Component** - Download, preview, email, WhatsApp, and native sharing
+3. **Integration** - "Share / Export" button in player passport header
+
+---
+
+## Detailed Changes
+
+### 1. PDF Generator Service
+
+**File Created:**
+
+- `apps/web/src/lib/pdf-generator.ts`
+
+**Features:**
+
+```typescript
+interface PassportPDFData {
+  playerName: string;
+  dateOfBirth?: string;
+  ageGroup?: string;
+  sport?: string;
+  organization?: string;
+  skills?: Record<string, number>;
+  goals?: Array<{ title; status; targetDate }>;
+  notes?: Array<{ content; coachName; date }>;
+  hasAllergies?: boolean;
+  hasMedications?: boolean;
+  hasConditions?: boolean;
+  emergencyContact?: string;
+  trainingAttendance?: number;
+  matchAttendance?: number;
+  overallScore?: number;
+}
+```
+
+**PDF Sections:**
+
+1. **Header Bar** - Navy blue with "PLAYER DEVELOPMENT PASSPORT" title
+2. **Organization & Date** - Club name and generation date
+3. **Player Information** - Name (large), DOB, age group, sport in grid
+4. **Overall Performance** - Progress bar with percentage
+5. **Attendance** - Training and match attendance percentages
+6. **Skill Ratings** - 2-column layout with star ratings (★☆☆☆☆)
+7. **Development Goals** - Bullet list with status badges (color-coded)
+8. **Coach Feedback** - Styled note cards with attribution
+9. **Medical Summary** - Alert icons for allergies, medications, conditions
+10. **Footer** - Confidentiality notice and PDP branding
+
+**Helper Functions:**
+
+```typescript
+// Generate PDF from player data
+generatePassportPDF(data: PassportPDFData): Promise<Uint8Array>
+
+// Convert to Blob for download
+pdfToBlob(pdfBytes: Uint8Array): Blob
+
+// Trigger browser download
+downloadPDF(pdfBytes: Uint8Array, filename: string): void
+
+// Get URL for preview in new tab
+previewPDF(pdfBytes: Uint8Array): string
+```
+
+**Technical Notes:**
+
+- Uses `pdf-lib` (already in package.json)
+- A4 page size: 595 × 842 points
+- Automatic page breaks for long content
+- Text wrapping for notes
+- Star rating visualization using ★/☆ characters
+
+---
+
+### 2. ShareModal Component
+
+**File Created:**
+
+- `apps/web/src/app/orgs/[orgId]/players/[playerId]/components/share-modal.tsx`
+
+**UI Structure:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Share Player Passport                           [X] │
+│ Download or share [PlayerName]'s development        │
+│ passport                                            │
+├─────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────┐ │
+│ │ 📄 [PlayerName]_Passport.pdf                    │ │
+│ │    Ready to download             [Ready] badge  │ │
+│ │                                                 │ │
+│ │ [  Download PDF  ]  [ Preview ]                 │ │
+│ └─────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────┤
+│ Share Options                                       │
+│                                                     │
+│ [ 📤 Share via device... ]        (if supported)   │
+│                                                     │
+│ Share via Email                                     │
+│ [email@example.com_______] [ 📧 Email ]            │
+│ Opens your email client. Download first.           │
+│                                                     │
+│ [ 💬 Share via WhatsApp ]         (green button)   │
+│                                                     │
+│ [ 📋 Copy Link to Passport Page ]                  │
+├─────────────────────────────────────────────────────┤
+│ 📋 What's included in the PDF:                     │
+│ • Player information                               │
+│ • Current skill ratings with star system           │
+│ • Development goals and progress                   │
+│ • Recent coach feedback and notes                  │
+│ • Medical summary (if applicable)                  │
+└─────────────────────────────────────────────────────┘
+```
+
+**Features:**
+
+- **Auto-generate PDF** on modal open
+- **Download button** - Triggers browser download with formatted filename
+- **Preview button** - Opens PDF in new tab
+- **Native Share** - Uses Web Share API with PDF file (mobile/desktop)
+- **Email Share** - Opens mailto: with pre-filled subject and body
+- **WhatsApp Share** - Opens WhatsApp with formatted message
+- **Copy Link** - Copies current page URL to clipboard
+- **Info box** - Lists what's included in the PDF
+
+**Technical Implementation:**
+
+```typescript
+// Auto-generate on open
+useEffect(() => {
+  if (open && !pdfBytes) {
+    generatePDF();
+  }
+}, [open]);
+
+// Native share with file
+if (navigator.share) {
+  const file = new File([blob], "Passport.pdf", { type: "application/pdf" });
+  await navigator.share({ title, text, files: [file] });
+}
+
+// WhatsApp deep link
+const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+
+// Email mailto link
+window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+```
+
+---
+
+### 3. Integration in Player Passport Page
+
+**File Modified:**
+
+- `apps/web/src/app/orgs/[orgId]/players/[playerId]/page.tsx`
+
+**Changes:**
+
+1. Added import for ShareModal and PassportPDFData type
+2. Replaced `isPdfGenerating` state with `showShareModal` state
+3. Added `pdfData` transformation from playerData
+4. Updated "Share PDF" button to "Share / Export" that opens modal
+5. Added ShareModal at end of component
+
+**Data Transformation:**
+
+```typescript
+const pdfData: PassportPDFData | null = playerData
+  ? {
+      playerName: playerData.name || "Unknown Player",
+      dateOfBirth: (playerData as any).dateOfBirth,
+      ageGroup: (playerData as any).ageGroup,
+      sport: playerData.sportCode,
+      organization: (playerData as any).organizationName,
+      skills: playerData.skills as Record<string, number>,
+      goals: (playerData as any).goals?.map((g) => ({
+        title: g.title || g.description,
+        status: g.status,
+        targetDate: g.targetDate,
+      })),
+      notes: (playerData as any).notes?.map((n) => ({
+        content: n.content || n.note,
+        coachName: n.coachName || n.authorName,
+        date: n.date || new Date(n._creationTime).toLocaleDateString(),
+      })),
+      overallScore: (playerData as any).overallScore,
+      trainingAttendance: (playerData as any).trainingAttendance,
+      matchAttendance: (playerData as any).matchAttendance,
+    }
+  : null;
+```
+
+---
+
+## Testing Notes
+
+### To Test PDF Generation:
+
+1. Navigate to any player passport page: `/orgs/[orgId]/players/[playerId]`
+2. Click "Share / Export" button in header
+3. Wait for "Ready" badge to appear (PDF generated)
+4. Click "Download PDF"
+5. Verify PDF opens with all sections
+
+### To Test Preview:
+
+1. Open Share modal
+2. Click "Preview" button
+3. PDF should open in new browser tab
+
+### To Test Email Share:
+
+1. Enter email address in input field
+2. Click "Email" button
+3. Default email client should open
+4. Subject: "Player Development Passport - [PlayerName]"
+5. Body includes list of contents
+6. Note: PDF must be attached manually after download
+
+### To Test WhatsApp Share:
+
+1. Click "Share via WhatsApp" button (green)
+2. WhatsApp Web/App should open
+3. Message includes player name and date
+4. Note: PDF must be shared separately after download
+
+### To Test Native Share (Mobile):
+
+1. On mobile device, open Share modal
+2. Click "Share via device..." button (if shown)
+3. Native share sheet should appear
+4. PDF file should be included in share options
+
+### To Test Copy Link:
+
+1. Click "Copy Link to Passport Page" button
+2. Button text should change to "Link Copied!"
+3. Paste to verify URL is copied
+
+---
+
+## Files Changed Summary
+
+| File                                                                          | Type     | Description                          |
+| ----------------------------------------------------------------------------- | -------- | ------------------------------------ |
+| `apps/web/src/lib/pdf-generator.ts`                                           | Created  | PDF generation service using pdf-lib |
+| `apps/web/src/app/orgs/[orgId]/players/[playerId]/components/share-modal.tsx` | Created  | Share/Export modal component         |
+| `apps/web/src/app/orgs/[orgId]/players/[playerId]/page.tsx`                   | Modified | Integrated ShareModal, added pdfData |

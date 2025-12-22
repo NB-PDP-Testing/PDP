@@ -23,6 +23,7 @@ import type * as models_demoAsks from "../models/demoAsks.js";
 import type * as models_guardianIdentities from "../models/guardianIdentities.js";
 import type * as models_guardianManagement from "../models/guardianManagement.js";
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
+import type * as models_medicalProfiles from "../models/medicalProfiles.js";
 import type * as models_members from "../models/members.js";
 import type * as models_orgGuardianProfiles from "../models/orgGuardianProfiles.js";
 import type * as models_orgInjuryNotes from "../models/orgInjuryNotes.js";
@@ -74,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   "models/guardianIdentities": typeof models_guardianIdentities;
   "models/guardianManagement": typeof models_guardianManagement;
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
+  "models/medicalProfiles": typeof models_medicalProfiles;
   "models/members": typeof models_members;
   "models/orgGuardianProfiles": typeof models_orgGuardianProfiles;
   "models/orgInjuryNotes": typeof models_orgInjuryNotes;

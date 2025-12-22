@@ -11,6 +11,7 @@ import {
   Edit,
   Eye,
   FileText,
+  Heart,
   Mail,
   MessageCircle,
   Mic,
@@ -79,6 +80,7 @@ interface SmartCoachDashboardProps {
   onViewVoiceNotes?: () => void;
   onViewInjuries?: () => void;
   onViewGoals?: () => void;
+  onViewMedical?: () => void;
   onAssessPlayers?: () => void;
   selectedTeam?: string | null;
   selectedTeamData?: TeamData | null; // Team data with coachNotes
@@ -114,6 +116,7 @@ export function SmartCoachDashboard({
   onViewVoiceNotes,
   onViewInjuries,
   onViewGoals,
+  onViewMedical,
   onAssessPlayers,
   selectedTeam,
   selectedTeamData,
@@ -1065,6 +1068,15 @@ export function SmartCoachDashboard({
             >
               <Target className="flex-shrink-0" size={16} />
               <span className="truncate">Goals Dashboard</span>
+            </Button>
+          )}
+          {onViewMedical && (
+            <Button
+              className="flex items-center justify-center gap-2 bg-pink-600 py-3 font-medium text-sm transition-colors hover:bg-pink-700"
+              onClick={onViewMedical}
+            >
+              <Heart className="flex-shrink-0" size={16} />
+              <span className="truncate">Medical Info</span>
             </Button>
           )}
         </CardContent>

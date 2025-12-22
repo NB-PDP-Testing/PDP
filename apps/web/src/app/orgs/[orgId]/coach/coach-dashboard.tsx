@@ -566,6 +566,11 @@ export function CoachDashboard() {
     router.push(`/orgs/${orgId}/coach/goals`);
   };
 
+  const handleViewMedical = () => {
+    // Navigate to medical info page
+    router.push(`/orgs/${orgId}/coach/medical`);
+  };
+
   return (
     <div className="space-y-6">
       <SmartCoachDashboard
@@ -588,6 +593,7 @@ export function CoachDashboard() {
         onViewAnalytics={handleViewAnalytics}
         onViewGoals={handleViewGoals}
         onViewInjuries={handleViewInjuries}
+        onViewMedical={handleViewMedical}
         onViewPlayer={handleViewPlayer}
         onViewTeam={handleViewTeam}
         onViewVoiceNotes={handleViewVoiceNotes}

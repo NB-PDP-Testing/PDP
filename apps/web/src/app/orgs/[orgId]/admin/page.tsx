@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { Clock, Crown, Mail, Shield, UserCheck, Users } from "lucide-react";
+import { Clock, Crown, Heart, Mail, Shield, UserCheck, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -118,10 +118,19 @@ export default function OrgAdminOverviewPage() {
             />
             <StatCard
               description="Registered players"
+              href={`/orgs/${orgId}/admin/players` as Route}
               icon={Users}
               title="Players"
               value={playerEnrollments?.length || 0}
               variant="tertiary"
+            />
+            <StatCard
+              description="Emergency contacts & allergies"
+              href={`/orgs/${orgId}/admin/medical` as Route}
+              icon={Heart}
+              title="Medical Profiles"
+              value="View"
+              variant="secondary"
             />
           </>
         )}

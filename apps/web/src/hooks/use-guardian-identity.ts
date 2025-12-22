@@ -25,6 +25,10 @@ type EnrollmentData = NonNullable<
  * - isLoading: Whether the data is still loading
  * - hasIdentity: Whether the user has a guardian identity
  *
+ * Note: This hook tries two lookup strategies:
+ * 1. First by userId (for claimed/linked guardian identities)
+ * 2. Then by email (for unclaimed guardian identities that match the user's email)
+ *
  * Usage:
  * ```tsx
  * const { guardianIdentity, children, isLoading } = useGuardianIdentity();
@@ -35,11 +39,20 @@ type EnrollmentData = NonNullable<
  * return <ChildrenList children={children} />;
  * ```
  */
-export function useGuardianIdentity() {
-  // Get guardian identity for current user
-  const guardianIdentity = useQuery(
+export function useGuardianIdentity(userEmail?: string | null) {
+  // Get guardian identity for current user (by userId)
+  const guardianByUserId = useQuery(
     api.models.guardianIdentities.getGuardianForCurrentUser
   );
+
+  // Also try to find by email (for unclaimed identities)
+  const guardianByEmail = useQuery(
+    api.models.guardianIdentities.findGuardianByEmail,
+    userEmail ? { email: userEmail } : "skip"
+  );
+
+  // Prefer userId-linked guardian, but fall back to email match
+  const guardianIdentity = guardianByUserId ?? guardianByEmail ?? null;
 
   // Get all children for this guardian (across all orgs)
   const childrenQuery = useQuery(
@@ -49,7 +62,7 @@ export function useGuardianIdentity() {
       : "skip"
   );
 
-  const isLoading = guardianIdentity === undefined;
+  const isLoading = guardianByUserId === undefined || (userEmail && guardianByEmail === undefined);
   const hasIdentity =
     guardianIdentity !== null && guardianIdentity !== undefined;
 
@@ -74,8 +87,8 @@ export function useGuardianIdentity() {
  * const { children, isLoading } = useGuardianChildrenInOrg(orgId);
  * ```
  */
-export function useGuardianChildrenInOrg(organizationId: string | undefined) {
-  const { guardianIdentity, children, isLoading } = useGuardianIdentity();
+export function useGuardianChildrenInOrg(organizationId: string | undefined, userEmail?: string | null) {
+  const { guardianIdentity, children, isLoading } = useGuardianIdentity(userEmail);
 
   // Get enrollments for all players in this org
   const enrollmentsQuery = useQuery(

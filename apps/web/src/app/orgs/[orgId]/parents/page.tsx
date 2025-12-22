@@ -48,12 +48,13 @@ function ParentDashboardContent() {
   );
 
   // Get children from guardian identity system
+  // Pass user email to enable fallback lookup for unclaimed guardian identities
   const {
     guardianIdentity,
     children: identityChildren,
     isLoading: identityLoading,
     hasIdentity,
-  } = useGuardianChildrenInOrg(orgId);
+  } = useGuardianChildrenInOrg(orgId, session?.user?.email);
 
   // Check if user has parent functional role or is admin/owner
   const hasParentRole = useMemo(() => {

@@ -1,3 +1,217 @@
+# Development Log - December 23, 2024
+
+## Executive Summary
+
+This session focused on **Skill Radar Chart Implementation** and **Player Self-Access Status Review**. The key achievements were:
+
+1. **Skill Radar Chart** - Created `skill-radar-chart.tsx` component with recharts integration
+2. **Player Passport Integration** - Added radar chart to player passport page
+3. **Player Self-Access Analysis** - Reviewed and documented adult player dashboard status
+
+---
+
+## Detailed Changes
+
+### 1. Skill Radar Chart Component
+
+**File Created:**
+
+- `apps/web/src/components/skill-radar-chart.tsx`
+
+**Exports:**
+
+```typescript
+// Full-featured card with controls
+export function SkillRadarChart({
+  playerId,
+  sportCode,
+  dateOfBirth,
+  level,
+  defaultExpanded,
+});
+
+// Compact version for embedding
+export function SkillRadarChartCompact({
+  playerId,
+  sportCode,
+  dateOfBirth,
+  level,
+  height,
+  showBenchmark,
+});
+```
+
+**Features:**
+
+- **Two View Modes:**
+  - "By Category" - Shows category averages (Technical, Tactical, Physical, Mental)
+  - "Individual Skills" - Shows up to 12 individual skill ratings
+- **Benchmark Overlay** - Toggle to show age-appropriate NGB benchmarks as dashed blue line
+- **Collapsible Card** - Expand/collapse with chevron icon
+- **Custom Tooltips** - Shows player rating, benchmark value, skills assessed count
+- **Sport-Specific Categories** - Display name mapping for Soccer, GAA, Rugby skills
+- **Graceful Degradation** - Shows helpful message if < 3 categories have assessments
+- **Debug Info** - When insufficient data, shows sport code, assessment counts, category counts
+
+**Technical Implementation:**
+
+```typescript
+// Queries used:
+api.models.referenceData.getSkillsByCategoryForSport; // Skill definitions
+api.models.skillAssessments.getAssessmentsForPlayer; // Player's ratings
+api.models.referenceData.getBenchmarksForPlayer; // Age-appropriate benchmarks
+
+// Category calculation:
+// For each category, calculate average of all assessed skills in that category
+const avgPlayerRating = totalPlayerRating / playerSkillCount;
+const avgBenchmark = totalBenchmark / benchmarkCount;
+```
+
+**Chart Configuration:**
+
+```typescript
+// recharts components used:
+<RadarChart>, <PolarGrid>, <PolarAngleAxis>, <PolarRadiusAxis>, <Radar>, <Legend>, <Tooltip>
+
+// Colors:
+const CHART_COLORS = {
+  player: { stroke: "#22c55e", fill: "#22c55e", fillOpacity: 0.3 },      // Green
+  benchmark: { stroke: "#3b82f6", fill: "#3b82f6", fillOpacity: 0.15 },  // Blue dashed
+};
+```
+
+---
+
+### 2. Player Passport Page Integration
+
+**File Modified:**
+
+- `apps/web/src/app/orgs/[orgId]/players/[playerId]/page.tsx`
+
+**Changes:**
+
+1. Added import for `SkillRadarChart`
+2. Added chart after Basic Information section, before Benchmark Comparison
+3. Fixed rendering condition to use `playerId` from URL params (not `playerData.playerIdentityId`)
+
+**Before:**
+
+```typescript
+// Bug: playerIdentityId not returned in passport view
+{"playerIdentityId" in playerData && playerData.playerIdentityId && ...}
+```
+
+**After:**
+
+```typescript
+// Fixed: Use playerId from URL params
+{playerData.sportCode && (
+  <SkillRadarChart
+    playerId={playerId as Id<"playerIdentities">}
+    sportCode={playerData.sportCode}
+    dateOfBirth={(playerData as any).dateOfBirth}
+  />
+)}
+```
+
+---
+
+### 3. Player Self-Access Features Status
+
+**Reviewed Files:**
+
+- `apps/web/src/app/orgs/[orgId]/player/page.tsx` - Adult player dashboard
+- `packages/backend/convex/models/playerSelfAccess.ts` - Backend model
+- `packages/backend/convex/models/playerIdentities.ts` - `findPlayerByEmail` query
+
+**Current Status:**
+
+| Feature                   | Status       | Implementation                              |
+| ------------------------- | ------------ | ------------------------------------------- |
+| Player login capability   | ✅ Complete  | Via `findPlayerByEmail` matching user email |
+| Adult player dashboard    | ✅ Complete  | `/orgs/[orgId]/player` full passport view   |
+| Player passport view      | ✅ Complete  | Reuses all coach view sections              |
+| Emergency contacts (self) | ✅ Complete  | Adult players can manage their own          |
+| Player self-assessment    | ❌ Not Built | Schema supports `assessmentType: "self"`    |
+| Guardian access approval  | ❌ Not Built | Backend CRUD exists, no UI                  |
+| Youth player dashboard    | ❌ Not Built | Would use visibility controls               |
+| Club policy settings      | ✅ Complete  | Admin UI at `/admin/player-access`          |
+
+**Adult Player Dashboard Flow:**
+
+```
+1. User logs in with email (john@example.com)
+   ↓
+2. findPlayerByEmail query searches playerIdentities
+   ↓
+3. If match found, checks for "player" functional role
+   ↓
+4. Queries getFullPlayerPassportView with matched playerIdentityId
+   ↓
+5. Renders full passport with all sections:
+   - BasicInformationSection
+   - EmergencyContactsSection (isEditable=true for adults)
+   - BenchmarkComparison
+   - GoalsSection
+   - NotesSection (isCoach=false, read-only)
+   - SkillsSection
+   - PositionsFitnessSection
+```
+
+---
+
+## Documentation Updates
+
+**Files Modified:**
+
+- `docs/OUTSTANDING_FEATURES.md` - Updated to v3.4
+  - Radar/Spider Chart marked ✅ Complete
+  - Player Self-Access Features table updated
+  - Added Session 7 and Session 8 to development log
+  - HIGH Priority features reduced from 2 to 1
+
+---
+
+## Testing Notes
+
+### To Test Skill Radar Chart:
+
+1. Navigate to any player passport page: `/orgs/[orgId]/players/[playerId]`
+2. Look for "Skills Overview" card after Basic Information
+3. Card will show one of:
+   - Loading skeleton (data loading)
+   - "No skill assessments..." (player has no assessments)
+   - Debug info with counts (< 3 categories)
+   - Full radar chart (3+ categories)
+
+### To Add Test Data for Chart:
+
+1. Go to Coach Assessment page: `/orgs/[orgId]/coach/assess`
+2. Select player and team
+3. Assess skills across at least 3 different categories
+4. Return to player passport to see chart
+
+### To Test Adult Player Dashboard:
+
+1. Create/use account with email matching a playerIdentity
+2. Ensure user has "player" functional role in organization
+3. Navigate to `/orgs/[orgId]/player`
+4. Verify full passport view displays
+5. Verify emergency contacts are editable
+
+---
+
+## Files Changed Summary
+
+| File                                                        | Type     | Description                           |
+| ----------------------------------------------------------- | -------- | ------------------------------------- |
+| `apps/web/src/components/skill-radar-chart.tsx`             | Created  | Radar chart component with recharts   |
+| `apps/web/src/app/orgs/[orgId]/players/[playerId]/page.tsx` | Modified | Added SkillRadarChart, fixed playerId |
+| `docs/OUTSTANDING_FEATURES.md`                              | Modified | Updated v3.4, added sessions 7-8      |
+| `docs/DEVELOPMENT_LOG.md`                                   | Modified | Added December 23 session entry       |
+
+---
+
 # Development Log - December 22, 2024
 
 ## Executive Summary

@@ -7,6 +7,7 @@ import { ArrowLeft, Edit, Loader2, Share2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { BenchmarkComparison } from "@/components/benchmark-comparison";
+import { SkillRadarChart } from "@/components/skill-radar-chart";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import type { PassportPDFData } from "@/lib/pdf-generator";
@@ -157,6 +158,15 @@ export default function PlayerPassportPage() {
             playerIdentityId={playerId as Id<"playerIdentities">}
             isEditable={false} // Coaches can view but not edit adult player's contacts
             playerType="adult"
+          />
+        )}
+
+        {/* Skills Radar Chart - visual overview of player skills */}
+        {playerData.sportCode && (
+          <SkillRadarChart
+            playerId={playerId as Id<"playerIdentities">}
+            sportCode={playerData.sportCode}
+            dateOfBirth={(playerData as any).dateOfBirth}
           />
         )}
 

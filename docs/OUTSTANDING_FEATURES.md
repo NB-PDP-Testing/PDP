@@ -69,22 +69,22 @@ The new identity-based skills and passport system is fully implemented in the ba
 
 ### Frontend Implementation Status
 
-| Component                  | Status       | Notes                                                        |
-| -------------------------- | ------------ | ------------------------------------------------------------ |
-| Player Passport Page       | ✅ Complete  | Full view with all sections, role-based permissions          |
-| Basic Info Section         | ✅ Complete  | Player details, teams, parents, attendance, injury notes     |
-| Skills Section             | ✅ Complete  | Sport-specific skill displays (Soccer, Rugby, GAA, Generic)  |
-| Goals Section              | ✅ Complete  | View goals with status, progress, milestones, parent help    |
-| Notes Section              | ✅ Complete  | Coach, parent, and player notes with styled cards            |
-| Positions/Fitness Section  | ✅ Complete  | Position preferences, fitness metrics with progress bars     |
-| Emergency Contacts Section | ✅ Complete  | Full CRUD for adult players, view for coaches                |
-| Benchmark Comparison       | ✅ Complete  | `benchmark-comparison.tsx` integrated into passport          |
-| Skill Rating Sliders       | ✅ Complete  | `rating-slider.tsx` with RatingBar, RatingDots               |
-| Skill Assessment Form      | ✅ Complete  | Coach assess page with individual + batch modes              |
-| Coach Assess Page          | ✅ Complete  | Team filtering, player selection, assessment history         |
-| Radar/Spider Charts        | ❌ Not Built | MVP had `SkillChart` - needs porting                         |
-| Goals Creation/Edit UI     | ✅ Complete  | Full wizard with skill linking, milestones                   |
-| Goals Dashboard            | ✅ Complete  | `/orgs/[orgId]/coach/goals` with stats, filters, bulk create |
+| Component                  | Status      | Notes                                                        |
+| -------------------------- | ----------- | ------------------------------------------------------------ |
+| Player Passport Page       | ✅ Complete | Full view with all sections, role-based permissions          |
+| Basic Info Section         | ✅ Complete | Player details, teams, parents, attendance, injury notes     |
+| Skills Section             | ✅ Complete | Sport-specific skill displays (Soccer, Rugby, GAA, Generic)  |
+| Goals Section              | ✅ Complete | View goals with status, progress, milestones, parent help    |
+| Notes Section              | ✅ Complete | Coach, parent, and player notes with styled cards            |
+| Positions/Fitness Section  | ✅ Complete | Position preferences, fitness metrics with progress bars     |
+| Emergency Contacts Section | ✅ Complete | Full CRUD for adult players, view for coaches                |
+| Benchmark Comparison       | ✅ Complete | `benchmark-comparison.tsx` integrated into passport          |
+| Skill Rating Sliders       | ✅ Complete | `rating-slider.tsx` with RatingBar, RatingDots               |
+| Skill Assessment Form      | ✅ Complete | Coach assess page with individual + batch modes              |
+| Coach Assess Page          | ✅ Complete | Team filtering, player selection, assessment history         |
+| Radar/Spider Charts        | ✅ Complete | `skill-radar-chart.tsx` with benchmark overlay               |
+| Goals Creation/Edit UI     | ✅ Complete | Full wizard with skill linking, milestones                   |
+| Goals Dashboard            | ✅ Complete | `/orgs/[orgId]/coach/goals` with stats, filters, bulk create |
 
 ---
 
@@ -124,13 +124,16 @@ The new identity-based skills and passport system is fully implemented in the ba
 
 ### Player Self-Access Features
 
-| Feature                  | Status         | Notes                                    |
-| ------------------------ | -------------- | ---------------------------------------- |
-| Player login capability  | ❌ Design Only | `playerIdentities.userId` field exists   |
-| Player passport view     | ❌ Design Only | Requires access grant flow               |
-| Player self-assessment   | ❌ Design Only | Schema supports `assessmentType: "self"` |
-| Guardian access approval | ❌ Design Only | `playerAccessGrants` table designed      |
-| Club policy settings     | ❌ Design Only | `playerAccessPolicies` table designed    |
+| Feature                   | Status       | Notes                                                   |
+| ------------------------- | ------------ | ------------------------------------------------------- |
+| Player login capability   | ✅ Complete  | Via email matching `playerIdentities.findPlayerByEmail` |
+| Adult player dashboard    | ✅ Complete  | `/orgs/[orgId]/player` with full passport view          |
+| Player passport view      | ✅ Complete  | Reuses all passport sections from coach view            |
+| Emergency contacts (self) | ✅ Complete  | Adult players can manage their own contacts             |
+| Player self-assessment    | ❌ Not Built | Schema supports `assessmentType: "self"`                |
+| Guardian access approval  | ❌ Not Built | `playerAccessGrants` CRUD exists, no UI                 |
+| Youth player dashboard    | ❌ Not Built | Would use playerSelfAccess visibility controls          |
+| Club policy settings      | ✅ Complete  | `/orgs/[orgId]/admin/player-access` admin UI            |
 
 ---
 
@@ -258,21 +261,33 @@ The new identity-based skills and passport system is fully implemented in the ba
 
 ---
 
-### 5. Radar/Spider Chart for Skills
+### 5. Radar/Spider Chart for Skills ✅ COMPLETE
 
-| Aspect            | Status                    |
-| ----------------- | ------------------------- |
-| **Backend**       | ✅ Skills data available  |
-| **UI**            | ❌ No chart visualization |
-| **MVP Reference** | `SkillChart` component    |
+| Aspect        | Status                                          |
+| ------------- | ----------------------------------------------- |
+| **Backend**   | ✅ Skills data available                        |
+| **UI**        | ✅ Full chart implementation                    |
+| **Component** | `skill-radar-chart.tsx`                         |
+| **Location**  | Player passport page (after basic info section) |
 
-**Features Needed:**
+**Completed Features (Dec 23):**
 
-- Radar chart showing skill categories
-- Overlay with benchmark comparison
-- Historical progression view
-- Team average comparison option
-- Age group comparison option
+- ✅ `SkillRadarChart` component with full-featured card
+- ✅ `SkillRadarChartCompact` component for embedding
+- ✅ Two view modes: "By Category" and "Individual Skills"
+- ✅ Category averages calculated from individual skill ratings
+- ✅ Benchmark overlay toggle (dashed blue line)
+- ✅ Shows age-appropriate benchmarks from NGB standards
+- ✅ Custom tooltips with:
+  - Player rating value
+  - Benchmark value (when enabled)
+  - Skills assessed count (category view)
+- ✅ Collapsible card with expand/collapse
+- ✅ Graceful handling of insufficient data (< 3 categories)
+- ✅ Support for all sports (Soccer, GAA, Rugby)
+- ✅ Sport-specific category display names
+- ✅ Legend showing player vs benchmark
+- ✅ Uses recharts library (already in project)
 
 ---
 
@@ -598,7 +613,7 @@ The new identity-based skills and passport system is fully implemented in the ba
 
 ### Sprint E: Visualization & Analytics ✅ COMPLETE
 
-- [x] Skill radar charts (category performance radar) ✅
+- [x] Skill radar charts (player passport radar chart with benchmark overlay) ✅
 - [x] Analytics dashboard ✅
 - [x] Benchmark comparison charts (status distribution pie) ✅
 - [x] Progress over time visualization (weekly line chart) ✅
@@ -664,7 +679,7 @@ The new identity-based skills and passport system is fully implemented in the ba
 
 | Category                            | Count         | Status         |
 | ----------------------------------- | ------------- | -------------- |
-| **HIGH Priority (Core Missing UI)** | 2 features    | 🔴 Blocking    |
+| **HIGH Priority (Core Missing UI)** | 1 feature     | 🔴 Blocking    |
 | **MEDIUM Priority (Enhanced)**      | 3 features    | 🟡 Important   |
 | **LOW Priority (Nice to Have)**     | 6 features    | 🟢 Future      |
 | **Backend Complete, UI Missing**    | 7+ models     | Ready to build |
@@ -699,9 +714,67 @@ The new identity-based skills and passport system is fully implemented in the ba
 
 ---
 
-**Document Version:** 3.3
-**Previous Update:** 2025-12-22
-**Next Review:** After Sprint C (Voice Notes) + Sprint E (Visualization) completion
+**Document Version:** 3.4
+**Previous Update:** 2025-12-23
+**Next Review:** After Sprint C (Voice Notes) completion
+
+---
+
+## Recent Development Log (December 23, 2024)
+
+### Session 8: Player Self-Access Status Review (Dec 23 ~12:25am)
+
+- ✅ Analyzed adult player dashboard implementation at `/orgs/[orgId]/player`
+- ✅ Updated Player Self-Access Features status table:
+  - Player login capability: ✅ Complete (via `findPlayerByEmail`)
+  - Adult player dashboard: ✅ Complete (full passport view)
+  - Player passport view: ✅ Complete (reuses coach view sections)
+  - Emergency contacts (self): ✅ Complete (adult players can manage)
+  - Club policy settings: ✅ Complete (admin UI)
+- ❌ Still pending:
+  - Player self-assessment UI
+  - Guardian access approval UI
+  - Youth player dashboard
+
+**Adult Player Dashboard Features:**
+
+- Uses email matching to find player identity
+- Shows full passport with all sections (Basic Info, Skills, Goals, Notes, Positions)
+- Adult players can edit their own emergency contacts
+- Benchmark comparison integrated
+- Role check for "player" functional role
+- Fallback view if no passport data yet
+
+---
+
+### Session 7: Skill Radar Chart Implementation (Dec 23 ~12:17am)
+
+- ✅ Created `skill-radar-chart.tsx` component with:
+  - `SkillRadarChart` - Full-featured collapsible card component
+  - `SkillRadarChartCompact` - Compact version for embedding
+  - Two view modes: "By Category" and "Individual Skills"
+  - Category averages calculated from individual skill ratings
+  - Benchmark overlay toggle (dashed blue line for NGB standards)
+  - Custom tooltips with player rating, benchmark value, skills assessed count
+  - Collapsible card with expand/collapse
+  - Graceful handling of insufficient data (< 3 categories shows message)
+  - Support for all sports (Soccer, GAA, Rugby)
+  - Sport-specific category display names mapping
+  - Legend showing player vs benchmark
+  - Uses recharts library (already in project)
+- ✅ Integrated into player passport page (`/orgs/[orgId]/players/[playerId]`)
+  - Positioned after Basic Information section
+  - Before Benchmark Comparison section
+  - Uses `playerId` from URL params (fixed initial bug)
+- ✅ Added debug info for troubleshooting when chart doesn't display
+- ✅ Updated OUTSTANDING_FEATURES.md to mark Radar/Spider Chart as complete
+- ✅ Reduced HIGH Priority features from 2 to 1
+
+**Technical Details:**
+
+- Queries: `getSkillsByCategoryForSport`, `getAssessmentsForPlayer`, `getBenchmarksForPlayer`
+- Chart requires 3+ skill categories with assessments to render polygon
+- Shows "Skills Overview" card with helpful message if insufficient data
 
 ---
 

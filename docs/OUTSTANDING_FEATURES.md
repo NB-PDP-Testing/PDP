@@ -29,9 +29,9 @@ This document tracks all outstanding features that need to be built to achieve M
 | **Coach Dashboard**         | ✅ Complete         | Team analytics, AI recommendations, quick actions, players list, session plans       |
 | **Goals System**            | ✅ Complete         | Full dashboard with CRUD, milestones, skill linking, bulk team goals                 |
 | **Injuries System**         | ✅ Complete         | Full coach injury dashboard + org-wide history, parent view pending                  |
-| **Player Self-Access**      | ❌ Design Only      | Schema designed, no implementation                                                   |
+| **Player Self-Access**      | ⚠️ Backend + Admin  | Schema, backend models, and admin settings complete. Player dashboard pending.       |
 | **PDF/Sharing**             | ✅ Complete         | PDF generation, download, and sharing via WhatsApp/Email/Native                      |
-| **Analytics Dashboard**     | ❌ Not Started      | Backend query exists, no UI                                                          |
+| **Analytics Dashboard**     | ✅ Complete         | Full dashboard with charts, filters, and player insights                             |
 
 ---
 
@@ -342,21 +342,26 @@ The new identity-based skills and passport system is fully implemented in the ba
 
 ---
 
-### 9. Analytics Dashboard
+### 9. Analytics Dashboard ✅ COMPLETE
 
 | Aspect       | Status                                      |
 | ------------ | ------------------------------------------- |
 | **Backend**  | ✅ `getClubBenchmarkAnalytics` query exists |
-| **UI**       | ❌ No page built                            |
+| **UI**       | ✅ Full dashboard built                     |
 | **Location** | `/orgs/[orgId]/admin/analytics`             |
 
-**Features Needed:**
+**Completed Features (Dec 22):**
 
-- Club-wide skill distribution charts
-- Team comparison visualizations
-- Progress over time graphs
-- Benchmark comparison across age groups
-- Export analytics data
+- ✅ Summary cards: Total players, avg skill rating, assessments this month, on-track rate
+- ✅ Rating trend calculation (month-over-month comparison)
+- ✅ Skill status distribution pie chart (below/developing/on-track/exceeding/exceptional)
+- ✅ Skills needing attention horizontal bar chart
+- ✅ Assessment activity over time (weekly line + bar combo chart)
+- ✅ Skill category performance radar chart
+- ✅ Players needing attention list (2+ skills below benchmark)
+- ✅ Filters: Date range (7d/30d/90d/all), Sport, Age Group
+- ✅ Clear filters button
+- ✅ Uses recharts library for visualizations
 
 ---
 
@@ -423,22 +428,44 @@ The new identity-based skills and passport system is fully implemented in the ba
 
 ## LOW PRIORITY - Nice to Have
 
-### 13. Player Self-Access System
+### 13. Player Self-Access System ⚠️ PARTIALLY COMPLETE
 
-| Aspect      | Status                                        |
-| ----------- | --------------------------------------------- |
-| **Design**  | ✅ Complete in `PLAYER_SELF_ACCESS_DESIGN.md` |
-| **Backend** | ❌ Not implemented                            |
-| **UI**      | ❌ Not implemented                            |
+| Aspect               | Status                                        |
+| -------------------- | --------------------------------------------- |
+| **Design**           | ✅ Complete in `PLAYER_SELF_ACCESS_DESIGN.md` |
+| **Schema**           | ✅ Complete - 4 new tables                    |
+| **Backend Models**   | ✅ Complete - `playerSelfAccess.ts`           |
+| **Admin Settings**   | ✅ Complete - `/admin/player-access`          |
+| **Guardian UI**      | ❌ Not implemented                            |
+| **Player Dashboard** | ❌ Not implemented                            |
 
-**Features Needed:**
+**Completed (Dec 22):**
 
-- `playerAccessPolicies` table for club settings
-- `playerAccessGrants` table for guardian permissions
-- `playerAccountLinks` table for player accounts
-- Player dashboard with own passport view
-- Guardian approval workflow
-- Age-based access controls
+- ✅ `playerAccessPolicies` table for club settings
+- ✅ `playerAccessGrants` table for guardian permissions
+- ✅ `playerAccountLinks` table for player accounts
+- ✅ `playerAccessLogs` table for audit trail
+- ✅ Backend model with all CRUD operations:
+  - `getOrgPolicy`, `upsertOrgPolicy`
+  - `getAccessGrant`, `upsertAccessGrant`, `revokeAccessGrant`
+  - `createAccountLink`, `getAccountLinkByUserId`
+  - `logAccess`, `getPlayerAccessLogs`, `getOrgAccessLogs`
+  - `checkPlayerAccess`, `getPlayerSelfViewPassport`, `getPlayerSports`
+- ✅ Admin settings page with:
+  - Master enable/disable switch
+  - Minimum age requirement
+  - Guardian approval toggle
+  - Coach recommendation toggle
+  - Default visibility settings (7 data types)
+  - Audit & notification settings
+  - Recent access logs display
+
+**Still Needed:**
+
+- Guardian UI to enable child's access
+- Player account creation/linking flow
+- Player dashboard with multi-sport view
+- Player passport read-only viewer
 
 ---
 
@@ -569,12 +596,12 @@ The new identity-based skills and passport system is fully implemented in the ba
 - [x] Weekly schedule calendar ✅
 - [x] AI Practice Assistant ✅
 
-### Sprint E: Visualization & Analytics (1 week)
+### Sprint E: Visualization & Analytics ✅ COMPLETE
 
-- [ ] Skill radar charts
-- [ ] Analytics dashboard
-- [ ] Benchmark comparison charts
-- [ ] Progress over time visualization
+- [x] Skill radar charts (category performance radar) ✅
+- [x] Analytics dashboard ✅
+- [x] Benchmark comparison charts (status distribution pie) ✅
+- [x] Progress over time visualization (weekly line chart) ✅
 
 ### Sprint F: Export & Sharing ✅ COMPLETE
 
@@ -592,7 +619,8 @@ The new identity-based skills and passport system is fully implemented in the ba
 - [ ] Team roster management
 - [ ] Medical profiles dashboard
 - [ ] Parent notification system
-- [ ] Player self-access system
+- [x] Player self-access system (backend + admin) ✅
+- [ ] Player self-access system (guardian + player UI)
 
 ---
 
@@ -634,14 +662,15 @@ The new identity-based skills and passport system is fully implemented in the ba
 
 ## Feature Count Summary
 
-| Category                            | Count       | Status         |
-| ----------------------------------- | ----------- | -------------- |
-| **HIGH Priority (Core Missing UI)** | 2 features  | 🔴 Blocking    |
-| **MEDIUM Priority (Enhanced)**      | 4 features  | 🟡 Important   |
-| **LOW Priority (Nice to Have)**     | 6 features  | 🟢 Future      |
-| **Backend Complete, UI Missing**    | 7+ models   | Ready to build |
-| **Total Outstanding**               | 14 features |                |
-| **Sprints Complete**                | 4 (A+B+D+F) | ✅ Done        |
+| Category                            | Count         | Status         |
+| ----------------------------------- | ------------- | -------------- |
+| **HIGH Priority (Core Missing UI)** | 2 features    | 🔴 Blocking    |
+| **MEDIUM Priority (Enhanced)**      | 3 features    | 🟡 Important   |
+| **LOW Priority (Nice to Have)**     | 6 features    | 🟢 Future      |
+| **Backend Complete, UI Missing**    | 7+ models     | Ready to build |
+| **Total Outstanding**               | 14 features   |                |
+| **Sprints Complete**                | 5 (A+B+D+E+F) | ✅ Done        |
+| **Sprints Partial**                 | 1 (G)         | ⚠️ In Progress |
 
 ---
 
@@ -677,6 +706,50 @@ The new identity-based skills and passport system is fully implemented in the ba
 ---
 
 ## Recent Development Log (December 22, 2024)
+
+### Session 6: Player Self-Access Backend (Dec 22 ~Midnight)
+
+- ✅ Added 4 new schema tables:
+  - `playerAccessPolicies` - Organization settings for player access
+  - `playerAccessGrants` - Guardian permission grants
+  - `playerAccountLinks` - Player-to-account linking
+  - `playerAccessLogs` - Audit trail for player access
+- ✅ Created `playerSelfAccess.ts` backend model with:
+  - Policy CRUD operations
+  - Access grant management
+  - Account linking
+  - Access logging
+  - Player self-view queries with visibility filtering
+- ✅ Built admin settings page `/orgs/[orgId]/admin/player-access`:
+  - Enable/disable player access for organization
+  - Configure minimum age (default 14)
+  - Toggle guardian approval requirement
+  - Toggle coach recommendation requirement
+  - Configure default visibility for 7 data types
+  - Enable/disable access tracking and guardian notifications
+  - View recent access logs
+- ✅ Added "Player Access" link to admin navigation (Key icon)
+
+---
+
+### Session 5: Analytics Dashboard (Dec 22 ~Midnight)
+
+- ✅ Created analytics dashboard at `/orgs/[orgId]/admin/analytics`
+- ✅ Implemented summary cards:
+  - Total players with assessments
+  - Average skill rating (with month-over-month trend)
+  - Assessments this month
+  - On-track rate percentage
+- ✅ Implemented charts using recharts:
+  - Pie chart for skill status distribution
+  - Horizontal bar chart for skills needing attention
+  - Line + bar combo chart for assessment activity over time
+  - Radar chart for skill category performance
+- ✅ Added filters: Date range, Sport, Age Group
+- ✅ Players needing attention section (2+ skills below benchmark)
+- ✅ Fixed TypeScript errors (correct API function names)
+
+---
 
 ### Session 4: PDF Generation & Sharing (Dec 22 Late Evening)
 

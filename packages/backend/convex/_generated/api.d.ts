@@ -37,6 +37,7 @@ import type * as models_playerEmergencyContacts from "../models/playerEmergencyC
 import type * as models_playerIdentities from "../models/playerIdentities.js";
 import type * as models_playerImport from "../models/playerImport.js";
 import type * as models_playerInjuries from "../models/playerInjuries.js";
+import type * as models_playerSelfAccess from "../models/playerSelfAccess.js";
 import type * as models_players from "../models/players.js";
 import type * as models_referenceData from "../models/referenceData.js";
 import type * as models_skillAssessments from "../models/skillAssessments.js";
@@ -90,6 +91,7 @@ declare const fullApi: ApiFromModules<{
   "models/playerIdentities": typeof models_playerIdentities;
   "models/playerImport": typeof models_playerImport;
   "models/playerInjuries": typeof models_playerInjuries;
+  "models/playerSelfAccess": typeof models_playerSelfAccess;
   "models/players": typeof models_players;
   "models/referenceData": typeof models_referenceData;
   "models/skillAssessments": typeof models_skillAssessments;

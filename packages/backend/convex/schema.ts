@@ -1282,4 +1282,146 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_email", ["email"]),
+
+  // ============================================================
+  // PLAYER SELF-ACCESS TABLES
+  // Enable players to directly access their own passport data
+  // with proper controls from clubs and guardians
+  // ============================================================
+
+  // Organization policy settings for player self-access
+  playerAccessPolicies: defineTable({
+    organizationId: v.string(),
+
+    // Master switch
+    isEnabled: v.boolean(),
+
+    // Age restrictions
+    minimumAge: v.number(), // e.g., 14
+
+    // Approval requirements
+    requireGuardianApproval: v.boolean(),
+    requireCoachRecommendation: v.optional(v.boolean()),
+
+    // Default visibility settings
+    defaultVisibility: v.object({
+      skillRatings: v.boolean(),
+      skillHistory: v.boolean(),
+      publicCoachNotes: v.boolean(),
+      benchmarkComparison: v.boolean(),
+      practiceRecommendations: v.boolean(),
+      developmentGoals: v.boolean(),
+      injuryStatus: v.boolean(),
+    }),
+
+    // Audit settings
+    notifyGuardianOnLogin: v.boolean(),
+    trackPlayerViews: v.boolean(),
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_organizationId", ["organizationId"]),
+
+  // Guardian permission grants for player self-access
+  playerAccessGrants: defineTable({
+    // Links
+    playerIdentityId: v.id("playerIdentities"),
+    guardianIdentityId: v.id("guardianIdentities"),
+    organizationId: v.string(), // Grants are per-org
+
+    // Status
+    isEnabled: v.boolean(),
+
+    // Visibility overrides (null = use org default)
+    visibilityOverrides: v.optional(
+      v.object({
+        skillRatings: v.optional(v.boolean()),
+        skillHistory: v.optional(v.boolean()),
+        publicCoachNotes: v.optional(v.boolean()),
+        parentNotes: v.optional(v.boolean()), // Guardian can share their own notes
+        benchmarkComparison: v.optional(v.boolean()),
+        practiceRecommendations: v.optional(v.boolean()),
+        developmentGoals: v.optional(v.boolean()),
+        injuryStatus: v.optional(v.boolean()),
+        medicalNotes: v.optional(v.boolean()), // Guardian can share if they choose
+        attendanceRecords: v.optional(v.boolean()),
+      })
+    ),
+
+    // Notification preferences
+    notifyOnLogin: v.boolean(),
+    notifyOnViewSensitive: v.boolean(),
+
+    // Coach recommendation (if required)
+    coachRecommendedAt: v.optional(v.number()),
+    coachRecommendedBy: v.optional(v.string()),
+
+    // Timestamps
+    grantedAt: v.number(),
+    grantedBy: v.string(), // Guardian's userId
+    revokedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index("by_player_and_org", ["playerIdentityId", "organizationId"])
+    .index("by_guardian", ["guardianIdentityId"])
+    .index("by_player", ["playerIdentityId"]),
+
+  // Player account links (when player creates their own account)
+  playerAccountLinks: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    userId: v.string(), // Better Auth user ID
+
+    // Verification
+    verificationMethod: v.union(
+      v.literal("guardian_verified"), // Guardian confirmed identity
+      v.literal("email_verified"), // Email verification
+      v.literal("code_verified"), // One-time code from guardian
+      v.literal("admin_verified") // Admin manually verified
+    ),
+    verifiedAt: v.number(),
+    verifiedBy: v.optional(v.string()), // Guardian/Admin userId
+
+    // Account status
+    isActive: v.boolean(),
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_playerIdentityId", ["playerIdentityId"])
+    .index("by_userId", ["userId"]),
+
+  // Audit log for player access
+  playerAccessLogs: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    userId: v.string(), // Player's user ID
+    organizationId: v.string(),
+
+    // Action
+    action: v.union(
+      v.literal("login"),
+      v.literal("view_passport"),
+      v.literal("view_skill_detail"),
+      v.literal("view_skill_history"),
+      v.literal("view_coach_notes"),
+      v.literal("view_injury"),
+      v.literal("view_goals"),
+      v.literal("view_recommendations")
+    ),
+
+    // Context
+    resourceId: v.optional(v.string()), // Passport ID, skill code, etc.
+    resourceType: v.optional(v.string()),
+
+    // Metadata
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+
+    // Timestamp
+    timestamp: v.number(),
+  })
+    .index("by_player", ["playerIdentityId", "timestamp"])
+    .index("by_org", ["organizationId", "timestamp"])
+    .index("by_user", ["userId", "timestamp"]),
 });

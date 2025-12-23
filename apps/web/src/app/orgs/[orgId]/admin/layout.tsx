@@ -6,6 +6,8 @@ import {
   Clipboard,
   GraduationCap,
   Home,
+  Key,
+  LineChart,
   Settings,
   Shield,
   Upload,
@@ -127,6 +129,16 @@ export default function OrgAdminLayout({
       href: `/orgs/${orgId}/admin/benchmarks` as Route,
       label: "Benchmarks",
       icon: BarChart3,
+    },
+    {
+      href: `/orgs/${orgId}/admin/analytics` as Route,
+      label: "Analytics",
+      icon: LineChart,
+    },
+    {
+      href: `/orgs/${orgId}/admin/player-access` as Route,
+      label: "Player Access",
+      icon: Key,
     },
     {
       href: `/orgs/${orgId}/admin/settings` as Route,

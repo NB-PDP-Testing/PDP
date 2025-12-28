@@ -10,6 +10,7 @@ import {
   LineChart,
   Settings,
   Shield,
+  ShieldAlert,
   Upload,
   UserCheck,
   Users,
@@ -94,6 +95,11 @@ export default function OrgAdminLayout({
       href: `/orgs/${orgId}/admin/teams`,
       label: "Teams",
       icon: Shield,
+    },
+    {
+      href: `/orgs/${orgId}/admin/overrides` as Route,
+      label: "Overrides",
+      icon: ShieldAlert,
     },
     {
       href: `/orgs/${orgId}/admin/coaches` as Route,

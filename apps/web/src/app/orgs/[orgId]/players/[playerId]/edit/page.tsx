@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { authClient } from "@/lib/auth-client";
 
 export default function EditPlayerPassportPage() {
   const params = useParams();
@@ -34,6 +35,7 @@ export default function EditPlayerPassportPage() {
   const playerId = params.playerId as string;
 
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -45,14 +47,26 @@ export default function EditPlayerPassportPage() {
     playerNotes: "",
   });
 
+  // Get current user session for permission checks
+  const { data: session } = authClient.useSession();
+  const { data: member } = authClient.useActiveMember();
+  const currentUserRoles = (member as any)?.functionalRoles || [];
+  const isAdmin = currentUserRoles.includes("admin");
+
   // Query player identity data
   const playerIdentity = useQuery(api.models.playerIdentities.getPlayerById, {
     playerIdentityId: playerId as Id<"playerIdentities">,
   });
 
   // Query enrollment data
-  const enrollment = useQuery(
-    api.models.orgPlayerEnrollments.getEnrollment,
+  const enrollment = useQuery(api.models.orgPlayerEnrollments.getEnrollment, {
+    playerIdentityId: playerId as Id<"playerIdentities">,
+    organizationId: orgId,
+  });
+
+  // Query eligible teams for player
+  const eligibleTeams = useQuery(
+    api.models.teamPlayerIdentities.getEligibleTeamsForPlayer,
     {
       playerIdentityId: playerId as Id<"playerIdentities">,
       organizationId: orgId,
@@ -65,6 +79,12 @@ export default function EditPlayerPassportPage() {
   );
   const updateEnrollment = useMutation(
     api.models.orgPlayerEnrollments.updateEnrollment
+  );
+  const addPlayerToTeam = useMutation(
+    api.models.teamPlayerIdentities.addPlayerToTeam
+  );
+  const removePlayerFromTeam = useMutation(
+    api.models.teamPlayerIdentities.removePlayerFromTeam
   );
 
   // Populate form when data loads
@@ -88,16 +108,25 @@ export default function EditPlayerPassportPage() {
     }
   }, [playerIdentity, enrollment]);
 
+  // Initialize selected teams from eligible teams data
+  useEffect(() => {
+    if (eligibleTeams) {
+      const currentTeams = eligibleTeams
+        .filter((t) => t.isCurrentlyOn)
+        .map((t) => t.teamId);
+      setSelectedTeamIds(currentTeams);
+    }
+  }, [eligibleTeams]);
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Update player identity
+      // Update player identity (DOB is read-only and not updated)
       await updatePlayerIdentity({
         playerIdentityId: playerId as Id<"playerIdentities">,
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email || undefined,
-        dateOfBirth: formData.dateOfBirth || undefined,
         gender: formData.gender,
       });
 
@@ -108,6 +137,65 @@ export default function EditPlayerPassportPage() {
           ageGroup: formData.ageGroup || undefined,
           coachNotes: formData.coachNotes || undefined,
         });
+      }
+
+      // Update team assignments
+      if (eligibleTeams && session?.user?.email) {
+        const currentTeams = eligibleTeams
+          .filter((t) => t.isCurrentlyOn)
+          .map((t) => t.teamId);
+
+        // Teams to add (in selected but not in current)
+        const teamsToAdd = selectedTeamIds.filter(
+          (id) => !currentTeams.includes(id)
+        );
+
+        // Teams to remove (in current but not in selected)
+        const teamsToRemove = currentTeams.filter(
+          (id) => !selectedTeamIds.includes(id)
+        );
+
+        // Add to new teams
+        for (const teamId of teamsToAdd) {
+          try {
+            await addPlayerToTeam({
+              teamId,
+              playerIdentityId: playerId as Id<"playerIdentities">,
+              organizationId: orgId,
+            });
+          } catch (error) {
+            console.error(`Failed to add to team ${teamId}:`, error);
+            toast.error("Failed to add to one or more teams", {
+              description:
+                error instanceof Error ? error.message : "Unknown error",
+            });
+          }
+        }
+
+        // Remove from old teams
+        for (const teamId of teamsToRemove) {
+          try {
+            await removePlayerFromTeam({
+              teamId,
+              playerIdentityId: playerId as Id<"playerIdentities">,
+              organizationId: orgId,
+              userEmail: session.user.email,
+            });
+          } catch (error) {
+            console.error(`Failed to remove from team ${teamId}:`, error);
+            // Show specific error for core team protection
+            if (error instanceof Error && error.message.includes("core team")) {
+              toast.error("Cannot remove from core team", {
+                description: error.message,
+              });
+            } else {
+              toast.error("Failed to remove from one or more teams", {
+                description:
+                  error instanceof Error ? error.message : "Unknown error",
+              });
+            }
+          }
+        }
       }
 
       toast.success("Player updated successfully");
@@ -246,7 +334,8 @@ export default function EditPlayerPassportPage() {
                 value={formData.email}
               />
               <p className="text-muted-foreground text-xs">
-                For adult players, this must match their login email to link their account.
+                For adult players, this must match their login email to link
+                their account.
               </p>
             </div>
 
@@ -254,13 +343,14 @@ export default function EditPlayerPassportPage() {
               <div className="space-y-2">
                 <Label htmlFor="dateOfBirth">Date of Birth</Label>
                 <Input
+                  disabled
                   id="dateOfBirth"
-                  onChange={(e) =>
-                    setFormData({ ...formData, dateOfBirth: e.target.value })
-                  }
                   type="date"
                   value={formData.dateOfBirth}
                 />
+                <p className="text-muted-foreground text-xs">
+                  Date of birth cannot be edited after registration
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="gender">Gender</Label>
@@ -334,6 +424,199 @@ export default function EditPlayerPassportPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Team Assignment Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Team Assignments</CardTitle>
+          <CardDescription>
+            Select which teams this player is assigned to
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {eligibleTeams === undefined ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : eligibleTeams.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              <p>No teams available for this player's sport and age group.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {eligibleTeams.map((team) => {
+                const isSelected = selectedTeamIds.includes(team.teamId);
+                const isDisabled = team.isCoreTeam && !isAdmin && isSelected;
+
+                return (
+                  <div
+                    className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/50"
+                    key={team.teamId}
+                  >
+                    <input
+                      checked={isSelected}
+                      className="h-4 w-4 cursor-pointer"
+                      disabled={isDisabled}
+                      id={`team-${team.teamId}`}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedTeamIds([...selectedTeamIds, team.teamId]);
+                        } else {
+                          setSelectedTeamIds(
+                            selectedTeamIds.filter((id) => id !== team.teamId)
+                          );
+                        }
+                      }}
+                      type="checkbox"
+                    />
+                    <label
+                      className="flex flex-1 cursor-pointer items-center gap-2"
+                      htmlFor={`team-${team.teamId}`}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{team.teamName}</span>
+                          {team.isCoreTeam && (
+                            <Badge className="gap-1" variant="secondary">
+                              <svg
+                                className="h-3 w-3"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                              Core Team
+                            </Badge>
+                          )}
+                          {isDisabled && (
+                            <svg
+                              className="h-3 w-3 text-muted-foreground"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                          <span>{team.ageGroup}</span>
+                          <span>•</span>
+                          <span>{team.sport}</span>
+                        </div>
+                      </div>
+
+                      {/* Eligibility Status Badge */}
+                      <div className="flex items-center gap-1">
+                        {team.eligibilityStatus === "eligible" && (
+                          <Badge className="gap-1" variant="outline">
+                            <svg
+                              className="h-3 w-3 text-green-500"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                            Eligible
+                          </Badge>
+                        )}
+                        {team.eligibilityStatus === "requiresOverride" && (
+                          <Badge className="gap-1" variant="outline">
+                            <svg
+                              className="h-3 w-3 text-yellow-500"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                            Requires Override
+                          </Badge>
+                        )}
+                        {team.eligibilityStatus === "hasOverride" && (
+                          <Badge className="gap-1" variant="outline">
+                            <svg
+                              className="h-3 w-3 text-blue-500"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                            Override Active
+                          </Badge>
+                        )}
+                        {team.eligibilityStatus === "ineligible" && (
+                          <Badge className="gap-1" variant="destructive">
+                            <svg
+                              className="h-3 w-3"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                            Ineligible
+                          </Badge>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+                );
+              })}
+
+              {/* Help Text */}
+              {!isAdmin && eligibleTeams.some((t) => t.isCoreTeam) && (
+                <div className="rounded-lg border-blue-200 bg-blue-50 p-3 text-blue-900 text-sm">
+                  <p className="font-medium">Core Team Protection</p>
+                  <p className="mt-1 text-xs">
+                    Core teams are locked and cannot be changed. Contact an
+                    admin if you need to modify core team assignments.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

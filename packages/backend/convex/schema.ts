@@ -36,6 +36,89 @@ export default defineSchema({
     .index("by_isActive", ["isActive"])
     .index("by_sortOrder", ["sortOrder"]),
 
+  // ============================================================
+  // SPORT-SPECIFIC AGE GROUP CONFIGURATION
+  // Enables different sports to have different age group rules
+  // and eligibility requirements with admin override capability
+  // ============================================================
+
+  // Sport-specific age group configuration
+  // Allows customization of min/max ages per age group per sport
+  sportAgeGroupConfig: defineTable({
+    sportCode: v.string(), // FK to sports.code (e.g., "gaa_football", "soccer")
+    ageGroupCode: v.string(), // FK to ageGroups.code (e.g., "u12", "u14")
+    minAge: v.optional(v.number()), // Custom min age for this sport's age group
+    maxAge: v.optional(v.number()), // Custom max age for this sport's age group
+    description: v.optional(v.string()), // Explanation for custom age range
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_sport_and_ageGroup", ["sportCode", "ageGroupCode"])
+    .index("by_sport", ["sportCode"])
+    .index("by_isActive", ["isActive"]),
+
+  // Sport-specific age group eligibility rules
+  // Defines which age groups players can "play up" to within each sport
+  sportAgeGroupEligibilityRules: defineTable({
+    sportCode: v.string(), // FK to sports.code
+    fromAgeGroupCode: v.string(), // Player's age group (e.g., "u12")
+    toAgeGroupCode: v.string(), // Team age group they want to join (e.g., "u14")
+    isAllowed: v.boolean(), // true = player can join team
+    requiresApproval: v.boolean(), // true = needs admin override even if allowed
+    description: v.optional(v.string()), // Reason for the rule
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_sport_and_ages", [
+      "sportCode",
+      "fromAgeGroupCode",
+      "toAgeGroupCode",
+    ])
+    .index("by_sport", ["sportCode"]),
+
+  // Per-team enforcement settings
+  // Controls how strictly age eligibility is enforced for each team
+  teamEligibilitySettings: defineTable({
+    teamId: v.string(), // Better Auth team ID
+    organizationId: v.string(),
+    enforcementLevel: v.union(
+      v.literal("strict"), // Hard block, requires override
+      v.literal("warning"), // Shows warning, auto-logs exception
+      v.literal("flexible") // No validation
+    ),
+    requireOverrideReason: v.boolean(), // If true, admin must provide reason
+    notifyOnOverride: v.optional(v.array(v.string())), // User IDs to notify
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_team", ["teamId"])
+    .index("by_org", ["organizationId"]),
+
+  // Individual player eligibility overrides
+  // Admins can grant exceptions for specific players to join specific teams
+  ageGroupEligibilityOverrides: defineTable({
+    playerIdentityId: v.id("playerIdentities"),
+    teamId: v.string(), // Better Auth team ID
+    organizationId: v.string(),
+    reason: v.string(), // Why override was granted
+    grantedBy: v.string(), // User ID of admin who granted
+    grantedAt: v.number(),
+    expiresAt: v.optional(v.number()), // null = permanent
+    isActive: v.boolean(), // false = revoked or expired
+    revokedBy: v.optional(v.string()), // User ID of admin who revoked
+    revokedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_player_and_team", ["playerIdentityId", "teamId"])
+    .index("by_player", ["playerIdentityId"])
+    .index("by_team", ["teamId"])
+    .index("by_org", ["organizationId"])
+    .index("by_active", ["isActive"]),
+
   // Skill categories (sport-specific groupings)
   skillCategories: defineTable({
     sportCode: v.string(), // FK to sports.code
@@ -1118,7 +1201,12 @@ export default defineSchema({
     // Functional roles (capabilities) - the actual roles user wants
     requestedFunctionalRoles: v.optional(
       v.array(
-        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
+        v.union(
+          v.literal("coach"),
+          v.literal("parent"),
+          v.literal("admin"),
+          v.literal("player")
+        )
       )
     ),
     status: v.union(

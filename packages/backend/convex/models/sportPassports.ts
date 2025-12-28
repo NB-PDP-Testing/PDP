@@ -1,5 +1,7 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
+import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -609,13 +611,34 @@ export const getFullPlayerPassportView = query({
       (m) => m.status === "active"
     );
 
-    // Format team assignments for legacy compatibility
-    const teamAssignments = activeTeamMemberships.map((m) => ({
-      teamId: m.teamId,
-      role: m.role,
-      season: m.season,
-      joinedDate: m.joinedDate,
-    }));
+    // Fetch actual team details from Better Auth for each membership
+    const teamAssignments = await Promise.all(
+      activeTeamMemberships.map(async (m) => {
+        // Fetch team details from Better Auth
+        const teamResult = await ctx.runQuery(
+          components.betterAuth.adapter.findMany,
+          {
+            model: "team",
+            paginationOpts: { cursor: null, numItems: 1 },
+            where: [{ field: "_id", value: m.teamId, operator: "eq" }],
+          }
+        );
+        const team = teamResult.page[0] as BetterAuthDoc<"team"> | undefined;
+
+        // Return team assignment with full team details
+        return {
+          teamId: m.teamId,
+          name: team?.name ?? "Unknown Team",
+          sport: team?.sport,
+          ageGroup: team?.ageGroup,
+          gender: team?.gender,
+          season: m.season ?? team?.season,
+          role: m.role,
+          joinedDate: m.joinedDate,
+          isActive: team?.isActive ?? true,
+        };
+      })
+    );
 
     // Get goals for primary passport
     const goals = primaryPassport
@@ -637,7 +660,7 @@ export const getFullPlayerPassportView = query({
           .order("desc")
           .take(100)
       : [];
-    
+
     // Transform assessments into skills Record<string, number>
     // Take the most recent rating for each skill (since we ordered by desc, first occurrence wins)
     const skillsMap: Record<string, number> = {};

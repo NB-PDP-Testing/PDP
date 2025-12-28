@@ -53,8 +53,11 @@ export const createTeam = mutation({
     ageGroup: v.optional(v.string()),
     gender: v.optional(
       v.union(
-        v.literal("Male"), v.literal("Female"), v.literal("Mixed"),
-        v.literal("Boys"), v.literal("Girls")
+        v.literal("Male"),
+        v.literal("Female"),
+        v.literal("Mixed"),
+        v.literal("Boys"),
+        v.literal("Girls")
       )
     ),
     season: v.optional(v.string()),
@@ -101,8 +104,11 @@ export const updateTeam = mutation({
     ageGroup: v.optional(v.string()),
     gender: v.optional(
       v.union(
-        v.literal("Male"), v.literal("Female"), v.literal("Mixed"),
-        v.literal("Boys"), v.literal("Girls")
+        v.literal("Male"),
+        v.literal("Female"),
+        v.literal("Mixed"),
+        v.literal("Boys"),
+        v.literal("Girls")
       )
     ),
     season: v.optional(v.string()),
@@ -114,29 +120,34 @@ export const updateTeam = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const { teamId, name: newName, ...otherUpdates } = args;
-    
+
     // Get the current team to check if name is changing
     let oldName: string | undefined;
     let organizationId: string | undefined;
-    
+
     if (newName) {
-      const teamResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-        model: "team",
-        paginationOpts: { cursor: null, numItems: 1 },
-        where: [{ field: "_id", value: teamId, operator: "eq" }],
-      });
+      const teamResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "team",
+          paginationOpts: { cursor: null, numItems: 1 },
+          where: [{ field: "_id", value: teamId, operator: "eq" }],
+        }
+      );
       const team = teamResult.page[0] as BetterAuthDoc<"team"> | undefined;
       if (team && team.name !== newName) {
         oldName = team.name;
         organizationId = team.organizationId;
       }
     }
-    
+
     // Build updates object
     const filteredUpdates = Object.fromEntries(
-      Object.entries({ name: newName, ...otherUpdates }).filter(([_, val]) => val !== undefined)
+      Object.entries({ name: newName, ...otherUpdates }).filter(
+        ([_, val]) => val !== undefined
+      )
     );
-    
+
     if (Object.keys(filteredUpdates).length > 0) {
       await ctx.runMutation(components.betterAuth.adapter.updateOne, {
         input: {
@@ -149,18 +160,20 @@ export const updateTeam = mutation({
         },
       });
     }
-    
+
     // If name changed, update all coach assignments that reference the old name
     if (oldName && newName && organizationId) {
       const coachAssignments = await ctx.db
         .query("coachAssignments")
-        .withIndex("by_organizationId", (q) => q.eq("organizationId", organizationId))
+        .withIndex("by_organizationId", (q) =>
+          q.eq("organizationId", organizationId)
+        )
         .collect();
-      
+
       for (const assignment of coachAssignments) {
         if (assignment.teams.includes(oldName)) {
           // Replace old name with new name in teams array
-          const updatedTeams = assignment.teams.map((t: string) => 
+          const updatedTeams = assignment.teams.map((t: string) =>
             t === oldName ? newName : t
           );
           await ctx.db.patch(assignment._id, {
@@ -170,7 +183,7 @@ export const updateTeam = mutation({
         }
       }
     }
-    
+
     return null;
   },
 });
@@ -284,44 +297,35 @@ export const getTeamPlayerLinks = query({
   },
   returns: v.array(
     v.object({
-      _id: v.id("teamPlayers"),
+      _id: v.id("teamPlayerIdentities"),
       _creationTime: v.number(),
       teamId: v.string(),
-      playerId: v.id("players"),
+      playerIdentityId: v.id("playerIdentities"),
+      organizationId: v.string(),
+      role: v.optional(v.string()),
+      status: v.union(
+        v.literal("active"),
+        v.literal("inactive"),
+        v.literal("transferred")
+      ),
+      season: v.optional(v.string()),
+      joinedDate: v.optional(v.string()),
+      leftDate: v.optional(v.string()),
       createdAt: v.number(),
+      updatedAt: v.number(),
     })
   ),
   handler: async (ctx, args) => {
-    // Get all teams for this organization
-    const teams = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-      model: "team",
-      paginationOpts: {
-        cursor: null,
-        numItems: 1000,
-      },
-      where: [
-        {
-          field: "organizationId",
-          value: args.organizationId,
-          operator: "eq",
-        },
-      ],
-    });
+    // Query the new teamPlayerIdentities table directly by organizationId
+    // Only return active players
+    const links = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_org_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
 
-    const teamIds = teams.page.map((t: BetterAuthDoc<"team">) => t._id);
-
-    // Get all team-player links for these teams
-    const allLinks = await Promise.all(
-      teamIds.map(async (teamId: string) => {
-        const links = await ctx.db
-          .query("teamPlayers")
-          .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
-          .collect();
-        return links;
-      })
-    );
-
-    return allLinks.flat();
+    return links;
   },
 });
 
@@ -382,13 +386,19 @@ export const migrateTeamGenderValues = mutation({
   handler: async (ctx, args) => {
     // Old to new gender mapping (Boys/Girls to Male/Female)
     const genderMapping: Record<string, "Male" | "Female" | "Mixed"> = {
-      "Boys": "Male",
-      "Girls": "Female",
+      Boys: "Male",
+      Girls: "Female",
     };
 
     // Get teams to migrate
     const where = args.organizationId
-      ? [{ field: "organizationId", value: args.organizationId, operator: "eq" as const }]
+      ? [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq" as const,
+          },
+        ]
       : [];
 
     const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
@@ -464,30 +474,32 @@ export const cleanupStaleCoachTeamAssignments = mutation({
         },
       ],
     });
-    
+
     const teams = result.page as BetterAuthDoc<"team">[];
-    const validTeamNames = new Set(teams.map(t => t.name));
-    
+    const validTeamNames = new Set(teams.map((t) => t.name));
+
     // Get all coach assignments for this organization
     const coachAssignments = await ctx.db
       .query("coachAssignments")
-      .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
       .collect();
-    
+
     let assignmentsUpdated = 0;
     const teamsRemoved: string[] = [];
-    
+
     for (const assignment of coachAssignments) {
       // Filter to only valid team names
-      const validTeams = assignment.teams.filter((teamName: string) => 
+      const validTeams = assignment.teams.filter((teamName: string) =>
         validTeamNames.has(teamName)
       );
-      
+
       // Check if any teams were removed
-      const removedTeams = assignment.teams.filter((teamName: string) => 
-        !validTeamNames.has(teamName)
+      const removedTeams = assignment.teams.filter(
+        (teamName: string) => !validTeamNames.has(teamName)
       );
-      
+
       if (removedTeams.length > 0) {
         // Update the assignment with only valid teams
         await ctx.db.patch(assignment._id, {
@@ -498,7 +510,7 @@ export const cleanupStaleCoachTeamAssignments = mutation({
         teamsRemoved.push(...removedTeams);
       }
     }
-    
+
     return {
       assignmentsUpdated,
       teamsRemoved: [...new Set(teamsRemoved)], // Unique team names
@@ -529,20 +541,26 @@ export const migrateSportNamesToCodes = mutation({
     // Sport name to code mapping
     const sportNameToCode: Record<string, string> = {
       "GAA Football": "gaa_football",
-      "Hurling": "hurling",
-      "Camogie": "camogie",
+      Hurling: "hurling",
+      Camogie: "camogie",
       "Ladies Football": "ladies_football",
-      "Handball": "handball",
-      "Rounders": "rounders",
-      "Soccer": "soccer",
-      "Rugby": "rugby",
-      "Basketball": "basketball",
+      Handball: "handball",
+      Rounders: "rounders",
+      Soccer: "soccer",
+      Rugby: "rugby",
+      Basketball: "basketball",
       "GAA Gaelic Football": "gaa_football", // Alternative name
     };
 
     // Get teams to migrate
     const where = args.organizationId
-      ? [{ field: "organizationId", value: args.organizationId, operator: "eq" as const }]
+      ? [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq" as const,
+          },
+        ]
       : [];
 
     const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
@@ -587,5 +605,176 @@ export const migrateSportNamesToCodes = mutation({
       teamsUpdated,
       updates,
     };
+  },
+});
+
+/**
+ * ============================================================
+ * TEAM ELIGIBILITY ENFORCEMENT SETTINGS
+ * Manage how strictly age group eligibility is enforced per team
+ * ============================================================
+ */
+
+/**
+ * Get team eligibility settings
+ *
+ * Returns enforcement settings for a team, or null if using defaults.
+ */
+export const getTeamEligibilitySettings = query({
+  args: {
+    teamId: v.string(),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("teamEligibilitySettings"),
+      teamId: v.string(),
+      organizationId: v.string(),
+      enforcementLevel: v.union(
+        v.literal("strict"),
+        v.literal("warning"),
+        v.literal("flexible")
+      ),
+      requireOverrideReason: v.boolean(),
+      notifyOnOverride: v.optional(v.array(v.string())),
+      isActive: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const settings = await ctx.db
+      .query("teamEligibilitySettings")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    return settings;
+  },
+});
+
+/**
+ * Get eligibility settings for all teams in an organization
+ *
+ * Admin only. Useful for bulk configuration UI.
+ */
+export const getOrganizationEligibilitySettings = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("teamEligibilitySettings"),
+      teamId: v.string(),
+      organizationId: v.string(),
+      enforcementLevel: v.union(
+        v.literal("strict"),
+        v.literal("warning"),
+        v.literal("flexible")
+      ),
+      requireOverrideReason: v.boolean(),
+      notifyOnOverride: v.optional(v.array(v.string())),
+      isActive: v.boolean(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // TODO: Verify user is admin (will add in Phase 4 with auth context)
+
+    const settings = await ctx.db
+      .query("teamEligibilitySettings")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .collect();
+
+    return settings;
+  },
+});
+
+/**
+ * Update team enforcement level
+ *
+ * Admin only. Sets how strictly age eligibility is enforced for a team.
+ */
+export const updateTeamEligibilitySettings = mutation({
+  args: {
+    teamId: v.string(),
+    organizationId: v.string(),
+    enforcementLevel: v.union(
+      v.literal("strict"),
+      v.literal("warning"),
+      v.literal("flexible")
+    ),
+    requireOverrideReason: v.boolean(),
+    notifyOnOverride: v.optional(v.array(v.string())),
+  },
+  returns: v.id("teamEligibilitySettings"),
+  handler: async (ctx, args) => {
+    // TODO: Verify user is admin (will add in Phase 4 with auth context)
+
+    const now = Date.now();
+
+    // Check if settings already exist
+    const existing = await ctx.db
+      .query("teamEligibilitySettings")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (existing) {
+      // Update existing settings
+      await ctx.db.patch(existing._id, {
+        enforcementLevel: args.enforcementLevel,
+        requireOverrideReason: args.requireOverrideReason,
+        notifyOnOverride: args.notifyOnOverride,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+
+    // Create new settings
+    const settingsId = await ctx.db.insert("teamEligibilitySettings", {
+      teamId: args.teamId,
+      organizationId: args.organizationId,
+      enforcementLevel: args.enforcementLevel,
+      requireOverrideReason: args.requireOverrideReason,
+      notifyOnOverride: args.notifyOnOverride,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return settingsId;
+  },
+});
+
+/**
+ * Reset team to default enforcement settings
+ *
+ * Admin only. Removes custom enforcement settings, reverting to org defaults.
+ */
+export const resetTeamEligibilitySettings = mutation({
+  args: {
+    teamId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // TODO: Verify user is admin (will add in Phase 4 with auth context)
+
+    const existing = await ctx.db
+      .query("teamEligibilitySettings")
+      .withIndex("by_team", (q) => q.eq("teamId", args.teamId))
+      .filter((q) => q.eq(q.field("isActive"), true))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        isActive: false,
+        updatedAt: Date.now(),
+      });
+    }
+
+    return null;
   },
 });

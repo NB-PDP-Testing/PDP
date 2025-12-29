@@ -39,6 +39,10 @@ lerna-debug.log*
 # Better-T-Stack
 .alchemy
 
+# Convex generated files
+**/convex/_generated/
+**/betterAuth/_generated/
+
 # Testing
 coverage
 .nyc_output

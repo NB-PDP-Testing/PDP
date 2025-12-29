@@ -5,6 +5,7 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
+  ArrowRight,
   Calendar,
   CheckCircle,
   ChevronDown,
@@ -15,12 +16,15 @@ import {
   Search,
   Shield,
   Trash2,
+  User,
+  UserCog,
   UserMinus,
   UserPlus,
   Users,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useState, useMemo } from "react";
+import { useSession } from "@/lib/auth-client";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -443,6 +447,8 @@ function PlayerAssignmentGrid({
 export default function ManageTeamsPage() {
   const params = useParams();
   const orgId = params.orgId as string;
+  const { data: session } = useSession();
+  const userEmail = session?.user?.email || "";
 
   // Get teams from backend (uses Better Auth component adapter)
   const teamsRaw = useQuery(api.models.teams.getTeamsByOrganization, {
@@ -648,6 +654,8 @@ export default function ManageTeamsPage() {
             await removePlayerFromTeamMutation({
               playerIdentityId: playerIdentityId as Id<"playerIdentities">,
               teamId: editingTeamId,
+              organizationId: orgId,
+              userEmail,
             });
             console.log("[Teams] Player removed successfully:", playerIdentityId);
           } catch (removeError) {

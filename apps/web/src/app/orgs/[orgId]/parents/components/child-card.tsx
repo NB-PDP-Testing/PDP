@@ -74,11 +74,13 @@ const getAttendanceColor = (percentage: number): string => {
 
 // Get review status badge
 const getReviewStatusBadge = (status: string | undefined) => {
-  switch (status) {
+  const normalizedStatus = status?.toLowerCase();
+  switch (normalizedStatus) {
     case "completed":
       return (
         <Badge className="bg-green-100 text-green-700">Review Complete</Badge>
       );
+    case "due soon":
     case "due_soon":
       return (
         <Badge className="bg-yellow-100 text-yellow-700">Due Soon</Badge>

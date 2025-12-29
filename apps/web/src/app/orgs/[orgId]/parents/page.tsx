@@ -77,9 +77,9 @@ function ParentDashboardContent() {
     let overdue = 0;
 
     identityChildren.forEach((child) => {
-      const status = child.enrollment?.reviewStatus;
+      const status = child.enrollment?.reviewStatus?.toLowerCase();
       if (status === "completed") completedReviews++;
-      else if (status === "due_soon") dueSoon++;
+      else if (status === "due soon" || status === "due_soon") dueSoon++;
       else if (status === "overdue") overdue++;
     });
 

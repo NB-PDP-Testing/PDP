@@ -48,7 +48,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 const DEFAULT_AGE_GROUPS = [
@@ -75,6 +74,11 @@ export default function PlatformSportsManagementPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [selectedSport, setSelectedSport] = useState<string>("");
+  const [editingSport, setEditingSport] = useState<{
+    code: string;
+    name: string;
+    description?: string;
+  } | null>(null);
 
   // Sport creation/edit state
   const [sportCode, setSportCode] = useState("");
@@ -136,6 +140,37 @@ export default function PlatformSportsManagementPage() {
       setSportName("");
       setSportDescription("");
       setCreateDialogOpen(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unknown error occurred"
+      );
+    }
+  };
+
+  // Handle edit sport
+  const handleEditSport = async () => {
+    if (!editingSport) return;
+
+    if (!(sportCode.trim() && sportName.trim())) {
+      toast.error("Please provide sport name");
+      return;
+    }
+
+    try {
+      await updateSport({
+        code: editingSport.code,
+        name: sportName.trim(),
+        description: sportDescription.trim() || undefined,
+      });
+
+      toast.success(`${sportName} has been updated successfully`);
+
+      // Reset form
+      setSportCode("");
+      setSportName("");
+      setSportDescription("");
+      setEditingSport(null);
+      setEditDialogOpen(false);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unknown error occurred"
@@ -303,389 +338,462 @@ export default function PlatformSportsManagementPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            {/* Edit Sport Dialog */}
+            <Dialog onOpenChange={setEditDialogOpen} open={editDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Sport</DialogTitle>
+                  <DialogDescription>Update sport details</DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="editSportCode">Sport Code</Label>
+                    <Input
+                      className="bg-muted"
+                      disabled
+                      id="editSportCode"
+                      value={editingSport?.code || ""}
+                    />
+                    <p className="text-muted-foreground text-xs">
+                      Sport code cannot be changed
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="editSportName">Sport Name *</Label>
+                    <Input
+                      id="editSportName"
+                      onChange={(e) => setSportName(e.target.value)}
+                      placeholder="e.g., GAA Football, Swimming"
+                      value={sportName}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="editSportDescription">Description</Label>
+                    <Textarea
+                      id="editSportDescription"
+                      onChange={(e) => setSportDescription(e.target.value)}
+                      placeholder="Brief description of the sport..."
+                      rows={3}
+                      value={sportDescription}
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    onClick={() => {
+                      setEditDialogOpen(false);
+                      setEditingSport(null);
+                      setSportCode("");
+                      setSportName("");
+                      setSportDescription("");
+                    }}
+                    variant="outline"
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleEditSport}>Save Changes</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
 
-          <Tabs className="space-y-6" defaultValue="sports">
-            <TabsList>
-              <TabsTrigger value="sports">
-                <Trophy className="mr-2 h-4 w-4" />
-                Sports
-              </TabsTrigger>
-              <TabsTrigger disabled={!selectedSport} value="configuration">
-                <Settings className="mr-2 h-4 w-4" />
-                Configuration
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Sports List */}
-            <TabsContent value="sports">
-              <Card>
-                <CardHeader>
-                  <CardTitle>All Sports</CardTitle>
-                  <CardDescription>
-                    Manage sports available to organizations
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!sports || sports.length === 0 ? (
-                    <div className="py-12 text-center text-muted-foreground">
-                      <Trophy className="mx-auto mb-4 h-12 w-12 opacity-20" />
-                      <p>No sports created yet</p>
-                      <p className="mt-2 text-sm">
-                        Create a sport to get started
-                      </p>
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Code</TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {sports.map((sport) => (
-                          <TableRow key={sport.code}>
-                            <TableCell className="font-mono text-sm">
-                              {sport.code}
-                            </TableCell>
-                            <TableCell className="font-medium">
-                              {sport.name}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-sm">
-                              {sport.description || "—"}
-                            </TableCell>
-                            <TableCell className="space-x-2 text-right">
-                              <Button
-                                onClick={() => {
-                                  setSelectedSport(sport.code);
-                                  // Switch to configuration tab
-                                  const tabsList = document.querySelector(
-                                    '[value="configuration"]'
-                                  ) as HTMLButtonElement;
-                                  tabsList?.click();
-                                }}
-                                size="sm"
-                                variant="outline"
-                              >
-                                <Settings className="mr-1 h-4 w-4" />
-                                Configure
-                              </Button>
-                              <Button
-                                onClick={() =>
-                                  handleDeleteSport(sport.code, sport.name)
-                                }
-                                size="sm"
-                                variant="destructive"
-                              >
-                                <Trash2 className="mr-1 h-4 w-4" />
-                                Delete
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Sport Configuration */}
-            <TabsContent value="configuration">
-              {selectedSport && (
-                <div className="space-y-6">
-                  {/* Sport Selector */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Configure Sport</CardTitle>
-                      <CardDescription>
-                        Select a sport to configure its age groups and
-                        eligibility rules
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <Label>Selected Sport</Label>
-                        <Select
-                          onValueChange={setSelectedSport}
-                          value={selectedSport}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {sports?.map((sport) => (
-                              <SelectItem key={sport.code} value={sport.code}>
-                                {sport.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Age Group Configuration */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Age Group Configuration</CardTitle>
-                      <CardDescription>
-                        Customize age ranges for each age group in this sport
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {/* Existing configurations */}
-                      {sportConfig && sportConfig.length > 0 && (
-                        <div>
-                          <h3 className="mb-3 font-medium text-sm">
-                            Current Configuration
-                          </h3>
-                          <div className="space-y-2">
-                            {sportConfig.map((config) => (
-                              <div
-                                className="flex items-center justify-between rounded-lg border p-3"
-                                key={config._id}
-                              >
-                                <div>
-                                  <Badge className="mb-1" variant="outline">
-                                    {config.ageGroupCode.toUpperCase()}
-                                  </Badge>
-                                  <p className="text-muted-foreground text-sm">
-                                    Ages: {config.minAge ?? "—"} -{" "}
-                                    {config.maxAge ?? "—"}
-                                  </p>
-                                  {config.description && (
-                                    <p className="mt-1 text-muted-foreground text-xs">
-                                      {config.description}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Add new configuration */}
-                      <div className="border-t pt-6">
-                        <h3 className="mb-3 font-medium text-sm">
-                          Add/Update Age Group
-                        </h3>
-                        <div className="grid gap-4">
-                          <div className="space-y-2">
-                            <Label>Age Group</Label>
-                            <Select
-                              onValueChange={setSelectedAgeGroup}
-                              value={selectedAgeGroup}
+          {/* Sports List */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>All Sports</CardTitle>
+                <CardDescription>
+                  Manage sports available to organizations
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!sports || sports.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground">
+                    <Trophy className="mx-auto mb-4 h-12 w-12 opacity-20" />
+                    <p>No sports created yet</p>
+                    <p className="mt-2 text-sm">
+                      Create a sport to get started
+                    </p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Code</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sports.map((sport) => (
+                        <TableRow key={sport.code}>
+                          <TableCell className="font-mono text-sm">
+                            {sport.code}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {sport.name}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {sport.description || "—"}
+                          </TableCell>
+                          <TableCell className="space-x-2 text-right">
+                            <Button
+                              onClick={() => {
+                                setEditingSport(sport);
+                                setSportCode(sport.code);
+                                setSportName(sport.name);
+                                setSportDescription(sport.description || "");
+                                setEditDialogOpen(true);
+                              }}
+                              size="sm"
+                              variant="outline"
                             >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select age group..." />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {DEFAULT_AGE_GROUPS.map((ag) => (
-                                  <SelectItem key={ag} value={ag}>
-                                    {ag.toUpperCase()}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Min Age</Label>
-                              <Input
-                                onChange={(e) =>
-                                  setMinAge(
-                                    e.target.value
-                                      ? Number.parseInt(e.target.value)
-                                      : undefined
-                                  )
-                                }
-                                placeholder="e.g., 6"
-                                type="number"
-                                value={minAge ?? ""}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Max Age</Label>
-                              <Input
-                                onChange={(e) =>
-                                  setMaxAge(
-                                    e.target.value
-                                      ? Number.parseInt(e.target.value)
-                                      : undefined
-                                  )
-                                }
-                                placeholder="e.g., 7"
-                                type="number"
-                                value={maxAge ?? ""}
-                              />
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Description (optional)</Label>
-                            <Textarea
-                              onChange={(e) =>
-                                setAgeGroupDescription(e.target.value)
+                              <Settings className="mr-1 h-4 w-4" />
+                              Edit
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setSelectedSport(sport.code);
+                                setConfigDialogOpen(true);
+                              }}
+                              size="sm"
+                              variant="outline"
+                            >
+                              <Settings className="mr-1 h-4 w-4" />
+                              Age Groups
+                            </Button>
+                            <Button
+                              onClick={() =>
+                                handleDeleteSport(sport.code, sport.name)
                               }
-                              placeholder="Special notes about this age group..."
-                              rows={2}
-                              value={ageGroupDescription}
-                            />
-                          </div>
+                              size="sm"
+                              variant="destructive"
+                            >
+                              <Trash2 className="mr-1 h-4 w-4" />
+                              Delete
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
 
-                          <Button onClick={handleConfigureAgeGroup}>
-                            Save Age Group Configuration
-                          </Button>
+            {/* Age Group Configuration Dialog */}
+            <Dialog onOpenChange={setConfigDialogOpen} open={configDialogOpen}>
+              <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    Age Group & Eligibility Configuration
+                  </DialogTitle>
+                  <DialogDescription>
+                    Configure age group ranges and eligibility rules for{" "}
+                    {sports?.find((s) => s.code === selectedSport)?.name ||
+                      selectedSport}
+                  </DialogDescription>
+                </DialogHeader>
+                {selectedSport && (
+                  <div className="space-y-6 py-4">
+                    {/* Sport Selector */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>
+                          Age Group & Eligibility Configuration
+                        </CardTitle>
+                        <CardDescription>
+                          Configure age group ranges and define which age groups
+                          players can move between (playing up/down)
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <Label>Selected Sport</Label>
+                          <Select
+                            onValueChange={setSelectedSport}
+                            value={selectedSport}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sports?.map((sport) => (
+                                <SelectItem key={sport.code} value={sport.code}>
+                                  {sport.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
 
-                  {/* Eligibility Rules */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Eligibility Rules</CardTitle>
-                      <CardDescription>
-                        Define which age groups players can "play up" or "play
-                        down" to
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {/* Existing rules */}
-                      {eligibilityRules && eligibilityRules.length > 0 && (
-                        <div>
-                          <h3 className="mb-3 font-medium text-sm">
-                            Current Rules
-                          </h3>
-                          <div className="space-y-2">
-                            {eligibilityRules.map((rule) => (
-                              <div
-                                className="flex items-center justify-between rounded-lg border p-3"
-                                key={rule._id}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <Badge variant="outline">
-                                    {rule.fromAgeGroupCode.toUpperCase()}
-                                  </Badge>
-                                  <span className="text-muted-foreground">
-                                    →
-                                  </span>
-                                  <Badge variant="outline">
-                                    {rule.toAgeGroupCode.toUpperCase()}
-                                  </Badge>
-                                  {rule.isAllowed ? (
-                                    <CheckCircle className="h-4 w-4 text-green-500" />
-                                  ) : (
-                                    <XCircle className="h-4 w-4 text-red-500" />
-                                  )}
-                                  {rule.requiresApproval && (
-                                    <Badge variant="secondary">
-                                      Requires Approval
+                    {/* Age Group Configuration */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Age Group Configuration</CardTitle>
+                        <CardDescription>
+                          Customize age ranges for each age group in this sport
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {/* Existing configurations */}
+                        {sportConfig && sportConfig.length > 0 && (
+                          <div>
+                            <h3 className="mb-3 font-medium text-sm">
+                              Current Configuration
+                            </h3>
+                            <div className="space-y-2">
+                              {sportConfig.map((config) => (
+                                <div
+                                  className="flex items-center justify-between rounded-lg border p-3"
+                                  key={config._id}
+                                >
+                                  <div>
+                                    <Badge className="mb-1" variant="outline">
+                                      {config.ageGroupCode.toUpperCase()}
                                     </Badge>
-                                  )}
+                                    <p className="text-muted-foreground text-sm">
+                                      Ages: {config.minAge ?? "—"} -{" "}
+                                      {config.maxAge ?? "—"}
+                                    </p>
+                                    {config.description && (
+                                      <p className="mt-1 text-muted-foreground text-xs">
+                                        {config.description}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Add new configuration */}
+                        <div className="border-t pt-6">
+                          <h3 className="mb-3 font-medium text-sm">
+                            Add/Update Age Group
+                          </h3>
+                          <div className="grid gap-4">
+                            <div className="space-y-2">
+                              <Label>Age Group</Label>
+                              <Select
+                                onValueChange={setSelectedAgeGroup}
+                                value={selectedAgeGroup}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select age group..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {DEFAULT_AGE_GROUPS.map((ag) => (
+                                    <SelectItem key={ag} value={ag}>
+                                      {ag.toUpperCase()}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Min Age</Label>
+                                <Input
+                                  onChange={(e) =>
+                                    setMinAge(
+                                      e.target.value
+                                        ? Number.parseInt(e.target.value)
+                                        : undefined
+                                    )
+                                  }
+                                  placeholder="e.g., 6"
+                                  type="number"
+                                  value={minAge ?? ""}
+                                />
                               </div>
-                            ))}
+                              <div className="space-y-2">
+                                <Label>Max Age</Label>
+                                <Input
+                                  onChange={(e) =>
+                                    setMaxAge(
+                                      e.target.value
+                                        ? Number.parseInt(e.target.value)
+                                        : undefined
+                                    )
+                                  }
+                                  placeholder="e.g., 7"
+                                  type="number"
+                                  value={maxAge ?? ""}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Description (optional)</Label>
+                              <Textarea
+                                onChange={(e) =>
+                                  setAgeGroupDescription(e.target.value)
+                                }
+                                placeholder="Special notes about this age group..."
+                                rows={2}
+                                value={ageGroupDescription}
+                              />
+                            </div>
+
+                            <Button onClick={handleConfigureAgeGroup}>
+                              Save Age Group Configuration
+                            </Button>
                           </div>
                         </div>
-                      )}
+                      </CardContent>
+                    </Card>
 
-                      {/* Add new rule */}
-                      <div className="border-t pt-6">
-                        <h3 className="mb-3 font-medium text-sm">
-                          Create Eligibility Rule
-                        </h3>
-                        <div className="grid gap-4">
-                          <div className="grid grid-cols-2 gap-4">
+                    {/* Eligibility Rules */}
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Eligibility Rules</CardTitle>
+                        <CardDescription>
+                          Define which age groups players can "play up" or "play
+                          down" to
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {/* Existing rules */}
+                        {eligibilityRules && eligibilityRules.length > 0 && (
+                          <div>
+                            <h3 className="mb-3 font-medium text-sm">
+                              Current Rules
+                            </h3>
                             <div className="space-y-2">
-                              <Label>Player Age Group</Label>
-                              <Select
-                                onValueChange={setFromAgeGroup}
-                                value={fromAgeGroup}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {DEFAULT_AGE_GROUPS.map((ag) => (
-                                    <SelectItem key={ag} value={ag}>
-                                      {ag.toUpperCase()}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Team Age Group</Label>
-                              <Select
-                                onValueChange={setToAgeGroup}
-                                value={toAgeGroup}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {DEFAULT_AGE_GROUPS.map((ag) => (
-                                    <SelectItem key={ag} value={ag}>
-                                      {ag.toUpperCase()}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                              {eligibilityRules.map((rule) => (
+                                <div
+                                  className="flex items-center justify-between rounded-lg border p-3"
+                                  key={rule._id}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <Badge variant="outline">
+                                      {rule.fromAgeGroupCode.toUpperCase()}
+                                    </Badge>
+                                    <span className="text-muted-foreground">
+                                      →
+                                    </span>
+                                    <Badge variant="outline">
+                                      {rule.toAgeGroupCode.toUpperCase()}
+                                    </Badge>
+                                    {rule.isAllowed ? (
+                                      <CheckCircle className="h-4 w-4 text-green-500" />
+                                    ) : (
+                                      <XCircle className="h-4 w-4 text-red-500" />
+                                    )}
+                                    {rule.requiresApproval && (
+                                      <Badge variant="secondary">
+                                        Requires Approval
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
+                        )}
 
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                checked={isAllowed}
-                                id="isAllowed"
-                                onCheckedChange={(checked) =>
-                                  setIsAllowed(checked as boolean)
-                                }
-                              />
-                              <Label
-                                className="cursor-pointer"
-                                htmlFor="isAllowed"
-                              >
-                                Allow this combination
-                              </Label>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <Checkbox
-                                checked={requiresApproval}
-                                id="requiresApproval"
-                                onCheckedChange={(checked) =>
-                                  setRequiresApproval(checked as boolean)
-                                }
-                              />
-                              <Label
-                                className="cursor-pointer"
-                                htmlFor="requiresApproval"
-                              >
-                                Requires admin approval (override)
-                              </Label>
-                            </div>
-                          </div>
-
-                          <Button onClick={handleCreateEligibilityRule}>
+                        {/* Add new rule */}
+                        <div className="border-t pt-6">
+                          <h3 className="mb-3 font-medium text-sm">
                             Create Eligibility Rule
-                          </Button>
+                          </h3>
+                          <div className="grid gap-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Player Age Group</Label>
+                                <Select
+                                  onValueChange={setFromAgeGroup}
+                                  value={fromAgeGroup}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {DEFAULT_AGE_GROUPS.map((ag) => (
+                                      <SelectItem key={ag} value={ag}>
+                                        {ag.toUpperCase()}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Team Age Group</Label>
+                                <Select
+                                  onValueChange={setToAgeGroup}
+                                  value={toAgeGroup}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {DEFAULT_AGE_GROUPS.map((ag) => (
+                                      <SelectItem key={ag} value={ag}>
+                                        {ag.toUpperCase()}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={isAllowed}
+                                  id="isAllowed"
+                                  onCheckedChange={(checked) =>
+                                    setIsAllowed(checked as boolean)
+                                  }
+                                />
+                                <Label
+                                  className="cursor-pointer"
+                                  htmlFor="isAllowed"
+                                >
+                                  Allow this combination
+                                </Label>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={requiresApproval}
+                                  id="requiresApproval"
+                                  onCheckedChange={(checked) =>
+                                    setRequiresApproval(checked as boolean)
+                                  }
+                                />
+                                <Label
+                                  className="cursor-pointer"
+                                  htmlFor="requiresApproval"
+                                >
+                                  Requires admin approval (override)
+                                </Label>
+                              </div>
+                            </div>
+
+                            <Button onClick={handleCreateEligibilityRule}>
+                              Create Eligibility Rule
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </div>
     </div>

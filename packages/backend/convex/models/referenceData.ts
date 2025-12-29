@@ -40,11 +40,62 @@ export const createSport = mutation({
 });
 
 /**
+ * Preview the impact of changing a sport code
+ * Shows how many categories and skills would be affected
+ */
+export const previewSportCodeChange = query({
+  args: {
+    sportId: v.id("sports"),
+    newCode: v.string(),
+  },
+  returns: v.object({
+    categoriesAffected: v.number(),
+    skillsAffected: v.number(),
+    wouldConflict: v.boolean(),
+    conflictingSportName: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const sport = await ctx.db.get(args.sportId);
+    if (!sport) {
+      throw new Error("Sport not found");
+    }
+
+    // Check if new code already exists in another sport
+    const conflict = await ctx.db
+      .query("sports")
+      .withIndex("by_code", (q) => q.eq("code", args.newCode))
+      .first();
+
+    // Count affected categories
+    const categories = await ctx.db
+      .query("skillCategories")
+      .withIndex("by_sportCode", (q) => q.eq("sportCode", sport.code))
+      .collect();
+
+    // Count affected skills
+    const skills = await ctx.db
+      .query("skillDefinitions")
+      .withIndex("by_sportCode", (q) => q.eq("sportCode", sport.code))
+      .collect();
+
+    return {
+      categoriesAffected: categories.length,
+      skillsAffected: skills.length,
+      wouldConflict: !!conflict && conflict._id !== args.sportId,
+      conflictingSportName:
+        conflict && conflict._id !== args.sportId ? conflict.name : undefined,
+    };
+  },
+});
+
+/**
  * Update an existing sport (platform admin only)
+ * Supports changing the code with automatic cascade updates
  */
 export const updateSport = mutation({
   args: {
     sportId: v.id("sports"),
+    code: v.optional(v.string()),
     name: v.optional(v.string()),
     governingBody: v.optional(v.string()),
     description: v.optional(v.string()),
@@ -56,7 +107,45 @@ export const updateSport = mutation({
       throw new Error("Sport not found");
     }
 
+    // If code is changing, validate and cascade updates
+    if (args.code !== undefined && args.code !== existing.code) {
+      const newCode = args.code;
+      // Check for conflicts with existing sports
+      const conflict = await ctx.db
+        .query("sports")
+        .withIndex("by_code", (q) => q.eq("code", newCode))
+        .first();
+
+      if (conflict && conflict._id !== args.sportId) {
+        throw new Error(
+          `Sport code '${newCode}' is already used by sport '${conflict.name}'`
+        );
+      }
+
+      // Cascade update to all skill categories
+      const categories = await ctx.db
+        .query("skillCategories")
+        .withIndex("by_sportCode", (q) => q.eq("sportCode", existing.code))
+        .collect();
+
+      for (const category of categories) {
+        await ctx.db.patch(category._id, { sportCode: newCode });
+      }
+
+      // Cascade update to all skill definitions
+      const skills = await ctx.db
+        .query("skillDefinitions")
+        .withIndex("by_sportCode", (q) => q.eq("sportCode", existing.code))
+        .collect();
+
+      for (const skill of skills) {
+        await ctx.db.patch(skill._id, { sportCode: newCode });
+      }
+    }
+
+    // Update the sport itself
     const updates: Record<string, unknown> = {};
+    if (args.code !== undefined) updates.code = args.code;
     if (args.name !== undefined) updates.name = args.name;
     if (args.governingBody !== undefined)
       updates.governingBody = args.governingBody;
@@ -81,6 +170,95 @@ export const deactivateSport = mutation({
 
     await ctx.db.patch(args.sportId, { isActive: false });
     return null;
+  },
+});
+
+/**
+ * Preview the impact of deleting a sport
+ * Shows how many categories and skills would be deleted
+ */
+export const previewSportDeletion = query({
+  args: {
+    sportId: v.id("sports"),
+  },
+  returns: v.object({
+    categoriesCount: v.number(),
+    skillsCount: v.number(),
+    sportCode: v.string(),
+    sportName: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const sport = await ctx.db.get(args.sportId);
+    if (!sport) {
+      throw new Error("Sport not found");
+    }
+
+    // Count categories
+    const categories = await ctx.db
+      .query("skillCategories")
+      .withIndex("by_sportCode", (q) => q.eq("sportCode", sport.code))
+      .collect();
+
+    // Count skills
+    const skills = await ctx.db
+      .query("skillDefinitions")
+      .withIndex("by_sportCode", (q) => q.eq("sportCode", sport.code))
+      .collect();
+
+    return {
+      categoriesCount: categories.length,
+      skillsCount: skills.length,
+      sportCode: sport.code,
+      sportName: sport.name,
+    };
+  },
+});
+
+/**
+ * Delete a sport and all associated categories and skills (platform admin only)
+ * This is a hard delete - use with caution!
+ */
+export const deleteSport = mutation({
+  args: {
+    sportId: v.id("sports"),
+  },
+  returns: v.object({
+    categoriesDeleted: v.number(),
+    skillsDeleted: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const sport = await ctx.db.get(args.sportId);
+    if (!sport) {
+      throw new Error("Sport not found");
+    }
+
+    // Delete all skill definitions for this sport
+    const skills = await ctx.db
+      .query("skillDefinitions")
+      .withIndex("by_sportCode", (q) => q.eq("sportCode", sport.code))
+      .collect();
+
+    for (const skill of skills) {
+      await ctx.db.delete(skill._id);
+    }
+
+    // Delete all skill categories for this sport
+    const categories = await ctx.db
+      .query("skillCategories")
+      .withIndex("by_sportCode", (q) => q.eq("sportCode", sport.code))
+      .collect();
+
+    for (const category of categories) {
+      await ctx.db.delete(category._id);
+    }
+
+    // Delete the sport itself
+    await ctx.db.delete(args.sportId);
+
+    return {
+      categoriesDeleted: categories.length,
+      skillsDeleted: skills.length,
+    };
   },
 });
 
@@ -195,6 +373,75 @@ export const deactivateSkillCategory = mutation({
 
     await ctx.db.patch(args.categoryId, { isActive: false });
     return null;
+  },
+});
+
+/**
+ * Preview the impact of deleting a skill category
+ * Shows how many skills would be deleted
+ */
+export const previewCategoryDeletion = query({
+  args: {
+    categoryId: v.id("skillCategories"),
+  },
+  returns: v.object({
+    skillsCount: v.number(),
+    categoryCode: v.string(),
+    categoryName: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const category = await ctx.db.get(args.categoryId);
+    if (!category) {
+      throw new Error("Category not found");
+    }
+
+    // Count skills in this category
+    const skills = await ctx.db
+      .query("skillDefinitions")
+      .withIndex("by_categoryId", (q) => q.eq("categoryId", args.categoryId))
+      .collect();
+
+    return {
+      skillsCount: skills.length,
+      categoryCode: category.code,
+      categoryName: category.name,
+    };
+  },
+});
+
+/**
+ * Delete a skill category and all associated skills (platform admin only)
+ * This is a hard delete - use with caution!
+ */
+export const deleteSkillCategory = mutation({
+  args: {
+    categoryId: v.id("skillCategories"),
+  },
+  returns: v.object({
+    skillsDeleted: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const category = await ctx.db.get(args.categoryId);
+    if (!category) {
+      throw new Error("Category not found");
+    }
+
+    // Delete all skills in this category
+    const skills = await ctx.db
+      .query("skillDefinitions")
+      .withIndex("by_categoryId", (q) => q.eq("categoryId", args.categoryId))
+      .collect();
+
+    for (const skill of skills) {
+      await ctx.db.delete(skill._id);
+    }
+
+    // Delete the category itself
+    await ctx.db.delete(args.categoryId);
+
+    return {
+      skillsDeleted: skills.length,
+    };
   },
 });
 
@@ -331,6 +578,28 @@ export const deactivateSkillDefinition = mutation({
     }
 
     await ctx.db.patch(args.skillId, { isActive: false });
+    return null;
+  },
+});
+
+/**
+ * Delete a skill definition (platform admin only)
+ * This is a hard delete - use with caution!
+ */
+export const deleteSkillDefinition = mutation({
+  args: {
+    skillId: v.id("skillDefinitions"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const skill = await ctx.db.get(args.skillId);
+    if (!skill) {
+      throw new Error("Skill not found");
+    }
+
+    // Delete the skill
+    await ctx.db.delete(args.skillId);
+
     return null;
   },
 });
@@ -479,6 +748,194 @@ export const importSkillsForSport = mutation({
       categoriesUpdated,
       skillsCreated,
       skillsUpdated,
+    };
+  },
+});
+
+/**
+ * Bulk import complete skills data from export format
+ * Imports multiple sports at once from the complete export structure
+ */
+export const bulkImportCompleteSkillsData = mutation({
+  args: {
+    sports: v.array(
+      v.object({
+        sportCode: v.string(),
+        categories: v.array(
+          v.object({
+            code: v.string(),
+            name: v.string(),
+            description: v.optional(v.string()),
+            sortOrder: v.number(),
+            skills: v.array(
+              v.object({
+                code: v.string(),
+                name: v.string(),
+                description: v.optional(v.string()),
+                level1Descriptor: v.optional(v.string()),
+                level2Descriptor: v.optional(v.string()),
+                level3Descriptor: v.optional(v.string()),
+                level4Descriptor: v.optional(v.string()),
+                level5Descriptor: v.optional(v.string()),
+                ageGroupRelevance: v.optional(v.array(v.string())),
+                sortOrder: v.number(),
+              })
+            ),
+          })
+        ),
+      })
+    ),
+    replaceExisting: v.optional(v.boolean()),
+  },
+  returns: v.object({
+    sportsProcessed: v.number(),
+    categoriesCreated: v.number(),
+    categoriesUpdated: v.number(),
+    skillsCreated: v.number(),
+    skillsUpdated: v.number(),
+    errors: v.array(
+      v.object({
+        sportCode: v.string(),
+        error: v.string(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    let sportsProcessed = 0;
+    let totalCategoriesCreated = 0;
+    let totalCategoriesUpdated = 0;
+    let totalSkillsCreated = 0;
+    let totalSkillsUpdated = 0;
+    const errors: Array<{ sportCode: string; error: string }> = [];
+
+    for (const sportData of args.sports) {
+      try {
+        // Verify sport exists
+        const sport = await ctx.db
+          .query("sports")
+          .withIndex("by_code", (q) => q.eq("code", sportData.sportCode))
+          .first();
+
+        if (!sport) {
+          errors.push({
+            sportCode: sportData.sportCode,
+            error: `Sport with code '${sportData.sportCode}' not found`,
+          });
+          continue;
+        }
+
+        // Import categories and skills for this sport
+        let categoriesCreated = 0;
+        let categoriesUpdated = 0;
+        let skillsCreated = 0;
+        let skillsUpdated = 0;
+
+        for (const categoryData of sportData.categories) {
+          // Find or create category
+          let categoryId: Id<"skillCategories">;
+          const existingCategory = await ctx.db
+            .query("skillCategories")
+            .withIndex("by_sportCode_and_code", (q) =>
+              q
+                .eq("sportCode", sportData.sportCode)
+                .eq("code", categoryData.code)
+            )
+            .first();
+
+          if (existingCategory) {
+            categoryId = existingCategory._id;
+            if (args.replaceExisting) {
+              await ctx.db.patch(categoryId, {
+                name: categoryData.name,
+                description: categoryData.description,
+                sortOrder: categoryData.sortOrder,
+                isActive: true,
+              });
+              categoriesUpdated++;
+            }
+          } else {
+            categoryId = await ctx.db.insert("skillCategories", {
+              sportCode: sportData.sportCode,
+              code: categoryData.code,
+              name: categoryData.name,
+              description: categoryData.description,
+              sortOrder: categoryData.sortOrder,
+              isActive: true,
+              createdAt: Date.now(),
+            });
+            categoriesCreated++;
+          }
+
+          // Process skills in this category
+          for (const skillData of categoryData.skills) {
+            const existingSkill = await ctx.db
+              .query("skillDefinitions")
+              .withIndex("by_sportCode_and_code", (q) =>
+                q
+                  .eq("sportCode", sportData.sportCode)
+                  .eq("code", skillData.code)
+              )
+              .first();
+
+            if (existingSkill) {
+              if (args.replaceExisting) {
+                await ctx.db.patch(existingSkill._id, {
+                  categoryId,
+                  name: skillData.name,
+                  description: skillData.description,
+                  level1Descriptor: skillData.level1Descriptor,
+                  level2Descriptor: skillData.level2Descriptor,
+                  level3Descriptor: skillData.level3Descriptor,
+                  level4Descriptor: skillData.level4Descriptor,
+                  level5Descriptor: skillData.level5Descriptor,
+                  ageGroupRelevance: skillData.ageGroupRelevance,
+                  sortOrder: skillData.sortOrder,
+                  isActive: true,
+                });
+                skillsUpdated++;
+              }
+            } else {
+              await ctx.db.insert("skillDefinitions", {
+                categoryId,
+                sportCode: sportData.sportCode,
+                code: skillData.code,
+                name: skillData.name,
+                description: skillData.description,
+                level1Descriptor: skillData.level1Descriptor,
+                level2Descriptor: skillData.level2Descriptor,
+                level3Descriptor: skillData.level3Descriptor,
+                level4Descriptor: skillData.level4Descriptor,
+                level5Descriptor: skillData.level5Descriptor,
+                ageGroupRelevance: skillData.ageGroupRelevance,
+                sortOrder: skillData.sortOrder,
+                isActive: true,
+                createdAt: Date.now(),
+              });
+              skillsCreated++;
+            }
+          }
+        }
+
+        totalCategoriesCreated += categoriesCreated;
+        totalCategoriesUpdated += categoriesUpdated;
+        totalSkillsCreated += skillsCreated;
+        totalSkillsUpdated += skillsUpdated;
+        sportsProcessed++;
+      } catch (error) {
+        errors.push({
+          sportCode: sportData.sportCode,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return {
+      sportsProcessed,
+      categoriesCreated: totalCategoriesCreated,
+      categoriesUpdated: totalCategoriesUpdated,
+      skillsCreated: totalSkillsCreated,
+      skillsUpdated: totalSkillsUpdated,
+      errors,
     };
   },
 });

@@ -12,11 +12,13 @@ import {
   FileJson,
   FolderOpen,
   Layers,
+  Pencil,
   Plus,
   Power,
   PowerOff,
   Sparkles,
   Target,
+  Trash2,
   Users,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -47,6 +49,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+
+import { BulkImportDialog } from "./bulk-import-dialog";
+import { DeleteSportDialog } from "./delete-sport-dialog";
+import { EditSportDialog } from "./edit-sport-dialog";
 
 // Types
 interface Sport {
@@ -1153,6 +1159,10 @@ function SportCard({
   onToggleCategoryActive,
   onToggleSkillActive,
   onImportSkills,
+  onEditSport,
+  onDeleteSport,
+  onDeleteCategory,
+  onDeleteSkill,
 }: {
   sport: Sport;
   usageStats?: { orgCount: number; passportCount: number };
@@ -1171,6 +1181,13 @@ function SportCard({
     currentActive: boolean
   ) => void;
   onImportSkills: (sportCode: string) => void;
+  onEditSport: (sport: Sport) => void;
+  onDeleteSport: (sportId: Id<"sports">) => void;
+  onDeleteCategory: (
+    categoryId: Id<"skillCategories">,
+    categoryName: string
+  ) => void;
+  onDeleteSkill: (skillId: Id<"skillDefinitions">, skillName: string) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
@@ -1300,6 +1317,14 @@ function SportCard({
             {/* Action buttons */}
             <div className="mb-4 flex flex-wrap gap-2">
               <Button
+                onClick={() => onEditSport(sport)}
+                size="sm"
+                variant="outline"
+              >
+                <Pencil className="mr-1 h-3 w-3" />
+                Edit Sport
+              </Button>
+              <Button
                 onClick={() => onAddCategory(sport.code, sportCategories)}
                 size="sm"
                 variant="outline"
@@ -1336,6 +1361,15 @@ function SportCard({
                     Activate
                   </>
                 )}
+              </Button>
+              <Button
+                className="text-red-600 hover:bg-red-50"
+                onClick={() => onDeleteSport(sport._id)}
+                size="sm"
+                variant="ghost"
+              >
+                <Trash2 className="mr-1 h-3 w-3" />
+                Delete
               </Button>
             </div>
 
@@ -1423,6 +1457,17 @@ function SportCard({
                                 <Power className="h-3 w-3" />
                               )}
                             </Button>
+                            <Button
+                              className="text-red-600"
+                              onClick={() =>
+                                onDeleteCategory(category._id, category.name)
+                              }
+                              size="sm"
+                              title="Delete category and all skills"
+                              variant="ghost"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
                           </div>
                         </div>
 
@@ -1452,32 +1497,45 @@ function SportCard({
                                         </Badge>
                                       )}
                                     </div>
-                                    <Button
-                                      className={
-                                        skill.isActive
-                                          ? "text-orange-500"
-                                          : "text-green-500"
-                                      }
-                                      onClick={() =>
-                                        onToggleSkillActive(
-                                          skill._id,
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        className={
                                           skill.isActive
-                                        )
-                                      }
-                                      size="sm"
-                                      title={
-                                        skill.isActive
-                                          ? "Deactivate"
-                                          : "Activate"
-                                      }
-                                      variant="ghost"
-                                    >
-                                      {skill.isActive ? (
-                                        <PowerOff className="h-3 w-3" />
-                                      ) : (
-                                        <Power className="h-3 w-3" />
-                                      )}
-                                    </Button>
+                                            ? "text-orange-500"
+                                            : "text-green-500"
+                                        }
+                                        onClick={() =>
+                                          onToggleSkillActive(
+                                            skill._id,
+                                            skill.isActive
+                                          )
+                                        }
+                                        size="sm"
+                                        title={
+                                          skill.isActive
+                                            ? "Deactivate"
+                                            : "Activate"
+                                        }
+                                        variant="ghost"
+                                      >
+                                        {skill.isActive ? (
+                                          <PowerOff className="h-3 w-3" />
+                                        ) : (
+                                          <Power className="h-3 w-3" />
+                                        )}
+                                      </Button>
+                                      <Button
+                                        className="text-red-600"
+                                        onClick={() =>
+                                          onDeleteSkill(skill._id, skill.name)
+                                        }
+                                        size="sm"
+                                        title="Delete skill"
+                                        variant="ghost"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -1554,6 +1612,12 @@ export default function SportsManagement() {
   const importSkills = useMutation(
     api.models.referenceData.importSkillsForSport
   );
+  const deleteCategory = useMutation(
+    api.models.referenceData.deleteSkillCategory
+  );
+  const deleteSkill = useMutation(
+    api.models.referenceData.deleteSkillDefinition
+  );
 
   // Dialog states
   const [showAddSport, setShowAddSport] = useState(false);
@@ -1568,6 +1632,9 @@ export default function SportsManagement() {
   const [importSkillsForSport, setImportSkillsForSport] = useState<
     string | null
   >(null);
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [editSport, setEditSport] = useState<Sport | null>(null);
+  const [deleteSport, setDeleteSport] = useState<Id<"sports"> | null>(null);
 
   // Stats
   const stats = useMemo(() => {
@@ -1645,6 +1712,44 @@ export default function SportsManagement() {
       toast.success("Skill deactivated");
     } else {
       toast.error("Reactivate not implemented yet");
+    }
+  };
+
+  const handleDeleteCategory = async (
+    categoryId: Id<"skillCategories">,
+    categoryName: string
+  ) => {
+    if (
+      window.confirm(
+        `Are you sure you want to delete the category "${categoryName}" and all its skills? This action cannot be undone.`
+      )
+    ) {
+      try {
+        const result = await deleteCategory({ categoryId });
+        toast.success(
+          `Category deleted. ${result.skillsDeleted} skill(s) also deleted.`
+        );
+      } catch (error) {
+        toast.error(`Failed to delete category: ${error}`);
+      }
+    }
+  };
+
+  const handleDeleteSkill = async (
+    skillId: Id<"skillDefinitions">,
+    skillName: string
+  ) => {
+    if (
+      window.confirm(
+        `Are you sure you want to delete the skill "${skillName}"? This action cannot be undone.`
+      )
+    ) {
+      try {
+        await deleteSkill({ skillId });
+        toast.success("Skill deleted successfully");
+      } catch (error) {
+        toast.error(`Failed to delete skill: ${error}`);
+      }
     }
   };
 
@@ -1742,8 +1847,12 @@ export default function SportsManagement() {
             </div>
           </div>
 
-          {/* Add Sport Button */}
-          <div className="mb-6">
+          {/* Action Buttons */}
+          <div className="mb-6 flex gap-2">
+            <Button onClick={() => setShowBulkImport(true)} variant="outline">
+              <FileJson className="mr-2 h-4 w-4" />
+              Bulk Import
+            </Button>
             <Button
               className="bg-emerald-600 hover:bg-emerald-700"
               onClick={() => setShowAddSport(true)}
@@ -1764,6 +1873,14 @@ export default function SportsManagement() {
                   }}
                   onAddSkill={(categoryId, skills) => {
                     setAddSkillForCategory({ categoryId, skills });
+                  }}
+                  onDeleteCategory={handleDeleteCategory}
+                  onDeleteSkill={handleDeleteSkill}
+                  onDeleteSport={(sportId) => {
+                    setDeleteSport(sportId);
+                  }}
+                  onEditSport={(sport) => {
+                    setEditSport(sport);
                   }}
                   onImportSkills={(sportCode) => {
                     setImportSkillsForSport(sportCode);
@@ -1830,6 +1947,48 @@ export default function SportsManagement() {
               sportCode={importSkillsForSport}
             />
           )}
+
+          <BulkImportDialog
+            onOpenChange={setShowBulkImport}
+            onSuccess={() => {
+              toast.success("Skills imported successfully!");
+            }}
+            open={showBulkImport}
+          />
+
+          <EditSportDialog
+            initialData={
+              editSport
+                ? {
+                    code: editSport.code,
+                    name: editSport.name,
+                    description: editSport.description,
+                    governingBody: editSport.governingBody,
+                  }
+                : undefined
+            }
+            onOpenChange={(open) => {
+              if (!open) setEditSport(null);
+            }}
+            onSuccess={() => {
+              toast.success("Sport updated successfully!");
+              setEditSport(null);
+            }}
+            open={editSport !== null}
+            sportId={editSport?._id ?? null}
+          />
+
+          <DeleteSportDialog
+            onOpenChange={(open) => {
+              if (!open) setDeleteSport(null);
+            }}
+            onSuccess={() => {
+              toast.success("Sport deleted successfully!");
+              setDeleteSport(null);
+            }}
+            open={deleteSport !== null}
+            sportId={deleteSport}
+          />
 
           {/* Benchmarks Section */}
           <BenchmarksSection sports={sports} />

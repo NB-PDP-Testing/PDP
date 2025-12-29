@@ -1279,6 +1279,7 @@ export default defineSchema({
       v.object({
         id: v.string(),
         playerIdentityId: v.optional(v.id("playerIdentities")),
+        playerId: v.optional(v.string()), // TEMPORARY: Legacy field for old voice notes
         playerName: v.optional(v.string()),
         title: v.string(),
         description: v.string(),

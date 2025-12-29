@@ -11,32 +11,66 @@ It is intended for engineers, QA, and product stakeholders to derive:
 
 ---
 
-## Core Platform Concepts
-
-- **Player Passport**
-  - A persistent digital record that follows a player across:
-    - Seasons
-    - Teams
-    - Clubs
-    - Sports
-- **Age-aware permissions**
-  - Different rules for minors vs adults
-- **Consent & safeguarding**
-  - Mandatory parental consent for minors
-- **Auditability**
-  - All changes are logged with user, timestamp, and action
+## Implementation Status Legend
+- ✅ **Implemented** - Fully working in code
+- 🟡 **Partial** - Backend exists, UI may be incomplete
+- ❌ **Not Implemented** - Not yet in code
+- 🔄 **In Progress** - Currently being worked on
 
 ---
 
-## Role Overview
+## Core Platform Concepts
 
+- **Player Passport** ✅
+  - A persistent digital record that follows a player across:
+    - Seasons ✅
+    - Teams ✅
+    - Clubs ✅ (via orgPlayerEnrollments)
+    - Sports ✅ (via sportPassports)
+- **Age-aware permissions** 🟡
+  - Different rules for minors vs adults (schema supports, UI partial)
+  - Player self-access policies per organization ✅
+- **Consent & safeguarding** 🟡
+  - Guardian approval system for player self-access ✅
+  - Consent for data sharing (consentedToSharing flag) ✅
+  - Full GDPR workflow ❌
+- **Auditability** 🟡
+  - Approval actions logged ✅
+  - Player access logs ✅
+  - Full change history ❌
+
+---
+
+## Role Architecture
+
+### Better Auth Hierarchy Roles (System-level)
 | Role | Description |
 |---|---|
-| Application Admin | Organisation-level system administrator |
-| Coach | Team or individual coach |
-| Parent / Guardian | Legal guardian of a minor player |
-| Adult Player | Player aged 18+ |
-| Child Player | Player under 18 |
+| owner | Organization creator, full control |
+| admin | Administrative access |
+| member | Base membership (default for all users) |
+
+### Functional Roles (Capabilities)
+Stored in `member.functionalRoles` array. Users can have multiple:
+
+| Role | Description | Status |
+|---|---|---|
+| admin | Organization administration | ✅ |
+| coach | Team coaching and assessments | ✅ |
+| parent | Guardian of minor players | ✅ |
+| player | Adult player self-access | ✅ |
+
+---
+
+## Role Overview (Updated)
+
+| Role | Description | Status |
+|---|---|---|
+| Application Admin | Organisation-level system administrator | ✅ |
+| Coach | Team or individual coach | ✅ |
+| Parent / Guardian | Legal guardian of a minor player | ✅ |
+| Adult Player | Player aged 18+ with self-access | ✅ |
+| Child Player | Player under 18 with limited access | 🟡 |
 
 ---
 
@@ -50,33 +84,61 @@ It is intended for engineers, QA, and product stakeholders to derive:
 ## Behaviours & Use Cases
 
 ### Organisation Management
-- Create, edit, and deactivate clubs
-- Create seasons, teams, squads, and age groups
-- Configure sport-specific settings
+| Capability | Status | Notes |
+|---|---|---|
+| Create, edit organizations | ✅ | Via Better Auth organization system |
+| Deactivate organizations | 🟡 | Deletion requires platform staff approval (orgDeletionRequests) |
+| Create seasons, teams, squads | ✅ | teams table with sport/ageGroup/gender/season |
+| Create age groups | ✅ | ageGroups reference table |
+| Configure sport-specific settings | ✅ | sportAgeGroupConfig, sportAgeGroupEligibilityRules |
+| Team eligibility enforcement | ✅ | teamEligibilitySettings (strict/warning/flexible) |
 
 ### User & Role Management
-- Create user accounts
-- Assign and revoke roles (Admin, Coach, Parent, Player)
-- Prevent unauthorised role escalation
+| Capability | Status | Notes |
+|---|---|---|
+| Create user accounts | ✅ | Via invitation or join request approval |
+| Assign functional roles | ✅ | updateMemberFunctionalRoles mutation |
+| Revoke roles | ✅ | Via functional role update |
+| Approve/reject join requests | ✅ | orgJoinRequests table |
+| Approve/reject role requests | ✅ | pendingFunctionalRoleRequests on member |
+| Transfer organization ownership | ✅ | transferOwnership mutation |
+| Prevent unauthorized role escalation | ✅ | Role-based checks on mutations |
 
 ### Player Lifecycle
-- Create player profiles
-- Approve or reject self-registrations
-- Archive or deactivate players
+| Capability | Status | Notes |
+|---|---|---|
+| Create player profiles | ✅ | playerIdentities + orgPlayerEnrollments |
+| Bulk import players | ✅ | batchImportPlayersWithIdentity |
+| GAA membership import | ✅ | GAAMembershipWizard component |
+| Approve/reject self-registrations | ✅ | Via join request system |
+| Archive/deactivate players | 🟡 | Status field exists, UI limited |
+| Age group eligibility overrides | ✅ | ageGroupEligibilityOverrides table |
 
 ### Player Passport Governance
-- Define which data persists across clubs and sports
-- Lock historical records from modification
-- Control data visibility rules
+| Capability | Status | Notes |
+|---|---|---|
+| Define passport data persistence | ✅ | Sport passports per player identity |
+| Lock historical records | ❌ | Not implemented |
+| Control data visibility rules | ✅ | playerAccessPolicies per organization |
+| Set player self-access minimum age | ✅ | minimumAge in playerAccessPolicies |
 
 ### Compliance & Safeguarding
-- Enforce GDPR consent workflows
-- Manage parental consent records
-- Support data access, export, and erasure requests
+| Capability | Status | Notes |
+|---|---|---|
+| Configure guardian approval requirements | ✅ | requireGuardianApproval in policies |
+| View unclaimed guardians | ✅ | getUnclaimedGuardians query |
+| Manage parental consent records | 🟡 | consentedToSharing flag, basic implementation |
+| GDPR data access requests | ❌ | Not implemented |
+| GDPR data export | ❌ | Not implemented |
+| GDPR data erasure | ❌ | Not implemented |
+| Legal holds | ❌ | Not implemented |
 
 ### Audit & Oversight
-- View system audit logs
-- Track data changes and access history
+| Capability | Status | Notes |
+|---|---|---|
+| View approval audit logs | ✅ | approvalActions table |
+| View player access logs | ✅ | playerAccessLogs table |
+| Track data changes | ❌ | Full audit trail not implemented |
 
 ---
 
@@ -90,67 +152,114 @@ It is intended for engineers, QA, and product stakeholders to derive:
 ## Behaviours & Use Cases
 
 ### Squad & Player Access
-- View only players assigned to their teams
-- Access player passports (read-only historical data)
+| Capability | Status | Notes |
+|---|---|---|
+| View only assigned team players | ✅ | coachAssignments table with teams/ageGroups |
+| Access player passports | ✅ | Via sportPassports with org filter |
+| Read-only historical data | ✅ | skillAssessments with assessmentDate |
+| Multi-team assignment | ✅ | coachAssignments.teams is array |
 
 ### Training & Match Management
-- Create training sessions
-- Record attendance
-- Log match participation and positions
+| Capability | Status | Notes |
+|---|---|---|
+| Create training sessions | ❌ | Not implemented |
+| Record attendance | 🟡 | attendance field on enrollment exists |
+| Log match participation | ❌ | Not implemented |
+| Log positions played | ❌ | Not implemented |
 
 ### Player Assessment
-- Create qualitative and quantitative assessments
-- Add notes, ratings, and observations
-- Edit only assessments they created
+| Capability | Status | Notes |
+|---|---|---|
+| Create skill assessments | ✅ | skillAssessments table |
+| Add notes, ratings, observations | ✅ | notes, privateNotes, rating fields |
+| Edit own assessments only | 🟡 | assessedBy field tracked, enforcement partial |
+| Benchmark comparisons | ✅ | benchmarkRating, benchmarkStatus fields |
+| Coach insight preferences | ✅ | coachInsightPreferences for AI insights |
 
 ### Individual Development Plans (IDP)
-- Create and update IDPs
-- Define goals, milestones, and review dates
+| Capability | Status | Notes |
+|---|---|---|
+| Create development goals | ✅ | passportGoals table |
+| Update goals and progress | ✅ | Full CRUD on goals |
+| Define milestones | ✅ | milestones array on goals |
+| Set target/review dates | ✅ | targetDate, nextReviewDue fields |
 
 ### Media & Evidence
-- Upload videos, photos, and documents
-- Attach media to sessions or assessments
+| Capability | Status | Notes |
+|---|---|---|
+| Upload videos/photos | ❌ | Not implemented |
+| Attach media to sessions | ❌ | Not implemented |
+| Attach media to assessments | ❌ | Not implemented |
 
 ### Communication
-- Message players and parents
-- Send announcements to teams
+| Capability | Status | Notes |
+|---|---|---|
+| Message players/parents | ❌ | Not implemented |
+| Send team announcements | ❌ | Not implemented |
 
 ### Injury & Wellbeing Tracking
-- Log injuries
-- Track recovery and return-to-play status
+| Capability | Status | Notes |
+|---|---|---|
+| Log injuries (platform-level) | ✅ | playerInjuries table |
+| Add org-specific injury notes | ✅ | orgInjuryNotes table |
+| Track recovery status | ✅ | status, returnToPlayProtocol fields |
+| Return-to-play protocol | ✅ | Protocol steps with completion tracking |
+
+### Voice Notes & AI
+| Capability | Status | Notes |
+|---|---|---|
+| Record voice notes | ✅ | voiceNotes with audioStorageId |
+| AI transcription | ✅ | transcription, transcriptionStatus |
+| AI-generated insights | ✅ | insights array with player links |
+| Apply/dismiss insights | ✅ | status: pending/applied/dismissed |
 
 ---
 
 # 3. Parent / Guardian
 
 ## Role Goals
-- Support their child’s development
+- Support their child's development
 - Stay informed
 - Maintain safety and consent control
 
 ## Behaviours & Use Cases
 
 ### Player Oversight
-- View child’s player passport
-- View assessments, IDPs, and progress
+| Capability | Status | Notes |
+|---|---|---|
+| View child's player passport | ✅ | Via guardianPlayerLinks |
+| View assessments | ✅ | skillAssessments accessible |
+| View development goals | ✅ | passportGoals with parentCanView |
+| View progress/trends | 🟡 | Data available, UI limited |
 
 ### Consent Management
-- Grant or revoke consent for:
-  - Media usage
-  - Medical data
-  - Data sharing across clubs/sports
+| Capability | Status | Notes |
+|---|---|---|
+| Grant/revoke media consent | 🟡 | Field exists, UI not complete |
+| Grant/revoke medical data sharing | 🟡 | Via visibility overrides |
+| Grant/revoke cross-club data sharing | ✅ | consentedToSharing on guardianPlayerLinks |
+| Control player self-access | ✅ | playerAccessGrants table |
+| Set visibility overrides | ✅ | visibilityOverrides in grants |
+| Notification preferences | ✅ | notifyOnLogin, notifyOnViewSensitive |
 
 ### Communication
-- Receive messages and notifications
-- Communicate with coaches (controlled channels)
+| Capability | Status | Notes |
+|---|---|---|
+| Receive messages/notifications | ❌ | Not implemented |
+| Communicate with coaches | ❌ | Not implemented |
 
 ### Scheduling
-- View training and match calendars
-- Receive schedule updates
+| Capability | Status | Notes |
+|---|---|---|
+| View training/match calendars | ❌ | Not implemented |
+| Receive schedule updates | ❌ | Not implemented |
 
 ### Data Control
-- Request corrections to personal data
-- Request data export or deletion (where permitted)
+| Capability | Status | Notes |
+|---|---|---|
+| Request data corrections | ❌ | Not implemented |
+| Request data export | ❌ | Not implemented |
+| Request data deletion | ❌ | Not implemented |
 
 ---
 
@@ -164,24 +273,46 @@ It is intended for engineers, QA, and product stakeholders to derive:
 ## Behaviours & Use Cases
 
 ### Passport Ownership
-- Full access to own player passport
-- Control sharing with clubs, coaches, and sports
+| Capability | Status | Notes |
+|---|---|---|
+| Full access to own passport | ✅ | Via playerAccountLinks + playerSelfAccess |
+| Control sharing with clubs | 🟡 | Basic structure exists |
+| Control sharing with coaches | 🟡 | Via organization policies |
+| View skill ratings | ✅ | Based on visibility settings |
+| View skill history | ✅ | skillHistory visibility flag |
+| View benchmarks | ✅ | benchmarkComparison visibility flag |
 
 ### Development Tracking
-- View assessments and analytics
-- Track long-term performance trends
+| Capability | Status | Notes |
+|---|---|---|
+| View assessments | ✅ | Via getPlayerSelfViewPassport |
+| Track performance trends | 🟡 | Data available, analytics limited |
+| View coach notes | ✅ | publicCoachNotes visibility flag |
 
 ### Self-Assessment
-- Add reflections, wellness updates, and feedback
-- Set and manage personal goals
+| Capability | Status | Notes |
+|---|---|---|
+| Add reflections | 🟡 | playerNotes on passport |
+| Add wellness updates | ❌ | Not implemented (Issue #26) |
+| Set personal goals | ❌ | Player-created goals not implemented |
 
 ### Injury & Medical Records
-- Log injuries and recovery updates
-- Control visibility of medical data
+| Capability | Status | Notes |
+|---|---|---|
+| Log own injuries | 🟡 | playerInjuries supports player role |
+| View injury history | ✅ | injuryStatus visibility flag |
+| Control medical data visibility | ✅ | isVisibleToAllOrgs, restrictedToOrgIds |
 
 ### Portability
-- Share passport with new clubs
-- Revoke access from previous clubs
+| Capability | Status | Notes |
+|---|---|---|
+| Share passport with new clubs | 🟡 | Multi-org enrollment exists |
+| Revoke access from previous clubs | ❌ | Not implemented |
+
+### Emergency Contacts
+| Capability | Status | Notes |
+|---|---|---|
+| Manage emergency contacts | ✅ | playerEmergencyContacts table |
 
 ---
 
@@ -195,43 +326,110 @@ It is intended for engineers, QA, and product stakeholders to derive:
 ## Behaviours & Use Cases
 
 ### Limited Access
-- View own progress and achievements
-- Access simplified dashboards
+| Capability | Status | Notes |
+|---|---|---|
+| View own progress | ✅ | Via player self-access with guardian approval |
+| Access simplified dashboards | ❌ | Child-friendly UI not implemented |
+| Age-based access restrictions | ✅ | minimumAge in policies |
 
 ### Engagement & Motivation
-- View goals and milestones
-- Earn badges or recognition
+| Capability | Status | Notes |
+|---|---|---|
+| View goals and milestones | ✅ | developmentGoals visibility flag |
+| Earn badges/recognition | ❌ | Not implemented |
 
 ### Feedback
-- Submit limited feedback (e.g. emojis, short comments)
+| Capability | Status | Notes |
+|---|---|---|
+| Submit limited feedback | ❌ | Not implemented |
+| Emoji reactions | ❌ | Not implemented |
 
 ### Communication Restrictions
-- Receive messages from assigned coaches
-- Cannot initiate unrestricted messaging
+| Capability | Status | Notes |
+|---|---|---|
+| Receive messages from coaches | ❌ | Messaging not implemented |
+| Restricted messaging | ❌ | Not applicable (no messaging) |
 
 ### Privacy & Safety
-- No access to peer assessments
-- No editing of official records
+| Capability | Status | Notes |
+|---|---|---|
+| No access to peer assessments | ✅ | By design - players only see own data |
+| No editing of official records | ✅ | Read-only access enforced |
+| Guardian controls visibility | ✅ | playerAccessGrants |
 
 ---
 
 # Cross-Cutting Scenarios
 
 ## Identity & Role Overlap
-- Same user acting as:
-  - Coach and Parent
-  - Player and Coach
-- Permissions evaluated per context
+| Scenario | Status | Notes |
+|---|---|---|
+| Same user as Coach and Parent | ✅ | Multiple functionalRoles supported |
+| Same user as Player and Coach | ✅ | functionalRoles array |
+| Role switching UI | ✅ | OrgRoleSwitcher component |
+| Context-aware permissions | ✅ | activeFunctionalRole on member |
 
 ## Passport Continuity
-- Player moves clubs
-- Player switches sports
-- Player returns after inactivity
+| Scenario | Status | Notes |
+|---|---|---|
+| Player moves clubs | ✅ | New orgPlayerEnrollment, same playerIdentity |
+| Player switches sports | ✅ | Multiple sportPassports per player |
+| Player returns after inactivity | ✅ | Enrollment status can be reactivated |
+| Cross-org data visibility | ✅ | Controlled by consentedToSharing |
 
 ## Compliance
-- GDPR export requests
-- Right to erasure
-- Legal holds for safeguarding cases
+| Scenario | Status | Notes |
+|---|---|---|
+| GDPR export requests | ❌ | Not implemented |
+| Right to erasure | ❌ | Not implemented |
+| Legal holds for safeguarding | ❌ | Not implemented |
+
+---
+
+## Capability Matrix (Updated)
+
+| Capability | Admin | Coach | Parent | Adult Player | Child Player |
+|---|---|---|---|---|---|
+| Create Player Passport | ✅ | ❌ | ❌ | ❌ | ❌ |
+| View Own Passport | ❌ | ❌ | ❌ | ✅ | ✅ (with approval) |
+| View Team Player Passports | ✅ | ✅ (assigned teams) | ❌ | ❌ | ❌ |
+| View Child's Passport | ✅ | ❌ | ✅ | ❌ | ❌ |
+| Edit Core Bio Data | ✅ | ❌ | ✅ (child) | ✅ | ❌ |
+| Create Assessments | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Edit Assessments | ✅ | ✅ (own only) | ❌ | ❌ | ❌ |
+| View Assessments | ✅ | ✅ | ✅ | ✅ | Limited |
+| Create Development Goals | ✅ | ✅ | ❌ | ❌ | ❌ |
+| View Development Goals | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Log Injuries | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Manage Teams | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Manage Users | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Configure Policies | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Grant Self-Access | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Use Voice Notes | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Bulk Import Players | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+---
+
+## Outstanding Features (Not Yet Implemented)
+
+### High Priority
+1. **Communication System** - Messages between coaches, parents, players
+2. **Training/Match Management** - Sessions, attendance, fixtures
+3. **Media Uploads** - Videos, photos attached to assessments
+4. **GDPR Compliance** - Data export, erasure, access requests
+5. **Adult Wellness Check-in** - Daily wellness for adult players (Issue #26)
+
+### Medium Priority
+1. **Full Audit Trail** - All data changes logged
+2. **Child-Friendly Dashboard** - Simplified UI for minors
+3. **Badge/Achievement System** - Gamification for engagement
+4. **Historical Record Locking** - Prevent modifications to old data
+5. **Calendar Integration** - Training/match scheduling
+
+### Lower Priority
+1. **Feedback/Emoji Reactions** - Player self-reflection
+2. **Player-Created Goals** - Self-set development targets
+3. **Revoke Previous Club Access** - Fine-grained passport sharing
 
 ---
 
@@ -243,21 +441,3 @@ This document should be used to derive:
 - Permission matrices
 - API access rules
 - Audit and compliance requirements
-
----
-
-
-| Capability             | Admin | Coach        | Parent | Adult Player | Child Player |
-| ---------------------- | ----- | ------------ | ------ | ------------ | ------------ |
-| Create Player Passport | ✅     | ❌            | ❌      | ❌            | ❌            |
-| View Own Passport      | ❌     | ❌            | ❌      | ✅            | ✅            |
-| View Child Passport    | ❌     | ❌            | ✅      | ❌            | ❌            |
-| Edit Core Bio Data     | ✅     | ❌            | ❌      | ✅            | ❌            |
-| Create Assessments     | ❌     | ✅            | ❌      | ❌            | ❌            |
-| Edit Assessments       | ❌     | ✅ (own only) | ❌      | ❌            | ❌            |
-| View Assessments       | ✅     | ✅            | ✅      | ✅            | Limited      |
-| Create IDP             | ❌     | ✅            | ❌      | ✅            | ❌            |
-| Upload Media           | ❌     | ✅            | ❌      | ✅            | ❌            |
-| Messaging              | ✅     | ✅            | ✅      | ✅            | Restricted   |
-| Consent Management     | ✅     | ❌            | ✅      | ✅            | ❌            |
-| Transfer Passport      | ❌     | ❌            | ❌      | ✅            | ❌            |

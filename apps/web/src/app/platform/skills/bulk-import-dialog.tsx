@@ -28,7 +28,7 @@ import { Progress } from "@/components/ui/progress";
 
 type ImportFormat = "complete" | "single-sport";
 
-interface ImportPreview {
+type ImportPreview = {
   format: ImportFormat;
   sports: Array<{
     sportCode: string;
@@ -37,18 +37,18 @@ interface ImportPreview {
   }>;
   totalCategories: number;
   totalSkills: number;
-}
+};
 
 type SportMappingAction = "create" | "skip" | string; // string = existing sport code to map to
 
-interface SportMapping {
+type SportMapping = {
   importCode: string;
   exists: boolean;
   action: SportMappingAction;
   targetCode: string; // The code to use (either importCode or mapped code)
-}
+};
 
-interface ImportResult {
+type ImportResult = {
   sportsProcessed: number;
   categoriesCreated: number;
   categoriesUpdated: number;
@@ -58,13 +58,13 @@ interface ImportResult {
     sportCode: string;
     error: string;
   }>;
-}
+};
 
-interface BulkImportDialogProps {
+type BulkImportDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
-}
+};
 
 export function BulkImportDialog({
   open,
@@ -297,7 +297,9 @@ export function BulkImportDialog({
   );
 
   const handleImport = useCallback(async () => {
-    if (!(preview && jsonData)) return;
+    if (!(preview && jsonData)) {
+      return;
+    }
 
     setIsImporting(true);
     setImportResult(null);
@@ -333,7 +335,7 @@ export function BulkImportDialog({
             );
             return {
               ...sport,
-              sportCode: mapping!.targetCode,
+              sportCode: mapping?.targetCode,
             };
           });
 

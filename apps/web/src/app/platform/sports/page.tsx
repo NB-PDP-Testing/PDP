@@ -149,7 +149,9 @@ export default function PlatformSportsManagementPage() {
 
   // Handle edit sport
   const handleEditSport = async () => {
-    if (!editingSport) return;
+    if (!editingSport) {
+      return;
+    }
 
     if (!(sportCode.trim() && sportName.trim())) {
       toast.error("Please provide sport name");
@@ -608,7 +610,7 @@ export default function PlatformSportsManagementPage() {
                                   onChange={(e) =>
                                     setMinAge(
                                       e.target.value
-                                        ? Number.parseInt(e.target.value)
+                                        ? Number.parseInt(e.target.value, 10)
                                         : undefined
                                     )
                                   }
@@ -623,7 +625,7 @@ export default function PlatformSportsManagementPage() {
                                   onChange={(e) =>
                                     setMaxAge(
                                       e.target.value
-                                        ? Number.parseInt(e.target.value)
+                                        ? Number.parseInt(e.target.value, 10)
                                         : undefined
                                     )
                                   }

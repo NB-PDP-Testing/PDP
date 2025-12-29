@@ -17,12 +17,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-interface DeleteSportDialogProps {
+type DeleteSportDialogProps = {
   sportId: Id<"sports"> | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
-}
+};
 
 export function DeleteSportDialog({
   sportId,
@@ -49,11 +49,13 @@ export function DeleteSportDialog({
   }, [open]);
 
   const handleDelete = async () => {
-    if (!(sportId && preview)) return;
+    if (!(sportId && preview)) {
+      return;
+    }
 
     setIsDeleting(true);
     try {
-      const result = await deleteSport({ sportId });
+      const _result = await deleteSport({ sportId });
 
       onSuccess?.();
       onOpenChange(false);

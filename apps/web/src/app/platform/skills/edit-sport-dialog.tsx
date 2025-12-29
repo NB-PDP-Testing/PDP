@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-interface EditSportDialogProps {
+type EditSportDialogProps = {
   sportId: Id<"sports"> | null;
   initialData?: {
     code: string;
@@ -37,7 +37,7 @@ interface EditSportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
-}
+};
 
 export function EditSportDialog({
   sportId,
@@ -86,7 +86,9 @@ export function EditSportDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!sportId) return;
+    if (!sportId) {
+      return;
+    }
 
     // If code changed, show confirmation dialog
     if (codeChanged) {
@@ -99,7 +101,9 @@ export function EditSportDialog({
   };
 
   const executeUpdate = async () => {
-    if (!sportId) return;
+    if (!sportId) {
+      return;
+    }
 
     setIsSubmitting(true);
     try {

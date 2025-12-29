@@ -1316,8 +1316,7 @@ export const getLatestSkillsForCoachPlayers = query({
 
       if (
         !existing ||
-        new Date(assessment.assessmentDate) >
-          new Date(existing.assessmentDate)
+        new Date(assessment.assessmentDate) > new Date(existing.assessmentDate)
       ) {
         playerMap.set(skillCode, assessment);
       }

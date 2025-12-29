@@ -283,11 +283,11 @@ export const updateInsightStatus = mutation({
 
       // Get the player identity
       const playerIdentity = await ctx.db.get(insight.playerIdentityId);
-      if (!playerIdentity) {
-        message = `Player identity not found`;
-      } else {
-        const playerName = insight.playerName || `${playerIdentity.firstName} ${playerIdentity.lastName}`;
-        
+      if (playerIdentity) {
+        const playerName =
+          insight.playerName ||
+          `${playerIdentity.firstName} ${playerIdentity.lastName}`;
+
         switch (category) {
           case "injury": {
             // Create injury record in playerInjuries table
@@ -328,38 +328,50 @@ export const updateInsightStatus = mutation({
               // Try to parse rating from description or recommendedUpdate
               // Handle both numeric (3, 4/5) and word numbers (three, four)
               const wordToNum: Record<string, number> = {
-                one: 1, two: 2, three: 3, four: 4, five: 5,
-                '1': 1, '2': 2, '3': 3, '4': 4, '5': 5
+                one: 1,
+                two: 2,
+                three: 3,
+                four: 4,
+                five: 5,
+                "1": 1,
+                "2": 2,
+                "3": 3,
+                "4": 4,
+                "5": 5,
               };
-              
+
               // Patterns to match: "Rating: 4", "set to 3", "to three", "improved to 4/5", "level 3"
               const patterns = [
                 /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(\d)(?:\/5)?/i,
                 /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(one|two|three|four|five)(?:\/5)?/i,
               ];
-              
+
               let newRating: number | null = null;
-              
+
               // Check description first
               for (const pattern of patterns) {
-                const match = insight.description.match(pattern) || insight.recommendedUpdate?.match(pattern);
+                const match =
+                  insight.description.match(pattern) ||
+                  insight.recommendedUpdate?.match(pattern);
                 if (match) {
                   const val = match[1].toLowerCase();
-                  newRating = wordToNum[val] || parseInt(val) || null;
+                  newRating = wordToNum[val] || Number.parseInt(val) || null;
                   if (newRating) break;
                 }
               }
-              
+
               // Try to extract skill name from title
-              const skillName = insight.title.replace(/skill\s*(rating|assessment|update)?:?\s*/i, '').trim();
-              
+              const skillName = insight.title
+                .replace(/skill\s*(rating|assessment|update)?:?\s*/i, "")
+                .trim();
+
               if (newRating && newRating >= 1 && newRating <= 5) {
                 // Create skill assessment record
                 const assessmentId = await ctx.db.insert("skillAssessments", {
                   passportId: passport._id,
                   playerIdentityId: insight.playerIdentityId,
                   sportCode: passport.sportCode,
-                  skillCode: skillName.toLowerCase().replace(/\s+/g, '_'),
+                  skillCode: skillName.toLowerCase().replace(/\s+/g, "_"),
                   organizationId: note.orgId,
                   rating: newRating,
                   assessmentDate: today,
@@ -369,15 +381,16 @@ export const updateInsightStatus = mutation({
                   notes: `${insight.description}${insight.recommendedUpdate ? `\n\nRecommended: ${insight.recommendedUpdate}` : ""}`,
                   createdAt: now,
                 });
-                
+
                 // Update passport's last assessment date
                 await ctx.db.patch(passport._id, {
                   lastAssessmentDate: today,
-                  lastAssessmentType: note.type === "match" ? "match" : "training",
+                  lastAssessmentType:
+                    note.type === "match" ? "match" : "training",
                   assessmentCount: (passport.assessmentCount || 0) + 1,
                   updatedAt: now,
                 });
-                
+
                 appliedTo = "skillAssessments";
                 recordId = assessmentId;
                 message = `Skill assessment "${skillName}" set to ${newRating}/5 for ${playerName}`;
@@ -420,36 +433,49 @@ export const updateInsightStatus = mutation({
             if (passport) {
               // Check if there's actually a rating mentioned - if so, create skill assessment instead
               const wordToNum: Record<string, number> = {
-                one: 1, two: 2, three: 3, four: 4, five: 5,
-                '1': 1, '2': 2, '3': 3, '4': 4, '5': 5
+                one: 1,
+                two: 2,
+                three: 3,
+                four: 4,
+                five: 5,
+                "1": 1,
+                "2": 2,
+                "3": 3,
+                "4": 4,
+                "5": 5,
               };
-              
+
               const patterns = [
                 /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(\d)(?:\/5)?/i,
                 /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(one|two|three|four|five)(?:\/5)?/i,
               ];
-              
+
               let foundRating: number | null = null;
-              const textToSearch = `${insight.description} ${insight.recommendedUpdate || ''} ${insight.title}`;
-              
+              const textToSearch = `${insight.description} ${insight.recommendedUpdate || ""} ${insight.title}`;
+
               for (const pattern of patterns) {
                 const match = textToSearch.match(pattern);
                 if (match) {
                   const val = match[1].toLowerCase();
-                  foundRating = wordToNum[val] || parseInt(val) || null;
+                  foundRating = wordToNum[val] || Number.parseInt(val) || null;
                   if (foundRating) break;
                 }
               }
-              
+
               if (foundRating && foundRating >= 1 && foundRating <= 5) {
                 // There's a rating - create skill assessment instead of goal
-                const skillName = insight.title.replace(/skill\s*(rating|assessment|update|progress|improved?)?:?\s*/i, '').trim();
-                
+                const skillName = insight.title
+                  .replace(
+                    /skill\s*(rating|assessment|update|progress|improved?)?:?\s*/i,
+                    ""
+                  )
+                  .trim();
+
                 const assessmentId = await ctx.db.insert("skillAssessments", {
                   passportId: passport._id,
                   playerIdentityId: insight.playerIdentityId,
                   sportCode: passport.sportCode,
-                  skillCode: skillName.toLowerCase().replace(/\s+/g, '_'),
+                  skillCode: skillName.toLowerCase().replace(/\s+/g, "_"),
                   organizationId: note.orgId,
                   rating: foundRating,
                   assessmentDate: today,
@@ -459,14 +485,15 @@ export const updateInsightStatus = mutation({
                   notes: `${insight.description}${insight.recommendedUpdate ? `\n\nRecommended: ${insight.recommendedUpdate}` : ""}`,
                   createdAt: now,
                 });
-                
+
                 await ctx.db.patch(passport._id, {
                   lastAssessmentDate: today,
-                  lastAssessmentType: note.type === "match" ? "match" : "training",
+                  lastAssessmentType:
+                    note.type === "match" ? "match" : "training",
                   assessmentCount: (passport.assessmentCount || 0) + 1,
                   updatedAt: now,
                 });
-                
+
                 appliedTo = "skillAssessments";
                 recordId = assessmentId;
                 message = `Skill "${skillName}" set to ${foundRating}/5 for ${playerName}`;
@@ -496,7 +523,8 @@ export const updateInsightStatus = mutation({
               const enrollment = await ctx.db
                 .query("orgPlayerEnrollments")
                 .withIndex("by_player_and_org", (q) =>
-                  q.eq("playerIdentityId", insight.playerIdentityId!)
+                  q
+                    .eq("playerIdentityId", insight.playerIdentityId!)
                     .eq("organizationId", note.orgId)
                 )
                 .first();
@@ -505,7 +533,9 @@ export const updateInsightStatus = mutation({
                 const existingNotes = enrollment.coachNotes || "";
                 const newNote = `[${new Date().toLocaleDateString()}] GOAL: ${insight.title} - ${insight.description}`;
                 await ctx.db.patch(enrollment._id, {
-                  coachNotes: existingNotes ? `${existingNotes}\n\n${newNote}` : newNote,
+                  coachNotes: existingNotes
+                    ? `${existingNotes}\n\n${newNote}`
+                    : newNote,
                   updatedAt: now,
                 });
                 appliedTo = "orgPlayerEnrollments.coachNotes";
@@ -536,7 +566,9 @@ export const updateInsightStatus = mutation({
               const existingNotes = passport.coachNotes || "";
               const newNote = `[${new Date().toLocaleDateString()}] ${insight.title}: ${insight.description}${insight.recommendedUpdate ? ` (Recommended: ${insight.recommendedUpdate})` : ""}`;
               await ctx.db.patch(passport._id, {
-                coachNotes: existingNotes ? `${existingNotes}\n\n${newNote}` : newNote,
+                coachNotes: existingNotes
+                  ? `${existingNotes}\n\n${newNote}`
+                  : newNote,
                 updatedAt: now,
               });
               appliedTo = "sportPassports.coachNotes";
@@ -547,7 +579,8 @@ export const updateInsightStatus = mutation({
               const enrollment = await ctx.db
                 .query("orgPlayerEnrollments")
                 .withIndex("by_player_and_org", (q) =>
-                  q.eq("playerIdentityId", insight.playerIdentityId!)
+                  q
+                    .eq("playerIdentityId", insight.playerIdentityId!)
                     .eq("organizationId", note.orgId)
                 )
                 .first();
@@ -574,41 +607,50 @@ export const updateInsightStatus = mutation({
             break;
           }
         }
+      } else {
+        message = "Player identity not found";
       }
     } else if (args.status === "applied" && !insight.playerIdentityId) {
       // This is a team-level insight (no player linked)
       // Route to team notes - since there's no player, ANY category goes to team
       const category = insight.category?.toLowerCase() || "";
-      
+
       // Always route to team notes when there's no player linked
       // This is simpler and more intuitive - if there's no player, it's a team note
       {
         // Try to find a team based on note type or context
         // For now, we'll use the Better Auth adapter to find teams for this org
         // and add the note to all teams (or ideally the most relevant one)
-        
+
         const now = Date.now();
         const newNote = `[${new Date().toLocaleDateString()}] ${insight.title}: ${insight.description}${insight.recommendedUpdate ? ` (Recommended: ${insight.recommendedUpdate})` : ""}`;
-        
+
         // Get teams for this organization using Better Auth component
-        const teamsResult = await ctx.runQuery(components.betterAuth.adapter.findMany, {
-          model: "team",
-          paginationOpts: { cursor: null, numItems: 100 },
-          where: [{ field: "organizationId", value: note.orgId, operator: "eq" }],
-        });
-        
+        const teamsResult = await ctx.runQuery(
+          components.betterAuth.adapter.findMany,
+          {
+            model: "team",
+            paginationOpts: { cursor: null, numItems: 100 },
+            where: [
+              { field: "organizationId", value: note.orgId, operator: "eq" },
+            ],
+          }
+        );
+
         const teams = teamsResult.page as Array<{
           _id: string;
           name: string;
           coachNotes?: string;
         }>;
-        
+
         if (teams.length === 1) {
           // Only one team - add note to it
           const team = teams[0];
           const existingNotes = team.coachNotes || "";
-          const updatedNotes = existingNotes ? `${existingNotes}\n\n${newNote}` : newNote;
-          
+          const updatedNotes = existingNotes
+            ? `${existingNotes}\n\n${newNote}`
+            : newNote;
+
           await ctx.runMutation(components.betterAuth.adapter.updateOne, {
             input: {
               model: "team",
@@ -619,7 +661,7 @@ export const updateInsightStatus = mutation({
               },
             },
           });
-          
+
           appliedTo = "team.coachNotes";
           recordId = team._id;
           message = `Team note added to ${team.name}`;
@@ -627,8 +669,10 @@ export const updateInsightStatus = mutation({
           // Multiple teams - add to the first one (could be improved with team detection logic)
           const team = teams[0];
           const existingNotes = team.coachNotes || "";
-          const updatedNotes = existingNotes ? `${existingNotes}\n\n${newNote}` : newNote;
-          
+          const updatedNotes = existingNotes
+            ? `${existingNotes}\n\n${newNote}`
+            : newNote;
+
           await ctx.runMutation(components.betterAuth.adapter.updateOne, {
             input: {
               model: "team",
@@ -639,7 +683,7 @@ export const updateInsightStatus = mutation({
               },
             },
           });
-          
+
           appliedTo = "team.coachNotes";
           recordId = team._id;
           message = `Team note added to ${team.name} (${teams.length} teams available)`;

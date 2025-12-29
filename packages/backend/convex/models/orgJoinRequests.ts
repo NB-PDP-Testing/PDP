@@ -30,7 +30,12 @@ export const createJoinRequest = mutation({
     // Functional roles (capabilities) - includes admin, coach, parent, player
     requestedFunctionalRoles: v.optional(
       v.array(
-        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
+        v.union(
+          v.literal("coach"),
+          v.literal("parent"),
+          v.literal("admin"),
+          v.literal("player")
+        )
       )
     ),
     message: v.optional(v.string()),
@@ -320,8 +325,12 @@ export const approveJoinRequest = mutation({
     // Determine functional roles to assign
     // Use requestedFunctionalRoles if available, otherwise infer from legacy requestedRole
     let functionalRoles: ("coach" | "parent" | "admin" | "player")[] =
-      (request.requestedFunctionalRoles as ("coach" | "parent" | "admin" | "player")[]) ||
-      [];
+      (request.requestedFunctionalRoles as (
+        | "coach"
+        | "parent"
+        | "admin"
+        | "player"
+      )[]) || [];
     if (functionalRoles.length === 0) {
       // Legacy support: convert old-style requestedRole to functional roles
       if (request.requestedRole === "coach") {

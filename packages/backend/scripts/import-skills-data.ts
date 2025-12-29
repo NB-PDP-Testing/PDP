@@ -12,11 +12,11 @@
  *   CONVEX_URL=https://your-instance.convex.cloud npx tsx scripts/import-skills-data.ts
  */
 
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "../convex/_generated/api.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../convex/_generated/api.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,7 +42,9 @@ async function main() {
     .reverse();
 
   if (completeFiles.length === 0) {
-    console.error("❌ No skills-complete-*.json files found in docs/data-exports");
+    console.error(
+      "❌ No skills-complete-*.json files found in docs/data-exports"
+    );
     process.exit(1);
   }
 
@@ -53,7 +55,7 @@ async function main() {
   const rawData = fs.readFileSync(dataPath, "utf-8");
   const data = JSON.parse(rawData);
 
-  console.log(`\n📊 Data Summary:`);
+  console.log("\n📊 Data Summary:");
   console.log(`   Sports: ${data.sports.length}`);
   data.sports.forEach((sport: any) => {
     const skillCount = sport.categories.reduce(
@@ -67,13 +69,13 @@ async function main() {
 
   // Use the importCompleteSkillsData mutation
   console.log("\n🔄 Importing skills data...");
-  
+
   try {
     const result = await client.mutation(
       api.models.referenceData.importCompleteSkillsData,
       { data }
     );
-    
+
     console.log("\n✅ Import complete!");
     console.log(`   Categories created: ${result.categoriesCreated}`);
     console.log(`   Categories skipped: ${result.categoriesSkipped}`);

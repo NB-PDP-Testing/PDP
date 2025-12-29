@@ -814,10 +814,8 @@ export const getAllSkillDefinitions = query({
     })
   ),
   handler: async (ctx) => {
-    const skills = await ctx.db
-      .query("skillDefinitions")
-      .collect();
-    
+    const skills = await ctx.db.query("skillDefinitions").collect();
+
     return skills
       .filter((s) => s.isActive)
       .map((s) => ({

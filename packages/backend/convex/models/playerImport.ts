@@ -594,10 +594,7 @@ export const batchImportPlayersWithIdentity = mutation({
     // First pass: Create/find all player identities
     // We need this to build the matching data structure
     const playersForMatching: PlayerForMatching[] = [];
-    const playerIdentityMap = new Map<
-      number,
-      Id<"playerIdentities">
-    >(); // index -> playerIdentityId
+    const playerIdentityMap = new Map<number, Id<"playerIdentities">>(); // index -> playerIdentityId
 
     for (let i = 0; i < args.players.length; i++) {
       const playerData = args.players[i];
@@ -718,7 +715,7 @@ export const batchImportPlayersWithIdentity = mutation({
       );
       const adultPlayerData = args.players[match.adultPlayerIndex];
 
-      if (!youthPlayerIdentityId || !adultPlayerData) continue;
+      if (!(youthPlayerIdentityId && adultPlayerData)) continue;
 
       try {
         // Get or create guardian identity for this adult
@@ -729,8 +726,9 @@ export const batchImportPlayersWithIdentity = mutation({
         if (!guardianIdentityId) {
           // Try to find existing guardian by email first
           if (adultPlayerData.parentEmail) {
-            const normalizedEmail =
-              adultPlayerData.parentEmail.toLowerCase().trim();
+            const normalizedEmail = adultPlayerData.parentEmail
+              .toLowerCase()
+              .trim();
             const existingGuardian = await ctx.db
               .query("guardianIdentities")
               .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
@@ -875,10 +873,9 @@ export const batchImportPlayersWithIdentity = mutation({
           if (existingGuardian) {
             guardianIdentityId = existingGuardian._id;
             // Don't increment guardiansReused here if already counted
-            const wasAlreadyCounted =
-              Array.from(guardianIdentityByAdultIndex.values()).includes(
-                existingGuardian._id
-              );
+            const wasAlreadyCounted = Array.from(
+              guardianIdentityByAdultIndex.values()
+            ).includes(existingGuardian._id);
             if (!wasAlreadyCounted) {
               results.guardiansReused++;
             }

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -45,9 +45,7 @@ export const getGuardianRelationshipsForOrg = query({
       // Get guardian links for this player
       const guardianLinks = await ctx.db
         .query("guardianPlayerLinks")
-        .withIndex("by_player", (q) =>
-          q.eq("playerIdentityId", player._id)
-        )
+        .withIndex("by_player", (q) => q.eq("playerIdentityId", player._id))
         .collect();
 
       // Get guardian details for each link
@@ -167,13 +165,13 @@ export const getGuardianStatsForOrg = query({
             stats.pendingAccounts++;
           }
 
-          if (!guardian.email) {
-            stats.guardiansWithMissingEmail++;
-          } else {
+          if (guardian.email) {
             emailCounts.set(
               guardian.email,
               (emailCounts.get(guardian.email) || 0) + 1
             );
+          } else {
+            stats.guardiansWithMissingEmail++;
           }
 
           if (!guardian.phone) {
@@ -219,9 +217,7 @@ export const getGuardiansForOrg = query({
 
       const guardianLinks = await ctx.db
         .query("guardianPlayerLinks")
-        .withIndex("by_player", (q) =>
-          q.eq("playerIdentityId", player._id)
-        )
+        .withIndex("by_player", (q) => q.eq("playerIdentityId", player._id))
         .collect();
 
       for (const link of guardianLinks) {
@@ -282,9 +278,7 @@ export const getPlayersWithoutGuardians = query({
 
       const guardianLinks = await ctx.db
         .query("guardianPlayerLinks")
-        .withIndex("by_player", (q) =>
-          q.eq("playerIdentityId", player._id)
-        )
+        .withIndex("by_player", (q) => q.eq("playerIdentityId", player._id))
         .collect();
 
       if (guardianLinks.length === 0) {

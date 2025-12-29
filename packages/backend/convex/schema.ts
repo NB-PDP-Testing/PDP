@@ -319,6 +319,7 @@ export default defineSchema({
     clubMembershipNumber: v.optional(v.string()),
     ageGroup: v.string(),
     season: v.string(),
+    sport: v.optional(v.string()), // Sport code - added Phase 2. Optional for backwards compatibility during migration
 
     // Status
     status: v.union(
@@ -353,7 +354,13 @@ export default defineSchema({
     .index("by_organizationId", ["organizationId"])
     .index("by_player_and_org", ["playerIdentityId", "organizationId"])
     .index("by_org_and_status", ["organizationId", "status"])
-    .index("by_org_and_ageGroup", ["organizationId", "ageGroup"]),
+    .index("by_org_and_ageGroup", ["organizationId", "ageGroup"])
+    .index("by_org_sport_status", ["organizationId", "sport", "status"])
+    .index("by_player_org_sport", [
+      "playerIdentityId",
+      "organizationId",
+      "sport",
+    ]),
 
   // ============================================================
   // PHASE 4: ADULT PLAYER SUPPORT

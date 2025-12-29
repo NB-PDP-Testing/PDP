@@ -1,7 +1,7 @@
-import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
-import { components } from "../_generated/api";
 import type { Doc as BetterAuthDoc } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
+import { v } from "convex/values";
+import { components } from "../_generated/api";
+import { mutation, query } from "../_generated/server";
 
 /**
  * Get all coach assignments for an organization
@@ -92,12 +92,15 @@ export const getCoachAssignmentsWithTeams = query({
           teamName: v.string(),
           sportCode: v.optional(v.string()),
           ageGroup: v.optional(v.string()),
-    gender: v.optional(
-      v.union(
-        v.literal("Male"), v.literal("Female"), v.literal("Mixed"),
-        v.literal("Boys"), v.literal("Girls")
-      )
-    ),
+          gender: v.optional(
+            v.union(
+              v.literal("Male"),
+              v.literal("Female"),
+              v.literal("Mixed"),
+              v.literal("Boys"),
+              v.literal("Girls")
+            )
+          ),
           isActive: v.optional(v.boolean()),
         })
       ),
@@ -142,7 +145,9 @@ export const getCoachAssignmentsWithTeams = query({
     const allTeams = allTeamsResult.page as BetterAuthDoc<"team">[];
 
     // Create maps for both ID and name lookups (supports both old name-based and new ID-based assignments)
-    const teamByIdMap = new Map(allTeams.map((team) => [String(team._id), team]));
+    const teamByIdMap = new Map(
+      allTeams.map((team) => [String(team._id), team])
+    );
     const teamByNameMap = new Map(allTeams.map((team) => [team.name, team]));
 
     // Map assignment teams (could be IDs or names) to team details
@@ -330,7 +335,7 @@ export const migrateCoachAssignmentsToTeamIds = mutation({
     );
 
     const allTeams = allTeamsResult.page as BetterAuthDoc<"team">[];
-    
+
     // Create maps for both name->id and id->id lookups
     const teamNameToId = new Map(allTeams.map((t) => [t.name, t._id]));
     const teamIdSet = new Set(allTeams.map((t) => String(t._id)));
@@ -344,7 +349,8 @@ export const migrateCoachAssignmentsToTeamIds = mutation({
       .collect();
 
     let assignmentsUpdated = 0;
-    const conversions: { userId: string; teamName: string; teamId: string }[] = [];
+    const conversions: { userId: string; teamName: string; teamId: string }[] =
+      [];
     const warnings: string[] = [];
 
     for (const assignment of coachAssignments) {

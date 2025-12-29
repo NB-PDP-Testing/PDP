@@ -64,9 +64,9 @@ export default function EditPlayerPassportPage() {
     organizationId: orgId,
   });
 
-  // Query eligible teams for player
-  const eligibleTeams = useQuery(
-    api.models.teamPlayerIdentities.getEligibleTeamsForPlayer,
+  // Query current teams for player (Phase 1 immediate fix)
+  const currentTeams = useQuery(
+    api.models.teamPlayerIdentities.getCurrentTeamsForPlayer,
     {
       playerIdentityId: playerId as Id<"playerIdentities">,
       organizationId: orgId,
@@ -108,15 +108,15 @@ export default function EditPlayerPassportPage() {
     }
   }, [playerIdentity, enrollment]);
 
-  // Initialize selected teams from eligible teams data
+  // Initialize selected teams from current teams data
   useEffect(() => {
-    if (eligibleTeams) {
-      const currentTeams = eligibleTeams
+    if (currentTeams) {
+      const currentTeamIds = currentTeams
         .filter((t) => t.isCurrentlyOn)
         .map((t) => t.teamId);
-      setSelectedTeamIds(currentTeams);
+      setSelectedTeamIds(currentTeamIds);
     }
-  }, [eligibleTeams]);
+  }, [currentTeams]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -140,18 +140,18 @@ export default function EditPlayerPassportPage() {
       }
 
       // Update team assignments
-      if (eligibleTeams && session?.user?.email) {
-        const currentTeams = eligibleTeams
+      if (currentTeams && session?.user?.email) {
+        const currentTeamIds = currentTeams
           .filter((t) => t.isCurrentlyOn)
           .map((t) => t.teamId);
 
         // Teams to add (in selected but not in current)
         const teamsToAdd = selectedTeamIds.filter(
-          (id) => !currentTeams.includes(id)
+          (id) => !currentTeamIds.includes(id)
         );
 
         // Teams to remove (in current but not in selected)
-        const teamsToRemove = currentTeams.filter(
+        const teamsToRemove = currentTeamIds.filter(
           (id) => !selectedTeamIds.includes(id)
         );
 
@@ -434,17 +434,17 @@ export default function EditPlayerPassportPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {eligibleTeams === undefined ? (
+          {currentTeams === undefined ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : eligibleTeams.length === 0 ? (
+          ) : currentTeams.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
-              <p>No teams available for this player's sport and age group.</p>
+              <p>No teams found for this player.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {eligibleTeams.map((team) => {
+              {currentTeams.map((team) => {
                 const isSelected = selectedTeamIds.includes(team.teamId);
                 const isDisabled = team.isCoreTeam && !isAdmin && isSelected;
 
@@ -604,7 +604,7 @@ export default function EditPlayerPassportPage() {
               })}
 
               {/* Help Text */}
-              {!isAdmin && eligibleTeams.some((t) => t.isCoreTeam) && (
+              {!isAdmin && currentTeams.some((t) => t.isCoreTeam) && (
                 <div className="rounded-lg border-blue-200 bg-blue-50 p-3 text-blue-900 text-sm">
                   <p className="font-medium">Core Team Protection</p>
                   <p className="mt-1 text-xs">

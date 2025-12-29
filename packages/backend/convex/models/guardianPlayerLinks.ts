@@ -493,7 +493,7 @@ export const deleteGuardianPlayerLink = mutation({
 /**
  * Link multiple players to a parent/guardian by email
  * Creates guardian identity if needed, then creates links
- * 
+ *
  * Replaces: api.models.players.linkPlayersToParent
  */
 export const linkPlayersToGuardian = mutation({
@@ -557,7 +557,9 @@ export const linkPlayersToGuardian = mutation({
         .first();
 
       if (!enrollment) {
-        errors.push(`Player ${player.firstName} ${player.lastName} not enrolled in this organization`);
+        errors.push(
+          `Player ${player.firstName} ${player.lastName} not enrolled in this organization`
+        );
         continue;
       }
 
@@ -579,7 +581,9 @@ export const linkPlayersToGuardian = mutation({
       // Check if this is the first guardian for this player
       const existingLinks = await ctx.db
         .query("guardianPlayerLinks")
-        .withIndex("by_player", (q) => q.eq("playerIdentityId", playerIdentityId))
+        .withIndex("by_player", (q) =>
+          q.eq("playerIdentityId", playerIdentityId)
+        )
         .collect();
 
       const isPrimary = existingLinks.length === 0;
@@ -610,7 +614,7 @@ export const linkPlayersToGuardian = mutation({
 
 /**
  * Unlink players from a guardian
- * 
+ *
  * Replaces: api.models.players.unlinkPlayersFromParent
  */
 export const unlinkPlayersFromGuardian = mutation({
@@ -659,7 +663,9 @@ export const unlinkPlayersFromGuardian = mutation({
       if (link.isPrimary) {
         const remainingLink = await ctx.db
           .query("guardianPlayerLinks")
-          .withIndex("by_player", (q) => q.eq("playerIdentityId", playerIdentityId))
+          .withIndex("by_player", (q) =>
+            q.eq("playerIdentityId", playerIdentityId)
+          )
           .first();
 
         if (remainingLink) {
@@ -860,9 +866,9 @@ export const autoLinkGuardianToPlayersInternal = internalMutation({
 /**
  * Get smart matches for a guardian joining an organization
  * Uses identity-based matching instead of legacy players table
- * 
+ *
  * Replaces: api.models.players.getSmartMatchesForParent
- * 
+ *
  * Matching criteria:
  * - Guardian email match: 50 points
  * - Child name match: 25-40 points
@@ -908,7 +914,9 @@ export const getSmartMatchesForGuardian = query({
       try {
         childrenData = JSON.parse(args.children);
       } catch (e) {
-        console.warn("[getSmartMatchesForGuardian] Failed to parse children JSON");
+        console.warn(
+          "[getSmartMatchesForGuardian] Failed to parse children JSON"
+        );
       }
     }
 
@@ -979,10 +987,14 @@ export const getSmartMatchesForGuardian = query({
         for (const child of childrenData) {
           const nameParts = child.name.trim().toLowerCase().split(/\s+/);
           const childFirstName = nameParts[0] || "";
-          const childLastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+          const childLastName =
+            nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
 
           // Exact first + last name match
-          if (playerFirstName === childFirstName && playerLastName === childLastName) {
+          if (
+            playerFirstName === childFirstName &&
+            playerLastName === childLastName
+          ) {
             if (!matchReasons.some((r) => r.includes("Child name"))) {
               score += 40;
               matchReasons.push(`Child name exact match: ${child.name}`);
@@ -1004,17 +1016,22 @@ export const getSmartMatchesForGuardian = query({
             }
           }
           // First name only match
-          else if (playerFirstName === childFirstName && playerFirstName.length > 2) {
-            if (!matchReasons.some((r) => r.includes("Child"))) {
-              score += 25;
-              matchReasons.push(`Child first name match: ${childFirstName}`);
-            }
+          else if (
+            playerFirstName === childFirstName &&
+            playerFirstName.length > 2 &&
+            !matchReasons.some((r) => r.includes("Child"))
+          ) {
+            score += 25;
+            matchReasons.push(`Child first name match: ${childFirstName}`);
           }
         }
       }
 
       // 3. Surname match
-      if (normalizedSurname && player.lastName.toLowerCase() === normalizedSurname) {
+      if (
+        normalizedSurname &&
+        player.lastName.toLowerCase() === normalizedSurname
+      ) {
         score += 25;
         matchReasons.push("Surname match");
       }
@@ -1038,7 +1055,10 @@ export const getSmartMatchesForGuardian = query({
       if (args.address && player.postcode) {
         const inputPostcode = args.address.toUpperCase().replace(/\s/g, "");
         const playerPostcode = player.postcode.toUpperCase().replace(/\s/g, "");
-        if (inputPostcode.includes(playerPostcode) || playerPostcode.includes(inputPostcode)) {
+        if (
+          inputPostcode.includes(playerPostcode) ||
+          playerPostcode.includes(inputPostcode)
+        ) {
           score += 20;
           matchReasons.push("Postcode match");
         }

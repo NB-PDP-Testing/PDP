@@ -19,6 +19,7 @@ import {
   Search,
   Share,
   Share2,
+  Shield,
   Target,
   TrendingDown,
   TrendingUp,
@@ -168,11 +169,14 @@ export function SmartCoachDashboard({
 
   // Handle saving team note
   const handleSaveTeamNote = async () => {
-    if (!selectedTeamData || !newTeamNote.trim() || !onSaveTeamNote) return;
-    
+    if (!(selectedTeamData && newTeamNote.trim() && onSaveTeamNote)) return;
+
     setSavingTeamNote(true);
     try {
-      const success = await onSaveTeamNote(selectedTeamData._id, newTeamNote.trim());
+      const success = await onSaveTeamNote(
+        selectedTeamData._id,
+        newTeamNote.trim()
+      );
       if (success) {
         setNewTeamNote("");
         setShowAddTeamNote(false);
@@ -250,6 +254,12 @@ export function SmartCoachDashboard({
 
   // Helper to get all teams for a player
   const getPlayerTeams = (player: any): string[] => {
+    // First check if player has explicit teams array (from updated coach dashboard)
+    if (player.teams && Array.isArray(player.teams) && player.teams.length > 0) {
+      return player.teams;
+    }
+
+    // Fallback to single team (backwards compatibility)
     const teamName = player.teamName || player.team;
     if (teamName) {
       return [teamName];
@@ -287,12 +297,11 @@ export function SmartCoachDashboard({
     }));
 
     const analytics = dynamicTeams.map((team) => {
-      const teamPlayers = players.filter(
-        (p) =>
-          ((p as any).teamName === team.name ||
-            (p as any).team === team.name) &&
-          p
-      );
+      const teamPlayers = players.filter((p) => {
+        // Check if player is on this team (supports multi-team)
+        const playerTeamsList = getPlayerTeams(p);
+        return playerTeamsList.includes(team.name) && p;
+      });
 
       if (teamPlayers.length === 0) {
         return {
@@ -488,7 +497,8 @@ export function SmartCoachDashboard({
 
     // Review status - count players who need review (overdue OR never reviewed)
     const needsReviewCount = allPlayers.filter(
-      (p) => p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate
+      (p) =>
+        p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate
     ).length;
     const completedCount = allPlayers.filter(
       (p) => p.reviewStatus === "Completed"
@@ -503,17 +513,17 @@ export function SmartCoachDashboard({
       const overdueCount = allPlayers.filter(
         (p) => p.reviewStatus === "Overdue"
       ).length;
-      
+
       let message = `⏰ ${needsReviewCount} player${needsReviewCount > 1 ? "s need" : " needs"} passport reviews`;
       if (neverReviewedCount > 0 && overdueCount > 0) {
         message += ` (${neverReviewedCount} never reviewed, ${overdueCount} overdue)`;
       } else if (neverReviewedCount > 0) {
-        message += ` (never assessed)`;
+        message += " (never assessed)";
       } else {
-        message += ` (90+ days overdue)`;
+        message += " (90+ days overdue)";
       }
       message += `. Review completion rate: ${reviewRate.toFixed(0)}%.`;
-      
+
       insights.push({
         type: "attendance",
         message,
@@ -602,12 +612,11 @@ export function SmartCoachDashboard({
         return;
       }
 
-      const teamPlayers = players.filter(
-        (p) =>
-          ((p as any).teamName === team.teamName ||
-            (p as any).team === team.teamName) &&
-          p
-      );
+      const teamPlayers = players.filter((p) => {
+        // Check if player is on this team (supports multi-team)
+        const playerTeamsList = getPlayerTeams(p);
+        return playerTeamsList.includes(team.teamName) && p;
+      });
 
       // ⚡ OPTIMIZED: Only send minimal data needed by backend (not full player objects)
       const teamData = {
@@ -644,7 +653,8 @@ export function SmartCoachDashboard({
       <div
         className="rounded-lg p-4 text-white shadow-md md:p-6"
         style={{
-          background: "linear-gradient(to right, var(--org-primary), var(--org-primary))",
+          background:
+            "linear-gradient(to right, var(--org-primary), var(--org-primary))",
           filter: "brightness(0.95)",
         }}
       >
@@ -681,13 +691,24 @@ export function SmartCoachDashboard({
         // Use allPlayers for stats if provided, otherwise fall back to players
         const statsPlayers = allPlayersProp || players;
         const totalCount = statsPlayers.length;
-        const completedCount = statsPlayers.filter((p) => p.reviewStatus === "Completed").length;
-        const needsReviewCount = statsPlayers.filter((p) => p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate).length;
-        const playersWithSkills = statsPlayers.filter(p => Object.keys(p.skills || {}).length > 0);
-        const avgSkill = playersWithSkills.length > 0 
-          ? playersWithSkills.reduce((sum, p) => sum + calculatePlayerAvgSkill(p), 0) / playersWithSkills.length 
-          : 0;
-        
+        const completedCount = statsPlayers.filter(
+          (p) => p.reviewStatus === "Completed"
+        ).length;
+        const needsReviewCount = statsPlayers.filter(
+          (p) =>
+            p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate
+        ).length;
+        const playersWithSkills = statsPlayers.filter(
+          (p) => Object.keys(p.skills || {}).length > 0
+        );
+        const avgSkill =
+          playersWithSkills.length > 0
+            ? playersWithSkills.reduce(
+                (sum, p) => sum + calculatePlayerAvgSkill(p),
+                0
+              ) / playersWithSkills.length
+            : 0;
+
         return (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
             <Card
@@ -704,7 +725,9 @@ export function SmartCoachDashboard({
                 <div className="font-medium text-gray-600 text-xs md:text-sm">
                   Total Players
                 </div>
-                <div className="mt-1 text-blue-600 text-xs">Click to view all</div>
+                <div className="mt-1 text-blue-600 text-xs">
+                  Click to view all
+                </div>
                 <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
                   <div
                     className="h-1 rounded-full bg-blue-600"
@@ -776,8 +799,8 @@ export function SmartCoachDashboard({
                 </div>
                 <div className="text-gray-600 text-sm">Avg Skill Level</div>
                 <div className="mt-1 text-purple-600 text-xs">
-                  {playersWithSkills.length === 0 
-                    ? "No assessments yet" 
+                  {playersWithSkills.length === 0
+                    ? "No assessments yet"
                     : `${playersWithSkills.length} assessed`}
                 </div>
                 <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
@@ -1129,20 +1152,15 @@ export function SmartCoachDashboard({
             ))
           ) : (
             <div className="py-8 text-center">
-              <BarChart3
-                className="mx-auto mb-3 text-gray-300"
-                size={48}
-              />
-              <p className="mb-2 font-medium text-gray-600">
-                No insights yet
-              </p>
+              <BarChart3 className="mx-auto mb-3 text-gray-300" size={48} />
+              <p className="mb-2 font-medium text-gray-600">No insights yet</p>
               <p className="mb-3 text-gray-500 text-sm">
                 Insights will appear automatically when players have skill
                 assessments recorded.
               </p>
               <p className="text-gray-400 text-xs">
-                💡 Navigate to the Assess page to record player skills, or import
-                benchmark data from Dev Tools.
+                💡 Navigate to the Assess page to record player skills, or
+                import benchmark data from Dev Tools.
               </p>
             </div>
           )}
@@ -1192,73 +1210,75 @@ export function SmartCoachDashboard({
             <div className="space-y-3 md:space-y-4">
               {aiRecommendations.length > 0 ? (
                 aiRecommendations.map((rec, idx) => (
-                <div
-                  className="rounded-lg border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-3 md:p-4"
-                  key={idx}
-                >
-                  <div className="mb-3 flex items-start gap-2 md:gap-3">
-                    <div
-                      className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full font-bold text-white text-xs md:h-8 md:w-8 md:text-sm ${
-                        rec.priority === 1
-                          ? "bg-red-600"
-                          : rec.priority === 2
-                            ? "bg-orange-600"
-                            : "bg-green-600"
-                      }`}
-                    >
-                      {rec.priority}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="mb-1 font-bold text-gray-800 text-sm leading-tight md:text-base">
-                        {rec.title}
-                      </h4>
-                      <p className="mb-3 text-gray-600 text-xs leading-relaxed md:text-sm">
-                        {rec.description}
-                      </p>
-
-                      <div className="mb-3">
-                        <div className="mb-2 font-semibold text-gray-700 text-xs">
-                          {isClubView
-                            ? "Recommended Club-Wide Actions:"
-                            : "Recommended Actions:"}
-                        </div>
-                        <ul className="space-y-1.5">
-                          {rec.actionItems.map((action, i) => (
-                            <li
-                              className="flex items-start gap-2 text-gray-600 text-xs"
-                              key={i}
-                            >
-                              <CheckCircle
-                                className="mt-0.5 flex-shrink-0 text-green-600"
-                                size={12}
-                              />
-                              <span className="leading-relaxed">{action}</span>
-                            </li>
-                          ))}
-                        </ul>
+                  <div
+                    className="rounded-lg border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-3 md:p-4"
+                    key={idx}
+                  >
+                    <div className="mb-3 flex items-start gap-2 md:gap-3">
+                      <div
+                        className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full font-bold text-white text-xs md:h-8 md:w-8 md:text-sm ${
+                          rec.priority === 1
+                            ? "bg-red-600"
+                            : rec.priority === 2
+                              ? "bg-orange-600"
+                              : "bg-green-600"
+                        }`}
+                      >
+                        {rec.priority}
                       </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="mb-1 font-bold text-gray-800 text-sm leading-tight md:text-base">
+                          {rec.title}
+                        </h4>
+                        <p className="mb-3 text-gray-600 text-xs leading-relaxed md:text-sm">
+                          {rec.description}
+                        </p>
 
-                      {rec.playersAffected.length > 0 && (
-                        <div
-                          className={`rounded border p-2 text-gray-600 text-xs ${
-                            isClubView
-                              ? "border-purple-200 bg-purple-50"
-                              : "border-gray-200 bg-gray-50"
-                          }`}
-                        >
-                          <span className="font-semibold">
+                        <div className="mb-3">
+                          <div className="mb-2 font-semibold text-gray-700 text-xs">
                             {isClubView
-                              ? "Teams/Players Impacted: "
-                              : "Focus on: "}
-                          </span>
-                          <span className="break-words">
-                            {rec.playersAffected.join(", ")}
-                          </span>
+                              ? "Recommended Club-Wide Actions:"
+                              : "Recommended Actions:"}
+                          </div>
+                          <ul className="space-y-1.5">
+                            {rec.actionItems.map((action, i) => (
+                              <li
+                                className="flex items-start gap-2 text-gray-600 text-xs"
+                                key={i}
+                              >
+                                <CheckCircle
+                                  className="mt-0.5 flex-shrink-0 text-green-600"
+                                  size={12}
+                                />
+                                <span className="leading-relaxed">
+                                  {action}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                      )}
+
+                        {rec.playersAffected.length > 0 && (
+                          <div
+                            className={`rounded border p-2 text-gray-600 text-xs ${
+                              isClubView
+                                ? "border-purple-200 bg-purple-50"
+                                : "border-gray-200 bg-gray-50"
+                            }`}
+                          >
+                            <span className="font-semibold">
+                              {isClubView
+                                ? "Teams/Players Impacted: "
+                                : "Focus on: "}
+                            </span>
+                            <span className="break-words">
+                              {rec.playersAffected.join(", ")}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
                 ))
               ) : (
                 <div className="py-8 text-center">
@@ -1303,12 +1323,12 @@ export function SmartCoachDashboard({
               >
                 {showAddTeamNote ? (
                   <>
-                    <X size={16} className="mr-1" />
+                    <X className="mr-1" size={16} />
                     Cancel
                   </>
                 ) : (
                   <>
-                    <Edit size={16} className="mr-1" />
+                    <Edit className="mr-1" size={16} />
                     Add Note
                   </>
                 )}
@@ -1354,16 +1374,18 @@ export function SmartCoachDashboard({
             {/* Display existing notes */}
             {selectedTeamData?.coachNotes ? (
               <div className="space-y-3">
-                {selectedTeamData.coachNotes.split("\n\n").map((note: string, idx: number) => (
-                  <div
-                    className="rounded-lg border border-blue-200 bg-white p-3"
-                    key={idx}
-                  >
-                    <p className="whitespace-pre-wrap text-gray-700 text-sm">
-                      {note}
-                    </p>
-                  </div>
-                ))}
+                {selectedTeamData.coachNotes
+                  .split("\n\n")
+                  .map((note: string, idx: number) => (
+                    <div
+                      className="rounded-lg border border-blue-200 bg-white p-3"
+                      key={idx}
+                    >
+                      <p className="whitespace-pre-wrap text-gray-700 text-sm">
+                        {note}
+                      </p>
+                    </div>
+                  ))}
               </div>
             ) : (
               <div className="py-6 text-center">
@@ -1372,7 +1394,8 @@ export function SmartCoachDashboard({
                   No notes yet for this team
                 </p>
                 <p className="text-gray-400 text-xs">
-                  Add notes about training sessions, matches, or team development
+                  Add notes about training sessions, matches, or team
+                  development
                 </p>
               </div>
             )}
@@ -1611,7 +1634,10 @@ export function SmartCoachDashboard({
                                 {player.ageGroup}
                               </p>
                               {player.coachNotes && (
-                                <span className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-blue-700 text-[10px]" title={player.coachNotes}>
+                                <span
+                                  className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700"
+                                  title={player.coachNotes}
+                                >
                                   <FileText size={10} />
                                   Notes
                                 </span>
@@ -1621,7 +1647,34 @@ export function SmartCoachDashboard({
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600 text-sm">
-                        {getPlayerTeams(player).join(", ") || "Not assigned"}
+                        {getPlayerTeams(player).length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-1">
+                            {getPlayerTeams(player).map((teamName, idx) => {
+                              const isCoreTeam =
+                                player.coreTeamName === teamName;
+                              return (
+                                <span
+                                  key={`${player._id}-${teamName}-${idx}`}
+                                  className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
+                                    isCoreTeam
+                                      ? "bg-green-100 font-medium text-green-700"
+                                      : "bg-gray-100 text-gray-700"
+                                  }`}
+                                  title={
+                                    isCoreTeam
+                                      ? "Core Team (matches age group)"
+                                      : "Additional Team"
+                                  }
+                                >
+                                  {isCoreTeam && <Shield size={12} />}
+                                  {teamName}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          "Not assigned"
+                        )}
                       </td>
                       <td className="hidden px-4 py-3 text-gray-600 text-sm md:table-cell">
                         {player.ageGroup}
@@ -1886,12 +1939,11 @@ export function SmartCoachDashboard({
                   onClick={() => {
                     const team = teamAnalytics.find((t) => t.playerCount > 0);
                     if (team) {
-                      const teamPlayers = players.filter(
-                        (p) =>
-                          ((p as any).teamName === team.teamName ||
-                            (p as any).team === team.teamName) &&
-                          p
-                      );
+                      const teamPlayers = players.filter((p) => {
+                        // Check if player is on this team (supports multi-team)
+                        const playerTeamsList = getPlayerTeams(p);
+                        return playerTeamsList.includes(team.teamName) && p;
+                      });
                       setPlanToShare({
                         player: {
                           name: `${team.teamName} Session Plan`,

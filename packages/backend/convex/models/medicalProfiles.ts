@@ -32,12 +32,11 @@ const medicalProfileValidator = v.object({
 export const getByPlayerId = query({
   args: { playerId: v.id("players") },
   returns: v.union(medicalProfileValidator, v.null()),
-  handler: async (ctx, args) => {
-    return await ctx.db
+  handler: async (ctx, args) =>
+    await ctx.db
       .query("medicalProfiles")
       .withIndex("by_playerId", (q) => q.eq("playerId", args.playerId))
-      .first();
-  },
+      .first(),
 });
 
 /**

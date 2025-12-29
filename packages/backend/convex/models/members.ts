@@ -275,7 +275,12 @@ export const updateMemberFunctionalRoles = mutation({
     organizationId: v.string(),
     userId: v.string(),
     functionalRoles: v.array(
-      v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
+      v.union(
+        v.literal("coach"),
+        v.literal("parent"),
+        v.literal("admin"),
+        v.literal("player")
+      )
     ),
   },
   returns: v.null(),
@@ -336,7 +341,12 @@ export const getMemberRoleDetails = query({
       name: v.union(v.string(), v.null()),
       betterAuthRole: v.string(),
       functionalRoles: v.array(
-        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
+        v.union(
+          v.literal("coach"),
+          v.literal("parent"),
+          v.literal("admin"),
+          v.literal("player")
+        )
       ),
       hasFunctionalRoles: v.boolean(),
     }),
@@ -578,10 +588,10 @@ export const getMembersWithDetails = query({
         }
 
         // Get linked players if they have parent functional role (using identity system)
-        let linkedPlayers: any[] = [];
+        const linkedPlayers: any[] = [];
         if (functionalRoles.includes("parent") && userResult?.email) {
           const userEmail = userResult.email.toLowerCase().trim();
-          
+
           // Find guardian identity by email
           const guardian = await ctx.db
             .query("guardianIdentities")
@@ -1414,7 +1424,12 @@ export const getMembersForAllOrganizations = query({
       organizationName: v.union(v.string(), v.null()),
       organizationLogo: v.union(v.string(), v.null()),
       functionalRoles: v.array(
-        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
+        v.union(
+          v.literal("coach"),
+          v.literal("parent"),
+          v.literal("admin"),
+          v.literal("player")
+        )
       ),
       activeFunctionalRole: v.union(
         v.literal("coach"),
@@ -1563,7 +1578,12 @@ export const getMembersForAllOrganizations = query({
 export const requestFunctionalRole = mutation({
   args: {
     organizationId: v.string(),
-    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player")),
+    role: v.union(
+      v.literal("coach"),
+      v.literal("parent"),
+      v.literal("admin"),
+      v.literal("player")
+    ),
     // Optional role-specific data
     message: v.optional(v.string()), // Why they need this role
   },
@@ -1669,7 +1689,12 @@ export const requestFunctionalRole = mutation({
 export const cancelFunctionalRoleRequest = mutation({
   args: {
     organizationId: v.string(),
-    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player")),
+    role: v.union(
+      v.literal("coach"),
+      v.literal("parent"),
+      v.literal("admin"),
+      v.literal("player")
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1855,7 +1880,12 @@ export const approveFunctionalRoleRequest = mutation({
   args: {
     organizationId: v.string(),
     memberId: v.string(),
-    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player")),
+    role: v.union(
+      v.literal("coach"),
+      v.literal("parent"),
+      v.literal("admin"),
+      v.literal("player")
+    ),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1934,14 +1964,18 @@ export const approveFunctionalRoleRequest = mutation({
           .trim();
         try {
           await ctx.runMutation(
-            internal.models.guardianPlayerLinks.autoLinkGuardianToPlayersInternal,
+            internal.models.guardianPlayerLinks
+              .autoLinkGuardianToPlayersInternal,
             {
               guardianEmail: normalizedEmail,
               organizationId: args.organizationId,
             }
           );
         } catch (error) {
-          console.error("[approveFunctionalRoleRequest] Auto-link error:", error);
+          console.error(
+            "[approveFunctionalRoleRequest] Auto-link error:",
+            error
+          );
         }
       }
     }
@@ -1960,7 +1994,12 @@ export const rejectFunctionalRoleRequest = mutation({
   args: {
     organizationId: v.string(),
     memberId: v.string(),
-    role: v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player")),
+    role: v.union(
+      v.literal("coach"),
+      v.literal("parent"),
+      v.literal("admin"),
+      v.literal("player")
+    ),
     reason: v.optional(v.string()),
   },
   returns: v.null(),
@@ -2135,7 +2174,12 @@ export const getCurrentOwner = query({
       userImage: v.union(v.string(), v.null()),
       role: v.literal("owner"),
       functionalRoles: v.array(
-        v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"), v.literal("player"))
+        v.union(
+          v.literal("coach"),
+          v.literal("parent"),
+          v.literal("admin"),
+          v.literal("player")
+        )
       ),
       createdAt: v.union(v.number(), v.null()),
     }),

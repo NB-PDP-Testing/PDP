@@ -70,6 +70,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { PlayerEligibilityBadge } from "./player-eligibility";
 
 interface TeamFormData {
   name: string;
@@ -145,10 +146,9 @@ function TeamRoster({
   teamName: string;
   onManageClick: () => void;
 }) {
-  const players = useQuery(
-    api.models.teamPlayerIdentities.getPlayersForTeam,
-    { teamId }
-  );
+  const players = useQuery(api.models.teamPlayerIdentities.getPlayersForTeam, {
+    teamId,
+  });
 
   if (!players) {
     return (
@@ -373,9 +373,19 @@ function PlayerAssignmentGrid({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium text-sm">{player.name}</p>
-          <p className="truncate text-muted-foreground text-xs">
-            {player.ageGroup}
-          </p>
+          <div className="flex flex-wrap items-center gap-1">
+            <p className="truncate text-muted-foreground text-xs">
+              {player.ageGroup}
+            </p>
+            {player.playerIdentityId && (
+              <PlayerEligibilityBadge
+                compact
+                organizationId={player.organizationId || ""}
+                playerIdentityId={player.playerIdentityId}
+                teamId={teamId}
+              />
+            )}
+          </div>
         </div>
         <div
           className={`flex-shrink-0 ${
@@ -461,12 +471,15 @@ export default function ManageTeamsPage() {
   // DEBUG: Log team sport data
   if (teams) {
     console.log("🏟️ TEAMS PAGE - All teams:", teams);
-    console.log("🏟️ TEAMS PAGE - Teams with sport data:", teams.map((t) => ({
-      _id: t._id,
-      name: t.name,
-      sport: t.sport,
-      hasSport: !!t.sport,
-    })));
+    console.log(
+      "🏟️ TEAMS PAGE - Teams with sport data:",
+      teams.map((t) => ({
+        _id: t._id,
+        name: t.name,
+        sport: t.sport,
+        hasSport: !!t.sport,
+      }))
+    );
   }
 
   // Get organization data (for supported sports)
@@ -485,7 +498,7 @@ export default function ManageTeamsPage() {
 
   // Helper function to get sport display name
   const getSportDisplayName = (sportCode: string | undefined) => {
-    if (!sportCode) return undefined;
+    if (!sportCode) return;
     return sportCodeToName.get(sportCode) || sportCode;
   };
 
@@ -570,9 +583,10 @@ export default function ManageTeamsPage() {
     setEditingTeamName("");
 
     // Default sport from organization's supported sports (use first sport if available)
-    const defaultSport = organization?.supportedSports && organization.supportedSports.length > 0
-      ? organization.supportedSports[0]
-      : "";
+    const defaultSport =
+      organization?.supportedSports && organization.supportedSports.length > 0
+        ? organization.supportedSports[0]
+        : "";
 
     setFormData({
       ...defaultFormData,
@@ -586,10 +600,10 @@ export default function ManageTeamsPage() {
   const openEditDialog = (team: any) => {
     setEditingTeamId(team._id);
     setEditingTeamName(team.name);
-    
+
     // Keep the original gender value (no mapping needed since schema accepts all)
     const mappedGender = team.gender || "";
-    
+
     setFormData({
       name: team.name,
       sport: team.sport || "",
@@ -625,7 +639,13 @@ export default function ManageTeamsPage() {
           name: formData.name,
           sport: formData.sport,
           ageGroup: formData.ageGroup,
-          gender: formData.gender as "Male" | "Female" | "Mixed" | "Boys" | "Girls" | undefined,
+          gender: formData.gender as
+            | "Male"
+            | "Female"
+            | "Mixed"
+            | "Boys"
+            | "Girls"
+            | undefined,
           season: formData.season,
           description: formData.description || undefined,
           trainingSchedule: formData.trainingSchedule || undefined,
@@ -635,13 +655,31 @@ export default function ManageTeamsPage() {
 
         // Process player assignments (using NEW identity system)
         // Add new players
+        const addErrors: string[] = [];
         for (const playerIdentityId of pendingAssignments.add) {
-          await addPlayerToTeamMutation({
+          const result = await addPlayerToTeamMutation({
             playerIdentityId: playerIdentityId as Id<"playerIdentities">,
             teamId: editingTeamId,
             organizationId: orgId,
             season: formData.season,
           });
+
+          if (!result.success) {
+            addErrors.push(result.error || "Unknown error adding player");
+            console.error("[Teams] Failed to add player:", {
+              playerIdentityId,
+              error: result.error,
+            });
+          }
+        }
+
+        // Show errors if any players failed to add
+        if (addErrors.length > 0) {
+          toast.error(
+            `Failed to add ${addErrors.length} player(s): ${addErrors[0]}${
+              addErrors.length > 1 ? ` (and ${addErrors.length - 1} more)` : ""
+            }`
+          );
         }
 
         // Remove players
@@ -657,7 +695,10 @@ export default function ManageTeamsPage() {
               organizationId: orgId,
               userEmail,
             });
-            console.log("[Teams] Player removed successfully:", playerIdentityId);
+            console.log(
+              "[Teams] Player removed successfully:",
+              playerIdentityId
+            );
           } catch (removeError) {
             console.error("[Teams] Error removing player:", {
               playerIdentityId,
@@ -675,7 +716,13 @@ export default function ManageTeamsPage() {
           organizationId: orgId,
           sport: formData.sport,
           ageGroup: formData.ageGroup,
-          gender: formData.gender as "Male" | "Female" | "Mixed" | "Boys" | "Girls" | undefined,
+          gender: formData.gender as
+            | "Male"
+            | "Female"
+            | "Mixed"
+            | "Boys"
+            | "Girls"
+            | undefined,
           season: formData.season,
           description: formData.description || undefined,
           trainingSchedule: formData.trainingSchedule || undefined,
@@ -1118,11 +1165,13 @@ export default function ManageTeamsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {organization?.supportedSports && organization.supportedSports.length > 0 && formData.sport === organization.supportedSports[0] && (
-                  <p className="text-xs text-muted-foreground">
-                    Auto-selected from organization
-                  </p>
-                )}
+                {organization?.supportedSports &&
+                  organization.supportedSports.length > 0 &&
+                  formData.sport === organization.supportedSports[0] && (
+                    <p className="text-muted-foreground text-xs">
+                      Auto-selected from organization
+                    </p>
+                  )}
               </div>
 
               <div className="space-y-2">

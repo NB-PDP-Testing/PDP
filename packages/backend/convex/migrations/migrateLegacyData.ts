@@ -1,15 +1,15 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import { mutation, query } from "../_generated/server";
 
 /**
  * Migration Script: Legacy Data to Identity System
- * 
+ *
  * This script migrates data from legacy tables to the new identity-based tables:
  * - injuries → playerInjuries
  * - developmentGoals → passportGoals
  * - players.coachNotes → orgPlayerEnrollments.coachNotes
- * 
+ *
  * Matching is done by:
  * 1. Player name (firstName + lastName)
  * 2. Date of birth (if available)
@@ -28,7 +28,7 @@ async function findMatchingPlayerIdentity(
   const nameParts = legacyPlayer.name.trim().split(/\s+/);
   const firstName = nameParts[0] || "";
   const lastName = nameParts.slice(1).join(" ") || nameParts[0] || "";
-  
+
   // Try to find by name and DOB first (most accurate)
   if (legacyPlayer.dateOfBirth) {
     const exactMatch = await ctx.db
@@ -40,12 +40,12 @@ async function findMatchingPlayerIdentity(
           .eq("dateOfBirth", legacyPlayer.dateOfBirth)
       )
       .first();
-    
+
     if (exactMatch) {
       return exactMatch._id;
     }
   }
-  
+
   // Fall back to name-only matching
   const nameMatches = await ctx.db
     .query("playerIdentities")
@@ -53,11 +53,11 @@ async function findMatchingPlayerIdentity(
       q.eq("firstName", firstName).eq("lastName", lastName)
     )
     .collect();
-  
+
   if (nameMatches.length === 1) {
     return nameMatches[0]._id;
   }
-  
+
   // If multiple matches, try to narrow down by other criteria
   if (nameMatches.length > 1 && legacyPlayer.organizationId) {
     // Find which identity has an enrollment in this org
@@ -70,13 +70,13 @@ async function findMatchingPlayerIdentity(
             .eq("organizationId", legacyPlayer.organizationId)
         )
         .first();
-      
+
       if (enrollment) {
         return identity._id;
       }
     }
   }
-  
+
   return null;
 }
 
@@ -90,13 +90,13 @@ export const getMigrationPreview = query({
   },
   handler: async (ctx, args) => {
     // Count legacy records
-    let injuriesQuery = ctx.db.query("injuries");
-    let goalsQuery = ctx.db.query("developmentGoals");
-    let playersQuery = ctx.db.query("players");
-    
+    const injuriesQuery = ctx.db.query("injuries");
+    const goalsQuery = ctx.db.query("developmentGoals");
+    const playersQuery = ctx.db.query("players");
+
     const allInjuries = await injuriesQuery.collect();
     const allGoals = await goalsQuery.collect();
-    
+
     let players;
     if (args.organizationId) {
       players = await ctx.db
@@ -108,24 +108,27 @@ export const getMigrationPreview = query({
     } else {
       players = await playersQuery.collect();
     }
-    
+
     // Count players with coach notes
-    const playersWithNotes = players.filter((p: any) => p.coachNotes && p.coachNotes.trim());
-    
+    const playersWithNotes = players.filter(
+      (p: any) => p.coachNotes && p.coachNotes.trim()
+    );
+
     // Filter injuries and goals by players in scope
     const playerIds = new Set(players.map((p: any) => p._id));
     const injuries = allInjuries.filter((i: any) => playerIds.has(i.playerId));
     const goals = allGoals.filter((g: any) => playerIds.has(g.playerId));
-    
+
     // Count existing records in new system
     const existingInjuries = await ctx.db.query("playerInjuries").collect();
     const existingGoals = await ctx.db.query("passportGoals").collect();
-    
+
     // Try to match players to identities
     let matchedPlayers = 0;
-    let unmatchedPlayers: { name: string; dob?: string; org: string }[] = [];
-    
-    for (const player of players.slice(0, 100)) { // Limit to first 100 for preview
+    const unmatchedPlayers: { name: string; dob?: string; org: string }[] = [];
+
+    for (const player of players.slice(0, 100)) {
+      // Limit to first 100 for preview
       const match = await findMatchingPlayerIdentity(ctx, player);
       if (match) {
         matchedPlayers++;
@@ -137,7 +140,7 @@ export const getMigrationPreview = query({
         });
       }
     }
-    
+
     return {
       legacy: {
         injuries: injuries.length,
@@ -177,7 +180,7 @@ export const migrateInjuries = mutation({
       skipped: 0,
       errors: [] as { playerId: string; playerName: string; error: string }[],
     };
-    
+
     // Get players in scope
     let players;
     if (args.organizationId) {
@@ -190,25 +193,30 @@ export const migrateInjuries = mutation({
     } else {
       players = await ctx.db.query("players").collect();
     }
-    
+
     const playerMap = new Map(players.map((p: any) => [p._id, p]));
-    
+
     // Get all injuries
     const allInjuries = await ctx.db.query("injuries").collect();
-    const injuriesToMigrate = allInjuries.filter((i: any) => playerMap.has(i.playerId));
-    
+    const injuriesToMigrate = allInjuries.filter((i: any) =>
+      playerMap.has(i.playerId)
+    );
+
     for (const injury of injuriesToMigrate.slice(0, batchSize)) {
       results.processed++;
-      
+
       const legacyPlayer = playerMap.get(injury.playerId);
       if (!legacyPlayer) {
         results.skipped++;
         continue;
       }
-      
+
       // Find matching player identity
-      const playerIdentityId = await findMatchingPlayerIdentity(ctx, legacyPlayer);
-      
+      const playerIdentityId = await findMatchingPlayerIdentity(
+        ctx,
+        legacyPlayer
+      );
+
       if (!playerIdentityId) {
         results.errors.push({
           playerId: injury.playerId,
@@ -218,7 +226,7 @@ export const migrateInjuries = mutation({
         results.skipped++;
         continue;
       }
-      
+
       // Check if already migrated (by player + date + body part)
       const existing = await ctx.db
         .query("playerInjuries")
@@ -232,27 +240,33 @@ export const migrateInjuries = mutation({
           )
         )
         .first();
-      
+
       if (existing) {
         results.skipped++;
         continue;
       }
-      
+
       if (!args.dryRun) {
         // Map severity (legacy uses capitalized, new uses lowercase)
-        const severityMap: Record<string, "minor" | "moderate" | "severe" | "long_term"> = {
-          "Minor": "minor",
-          "Moderate": "moderate",
-          "Severe": "severe",
+        const severityMap: Record<
+          string,
+          "minor" | "moderate" | "severe" | "long_term"
+        > = {
+          Minor: "minor",
+          Moderate: "moderate",
+          Severe: "severe",
         };
-        
+
         // Map status
-        const statusMap: Record<string, "active" | "recovering" | "cleared" | "healed"> = {
-          "Active": "active",
-          "Recovering": "recovering",
-          "Healed": "healed",
+        const statusMap: Record<
+          string,
+          "active" | "recovering" | "cleared" | "healed"
+        > = {
+          Active: "active",
+          Recovering: "recovering",
+          Healed: "healed",
         };
-        
+
         // Create new injury record
         await ctx.db.insert("playerInjuries", {
           playerIdentityId,
@@ -267,11 +281,13 @@ export const migrateInjuries = mutation({
           expectedReturn: injury.expectedReturn || undefined,
           actualReturn: injury.actualReturn || undefined,
           daysOut: injury.daysOut || undefined,
-          returnToPlayProtocol: injury.returnToPlayProtocol?.map((step: any) => ({
-            ...step,
-            step: 0, // Add step number
-            clearedBy: undefined,
-          })),
+          returnToPlayProtocol: injury.returnToPlayProtocol?.map(
+            (step: any) => ({
+              ...step,
+              step: 0, // Add step number
+              clearedBy: undefined,
+            })
+          ),
           occurredDuring: injury.relatedToMatch
             ? "match"
             : injury.relatedToTraining
@@ -285,10 +301,10 @@ export const migrateInjuries = mutation({
           updatedAt: Date.now(),
         });
       }
-      
+
       results.migrated++;
     }
-    
+
     return {
       ...results,
       dryRun: args.dryRun,
@@ -315,7 +331,7 @@ export const migrateGoals = mutation({
       skipped: 0,
       errors: [] as { playerId: string; playerName: string; error: string }[],
     };
-    
+
     // Get players in scope
     let players;
     if (args.organizationId) {
@@ -328,25 +344,30 @@ export const migrateGoals = mutation({
     } else {
       players = await ctx.db.query("players").collect();
     }
-    
+
     const playerMap = new Map(players.map((p: any) => [p._id, p]));
-    
+
     // Get all goals
     const allGoals = await ctx.db.query("developmentGoals").collect();
-    const goalsToMigrate = allGoals.filter((g: any) => playerMap.has(g.playerId));
-    
+    const goalsToMigrate = allGoals.filter((g: any) =>
+      playerMap.has(g.playerId)
+    );
+
     for (const goal of goalsToMigrate.slice(0, batchSize)) {
       results.processed++;
-      
+
       const legacyPlayer = playerMap.get(goal.playerId);
       if (!legacyPlayer) {
         results.skipped++;
         continue;
       }
-      
+
       // Find matching player identity
-      const playerIdentityId = await findMatchingPlayerIdentity(ctx, legacyPlayer);
-      
+      const playerIdentityId = await findMatchingPlayerIdentity(
+        ctx,
+        legacyPlayer
+      );
+
       if (!playerIdentityId) {
         results.errors.push({
           playerId: goal.playerId,
@@ -356,7 +377,7 @@ export const migrateGoals = mutation({
         results.skipped++;
         continue;
       }
-      
+
       // Find sport passport for this player
       const passport = await ctx.db
         .query("sportPassports")
@@ -364,7 +385,7 @@ export const migrateGoals = mutation({
           q.eq("playerIdentityId", playerIdentityId)
         )
         .first();
-      
+
       if (!passport) {
         results.errors.push({
           playerId: goal.playerId,
@@ -374,7 +395,7 @@ export const migrateGoals = mutation({
         results.skipped++;
         continue;
       }
-      
+
       // Check if already migrated (by title + player)
       const existing = await ctx.db
         .query("passportGoals")
@@ -383,46 +404,52 @@ export const migrateGoals = mutation({
         )
         .filter((q: any) => q.eq(q.field("title"), goal.title))
         .first();
-      
+
       if (existing) {
         results.skipped++;
         continue;
       }
-      
+
       if (!args.dryRun) {
         // Map category (legacy uses capitalized)
-        const categoryMap: Record<string, "technical" | "tactical" | "physical" | "mental" | "social"> = {
-          "Technical": "technical",
-          "Physical": "physical",
-          "Mental": "mental",
-          "Team": "social", // Map Team → social
+        const categoryMap: Record<
+          string,
+          "technical" | "tactical" | "physical" | "mental" | "social"
+        > = {
+          Technical: "technical",
+          Physical: "physical",
+          Mental: "mental",
+          Team: "social", // Map Team → social
         };
-        
+
         // Map priority
         const priorityMap: Record<string, "high" | "medium" | "low"> = {
-          "High": "high",
-          "Medium": "medium",
-          "Low": "low",
+          High: "high",
+          Medium: "medium",
+          Low: "low",
         };
-        
+
         // Map status
-        const statusMap: Record<string, "not_started" | "in_progress" | "completed" | "on_hold" | "cancelled"> = {
+        const statusMap: Record<
+          string,
+          "not_started" | "in_progress" | "completed" | "on_hold" | "cancelled"
+        > = {
           "Not Started": "not_started",
           "In Progress": "in_progress",
-          "Completed": "completed",
+          Completed: "completed",
           "On Hold": "on_hold",
         };
-        
+
         // Combine coach notes into single string
         const coachNotesString = goal.coachNotes
           ?.map((n: any) => `[${n.date}] ${n.note}`)
           .join("\n\n");
-        
+
         // Combine player notes into single string
         const playerNotesString = goal.playerNotes
           ?.map((n: any) => `[${n.date}] ${n.note}`)
           .join("\n\n");
-        
+
         await ctx.db.insert("passportGoals", {
           passportId: passport._id,
           playerIdentityId,
@@ -445,10 +472,10 @@ export const migrateGoals = mutation({
           updatedAt: Date.now(),
         });
       }
-      
+
       results.migrated++;
     }
-    
+
     return {
       ...results,
       dryRun: args.dryRun,
@@ -475,7 +502,7 @@ export const migrateCoachNotes = mutation({
       skipped: 0,
       errors: [] as { playerId: string; playerName: string; error: string }[],
     };
-    
+
     // Get players with coach notes
     let players;
     if (args.organizationId) {
@@ -488,17 +515,17 @@ export const migrateCoachNotes = mutation({
     } else {
       players = await ctx.db.query("players").collect();
     }
-    
+
     const playersWithNotes = players.filter(
       (p: any) => p.coachNotes && p.coachNotes.trim()
     );
-    
+
     for (const player of playersWithNotes.slice(0, batchSize)) {
       results.processed++;
-      
+
       // Find matching player identity
       const playerIdentityId = await findMatchingPlayerIdentity(ctx, player);
-      
+
       if (!playerIdentityId) {
         results.errors.push({
           playerId: player._id,
@@ -508,7 +535,7 @@ export const migrateCoachNotes = mutation({
         results.skipped++;
         continue;
       }
-      
+
       // Find enrollment for this player in this org
       const enrollment = await ctx.db
         .query("orgPlayerEnrollments")
@@ -518,7 +545,7 @@ export const migrateCoachNotes = mutation({
             .eq("organizationId", player.organizationId)
         )
         .first();
-      
+
       if (!enrollment) {
         results.errors.push({
           playerId: player._id,
@@ -528,23 +555,23 @@ export const migrateCoachNotes = mutation({
         results.skipped++;
         continue;
       }
-      
+
       // Skip if enrollment already has notes
       if (enrollment.coachNotes && enrollment.coachNotes.trim()) {
         results.skipped++;
         continue;
       }
-      
+
       if (!args.dryRun) {
         await ctx.db.patch(enrollment._id, {
           coachNotes: player.coachNotes,
           updatedAt: Date.now(),
         });
       }
-      
+
       results.migrated++;
     }
-    
+
     return {
       ...results,
       dryRun: args.dryRun,

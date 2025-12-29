@@ -1,5 +1,10 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -306,6 +311,7 @@ export const enrollPlayer = mutation({
       clubMembershipNumber: args.clubMembershipNumber,
       ageGroup: args.ageGroup,
       season: args.season,
+      sport: args.sportCode, // Set sport from sportCode (Phase 2)
       status: args.status ?? "active",
       enrolledAt: now,
       updatedAt: now,
@@ -509,6 +515,7 @@ export const findOrCreateEnrollment = mutation({
         clubMembershipNumber: args.clubMembershipNumber,
         ageGroup: args.ageGroup,
         season: args.season,
+        sport: args.sportCode, // Set sport from sportCode (Phase 2)
         status: "active",
         enrolledAt: now,
         updatedAt: now,

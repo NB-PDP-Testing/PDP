@@ -327,7 +327,7 @@ function findMatchingPlayer(
   const name = insight.playerName;
   if (name !== null && typeof name === "string") {
     const normalizedSearch = name.toLowerCase().trim();
-    
+
     // Exact match
     const exactMatch = players.find(
       (player) => player.name.toLowerCase() === normalizedSearch

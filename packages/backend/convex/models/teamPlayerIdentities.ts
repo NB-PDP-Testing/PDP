@@ -1,5 +1,7 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
+import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -1064,6 +1066,110 @@ export const getCoreTeamForPlayer = query({
       sportCode: coreTeam.sport || "",
       isActive,
     };
+  },
+});
+
+/**
+ * Get current teams for a player (IMMEDIATE FIX - Phase 1)
+ * Returns actual team memberships from teamPlayerIdentities
+ * This works like the coach page - doesn't require enrollment.sport
+ * Use this for displaying which teams a player is currently on
+ */
+export const getCurrentTeamsForPlayer = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    status: v.optional(teamMemberStatusValidator),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("teamPlayerIdentities"),
+      teamId: v.string(),
+      teamName: v.string(),
+      ageGroup: v.string(),
+      sportCode: v.string(),
+      isCoreTeam: v.boolean(),
+      isCurrentlyOn: v.boolean(),
+      role: v.optional(v.string()),
+      status: teamMemberStatusValidator,
+      joinedDate: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // 1. Get team memberships (source of truth - like coach page!)
+    let memberships = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
+      .collect();
+
+    // Filter by status if provided (default: active only)
+    if (args.status) {
+      memberships = memberships.filter((m) => m.status === args.status);
+    } else {
+      memberships = memberships.filter((m) => m.status === "active");
+    }
+
+    // 2. Get enrollment for core team calculation
+    const enrollment = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    const enrollmentAgeGroup = enrollment?.ageGroup?.toLowerCase() || "";
+
+    // 3. Enrich with team details from Better Auth
+    const results = [];
+    for (const member of memberships) {
+      const teamResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "team",
+          where: [{ field: "_id", value: member.teamId, operator: "eq" }],
+        }
+      );
+
+      if (teamResult) {
+        const team = teamResult as BetterAuthDoc<"team">;
+        const teamAgeGroup = team.ageGroup?.toLowerCase() || "";
+        const teamSport = team.sport || "";
+
+        // Calculate core team (ageGroup match for now - sport will be added in Phase 2)
+        const isCoreTeam = teamAgeGroup === enrollmentAgeGroup;
+
+        results.push({
+          _id: member._id,
+          teamId: member.teamId,
+          teamName: team.name,
+          ageGroup: team.ageGroup || "",
+          sportCode: teamSport,
+          isCoreTeam,
+          isCurrentlyOn: true, // They are on this team (from teamPlayerIdentities)
+          role: member.role,
+          status: member.status,
+          joinedDate: member.joinedDate,
+          createdAt: member.createdAt,
+          updatedAt: member.updatedAt,
+        });
+      }
+    }
+
+    // Sort: core team first, then by team name
+    results.sort((a, b) => {
+      if (a.isCoreTeam && !b.isCoreTeam) return -1;
+      if (!a.isCoreTeam && b.isCoreTeam) return 1;
+      return a.teamName.localeCompare(b.teamName);
+    });
+
+    return results;
   },
 });
 

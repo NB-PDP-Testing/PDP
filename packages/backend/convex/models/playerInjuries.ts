@@ -267,7 +267,7 @@ export const getAllInjuriesForOrg = query({
       const filteredInjuries = injuries.filter((injury) => {
         // Status filter
         if (args.status && injury.status !== args.status) return false;
-        
+
         // Visibility filter
         if (injury.isVisibleToAllOrgs) return true;
         if (injury.restrictedToOrgIds?.includes(args.organizationId))
@@ -295,8 +295,9 @@ export const getAllInjuriesForOrg = query({
     }
 
     // Sort by date occurred descending
-    results.sort((a, b) => 
-      new Date(b.dateOccurred).getTime() - new Date(a.dateOccurred).getTime()
+    results.sort(
+      (a, b) =>
+        new Date(b.dateOccurred).getTime() - new Date(a.dateOccurred).getTime()
     );
 
     return results;

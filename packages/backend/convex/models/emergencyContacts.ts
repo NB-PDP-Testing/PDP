@@ -1,10 +1,9 @@
-import { mutation, query } from "../_generated/server";
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import { mutation, query } from "../_generated/server";
 
 /**
  * Emergency Contacts Model
- * 
+ *
  * CRUD operations for adult player emergency contacts.
  * Adult players manage their own emergency contacts (instead of guardians).
  */
@@ -17,7 +16,9 @@ export const getForPlayer = query({
   handler: async (ctx, args) => {
     const contacts = await ctx.db
       .query("playerEmergencyContacts")
-      .withIndex("by_player", (q) => q.eq("playerIdentityId", args.playerIdentityId))
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
       .collect();
 
     // Sort by priority
@@ -30,12 +31,13 @@ export const getByPriority = query({
   args: {
     playerIdentityId: v.id("playerIdentities"),
   },
-  handler: async (ctx, args) => {
-    return await ctx.db
+  handler: async (ctx, args) =>
+    await ctx.db
       .query("playerEmergencyContacts")
-      .withIndex("by_priority", (q) => q.eq("playerIdentityId", args.playerIdentityId))
-      .collect();
-  },
+      .withIndex("by_priority", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect(),
 });
 
 // Get ICE contacts (priority 1 or 2) for a player
@@ -46,7 +48,9 @@ export const getICEContacts = query({
   handler: async (ctx, args) => {
     const contacts = await ctx.db
       .query("playerEmergencyContacts")
-      .withIndex("by_priority", (q) => q.eq("playerIdentityId", args.playerIdentityId))
+      .withIndex("by_priority", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
       .collect();
 
     // Return only priority 1 and 2 (ICE contacts)
@@ -84,20 +88,24 @@ export const getForOrganization = query({
     // Get all adult player enrollments for this org
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
-      .withIndex("by_organizationId", (q) => q.eq("organizationId", args.organizationId))
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
       .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
 
     // Get player identities for these enrollments (only adults)
     const result = [];
-    
+
     for (const enrollment of enrollments) {
       const player = await ctx.db.get(enrollment.playerIdentityId);
       if (!player || player.playerType !== "adult") continue;
 
       const contacts = await ctx.db
         .query("playerEmergencyContacts")
-        .withIndex("by_player", (q) => q.eq("playerIdentityId", enrollment.playerIdentityId))
+        .withIndex("by_player", (q) =>
+          q.eq("playerIdentityId", enrollment.playerIdentityId)
+        )
         .collect();
 
       result.push({
@@ -139,7 +147,9 @@ export const create = mutation({
     // Get existing contacts to manage priority
     const existingContacts = await ctx.db
       .query("playerEmergencyContacts")
-      .withIndex("by_player", (q) => q.eq("playerIdentityId", args.playerIdentityId))
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
       .collect();
 
     // If this priority conflicts, shift other contacts
@@ -195,7 +205,8 @@ export const update = mutation({
     if (args.lastName !== undefined) updates.lastName = args.lastName;
     if (args.phone !== undefined) updates.phone = args.phone;
     if (args.email !== undefined) updates.email = args.email;
-    if (args.relationship !== undefined) updates.relationship = args.relationship;
+    if (args.relationship !== undefined)
+      updates.relationship = args.relationship;
     if (args.notes !== undefined) updates.notes = args.notes;
 
     await ctx.db.patch(args.contactId, updates);
@@ -224,7 +235,9 @@ export const updatePriority = mutation({
     // Get all contacts for this player
     const allContacts = await ctx.db
       .query("playerEmergencyContacts")
-      .withIndex("by_player", (q) => q.eq("playerIdentityId", contact.playerIdentityId))
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", contact.playerIdentityId)
+      )
       .collect();
 
     const now = Date.now();
@@ -232,21 +245,38 @@ export const updatePriority = mutation({
     if (args.newPriority < oldPriority) {
       // Moving up: shift contacts between newPriority and oldPriority down
       for (const c of allContacts) {
-        if (c._id !== args.contactId && c.priority >= args.newPriority && c.priority < oldPriority) {
-          await ctx.db.patch(c._id, { priority: c.priority + 1, updatedAt: now });
+        if (
+          c._id !== args.contactId &&
+          c.priority >= args.newPriority &&
+          c.priority < oldPriority
+        ) {
+          await ctx.db.patch(c._id, {
+            priority: c.priority + 1,
+            updatedAt: now,
+          });
         }
       }
     } else {
       // Moving down: shift contacts between oldPriority and newPriority up
       for (const c of allContacts) {
-        if (c._id !== args.contactId && c.priority > oldPriority && c.priority <= args.newPriority) {
-          await ctx.db.patch(c._id, { priority: c.priority - 1, updatedAt: now });
+        if (
+          c._id !== args.contactId &&
+          c.priority > oldPriority &&
+          c.priority <= args.newPriority
+        ) {
+          await ctx.db.patch(c._id, {
+            priority: c.priority - 1,
+            updatedAt: now,
+          });
         }
       }
     }
 
     // Update the target contact's priority
-    await ctx.db.patch(args.contactId, { priority: args.newPriority, updatedAt: now });
+    await ctx.db.patch(args.contactId, {
+      priority: args.newPriority,
+      updatedAt: now,
+    });
 
     return { success: true };
   },
@@ -316,7 +346,9 @@ export const hasContacts = query({
   handler: async (ctx, args) => {
     const contacts = await ctx.db
       .query("playerEmergencyContacts")
-      .withIndex("by_player", (q) => q.eq("playerIdentityId", args.playerIdentityId))
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
       .first();
 
     return contacts !== null;
@@ -331,7 +363,9 @@ export const getCount = query({
   handler: async (ctx, args) => {
     const contacts = await ctx.db
       .query("playerEmergencyContacts")
-      .withIndex("by_player", (q) => q.eq("playerIdentityId", args.playerIdentityId))
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
       .collect();
 
     return contacts.length;

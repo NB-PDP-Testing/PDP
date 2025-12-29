@@ -1,6 +1,6 @@
-import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { components } from "../_generated/api";
+import { mutation } from "../_generated/server";
 
 /**
  * ⚠️ DANGER: This script deletes ALL data from the database
@@ -44,15 +44,12 @@ export const clearAllDevData = mutation({
   }),
   handler: async (ctx, args) => {
     if (!args.confirmDelete) {
-      throw new Error(
-        "Set confirmDelete: true to proceed with data deletion"
-      );
+      throw new Error("Set confirmDelete: true to proceed with data deletion");
     }
 
     // Helper to check if a category should be deleted (defaults to true)
-    const shouldDelete = (category: keyof typeof args.selections) => {
-      return args.selections?.[category] !== false;
-    };
+    const shouldDelete = (category: keyof typeof args.selections) =>
+      args.selections?.[category] !== false;
 
     console.log("⚠️  Starting dev data cleanup...");
 
@@ -142,9 +139,7 @@ export const clearAllDevData = mutation({
     // 7. Delete skill assessments
     if (shouldDelete("skillAssessments")) {
       console.log("Deleting skill assessments...");
-      const skillAssessments = await ctx.db
-        .query("skillAssessments")
-        .collect();
+      const skillAssessments = await ctx.db.query("skillAssessments").collect();
       for (const record of skillAssessments) {
         await ctx.db.delete(record._id);
         deleted.skillAssessments++;
@@ -154,9 +149,7 @@ export const clearAllDevData = mutation({
     // 8. Delete coach assignments
     if (shouldDelete("coachAssignments")) {
       console.log("Deleting coach assignments...");
-      const coachAssignments = await ctx.db
-        .query("coachAssignments")
-        .collect();
+      const coachAssignments = await ctx.db.query("coachAssignments").collect();
       for (const record of coachAssignments) {
         await ctx.db.delete(record._id);
         deleted.coachAssignments++;
@@ -170,7 +163,7 @@ export const clearAllDevData = mutation({
         components.betterAuth.adapter.findMany,
         {
           model: "team",
-          paginationOpts: { cursor: null, numItems: 10000 },
+          paginationOpts: { cursor: null, numItems: 10_000 },
           where: [],
         }
       );
@@ -178,7 +171,9 @@ export const clearAllDevData = mutation({
         await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
           input: {
             model: "team",
-            where: [{ field: "_id", value: team._id as string, operator: "eq" }],
+            where: [
+              { field: "_id", value: team._id as string, operator: "eq" },
+            ],
           },
         });
         deleted.teams++;
@@ -192,7 +187,7 @@ export const clearAllDevData = mutation({
         components.betterAuth.adapter.findMany,
         {
           model: "member",
-          paginationOpts: { cursor: null, numItems: 10000 },
+          paginationOpts: { cursor: null, numItems: 10_000 },
           where: [],
         }
       );
@@ -200,7 +195,9 @@ export const clearAllDevData = mutation({
         await ctx.runMutation(components.betterAuth.adapter.updateOne, {
           input: {
             model: "member",
-            where: [{ field: "_id", value: member._id as string, operator: "eq" }],
+            where: [
+              { field: "_id", value: member._id as string, operator: "eq" },
+            ],
             update: {
               functionalRoles: [],
               activeFunctionalRole: undefined,
@@ -271,15 +268,12 @@ export const clearOrgData = mutation({
   }),
   handler: async (ctx, args) => {
     if (!args.confirmDelete) {
-      throw new Error(
-        "Set confirmDelete: true to proceed with data deletion"
-      );
+      throw new Error("Set confirmDelete: true to proceed with data deletion");
     }
 
     // Helper to check if a category should be deleted (defaults to true)
-    const shouldDelete = (category: keyof typeof args.selections) => {
-      return args.selections?.[category] !== false;
-    };
+    const shouldDelete = (category: keyof typeof args.selections) =>
+      args.selections?.[category] !== false;
 
     console.log(`⚠️  Clearing data for org: ${args.organizationId}`);
 
@@ -397,7 +391,9 @@ export const clearOrgData = mutation({
         await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
           input: {
             model: "team",
-            where: [{ field: "_id", value: team._id as string, operator: "eq" }],
+            where: [
+              { field: "_id", value: team._id as string, operator: "eq" },
+            ],
           },
         });
         deleted.teams++;
@@ -409,7 +405,9 @@ export const clearOrgData = mutation({
     for (const playerId of enrolledPlayerIds) {
       const remainingEnrollments = await ctx.db
         .query("orgPlayerEnrollments")
-        .withIndex("by_playerIdentityId", (q) => q.eq("playerIdentityId", playerId))
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
         .collect();
 
       if (remainingEnrollments.length === 0) {

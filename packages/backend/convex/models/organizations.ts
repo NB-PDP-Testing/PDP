@@ -446,7 +446,10 @@ export const updateOrganizationSports = mutation({
       },
     });
 
-    console.log(`[updateOrganizationSports] Updated supported sports for org ${args.organizationId}:`, args.supportedSports);
+    console.log(
+      `[updateOrganizationSports] Updated supported sports for org ${args.organizationId}:`,
+      args.supportedSports
+    );
 
     return null;
   },

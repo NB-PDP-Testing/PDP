@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 
 // ============================================================
@@ -12,14 +11,13 @@ import { mutation, query } from "../_generated/server";
 export const getOrgPolicy = query({
   args: { organizationId: v.string() },
   returns: v.any(),
-  handler: async (ctx, args) => {
-    return await ctx.db
+  handler: async (ctx, args) =>
+    await ctx.db
       .query("playerAccessPolicies")
       .withIndex("by_organizationId", (q) =>
         q.eq("organizationId", args.organizationId)
       )
-      .first();
-  },
+      .first(),
 });
 
 /**
@@ -97,16 +95,15 @@ export const getAccessGrant = query({
     organizationId: v.string(),
   },
   returns: v.any(),
-  handler: async (ctx, args) => {
-    return await ctx.db
+  handler: async (ctx, args) =>
+    await ctx.db
       .query("playerAccessGrants")
       .withIndex("by_player_and_org", (q) =>
         q
           .eq("playerIdentityId", args.playerIdentityId)
           .eq("organizationId", args.organizationId)
       )
-      .first();
-  },
+      .first(),
 });
 
 /**
@@ -129,7 +126,9 @@ export const getGrantsByGuardian = query({
       const player = await ctx.db.get(grant.playerIdentityId);
       enriched.push({
         ...grant,
-        playerName: player ? `${player.firstName} ${player.lastName}` : "Unknown",
+        playerName: player
+          ? `${player.firstName} ${player.lastName}`
+          : "Unknown",
         playerDateOfBirth: player?.dateOfBirth,
       });
     }
@@ -144,14 +143,13 @@ export const getGrantsByGuardian = query({
 export const getGrantsForPlayer = query({
   args: { playerIdentityId: v.id("playerIdentities") },
   returns: v.any(),
-  handler: async (ctx, args) => {
-    return await ctx.db
+  handler: async (ctx, args) =>
+    await ctx.db
       .query("playerAccessGrants")
       .withIndex("by_player", (q) =>
         q.eq("playerIdentityId", args.playerIdentityId)
       )
-      .collect();
-  },
+      .collect(),
 });
 
 /**
@@ -248,12 +246,11 @@ export const revokeAccessGrant = mutation({
 export const getAccountLinkByUserId = query({
   args: { userId: v.string() },
   returns: v.any(),
-  handler: async (ctx, args) => {
-    return await ctx.db
+  handler: async (ctx, args) =>
+    await ctx.db
       .query("playerAccountLinks")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .first();
-  },
+      .first(),
 });
 
 /**
@@ -262,14 +259,13 @@ export const getAccountLinkByUserId = query({
 export const getAccountLinkByPlayerId = query({
   args: { playerIdentityId: v.id("playerIdentities") },
   returns: v.any(),
-  handler: async (ctx, args) => {
-    return await ctx.db
+  handler: async (ctx, args) =>
+    await ctx.db
       .query("playerAccountLinks")
       .withIndex("by_playerIdentityId", (q) =>
         q.eq("playerIdentityId", args.playerIdentityId)
       )
-      .first();
-  },
+      .first(),
 });
 
 /**
@@ -359,8 +355,8 @@ export const logAccess = mutation({
     userAgent: v.optional(v.string()),
   },
   returns: v.id("playerAccessLogs"),
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("playerAccessLogs", {
+  handler: async (ctx, args) =>
+    await ctx.db.insert("playerAccessLogs", {
       playerIdentityId: args.playerIdentityId,
       userId: args.userId,
       organizationId: args.organizationId,
@@ -370,8 +366,7 @@ export const logAccess = mutation({
       ipAddress: args.ipAddress,
       userAgent: args.userAgent,
       timestamp: Date.now(),
-    });
-  },
+    }),
 });
 
 /**
@@ -420,7 +415,9 @@ export const getOrgAccessLogs = query({
       const player = await ctx.db.get(log.playerIdentityId);
       enriched.push({
         ...log,
-        playerName: player ? `${player.firstName} ${player.lastName}` : "Unknown",
+        playerName: player
+          ? `${player.firstName} ${player.lastName}`
+          : "Unknown",
       });
     }
 
@@ -445,7 +442,7 @@ export const checkPlayerAccess = query({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .first();
 
-    if (!accountLink || !accountLink.isActive) {
+    if (!(accountLink && accountLink.isActive)) {
       return { hasAccess: false, reason: "no_account_link" };
     }
 
@@ -476,7 +473,7 @@ export const checkPlayerAccess = query({
         .first();
 
       // If no policy or disabled, skip
-      if (!policy || !policy.isEnabled) continue;
+      if (!(policy && policy.isEnabled)) continue;
 
       // Check age requirement
       if (player.dateOfBirth) {
@@ -484,7 +481,10 @@ export const checkPlayerAccess = query({
         const today = new Date();
         let age = today.getFullYear() - dob.getFullYear();
         const monthDiff = today.getMonth() - dob.getMonth();
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+        if (
+          monthDiff < 0 ||
+          (monthDiff === 0 && today.getDate() < dob.getDate())
+        ) {
           age--;
         }
         if (age < policy.minimumAge) continue;
@@ -501,13 +501,16 @@ export const checkPlayerAccess = query({
           )
           .first();
 
-        if (!grant || !grant.isEnabled) continue;
+        if (!(grant && grant.isEnabled)) continue;
 
         accessibleOrgs.push({
           organizationId: enrollment.organizationId,
           policy,
           grant,
-          visibility: { ...policy.defaultVisibility, ...grant.visibilityOverrides },
+          visibility: {
+            ...policy.defaultVisibility,
+            ...grant.visibilityOverrides,
+          },
         });
       } else {
         // No guardian approval required
@@ -546,7 +549,7 @@ export const getPlayerSelfViewPassport = query({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .first();
 
-    if (!accessCheck || !accessCheck.isActive) {
+    if (!(accessCheck && accessCheck.isActive)) {
       return { error: "No access" };
     }
 
@@ -560,7 +563,7 @@ export const getPlayerSelfViewPassport = query({
       )
       .first();
 
-    if (!policy || !policy.isEnabled) {
+    if (!(policy && policy.isEnabled)) {
       return { error: "Player access not enabled for this organization" };
     }
 
@@ -570,15 +573,20 @@ export const getPlayerSelfViewPassport = query({
       const grant = await ctx.db
         .query("playerAccessGrants")
         .withIndex("by_player_and_org", (q) =>
-          q.eq("playerIdentityId", playerIdentityId).eq("organizationId", args.organizationId)
+          q
+            .eq("playerIdentityId", playerIdentityId)
+            .eq("organizationId", args.organizationId)
         )
         .first();
 
-      if (!grant || !grant.isEnabled) {
+      if (!(grant && grant.isEnabled)) {
         return { error: "Guardian approval required" };
       }
 
-      visibility = { ...policy.defaultVisibility, ...grant.visibilityOverrides };
+      visibility = {
+        ...policy.defaultVisibility,
+        ...grant.visibilityOverrides,
+      };
     }
 
     // Get player identity
@@ -591,7 +599,9 @@ export const getPlayerSelfViewPassport = query({
     const enrollment = await ctx.db
       .query("orgPlayerEnrollments")
       .withIndex("by_player_and_org", (q) =>
-        q.eq("playerIdentityId", playerIdentityId).eq("organizationId", args.organizationId)
+        q
+          .eq("playerIdentityId", playerIdentityId)
+          .eq("organizationId", args.organizationId)
       )
       .first();
 
@@ -641,7 +651,10 @@ export const getPlayerSelfViewPassport = query({
 
         // Get latest for each skill
         const skillMap = new Map<string, number>();
-        const benchmarkMap = new Map<string, { status?: string; delta?: number }>();
+        const benchmarkMap = new Map<
+          string,
+          { status?: string; delta?: number }
+        >();
         for (const a of latestAssessments) {
           if (!skillMap.has(a.skillCode)) {
             skillMap.set(a.skillCode, a.rating);
@@ -738,7 +751,7 @@ export const getPlayerSports = query({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .first();
 
-    if (!accountLink || !accountLink.isActive) {
+    if (!(accountLink && accountLink.isActive)) {
       return [];
     }
 

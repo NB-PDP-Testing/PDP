@@ -7,27 +7,18 @@ import {
   Calendar,
   CheckCircle,
   ChevronDown,
-  Filter,
   Link2,
   Plus,
   Search,
   Target,
-  Trash2,
   Users,
-  X,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -137,13 +128,11 @@ const getStatusColor = (status: string) => {
   }
 };
 
-const formatStatus = (status: string) => {
-  return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-};
+const formatStatus = (status: string) =>
+  status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 
-const formatCategory = (category: string) => {
-  return category.charAt(0).toUpperCase() + category.slice(1);
-};
+const formatCategory = (category: string) =>
+  category.charAt(0).toUpperCase() + category.slice(1);
 
 export default function GoalsDashboardPage() {
   const params = useParams();
@@ -156,7 +145,9 @@ export default function GoalsDashboardPage() {
   const [selectedGoal, setSelectedGoal] = useState<GoalWithPlayer | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showBulkCreateDialog, setShowBulkCreateDialog] = useState(false);
-  const [newMilestoneText, setNewMilestoneText] = useState<Record<string, string>>({});
+  const [newMilestoneText, setNewMilestoneText] = useState<
+    Record<string, string>
+  >({});
 
   // Queries
   const goals = useQuery(api.models.passportGoals.getGoalsForOrg, {
@@ -180,10 +171,14 @@ export default function GoalsDashboardPage() {
     api.models.passportGoals.completeMilestone
   );
   const addMilestone = useMutation(api.models.passportGoals.addMilestone);
-  const updateGoalSkills = useMutation(api.models.passportGoals.updateLinkedSkills);
+  const updateGoalSkills = useMutation(
+    api.models.passportGoals.updateLinkedSkills
+  );
 
   // Get skill definitions for linking
-  const skillDefinitions = useQuery(api.models.referenceData.getAllSkillDefinitions);
+  const skillDefinitions = useQuery(
+    api.models.referenceData.getAllSkillDefinitions
+  );
 
   // Get coach's teams
   const coachAssignments = useQuery(
@@ -291,7 +286,10 @@ export default function GoalsDashboardPage() {
   }, [goalsWithPlayers]);
 
   // Handle milestone completion
-  const handleCompleteMilestone = async (goalId: Id<"passportGoals">, milestoneId: string) => {
+  const handleCompleteMilestone = async (
+    goalId: Id<"passportGoals">,
+    milestoneId: string
+  ) => {
     try {
       await completeMilestone({ goalId, milestoneId });
       toast.success("Milestone completed!");
@@ -328,7 +326,10 @@ export default function GoalsDashboardPage() {
   };
 
   // Handle updating linked skills
-  const handleUpdateSkills = async (goalId: Id<"passportGoals">, skills: string[]) => {
+  const handleUpdateSkills = async (
+    goalId: Id<"passportGoals">,
+    skills: string[]
+  ) => {
     try {
       await updateGoalSkills({ goalId, linkedSkills: skills });
       toast.success("Skills linked!");
@@ -338,7 +339,7 @@ export default function GoalsDashboardPage() {
   };
 
   // Loading state
-  if (!goals || !playersWithEnrollments) {
+  if (!(goals && playersWithEnrollments)) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="text-muted-foreground">Loading goals...</div>
@@ -362,7 +363,10 @@ export default function GoalsDashboardPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setShowBulkCreateDialog(true)} variant="outline">
+          <Button
+            onClick={() => setShowBulkCreateDialog(true)}
+            variant="outline"
+          >
             <Users className="mr-2 h-4 w-4" />
             Team Goals
           </Button>
@@ -377,7 +381,9 @@ export default function GoalsDashboardPage() {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <Card>
           <CardContent className="p-4 text-center">
-            <div className="font-bold text-3xl text-gray-800">{stats.total}</div>
+            <div className="font-bold text-3xl text-gray-800">
+              {stats.total}
+            </div>
             <div className="text-muted-foreground text-sm">Total Goals</div>
           </CardContent>
         </Card>
@@ -412,8 +418,8 @@ export default function GoalsDashboardPage() {
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-3">
             {/* Search */}
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="relative min-w-[200px] flex-1">
+              <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
               <Input
                 className="pl-9"
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -460,8 +466,8 @@ export default function GoalsDashboardPage() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {filteredGoals.map((goal) => (
             <GoalCard
-              key={goal._id}
               goal={goal}
+              key={goal._id}
               onClick={() => setSelectedGoal(goal)}
             />
           ))}
@@ -474,7 +480,9 @@ export default function GoalsDashboardPage() {
               No Goals Found
             </h2>
             <p className="text-muted-foreground">
-              {searchTerm || statusFilter !== "active" || categoryFilter !== "all"
+              {searchTerm ||
+              statusFilter !== "active" ||
+              categoryFilter !== "all"
                 ? "No goals match your current filters."
                 : "Create your first development goal to get started."}
             </p>
@@ -485,16 +493,10 @@ export default function GoalsDashboardPage() {
       {/* Goal Detail Dialog */}
       <GoalDetailDialog
         goal={selectedGoal}
+        newMilestoneText={newMilestoneText[selectedGoal?._id ?? ""] ?? ""}
+        onAddMilestone={handleAddMilestone}
         onClose={() => setSelectedGoal(null)}
         onCompleteMilestone={handleCompleteMilestone}
-        onAddMilestone={handleAddMilestone}
-        newMilestoneText={newMilestoneText[selectedGoal?._id ?? ""] ?? ""}
-        onMilestoneTextChange={(text) => setNewMilestoneText((prev) => ({
-          ...prev,
-          [selectedGoal?._id ?? ""]: text,
-        }))}
-        skillDefinitions={skillDefinitions || []}
-        onUpdateSkills={handleUpdateSkills}
         onDelete={async (goalId) => {
           try {
             await deleteGoal({ goalId });
@@ -504,6 +506,13 @@ export default function GoalsDashboardPage() {
             toast.error("Failed to delete goal");
           }
         }}
+        onMilestoneTextChange={(text) =>
+          setNewMilestoneText((prev) => ({
+            ...prev,
+            [selectedGoal?._id ?? ""]: text,
+          }))
+        }
+        onUpdateSkills={handleUpdateSkills}
         onUpdateStatus={async (goalId, status) => {
           try {
             await updateGoal({ goalId, status });
@@ -512,15 +521,12 @@ export default function GoalsDashboardPage() {
             toast.error("Failed to update goal");
           }
         }}
+        skillDefinitions={skillDefinitions || []}
       />
 
       {/* Create Goal Dialog */}
       <CreateGoalDialog
-        open={showCreateDialog}
         onClose={() => setShowCreateDialog(false)}
-        passports={passports || []}
-        playerNameMap={playerNameMap}
-        skillDefinitions={skillDefinitions || []}
         onSubmit={async (data) => {
           try {
             await createGoal(data);
@@ -530,17 +536,15 @@ export default function GoalsDashboardPage() {
             toast.error("Failed to create goal");
           }
         }}
+        open={showCreateDialog}
+        passports={passports || []}
+        playerNameMap={playerNameMap}
+        skillDefinitions={skillDefinitions || []}
       />
 
       {/* Bulk Create Goals Dialog */}
       <BulkCreateGoalsDialog
-        open={showBulkCreateDialog}
         onClose={() => setShowBulkCreateDialog(false)}
-        teams={teams || []}
-        teamPlayerLinks={teamPlayerLinks || []}
-        passports={passports || []}
-        playerNameMap={playerNameMap}
-        skillDefinitions={skillDefinitions || []}
         onSubmit={async (data) => {
           let created = 0;
           for (const passportId of data.passportIds) {
@@ -563,6 +567,12 @@ export default function GoalsDashboardPage() {
           setShowBulkCreateDialog(false);
           toast.success(`Created ${created} goals for team members!`);
         }}
+        open={showBulkCreateDialog}
+        passports={passports || []}
+        playerNameMap={playerNameMap}
+        skillDefinitions={skillDefinitions || []}
+        teamPlayerLinks={teamPlayerLinks || []}
+        teams={teams || []}
       />
     </div>
   );
@@ -634,11 +644,7 @@ function GoalCard({
         {goal.linkedSkills && goal.linkedSkills.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1">
             {goal.linkedSkills.slice(0, 3).map((skill, idx) => (
-              <Badge
-                key={idx}
-                className="text-xs"
-                variant="secondary"
-              >
+              <Badge className="text-xs" key={idx} variant="secondary">
                 {skill}
               </Badge>
             ))}
@@ -669,20 +675,35 @@ function GoalDetailDialog({
 }: {
   goal: GoalWithPlayer | null;
   onClose: () => void;
-  onCompleteMilestone: (goalId: Id<"passportGoals">, milestoneId: string) => void;
+  onCompleteMilestone: (
+    goalId: Id<"passportGoals">,
+    milestoneId: string
+  ) => void;
   onAddMilestone: (goalId: Id<"passportGoals">) => void;
   newMilestoneText: string;
   onMilestoneTextChange: (text: string) => void;
-  skillDefinitions: Array<{ _id: string; code: string; name: string; sportCode: string }>;
+  skillDefinitions: Array<{
+    _id: string;
+    code: string;
+    name: string;
+    sportCode: string;
+  }>;
   onUpdateSkills: (goalId: Id<"passportGoals">, skills: string[]) => void;
   onDelete: (goalId: Id<"passportGoals">) => void;
   onUpdateStatus: (
     goalId: Id<"passportGoals">,
-    status: "not_started" | "in_progress" | "completed" | "on_hold" | "cancelled"
+    status:
+      | "not_started"
+      | "in_progress"
+      | "completed"
+      | "on_hold"
+      | "cancelled"
   ) => void;
 }) {
   const [showSkillPicker, setShowSkillPicker] = useState(false);
-  const [selectedSkills, setSelectedSkills] = useState<string[]>(goal?.linkedSkills || []);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>(
+    goal?.linkedSkills || []
+  );
 
   if (!goal) return null;
 
@@ -721,7 +742,9 @@ function GoalDetailDialog({
             <div className="font-semibold">{formatStatus(goal.status)}</div>
           </div>
           <div className="rounded-lg border p-3">
-            <div className="mb-1 text-muted-foreground text-xs">Target Date</div>
+            <div className="mb-1 text-muted-foreground text-xs">
+              Target Date
+            </div>
             <div className="font-semibold">
               {goal.targetDate
                 ? new Date(goal.targetDate).toLocaleDateString()
@@ -754,12 +777,12 @@ function GoalDetailDialog({
           <div className="space-y-2">
             {goal.milestones?.map((milestone, index) => (
               <div
-                key={milestone.id}
                 className={`flex items-start justify-between rounded-lg border p-4 ${
                   milestone.completed
                     ? "border-green-300 bg-green-50"
                     : "border-gray-200"
                 }`}
+                key={milestone.id}
               >
                 <div className="flex items-start gap-3">
                   <div
@@ -778,9 +801,7 @@ function GoalDetailDialog({
                   <div>
                     <p
                       className={`font-medium ${
-                        milestone.completed
-                          ? "text-green-800"
-                          : "text-gray-800"
+                        milestone.completed ? "text-green-800" : "text-gray-800"
                       }`}
                     >
                       {milestone.description}
@@ -809,18 +830,18 @@ function GoalDetailDialog({
           {goal.status !== "completed" && (
             <div className="mt-4 flex gap-2">
               <Input
-                value={newMilestoneText}
                 onChange={(e) => onMilestoneTextChange(e.target.value)}
-                placeholder="Add a new milestone..."
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && newMilestoneText.trim()) {
                     onAddMilestone(goal._id);
                   }
                 }}
+                placeholder="Add a new milestone..."
+                value={newMilestoneText}
               />
               <Button
-                onClick={() => onAddMilestone(goal._id)}
                 disabled={!newMilestoneText.trim()}
+                onClick={() => onAddMilestone(goal._id)}
                 size="sm"
               >
                 <Plus className="h-4 w-4" />
@@ -832,33 +853,33 @@ function GoalDetailDialog({
         {/* Linked Skills */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="font-bold flex items-center gap-2">
+            <h3 className="flex items-center gap-2 font-bold">
               <Link2 className="h-4 w-4" />
               Linked Skills
             </h3>
             <Button
-              variant="outline"
-              size="sm"
               onClick={() => setShowSkillPicker(!showSkillPicker)}
+              size="sm"
+              variant="outline"
             >
               {showSkillPicker ? "Done" : "Edit Skills"}
             </Button>
           </div>
-          
+
           {showSkillPicker ? (
             <div className="space-y-3 rounded-lg border bg-gray-50 p-3">
               <p className="text-muted-foreground text-sm">
                 Select skills to link to this goal:
               </p>
-              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+              <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto">
                 {skillDefinitions.map((skill) => (
                   <Badge
-                    key={`${skill.sportCode}-${skill.code}`}
                     className={`cursor-pointer transition-colors ${
                       selectedSkills.includes(skill.code)
                         ? "bg-blue-600 text-white hover:bg-blue-700"
                         : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                     }`}
+                    key={`${skill.sportCode}-${skill.code}`}
                     onClick={() => {
                       setSelectedSkills((prev) =>
                         prev.includes(skill.code)
@@ -872,11 +893,11 @@ function GoalDetailDialog({
                 ))}
               </div>
               <Button
-                size="sm"
                 onClick={() => {
                   onUpdateSkills(goal._id, selectedSkills);
                   setShowSkillPicker(false);
                 }}
+                size="sm"
               >
                 Save Linked Skills
               </Button>
@@ -885,7 +906,9 @@ function GoalDetailDialog({
             <div className="flex flex-wrap gap-2">
               {goal.linkedSkills && goal.linkedSkills.length > 0 ? (
                 goal.linkedSkills.map((skillCode, idx) => {
-                  const skill = skillDefinitions.find((s) => s.code === skillCode);
+                  const skill = skillDefinitions.find(
+                    (s) => s.code === skillCode
+                  );
                   return (
                     <Badge key={idx} variant="secondary">
                       {skill?.name || skillCode}
@@ -907,7 +930,10 @@ function GoalDetailDialog({
             <h3 className="mb-2 font-bold">What Parents Can Do</h3>
             <ul className="space-y-1">
               {goal.parentActions.map((action, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-muted-foreground">
+                <li
+                  className="flex items-start gap-2 text-muted-foreground"
+                  key={idx}
+                >
                   <span className="mt-1 text-blue-600">•</span>
                   <span>{action}</span>
                 </li>
@@ -932,24 +958,29 @@ function GoalDetailDialog({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => onUpdateStatus(goal._id, "not_started")}>
+              <DropdownMenuItem
+                onClick={() => onUpdateStatus(goal._id, "not_started")}
+              >
                 Not Started
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onUpdateStatus(goal._id, "in_progress")}>
+              <DropdownMenuItem
+                onClick={() => onUpdateStatus(goal._id, "in_progress")}
+              >
                 In Progress
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onUpdateStatus(goal._id, "completed")}>
+              <DropdownMenuItem
+                onClick={() => onUpdateStatus(goal._id, "completed")}
+              >
                 Completed
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onUpdateStatus(goal._id, "on_hold")}>
+              <DropdownMenuItem
+                onClick={() => onUpdateStatus(goal._id, "on_hold")}
+              >
                 On Hold
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button
-            onClick={() => onDelete(goal._id)}
-            variant="destructive"
-          >
+          <Button onClick={() => onDelete(goal._id)} variant="destructive">
             Delete Goal
           </Button>
         </DialogFooter>
@@ -969,9 +1000,18 @@ function CreateGoalDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  passports: Array<{ _id: Id<"sportPassports">; playerIdentityId: Id<"playerIdentities">; sportCode: string }>;
+  passports: Array<{
+    _id: Id<"sportPassports">;
+    playerIdentityId: Id<"playerIdentities">;
+    sportCode: string;
+  }>;
   playerNameMap: Map<string, string>;
-  skillDefinitions: Array<{ _id: string; code: string; name: string; sportCode: string }>;
+  skillDefinitions: Array<{
+    _id: string;
+    code: string;
+    name: string;
+    sportCode: string;
+  }>;
   onSubmit: (data: {
     passportId: Id<"sportPassports">;
     title: string;
@@ -993,7 +1033,7 @@ function CreateGoalDialog({
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
-    if (!passportId || !title || !description) {
+    if (!(passportId && title && description)) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -1004,7 +1044,12 @@ function CreateGoalDialog({
         passportId: passportId as Id<"sportPassports">,
         title,
         description,
-        category: category as "technical" | "tactical" | "physical" | "mental" | "social",
+        category: category as
+          | "technical"
+          | "tactical"
+          | "physical"
+          | "mental"
+          | "social",
         priority: priority as "high" | "medium" | "low",
         targetDate: targetDate || undefined,
         parentCanView,
@@ -1159,9 +1204,18 @@ function BulkCreateGoalsDialog({
   onClose: () => void;
   teams: Array<{ _id: string; name: string }>;
   teamPlayerLinks: Array<{ teamId: string; playerIdentityId: string }>;
-  passports: Array<{ _id: Id<"sportPassports">; playerIdentityId: Id<"playerIdentities">; sportCode: string }>;
+  passports: Array<{
+    _id: Id<"sportPassports">;
+    playerIdentityId: Id<"playerIdentities">;
+    sportCode: string;
+  }>;
   playerNameMap: Map<string, string>;
-  skillDefinitions: Array<{ _id: string; code: string; name: string; sportCode: string }>;
+  skillDefinitions: Array<{
+    _id: string;
+    code: string;
+    name: string;
+    sportCode: string;
+  }>;
   onSubmit: (data: {
     passportIds: Id<"sportPassports">[];
     title: string;
@@ -1186,33 +1240,45 @@ function BulkCreateGoalsDialog({
   // Get players in selected team
   const teamPlayers = useMemo(() => {
     if (!selectedTeamId) return [];
-    const players = teamPlayerLinks.filter((link) => link.teamId === selectedTeamId);
-    console.log(`[BulkGoals] Team ${selectedTeamId} has ${players.length} player links:`, 
-      players.map(p => p.playerIdentityId));
+    const players = teamPlayerLinks.filter(
+      (link) => link.teamId === selectedTeamId
+    );
+    console.log(
+      `[BulkGoals] Team ${selectedTeamId} has ${players.length} player links:`,
+      players.map((p) => p.playerIdentityId)
+    );
     return players;
   }, [selectedTeamId, teamPlayerLinks]);
 
   // Get passports for team players
   const teamPassports = useMemo(() => {
     const playerIds = new Set(teamPlayers.map((tp) => tp.playerIdentityId));
-    const foundPassports = passports.filter((p) => playerIds.has(p.playerIdentityId));
-    
+    const foundPassports = passports.filter((p) =>
+      playerIds.has(p.playerIdentityId)
+    );
+
     // Debug: show which players don't have passports
     if (teamPlayers.length > 0 && foundPassports.length < teamPlayers.length) {
-      const passportPlayerIds = new Set(foundPassports.map(p => p.playerIdentityId));
+      const passportPlayerIds = new Set(
+        foundPassports.map((p) => p.playerIdentityId)
+      );
       const missingPlayers = teamPlayers
-        .filter(tp => !passportPlayerIds.has(tp.playerIdentityId))
-        .map(tp => tp.playerIdentityId);
-      console.warn(`[BulkGoals] ${missingPlayers.length} players in team don't have sport passports:`, 
-        missingPlayers);
+        .filter((tp) => !passportPlayerIds.has(tp.playerIdentityId))
+        .map((tp) => tp.playerIdentityId);
+      console.warn(
+        `[BulkGoals] ${missingPlayers.length} players in team don't have sport passports:`,
+        missingPlayers
+      );
     }
-    
-    console.log(`[BulkGoals] Found ${foundPassports.length} passports for ${teamPlayers.length} team players`);
+
+    console.log(
+      `[BulkGoals] Found ${foundPassports.length} passports for ${teamPlayers.length} team players`
+    );
     return foundPassports;
   }, [teamPlayers, passports]);
 
   const handleSubmit = async () => {
-    if (!selectedTeamId || !title || !description) {
+    if (!(selectedTeamId && title && description)) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -1228,7 +1294,12 @@ function BulkCreateGoalsDialog({
         passportIds: teamPassports.map((p) => p._id),
         title,
         description,
-        category: category as "technical" | "tactical" | "physical" | "mental" | "social",
+        category: category as
+          | "technical"
+          | "tactical"
+          | "physical"
+          | "mental"
+          | "social",
         priority: priority as "high" | "medium" | "low",
         targetDate: targetDate || undefined,
         linkedSkills: linkedSkills.length > 0 ? linkedSkills : undefined,
@@ -1277,15 +1348,16 @@ function BulkCreateGoalsDialog({
                 ))}
               </SelectContent>
             </Select>
-          {selectedTeamId && (
+            {selectedTeamId && (
               <div className="space-y-1">
                 <p className="text-muted-foreground text-sm">
                   {teamPassports.length} player(s) will receive this goal
                 </p>
                 {teamPlayers.length > teamPassports.length && (
                   <p className="text-amber-600 text-xs">
-                    ⚠️ {teamPlayers.length - teamPassports.length} player(s) in this team don't have sport passports yet.
-                    Goals require sport passports to be created first.
+                    ⚠️ {teamPlayers.length - teamPassports.length} player(s) in
+                    this team don't have sport passports yet. Goals require
+                    sport passports to be created first.
                   </p>
                 )}
               </div>
@@ -1361,16 +1433,16 @@ function BulkCreateGoalsDialog({
               <Link2 className="h-4 w-4" />
               Link to Skills (Optional)
             </Label>
-            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto rounded-lg border bg-gray-50 p-3">
+            <div className="flex max-h-32 flex-wrap gap-2 overflow-y-auto rounded-lg border bg-gray-50 p-3">
               {skillDefinitions.length > 0 ? (
                 skillDefinitions.map((skill) => (
                   <Badge
-                    key={`${skill.sportCode}-${skill.code}`}
                     className={`cursor-pointer transition-colors ${
                       linkedSkills.includes(skill.code)
                         ? "bg-blue-600 text-white hover:bg-blue-700"
                         : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                     }`}
+                    key={`${skill.sportCode}-${skill.code}`}
                     onClick={() => {
                       setLinkedSkills((prev) =>
                         prev.includes(skill.code)
@@ -1383,7 +1455,9 @@ function BulkCreateGoalsDialog({
                   </Badge>
                 ))
               ) : (
-                <p className="text-muted-foreground text-sm">No skills available</p>
+                <p className="text-muted-foreground text-sm">
+                  No skills available
+                </p>
               )}
             </div>
             {linkedSkills.length > 0 && (
@@ -1413,12 +1487,16 @@ function BulkCreateGoalsDialog({
               </p>
               <div className="flex flex-wrap gap-1">
                 {teamPassports.slice(0, 8).map((passport) => (
-                  <Badge key={passport._id} variant="secondary" className="text-xs">
+                  <Badge
+                    className="text-xs"
+                    key={passport._id}
+                    variant="secondary"
+                  >
                     {playerNameMap.get(passport.playerIdentityId) || "Unknown"}
                   </Badge>
                 ))}
                 {teamPassports.length > 8 && (
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge className="text-xs" variant="secondary">
                     +{teamPassports.length - 8} more
                   </Badge>
                 )}

@@ -816,10 +816,12 @@ export default function CreateOrganizationPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <Label>
-                        Supported Sports <span className="text-destructive">*</span>
+                        Supported Sports{" "}
+                        <span className="text-destructive">*</span>
                       </Label>
                       <p className="text-muted-foreground text-xs">
-                        Select at least one sport your organization supports. Teams will default to these sports.
+                        Select at least one sport your organization supports.
+                        Teams will default to these sports.
                       </p>
                     </div>
                     {selectedSports.length > 0 && (
@@ -840,13 +842,19 @@ export default function CreateOrganizationPage() {
                   {/* Warning if no sports available */}
                   {(!availableSports || availableSports.length === 0) && (
                     <div className="flex items-start gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-                      <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+                      <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
                       <div className="space-y-1">
                         <p className="font-medium text-destructive text-sm">
                           Required Reference Data Missing
                         </p>
                         <p className="text-destructive/90 text-xs">
-                          Cannot create organization: <strong>sports, skill categories, and skill definitions</strong> are required to assign a club/org ID. Please contact platform staff to set up this reference data before proceeding.
+                          Cannot create organization:{" "}
+                          <strong>
+                            sports, skill categories, and skill definitions
+                          </strong>{" "}
+                          are required to assign a club/org ID. Please contact
+                          platform staff to set up this reference data before
+                          proceeding.
                         </p>
                       </div>
                     </div>
@@ -866,7 +874,10 @@ export default function CreateOrganizationPage() {
                           id={`sport-${sport.code}`}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setSelectedSports([...selectedSports, sport.code]);
+                              setSelectedSports([
+                                ...selectedSports,
+                                sport.code,
+                              ]);
                             } else {
                               setSelectedSports(
                                 selectedSports.filter((s) => s !== sport.code)
@@ -876,7 +887,9 @@ export default function CreateOrganizationPage() {
                           type="checkbox"
                         />
                         <div className="flex-1">
-                          <div className="font-medium text-sm">{sport.name}</div>
+                          <div className="font-medium text-sm">
+                            {sport.name}
+                          </div>
                           {sport.governingBody && (
                             <div className="text-muted-foreground text-xs">
                               {sport.governingBody}

@@ -24,12 +24,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface SkillRadarChartProps {
   playerId: Id<"playerIdentities">;
@@ -84,7 +79,9 @@ export function SkillRadarChart({
 }: SkillRadarChartProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const [showBenchmark, setShowBenchmark] = useState(true);
-  const [activeTab, setActiveTab] = useState<"categories" | "all">("categories");
+  const [activeTab, setActiveTab] = useState<"categories" | "all">(
+    "categories"
+  );
 
   // Get skill definitions grouped by category
   const skillsByCategory = useQuery(
@@ -226,8 +223,8 @@ export function SkillRadarChart({
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
-            No skill assessments have been recorded yet. Once skills are assessed,
-            a radar chart will visualize the player's skill profile.
+            No skill assessments have been recorded yet. Once skills are
+            assessed, a radar chart will visualize the player's skill profile.
           </p>
         </CardContent>
       </Card>
@@ -246,19 +243,20 @@ export function SkillRadarChart({
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
-            More skill assessments are needed to display the radar chart.
-            At least 3 skill categories with assessments are required.
+            More skill assessments are needed to display the radar chart. At
+            least 3 skill categories with assessments are required.
           </p>
           <p className="mt-2 text-muted-foreground text-xs">
-            <strong>Debug info:</strong> Sport: {sportCode} | 
-            Total assessments: {assessments?.length ?? 0} | 
-            Unique skills assessed: {latestAssessments.size} | 
-            Categories with assessments: {categoryRadarData.length} |
-            Total categories available: {skillsByCategory?.length ?? 0}
+            <strong>Debug info:</strong> Sport: {sportCode} | Total assessments:{" "}
+            {assessments?.length ?? 0} | Unique skills assessed:{" "}
+            {latestAssessments.size} | Categories with assessments:{" "}
+            {categoryRadarData.length} | Total categories available:{" "}
+            {skillsByCategory?.length ?? 0}
           </p>
           {categoryRadarData.length > 0 && (
             <p className="mt-1 text-muted-foreground text-xs">
-              Categories found: {categoryRadarData.map(c => c.category).join(", ")}
+              Categories found:{" "}
+              {categoryRadarData.map((c) => c.category).join(", ")}
             </p>
           )}
         </CardContent>
@@ -269,7 +267,7 @@ export function SkillRadarChart({
   const hasBenchmarks = benchmarkLookup.size > 0;
 
   return (
-    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+    <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
       <Card>
         <CollapsibleTrigger className="w-full">
           <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
@@ -292,8 +290,8 @@ export function SkillRadarChart({
             {/* Controls */}
             <div className="flex flex-wrap items-center justify-between gap-4">
               <Tabs
-                value={activeTab}
                 onValueChange={(v) => setActiveTab(v as "categories" | "all")}
+                value={activeTab}
               >
                 <TabsList>
                   <TabsTrigger value="categories">By Category</TabsTrigger>
@@ -304,11 +302,11 @@ export function SkillRadarChart({
               {hasBenchmarks && (
                 <div className="flex items-center gap-2">
                   <Switch
-                    id="show-benchmark"
                     checked={showBenchmark}
+                    id="show-benchmark"
                     onCheckedChange={setShowBenchmark}
                   />
-                  <Label htmlFor="show-benchmark" className="text-sm">
+                  <Label className="text-sm" htmlFor="show-benchmark">
                     Show Benchmark
                   </Label>
                 </div>
@@ -317,12 +315,16 @@ export function SkillRadarChart({
 
             {/* Chart */}
             <div className="h-[350px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer height="100%" width="100%">
                 <RadarChart
                   cx="50%"
                   cy="50%"
+                  data={
+                    activeTab === "categories"
+                      ? categoryRadarData
+                      : skillsRadarData
+                  }
                   outerRadius="75%"
-                  data={activeTab === "categories" ? categoryRadarData : skillsRadarData}
                 >
                   <PolarGrid strokeDasharray="3 3" />
                   <PolarAngleAxis
@@ -333,29 +335,29 @@ export function SkillRadarChart({
                   <PolarRadiusAxis
                     angle={90}
                     domain={[0, 5]}
-                    tickCount={6}
                     tick={{ fontSize: 10 }}
+                    tickCount={6}
                   />
 
                   {/* Benchmark area (shown first so player area overlays it) */}
                   {showBenchmark && hasBenchmarks && (
                     <RechartsRadar
-                      name="Benchmark"
                       dataKey="benchmark"
-                      stroke={CHART_COLORS.benchmark.stroke}
                       fill={CHART_COLORS.benchmark.fill}
                       fillOpacity={CHART_COLORS.benchmark.fillOpacity}
+                      name="Benchmark"
+                      stroke={CHART_COLORS.benchmark.stroke}
                       strokeDasharray="5 5"
                     />
                   )}
 
                   {/* Player ratings */}
                   <RechartsRadar
-                    name="Player"
                     dataKey="playerRating"
-                    stroke={CHART_COLORS.player.stroke}
                     fill={CHART_COLORS.player.fill}
                     fillOpacity={CHART_COLORS.player.fillOpacity}
+                    name="Player"
+                    stroke={CHART_COLORS.player.stroke}
                   />
 
                   <Tooltip
@@ -365,7 +367,9 @@ export function SkillRadarChart({
                         return (
                           <div className="rounded-lg border bg-background p-3 shadow-lg">
                             <p className="font-medium">
-                              {activeTab === "categories" ? data.category : data.skill}
+                              {activeTab === "categories"
+                                ? data.category
+                                : data.skill}
                             </p>
                             <div className="mt-1 space-y-1 text-sm">
                               <p className="text-green-600">
@@ -376,11 +380,13 @@ export function SkillRadarChart({
                                   Benchmark: {data.benchmark.toFixed(1)}
                                 </p>
                               )}
-                              {activeTab === "categories" && data.assessedCount && (
-                                <p className="text-muted-foreground text-xs">
-                                  {data.assessedCount} of {data.skillCount} skills assessed
-                                </p>
-                              )}
+                              {activeTab === "categories" &&
+                                data.assessedCount && (
+                                  <p className="text-muted-foreground text-xs">
+                                    {data.assessedCount} of {data.skillCount}{" "}
+                                    skills assessed
+                                  </p>
+                                )}
                             </div>
                           </div>
                         );
@@ -390,17 +396,17 @@ export function SkillRadarChart({
                   />
 
                   <Legend
-                    wrapperStyle={{ paddingTop: "20px" }}
                     formatter={(value) => (
-                      <span className="text-sm text-foreground">{value}</span>
+                      <span className="text-foreground text-sm">{value}</span>
                     )}
+                    wrapperStyle={{ paddingTop: "20px" }}
                   />
                 </RadarChart>
               </ResponsiveContainer>
             </div>
 
             {/* Legend/Info */}
-            <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+            <div className="flex flex-wrap gap-4 text-muted-foreground text-xs">
               <div className="flex items-center gap-2">
                 <div
                   className="h-3 w-3 rounded-full"
@@ -414,7 +420,10 @@ export function SkillRadarChart({
                     className="h-3 w-3 rounded-full border-2 border-dashed"
                     style={{ borderColor: CHART_COLORS.benchmark.stroke }}
                   />
-                  <span>Age-appropriate benchmark ({benchmarks?.[0]?.ageGroup?.toUpperCase()})</span>
+                  <span>
+                    Age-appropriate benchmark (
+                    {benchmarks?.[0]?.ageGroup?.toUpperCase()})
+                  </span>
                 </div>
               )}
             </div>
@@ -517,29 +526,39 @@ export function SkillRadarChartCompact({
 
   return (
     <div style={{ height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <RadarChart cx="50%" cy="50%" outerRadius="80%" data={categoryRadarData}>
+      <ResponsiveContainer height="100%" width="100%">
+        <RadarChart
+          cx="50%"
+          cy="50%"
+          data={categoryRadarData}
+          outerRadius="80%"
+        >
           <PolarGrid strokeDasharray="3 3" />
           <PolarAngleAxis dataKey="category" tick={{ fontSize: 10 }} />
-          <PolarRadiusAxis angle={90} domain={[0, 5]} tickCount={6} tick={false} />
+          <PolarRadiusAxis
+            angle={90}
+            domain={[0, 5]}
+            tick={false}
+            tickCount={6}
+          />
 
           {showBenchmark && hasBenchmarks && (
             <RechartsRadar
-              name="Benchmark"
               dataKey="benchmark"
-              stroke={CHART_COLORS.benchmark.stroke}
               fill={CHART_COLORS.benchmark.fill}
               fillOpacity={CHART_COLORS.benchmark.fillOpacity}
+              name="Benchmark"
+              stroke={CHART_COLORS.benchmark.stroke}
               strokeDasharray="5 5"
             />
           )}
 
           <RechartsRadar
-            name="Player"
             dataKey="playerRating"
-            stroke={CHART_COLORS.player.stroke}
             fill={CHART_COLORS.player.fill}
             fillOpacity={CHART_COLORS.player.fillOpacity}
+            name="Player"
+            stroke={CHART_COLORS.player.stroke}
           />
         </RadarChart>
       </ResponsiveContainer>

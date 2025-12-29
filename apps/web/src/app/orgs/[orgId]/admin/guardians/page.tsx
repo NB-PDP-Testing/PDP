@@ -1,40 +1,37 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
-import { useParams } from "next/navigation";
-import { useState } from "react";
 import { api } from "@pdp/backend/convex/_generated/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { useQuery } from "convex/react";
 import {
-  Users,
-  UserCheck,
-  UserX,
   AlertCircle,
-  Search,
-  Mail,
-  Phone,
-  Edit,
-  Trash2,
-  Plus,
+  ArrowLeft,
+  ArrowRight,
   CheckCircle2,
-  Clock,
-  XCircle,
   ChevronDown,
   ChevronRight,
-  X,
+  Clock,
+  Edit,
   Filter,
-  Users2,
-  TrendingUp,
-  Target,
   Lightbulb,
-  ArrowRight,
+  Mail,
+  Phone,
+  Plus,
+  Search,
   Send,
+  Target,
+  TrendingUp,
+  UserCheck,
+  Users,
+  Users2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 type ViewMode = "players" | "guardians" | "status";
 type StatusFilter = "all" | "claimed" | "pending" | "missing";
@@ -77,7 +74,7 @@ export default function GuardianManagementPage() {
 
   // Generate insights and recommendations
   const getInsights = () => {
-    if (!stats || !relationships || !guardians) return [];
+    if (!(stats && relationships && guardians)) return [];
 
     const insights = [];
 
@@ -100,7 +97,9 @@ export default function GuardianManagementPage() {
     // Pending accounts insight
     if (stats.pendingAccounts > 0) {
       const pendingPercentage = Math.round(
-        (stats.pendingAccounts / (stats.claimedAccounts + stats.pendingAccounts)) * 100
+        (stats.pendingAccounts /
+          (stats.claimedAccounts + stats.pendingAccounts)) *
+          100
       );
       insights.push({
         type: "info",
@@ -117,8 +116,12 @@ export default function GuardianManagementPage() {
     }
 
     // Missing contact info insight
-    if (stats.guardiansWithMissingEmail > 0 || stats.guardiansWithMissingPhone > 0) {
-      const totalMissing = stats.guardiansWithMissingEmail + stats.guardiansWithMissingPhone;
+    if (
+      stats.guardiansWithMissingEmail > 0 ||
+      stats.guardiansWithMissingPhone > 0
+    ) {
+      const totalMissing =
+        stats.guardiansWithMissingEmail + stats.guardiansWithMissingPhone;
       insights.push({
         type: "warning",
         icon: Mail,
@@ -150,14 +153,17 @@ export default function GuardianManagementPage() {
     }
 
     // Success insight
-    if (stats.claimedAccounts === stats.claimedAccounts + stats.pendingAccounts &&
-        stats.playersWithoutGuardians === 0 &&
-        stats.guardiansWithMissingEmail === 0) {
+    if (
+      stats.claimedAccounts === stats.claimedAccounts + stats.pendingAccounts &&
+      stats.playersWithoutGuardians === 0 &&
+      stats.guardiansWithMissingEmail === 0
+    ) {
       insights.push({
         type: "success",
         icon: CheckCircle2,
         title: "Guardian Management Complete",
-        description: "All guardians have accounts and complete contact information!",
+        description:
+          "All guardians have accounts and complete contact information!",
         action: null,
         onClick: null,
         priority: "low",
@@ -165,12 +171,16 @@ export default function GuardianManagementPage() {
     }
 
     // Engagement opportunity
-    if (stats.claimedAccounts > 0 && stats.pendingAccounts > stats.claimedAccounts * 0.5) {
+    if (
+      stats.claimedAccounts > 0 &&
+      stats.pendingAccounts > stats.claimedAccounts * 0.5
+    ) {
       insights.push({
         type: "tip",
         icon: Lightbulb,
         title: "Boost Guardian Engagement",
-        description: "Consider sending a welcome message to active guardians asking them to invite others.",
+        description:
+          "Consider sending a welcome message to active guardians asking them to invite others.",
         action: null,
         onClick: null,
         priority: "low",
@@ -179,7 +189,10 @@ export default function GuardianManagementPage() {
 
     return insights.sort((a, b) => {
       const priorityOrder = { high: 0, medium: 1, low: 2 };
-      return priorityOrder[a.priority as keyof typeof priorityOrder] - priorityOrder[b.priority as keyof typeof priorityOrder];
+      return (
+        priorityOrder[a.priority as keyof typeof priorityOrder] -
+        priorityOrder[b.priority as keyof typeof priorityOrder]
+      );
     });
   };
 
@@ -226,7 +239,7 @@ export default function GuardianManagementPage() {
   // Filter data based on search and status
   const getFilteredData = () => {
     if (viewMode === "players" && relationships) {
-      let filtered = relationships.filter((rel: any) => {
+      const filtered = relationships.filter((rel: any) => {
         const matchesSearch =
           searchQuery === "" ||
           rel.playerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -238,8 +251,12 @@ export default function GuardianManagementPage() {
 
         const matchesStatus =
           statusFilter === "all" ||
-          (statusFilter === "claimed" && rel.claimedCount === rel.guardianCount && rel.guardianCount > 0) ||
-          (statusFilter === "pending" && rel.claimedCount < rel.guardianCount && rel.guardianCount > 0) ||
+          (statusFilter === "claimed" &&
+            rel.claimedCount === rel.guardianCount &&
+            rel.guardianCount > 0) ||
+          (statusFilter === "pending" &&
+            rel.claimedCount < rel.guardianCount &&
+            rel.guardianCount > 0) ||
           (statusFilter === "missing" && rel.guardianCount === 0);
 
         return matchesSearch && matchesStatus;
@@ -248,7 +265,7 @@ export default function GuardianManagementPage() {
     }
 
     if (viewMode === "guardians" && guardians) {
-      let filtered = guardians.filter((guardian: any) => {
+      const filtered = guardians.filter((guardian: any) => {
         const matchesSearch =
           searchQuery === "" ||
           `${guardian.firstName} ${guardian.lastName}`
@@ -272,7 +289,9 @@ export default function GuardianManagementPage() {
         // Apply search filter to missing guardians
         return playersWithoutGuardians.filter((player: any) => {
           if (searchQuery === "") return true;
-          return player.playerName.toLowerCase().includes(searchQuery.toLowerCase());
+          return player.playerName
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase());
         });
       }
       // For other status filters, show filtered players
@@ -289,8 +308,12 @@ export default function GuardianManagementPage() {
 
           const matchesStatus =
             statusFilter === "all" ||
-            (statusFilter === "claimed" && rel.claimedCount === rel.guardianCount && rel.guardianCount > 0) ||
-            (statusFilter === "pending" && rel.claimedCount < rel.guardianCount && rel.guardianCount > 0);
+            (statusFilter === "claimed" &&
+              rel.claimedCount === rel.guardianCount &&
+              rel.guardianCount > 0) ||
+            (statusFilter === "pending" &&
+              rel.claimedCount < rel.guardianCount &&
+              rel.guardianCount > 0);
 
           return matchesSearch && matchesStatus;
         });
@@ -303,13 +326,10 @@ export default function GuardianManagementPage() {
 
   const filteredData = getFilteredData();
 
-  const getStatusBadge = (
-    claimedCount: number,
-    totalCount: number
-  ) => {
+  const getStatusBadge = (claimedCount: number, totalCount: number) => {
     if (totalCount === 0) {
       return (
-        <Badge variant="destructive" className="gap-1">
+        <Badge className="gap-1" variant="destructive">
           <AlertCircle className="h-3 w-3" />
           Missing
         </Badge>
@@ -317,14 +337,14 @@ export default function GuardianManagementPage() {
     }
     if (claimedCount === totalCount) {
       return (
-        <Badge variant="default" className="gap-1 bg-green-600">
+        <Badge className="gap-1 bg-green-600" variant="default">
           <CheckCircle2 className="h-3 w-3" />
           All Claimed
         </Badge>
       );
     }
     return (
-      <Badge variant="secondary" className="gap-1 bg-yellow-600 text-white">
+      <Badge className="gap-1 bg-yellow-600 text-white" variant="secondary">
         <Clock className="h-3 w-3" />
         {claimedCount}/{totalCount} Claimed
       </Badge>
@@ -334,21 +354,21 @@ export default function GuardianManagementPage() {
   const getGuardianStatusBadge = (hasAccount: boolean) => {
     if (hasAccount) {
       return (
-        <Badge variant="default" className="gap-1 bg-green-600">
+        <Badge className="gap-1 bg-green-600" variant="default">
           <CheckCircle2 className="h-3 w-3" />
           Claimed
         </Badge>
       );
     }
     return (
-      <Badge variant="secondary" className="gap-1 bg-yellow-600 text-white">
+      <Badge className="gap-1 bg-yellow-600 text-white" variant="secondary">
         <Clock className="h-3 w-3" />
         Pending
       </Badge>
     );
   };
 
-  if (!stats || !relationships || !guardians) {
+  if (!(stats && relationships && guardians)) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <div className="text-center">
@@ -359,9 +379,14 @@ export default function GuardianManagementPage() {
     );
   }
 
-  const claimedPercentage = stats.totalGuardianLinks > 0
-    ? Math.round((stats.claimedAccounts / (stats.claimedAccounts + stats.pendingAccounts)) * 100)
-    : 0;
+  const claimedPercentage =
+    stats.totalGuardianLinks > 0
+      ? Math.round(
+          (stats.claimedAccounts /
+            (stats.claimedAccounts + stats.pendingAccounts)) *
+            100
+        )
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -502,10 +527,10 @@ export default function GuardianManagementPage() {
 
                 return (
                   <div
-                    key={index}
                     className={`flex flex-col gap-2 rounded-lg border ${borderColor} ${bgColor} p-3 transition-all ${
                       insight.onClick ? "cursor-pointer hover:shadow-md" : ""
                     }`}
+                    key={index}
                     onClick={insight.onClick || undefined}
                   >
                     <div className="flex items-start gap-3">
@@ -522,7 +547,7 @@ export default function GuardianManagementPage() {
                       </div>
                     </div>
                     {insight.action && (
-                      <div className="ml-11 flex items-center gap-1 text-xs font-medium text-primary">
+                      <div className="ml-11 flex items-center gap-1 font-medium text-primary text-xs">
                         {insight.action}
                         <ArrowRight className="h-3 w-3" />
                       </div>
@@ -576,7 +601,7 @@ export default function GuardianManagementPage() {
               <div className="relative w-full sm:w-80">
                 <Search className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  className="pl-10 pr-10"
+                  className="pr-10 pl-10"
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search players, guardians, emails..."
                   type="text"
@@ -597,7 +622,9 @@ export default function GuardianManagementPage() {
             {viewMode === "guardians" && (
               <div className="flex items-center gap-2 border-t pt-3">
                 <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-sm">View options:</span>
+                <span className="text-muted-foreground text-sm">
+                  View options:
+                </span>
                 <Button
                   onClick={() => setGroupByFamily(!groupByFamily)}
                   size="sm"
@@ -607,7 +634,7 @@ export default function GuardianManagementPage() {
                   {groupByFamily ? "Grouped by Family" : "Group by Family"}
                 </Button>
                 {groupByFamily && (
-                  <Badge variant="secondary" className="ml-2">
+                  <Badge className="ml-2" variant="secondary">
                     {getGroupedGuardians().length} families
                   </Badge>
                 )}
@@ -617,37 +644,39 @@ export default function GuardianManagementPage() {
             {/* Active Filters Summary */}
             {(searchQuery || statusFilter !== "all") && (
               <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-                <span className="text-muted-foreground text-sm">Active filters:</span>
+                <span className="text-muted-foreground text-sm">
+                  Active filters:
+                </span>
                 {searchQuery && (
-                  <Badge variant="secondary" className="gap-1">
+                  <Badge className="gap-1" variant="secondary">
                     Search: "{searchQuery}"
                     <button
-                      onClick={() => setSearchQuery("")}
                       className="ml-1 hover:text-foreground"
+                      onClick={() => setSearchQuery("")}
                     >
                       <X className="h-3 w-3" />
                     </button>
                   </Badge>
                 )}
                 {statusFilter !== "all" && (
-                  <Badge variant="secondary" className="gap-1">
+                  <Badge className="gap-1" variant="secondary">
                     Status: {statusFilter}
                     <button
-                      onClick={() => setStatusFilter("all")}
                       className="ml-1 hover:text-foreground"
+                      onClick={() => setStatusFilter("all")}
                     >
                       <X className="h-3 w-3" />
                     </button>
                   </Badge>
                 )}
                 <Button
+                  className="h-6 text-xs"
                   onClick={() => {
                     setSearchQuery("");
                     setStatusFilter("all");
                   }}
                   size="sm"
                   variant="ghost"
-                  className="h-6 text-xs"
                 >
                   Clear all
                 </Button>
@@ -713,7 +742,7 @@ export default function GuardianManagementPage() {
               </Card>
             ) : (
               filteredData.map((rel: any) => (
-                <Card key={rel.playerId} className="overflow-hidden">
+                <Card className="overflow-hidden" key={rel.playerId}>
                   <CardContent className="p-0">
                     <div
                       className="flex cursor-pointer items-center justify-between p-4 hover:bg-muted/50"
@@ -751,8 +780,8 @@ export default function GuardianManagementPage() {
                           <div className="space-y-3">
                             {rel.guardians.map((guardian: any) => (
                               <div
-                                key={guardian.guardianId}
                                 className="flex items-start justify-between rounded-lg border bg-background p-3"
+                                key={guardian.guardianId}
                               >
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2">
@@ -760,7 +789,10 @@ export default function GuardianManagementPage() {
                                       {guardian.firstName} {guardian.lastName}
                                     </span>
                                     {guardian.isPrimary && (
-                                      <Badge variant="outline" className="text-xs">
+                                      <Badge
+                                        className="text-xs"
+                                        variant="outline"
+                                      >
                                         Primary
                                       </Badge>
                                     )}
@@ -812,7 +844,7 @@ export default function GuardianManagementPage() {
               </Card>
             ) : (
               filteredData.map((guardian: any) => (
-                <Card key={guardian.guardianId} className="overflow-hidden">
+                <Card className="overflow-hidden" key={guardian.guardianId}>
                   <CardContent className="p-0">
                     <div
                       className="flex cursor-pointer items-center justify-between p-4 hover:bg-muted/50"
@@ -845,7 +877,9 @@ export default function GuardianManagementPage() {
                       <div className="border-t bg-muted/20 p-4">
                         <div className="space-y-3">
                           <div className="text-sm">
-                            <div className="mb-2 font-medium">Contact Information:</div>
+                            <div className="mb-2 font-medium">
+                              Contact Information:
+                            </div>
                             <div className="space-y-1 text-muted-foreground">
                               <div className="flex items-center gap-2">
                                 <Mail className="h-3 w-3" />
@@ -861,12 +895,14 @@ export default function GuardianManagementPage() {
                           </div>
 
                           <div className="text-sm">
-                            <div className="mb-2 font-medium">Linked Players:</div>
+                            <div className="mb-2 font-medium">
+                              Linked Players:
+                            </div>
                             <div className="space-y-2">
                               {guardian.players.map((player: any) => (
                                 <div
-                                  key={player.playerId}
                                   className="flex items-center justify-between rounded-lg border bg-background p-2"
+                                  key={player.playerId}
                                 >
                                   <div>
                                     <div className="font-medium text-sm">
@@ -901,7 +937,7 @@ export default function GuardianManagementPage() {
               </Card>
             ) : (
               getGroupedGuardians().map((family: any) => (
-                <Card key={family.familyName} className="overflow-hidden">
+                <Card className="overflow-hidden" key={family.familyName}>
                   <CardContent className="p-0">
                     <div
                       className="flex cursor-pointer items-center justify-between bg-muted/30 p-4 hover:bg-muted/50"
@@ -922,15 +958,19 @@ export default function GuardianManagementPage() {
                           </div>
                           <div className="text-muted-foreground text-sm">
                             {family.members.length} guardian
-                            {family.members.length !== 1 ? "s" : ""} • {family.playerCount} player
+                            {family.members.length !== 1 ? "s" : ""} •{" "}
+                            {family.playerCount} player
                             {family.playerCount !== 1 ? "s" : ""}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">
-                          {family.members.filter((g: any) => g.hasUserAccount).length} /{" "}
-                          {family.members.length} claimed
+                          {
+                            family.members.filter((g: any) => g.hasUserAccount)
+                              .length
+                          }{" "}
+                          / {family.members.length} claimed
                         </Badge>
                       </div>
                     </div>
@@ -940,8 +980,8 @@ export default function GuardianManagementPage() {
                         <div className="space-y-4">
                           {family.members.map((guardian: any) => (
                             <div
-                              key={guardian.guardianId}
                               className="rounded-lg border bg-muted/20 p-4"
+                              key={guardian.guardianId}
                             >
                               <div className="mb-3 flex items-start justify-between">
                                 <div className="flex-1">
@@ -949,7 +989,9 @@ export default function GuardianManagementPage() {
                                     <span className="font-medium text-lg">
                                       {guardian.firstName} {guardian.lastName}
                                     </span>
-                                    {getGuardianStatusBadge(guardian.hasUserAccount)}
+                                    {getGuardianStatusBadge(
+                                      guardian.hasUserAccount
+                                    )}
                                   </div>
                                   <div className="space-y-1 text-muted-foreground text-sm">
                                     <div className="flex items-center gap-2">
@@ -976,15 +1018,16 @@ export default function GuardianManagementPage() {
                                 <div className="space-y-2">
                                   {guardian.players.map((player: any) => (
                                     <div
-                                      key={player.playerId}
                                       className="flex items-center justify-between rounded-md border bg-background p-2"
+                                      key={player.playerId}
                                     >
                                       <div>
                                         <div className="font-medium text-sm">
                                           {player.playerName}
                                         </div>
                                         <div className="text-muted-foreground text-xs">
-                                          {player.ageGroup} • {player.relationship}
+                                          {player.ageGroup} •{" "}
+                                          {player.relationship}
                                           {player.isPrimary && " (Primary)"}
                                         </div>
                                       </div>
@@ -1047,50 +1090,116 @@ export default function GuardianManagementPage() {
             <Target className="mt-0.5 h-5 w-5 text-purple-600" />
             <div className="flex-1 text-sm">
               <div className="mb-2 font-semibold text-purple-900 dark:text-purple-100">
-                {viewMode === "players" && statusFilter === "all" && "Player Overview Tips"}
-                {viewMode === "players" && statusFilter === "claimed" && "Players with Active Guardians"}
-                {viewMode === "players" && statusFilter === "pending" && "Players with Pending Guardians"}
-                {viewMode === "players" && statusFilter === "missing" && "Action Required: Missing Guardians"}
-                {viewMode === "guardians" && !groupByFamily && statusFilter === "all" && "Guardian Management Tips"}
-                {viewMode === "guardians" && !groupByFamily && statusFilter === "claimed" && "Active Guardians"}
-                {viewMode === "guardians" && !groupByFamily && statusFilter === "pending" && "Pending Guardian Invitations"}
-                {viewMode === "guardians" && groupByFamily && "Family Grouping View"}
-                {viewMode === "status" && statusFilter === "missing" && "Players Without Guardian Contacts"}
+                {viewMode === "players" &&
+                  statusFilter === "all" &&
+                  "Player Overview Tips"}
+                {viewMode === "players" &&
+                  statusFilter === "claimed" &&
+                  "Players with Active Guardians"}
+                {viewMode === "players" &&
+                  statusFilter === "pending" &&
+                  "Players with Pending Guardians"}
+                {viewMode === "players" &&
+                  statusFilter === "missing" &&
+                  "Action Required: Missing Guardians"}
+                {viewMode === "guardians" &&
+                  !groupByFamily &&
+                  statusFilter === "all" &&
+                  "Guardian Management Tips"}
+                {viewMode === "guardians" &&
+                  !groupByFamily &&
+                  statusFilter === "claimed" &&
+                  "Active Guardians"}
+                {viewMode === "guardians" &&
+                  !groupByFamily &&
+                  statusFilter === "pending" &&
+                  "Pending Guardian Invitations"}
+                {viewMode === "guardians" &&
+                  groupByFamily &&
+                  "Family Grouping View"}
+                {viewMode === "status" &&
+                  statusFilter === "missing" &&
+                  "Players Without Guardian Contacts"}
               </div>
               <div className="space-y-2 text-purple-800 dark:text-purple-200">
                 {viewMode === "players" && statusFilter === "all" && (
                   <>
-                    <div>• Click on any player to see their guardian details and claim status</div>
-                    <div>• Use the search bar to quickly find specific players or guardians</div>
-                    <div>• Filter by status to focus on specific groups that need attention</div>
+                    <div>
+                      • Click on any player to see their guardian details and
+                      claim status
+                    </div>
+                    <div>
+                      • Use the search bar to quickly find specific players or
+                      guardians
+                    </div>
+                    <div>
+                      • Filter by status to focus on specific groups that need
+                      attention
+                    </div>
                   </>
                 )}
                 {viewMode === "players" && statusFilter === "missing" && (
                   <>
-                    <div>• These players have no guardian contacts - this should be addressed urgently</div>
-                    <div>• Click "Add Guardian" to manually add guardian information</div>
-                    <div>• Consider reaching out to these players directly for guardian details</div>
+                    <div>
+                      • These players have no guardian contacts - this should be
+                      addressed urgently
+                    </div>
+                    <div>
+                      • Click "Add Guardian" to manually add guardian
+                      information
+                    </div>
+                    <div>
+                      • Consider reaching out to these players directly for
+                      guardian details
+                    </div>
                   </>
                 )}
-                {viewMode === "guardians" && !groupByFamily && statusFilter === "pending" && (
-                  <>
-                    <div>• These guardians have been added but haven't created accounts yet</div>
-                    <div>• Consider sending invitation reminders via email or SMS</div>
-                    <div>• Verify email addresses are correct if invitations aren't being received</div>
-                  </>
-                )}
+                {viewMode === "guardians" &&
+                  !groupByFamily &&
+                  statusFilter === "pending" && (
+                    <>
+                      <div>
+                        • These guardians have been added but haven't created
+                        accounts yet
+                      </div>
+                      <div>
+                        • Consider sending invitation reminders via email or SMS
+                      </div>
+                      <div>
+                        • Verify email addresses are correct if invitations
+                        aren't being received
+                      </div>
+                    </>
+                  )}
                 {viewMode === "guardians" && groupByFamily && (
                   <>
-                    <div>• Guardians are grouped by last name to identify family units</div>
-                    <div>• This view helps spot potential duplicates or siblings</div>
-                    <div>• Click on a family to see all guardians and their linked players</div>
+                    <div>
+                      • Guardians are grouped by last name to identify family
+                      units
+                    </div>
+                    <div>
+                      • This view helps spot potential duplicates or siblings
+                    </div>
+                    <div>
+                      • Click on a family to see all guardians and their linked
+                      players
+                    </div>
                   </>
                 )}
                 {viewMode === "status" && statusFilter === "missing" && (
                   <>
-                    <div><strong>Priority Action:</strong> Add guardian contacts for these players</div>
-                    <div>• Missing guardian information prevents important communications</div>
-                    <div>• This is required for emergency situations and event notifications</div>
+                    <div>
+                      <strong>Priority Action:</strong> Add guardian contacts
+                      for these players
+                    </div>
+                    <div>
+                      • Missing guardian information prevents important
+                      communications
+                    </div>
+                    <div>
+                      • This is required for emergency situations and event
+                      notifications
+                    </div>
                   </>
                 )}
               </div>
@@ -1111,18 +1220,20 @@ export default function GuardianManagementPage() {
               <div className="space-y-1 text-blue-800 dark:text-blue-200">
                 {stats.guardiansWithMissingEmail > 0 && (
                   <div>
-                    • {stats.guardiansWithMissingEmail} guardian(s) missing email
-                    address
+                    • {stats.guardiansWithMissingEmail} guardian(s) missing
+                    email address
                   </div>
                 )}
                 {stats.guardiansWithMissingPhone > 0 && (
                   <div>
-                    • {stats.guardiansWithMissingPhone} guardian(s) missing phone
-                    number
+                    • {stats.guardiansWithMissingPhone} guardian(s) missing
+                    phone number
                   </div>
                 )}
                 {stats.duplicateEmails > 0 && (
-                  <div>• {stats.duplicateEmails} duplicate email addresses found</div>
+                  <div>
+                    • {stats.duplicateEmails} duplicate email addresses found
+                  </div>
                 )}
                 {stats.guardiansWithMissingEmail === 0 &&
                   stats.guardiansWithMissingPhone === 0 &&

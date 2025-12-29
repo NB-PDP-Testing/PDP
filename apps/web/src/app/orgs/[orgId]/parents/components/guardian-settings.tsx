@@ -8,13 +8,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -46,7 +40,9 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
     guardianIdentity ? { guardianIdentityId: guardianIdentity._id } : "skip"
   );
 
-  const updateConsent = useMutation(api.models.guardianPlayerLinks.updateLinkConsent);
+  const updateConsent = useMutation(
+    api.models.guardianPlayerLinks.updateLinkConsent
+  );
 
   const handleConsentChange = async (
     playerIdentityId: Id<"playerIdentities">,
@@ -118,12 +114,16 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Email:</span>
-                    <span className="font-medium">{guardianIdentity.email}</span>
+                    <span className="font-medium">
+                      {guardianIdentity.email}
+                    </span>
                   </div>
                   {guardianIdentity.phone && (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Phone:</span>
-                      <span className="font-medium">{guardianIdentity.phone}</span>
+                      <span className="font-medium">
+                        {guardianIdentity.phone}
+                      </span>
                     </div>
                   )}
                   <div className="flex items-center justify-between">
@@ -167,7 +167,10 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
                       const isProcessing = processingLinkId === linkId;
 
                       return (
-                        <div className="rounded-lg border p-4" key={link.player._id}>
+                        <div
+                          className="rounded-lg border p-4"
+                          key={link.player._id}
+                        >
                           <div className="space-y-4">
                             {/* Child Info */}
                             <div className="flex items-start justify-between">
@@ -179,9 +182,13 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
                                   DOB: {link.player.dateOfBirth}
                                 </p>
                                 <div className="mt-2 flex gap-2">
-                                  <Badge variant="outline">{link.link.relationship}</Badge>
+                                  <Badge variant="outline">
+                                    {link.link.relationship}
+                                  </Badge>
                                   {link.link.isPrimary && (
-                                    <Badge variant="default">Primary Contact</Badge>
+                                    <Badge variant="default">
+                                      Primary Contact
+                                    </Badge>
                                   )}
                                 </div>
                               </div>
@@ -203,17 +210,23 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
                                   disabled={isProcessing}
                                   id={linkId}
                                   onCheckedChange={(checked) =>
-                                    handleConsentChange(link.player._id, checked)
+                                    handleConsentChange(
+                                      link.player._id,
+                                      checked
+                                    )
                                   }
                                 />
                               </div>
 
                               {link.link.consentedToSharing && (
                                 <div className="rounded-md bg-blue-50 p-3 text-blue-900 text-xs">
-                                  <p className="font-medium">✓ Sharing enabled</p>
+                                  <p className="font-medium">
+                                    ✓ Sharing enabled
+                                  </p>
                                   <p className="mt-1">
-                                    Other organizations where {link.player.firstName} enrolls
-                                    can identify you as their guardian.
+                                    Other organizations where{" "}
+                                    {link.player.firstName} enrolls can identify
+                                    you as their guardian.
                                   </p>
                                 </div>
                               )}
@@ -226,7 +239,9 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
                                   Parental Responsibility:
                                 </span>
                                 <Badge variant="outline">
-                                  {link.link.hasParentalResponsibility ? "Yes" : "No"}
+                                  {link.link.hasParentalResponsibility
+                                    ? "Yes"
+                                    : "No"}
                                 </Badge>
                               </div>
                               <div className="flex items-center justify-between">
@@ -234,7 +249,9 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
                                   Can Collect from Training:
                                 </span>
                                 <Badge variant="outline">
-                                  {link.link.canCollectFromTraining ? "Yes" : "No"}
+                                  {link.link.canCollectFromTraining
+                                    ? "Yes"
+                                    : "No"}
                                 </Badge>
                               </div>
                             </div>
@@ -255,9 +272,10 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
                   About Cross-Organization Sharing
                 </h4>
                 <p className="text-blue-700 text-sm">
-                  When enabled, other sports clubs your child joins can see your guardian
-                  relationship, making registration easier. Your personal information is
-                  only shared with clubs where your child is actively enrolled.
+                  When enabled, other sports clubs your child joins can see your
+                  guardian relationship, making registration easier. Your
+                  personal information is only shared with clubs where your
+                  child is actively enrolled.
                 </p>
               </div>
             </div>

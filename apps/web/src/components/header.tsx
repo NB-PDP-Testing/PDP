@@ -25,6 +25,18 @@ function OrgNav({ member }: { member: Member }) {
   const hasCoachRole = functionalRoles.includes("coach");
   const hasParentRole = functionalRoles.includes("parent");
 
+  // DEBUG: Log what we're actually receiving
+  console.log("🔍 [OrgNav] Member data:", {
+    memberId: member.id,
+    userId: member.userId,
+    orgId: member.organizationId,
+    betterAuthRole: member.role,
+    functionalRoles,
+    hasCoachRole,
+    hasParentRole,
+    rawMember: member,
+  });
+
   // Admin access: Check Better Auth role for organizational permissions
   const hasOrgAdmin = authClient.organization.checkRolePermission({
     permissions: { organization: ["update"] },
@@ -51,8 +63,16 @@ export default function Header() {
   const pathname = usePathname();
   const orgId = params?.orgId as string | undefined;
   const user = useCurrentUser();
-  const { data: org } = authClient.useActiveOrganization();
-  const { data: member } = authClient.useActiveMember();
+  const { data: org, isPending: isOrgPending } =
+    authClient.useActiveOrganization();
+  const { data: member, isPending: isMemberPending } =
+    authClient.useActiveMember();
+
+  // Ensure member data matches current org to prevent showing wrong roles
+  // when switching between organizations
+  const isMemberDataStale =
+    member && org && member.organizationId !== (org as any).id;
+  const validMember = isMemberDataStale ? null : member;
 
   // Check if we're on an auth page or landing page
   const isAuthPage = pathname === "/login" || pathname === "/signup";
@@ -68,16 +88,33 @@ export default function Header() {
   // Debug logging for nav links
   if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
     console.log("[Header] Navigation Debug:", {
+      isOrgPending,
+      isMemberPending,
+      isMemberDataStale,
       org: org ? { name: org.name, id: (org as any).id } : "null",
-      member: member ? { 
-        role: member.role, 
-        organizationId: member.organizationId,
-        functionalRoles: (member as any).functionalRoles 
-      } : "null",
+      member: member
+        ? {
+            role: member.role,
+            organizationId: member.organizationId,
+            functionalRoles: (member as any).functionalRoles,
+          }
+        : "null",
+      validMember: validMember
+        ? {
+            role: validMember.role,
+            organizationId: validMember.organizationId,
+            functionalRoles: (validMember as any).functionalRoles,
+          }
+        : "null",
       pathname,
       orgId,
       shouldHideOrgContent,
-      showOrgNav: !!(org && !shouldHideOrgContent && member),
+      showOrgNav: !!(
+        org &&
+        !shouldHideOrgContent &&
+        !isMemberPending &&
+        validMember
+      ),
     });
   }
 
@@ -137,6 +174,7 @@ export default function Header() {
         {/* Left side - Home link always visible + Org logo and nav */}
         <nav className={cn("flex items-center gap-4 text-lg", headerTextStyle)}>
           <Link href="/">Home</Link>
+          {user?.isPlatformStaff && <Link href="/platform">Platform</Link>}
         </nav>
 
         {/* Org-specific content - only show when on a specific org page, not on /orgs listing, join, or create */}
@@ -161,7 +199,8 @@ export default function Header() {
                 <span className="hidden sm:inline">{org.name}</span>
               </Link>
             </div>
-            {member && <OrgNav member={member} />}
+            {/* Only render OrgNav when member data is loaded and matches current org */}
+            {!isMemberPending && validMember && <OrgNav member={validMember} />}
           </>
         )}
 

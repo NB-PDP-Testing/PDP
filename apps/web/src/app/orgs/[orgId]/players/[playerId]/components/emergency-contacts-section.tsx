@@ -8,14 +8,11 @@ import {
   ArrowDown,
   ArrowUp,
   Edit,
-  GripVertical,
   Loader2,
   Phone,
   Plus,
   Shield,
   Trash2,
-  User,
-  X,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -102,11 +99,20 @@ export function EmergencyContactsSection({
   const createContact = useMutation(api.models.emergencyContacts.create);
   const updateContact = useMutation(api.models.emergencyContacts.update);
   const removeContact = useMutation(api.models.emergencyContacts.remove);
-  const updatePriority = useMutation(api.models.emergencyContacts.updatePriority);
+  const updatePriority = useMutation(
+    api.models.emergencyContacts.updatePriority
+  );
 
   // Handle form submission
   const handleSubmit = async () => {
-    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.relationship) {
+    if (
+      !(
+        formData.firstName &&
+        formData.lastName &&
+        formData.phone &&
+        formData.relationship
+      )
+    ) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -163,11 +169,15 @@ export function EmergencyContactsSection({
   };
 
   // Handle priority change
-  const handleMovePriority = async (contactId: Id<"playerEmergencyContacts">, direction: "up" | "down") => {
+  const handleMovePriority = async (
+    contactId: Id<"playerEmergencyContacts">,
+    direction: "up" | "down"
+  ) => {
     const contact = contacts?.find((c) => c._id === contactId);
     if (!contact) return;
 
-    const newPriority = direction === "up" ? contact.priority - 1 : contact.priority + 1;
+    const newPriority =
+      direction === "up" ? contact.priority - 1 : contact.priority + 1;
     if (newPriority < 1 || newPriority > (contacts?.length || 0)) return;
 
     try {
@@ -212,7 +222,8 @@ export function EmergencyContactsSection({
             Emergency Contacts Managed by Guardian
           </p>
           <p className="text-blue-700 text-sm">
-            For youth players, emergency contacts are managed through guardian profiles.
+            For youth players, emergency contacts are managed through guardian
+            profiles.
           </p>
         </CardContent>
       </Card>
@@ -251,9 +262,11 @@ export function EmergencyContactsSection({
       </CardHeader>
       <CardContent>
         {contacts.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-red-200 bg-red-50 py-8 text-center">
+          <div className="rounded-lg border border-red-200 border-dashed bg-red-50 py-8 text-center">
             <AlertTriangle className="mx-auto h-10 w-10 text-red-400" />
-            <p className="mt-2 font-medium text-red-800">No Emergency Contacts</p>
+            <p className="mt-2 font-medium text-red-800">
+              No Emergency Contacts
+            </p>
             <p className="text-red-700 text-sm">
               {isEditable
                 ? "Add at least one emergency contact for your safety."
@@ -278,10 +291,12 @@ export function EmergencyContactsSection({
           <div className="space-y-3">
             {contacts.map((contact, index) => (
               <div
-                key={contact._id}
                 className={`flex items-center gap-3 rounded-lg border p-3 ${
-                  contact.priority <= 2 ? "border-red-200 bg-red-50" : "bg-white"
+                  contact.priority <= 2
+                    ? "border-red-200 bg-red-50"
+                    : "bg-white"
                 }`}
+                key={contact._id}
               >
                 {/* Priority indicator */}
                 <div className="flex flex-col items-center gap-1">
@@ -323,7 +338,9 @@ export function EmergencyContactsSection({
                       {contact.firstName} {contact.lastName}
                     </p>
                     {contact.priority <= 2 && (
-                      <Badge className="bg-red-100 text-red-700 text-xs">ICE</Badge>
+                      <Badge className="bg-red-100 text-red-700 text-xs">
+                        ICE
+                      </Badge>
                     )}
                   </div>
                   <p className="text-muted-foreground text-sm capitalize">
@@ -347,7 +364,9 @@ export function EmergencyContactsSection({
                     )}
                   </div>
                   {contact.notes && (
-                    <p className="mt-1 text-muted-foreground text-xs">{contact.notes}</p>
+                    <p className="mt-1 text-muted-foreground text-xs">
+                      {contact.notes}
+                    </p>
                   )}
                 </div>
 
@@ -362,11 +381,11 @@ export function EmergencyContactsSection({
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
+                      className="text-red-500 hover:bg-red-50 hover:text-red-600"
                       disabled={deletingId === contact._id}
                       onClick={() => handleDelete(contact._id)}
                       size="icon"
                       variant="ghost"
-                      className="text-red-500 hover:bg-red-50 hover:text-red-600"
                     >
                       {deletingId === contact._id ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -384,7 +403,6 @@ export function EmergencyContactsSection({
 
       {/* Add/Edit Contact Dialog */}
       <Dialog
-        open={isAddDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
             setIsAddDialogOpen(false);
@@ -392,11 +410,14 @@ export function EmergencyContactsSection({
             setFormData(emptyFormData);
           }
         }}
+        open={isAddDialogOpen}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingContact ? "Edit Emergency Contact" : "Add Emergency Contact"}
+              {editingContact
+                ? "Edit Emergency Contact"
+                : "Add Emergency Contact"}
             </DialogTitle>
             <DialogDescription>
               {editingContact
@@ -410,7 +431,9 @@ export function EmergencyContactsSection({
               <div className="space-y-2">
                 <Label>First Name *</Label>
                 <Input
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, firstName: e.target.value })
+                  }
                   placeholder="John"
                   value={formData.firstName}
                 />
@@ -418,7 +441,9 @@ export function EmergencyContactsSection({
               <div className="space-y-2">
                 <Label>Last Name *</Label>
                 <Input
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, lastName: e.target.value })
+                  }
                   placeholder="Smith"
                   value={formData.lastName}
                 />
@@ -428,7 +453,9 @@ export function EmergencyContactsSection({
             <div className="space-y-2">
               <Label>Relationship *</Label>
               <Select
-                onValueChange={(value) => setFormData({ ...formData, relationship: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, relationship: value })
+                }
                 value={formData.relationship}
               >
                 <SelectTrigger>
@@ -447,7 +474,9 @@ export function EmergencyContactsSection({
             <div className="space-y-2">
               <Label>Phone Number *</Label>
               <Input
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
                 placeholder="087 123 4567"
                 type="tel"
                 value={formData.phone}
@@ -457,7 +486,9 @@ export function EmergencyContactsSection({
             <div className="space-y-2">
               <Label>Email (Optional)</Label>
               <Input
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
                 placeholder="john.smith@email.com"
                 type="email"
                 value={formData.email}
@@ -467,7 +498,9 @@ export function EmergencyContactsSection({
             <div className="space-y-2">
               <Label>Notes (Optional)</Label>
               <Textarea
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, notes: e.target.value })
+                }
                 placeholder="e.g., Best time to call, alternative contact methods..."
                 rows={2}
                 value={formData.notes}

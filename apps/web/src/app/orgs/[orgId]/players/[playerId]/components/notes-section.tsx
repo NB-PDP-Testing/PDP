@@ -32,7 +32,7 @@ export function NotesSection({ player, isCoach }: Props) {
   const hasNotes = Boolean(
     player.coachNotes || player.parentNotes || player.playerNotes
   );
-  
+
   // Expand by default if there are notes, collapse if empty
   const [isExpanded, setIsExpanded] = useState(hasNotes);
 
@@ -48,8 +48,15 @@ export function NotesSection({ player, isCoach }: Props) {
               </CardTitle>
               <div className="flex items-center gap-2">
                 {hasNotes && (
-                  <Badge variant="secondary" className="text-xs">
-                    {[player.coachNotes, player.parentNotes, player.playerNotes].filter(Boolean).length} notes
+                  <Badge className="text-xs" variant="secondary">
+                    {
+                      [
+                        player.coachNotes,
+                        player.parentNotes,
+                        player.playerNotes,
+                      ].filter(Boolean).length
+                    }{" "}
+                    notes
                   </Badge>
                 )}
                 {isExpanded ? (
@@ -64,19 +71,7 @@ export function NotesSection({ player, isCoach }: Props) {
 
         <CollapsibleContent>
           <CardContent className="space-y-4">
-            {!hasNotes ? (
-              <div className="py-4 text-center">
-                <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
-                <p className="text-muted-foreground text-sm">
-                  No development notes recorded yet.
-                </p>
-                {isCoach && (
-                  <p className="mt-1 text-muted-foreground text-xs">
-                    Notes can be added when editing the player profile.
-                  </p>
-                )}
-              </div>
-            ) : (
+            {hasNotes ? (
               <>
                 {/* Coach Notes */}
                 {player.coachNotes && (
@@ -108,6 +103,18 @@ export function NotesSection({ player, isCoach }: Props) {
                   />
                 )}
               </>
+            ) : (
+              <div className="py-4 text-center">
+                <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+                <p className="text-muted-foreground text-sm">
+                  No development notes recorded yet.
+                </p>
+                {isCoach && (
+                  <p className="mt-1 text-muted-foreground text-xs">
+                    Notes can be added when editing the player profile.
+                  </p>
+                )}
+              </div>
             )}
           </CardContent>
         </CollapsibleContent>

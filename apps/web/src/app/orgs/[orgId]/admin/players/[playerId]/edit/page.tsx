@@ -3,7 +3,15 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, Loader2, Save, User } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle,
+  Loader2,
+  Save,
+  Shield,
+  User,
+} from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -16,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -26,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { authClient } from "@/lib/auth-client";
 
 export default function EditPlayerPage() {
   const params = useParams();
@@ -33,7 +43,9 @@ export default function EditPlayerPage() {
   const orgId = params.orgId as string;
   const playerId = params.playerId as string;
 
+  const { data: session } = authClient.useSession();
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -51,8 +63,14 @@ export default function EditPlayerPage() {
   });
 
   // Query enrollment data
-  const enrollment = useQuery(
-    api.models.orgPlayerEnrollments.getEnrollment,
+  const enrollment = useQuery(api.models.orgPlayerEnrollments.getEnrollment, {
+    playerIdentityId: playerId as Id<"playerIdentities">,
+    organizationId: orgId,
+  });
+
+  // Query eligible teams
+  const eligibleTeams = useQuery(
+    api.models.teamPlayerIdentities.getEligibleTeamsForPlayer,
     {
       playerIdentityId: playerId as Id<"playerIdentities">,
       organizationId: orgId,
@@ -65,6 +83,9 @@ export default function EditPlayerPage() {
   );
   const updateEnrollment = useMutation(
     api.models.orgPlayerEnrollments.updateEnrollment
+  );
+  const updatePlayerTeams = useMutation(
+    api.models.teamPlayerIdentities.updatePlayerTeams
   );
 
   // Populate form when data loads
@@ -82,6 +103,16 @@ export default function EditPlayerPage() {
       });
     }
   }, [playerIdentity, enrollment]);
+
+  // Initialize selected teams
+  useEffect(() => {
+    if (eligibleTeams) {
+      const currentTeams = eligibleTeams
+        .filter((t) => t.isCurrentlyOn)
+        .map((t) => t.teamId);
+      setSelectedTeamIds(currentTeams);
+    }
+  }, [eligibleTeams]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -104,6 +135,22 @@ export default function EditPlayerPage() {
           coachNotes: formData.coachNotes || undefined,
           adminNotes: formData.adminNotes || undefined,
         });
+      }
+
+      // Update teams
+      if (session?.user?.email) {
+        const result = await updatePlayerTeams({
+          playerIdentityId: playerId as Id<"playerIdentities">,
+          organizationId: orgId,
+          teamIds: selectedTeamIds,
+          userEmail: session.user.email,
+        });
+
+        if (result.errors.length > 0) {
+          toast.error("Some team changes failed", {
+            description: result.errors.join(", "),
+          });
+        }
       }
 
       toast.success("Player updated successfully");
@@ -242,7 +289,8 @@ export default function EditPlayerPage() {
                 value={formData.email}
               />
               <p className="text-muted-foreground text-xs">
-                For adult players, this must match their login email to link their account to this player profile.
+                For adult players, this must match their login email to link
+                their account to this player profile.
               </p>
             </div>
 
@@ -327,6 +375,109 @@ export default function EditPlayerPage() {
                 value={formData.adminNotes}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Team Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Team Management</CardTitle>
+            <CardDescription>
+              Select which teams this player is on
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {eligibleTeams && eligibleTeams.length > 0 ? (
+              <div className="space-y-3">
+                {eligibleTeams.map((team) => {
+                  const isSelected = selectedTeamIds.includes(team.teamId);
+                  const isDisabled =
+                    team.isCoreTeam || team.eligibilityStatus === "ineligible";
+
+                  return (
+                    <div
+                      className="flex items-center justify-between rounded-lg border p-3"
+                      key={team.teamId}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={isSelected}
+                          disabled={isDisabled}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedTeamIds([
+                                ...selectedTeamIds,
+                                team.teamId,
+                              ]);
+                            } else {
+                              setSelectedTeamIds(
+                                selectedTeamIds.filter(
+                                  (id) => id !== team.teamId
+                                )
+                              );
+                            }
+                          }}
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{team.teamName}</span>
+                            {team.isCoreTeam && (
+                              <Badge className="gap-1" variant="default">
+                                <Shield className="h-3 w-3" />
+                                Core Team
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-muted-foreground text-xs">
+                            {team.ageGroup} • {team.sportCode}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Eligibility Status */}
+                      <div className="flex items-center gap-2">
+                        {team.eligibilityStatus === "eligible" && (
+                          <Badge
+                            className="gap-1 border-green-500 text-green-700"
+                            variant="outline"
+                          >
+                            <CheckCircle className="h-3 w-3" />
+                            Eligible
+                          </Badge>
+                        )}
+                        {team.eligibilityStatus === "hasOverride" && (
+                          <Badge className="gap-1" variant="secondary">
+                            <Shield className="h-3 w-3" />
+                            Override Active
+                          </Badge>
+                        )}
+                        {team.eligibilityStatus === "requiresOverride" && (
+                          <Badge
+                            className="gap-1 border-yellow-500 text-yellow-700"
+                            variant="outline"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                            Needs Approval
+                          </Badge>
+                        )}
+                        {team.eligibilityStatus === "ineligible" && (
+                          <Badge className="gap-1" variant="destructive">
+                            Ineligible
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {eligibleTeams.some((t) => t.isCoreTeam) && (
+                  <p className="text-muted-foreground text-xs">
+                    * Core team cannot be removed. Contact an admin to modify.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">Loading teams...</p>
+            )}
           </CardContent>
         </Card>
       </div>

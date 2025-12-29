@@ -13,10 +13,16 @@ import {
   Target,
   User,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -44,14 +50,17 @@ interface AIPracticeAssistantProps {
 }
 
 // Sport-specific drill database
-const DRILL_DATABASE: Record<string, Array<{
-  skill: string;
-  name: string;
-  duration: string;
-  equipment: string[];
-  instructions: string[];
-  successMetrics: string;
-}>> = {
+const DRILL_DATABASE: Record<
+  string,
+  Array<{
+    skill: string;
+    name: string;
+    duration: string;
+    equipment: string[];
+    instructions: string[];
+    successMetrics: string;
+  }>
+> = {
   soccer: [
     {
       skill: "passing",
@@ -215,7 +224,10 @@ interface PracticePlan {
   aiTip: string;
 }
 
-export function AIPracticeAssistant({ children, orgId }: AIPracticeAssistantProps) {
+export function AIPracticeAssistant({
+  children,
+  orgId,
+}: AIPracticeAssistantProps) {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [generatedPlan, setGeneratedPlan] = useState<PracticePlan | null>(null);
   const [showPlanDialog, setShowPlanDialog] = useState(false);
@@ -228,13 +240,16 @@ export function AIPracticeAssistant({ children, orgId }: AIPracticeAssistantProp
   const passportData = useQuery(
     api.models.sportPassports.getFullPlayerPassportView,
     selectedChildId
-      ? { playerIdentityId: selectedChildId as Id<"playerIdentities">, organizationId: orgId }
+      ? {
+          playerIdentityId: selectedChildId as Id<"playerIdentities">,
+          organizationId: orgId,
+        }
       : "skip"
   );
 
   // Generate practice plan based on weakest skills
   const generatePlan = useCallback(() => {
-    if (!selectedChild || !passportData) return;
+    if (!(selectedChild && passportData)) return;
 
     setIsGenerating(true);
 
@@ -258,16 +273,25 @@ export function AIPracticeAssistant({ children, orgId }: AIPracticeAssistantProp
 
       // Get drills for this sport
       const sportDrills = DRILL_DATABASE[sportCode] || DRILL_DATABASE.generic;
-      const focusDrill = sportDrills.find((d) => d.skill === weakestSkill) || sportDrills[0];
-      const additionalDrills = sportDrills.filter((d) => d !== focusDrill).slice(0, 2);
+      const focusDrill =
+        sportDrills.find((d) => d.skill === weakestSkill) || sportDrills[0];
+      const additionalDrills = sportDrills
+        .filter((d) => d !== focusDrill)
+        .slice(0, 2);
 
       const plan: PracticePlan = {
         childName: `${selectedChild.player.firstName} ${selectedChild.player.lastName}`,
         sport: sportCode.toUpperCase(),
-        focusSkill: weakestSkill.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+        focusSkill: weakestSkill
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (l) => l.toUpperCase()),
         drills: [focusDrill, ...additionalDrills],
         weeklyGoal: `Improve ${weakestSkill.replace(/_/g, " ")} rating from ${lowestRating} to ${Math.min(5, lowestRating + 1)}`,
-        schedule: ["Tuesday after school", "Thursday after school", "Saturday morning"],
+        schedule: [
+          "Tuesday after school",
+          "Thursday after school",
+          "Saturday morning",
+        ],
         aiTip: `Focus on quality over quantity. ${selectedChild.player.firstName} should aim for 3 short sessions (15 mins each) rather than one long session. Celebrate small improvements!`,
       };
 
@@ -373,7 +397,9 @@ export function AIPracticeAssistant({ children, orgId }: AIPracticeAssistantProp
                 <p className="font-medium text-lg text-purple-800">
                   {generatedPlan.focusSkill}
                 </p>
-                <p className="text-purple-700 text-sm">{generatedPlan.weeklyGoal}</p>
+                <p className="text-purple-700 text-sm">
+                  {generatedPlan.weeklyGoal}
+                </p>
               </div>
 
               {/* Schedule */}
@@ -406,10 +432,16 @@ export function AIPracticeAssistant({ children, orgId }: AIPracticeAssistantProp
                       </div>
 
                       <div className="mb-2">
-                        <span className="text-muted-foreground text-xs">Equipment:</span>
+                        <span className="text-muted-foreground text-xs">
+                          Equipment:
+                        </span>
                         <div className="flex flex-wrap gap-1">
                           {drill.equipment.map((eq, i) => (
-                            <Badge className="text-xs" key={i} variant="secondary">
+                            <Badge
+                              className="text-xs"
+                              key={i}
+                              variant="secondary"
+                            >
                               {eq}
                             </Badge>
                           ))}
@@ -435,23 +467,30 @@ export function AIPracticeAssistant({ children, orgId }: AIPracticeAssistantProp
               <div className="rounded-lg border-l-4 border-l-purple-500 bg-purple-50 p-4">
                 <div className="mb-1 flex items-center gap-2">
                   <Lightbulb className="h-4 w-4 text-purple-600" />
-                  <span className="font-medium text-purple-800">AI Coaching Tip</span>
+                  <span className="font-medium text-purple-800">
+                    AI Coaching Tip
+                  </span>
                 </div>
                 <p className="text-purple-700 text-sm">{generatedPlan.aiTip}</p>
               </div>
 
               {/* Progress Checklist */}
               <div>
-                <h4 className="mb-2 font-semibold">Weekly Progress Checklist</h4>
+                <h4 className="mb-2 font-semibold">
+                  Weekly Progress Checklist
+                </h4>
                 <div className="space-y-2">
-                  {["Session 1 completed", "Session 2 completed", "Session 3 completed", "Weekly goal achieved"].map(
-                    (item, idx) => (
-                      <div className="flex items-center gap-2" key={idx}>
-                        <div className="h-5 w-5 rounded border" />
-                        <span className="text-sm">{item}</span>
-                      </div>
-                    )
-                  )}
+                  {[
+                    "Session 1 completed",
+                    "Session 2 completed",
+                    "Session 3 completed",
+                    "Weekly goal achieved",
+                  ].map((item, idx) => (
+                    <div className="flex items-center gap-2" key={idx}>
+                      <div className="h-5 w-5 rounded border" />
+                      <span className="text-sm">{item}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
 

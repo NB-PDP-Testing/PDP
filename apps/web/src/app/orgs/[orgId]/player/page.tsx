@@ -3,11 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import {
-  Loader2,
-  Share2,
-  User,
-} from "lucide-react";
+import { Loader2, Share2, User } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { BenchmarkComparison } from "@/components/benchmark-comparison";
@@ -91,7 +87,7 @@ export default function PlayerDashboardPage() {
   // Check if user has player role
   const functionalRoles = membership?.functionalRoles || [];
   const hasPlayerRole = functionalRoles.includes("player");
-  
+
   if (!hasPlayerRole) {
     return (
       <div className="container mx-auto p-4 md:p-8">
@@ -99,8 +95,8 @@ export default function PlayerDashboardPage() {
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              You don&apos;t have the Player role in this organization. Contact an
-              admin to request access.
+              You don&apos;t have the Player role in this organization. Contact
+              an admin to request access.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -154,7 +150,8 @@ export default function PlayerDashboardPage() {
       <div
         className="rounded-lg p-6 text-white shadow-lg"
         style={{
-          background: "linear-gradient(to right, var(--org-primary), var(--org-primary))",
+          background:
+            "linear-gradient(to right, var(--org-primary), var(--org-primary))",
           filter: "brightness(0.95)",
         }}
       >
@@ -164,12 +161,16 @@ export default function PlayerDashboardPage() {
               <User className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-2xl md:text-3xl">My Player Passport</h1>
+              <h1 className="font-bold text-2xl md:text-3xl">
+                My Player Passport
+              </h1>
               <p className="text-white/80">
                 Welcome back, {session?.user?.name || playerIdentity.firstName}!
               </p>
               {activeOrganization && (
-                <p className="text-white/60 text-sm">{activeOrganization.name}</p>
+                <p className="text-sm text-white/60">
+                  {activeOrganization.name}
+                </p>
               )}
             </div>
           </div>
@@ -203,8 +204,8 @@ export default function PlayerDashboardPage() {
           {/* Emergency Contacts - adult players can manage their own (immediately after basic info) */}
           {playerIdentity.playerType === "adult" && (
             <EmergencyContactsSection
-              playerIdentityId={playerIdentity._id}
               isEditable={true}
+              playerIdentityId={playerIdentity._id}
               playerType="adult"
             />
           )}
@@ -225,10 +226,7 @@ export default function PlayerDashboardPage() {
           <GoalsSection player={playerData as any} />
 
           {/* Development Notes - same as coach view (read-only for players) */}
-          <NotesSection
-            isCoach={false}
-            player={playerData as any}
-          />
+          <NotesSection isCoach={false} player={playerData as any} />
 
           {/* Skills Section - same as coach view */}
           <SkillsSection player={playerData as any} />
@@ -265,11 +263,17 @@ export default function PlayerDashboardPage() {
                 <>
                   <div>
                     <p className="text-muted-foreground text-sm">Age Group</p>
-                    <p className="font-medium">{enrollment.ageGroup || "N/A"}</p>
+                    <p className="font-medium">
+                      {enrollment.ageGroup || "N/A"}
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground text-sm">Status</p>
-                    <Badge variant={enrollment.status === "active" ? "default" : "secondary"}>
+                    <Badge
+                      variant={
+                        enrollment.status === "active" ? "default" : "secondary"
+                      }
+                    >
                       {enrollment.status}
                     </Badge>
                   </div>
@@ -278,8 +282,10 @@ export default function PlayerDashboardPage() {
             </div>
             <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
               <p className="text-amber-800 text-sm">
-                Your full player passport is being set up. Once your coach adds assessments and goals, 
-                you&apos;ll see your complete development profile here including skills, benchmarks, and development notes.
+                Your full player passport is being set up. Once your coach adds
+                assessments and goals, you&apos;ll see your complete development
+                profile here including skills, benchmarks, and development
+                notes.
               </p>
             </div>
           </CardContent>
@@ -289,8 +295,8 @@ export default function PlayerDashboardPage() {
       {/* Emergency Contacts Section - always show for adult players */}
       {playerIdentity.playerType === "adult" && !playerData && (
         <EmergencyContactsSection
-          playerIdentityId={playerIdentity._id}
           isEditable={true}
+          playerIdentityId={playerIdentity._id}
           playerType="adult"
         />
       )}

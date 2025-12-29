@@ -320,7 +320,7 @@ export default function PlayerImportPage() {
       const teamGender = genderToTeamFormat(player.gender);
       // Convert player sport to code format for matching (teams store sport codes)
       const playerSportCode = mapSportNameToCode(player.sport);
-      
+
       const matchedTeam = allTeams.find(
         (team) =>
           team.sport === playerSportCode &&
@@ -428,7 +428,9 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
     try {
       for (const team of teamsToCreate) {
         // Convert gender from identity format (male/female/other) to team format (male/female/mixed)
-        const teamGender = genderToTeamFormat(team.gender as "male" | "female" | "other");
+        const teamGender = genderToTeamFormat(
+          team.gender as "male" | "female" | "other"
+        );
         const name = `${team.ageGroup} ${teamGender}`;
         await createTeamMutation({
           name,
@@ -530,11 +532,16 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
             `   Team ${teamId}: ${teamResult.added} added, ${teamResult.skipped} already on team`
           );
         } catch (error) {
-          console.error(`   ❌ Failed to add players to team ${teamId}:`, error);
+          console.error(
+            `   ❌ Failed to add players to team ${teamId}:`,
+            error
+          );
         }
       }
 
-      console.log(`✅ Step 2 complete: ${totalTeamAssignments} team assignments`);
+      console.log(
+        `✅ Step 2 complete: ${totalTeamAssignments} team assignments`
+      );
 
       // ========== STEP 3: Create sport passports ==========
       console.log("📋 Step 3: Creating sport passports...");
@@ -594,9 +601,7 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
         parts.push(`${passportsCreated} passports`);
       }
       if (result.errors.length > 0 || passportErrors > 0) {
-        parts.push(
-          `${result.errors.length + passportErrors} errors`
-        );
+        parts.push(`${result.errors.length + passportErrors} errors`);
       }
 
       toast.success(`Import complete: ${parts.join(", ")}`);

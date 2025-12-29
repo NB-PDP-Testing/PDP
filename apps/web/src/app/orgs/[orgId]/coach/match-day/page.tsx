@@ -35,7 +35,7 @@ import {
 
 /**
  * Match Day Emergency Contacts View
- * 
+ *
  * Quick access for coaches to see ICE contacts for all adult players.
  * Designed for use on match day with one-tap calling.
  */
@@ -48,9 +48,12 @@ export default function MatchDayPage() {
   const [teamFilter, setTeamFilter] = useState<string>("all");
 
   // Get all adult players with their emergency contacts
-  const emergencyData = useQuery(api.models.emergencyContacts.getForOrganization, {
-    organizationId: orgId,
-  });
+  const emergencyData = useQuery(
+    api.models.emergencyContacts.getForOrganization,
+    {
+      organizationId: orgId,
+    }
+  );
 
   // Get teams for filter
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
@@ -124,13 +127,18 @@ export default function MatchDayPage() {
             Back
           </Button>
           <div>
-            <h1 className="font-bold text-2xl">Match Day - Emergency Contacts</h1>
+            <h1 className="font-bold text-2xl">
+              Match Day - Emergency Contacts
+            </h1>
             <p className="text-muted-foreground text-sm">
               Quick access to ICE contacts for adult players
             </p>
           </div>
         </div>
-        <Badge variant="outline" className="flex items-center gap-2 text-lg px-4 py-2">
+        <Badge
+          className="flex items-center gap-2 px-4 py-2 text-lg"
+          variant="outline"
+        >
           <Calendar className="h-5 w-5" />
           {new Date().toLocaleDateString("en-IE", {
             weekday: "long",
@@ -147,10 +155,12 @@ export default function MatchDayPage() {
             <AlertTriangle className="h-8 w-8 text-amber-600" />
             <div>
               <p className="font-semibold text-amber-800">
-                {playersWithoutICE} player{playersWithoutICE > 1 ? "s" : ""} without emergency contacts
+                {playersWithoutICE} player{playersWithoutICE > 1 ? "s" : ""}{" "}
+                without emergency contacts
               </p>
               <p className="text-amber-700 text-sm">
-                These players have not set up any ICE contacts. Remind them to add emergency contacts.
+                These players have not set up any ICE contacts. Remind them to
+                add emergency contacts.
               </p>
             </div>
           </CardContent>
@@ -173,20 +183,31 @@ export default function MatchDayPage() {
           </CardContent>
         </Card>
 
-        <Card className={playersWithoutICE === 0 ? "border-green-200" : "border-red-200"}>
+        <Card
+          className={
+            playersWithoutICE === 0 ? "border-green-200" : "border-red-200"
+          }
+        >
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                playersWithoutICE === 0 ? "bg-green-100" : "bg-red-100"
-              }`}>
-                <Phone className={`h-6 w-6 ${
-                  playersWithoutICE === 0 ? "text-green-600" : "text-red-600"
-                }`} />
+              <div
+                className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                  playersWithoutICE === 0 ? "bg-green-100" : "bg-red-100"
+                }`}
+              >
+                <Phone
+                  className={`h-6 w-6 ${
+                    playersWithoutICE === 0 ? "text-green-600" : "text-red-600"
+                  }`}
+                />
               </div>
               <div>
-                <p className="text-muted-foreground text-sm">With ICE Contacts</p>
+                <p className="text-muted-foreground text-sm">
+                  With ICE Contacts
+                </p>
                 <p className="font-bold text-2xl">
-                  {emergencyData.length - playersWithoutICE} / {emergencyData.length}
+                  {emergencyData.length - playersWithoutICE} /{" "}
+                  {emergencyData.length}
                 </p>
               </div>
             </div>
@@ -200,9 +221,15 @@ export default function MatchDayPage() {
                 <Shield className="h-6 w-6 text-purple-600" />
               </div>
               <div>
-                <p className="text-muted-foreground text-sm">Total ICE Contacts</p>
+                <p className="text-muted-foreground text-sm">
+                  Total ICE Contacts
+                </p>
                 <p className="font-bold text-2xl">
-                  {emergencyData.reduce((sum, item) => sum + item.contacts.filter(c => c.priority <= 2).length, 0)}
+                  {emergencyData.reduce(
+                    (sum, item) =>
+                      sum + item.contacts.filter((c) => c.priority <= 2).length,
+                    0
+                  )}
                 </p>
               </div>
             </div>
@@ -216,7 +243,7 @@ export default function MatchDayPage() {
           <div className="flex flex-wrap gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   className="pl-9"
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -248,8 +275,8 @@ export default function MatchDayPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredPlayers.map((item) => (
           <Card
+            className={item.hasICE ? "border-green-200" : "border-red-200"}
             key={item.player._id}
-            className={!item.hasICE ? "border-red-200" : "border-green-200"}
           >
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -258,24 +285,22 @@ export default function MatchDayPage() {
                     <User className="h-5 w-5 text-gray-600" />
                   </div>
                   <div>
-                    <CardTitle className="text-base">{item.player.name}</CardTitle>
+                    <CardTitle className="text-base">
+                      {item.player.name}
+                    </CardTitle>
                     <CardDescription>{item.player.ageGroup}</CardDescription>
                   </div>
                 </div>
                 {item.hasICE ? (
-                  <Badge className="bg-green-100 text-green-700">
-                    ICE ✓
-                  </Badge>
+                  <Badge className="bg-green-100 text-green-700">ICE ✓</Badge>
                 ) : (
-                  <Badge variant="destructive">
-                    No ICE
-                  </Badge>
+                  <Badge variant="destructive">No ICE</Badge>
                 )}
               </div>
             </CardHeader>
             <CardContent>
               {item.contacts.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-red-200 bg-red-50 py-4 text-center">
+                <div className="rounded-lg border border-red-200 border-dashed bg-red-50 py-4 text-center">
                   <AlertTriangle className="mx-auto h-6 w-6 text-red-400" />
                   <p className="mt-1 text-red-700 text-sm">
                     No emergency contacts
@@ -285,17 +310,21 @@ export default function MatchDayPage() {
                 <div className="space-y-2">
                   {item.contacts.slice(0, 2).map((contact) => (
                     <a
-                      key={contact._id}
-                      href={`tel:${contact.phone}`}
                       className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
                         contact.priority === 1
                           ? "border-red-200 bg-red-50 hover:bg-red-100"
                           : "border-orange-200 bg-orange-50 hover:bg-orange-100"
                       }`}
+                      href={`tel:${contact.phone}`}
+                      key={contact._id}
                     >
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-full text-white font-bold text-sm ${
-                        contact.priority === 1 ? "bg-red-600" : "bg-orange-500"
-                      }`}>
+                      <div
+                        className={`flex h-8 w-8 items-center justify-center rounded-full font-bold text-sm text-white ${
+                          contact.priority === 1
+                            ? "bg-red-600"
+                            : "bg-orange-500"
+                        }`}
+                      >
                         {contact.priority}
                       </div>
                       <div className="flex-1">
@@ -307,10 +336,16 @@ export default function MatchDayPage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm">{contact.phone}</span>
-                        <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                          contact.priority === 1 ? "bg-red-600" : "bg-orange-500"
-                        } text-white`}>
+                        <span className="font-mono text-sm">
+                          {contact.phone}
+                        </span>
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                            contact.priority === 1
+                              ? "bg-red-600"
+                              : "bg-orange-500"
+                          } text-white`}
+                        >
                           <Phone className="h-4 w-4" />
                         </div>
                       </div>
@@ -318,7 +353,8 @@ export default function MatchDayPage() {
                   ))}
                   {item.contacts.length > 2 && (
                     <p className="text-center text-muted-foreground text-xs">
-                      +{item.contacts.length - 2} more contact{item.contacts.length - 2 > 1 ? "s" : ""}
+                      +{item.contacts.length - 2} more contact
+                      {item.contacts.length - 2 > 1 ? "s" : ""}
                     </p>
                   )}
                 </div>

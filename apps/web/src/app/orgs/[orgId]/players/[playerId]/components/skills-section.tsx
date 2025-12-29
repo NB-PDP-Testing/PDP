@@ -2,17 +2,17 @@
 
 import { Award, ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
+import {
+  getColorForRating,
+  getRatingLabel,
+  RatingBar,
+} from "@/components/rating-slider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  RatingBar,
-  getColorForRating,
-  getRatingLabel,
-} from "@/components/rating-slider";
 
 interface PlayerData {
   sport: string;
@@ -85,14 +85,11 @@ function RatingDisplay({ label, value }: { label: string; value: number }) {
     <div className="mb-3">
       <div className="mb-1 flex items-center justify-between">
         <span className="font-medium text-gray-700 text-sm">{label}</span>
-        <span
-          className="font-semibold text-sm"
-          style={{ color }}
-        >
+        <span className="font-semibold text-sm" style={{ color }}>
           {value} - {ratingLabel}
         </span>
       </div>
-      <RatingBar value={value} height="md" />
+      <RatingBar height="md" value={value} />
     </div>
   );
 }

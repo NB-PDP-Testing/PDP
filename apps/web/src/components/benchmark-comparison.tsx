@@ -242,7 +242,8 @@ export function BenchmarkComparison({
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
-            Date of birth is required to show benchmark comparisons. Please update the player's profile with their date of birth.
+            Date of birth is required to show benchmark comparisons. Please
+            update the player's profile with their date of birth.
           </p>
         </CardContent>
       </Card>
@@ -261,8 +262,9 @@ export function BenchmarkComparison({
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
-            No benchmarks are available for this player's age group and sport ({sportCode}).
-            Benchmarks are set by platform administrators based on NGB standards.
+            No benchmarks are available for this player's age group and sport (
+            {sportCode}). Benchmarks are set by platform administrators based on
+            NGB standards.
           </p>
         </CardContent>
       </Card>

@@ -57,6 +57,7 @@ import type * as models_voiceNotes from "../models/voiceNotes.js";
 import type * as privateData from "../privateData.js";
 import type * as scripts_analyzeReimport from "../scripts/analyzeReimport.js";
 import type * as scripts_clearDevData from "../scripts/clearDevData.js";
+import type * as scripts_clearPlayerDataKeepUsers from "../scripts/clearPlayerDataKeepUsers.js";
 import type * as scripts_debugPlayerData from "../scripts/debugPlayerData.js";
 import type * as scripts_findPlayerByName from "../scripts/findPlayerByName.js";
 import type * as scripts_getOrgId from "../scripts/getOrgId.js";
@@ -123,6 +124,7 @@ declare const fullApi: ApiFromModules<{
   privateData: typeof privateData;
   "scripts/analyzeReimport": typeof scripts_analyzeReimport;
   "scripts/clearDevData": typeof scripts_clearDevData;
+  "scripts/clearPlayerDataKeepUsers": typeof scripts_clearPlayerDataKeepUsers;
   "scripts/debugPlayerData": typeof scripts_debugPlayerData;
   "scripts/findPlayerByName": typeof scripts_findPlayerByName;
   "scripts/getOrgId": typeof scripts_getOrgId;

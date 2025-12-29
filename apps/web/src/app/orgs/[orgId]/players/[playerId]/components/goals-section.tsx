@@ -62,7 +62,7 @@ export function GoalsSection({ player }: Props) {
         linkedSkills: goal.linkedSkills ?? [],
       }));
     }
-    
+
     // Legacy MVP format: actions field with "🎯 GOAL..."
     if (!player.actions) return [];
 
@@ -204,31 +204,35 @@ export function GoalsSection({ player }: Props) {
                 <div className="border-l-4 border-l-blue-500 bg-blue-50 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
-                    <div className="mb-2 flex items-center justify-between">
-                      <h4 className="flex items-center gap-2 font-semibold text-blue-900 text-sm">
-                        <Target className="h-4 w-4" />
-                        {goal.title}
-                      </h4>
-                      <div className="flex gap-2">
-                        {goal.status && (
-                          <span className={`rounded px-2 py-0.5 text-xs ${statusColors[goal.status]?.bg ?? "bg-gray-100"} ${statusColors[goal.status]?.text ?? "text-gray-700"}`}>
-                            {goal.status.replace("_", " ")}
-                          </span>
-                        )}
-                        {goal.priority && goal.priority !== "medium" && (
-                          <span className={`rounded px-2 py-0.5 text-xs ${priorityColors[goal.priority]?.bg ?? "bg-gray-100"} ${priorityColors[goal.priority]?.text ?? "text-gray-700"}`}>
-                            {goal.priority}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                      <div className="space-y-1 text-gray-700 text-xs">
-                      {goal.description.map((line: string, i: number) => (
-                        <div className="flex items-start gap-2" key={i}>
-                          <span className="font-bold text-blue-600">→</span>
-                          <span>{line}</span>
+                      <div className="mb-2 flex items-center justify-between">
+                        <h4 className="flex items-center gap-2 font-semibold text-blue-900 text-sm">
+                          <Target className="h-4 w-4" />
+                          {goal.title}
+                        </h4>
+                        <div className="flex gap-2">
+                          {goal.status && (
+                            <span
+                              className={`rounded px-2 py-0.5 text-xs ${statusColors[goal.status]?.bg ?? "bg-gray-100"} ${statusColors[goal.status]?.text ?? "text-gray-700"}`}
+                            >
+                              {goal.status.replace("_", " ")}
+                            </span>
+                          )}
+                          {goal.priority && goal.priority !== "medium" && (
+                            <span
+                              className={`rounded px-2 py-0.5 text-xs ${priorityColors[goal.priority]?.bg ?? "bg-gray-100"} ${priorityColors[goal.priority]?.text ?? "text-gray-700"}`}
+                            >
+                              {goal.priority}
+                            </span>
+                          )}
                         </div>
-                      ))}
+                      </div>
+                      <div className="space-y-1 text-gray-700 text-xs">
+                        {goal.description.map((line: string, i: number) => (
+                          <div className="flex items-start gap-2" key={i}>
+                            <span className="font-bold text-blue-600">→</span>
+                            <span>{line}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
@@ -274,7 +278,12 @@ export function GoalsSection({ player }: Props) {
                     {goal.milestones && goal.milestones.length > 0 && (
                       <div className="flex items-center gap-1">
                         <span>
-                          Milestones: {goal.milestones.filter((m: any) => m.completed).length}/{goal.milestones.length}
+                          Milestones:{" "}
+                          {
+                            goal.milestones.filter((m: any) => m.completed)
+                              .length
+                          }
+                          /{goal.milestones.length}
                         </span>
                       </div>
                     )}

@@ -82,9 +82,7 @@ const getReviewStatusBadge = (status: string | undefined) => {
       );
     case "due soon":
     case "due_soon":
-      return (
-        <Badge className="bg-yellow-100 text-yellow-700">Due Soon</Badge>
-      );
+      return <Badge className="bg-yellow-100 text-yellow-700">Due Soon</Badge>;
     case "overdue":
       return <Badge className="bg-red-100 text-red-700">Overdue</Badge>;
     default:
@@ -138,8 +136,7 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
   const activeGoals = useMemo(() => {
     if (!goals) return [];
     return goals.filter(
-      (g: any) =>
-        g.status === "in_progress" || g.status === "not_started"
+      (g: any) => g.status === "in_progress" || g.status === "not_started"
     );
   }, [goals]);
 
@@ -193,14 +190,11 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
               <TrendingUp className="h-4 w-4 text-blue-600" />
               Overall Performance
             </span>
-            <span className="font-bold text-lg text-blue-700">
+            <span className="font-bold text-blue-700 text-lg">
               {performanceScore}%
             </span>
           </div>
-          <Progress
-            className="h-2"
-            value={performanceScore}
-          />
+          <Progress className="h-2" value={performanceScore} />
         </div>
 
         {/* Top Strengths */}
@@ -277,7 +271,7 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{goal.title}</span>
                     {goal.progress !== undefined && (
-                      <Badge variant="outline" className="text-xs">
+                      <Badge className="text-xs" variant="outline">
                         {goal.progress}%
                       </Badge>
                     )}

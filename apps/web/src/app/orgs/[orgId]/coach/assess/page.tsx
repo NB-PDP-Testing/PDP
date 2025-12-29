@@ -22,6 +22,11 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import {
+  getRatingConfig,
+  type Rating,
+  RatingSlider,
+} from "@/components/rating-slider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,11 +45,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  RatingSlider,
-  type Rating,
-  getRatingConfig,
-} from "@/components/rating-slider";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -75,20 +75,28 @@ export default function AssessPlayerPage() {
   const [generalNotes, setGeneralNotes] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [savedSkills, setSavedSkills] = useState<Set<string>>(new Set());
-  
+
   // Batch assessment mode state
-  const [assessmentMode, setAssessmentMode] = useState<AssessmentMode>("individual");
-  const [selectedBatchPlayers, setSelectedBatchPlayers] = useState<Set<string>>(new Set());
-  const [batchSelectedSkills, setBatchSelectedSkills] = useState<Set<string>>(new Set());
+  const [assessmentMode, setAssessmentMode] =
+    useState<AssessmentMode>("individual");
+  const [selectedBatchPlayers, setSelectedBatchPlayers] = useState<Set<string>>(
+    new Set()
+  );
+  const [batchSelectedSkills, setBatchSelectedSkills] = useState<Set<string>>(
+    new Set()
+  );
   const [batchRatings, setBatchRatings] = useState<BatchRatings>({});
   const [batchNotes, setBatchNotes] = useState<BatchNotes>({});
   const [batchSavedCount, setBatchSavedCount] = useState(0);
 
   // Queries
   const sports = useQuery(api.models.referenceData.getSports);
-  const allPlayers = useQuery(api.models.orgPlayerEnrollments.getPlayersForOrg, {
-    organizationId: orgId,
-  });
+  const allPlayers = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
+    {
+      organizationId: orgId,
+    }
+  );
 
   // Get coach's assigned teams with enriched team details
   const coachAssignments = useQuery(
@@ -119,25 +127,38 @@ export default function AssessPlayerPage() {
     console.log("🐛 ALL TEAMS:", debugData.allTeams ?? []);
 
     // Show unique team IDs from memberships
-    const uniqueTeamIds = new Set(debugData.teamMemberships?.map((tm: any) => tm.teamId) ?? []);
-    console.log("🐛 UNIQUE TEAM IDS IN MEMBERSHIPS:", Array.from(uniqueTeamIds));
+    const uniqueTeamIds = new Set(
+      debugData.teamMemberships?.map((tm: any) => tm.teamId) ?? []
+    );
+    console.log(
+      "🐛 UNIQUE TEAM IDS IN MEMBERSHIPS:",
+      Array.from(uniqueTeamIds)
+    );
 
     // Check if assigned team exists
     const assignedTeamId = debugData.assignedTeamIds?.[0];
-    const teamExists = debugData.allTeams?.find((t: any) => t._id === assignedTeamId);
-    console.log("🐛 ASSIGNED TEAM EXISTS?", teamExists ? `Yes: ${teamExists.name}` : "NO - TEAM NOT FOUND!");
+    const teamExists = debugData.allTeams?.find(
+      (t: any) => t._id === assignedTeamId
+    );
+    console.log(
+      "🐛 ASSIGNED TEAM EXISTS?",
+      teamExists ? `Yes: ${teamExists.name}` : "NO - TEAM NOT FOUND!"
+    );
   }
 
   // DEBUG: Check coach assignments and team sport data
   if (coachAssignments) {
     console.log("🏀 COACH ASSIGNMENTS:", coachAssignments);
     console.log("🏀 ASSIGNED TEAMS:", coachAssignments.teams);
-    console.log("🏀 TEAMS WITH SPORT CODES:", coachAssignments.teams.map((t) => ({
-      teamId: t.teamId,
-      teamName: t.teamName,
-      sportCode: t.sportCode,
-      hasSportCode: !!t.sportCode,
-    })));
+    console.log(
+      "🏀 TEAMS WITH SPORT CODES:",
+      coachAssignments.teams.map((t) => ({
+        teamId: t.teamId,
+        teamName: t.teamName,
+        sportCode: t.sportCode,
+        hasSportCode: !!t.sportCode,
+      }))
+    );
   }
 
   // Get ALL players from coach's assigned teams
@@ -216,9 +237,10 @@ export default function AssessPlayerPage() {
   }, [existingAssessments]);
 
   // Filter players to only show coach's team members
-  const coachTeamIds = useMemo(() => {
-    return new Set(coachAssignments?.teams.map((t) => t.teamId) ?? []);
-  }, [coachAssignments]);
+  const coachTeamIds = useMemo(
+    () => new Set(coachAssignments?.teams.map((t) => t.teamId) ?? []),
+    [coachAssignments]
+  );
 
   // Filter and search players
   const filteredPlayers = useMemo(() => {
@@ -237,7 +259,9 @@ export default function AssessPlayerPage() {
         allCoachTeamPlayers
           .filter((member) => {
             const isInCoachTeam = coachTeamIds.has(member.teamId);
-            console.log(`🔍 DEBUG: Member ${member.playerIdentityId} in team ${member.teamId}: ${isInCoachTeam}`);
+            console.log(
+              `🔍 DEBUG: Member ${member.playerIdentityId} in team ${member.teamId}: ${isInCoachTeam}`
+            );
             return isInCoachTeam;
           })
           .map((member) => member.playerIdentityId)
@@ -300,9 +324,8 @@ export default function AssessPlayerPage() {
     if (!assessmentHistory) return null;
 
     const totalAssessments = assessmentHistory.length;
-    const skillsAssessed = new Set(
-      assessmentHistory.map((a) => a.skillCode)
-    ).size;
+    const skillsAssessed = new Set(assessmentHistory.map((a) => a.skillCode))
+      .size;
 
     // Calculate average rating
     const avgRating =
@@ -343,10 +366,15 @@ export default function AssessPlayerPage() {
 
     // If team is selected, use that team's sport
     if (selectedTeamId) {
-      const team = coachAssignments.teams.find((t) => t.teamId === selectedTeamId);
+      const team = coachAssignments.teams.find(
+        (t) => t.teamId === selectedTeamId
+      );
       console.log("⚽ AUTO-SELECT: Found team for selectedTeamId:", team);
       if (team?.sportCode && team.sportCode !== selectedSportCode) {
-        console.log("⚽ AUTO-SELECT: Setting sport from selected team:", team.sportCode);
+        console.log(
+          "⚽ AUTO-SELECT: Setting sport from selected team:",
+          team.sportCode
+        );
         setSelectedSportCode(team.sportCode);
       }
       return;
@@ -357,7 +385,10 @@ export default function AssessPlayerPage() {
       const firstTeamSport = coachAssignments.teams[0]?.sportCode;
       console.log("⚽ AUTO-SELECT: First team sport:", firstTeamSport);
       if (firstTeamSport) {
-        console.log("⚽ AUTO-SELECT: Setting sport from first team:", firstTeamSport);
+        console.log(
+          "⚽ AUTO-SELECT: Setting sport from first team:",
+          firstTeamSport
+        );
         setSelectedSportCode(firstTeamSport);
       } else {
         console.log("⚽ AUTO-SELECT: First team has NO sportCode!");
@@ -567,7 +598,8 @@ export default function AssessPlayerPage() {
       <div
         className="rounded-lg p-6 text-white shadow-lg"
         style={{
-          background: "linear-gradient(to right, var(--org-primary), var(--org-primary))",
+          background:
+            "linear-gradient(to right, var(--org-primary), var(--org-primary))",
           filter: "brightness(0.95)",
         }}
       >
@@ -584,9 +616,11 @@ export default function AssessPlayerPage() {
             </Button>
             <div>
               <h1 className="font-bold text-2xl">
-                {assessmentMode === "batch" ? "Team Session Assessment" : "Assess Player Skills"}
+                {assessmentMode === "batch"
+                  ? "Team Session Assessment"
+                  : "Assess Player Skills"}
               </h1>
-              <p className="text-white/80 text-sm">
+              <p className="text-sm text-white/80">
                 {assessmentMode === "batch"
                   ? "Record the same assessment for multiple players at once"
                   : "Record skill assessments with automatic benchmark comparison"}
@@ -634,7 +668,7 @@ export default function AssessPlayerPage() {
                 Team Session
               </Button>
             </div>
-            
+
             {assessmentMode === "individual" && unsavedCount > 0 && (
               <Button
                 className="bg-white hover:bg-white/90"
@@ -694,11 +728,17 @@ export default function AssessPlayerPage() {
                 <SelectContent>
                   <SelectItem value="all">All Teams</SelectItem>
                   {(() => {
-                    const uniqueTeams = coachAssignments?.teams.filter((team, index, self) => 
-                      index === self.findIndex(t => t.teamId === team.teamId)
-                    ) ?? [];
+                    const uniqueTeams =
+                      coachAssignments?.teams.filter(
+                        (team, index, self) =>
+                          index ===
+                          self.findIndex((t) => t.teamId === team.teamId)
+                      ) ?? [];
                     return uniqueTeams.map((team, index) => (
-                      <SelectItem key={`${team.teamId}-${index}`} value={team.teamId}>
+                      <SelectItem
+                        key={`${team.teamId}-${index}`}
+                        value={team.teamId}
+                      >
                         {team.teamName}
                         {team.sportCode && (
                           <span className="ml-2 text-muted-foreground text-xs">
@@ -750,7 +790,7 @@ export default function AssessPlayerPage() {
                 <SelectValue placeholder="Select a player" />
               </SelectTrigger>
               <SelectContent>
-  {filteredPlayers.map(({ enrollment, player }, index) => (
+                {filteredPlayers.map(({ enrollment, player }, index) => (
                   <SelectItem
                     key={`${enrollment.playerIdentityId}-${index}`}
                     value={enrollment.playerIdentityId}
@@ -967,9 +1007,7 @@ export default function AssessPlayerPage() {
                       key={assessment._id}
                     >
                       <div className="flex items-center gap-3">
-                        <Badge
-                          className={`${ratingConfig.bgColor} text-white`}
-                        >
+                        <Badge className={`${ratingConfig.bgColor} text-white`}>
                           {assessment.rating} - {ratingConfig.label}
                         </Badge>
                         <div>
@@ -1059,11 +1097,17 @@ export default function AssessPlayerPage() {
 
                   const improving = Array.from(skillChanges.entries())
                     .filter(([_, data]) => data.latest > data.previous)
-                    .sort(([_, a], [__, b]) => b.latest - b.previous - (a.latest - a.previous));
+                    .sort(
+                      ([_, a], [__, b]) =>
+                        b.latest - b.previous - (a.latest - a.previous)
+                    );
 
                   const declining = Array.from(skillChanges.entries())
                     .filter(([_, data]) => data.latest < data.previous)
-                    .sort(([_, a], [__, b]) => a.latest - a.previous - (b.latest - b.previous));
+                    .sort(
+                      ([_, a], [__, b]) =>
+                        a.latest - a.previous - (b.latest - b.previous)
+                    );
 
                   return (
                     <>
@@ -1144,9 +1188,7 @@ export default function AssessPlayerPage() {
                           (a) => a.benchmarkStatus === status
                         ).length;
                         const percentage = assessmentHistory.length
-                          ? Math.round(
-                              (count / assessmentHistory.length) * 100
-                            )
+                          ? Math.round((count / assessmentHistory.length) * 100)
                           : 0;
 
                         return (
@@ -1155,7 +1197,7 @@ export default function AssessPlayerPage() {
                             <p className="text-muted-foreground text-xs">
                               {status.replace("_", " ")}
                             </p>
-                            <p className="text-muted-foreground text-[10px]">
+                            <p className="text-[10px] text-muted-foreground">
                               ({percentage}%)
                             </p>
                           </div>
@@ -1171,32 +1213,39 @@ export default function AssessPlayerPage() {
       )}
 
       {/* BATCH MODE: Team Session Assessment */}
-      {assessmentMode === "batch" && selectedSportCode && skills && skills.length > 0 && (
-        <BatchAssessmentSection
-          filteredPlayers={filteredPlayers}
-          selectedBatchPlayers={selectedBatchPlayers}
-          setSelectedBatchPlayers={setSelectedBatchPlayers}
-          batchSelectedSkills={batchSelectedSkills}
-          setBatchSelectedSkills={setBatchSelectedSkills}
-          batchRatings={batchRatings}
-          setBatchRatings={setBatchRatings}
-          skills={skills}
-          skillsByCategory={skillsByCategory}
-          assessmentType={assessmentType}
-          orgId={orgId}
-          selectedSportCode={selectedSportCode}
-          currentUser={currentUser}
-          findOrCreatePassport={findOrCreatePassport}
-          recordAssessment={recordAssessment}
-          isSaving={isSaving}
-          setIsSaving={setIsSaving}
-          batchSavedCount={batchSavedCount}
-          setBatchSavedCount={setBatchSavedCount}
-        />
-      )}
+      {assessmentMode === "batch" &&
+        selectedSportCode &&
+        skills &&
+        skills.length > 0 && (
+          <BatchAssessmentSection
+            assessmentType={assessmentType}
+            batchRatings={batchRatings}
+            batchSavedCount={batchSavedCount}
+            batchSelectedSkills={batchSelectedSkills}
+            currentUser={currentUser}
+            filteredPlayers={filteredPlayers}
+            findOrCreatePassport={findOrCreatePassport}
+            isSaving={isSaving}
+            orgId={orgId}
+            recordAssessment={recordAssessment}
+            selectedBatchPlayers={selectedBatchPlayers}
+            selectedSportCode={selectedSportCode}
+            setBatchRatings={setBatchRatings}
+            setBatchSavedCount={setBatchSavedCount}
+            setBatchSelectedSkills={setBatchSelectedSkills}
+            setIsSaving={setIsSaving}
+            setSelectedBatchPlayers={setSelectedBatchPlayers}
+            skills={skills}
+            skillsByCategory={skillsByCategory}
+          />
+        )}
 
       {/* INDIVIDUAL MODE: Skills Assessment */}
-      {assessmentMode === "individual" && selectedPlayerId && selectedSportCode && skills && skills.length > 0 ? (
+      {assessmentMode === "individual" &&
+      selectedPlayerId &&
+      selectedSportCode &&
+      skills &&
+      skills.length > 0 ? (
         <div className="space-y-6">
           {Array.from(skillsByCategory.entries()).map(
             ([categoryName, categorySkills]) => (
@@ -1256,15 +1305,15 @@ export default function AssessPlayerPage() {
                         {/* Rating Slider */}
                         <div className="space-y-3">
                           <RatingSlider
+                            compact={true}
+                            isSaved={isSaved}
                             label=""
-                            value={(currentRating || 1) as Rating}
                             onChange={(value) =>
                               handleRatingChange(skill.code, value)
                             }
                             previousValue={existingRatings.get(skill.code)}
-                            isSaved={isSaved}
                             showLabels={true}
-                            compact={true}
+                            value={(currentRating || 1) as Rating}
                           />
 
                           {/* Notes */}
@@ -1306,7 +1355,8 @@ export default function AssessPlayerPage() {
             <CardHeader>
               <CardTitle>Development Notes</CardTitle>
               <CardDescription>
-                Add overall observations - these will be saved to the player's profile
+                Add overall observations - these will be saved to the player's
+                profile
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1318,7 +1368,7 @@ export default function AssessPlayerPage() {
               />
               <div className="flex justify-end">
                 <Button
-                  disabled={!generalNotes.trim() || !passport || isSaving}
+                  disabled={!(generalNotes.trim() && passport) || isSaving}
                   onClick={async () => {
                     if (!passport) {
                       toast.error("No passport found for this player");
@@ -1341,7 +1391,10 @@ export default function AssessPlayerPage() {
                       setGeneralNotes("");
                     } catch (error) {
                       toast.error("Failed to save notes", {
-                        description: error instanceof Error ? error.message : "Unknown error",
+                        description:
+                          error instanceof Error
+                            ? error.message
+                            : "Unknown error",
                       });
                     } finally {
                       setIsSaving(false);
@@ -1360,7 +1413,9 @@ export default function AssessPlayerPage() {
             </CardContent>
           </Card>
         </div>
-      ) : assessmentMode === "individual" && selectedPlayerId && selectedSportCode ? (
+      ) : assessmentMode === "individual" &&
+        selectedPlayerId &&
+        selectedSportCode ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Award className="mb-4 h-12 w-12 text-muted-foreground" />
@@ -1410,15 +1465,31 @@ function BatchAssessmentSection({
   batchSavedCount,
   setBatchSavedCount,
 }: {
-  filteredPlayers: Array<{ enrollment: { playerIdentityId: string; ageGroup?: string | null }; player: { firstName: string; lastName: string } }>;
+  filteredPlayers: Array<{
+    enrollment: { playerIdentityId: string; ageGroup?: string | null };
+    player: { firstName: string; lastName: string };
+  }>;
   selectedBatchPlayers: Set<string>;
   setSelectedBatchPlayers: React.Dispatch<React.SetStateAction<Set<string>>>;
   batchSelectedSkills: Set<string>;
   setBatchSelectedSkills: React.Dispatch<React.SetStateAction<Set<string>>>;
   batchRatings: BatchRatings;
   setBatchRatings: React.Dispatch<React.SetStateAction<BatchRatings>>;
-  skills: Array<{ code: string; name: string; description?: string; categoryId: Id<"skillCategories"> }>;
-  skillsByCategory: Map<string, Array<{ code: string; name: string; description?: string; categoryId: Id<"skillCategories"> }>>;
+  skills: Array<{
+    code: string;
+    name: string;
+    description?: string;
+    categoryId: Id<"skillCategories">;
+  }>;
+  skillsByCategory: Map<
+    string,
+    Array<{
+      code: string;
+      name: string;
+      description?: string;
+      categoryId: Id<"skillCategories">;
+    }>
+  >;
   assessmentType: AssessmentType;
   orgId: string;
   selectedSportCode: string;
@@ -1430,8 +1501,12 @@ function BatchAssessmentSection({
   batchSavedCount: number;
   setBatchSavedCount: (value: number) => void;
 }) {
-  const [batchStep, setBatchStep] = useState<"players" | "skills" | "rate">("players");
-  const [batchSkillRating, setBatchSkillRating] = useState<Record<string, number>>({});
+  const [batchStep, setBatchStep] = useState<"players" | "skills" | "rate">(
+    "players"
+  );
+  const [batchSkillRating, setBatchSkillRating] = useState<
+    Record<string, number>
+  >({});
   const [batchNotes, setBatchNotes] = useState<string>("");
 
   const totalAssessments = selectedBatchPlayers.size * batchSelectedSkills.size;
@@ -1441,15 +1516,19 @@ function BatchAssessmentSection({
     if (selectedBatchPlayers.size === filteredPlayers.length) {
       setSelectedBatchPlayers(new Set());
     } else {
-      setSelectedBatchPlayers(new Set(filteredPlayers.map((p) => p.enrollment.playerIdentityId)));
+      setSelectedBatchPlayers(
+        new Set(filteredPlayers.map((p) => p.enrollment.playerIdentityId))
+      );
     }
   };
 
   // Handle select all skills in a category
-  const handleSelectCategorySkills = (categorySkills: Array<{ code: string }>) => {
+  const handleSelectCategorySkills = (
+    categorySkills: Array<{ code: string }>
+  ) => {
     const codes = categorySkills.map((s) => s.code);
     const allSelected = codes.every((code) => batchSelectedSkills.has(code));
-    
+
     if (allSelected) {
       setBatchSelectedSkills((prev) => {
         const next = new Set(prev);
@@ -1505,7 +1584,8 @@ function BatchAssessmentSection({
               assessmentDate: new Date().toISOString().split("T")[0],
               assessmentType,
               assessedBy: currentUser?._id,
-              assessedByName: currentUser?.name ?? currentUser?.email ?? "Coach",
+              assessedByName:
+                currentUser?.name ?? currentUser?.email ?? "Coach",
               assessorRole: "coach",
               notes: batchNotes || undefined,
             });
@@ -1552,8 +1632,8 @@ function BatchAssessmentSection({
                   batchStep === "players"
                     ? "font-bold text-blue-700"
                     : selectedBatchPlayers.size > 0
-                    ? "text-green-600"
-                    : "text-gray-400"
+                      ? "text-green-600"
+                      : "text-gray-400"
                 }`}
                 onClick={() => setBatchStep("players")}
               >
@@ -1562,8 +1642,8 @@ function BatchAssessmentSection({
                     batchStep === "players"
                       ? "bg-blue-600 text-white"
                       : selectedBatchPlayers.size > 0
-                      ? "bg-green-500 text-white"
-                      : "bg-gray-200 text-gray-500"
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-200 text-gray-500"
                   }`}
                 >
                   {selectedBatchPlayers.size > 0 ? (
@@ -1583,19 +1663,21 @@ function BatchAssessmentSection({
                   batchStep === "skills"
                     ? "font-bold text-blue-700"
                     : batchSelectedSkills.size > 0
-                    ? "text-green-600"
-                    : "text-gray-400"
+                      ? "text-green-600"
+                      : "text-gray-400"
                 }`}
-                onClick={() => selectedBatchPlayers.size > 0 && setBatchStep("skills")}
                 disabled={selectedBatchPlayers.size === 0}
+                onClick={() =>
+                  selectedBatchPlayers.size > 0 && setBatchStep("skills")
+                }
               >
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full ${
                     batchStep === "skills"
                       ? "bg-blue-600 text-white"
                       : batchSelectedSkills.size > 0
-                      ? "bg-green-500 text-white"
-                      : "bg-gray-200 text-gray-500"
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-200 text-gray-500"
                   }`}
                 >
                   {batchSelectedSkills.size > 0 ? (
@@ -1616,12 +1698,15 @@ function BatchAssessmentSection({
                     ? "font-bold text-blue-700"
                     : "text-gray-400"
                 }`}
+                disabled={
+                  selectedBatchPlayers.size === 0 ||
+                  batchSelectedSkills.size === 0
+                }
                 onClick={() =>
                   selectedBatchPlayers.size > 0 &&
                   batchSelectedSkills.size > 0 &&
                   setBatchStep("rate")
                 }
-                disabled={selectedBatchPlayers.size === 0 || batchSelectedSkills.size === 0}
               >
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full ${
@@ -1637,7 +1722,7 @@ function BatchAssessmentSection({
             </div>
 
             {/* Total count */}
-            <Badge variant="outline" className="text-lg px-4 py-2">
+            <Badge className="px-4 py-2 text-lg" variant="outline">
               {totalAssessments} total assessments
             </Badge>
           </div>
@@ -1654,9 +1739,9 @@ function BatchAssessmentSection({
                 Select Players for Session
               </span>
               <Button
-                variant="outline"
-                size="sm"
                 onClick={handleSelectAllPlayers}
+                size="sm"
+                variant="outline"
               >
                 {selectedBatchPlayers.size === filteredPlayers.length
                   ? "Deselect All"
@@ -1670,15 +1755,17 @@ function BatchAssessmentSection({
           <CardContent>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {filteredPlayers.map(({ enrollment, player }, index) => {
-                const isSelected = selectedBatchPlayers.has(enrollment.playerIdentityId);
+                const isSelected = selectedBatchPlayers.has(
+                  enrollment.playerIdentityId
+                );
                 return (
                   <button
-                    key={`${enrollment.playerIdentityId}-${index}`}
                     className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
                       isSelected
                         ? "border-blue-500 bg-blue-50"
                         : "border-gray-200 hover:border-blue-300"
                     }`}
+                    key={`${enrollment.playerIdentityId}-${index}`}
                     onClick={() => {
                       setSelectedBatchPlayers((prev) => {
                         const next = new Set(prev);
@@ -1742,61 +1829,67 @@ function BatchAssessmentSection({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {Array.from(skillsByCategory.entries()).map(([categoryName, categorySkills]) => {
-              const allSelected = categorySkills.every((s) =>
-                batchSelectedSkills.has(s.code)
-              );
-              const someSelected = categorySkills.some((s) =>
-                batchSelectedSkills.has(s.code)
-              );
+            {Array.from(skillsByCategory.entries()).map(
+              ([categoryName, categorySkills]) => {
+                const allSelected = categorySkills.every((s) =>
+                  batchSelectedSkills.has(s.code)
+                );
+                const someSelected = categorySkills.some((s) =>
+                  batchSelectedSkills.has(s.code)
+                );
 
-              return (
-                <div key={categoryName} className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-700">{categoryName}</h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSelectCategorySkills(categorySkills)}
-                    >
-                      {allSelected ? "Deselect All" : "Select All"}
-                    </Button>
+                return (
+                  <div className="space-y-3" key={categoryName}>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-gray-700">
+                        {categoryName}
+                      </h3>
+                      <Button
+                        onClick={() =>
+                          handleSelectCategorySkills(categorySkills)
+                        }
+                        size="sm"
+                        variant="ghost"
+                      >
+                        {allSelected ? "Deselect All" : "Select All"}
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {categorySkills.map((skill) => {
+                        const isSelected = batchSelectedSkills.has(skill.code);
+                        return (
+                          <Badge
+                            className={`cursor-pointer px-3 py-1.5 text-sm transition-colors ${
+                              isSelected
+                                ? "bg-blue-600 text-white hover:bg-blue-700"
+                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            }`}
+                            key={skill.code}
+                            onClick={() => {
+                              setBatchSelectedSkills((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(skill.code)) {
+                                  next.delete(skill.code);
+                                } else {
+                                  next.add(skill.code);
+                                }
+                                return next;
+                              });
+                            }}
+                          >
+                            {isSelected && <Check className="mr-1 h-3 w-3" />}
+                            {skill.name}
+                          </Badge>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {categorySkills.map((skill) => {
-                      const isSelected = batchSelectedSkills.has(skill.code);
-                      return (
-                        <Badge
-                          key={skill.code}
-                          className={`cursor-pointer px-3 py-1.5 text-sm transition-colors ${
-                            isSelected
-                              ? "bg-blue-600 text-white hover:bg-blue-700"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          }`}
-                          onClick={() => {
-                            setBatchSelectedSkills((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(skill.code)) {
-                                next.delete(skill.code);
-                              } else {
-                                next.add(skill.code);
-                              }
-                              return next;
-                            });
-                          }}
-                        >
-                          {isSelected && <Check className="mr-1 h-3 w-3" />}
-                          {skill.name}
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              }
+            )}
 
             <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={() => setBatchStep("players")}>
+              <Button onClick={() => setBatchStep("players")} variant="outline">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
@@ -1820,7 +1913,8 @@ function BatchAssessmentSection({
               Rate Selected Skills
             </CardTitle>
             <CardDescription>
-              Set ratings for {selectedBatchPlayers.size} players × {batchSelectedSkills.size} skills = {totalAssessments} assessments
+              Set ratings for {selectedBatchPlayers.size} players ×{" "}
+              {batchSelectedSkills.size} skills = {totalAssessments} assessments
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -1830,18 +1924,24 @@ function BatchAssessmentSection({
                 Applying to {selectedBatchPlayers.size} players:
               </p>
               <div className="flex flex-wrap gap-1">
-                {Array.from(selectedBatchPlayers).slice(0, 10).map((playerId, idx) => {
-                  const player = filteredPlayers.find(
-                    (p) => p.enrollment.playerIdentityId === playerId
-                  );
-                  return (
-                    <Badge key={`${playerId}-${idx}`} variant="secondary" className="text-xs">
-                      {player?.player.firstName} {player?.player.lastName}
-                    </Badge>
-                  );
-                })}
+                {Array.from(selectedBatchPlayers)
+                  .slice(0, 10)
+                  .map((playerId, idx) => {
+                    const player = filteredPlayers.find(
+                      (p) => p.enrollment.playerIdentityId === playerId
+                    );
+                    return (
+                      <Badge
+                        className="text-xs"
+                        key={`${playerId}-${idx}`}
+                        variant="secondary"
+                      >
+                        {player?.player.firstName} {player?.player.lastName}
+                      </Badge>
+                    );
+                  })}
                 {selectedBatchPlayers.size > 10 && (
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge className="text-xs" variant="secondary">
                     +{selectedBatchPlayers.size - 10} more
                   </Badge>
                 )}
@@ -1855,10 +1955,7 @@ function BatchAssessmentSection({
                 if (!skill) return null;
 
                 return (
-                  <div
-                    key={skillCode}
-                    className="rounded-lg border p-4"
-                  >
+                  <div className="rounded-lg border p-4" key={skillCode}>
                     <div className="mb-3 flex items-center justify-between">
                       <div>
                         <p className="font-medium">{skill.name}</p>
@@ -1877,8 +1974,8 @@ function BatchAssessmentSection({
                     </div>
 
                     <RatingSlider
+                      compact={true}
                       label=""
-                      value={(batchSkillRating[skillCode] || 1) as Rating}
                       onChange={(value) =>
                         setBatchSkillRating((prev) => ({
                           ...prev,
@@ -1886,7 +1983,7 @@ function BatchAssessmentSection({
                         }))
                       }
                       showLabels={true}
-                      compact={true}
+                      value={(batchSkillRating[skillCode] || 1) as Rating}
                     />
                   </div>
                 );
@@ -1897,23 +1994,23 @@ function BatchAssessmentSection({
             <div className="space-y-2">
               <Label>Session Notes (Optional)</Label>
               <Textarea
-                value={batchNotes}
                 onChange={(e) => setBatchNotes(e.target.value)}
                 placeholder="Add any notes about this training session..."
                 rows={3}
+                value={batchNotes}
               />
             </div>
 
             {/* Actions */}
             <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={() => setBatchStep("skills")}>
+              <Button onClick={() => setBatchStep("skills")} variant="outline">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back
               </Button>
               <Button
-                onClick={handleBatchSave}
-                disabled={isSaving}
                 className="bg-green-600 hover:bg-green-700"
+                disabled={isSaving}
+                onClick={handleBatchSave}
               >
                 {isSaving ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

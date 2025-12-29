@@ -51,7 +51,7 @@ export function createAuth(
           enabled: true,
         },
 
-        // Schema customization: add custom fields to organization
+        // Schema customization: add custom fields to organization and member
         schema: {
           organization: {
             additionalFields: {
@@ -83,6 +83,29 @@ export function createAuth(
               },
               // Organization website
               website: {
+                type: "string",
+                input: true,
+                required: false,
+              },
+            },
+          },
+          member: {
+            additionalFields: {
+              // Custom functional roles for sports club capabilities
+              // Includes: coach, parent, admin, player (for adult players)
+              functionalRoles: {
+                type: "string[]",
+                input: true,
+                required: false,
+              },
+              // Active functional role - which role the user is currently operating as
+              activeFunctionalRole: {
+                type: "string",
+                input: true,
+                required: false,
+              },
+              // Pending role requests awaiting admin approval
+              pendingFunctionalRoleRequests: {
                 type: "string",
                 input: true,
                 required: false,

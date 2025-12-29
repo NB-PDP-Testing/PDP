@@ -3,7 +3,13 @@
 import { Calendar, Clock } from "lucide-react";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 interface WeeklyScheduleProps {
   children: Array<{
@@ -62,7 +68,10 @@ const generateMockSchedule = (children: WeeklyScheduleProps["children"]) => {
 
     events.push({
       day,
-      date: date.toLocaleDateString("en-IE", { day: "numeric", month: "short" }),
+      date: date.toLocaleDateString("en-IE", {
+        day: "numeric",
+        month: "short",
+      }),
       events: dayEvents,
     });
   });
@@ -98,7 +107,9 @@ export function WeeklySchedule({ children }: WeeklyScheduleProps) {
             <span className="text-muted-foreground text-sm">Training</span>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className="bg-green-100 text-green-700">{totalMatches}</Badge>
+            <Badge className="bg-green-100 text-green-700">
+              {totalMatches}
+            </Badge>
             <span className="text-muted-foreground text-sm">Matches</span>
           </div>
         </div>
@@ -106,10 +117,7 @@ export function WeeklySchedule({ children }: WeeklyScheduleProps) {
       <CardContent>
         <div className="grid grid-cols-7 gap-2">
           {schedule.map((day) => (
-            <div
-              className="min-h-[100px] rounded-lg border p-2"
-              key={day.day}
-            >
+            <div className="min-h-[100px] rounded-lg border p-2" key={day.day}>
               <div className="mb-2 text-center">
                 <div className="font-medium text-sm">{day.day}</div>
                 <div className="text-muted-foreground text-xs">{day.date}</div>
@@ -124,7 +132,9 @@ export function WeeklySchedule({ children }: WeeklyScheduleProps) {
                     }`}
                     key={`${day.day}-${idx}`}
                   >
-                    <div className="truncate font-medium">{event.childName}</div>
+                    <div className="truncate font-medium">
+                      {event.childName}
+                    </div>
                     <div className="flex items-center justify-center gap-1">
                       <Clock className="h-3 w-3" />
                       {event.time}

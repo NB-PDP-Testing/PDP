@@ -1049,7 +1049,8 @@ export default function OrgSettingsPage() {
               Supported Sports
             </CardTitle>
             <CardDescription>
-              Select the sports your organization supports. Teams will default to these sports when created.
+              Select the sports your organization supports. Teams will default
+              to these sports when created.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1126,7 +1127,8 @@ export default function OrgSettingsPage() {
 
             <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
               <p className="text-blue-900 text-sm">
-                Teams created in this organization will automatically default to the first selected sport.
+                Teams created in this organization will automatically default to
+                the first selected sport.
               </p>
             </div>
           </CardContent>

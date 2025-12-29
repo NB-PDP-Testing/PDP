@@ -62,7 +62,9 @@ export function useGuardianIdentity(userEmail?: string | null) {
       : "skip"
   );
 
-  const isLoading = guardianByUserId === undefined || (userEmail && guardianByEmail === undefined);
+  const isLoading =
+    guardianByUserId === undefined ||
+    (userEmail && guardianByEmail === undefined);
   const hasIdentity =
     guardianIdentity !== null && guardianIdentity !== undefined;
 
@@ -87,8 +89,12 @@ export function useGuardianIdentity(userEmail?: string | null) {
  * const { children, isLoading } = useGuardianChildrenInOrg(orgId);
  * ```
  */
-export function useGuardianChildrenInOrg(organizationId: string | undefined, userEmail?: string | null) {
-  const { guardianIdentity, children, isLoading } = useGuardianIdentity(userEmail);
+export function useGuardianChildrenInOrg(
+  organizationId: string | undefined,
+  userEmail?: string | null
+) {
+  const { guardianIdentity, children, isLoading } =
+    useGuardianIdentity(userEmail);
 
   // Get enrollments for all players in this org
   const enrollmentsQuery = useQuery(

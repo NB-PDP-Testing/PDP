@@ -1,14 +1,14 @@
 "use client";
 
-import { useMutation } from "convex/react";
-import { useState } from "react";
-import { useParams } from "next/navigation";
 import { api } from "@pdp/backend/convex/_generated/api";
-import { Card } from "@/components/ui/card";
+import { useMutation } from "convex/react";
+import { AlertCircle, FileUp, RefreshCw, Trash2, Upload } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { AlertCircle, Trash2, RefreshCw, Upload, FileUp } from "lucide-react";
 
 export default function DevToolsPage() {
   const params = useParams();
@@ -48,6 +48,9 @@ export default function DevToolsPage() {
   const importCompleteSkillsData = useMutation(
     api.models.referenceData.importCompleteSkillsData
   );
+  const addCoachRoleToNeil = useMutation(
+    api.models.fixNeilsRoles.addCoachRoleToNeil
+  );
   const migrateSportNamesToCodes = useMutation(
     api.models.teams.migrateSportNamesToCodes
   );
@@ -60,7 +63,7 @@ export default function DevToolsPage() {
 
     if (
       !window.confirm(
-        `This will convert sport NAMES to sport CODES for all teams in this organization. Continue?`
+        "This will convert sport NAMES to sport CODES for all teams in this organization. Continue?"
       )
     ) {
       return;
@@ -129,7 +132,7 @@ export default function DevToolsPage() {
 
     if (
       !window.confirm(
-        `⚠️ WARNING: This will delete all data for this organization. Are you sure?`
+        "⚠️ WARNING: This will delete all data for this organization. Are you sure?"
       )
     ) {
       return;
@@ -197,7 +200,7 @@ export default function DevToolsPage() {
   return (
     <div className="container mx-auto max-w-4xl py-8">
       <div className="mb-8">
-        <h1 className="mb-2 text-3xl font-bold">Development Tools</h1>
+        <h1 className="mb-2 font-bold text-3xl">Development Tools</h1>
         <p className="text-muted-foreground">
           Tools for testing data cleanup and import scenarios
         </p>
@@ -210,21 +213,21 @@ export default function DevToolsPage() {
             <div className="mb-4 flex items-start gap-3">
               <AlertCircle className="mt-1 h-5 w-5 text-red-600" />
               <div>
-                <h2 className="mb-2 text-xl font-semibold text-red-900">
+                <h2 className="mb-2 font-semibold text-red-900 text-xl">
                   Clear All Dev Data
                 </h2>
-                <p className="mb-4 text-sm text-red-800">
+                <p className="mb-4 text-red-800 text-sm">
                   ⚠️ DANGER: This deletes ALL data from the database including
                   all organizations, players, teams, etc. Use only in
                   development!
                 </p>
-                <div className="text-sm text-red-700">
+                <div className="text-red-700 text-sm">
                   <p className="mb-2 font-medium">Select what to delete:</p>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearAll-playerIdentities"
                         checked={clearAllSelections.playerIdentities}
+                        id="clearAll-playerIdentities"
                         onCheckedChange={(checked) =>
                           setClearAllSelections({
                             ...clearAllSelections,
@@ -233,16 +236,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearAll-playerIdentities"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Player identities
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearAll-guardianIdentities"
                         checked={clearAllSelections.guardianIdentities}
+                        id="clearAll-guardianIdentities"
                         onCheckedChange={(checked) =>
                           setClearAllSelections({
                             ...clearAllSelections,
@@ -251,16 +254,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearAll-guardianIdentities"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Guardian identities
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearAll-guardianPlayerLinks"
                         checked={clearAllSelections.guardianPlayerLinks}
+                        id="clearAll-guardianPlayerLinks"
                         onCheckedChange={(checked) =>
                           setClearAllSelections({
                             ...clearAllSelections,
@@ -269,16 +272,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearAll-guardianPlayerLinks"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Guardian-player links
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearAll-orgPlayerEnrollments"
                         checked={clearAllSelections.orgPlayerEnrollments}
+                        id="clearAll-orgPlayerEnrollments"
                         onCheckedChange={(checked) =>
                           setClearAllSelections({
                             ...clearAllSelections,
@@ -287,16 +290,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearAll-orgPlayerEnrollments"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Org player enrollments
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearAll-teamPlayerIdentities"
                         checked={clearAllSelections.teamPlayerIdentities}
+                        id="clearAll-teamPlayerIdentities"
                         onCheckedChange={(checked) =>
                           setClearAllSelections({
                             ...clearAllSelections,
@@ -305,16 +308,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearAll-teamPlayerIdentities"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Team-player assignments
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearAll-sportPassports"
                         checked={clearAllSelections.sportPassports}
+                        id="clearAll-sportPassports"
                         onCheckedChange={(checked) =>
                           setClearAllSelections({
                             ...clearAllSelections,
@@ -323,16 +326,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearAll-sportPassports"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Sport passports
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearAll-coachAssignments"
                         checked={clearAllSelections.coachAssignments}
+                        id="clearAll-coachAssignments"
                         onCheckedChange={(checked) =>
                           setClearAllSelections({
                             ...clearAllSelections,
@@ -341,16 +344,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearAll-coachAssignments"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Coach assignments
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearAll-skillAssessments"
                         checked={clearAllSelections.skillAssessments}
+                        id="clearAll-skillAssessments"
                         onCheckedChange={(checked) =>
                           setClearAllSelections({
                             ...clearAllSelections,
@@ -359,16 +362,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearAll-skillAssessments"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Skill assessments
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearAll-teams"
                         checked={clearAllSelections.teams}
+                        id="clearAll-teams"
                         onCheckedChange={(checked) =>
                           setClearAllSelections({
                             ...clearAllSelections,
@@ -377,16 +380,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearAll-teams"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Teams
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearAll-membersRoles"
                         checked={clearAllSelections.membersRoles}
+                        id="clearAll-membersRoles"
                         onCheckedChange={(checked) =>
                           setClearAllSelections({
                             ...clearAllSelections,
@@ -395,16 +398,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearAll-membersRoles"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Functional roles (coach/parent/admin) from members
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearAll-sports"
                         checked={clearAllSelections.sports}
+                        id="clearAll-sports"
                         onCheckedChange={(checked) =>
                           setClearAllSelections({
                             ...clearAllSelections,
@@ -413,16 +416,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearAll-sports"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Sports reference data
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearAll-referenceData"
                         checked={clearAllSelections.referenceData}
+                        id="clearAll-referenceData"
                         onCheckedChange={(checked) =>
                           setClearAllSelections({
                             ...clearAllSelections,
@@ -431,8 +434,8 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearAll-referenceData"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Other reference data
                       </Label>
@@ -442,10 +445,10 @@ export default function DevToolsPage() {
               </div>
             </div>
             <Button
-              variant="destructive"
-              onClick={handleClearAllData}
-              disabled={isClearing}
               className="gap-2"
+              disabled={isClearing}
+              onClick={handleClearAllData}
+              variant="destructive"
             >
               {isClearing ? (
                 <>
@@ -468,14 +471,15 @@ export default function DevToolsPage() {
             <div className="mb-4 flex items-start gap-3">
               <Upload className="mt-1 h-5 w-5 text-blue-600" />
               <div>
-                <h2 className="mb-2 text-xl font-semibold text-blue-900">
+                <h2 className="mb-2 font-semibold text-blue-900 text-xl">
                   Import Sports Benchmark Data
                 </h2>
-                <p className="mb-4 text-sm text-blue-800">
-                  Import skill categories and definitions from a JSON export file.
-                  This will automatically create sports if they don't exist.
+                <p className="mb-4 text-blue-800 text-sm">
+                  Import skill categories and definitions from a JSON export
+                  file. This will automatically create sports if they don't
+                  exist.
                 </p>
-                <div className="text-sm text-blue-700">
+                <div className="text-blue-700 text-sm">
                   <p className="mb-1 font-medium">
                     Upload skills-complete-*.json file to import:
                   </p>
@@ -490,12 +494,12 @@ export default function DevToolsPage() {
             </div>
             <div className="flex items-center gap-3">
               <Button
-                variant="default"
                 className="gap-2 bg-blue-600 hover:bg-blue-700"
                 disabled={isClearing}
                 onClick={() => {
                   document.getElementById("skills-file-input")?.click();
                 }}
+                variant="default"
               >
                 {isClearing ? (
                   <>
@@ -510,14 +514,14 @@ export default function DevToolsPage() {
                 )}
               </Button>
               <input
-                id="skills-file-input"
-                type="file"
                 accept=".json"
                 className="hidden"
-                onChange={handleImportSkills}
                 disabled={isClearing}
+                id="skills-file-input"
+                onChange={handleImportSkills}
+                type="file"
               />
-              <span className="text-sm text-blue-600">
+              <span className="text-blue-600 text-sm">
                 {isClearing ? "Processing..." : "Select a JSON file"}
               </span>
             </div>
@@ -530,14 +534,14 @@ export default function DevToolsPage() {
             <div className="mb-4 flex items-start gap-3">
               <RefreshCw className="mt-1 h-5 w-5 text-green-600" />
               <div>
-                <h2 className="mb-2 text-xl font-semibold text-green-900">
+                <h2 className="mb-2 font-semibold text-green-900 text-xl">
                   Migrate Sport Names to Codes
                 </h2>
-                <p className="mb-4 text-sm text-green-800">
-                  Converts team sport values from NAMES (e.g., "GAA Football") to
-                  CODES (e.g., "gaa_football") for this organization's teams.
+                <p className="mb-4 text-green-800 text-sm">
+                  Converts team sport values from NAMES (e.g., "GAA Football")
+                  to CODES (e.g., "gaa_football") for this organization's teams.
                 </p>
-                <div className="text-sm text-green-700">
+                <div className="text-green-700 text-sm">
                   <p className="mb-1 font-medium">This will update:</p>
                   <ul className="ml-4 list-disc space-y-1">
                     <li>"GAA Football" → "gaa_football"</li>
@@ -547,17 +551,17 @@ export default function DevToolsPage() {
                     <li>And other sports as needed</li>
                   </ul>
                   <p className="mt-2 text-xs italic">
-                    This fixes the issue where assess page can't find skills because
-                    sport codes don't match.
+                    This fixes the issue where assess page can't find skills
+                    because sport codes don't match.
                   </p>
                 </div>
               </div>
             </div>
             <Button
-              variant="default"
-              onClick={handleMigrateSports}
-              disabled={isClearing}
               className="gap-2 bg-green-600 hover:bg-green-700"
+              disabled={isClearing}
+              onClick={handleMigrateSports}
+              variant="default"
             >
               {isClearing ? (
                 <>
@@ -580,21 +584,21 @@ export default function DevToolsPage() {
             <div className="mb-4 flex items-start gap-3">
               <AlertCircle className="mt-1 h-5 w-5 text-orange-600" />
               <div>
-                <h2 className="mb-2 text-xl font-semibold text-orange-900">
+                <h2 className="mb-2 font-semibold text-orange-900 text-xl">
                   Clear This Organization's Data
                 </h2>
-                <p className="mb-4 text-sm text-orange-800">
+                <p className="mb-4 text-orange-800 text-sm">
                   Deletes all data for this organization only. Platform
                   identities are only deleted if orphaned (not used by other
                   orgs).
                 </p>
-                <div className="text-sm text-orange-700">
+                <div className="text-orange-700 text-sm">
                   <p className="mb-2 font-medium">Select what to delete:</p>
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearOrg-orgPlayerEnrollments"
                         checked={clearOrgSelections.orgPlayerEnrollments}
+                        id="clearOrg-orgPlayerEnrollments"
                         onCheckedChange={(checked) =>
                           setClearOrgSelections({
                             ...clearOrgSelections,
@@ -603,16 +607,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearOrg-orgPlayerEnrollments"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Org player enrollments
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearOrg-teamPlayerIdentities"
                         checked={clearOrgSelections.teamPlayerIdentities}
+                        id="clearOrg-teamPlayerIdentities"
                         onCheckedChange={(checked) =>
                           setClearOrgSelections({
                             ...clearOrgSelections,
@@ -621,16 +625,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearOrg-teamPlayerIdentities"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Team-player assignments
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearOrg-sportPassports"
                         checked={clearOrgSelections.sportPassports}
+                        id="clearOrg-sportPassports"
                         onCheckedChange={(checked) =>
                           setClearOrgSelections({
                             ...clearOrgSelections,
@@ -639,16 +643,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearOrg-sportPassports"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Sport passports
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearOrg-coachAssignments"
                         checked={clearOrgSelections.coachAssignments}
+                        id="clearOrg-coachAssignments"
                         onCheckedChange={(checked) =>
                           setClearOrgSelections({
                             ...clearOrgSelections,
@@ -657,16 +661,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearOrg-coachAssignments"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Coach assignments
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearOrg-skillAssessments"
                         checked={clearOrgSelections.skillAssessments}
+                        id="clearOrg-skillAssessments"
                         onCheckedChange={(checked) =>
                           setClearOrgSelections({
                             ...clearOrgSelections,
@@ -675,16 +679,16 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearOrg-skillAssessments"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Skill assessments
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
-                        id="clearOrg-teams"
                         checked={clearOrgSelections.teams}
+                        id="clearOrg-teams"
                         onCheckedChange={(checked) =>
                           setClearOrgSelections({
                             ...clearOrgSelections,
@@ -693,25 +697,25 @@ export default function DevToolsPage() {
                         }
                       />
                       <Label
+                        className="cursor-pointer font-normal text-sm"
                         htmlFor="clearOrg-teams"
-                        className="text-sm font-normal cursor-pointer"
                       >
                         Teams
                       </Label>
                     </div>
                   </div>
                   <p className="mt-3 text-xs italic">
-                    Note: Player and guardian identities are only deleted if orphaned
-                    (not used by other orgs).
+                    Note: Player and guardian identities are only deleted if
+                    orphaned (not used by other orgs).
                   </p>
                 </div>
               </div>
             </div>
             <Button
-              variant="destructive"
-              onClick={handleClearOrgData}
-              disabled={isClearing || !orgId}
               className="gap-2 bg-orange-600 hover:bg-orange-700"
+              disabled={isClearing || !orgId}
+              onClick={handleClearOrgData}
+              variant="destructive"
             >
               {isClearing ? (
                 <>
@@ -732,15 +736,15 @@ export default function DevToolsPage() {
         {result && (
           <Card className="border-green-200 bg-green-50">
             <div className="p-6">
-              <h3 className="mb-4 text-lg font-semibold text-green-900">
+              <h3 className="mb-4 font-semibold text-green-900 text-lg">
                 {result.deleted ? "✅ Cleanup Complete" : "✅ Import Complete"}
               </h3>
               <div className="space-y-2 text-sm">
                 {result.deleted &&
                   Object.entries(result.deleted).map(([key, value]) => (
                     <div
-                      key={key}
                       className="flex justify-between rounded bg-white px-3 py-2"
+                      key={key}
                     >
                       <span className="font-medium text-gray-700">
                         {key
@@ -756,7 +760,7 @@ export default function DevToolsPage() {
                 {result.imported && (
                   <>
                     <div className="mb-2 rounded bg-white px-3 py-2">
-                      <div className="mb-2 text-base font-semibold text-green-800">
+                      <div className="mb-2 font-semibold text-base text-green-800">
                         Import Summary
                       </div>
                       <div className="space-y-1">
@@ -808,19 +812,19 @@ export default function DevToolsPage() {
                     </div>
                     {result.details && result.details.length > 0 && (
                       <div className="rounded bg-white px-3 py-2">
-                        <div className="mb-2 text-sm font-semibold text-gray-700">
+                        <div className="mb-2 font-semibold text-gray-700 text-sm">
                           Details by Sport:
                         </div>
                         <div className="space-y-2">
                           {result.details.map((detail: any) => (
                             <div
-                              key={detail.sportCode}
                               className="rounded border border-gray-200 bg-gray-50 p-2"
+                              key={detail.sportCode}
                             >
                               <div className="mb-1 font-medium text-gray-800">
                                 {detail.sportCode}
                               </div>
-                              <div className="ml-2 space-y-1 text-xs text-gray-600">
+                              <div className="ml-2 space-y-1 text-gray-600 text-xs">
                                 <div>
                                   Categories: {detail.categoriesCreated} created
                                   {detail.categoriesUpdated > 0 &&
@@ -848,10 +852,10 @@ export default function DevToolsPage() {
         {error && (
           <Card className="border-red-300 bg-red-100">
             <div className="p-6">
-              <h3 className="mb-2 text-lg font-semibold text-red-900">
+              <h3 className="mb-2 font-semibold text-lg text-red-900">
                 ❌ Error
               </h3>
-              <p className="text-sm text-red-800">{error}</p>
+              <p className="text-red-800 text-sm">{error}</p>
             </div>
           </Card>
         )}
@@ -859,7 +863,7 @@ export default function DevToolsPage() {
         {/* Testing Guide */}
         <Card>
           <div className="p-6">
-            <h3 className="mb-4 text-lg font-semibold">Testing Guide</h3>
+            <h3 className="mb-4 font-semibold text-lg">Testing Guide</h3>
             <div className="space-y-4 text-sm">
               <div>
                 <h4 className="mb-2 font-medium">
@@ -900,9 +904,7 @@ export default function DevToolsPage() {
                     official deletion workflow
                   </li>
                   <li>Check browser console for detailed deletion logs</li>
-                  <li>
-                    Verify counts show proper cleanup of org-scoped data
-                  </li>
+                  <li>Verify counts show proper cleanup of org-scoped data</li>
                   <li>
                     Verify orphaned player/guardian identities are deleted
                   </li>
@@ -921,9 +923,7 @@ export default function DevToolsPage() {
                   <li>Create a second organization</li>
                   <li>Import players to both orgs (with some overlap)</li>
                   <li>Delete first org using the cleanup button</li>
-                  <li>
-                    Verify shared players still exist (not orphaned)
-                  </li>
+                  <li>Verify shared players still exist (not orphaned)</li>
                   <li>Verify only org-specific data was deleted</li>
                   <li>Delete second org</li>
                   <li>
@@ -932,6 +932,52 @@ export default function DevToolsPage() {
                 </ol>
               </div>
             </div>
+          </div>
+        </Card>
+
+        {/* Fix User Roles */}
+        <Card className="border-green-200 bg-green-50">
+          <div className="p-6">
+            <div className="mb-4 flex items-start gap-3">
+              <RefreshCw className="mt-1 h-5 w-5 text-green-600" />
+              <div>
+                <h2 className="mb-2 font-semibold text-green-900 text-xl">
+                  Fix User Roles
+                </h2>
+                <p className="mb-4 text-green-800 text-sm">
+                  Add missing functional roles to neil.barlow@gmail.com (coach +
+                  admin)
+                </p>
+              </div>
+            </div>
+            <Button
+              disabled={isClearing}
+              onClick={async () => {
+                setIsClearing(true);
+                setError(null);
+                setResult(null);
+                try {
+                  const res = await addCoachRoleToNeil({
+                    organizationId: orgId,
+                  });
+                  setResult(res);
+                  if (res.success) {
+                    alert(
+                      `Success! ${res.message}\n\nPlease refresh the page to see the Coach link in the header.`
+                    );
+                  }
+                } catch (err: any) {
+                  setError(err.message);
+                  alert(`Error: ${err.message}`);
+                } finally {
+                  setIsClearing(false);
+                }
+              }}
+              variant="default"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {isClearing ? "Fixing..." : "Fix Neil's Roles"}
+            </Button>
           </div>
         </Card>
       </div>

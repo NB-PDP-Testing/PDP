@@ -82,9 +82,12 @@ export default function ManageUsersPage() {
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
-  const allPlayersData = useQuery(api.models.orgPlayerEnrollments.getPlayersForOrg, {
-    organizationId: orgId,
-  });
+  const allPlayersData = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
+    {
+      organizationId: orgId,
+    }
+  );
 
   // Mutations
   const updateMemberFunctionalRoles = useMutation(
@@ -94,18 +97,23 @@ export default function ManageUsersPage() {
     api.models.coaches.updateCoachAssignments
   );
   // Player linking uses new identity-based guardian system
-  const linkPlayers = useMutation(api.models.guardianPlayerLinks.linkPlayersToGuardian);
-  const unlinkPlayers = useMutation(api.models.guardianPlayerLinks.unlinkPlayersFromGuardian);
+  const linkPlayers = useMutation(
+    api.models.guardianPlayerLinks.linkPlayersToGuardian
+  );
+  const unlinkPlayers = useMutation(
+    api.models.guardianPlayerLinks.unlinkPlayersFromGuardian
+  );
   const resendInvitation = useMutation(api.models.members.resendInvitation);
   const cancelInvitation = useMutation(api.models.members.cancelInvitation);
-  
+
   // Transform enrollment data to match expected player format
-  const allPlayers = allPlayersData?.map((enrollment: any) => ({
-    _id: enrollment.playerIdentityId, // Use identity ID as key
-    name: `${enrollment.firstName} ${enrollment.lastName}`,
-    ageGroup: enrollment.ageGroup,
-    sport: enrollment.sport || "Unknown",
-  })) || [];
+  const allPlayers =
+    allPlayersData?.map((enrollment: any) => ({
+      _id: enrollment.playerIdentityId, // Use identity ID as key
+      name: `${enrollment.firstName} ${enrollment.lastName}`,
+      ageGroup: enrollment.ageGroup,
+      sport: enrollment.sport || "Unknown",
+    })) || [];
 
   const [editStates, setEditStates] = useState<UserEditState>({});
   const [loading, setLoading] = useState<string | null>(null);
@@ -950,26 +958,28 @@ export default function ManageUsersPage() {
                         Functional Roles (select multiple)
                       </Label>
                       <div className="flex flex-wrap gap-2">
-                        {(["coach", "parent", "admin", "player"] as const).map((role) => (
-                          <label
-                            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                              state.functionalRoles.includes(role)
-                                ? getRoleBadgeColor(role)
-                                : "border-gray-200 bg-white hover:bg-gray-50"
-                            }`}
-                            key={role}
-                          >
-                            <Checkbox
-                              checked={state.functionalRoles.includes(role)}
-                              className="sr-only"
-                              onCheckedChange={() =>
-                                toggleFunctionalRole(member.userId, role)
-                              }
-                            />
-                            {getRoleIcon(role)}
-                            <span className="capitalize">{role}</span>
-                          </label>
-                        ))}
+                        {(["coach", "parent", "admin", "player"] as const).map(
+                          (role) => (
+                            <label
+                              className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                                state.functionalRoles.includes(role)
+                                  ? getRoleBadgeColor(role)
+                                  : "border-gray-200 bg-white hover:bg-gray-50"
+                              }`}
+                              key={role}
+                            >
+                              <Checkbox
+                                checked={state.functionalRoles.includes(role)}
+                                className="sr-only"
+                                onCheckedChange={() =>
+                                  toggleFunctionalRole(member.userId, role)
+                                }
+                              />
+                              {getRoleIcon(role)}
+                              <span className="capitalize">{role}</span>
+                            </label>
+                          )
+                        )}
                       </div>
                       <p className="text-muted-foreground text-xs">
                         Users can have multiple roles. For example, a coach can

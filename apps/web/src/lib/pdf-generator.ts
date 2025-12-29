@@ -7,39 +7,41 @@ export interface PassportPDFData {
   ageGroup?: string;
   sport?: string;
   organization?: string;
-  
+
   // Skills (Record<skillCode, rating>)
   skills?: Record<string, number>;
-  
+
   // Goals
   goals?: Array<{
     title: string;
     status: string;
     targetDate?: string;
   }>;
-  
+
   // Notes (coach feedback)
   notes?: Array<{
     content: string;
     coachName?: string;
     date: string;
   }>;
-  
+
   // Medical (optional)
   hasAllergies?: boolean;
   hasMedications?: boolean;
   hasConditions?: boolean;
   emergencyContact?: string;
-  
+
   // Attendance
   trainingAttendance?: number;
   matchAttendance?: number;
-  
+
   // Performance
   overallScore?: number;
 }
 
-export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8Array> {
+export async function generatePassportPDF(
+  data: PassportPDFData
+): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -60,24 +62,34 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
   const lightGray = rgb(0.6, 0.6, 0.6);
 
   // Helper function to draw text
-  const drawText = (text: string, x: number, y: number, options: {
-    font?: typeof helvetica;
-    size?: number;
-    color?: typeof textColor;
-    maxWidth?: number;
-  } = {}) => {
-    const { font = helvetica, size = 10, color = textColor, maxWidth } = options;
-    
+  const drawText = (
+    text: string,
+    x: number,
+    y: number,
+    options: {
+      font?: typeof helvetica;
+      size?: number;
+      color?: typeof textColor;
+      maxWidth?: number;
+    } = {}
+  ) => {
+    const {
+      font = helvetica,
+      size = 10,
+      color = textColor,
+      maxWidth,
+    } = options;
+
     if (maxWidth && text.length > 0) {
       // Simple text wrapping
       const words = text.split(" ");
       let line = "";
       let currentY = y;
-      
+
       for (const word of words) {
         const testLine = line + (line ? " " : "") + word;
         const testWidth = font.widthOfTextAtSize(testLine, size);
-        
+
         if (testWidth > maxWidth && line) {
           page.drawText(line, { x, y: currentY, font, size, color });
           line = word;
@@ -86,14 +98,14 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
           line = testLine;
         }
       }
-      
+
       if (line) {
         page.drawText(line, { x, y: currentY, font, size, color });
         return currentY - size - 4;
       }
       return currentY;
     }
-    
+
     page.drawText(text, { x, y, font, size, color });
     return y - size - 4;
   };
@@ -208,7 +220,7 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
       size: 9,
       color: lightGray,
     });
-    
+
     // Progress bar background
     const barWidth = 200;
     const barHeight = 15;
@@ -219,7 +231,7 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
       height: barHeight,
       color: rgb(0.9, 0.9, 0.9),
     });
-    
+
     // Progress bar fill
     page.drawRectangle({
       x: margin,
@@ -228,7 +240,7 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
       height: barHeight,
       color: accentColor,
     });
-    
+
     // Score text
     page.drawText(`${Math.round(data.overallScore)}%`, {
       x: margin + barWidth + 10,
@@ -237,12 +249,15 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
       size: 12,
       color: textColor,
     });
-    
+
     yPosition -= 45;
   }
 
   // Attendance (if available)
-  if (data.trainingAttendance !== undefined || data.matchAttendance !== undefined) {
+  if (
+    data.trainingAttendance !== undefined ||
+    data.matchAttendance !== undefined
+  ) {
     page.drawText("Attendance", {
       x: margin,
       y: yPosition,
@@ -251,7 +266,7 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
       color: primaryColor,
     });
     yPosition -= 20;
-    
+
     if (data.trainingAttendance !== undefined) {
       page.drawText(`Training: ${data.trainingAttendance}%`, {
         x: margin,
@@ -276,7 +291,7 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
   // ============ SKILLS SECTION ============
   if (data.skills && Object.keys(data.skills).length > 0) {
     checkNewPage();
-    
+
     page.drawText("SKILL RATINGS", {
       x: margin,
       y: yPosition,
@@ -287,7 +302,10 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
     yPosition -= 25;
 
     const skillEntries = Object.entries(data.skills);
-    const col1Skills = skillEntries.slice(0, Math.ceil(skillEntries.length / 2));
+    const col1Skills = skillEntries.slice(
+      0,
+      Math.ceil(skillEntries.length / 2)
+    );
     const col2Skills = skillEntries.slice(Math.ceil(skillEntries.length / 2));
 
     const drawSkillColumn = (skills: [string, number][], xStart: number) => {
@@ -313,7 +331,7 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
         for (let i = 1; i <= 5; i++) {
           const circleX = xStart + 145 + (i - 1) * circleSpacing;
           const circleY = y + 3;
-          
+
           if (i <= rating) {
             // Filled circle for achieved rating
             page.drawCircle({
@@ -347,7 +365,7 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
   // ============ GOALS SECTION ============
   if (data.goals && data.goals.length > 0) {
     checkNewPage();
-    
+
     page.drawText("DEVELOPMENT GOALS", {
       x: margin,
       y: yPosition,
@@ -357,9 +375,10 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
     });
     yPosition -= 25;
 
-    for (const goal of data.goals.slice(0, 5)) { // Limit to 5 goals
+    for (const goal of data.goals.slice(0, 5)) {
+      // Limit to 5 goals
       checkNewPage();
-      
+
       // Goal title
       page.drawText(`• ${goal.title}`, {
         x: margin,
@@ -376,7 +395,7 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
         not_started: lightGray,
       };
       const statusColor = statusColors[goal.status] || lightGray;
-      
+
       page.drawText(goal.status.replace("_", " ").toUpperCase(), {
         x: margin + 350,
         y: yPosition,
@@ -402,7 +421,7 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
   // ============ COACH NOTES SECTION ============
   if (data.notes && data.notes.length > 0) {
     checkNewPage();
-    
+
     page.drawText("RECENT COACH FEEDBACK", {
       x: margin,
       y: yPosition,
@@ -412,9 +431,10 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
     });
     yPosition -= 25;
 
-    for (const note of data.notes.slice(0, 3)) { // Limit to 3 notes
+    for (const note of data.notes.slice(0, 3)) {
+      // Limit to 3 notes
       checkNewPage();
-      
+
       // Note border
       page.drawRectangle({
         x: margin,
@@ -449,9 +469,14 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
   }
 
   // ============ MEDICAL SUMMARY (if any) ============
-  if (data.hasAllergies || data.hasMedications || data.hasConditions || data.emergencyContact) {
+  if (
+    data.hasAllergies ||
+    data.hasMedications ||
+    data.hasConditions ||
+    data.emergencyContact
+  ) {
     checkNewPage();
-    
+
     page.drawText("MEDICAL SUMMARY", {
       x: margin,
       y: yPosition,
@@ -462,10 +487,14 @@ export async function generatePassportPDF(data: PassportPDFData): Promise<Uint8A
     yPosition -= 20;
 
     const medicalItems = [];
-    if (data.hasAllergies) medicalItems.push("[!] Has allergies - check medical record");
-    if (data.hasMedications) medicalItems.push("[Rx] Taking medications - check medical record");
-    if (data.hasConditions) medicalItems.push("[+] Medical conditions - check medical record");
-    if (data.emergencyContact) medicalItems.push(`[ICE] Emergency: ${data.emergencyContact}`);
+    if (data.hasAllergies)
+      medicalItems.push("[!] Has allergies - check medical record");
+    if (data.hasMedications)
+      medicalItems.push("[Rx] Taking medications - check medical record");
+    if (data.hasConditions)
+      medicalItems.push("[+] Medical conditions - check medical record");
+    if (data.emergencyContact)
+      medicalItems.push(`[ICE] Emergency: ${data.emergencyContact}`);
 
     for (const item of medicalItems) {
       page.drawText(item, {
@@ -538,7 +567,9 @@ export interface SessionPlanPDFData {
   playerCount?: number;
 }
 
-export async function generateSessionPlanPDF(data: SessionPlanPDFData): Promise<Uint8Array> {
+export async function generateSessionPlanPDF(
+  data: SessionPlanPDFData
+): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
   const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -716,7 +747,10 @@ function createFileFromBytes(pdfBytes: Uint8Array, filename: string): File {
   return new File([blob], filename, { type: "application/pdf" });
 }
 
-export async function shareViaEmail(pdfBytes: Uint8Array, name: string): Promise<void> {
+export async function shareViaEmail(
+  pdfBytes: Uint8Array,
+  name: string
+): Promise<void> {
   const filename = `${name.replace(/\s+/g, "_")}_PDP.pdf`;
   const file = createFileFromBytes(pdfBytes, filename);
 
@@ -743,15 +777,18 @@ export async function shareViaEmail(pdfBytes: Uint8Array, name: string): Promise
   const subject = encodeURIComponent(`Player Development Passport - ${name}`);
   const body = encodeURIComponent(
     `Please find the Player Development Passport for ${name}.\n\n` +
-    `Generated from PDP Portal.\n` +
-    `Date: ${new Date().toLocaleDateString("en-IE")}\n\n` +
-    `Note: Please download the PDF from the portal and attach it to your email.`
+      "Generated from PDP Portal.\n" +
+      `Date: ${new Date().toLocaleDateString("en-IE")}\n\n` +
+      "Note: Please download the PDF from the portal and attach it to your email."
   );
 
   window.location.href = `mailto:?subject=${subject}&body=${body}`;
 }
 
-export async function shareViaWhatsApp(pdfBytes: Uint8Array, name: string): Promise<{ shared: boolean; method: "native" | "fallback" }> {
+export async function shareViaWhatsApp(
+  pdfBytes: Uint8Array,
+  name: string
+): Promise<{ shared: boolean; method: "native" | "fallback" }> {
   const filename = `${name.replace(/\s+/g, "_")}_PDP.pdf`;
   const file = createFileFromBytes(pdfBytes, filename);
 
@@ -776,11 +813,11 @@ export async function shareViaWhatsApp(pdfBytes: Uint8Array, name: string): Prom
 
   // Fallback: Download PDF first, then open WhatsApp with instructions
   downloadPDF(pdfBytes, filename);
-  
+
   const text = encodeURIComponent(
     `Player Development Passport - ${name}\n` +
-    `Generated: ${new Date().toLocaleDateString("en-IE")}\n\n` +
-    `[PDF downloaded - please attach it to this message]`
+      `Generated: ${new Date().toLocaleDateString("en-IE")}\n\n` +
+      "[PDF downloaded - please attach it to this message]"
   );
 
   if (isMobileDevice()) {
@@ -790,11 +827,14 @@ export async function shareViaWhatsApp(pdfBytes: Uint8Array, name: string): Prom
     // Use WhatsApp Web for desktop
     window.open(`https://web.whatsapp.com/send?text=${text}`, "_blank");
   }
-  
+
   return { shared: true, method: "fallback" };
 }
 
-export async function shareViaNative(pdfBytes: Uint8Array, name: string): Promise<void> {
+export async function shareViaNative(
+  pdfBytes: Uint8Array,
+  name: string
+): Promise<void> {
   const filename = `${name.replace(/\s+/g, "_")}_PDP.pdf`;
   const file = createFileFromBytes(pdfBytes, filename);
 

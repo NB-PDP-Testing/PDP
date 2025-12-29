@@ -1075,7 +1075,7 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
       // All teams exist, assign team IDs directly
       const assignments: Record<string, string> = {};
       data.forEach((member, idx) => {
-      const normalizedGender =
+        const normalizedGender =
           member.Gender?.toUpperCase() === "MALE"
             ? "male"
             : member.Gender?.toUpperCase() === "FEMALE"

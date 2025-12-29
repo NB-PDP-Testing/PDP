@@ -1000,8 +1000,12 @@ export default function JoinRequestApprovalsPage() {
                           onClick={() => togglePlayer(match.playerIdentityId)}
                         >
                           <Checkbox
-                            checked={selectedPlayerIds.includes(match.playerIdentityId)}
-                            onCheckedChange={() => togglePlayer(match.playerIdentityId)}
+                            checked={selectedPlayerIds.includes(
+                              match.playerIdentityId
+                            )}
+                            onCheckedChange={() =>
+                              togglePlayer(match.playerIdentityId)
+                            }
                           />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
@@ -1015,9 +1019,9 @@ export default function JoinRequestApprovalsPage() {
                               {match.matchReasons.join(" • ")}
                             </p>
                           </div>
-                          {selectedPlayerIds.includes(match.playerIdentityId) && (
-                            <Check className="h-4 w-4 text-green-600" />
-                          )}
+                          {selectedPlayerIds.includes(
+                            match.playerIdentityId
+                          ) && <Check className="h-4 w-4 text-green-600" />}
                         </div>
                       ))}
                     </div>
@@ -1048,8 +1052,12 @@ export default function JoinRequestApprovalsPage() {
                             onClick={() => togglePlayer(match.playerIdentityId)}
                           >
                             <Checkbox
-                              checked={selectedPlayerIds.includes(match.playerIdentityId)}
-                              onCheckedChange={() => togglePlayer(match.playerIdentityId)}
+                              checked={selectedPlayerIds.includes(
+                                match.playerIdentityId
+                              )}
+                              onCheckedChange={() =>
+                                togglePlayer(match.playerIdentityId)
+                              }
                             />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
@@ -1065,9 +1073,9 @@ export default function JoinRequestApprovalsPage() {
                                 {match.matchReasons.join(" • ")}
                               </p>
                             </div>
-                            {selectedPlayerIds.includes(match.playerIdentityId) && (
-                              <Check className="h-4 w-4 text-green-600" />
-                            )}
+                            {selectedPlayerIds.includes(
+                              match.playerIdentityId
+                            ) && <Check className="h-4 w-4 text-green-600" />}
                           </div>
                         ))}
                       </div>

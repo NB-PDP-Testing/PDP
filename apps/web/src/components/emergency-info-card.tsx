@@ -5,21 +5,16 @@ import { useQuery } from "convex/react";
 import {
   AlertCircle,
   AlertTriangle,
+  Heart,
+  Loader2,
   Phone,
   Pill,
   User,
-  Loader2,
-  Heart,
 } from "lucide-react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +24,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useState } from "react";
 
 /**
  * Compact emergency contact card for quick access during training/matches
@@ -65,16 +59,16 @@ export function EmergencyContactCard({
             </div>
             <div>
               <p className="font-semibold">{playerName}</p>
-              <div className="flex gap-1 mt-1">
+              <div className="mt-1 flex gap-1">
                 {hasAllergies && (
-                  <Badge className="bg-orange-100 text-orange-700 text-xs py-0">
-                    <AlertCircle className="h-2.5 w-2.5 mr-0.5" />
+                  <Badge className="bg-orange-100 py-0 text-orange-700 text-xs">
+                    <AlertCircle className="mr-0.5 h-2.5 w-2.5" />
                     Allergy
                   </Badge>
                 )}
                 {hasConditions && (
-                  <Badge className="bg-purple-100 text-purple-700 text-xs py-0">
-                    <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                  <Badge className="bg-purple-100 py-0 text-purple-700 text-xs">
+                    <AlertTriangle className="mr-0.5 h-2.5 w-2.5" />
                     Condition
                   </Badge>
                 )}
@@ -82,24 +76,32 @@ export function EmergencyContactCard({
             </div>
           </div>
           <a
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 text-white transition-colors hover:bg-red-700"
             href={`tel:${primaryContactPhone}`}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors"
           >
             <Phone className="h-5 w-5" />
           </a>
         </div>
-        
+
         <div className="mt-3 space-y-1.5">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{primaryContactName}</span>
-            <a href={`tel:${primaryContactPhone}`} className="font-mono font-medium text-red-600 hover:underline">
+            <a
+              className="font-medium font-mono text-red-600 hover:underline"
+              href={`tel:${primaryContactPhone}`}
+            >
               {primaryContactPhone}
             </a>
           </div>
           {secondaryContactName && secondaryContactPhone && (
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">{secondaryContactName}</span>
-              <a href={`tel:${secondaryContactPhone}`} className="font-mono text-muted-foreground hover:underline">
+              <span className="text-muted-foreground">
+                {secondaryContactName}
+              </span>
+              <a
+                className="font-mono text-muted-foreground hover:underline"
+                href={`tel:${secondaryContactPhone}`}
+              >
                 {secondaryContactPhone}
               </a>
             </div>
@@ -107,15 +109,21 @@ export function EmergencyContactCard({
         </div>
 
         {(hasAllergies || hasConditions) && (
-          <div className="mt-3 pt-3 border-t border-red-100">
+          <div className="mt-3 border-red-100 border-t pt-3">
             <div className="flex flex-wrap gap-1">
               {allergies?.map((allergy) => (
-                <Badge key={allergy} className="bg-orange-200 text-orange-800 text-xs">
+                <Badge
+                  className="bg-orange-200 text-orange-800 text-xs"
+                  key={allergy}
+                >
                   {allergy}
                 </Badge>
               ))}
               {conditions?.map((condition) => (
-                <Badge key={condition} className="bg-purple-200 text-purple-800 text-xs">
+                <Badge
+                  className="bg-purple-200 text-purple-800 text-xs"
+                  key={condition}
+                >
                   {condition}
                 </Badge>
               ))}
@@ -154,10 +162,10 @@ export function EmergencyInfoButton({
   if (!profile) {
     return (
       <Button
+        className="text-muted-foreground"
         disabled
         size={compact ? "sm" : "default"}
         variant="outline"
-        className="text-muted-foreground"
       >
         <Phone className="h-4 w-4" />
         {!compact && <span className="ml-2">No Info</span>}
@@ -166,12 +174,12 @@ export function EmergencyInfoButton({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog onOpenChange={setOpen} open={open}>
       <DialogTrigger asChild>
         <Button
+          className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
           size={compact ? "sm" : "default"}
           variant="outline"
-          className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
         >
           <Phone className="h-4 w-4" />
           {!compact && <span className="ml-2">Emergency</span>}
@@ -191,36 +199,46 @@ export function EmergencyInfoButton({
         <div className="space-y-4">
           {/* Emergency Contacts */}
           <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-            <h3 className="font-semibold text-red-800 mb-3 flex items-center gap-2">
+            <h3 className="mb-3 flex items-center gap-2 font-semibold text-red-800">
               <Phone className="h-4 w-4" />
               Emergency Contacts
             </h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">{profile.emergencyContact1Name || "Not set"}</p>
+                  <p className="font-medium">
+                    {profile.emergencyContact1Name || "Not set"}
+                  </p>
                   <Badge className="bg-red-600 text-xs">Primary</Badge>
                 </div>
                 <a
-                  href={`tel:${profile.emergencyContact1Phone}`}
                   className="flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+                  href={`tel:${profile.emergencyContact1Phone}`}
                 >
                   <Phone className="h-4 w-4" />
-                  <span className="font-mono">{profile.emergencyContact1Phone || "N/A"}</span>
+                  <span className="font-mono">
+                    {profile.emergencyContact1Phone || "N/A"}
+                  </span>
                 </a>
               </div>
               {profile.emergencyContact2Name && (
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">{profile.emergencyContact2Name}</p>
-                    <Badge variant="outline" className="text-xs">Secondary</Badge>
+                    <p className="font-medium">
+                      {profile.emergencyContact2Name}
+                    </p>
+                    <Badge className="text-xs" variant="outline">
+                      Secondary
+                    </Badge>
                   </div>
                   <a
-                    href={`tel:${profile.emergencyContact2Phone}`}
                     className="flex items-center gap-2 rounded-lg border px-3 py-1.5 hover:bg-gray-50"
+                    href={`tel:${profile.emergencyContact2Phone}`}
                   >
                     <Phone className="h-4 w-4" />
-                    <span className="font-mono text-sm">{profile.emergencyContact2Phone}</span>
+                    <span className="font-mono text-sm">
+                      {profile.emergencyContact2Phone}
+                    </span>
                   </a>
                 </div>
               )}
@@ -228,19 +246,25 @@ export function EmergencyInfoButton({
           </div>
 
           {/* Critical Alerts */}
-          {((profile.allergies?.length ?? 0) > 0 || (profile.conditions?.length ?? 0) > 0) && (
+          {((profile.allergies?.length ?? 0) > 0 ||
+            (profile.conditions?.length ?? 0) > 0) && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <h3 className="font-semibold text-amber-800 mb-3 flex items-center gap-2">
+              <h3 className="mb-3 flex items-center gap-2 font-semibold text-amber-800">
                 <AlertTriangle className="h-4 w-4" />
                 Critical Alerts
               </h3>
               <div className="space-y-2">
                 {(profile.allergies?.length ?? 0) > 0 && (
                   <div>
-                    <p className="text-orange-800 text-sm font-medium mb-1">Allergies:</p>
+                    <p className="mb-1 font-medium text-orange-800 text-sm">
+                      Allergies:
+                    </p>
                     <div className="flex flex-wrap gap-1">
                       {profile.allergies?.map((allergy) => (
-                        <Badge key={allergy} className="bg-orange-200 text-orange-800">
+                        <Badge
+                          className="bg-orange-200 text-orange-800"
+                          key={allergy}
+                        >
                           {allergy}
                         </Badge>
                       ))}
@@ -249,10 +273,15 @@ export function EmergencyInfoButton({
                 )}
                 {(profile.conditions?.length ?? 0) > 0 && (
                   <div>
-                    <p className="text-purple-800 text-sm font-medium mb-1">Conditions:</p>
+                    <p className="mb-1 font-medium text-purple-800 text-sm">
+                      Conditions:
+                    </p>
                     <div className="flex flex-wrap gap-1">
                       {profile.conditions?.map((condition) => (
-                        <Badge key={condition} className="bg-purple-200 text-purple-800">
+                        <Badge
+                          className="bg-purple-200 text-purple-800"
+                          key={condition}
+                        >
                           {condition}
                         </Badge>
                       ))}
@@ -267,16 +296,25 @@ export function EmergencyInfoButton({
           <div className="grid grid-cols-2 gap-3">
             {profile.bloodType && (
               <div className="rounded-lg border p-3 text-center">
-                <p className="text-muted-foreground text-xs uppercase">Blood Type</p>
-                <p className="font-bold text-lg text-red-600">{profile.bloodType}</p>
+                <p className="text-muted-foreground text-xs uppercase">
+                  Blood Type
+                </p>
+                <p className="font-bold text-lg text-red-600">
+                  {profile.bloodType}
+                </p>
               </div>
             )}
             {(profile.medications?.length ?? 0) > 0 && (
               <div className="rounded-lg border p-3">
-                <p className="text-muted-foreground text-xs uppercase mb-1">Medications</p>
+                <p className="mb-1 text-muted-foreground text-xs uppercase">
+                  Medications
+                </p>
                 <div className="flex flex-wrap gap-1">
                   {profile.medications?.map((med) => (
-                    <Badge key={med} className="bg-blue-100 text-blue-700 text-xs">
+                    <Badge
+                      className="bg-blue-100 text-blue-700 text-xs"
+                      key={med}
+                    >
                       {med}
                     </Badge>
                   ))}
@@ -305,9 +343,12 @@ export function EmergencyContactsGrid({
 }: {
   organizationId: string;
 }) {
-  const allProfiles = useQuery(api.models.medicalProfiles.getAllForOrganization, {
-    organizationId,
-  });
+  const allProfiles = useQuery(
+    api.models.medicalProfiles.getAllForOrganization,
+    {
+      organizationId,
+    }
+  );
 
   if (allProfiles === undefined) {
     return (
@@ -337,16 +378,18 @@ export function EmergencyContactsGrid({
     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
       {playersWithProfiles.map((player) => (
         <EmergencyContactCard
+          allergies={player.profile?.allergies}
+          conditions={player.profile?.conditions}
+          hasAllergies={player.hasAllergies}
+          hasConditions={player.hasConditions}
           key={player.player._id}
           playerName={player.player.name}
-          primaryContactName={player.profile?.emergencyContact1Name || "Not set"}
+          primaryContactName={
+            player.profile?.emergencyContact1Name || "Not set"
+          }
           primaryContactPhone={player.profile?.emergencyContact1Phone || "N/A"}
           secondaryContactName={player.profile?.emergencyContact2Name}
           secondaryContactPhone={player.profile?.emergencyContact2Phone}
-          hasAllergies={player.hasAllergies}
-          hasConditions={player.hasConditions}
-          allergies={player.profile?.allergies}
-          conditions={player.profile?.conditions}
         />
       ))}
     </div>
@@ -368,9 +411,9 @@ export function MedicalAlertsBadges({
   hasConditions?: boolean;
   showClear?: boolean;
 }) {
-  if (!hasAllergies && !hasMedications && !hasConditions) {
+  if (!(hasAllergies || hasMedications || hasConditions)) {
     return showClear ? (
-      <Badge variant="outline" className="text-green-600">
+      <Badge className="text-green-600" variant="outline">
         Clear
       </Badge>
     ) : null;

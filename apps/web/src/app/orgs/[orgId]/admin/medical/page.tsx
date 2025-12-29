@@ -10,7 +10,6 @@ import {
   Check,
   Edit,
   Eye,
-  EyeOff,
   Heart,
   Loader2,
   Phone,
@@ -19,13 +18,12 @@ import {
   Search,
   Shield,
   Stethoscope,
-  Trash2,
   User,
   Users,
   X,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,7 +51,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -62,6 +59,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
 // Privacy confirmation component
 function PrivacyConfirmation({
@@ -74,7 +72,7 @@ function PrivacyConfirmation({
   playerName: string;
 }) {
   return (
-    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+    <Dialog onOpenChange={(open) => !open && onCancel()} open>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -108,7 +106,10 @@ function PrivacyConfirmation({
           <Button onClick={onCancel} variant="outline">
             Cancel
           </Button>
-          <Button className="bg-amber-600 hover:bg-amber-700" onClick={onConfirm}>
+          <Button
+            className="bg-amber-600 hover:bg-amber-700"
+            onClick={onConfirm}
+          >
             <Eye className="mr-2 h-4 w-4" />
             View Medical Info
           </Button>
@@ -133,7 +134,7 @@ function MedicalProfileDetail({
   onEdit: () => void;
 }) {
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog onOpenChange={(open) => !open && onClose()} open>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -151,7 +152,9 @@ function MedicalProfileDetail({
             </h3>
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <p className="font-medium">{profile?.emergencyContact1Name || "Not set"}</p>
+                <p className="font-medium">
+                  {profile?.emergencyContact1Name || "Not set"}
+                </p>
                 <p className="text-red-700 text-sm">
                   {profile?.emergencyContact1Phone || "No phone"}
                 </p>
@@ -190,7 +193,9 @@ function MedicalProfileDetail({
                 <Shield className="h-4 w-4 text-blue-500" />
                 Insurance
               </h4>
-              <Badge variant={profile?.insuranceCovered ? "default" : "destructive"}>
+              <Badge
+                variant={profile?.insuranceCovered ? "default" : "destructive"}
+              >
                 {profile?.insuranceCovered ? "Covered" : "Not Covered"}
               </Badge>
             </div>
@@ -236,7 +241,9 @@ function MedicalProfileDetail({
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm">No known allergies</p>
+              <p className="text-muted-foreground text-sm">
+                No known allergies
+              </p>
             )}
           </div>
 
@@ -255,7 +262,9 @@ function MedicalProfileDetail({
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm">No current medications</p>
+              <p className="text-muted-foreground text-sm">
+                No current medications
+              </p>
             )}
           </div>
 
@@ -347,9 +356,14 @@ function MedicalProfileForm({
   const [newCondition, setNewCondition] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const upsertProfile = useMutation(api.models.medicalProfiles.upsertForIdentity);
+  const upsertProfile = useMutation(
+    api.models.medicalProfiles.upsertForIdentity
+  );
 
-  const handleAddItem = (field: "allergies" | "medications" | "conditions", value: string) => {
+  const handleAddItem = (
+    field: "allergies" | "medications" | "conditions",
+    value: string
+  ) => {
     if (!value.trim()) return;
     setFormData((prev) => ({
       ...prev,
@@ -357,7 +371,10 @@ function MedicalProfileForm({
     }));
   };
 
-  const handleRemoveItem = (field: "allergies" | "medications" | "conditions", value: string) => {
+  const handleRemoveItem = (
+    field: "allergies" | "medications" | "conditions",
+    value: string
+  ) => {
     setFormData((prev) => ({
       ...prev,
       [field]: prev[field].filter((item: string) => item !== value),
@@ -365,7 +382,7 @@ function MedicalProfileForm({
   };
 
   const handleSubmit = async () => {
-    if (!formData.emergencyContact1Name || !formData.emergencyContact1Phone) {
+    if (!(formData.emergencyContact1Name && formData.emergencyContact1Phone)) {
       toast.error("Emergency contact is required");
       return;
     }
@@ -379,7 +396,9 @@ function MedicalProfileForm({
         sport,
         ...formData,
       });
-      toast.success(profile ? "Medical profile updated" : "Medical profile created");
+      toast.success(
+        profile ? "Medical profile updated" : "Medical profile created"
+      );
       onSave();
     } catch (error) {
       toast.error("Failed to save medical profile", {
@@ -391,7 +410,7 @@ function MedicalProfileForm({
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog onOpenChange={(open) => !open && onClose()} open>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -411,7 +430,10 @@ function MedicalProfileForm({
                 <Label>Primary Contact Name *</Label>
                 <Input
                   onChange={(e) =>
-                    setFormData({ ...formData, emergencyContact1Name: e.target.value })
+                    setFormData({
+                      ...formData,
+                      emergencyContact1Name: e.target.value,
+                    })
                   }
                   placeholder="e.g., John Smith"
                   value={formData.emergencyContact1Name}
@@ -421,7 +443,10 @@ function MedicalProfileForm({
                 <Label>Primary Contact Phone *</Label>
                 <Input
                   onChange={(e) =>
-                    setFormData({ ...formData, emergencyContact1Phone: e.target.value })
+                    setFormData({
+                      ...formData,
+                      emergencyContact1Phone: e.target.value,
+                    })
                   }
                   placeholder="e.g., 087 123 4567"
                   value={formData.emergencyContact1Phone}
@@ -431,7 +456,10 @@ function MedicalProfileForm({
                 <Label>Secondary Contact Name</Label>
                 <Input
                   onChange={(e) =>
-                    setFormData({ ...formData, emergencyContact2Name: e.target.value })
+                    setFormData({
+                      ...formData,
+                      emergencyContact2Name: e.target.value,
+                    })
                   }
                   placeholder="e.g., Jane Smith"
                   value={formData.emergencyContact2Name}
@@ -441,7 +469,10 @@ function MedicalProfileForm({
                 <Label>Secondary Contact Phone</Label>
                 <Input
                   onChange={(e) =>
-                    setFormData({ ...formData, emergencyContact2Phone: e.target.value })
+                    setFormData({
+                      ...formData,
+                      emergencyContact2Phone: e.target.value,
+                    })
                   }
                   placeholder="e.g., 086 987 6543"
                   value={formData.emergencyContact2Phone}
@@ -455,7 +486,9 @@ function MedicalProfileForm({
             <div className="space-y-2">
               <Label>Blood Type</Label>
               <Select
-                onValueChange={(value) => setFormData({ ...formData, bloodType: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, bloodType: value })
+                }
                 value={formData.bloodType}
               >
                 <SelectTrigger>
@@ -478,7 +511,10 @@ function MedicalProfileForm({
               <Label>Insurance Covered</Label>
               <Select
                 onValueChange={(value) =>
-                  setFormData({ ...formData, insuranceCovered: value === "yes" })
+                  setFormData({
+                    ...formData,
+                    insuranceCovered: value === "yes",
+                  })
                 }
                 value={formData.insuranceCovered ? "yes" : "no"}
               >
@@ -494,7 +530,9 @@ function MedicalProfileForm({
             <div className="space-y-2">
               <Label>Doctor Name</Label>
               <Input
-                onChange={(e) => setFormData({ ...formData, doctorName: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, doctorName: e.target.value })
+                }
                 placeholder="e.g., Dr. Mary O'Brien"
                 value={formData.doctorName}
               />
@@ -502,7 +540,9 @@ function MedicalProfileForm({
             <div className="space-y-2">
               <Label>Doctor Phone</Label>
               <Input
-                onChange={(e) => setFormData({ ...formData, doctorPhone: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, doctorPhone: e.target.value })
+                }
                 placeholder="e.g., 01 234 5678"
                 value={formData.doctorPhone}
               />
@@ -510,7 +550,9 @@ function MedicalProfileForm({
             <div className="space-y-2 md:col-span-2">
               <Label>Last Medical Check</Label>
               <Input
-                onChange={(e) => setFormData({ ...formData, lastMedicalCheck: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, lastMedicalCheck: e.target.value })
+                }
                 type="date"
                 value={formData.lastMedicalCheck}
               />
@@ -605,7 +647,9 @@ function MedicalProfileForm({
 
           {/* Medical Conditions */}
           <div className="space-y-3 rounded-lg border border-purple-200 bg-purple-50 p-4">
-            <h3 className="font-semibold text-purple-800">Medical Conditions</h3>
+            <h3 className="font-semibold text-purple-800">
+              Medical Conditions
+            </h3>
             <div className="flex gap-2">
               <Input
                 className="flex-1"
@@ -632,7 +676,10 @@ function MedicalProfileForm({
             </div>
             <div className="flex flex-wrap gap-2">
               {formData.conditions.map((condition: string) => (
-                <Badge className="bg-purple-200 text-purple-800" key={condition}>
+                <Badge
+                  className="bg-purple-200 text-purple-800"
+                  key={condition}
+                >
                   {condition}
                   <button
                     className="ml-1 hover:text-purple-900"
@@ -650,7 +697,9 @@ function MedicalProfileForm({
           <div className="space-y-2">
             <Label>Additional Notes</Label>
             <Textarea
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, notes: e.target.value })
+              }
               placeholder="Any additional medical information..."
               rows={3}
               value={formData.notes}
@@ -684,9 +733,13 @@ export default function MedicalProfilesPage() {
 
   // State
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterStatus, setFilterStatus] = useState<"all" | "has_profile" | "no_profile">("all");
-  const [filterAlert, setFilterAlert] = useState<"all" | "allergies" | "medications" | "conditions">("all");
-  
+  const [filterStatus, setFilterStatus] = useState<
+    "all" | "has_profile" | "no_profile"
+  >("all");
+  const [filterAlert, setFilterAlert] = useState<
+    "all" | "allergies" | "medications" | "conditions"
+  >("all");
+
   // Privacy confirmation state
   const [pendingView, setPendingView] = useState<{
     playerIdentityId: Id<"playerIdentities">;
@@ -695,7 +748,7 @@ export default function MedicalProfilesPage() {
     sport: string;
     profile: any;
   } | null>(null);
-  
+
   // Detail/Edit modal state
   const [viewingProfile, setViewingProfile] = useState<{
     playerIdentityId: Id<"playerIdentities">;
@@ -716,9 +769,12 @@ export default function MedicalProfilesPage() {
   const stats = useQuery(api.models.medicalProfiles.getOrganizationStats, {
     organizationId: orgId,
   });
-  const allProfiles = useQuery(api.models.medicalProfiles.getAllForOrganization, {
-    organizationId: orgId,
-  });
+  const allProfiles = useQuery(
+    api.models.medicalProfiles.getAllForOrganization,
+    {
+      organizationId: orgId,
+    }
+  );
 
   // Filter players
   const filteredPlayers = useMemo(() => {
@@ -763,7 +819,9 @@ export default function MedicalProfilesPage() {
       setViewingProfile(pendingView);
       setPendingView(null);
       // TODO: Log access for audit
-      console.log(`[AUDIT] Medical profile viewed for: ${pendingView.playerName}`);
+      console.log(
+        `[AUDIT] Medical profile viewed for: ${pendingView.playerName}`
+      );
     }
   };
 
@@ -782,7 +840,8 @@ export default function MedicalProfilesPage() {
       <div
         className="rounded-lg p-6 text-white shadow-lg"
         style={{
-          background: "linear-gradient(to right, var(--org-primary), var(--org-primary))",
+          background:
+            "linear-gradient(to right, var(--org-primary), var(--org-primary))",
         }}
       >
         <div className="flex items-center justify-between">
@@ -798,7 +857,7 @@ export default function MedicalProfilesPage() {
             </Button>
             <div>
               <h1 className="font-bold text-2xl">Medical Profiles</h1>
-              <p className="text-white/80 text-sm">
+              <p className="text-sm text-white/80">
                 Manage player medical information and emergency contacts
               </p>
             </div>
@@ -826,23 +885,37 @@ export default function MedicalProfilesPage() {
           </CardContent>
         </Card>
 
-        <Card className={stats.profileCompletionRate < 80 ? "border-amber-200" : "border-green-200"}>
+        <Card
+          className={
+            stats.profileCompletionRate < 80
+              ? "border-amber-200"
+              : "border-green-200"
+          }
+        >
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div
                 className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                  stats.profileCompletionRate < 80 ? "bg-amber-100" : "bg-green-100"
+                  stats.profileCompletionRate < 80
+                    ? "bg-amber-100"
+                    : "bg-green-100"
                 }`}
               >
                 <Heart
                   className={`h-6 w-6 ${
-                    stats.profileCompletionRate < 80 ? "text-amber-600" : "text-green-600"
+                    stats.profileCompletionRate < 80
+                      ? "text-amber-600"
+                      : "text-green-600"
                   }`}
                 />
               </div>
               <div>
-                <p className="text-muted-foreground text-sm">Profile Completion</p>
-                <p className="font-bold text-2xl">{stats.profileCompletionRate}%</p>
+                <p className="text-muted-foreground text-sm">
+                  Profile Completion
+                </p>
+                <p className="font-bold text-2xl">
+                  {stats.profileCompletionRate}%
+                </p>
                 <p className="text-muted-foreground text-xs">
                   {stats.playersWithProfiles}/{stats.totalPlayers} profiles
                 </p>
@@ -851,7 +924,9 @@ export default function MedicalProfilesPage() {
           </CardContent>
         </Card>
 
-        <Card className={stats.playersWithAllergies > 0 ? "border-orange-200" : ""}>
+        <Card
+          className={stats.playersWithAllergies > 0 ? "border-orange-200" : ""}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-100">
@@ -859,13 +934,17 @@ export default function MedicalProfilesPage() {
               </div>
               <div>
                 <p className="text-muted-foreground text-sm">With Allergies</p>
-                <p className="font-bold text-2xl">{stats.playersWithAllergies}</p>
+                <p className="font-bold text-2xl">
+                  {stats.playersWithAllergies}
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className={stats.playersWithConditions > 0 ? "border-purple-200" : ""}>
+        <Card
+          className={stats.playersWithConditions > 0 ? "border-purple-200" : ""}
+        >
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
@@ -873,7 +952,9 @@ export default function MedicalProfilesPage() {
               </div>
               <div>
                 <p className="text-muted-foreground text-sm">With Conditions</p>
-                <p className="font-bold text-2xl">{stats.playersWithConditions}</p>
+                <p className="font-bold text-2xl">
+                  {stats.playersWithConditions}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -887,7 +968,8 @@ export default function MedicalProfilesPage() {
             <AlertTriangle className="h-6 w-6 text-red-600" />
             <div>
               <p className="font-semibold text-red-800">
-                {stats.playersWithoutEmergencyContacts} players without emergency contacts
+                {stats.playersWithoutEmergencyContacts} players without
+                emergency contacts
               </p>
               <p className="text-red-700 text-sm">
                 Emergency contact information is critical for player safety.
@@ -897,7 +979,9 @@ export default function MedicalProfilesPage() {
               className="ml-auto"
               onClick={() => {
                 setFilterStatus("no_profile");
-                toast.info("Filter applied: Showing players without medical profiles");
+                toast.info(
+                  "Filter applied: Showing players without medical profiles"
+                );
               }}
               variant="outline"
             >
@@ -913,7 +997,7 @@ export default function MedicalProfilesPage() {
           <div className="flex flex-wrap gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   className="pl-9"
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -1005,22 +1089,37 @@ export default function MedicalProfilesPage() {
                   <TableCell>
                     <div className="flex gap-1">
                       {item.hasAllergies && (
-                        <Badge className="bg-orange-100 text-orange-700" title="Has Allergies">
+                        <Badge
+                          className="bg-orange-100 text-orange-700"
+                          title="Has Allergies"
+                        >
                           <AlertCircle className="h-3 w-3" />
                         </Badge>
                       )}
                       {item.hasMedications && (
-                        <Badge className="bg-blue-100 text-blue-700" title="On Medications">
+                        <Badge
+                          className="bg-blue-100 text-blue-700"
+                          title="On Medications"
+                        >
                           <Pill className="h-3 w-3" />
                         </Badge>
                       )}
                       {item.hasConditions && (
-                        <Badge className="bg-purple-100 text-purple-700" title="Has Conditions">
+                        <Badge
+                          className="bg-purple-100 text-purple-700"
+                          title="Has Conditions"
+                        >
                           <AlertTriangle className="h-3 w-3" />
                         </Badge>
                       )}
-                      {!item.hasAllergies && !item.hasMedications && !item.hasConditions && (
-                        <span className="text-muted-foreground text-xs">None</span>
+                      {!(
+                        item.hasAllergies ||
+                        item.hasMedications ||
+                        item.hasConditions
+                      ) && (
+                        <span className="text-muted-foreground text-xs">
+                          None
+                        </span>
                       )}
                     </div>
                   </TableCell>

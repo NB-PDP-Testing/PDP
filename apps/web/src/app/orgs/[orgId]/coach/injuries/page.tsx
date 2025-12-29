@@ -155,7 +155,7 @@ export default function InjuryTrackingPage() {
   const injuries = useQuery(
     api.models.playerInjuries.getInjuriesForPlayer,
     selectedPlayerId
-      ? { 
+      ? {
           playerIdentityId: selectedPlayerId as Id<"playerIdentities">,
           includeHealed: true, // Include all injuries including healed ones
         }
@@ -189,7 +189,9 @@ export default function InjuryTrackingPage() {
   const filteredHistoryInjuries = useMemo(() => {
     if (!allInjuriesForOrg) return [];
     if (historyStatusFilter === "all") return allInjuriesForOrg;
-    return allInjuriesForOrg.filter((i: any) => i.status === historyStatusFilter);
+    return allInjuriesForOrg.filter(
+      (i: any) => i.status === historyStatusFilter
+    );
   }, [allInjuriesForOrg, historyStatusFilter]);
 
   // Handle add injury
@@ -519,7 +521,10 @@ export default function InjuryTrackingPage() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-4">
-            <Select onValueChange={setHistoryStatusFilter} value={historyStatusFilter}>
+            <Select
+              onValueChange={setHistoryStatusFilter}
+              value={historyStatusFilter}
+            >
               <SelectTrigger className="w-[180px]">
                 <SelectValue />
               </SelectTrigger>
@@ -532,7 +537,8 @@ export default function InjuryTrackingPage() {
               </SelectContent>
             </Select>
             <div className="text-muted-foreground text-sm">
-              {filteredHistoryInjuries.length} of {allInjuriesForOrg?.length ?? 0} injuries
+              {filteredHistoryInjuries.length} of{" "}
+              {allInjuriesForOrg?.length ?? 0} injuries
             </div>
           </div>
         </CardHeader>

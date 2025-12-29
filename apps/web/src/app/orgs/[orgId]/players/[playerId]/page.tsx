@@ -117,7 +117,9 @@ export default function PlayerPassportPage() {
         notes: (playerData as any).notes?.map((n: any) => ({
           content: n.content || n.note,
           coachName: n.coachName || n.authorName,
-          date: n.date || new Date(n.createdAt || n._creationTime).toLocaleDateString(),
+          date:
+            n.date ||
+            new Date(n.createdAt || n._creationTime).toLocaleDateString(),
         })),
         overallScore: (playerData as any).overallScore,
         trainingAttendance: (playerData as any).trainingAttendance,
@@ -155,8 +157,8 @@ export default function PlayerPassportPage() {
         {/* Emergency Contacts - for adult players, shown right after basic info */}
         {"playerType" in playerData && playerData.playerType === "adult" && (
           <EmergencyContactsSection
-            playerIdentityId={playerId as Id<"playerIdentities">}
-            isEditable={false} // Coaches can view but not edit adult player's contacts
+            isEditable={false}
+            playerIdentityId={playerId as Id<"playerIdentities">} // Coaches can view but not edit adult player's contacts
             playerType="adult"
           />
         )}
@@ -164,9 +166,9 @@ export default function PlayerPassportPage() {
         {/* Skills Radar Chart - visual overview of player skills */}
         {playerData.sportCode && (
           <SkillRadarChart
+            dateOfBirth={(playerData as any).dateOfBirth}
             playerId={playerId as Id<"playerIdentities">}
             sportCode={playerData.sportCode}
-            dateOfBirth={(playerData as any).dateOfBirth}
           />
         )}
 
@@ -194,8 +196,8 @@ export default function PlayerPassportPage() {
       {/* Share Modal */}
       {pdfData && (
         <ShareModal
-          open={showShareModal}
           onOpenChange={setShowShareModal}
+          open={showShareModal}
           playerData={pdfData}
           playerName={playerData.name || "Player"}
         />

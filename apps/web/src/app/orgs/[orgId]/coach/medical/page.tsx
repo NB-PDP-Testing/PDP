@@ -63,7 +63,7 @@ function CoachPrivacyConfirmation({
   playerName: string;
 }) {
   return (
-    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+    <Dialog onOpenChange={(open) => !open && onCancel()} open>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -78,9 +78,9 @@ function CoachPrivacyConfirmation({
         <div className="space-y-4 py-4">
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
             <p className="text-amber-800 text-sm">
-              <strong>Coach Access Notice:</strong> As a coach, you have read-only
-              access to player medical information for safety purposes during
-              training and matches.
+              <strong>Coach Access Notice:</strong> As a coach, you have
+              read-only access to player medical information for safety purposes
+              during training and matches.
             </p>
           </div>
           <div className="text-muted-foreground text-sm">
@@ -95,7 +95,10 @@ function CoachPrivacyConfirmation({
           <Button onClick={onCancel} variant="outline">
             Cancel
           </Button>
-          <Button className="bg-amber-600 hover:bg-amber-700" onClick={onConfirm}>
+          <Button
+            className="bg-amber-600 hover:bg-amber-700"
+            onClick={onConfirm}
+          >
             <Eye className="mr-2 h-4 w-4" />
             View Info
           </Button>
@@ -116,7 +119,7 @@ function CoachMedicalView({
   onClose: () => void;
 }) {
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog onOpenChange={(open) => !open && onClose()} open>
       <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -137,7 +140,9 @@ function CoachMedicalView({
             </h3>
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <p className="font-medium">{profile?.emergencyContact1Name || "Not set"}</p>
+                <p className="font-medium">
+                  {profile?.emergencyContact1Name || "Not set"}
+                </p>
                 <p className="font-mono text-red-700">
                   {profile?.emergencyContact1Phone || "No phone"}
                 </p>
@@ -166,7 +171,10 @@ function CoachMedicalView({
               </h3>
               <div className="flex flex-wrap gap-2">
                 {profile.allergies.map((allergy: string) => (
-                  <Badge className="bg-orange-200 text-orange-800" key={allergy}>
+                  <Badge
+                    className="bg-orange-200 text-orange-800"
+                    key={allergy}
+                  >
                     {allergy}
                   </Badge>
                 ))}
@@ -183,7 +191,10 @@ function CoachMedicalView({
               </h3>
               <div className="flex flex-wrap gap-2">
                 {profile.conditions.map((condition: string) => (
-                  <Badge className="bg-purple-200 text-purple-800" key={condition}>
+                  <Badge
+                    className="bg-purple-200 text-purple-800"
+                    key={condition}
+                  >
                     {condition}
                   </Badge>
                 ))}
@@ -209,7 +220,11 @@ function CoachMedicalView({
           )}
 
           {/* No Medical Info */}
-          {!profile?.allergies?.length && !profile?.conditions?.length && !profile?.medications?.length && (
+          {!(
+            profile?.allergies?.length ||
+            profile?.conditions?.length ||
+            profile?.medications?.length
+          ) && (
             <div className="rounded-lg border p-4 text-center">
               <p className="text-muted-foreground">
                 No allergies, conditions, or medications recorded.
@@ -234,14 +249,16 @@ export default function CoachMedicalPage() {
 
   // State
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterAlert, setFilterAlert] = useState<"all" | "allergies" | "conditions">("all");
-  
+  const [filterAlert, setFilterAlert] = useState<
+    "all" | "allergies" | "conditions"
+  >("all");
+
   // Privacy confirmation state
   const [pendingView, setPendingView] = useState<{
     playerName: string;
     profile: any;
   } | null>(null);
-  
+
   // View modal state
   const [viewingProfile, setViewingProfile] = useState<{
     playerName: string;
@@ -249,9 +266,12 @@ export default function CoachMedicalPage() {
   } | null>(null);
 
   // Queries
-  const allProfiles = useQuery(api.models.medicalProfiles.getAllForOrganization, {
-    organizationId: orgId,
-  });
+  const allProfiles = useQuery(
+    api.models.medicalProfiles.getAllForOrganization,
+    {
+      organizationId: orgId,
+    }
+  );
 
   // Filter players - only show those with medical profiles
   const filteredPlayers = useMemo(() => {
@@ -281,9 +301,9 @@ export default function CoachMedicalPage() {
   const alertCounts = useMemo(() => {
     if (!allProfiles) return { allergies: 0, conditions: 0, medications: 0 };
     return {
-      allergies: allProfiles.filter(p => p.hasAllergies).length,
-      conditions: allProfiles.filter(p => p.hasConditions).length,
-      medications: allProfiles.filter(p => p.hasMedications).length,
+      allergies: allProfiles.filter((p) => p.hasAllergies).length,
+      conditions: allProfiles.filter((p) => p.hasConditions).length,
+      medications: allProfiles.filter((p) => p.hasMedications).length,
     };
   }, [allProfiles]);
 
@@ -297,7 +317,9 @@ export default function CoachMedicalPage() {
     if (pendingView) {
       setViewingProfile(pendingView);
       setPendingView(null);
-      console.log(`[AUDIT] Coach viewed medical info for: ${pendingView.playerName}`);
+      console.log(
+        `[AUDIT] Coach viewed medical info for: ${pendingView.playerName}`
+      );
     }
   };
 
@@ -310,7 +332,7 @@ export default function CoachMedicalPage() {
     );
   }
 
-  const playersWithProfiles = allProfiles.filter(p => p.hasProfile).length;
+  const playersWithProfiles = allProfiles.filter((p) => p.hasProfile).length;
 
   return (
     <div className="space-y-6">
@@ -332,7 +354,7 @@ export default function CoachMedicalPage() {
             </p>
           </div>
         </div>
-        <Badge variant="outline" className="flex items-center gap-2">
+        <Badge className="flex items-center gap-2" variant="outline">
           <Eye className="h-4 w-4" />
           View Only
         </Badge>
@@ -347,7 +369,9 @@ export default function CoachMedicalPage() {
                 <Users className="h-6 w-6 text-green-600" />
               </div>
               <div>
-                <p className="text-muted-foreground text-sm">Players with Profiles</p>
+                <p className="text-muted-foreground text-sm">
+                  Players with Profiles
+                </p>
                 <p className="font-bold text-2xl">{playersWithProfiles}</p>
               </div>
             </div>
@@ -403,7 +427,7 @@ export default function CoachMedicalPage() {
           <div className="flex flex-wrap gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   className="pl-9"
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -468,22 +492,35 @@ export default function CoachMedicalPage() {
                   <TableCell>
                     <div className="flex gap-1">
                       {item.hasAllergies && (
-                        <Badge className="bg-orange-100 text-orange-700" title="Has Allergies">
+                        <Badge
+                          className="bg-orange-100 text-orange-700"
+                          title="Has Allergies"
+                        >
                           <AlertCircle className="h-3 w-3" />
                         </Badge>
                       )}
                       {item.hasMedications && (
-                        <Badge className="bg-blue-100 text-blue-700" title="On Medications">
+                        <Badge
+                          className="bg-blue-100 text-blue-700"
+                          title="On Medications"
+                        >
                           <Pill className="h-3 w-3" />
                         </Badge>
                       )}
                       {item.hasConditions && (
-                        <Badge className="bg-purple-100 text-purple-700" title="Has Conditions">
+                        <Badge
+                          className="bg-purple-100 text-purple-700"
+                          title="Has Conditions"
+                        >
                           <AlertTriangle className="h-3 w-3" />
                         </Badge>
                       )}
-                      {!item.hasAllergies && !item.hasMedications && !item.hasConditions && (
-                        <Badge variant="outline" className="text-green-600">
+                      {!(
+                        item.hasAllergies ||
+                        item.hasMedications ||
+                        item.hasConditions
+                      ) && (
+                        <Badge className="text-green-600" variant="outline">
                           Clear
                         </Badge>
                       )}
@@ -496,7 +533,9 @@ export default function CoachMedicalPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
-                      onClick={() => handleViewClick(item.player.name, item.profile)}
+                      onClick={() =>
+                        handleViewClick(item.player.name, item.profile)
+                      }
                       size="sm"
                       variant="outline"
                     >

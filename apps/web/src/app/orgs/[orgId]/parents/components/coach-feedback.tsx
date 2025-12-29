@@ -5,7 +5,13 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { MessageSquare, User } from "lucide-react";
 import { useMemo } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 interface CoachFeedbackProps {
   children: Array<{
@@ -32,17 +38,19 @@ export function CoachFeedback({ children, orgId }: CoachFeedbackProps) {
   });
 
   // Extract children who have coach notes
-  const childrenWithNotes = useMemo(() => {
-    return childPassports
-      .filter(({ passportData }) => {
-        const notes = passportData?.coachNotes;
-        return notes && notes.length > 0;
-      })
-      .map(({ child, passportData }) => ({
-        player: child.player,
-        notes: passportData?.coachNotes || [],
-      }));
-  }, [childPassports]);
+  const childrenWithNotes = useMemo(
+    () =>
+      childPassports
+        .filter(({ passportData }) => {
+          const notes = passportData?.coachNotes;
+          return notes && notes.length > 0;
+        })
+        .map(({ child, passportData }) => ({
+          player: child.player,
+          notes: passportData?.coachNotes || [],
+        })),
+    [childPassports]
+  );
 
   if (childrenWithNotes.length === 0) {
     return null;
@@ -83,7 +91,9 @@ export function CoachFeedback({ children, orgId }: CoachFeedbackProps) {
                       )}
                     </div>
                   </div>
-                  <p className="text-muted-foreground text-sm">{note.content || note}</p>
+                  <p className="text-muted-foreground text-sm">
+                    {note.content || note}
+                  </p>
                 </div>
               ))}
             </div>

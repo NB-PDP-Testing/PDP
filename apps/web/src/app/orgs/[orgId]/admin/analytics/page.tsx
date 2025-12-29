@@ -23,11 +23,11 @@ import {
   LineChart,
   Pie,
   PieChart,
-  RadarChart,
-  PolarGrid,
   PolarAngleAxis,
+  PolarGrid,
   PolarRadiusAxis,
   Radar,
+  RadarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -72,27 +72,44 @@ export default function AnalyticsDashboard() {
   const [dateRange, setDateRange] = useState<string>("all");
 
   // Get analytics data
-  const analyticsData = useQuery(api.models.skillAssessments.getClubBenchmarkAnalytics, {
-    organizationId: orgId,
-    sportCode: sportFilter !== "all" ? sportFilter : undefined,
-    ageGroup: ageGroupFilter !== "all" ? ageGroupFilter : undefined,
-  });
+  const analyticsData = useQuery(
+    api.models.skillAssessments.getClubBenchmarkAnalytics,
+    {
+      organizationId: orgId,
+      sportCode: sportFilter !== "all" ? sportFilter : undefined,
+      ageGroup: ageGroupFilter !== "all" ? ageGroupFilter : undefined,
+    }
+  );
 
   // Get all assessments for trend data
   const startDate = useMemo(() => {
-    if (dateRange === "7d") return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    if (dateRange === "30d") return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    if (dateRange === "90d") return new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    return undefined;
+    if (dateRange === "7d")
+      return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
+    if (dateRange === "30d")
+      return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
+    if (dateRange === "90d")
+      return new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0];
+    return;
   }, [dateRange]);
 
-  const allAssessments = useQuery(api.models.skillAssessments.getOrgAssessments, {
-    organizationId: orgId,
-    startDate,
-  });
+  const allAssessments = useQuery(
+    api.models.skillAssessments.getOrgAssessments,
+    {
+      organizationId: orgId,
+      startDate,
+    }
+  );
 
   // Get teams for filter dropdown
-  const teams = useQuery(api.models.teams.getTeamsByOrganization, { organizationId: orgId });
+  const teams = useQuery(api.models.teams.getTeamsByOrganization, {
+    organizationId: orgId,
+  });
 
   // Get sports for filter
   const sports = useQuery(api.models.referenceData.getSports);
@@ -111,7 +128,8 @@ export default function AnalyticsDashboard() {
 
     const avgRating =
       allAssessments.length > 0
-        ? allAssessments.reduce((sum, a) => sum + a.rating, 0) / allAssessments.length
+        ? allAssessments.reduce((sum, a) => sum + a.rating, 0) /
+          allAssessments.length
         : 0;
 
     // Calculate trend (compare this month vs last month)
@@ -126,18 +144,25 @@ export default function AnalyticsDashboard() {
 
     const lastMonthAvg =
       lastMonthAssessments.length > 0
-        ? lastMonthAssessments.reduce((sum, a) => sum + a.rating, 0) / lastMonthAssessments.length
+        ? lastMonthAssessments.reduce((sum, a) => sum + a.rating, 0) /
+          lastMonthAssessments.length
         : 0;
 
     const thisMonthAvg =
       assessmentsThisMonth.length > 0
-        ? assessmentsThisMonth.reduce((sum, a) => sum + a.rating, 0) / assessmentsThisMonth.length
+        ? assessmentsThisMonth.reduce((sum, a) => sum + a.rating, 0) /
+          assessmentsThisMonth.length
         : 0;
 
-    const ratingTrend = lastMonthAvg > 0 ? ((thisMonthAvg - lastMonthAvg) / lastMonthAvg) * 100 : 0;
+    const ratingTrend =
+      lastMonthAvg > 0
+        ? ((thisMonthAvg - lastMonthAvg) / lastMonthAvg) * 100
+        : 0;
 
     // Count unique players (works for all assessments, not just those with benchmark data)
-    const uniquePlayerIds = new Set(allAssessments.map((a) => a.playerIdentityId));
+    const uniquePlayerIds = new Set(
+      allAssessments.map((a) => a.playerIdentityId)
+    );
 
     return {
       totalAssessments: allAssessments.length,
@@ -152,11 +177,31 @@ export default function AnalyticsDashboard() {
   const statusDistributionData = useMemo(() => {
     if (!analyticsData?.statusDistribution) return [];
     return [
-      { name: "Below", value: analyticsData.statusDistribution.below, color: COLORS.below },
-      { name: "Developing", value: analyticsData.statusDistribution.developing, color: COLORS.developing },
-      { name: "On Track", value: analyticsData.statusDistribution.on_track, color: COLORS.on_track },
-      { name: "Exceeding", value: analyticsData.statusDistribution.exceeding, color: COLORS.exceeding },
-      { name: "Exceptional", value: analyticsData.statusDistribution.exceptional, color: COLORS.exceptional },
+      {
+        name: "Below",
+        value: analyticsData.statusDistribution.below,
+        color: COLORS.below,
+      },
+      {
+        name: "Developing",
+        value: analyticsData.statusDistribution.developing,
+        color: COLORS.developing,
+      },
+      {
+        name: "On Track",
+        value: analyticsData.statusDistribution.on_track,
+        color: COLORS.on_track,
+      },
+      {
+        name: "Exceeding",
+        value: analyticsData.statusDistribution.exceeding,
+        color: COLORS.exceeding,
+      },
+      {
+        name: "Exceptional",
+        value: analyticsData.statusDistribution.exceptional,
+        color: COLORS.exceptional,
+      },
     ].filter((d) => d.value > 0);
   }, [analyticsData]);
 
@@ -164,7 +209,10 @@ export default function AnalyticsDashboard() {
   const progressOverTimeData = useMemo(() => {
     if (!allAssessments) return [];
 
-    const weeklyData = new Map<string, { week: string; count: number; avgRating: number; totalRating: number }>();
+    const weeklyData = new Map<
+      string,
+      { week: string; count: number; avgRating: number; totalRating: number }
+    >();
 
     for (const assessment of allAssessments) {
       const date = new Date(assessment.assessmentDate);
@@ -172,7 +220,12 @@ export default function AnalyticsDashboard() {
       weekStart.setDate(date.getDate() - date.getDay());
       const weekKey = weekStart.toISOString().split("T")[0];
 
-      const existing = weeklyData.get(weekKey) || { week: weekKey, count: 0, avgRating: 0, totalRating: 0 };
+      const existing = weeklyData.get(weekKey) || {
+        week: weekKey,
+        count: 0,
+        avgRating: 0,
+        totalRating: 0,
+      };
       existing.count++;
       existing.totalRating += assessment.rating;
       existing.avgRating = existing.totalRating / existing.count;
@@ -183,7 +236,10 @@ export default function AnalyticsDashboard() {
       .sort((a, b) => a.week.localeCompare(b.week))
       .slice(-12) // Last 12 weeks
       .map((d) => ({
-        week: new Date(d.week).toLocaleDateString("en-IE", { month: "short", day: "numeric" }),
+        week: new Date(d.week).toLocaleDateString("en-IE", {
+          month: "short",
+          day: "numeric",
+        }),
         assessments: d.count,
         avgRating: Number(d.avgRating.toFixed(2)),
       }));
@@ -192,11 +248,21 @@ export default function AnalyticsDashboard() {
   // Skills needing attention bar chart
   const skillsBarData = useMemo(() => {
     if (!analyticsData?.skillsNeedingAttention) return [];
-    return analyticsData.skillsNeedingAttention.slice(0, 8).map((s: { skillCode: string; belowPercentage: number; belowCount: number }) => ({
-      skill: s.skillCode.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()),
-      belowPercent: Math.round(s.belowPercentage),
-      belowCount: s.belowCount,
-    }));
+    return analyticsData.skillsNeedingAttention
+      .slice(0, 8)
+      .map(
+        (s: {
+          skillCode: string;
+          belowPercentage: number;
+          belowCount: number;
+        }) => ({
+          skill: s.skillCode
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (l: string) => l.toUpperCase()),
+          belowPercent: Math.round(s.belowPercentage),
+          belowCount: s.belowCount,
+        })
+      );
   }, [analyticsData]);
 
   // Radar chart for skill categories (aggregate by category)
@@ -205,7 +271,17 @@ export default function AnalyticsDashboard() {
 
     const categories = new Map<string, { total: number; onTrack: number }>();
 
-    for (const [skillCode, stats] of Object.entries(analyticsData.skillStats as Record<string, { on_track: number; exceeding: number; exceptional: number; total: number }>)) {
+    for (const [skillCode, stats] of Object.entries(
+      analyticsData.skillStats as Record<
+        string,
+        {
+          on_track: number;
+          exceeding: number;
+          exceptional: number;
+          total: number;
+        }
+      >
+    )) {
       // Extract category from skill code (e.g., "passing_accuracy" -> "passing")
       const category = skillCode.split("_")[0];
       const existing = categories.get(category) || { total: 0, onTrack: 0 };
@@ -217,13 +293,14 @@ export default function AnalyticsDashboard() {
     return Array.from(categories.entries())
       .map(([category, stats]) => ({
         category: category.charAt(0).toUpperCase() + category.slice(1),
-        onTrackPercent: stats.total > 0 ? Math.round((stats.onTrack / stats.total) * 100) : 0,
+        onTrackPercent:
+          stats.total > 0 ? Math.round((stats.onTrack / stats.total) * 100) : 0,
         fullMark: 100,
       }))
       .slice(0, 8);
   }, [analyticsData]);
 
-  if (!analyticsData || !metrics) {
+  if (!(analyticsData && metrics)) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <Loader />
@@ -241,7 +318,7 @@ export default function AnalyticsDashboard() {
             Performance insights and skill development analytics
           </p>
         </div>
-        <Badge variant="outline" className="text-sm">
+        <Badge className="text-sm" variant="outline">
           <Activity className="mr-1 h-3 w-3" />
           Live Data
         </Badge>
@@ -256,7 +333,7 @@ export default function AnalyticsDashboard() {
               <span className="font-medium text-sm">Filters:</span>
             </div>
 
-            <Select value={dateRange} onValueChange={setDateRange}>
+            <Select onValueChange={setDateRange} value={dateRange}>
               <SelectTrigger className="w-[140px]">
                 <Calendar className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Date range" />
@@ -269,7 +346,7 @@ export default function AnalyticsDashboard() {
               </SelectContent>
             </Select>
 
-            <Select value={sportFilter} onValueChange={setSportFilter}>
+            <Select onValueChange={setSportFilter} value={sportFilter}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Sport" />
               </SelectTrigger>
@@ -283,13 +360,26 @@ export default function AnalyticsDashboard() {
               </SelectContent>
             </Select>
 
-            <Select value={ageGroupFilter} onValueChange={setAgeGroupFilter}>
+            <Select onValueChange={setAgeGroupFilter} value={ageGroupFilter}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Age Group" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Ages</SelectItem>
-                {["u8", "u9", "u10", "u11", "u12", "u13", "u14", "u15", "u16", "u17", "u18", "senior"].map((ag) => (
+                {[
+                  "u8",
+                  "u9",
+                  "u10",
+                  "u11",
+                  "u12",
+                  "u13",
+                  "u14",
+                  "u15",
+                  "u16",
+                  "u17",
+                  "u18",
+                  "senior",
+                ].map((ag) => (
                   <SelectItem key={ag} value={ag}>
                     {ag.toUpperCase()}
                   </SelectItem>
@@ -298,13 +388,13 @@ export default function AnalyticsDashboard() {
             </Select>
 
             <Button
-              variant="ghost"
-              size="sm"
               onClick={() => {
                 setDateRange("all");
                 setSportFilter("all");
                 setAgeGroupFilter("all");
               }}
+              size="sm"
+              variant="ghost"
             >
               Clear Filters
             </Button>
@@ -320,28 +410,39 @@ export default function AnalyticsDashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="font-bold text-2xl">{metrics.uniquePlayerCount}</div>
+            <div className="font-bold text-2xl">
+              {metrics.uniquePlayerCount}
+            </div>
             <p className="text-muted-foreground text-xs">
               With skill assessments
-              {analyticsData.totalPlayers > 0 && analyticsData.totalPlayers !== metrics.uniquePlayerCount && (
-                <span className="ml-1">({analyticsData.totalPlayers} with benchmarks)</span>
-              )}
+              {analyticsData.totalPlayers > 0 &&
+                analyticsData.totalPlayers !== metrics.uniquePlayerCount && (
+                  <span className="ml-1">
+                    ({analyticsData.totalPlayers} with benchmarks)
+                  </span>
+                )}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="font-medium text-sm">Avg. Skill Rating</CardTitle>
+            <CardTitle className="font-medium text-sm">
+              Avg. Skill Rating
+            </CardTitle>
             <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-2xl">{metrics.avgRating.toFixed(1)}</span>
+              <span className="font-bold text-2xl">
+                {metrics.avgRating.toFixed(1)}
+              </span>
               <span className="text-muted-foreground text-sm">/ 5</span>
             </div>
             {metrics.ratingTrend !== 0 && (
-              <p className={`flex items-center text-xs ${metrics.ratingTrend > 0 ? "text-green-600" : "text-red-600"}`}>
+              <p
+                className={`flex items-center text-xs ${metrics.ratingTrend > 0 ? "text-green-600" : "text-red-600"}`}
+              >
                 {metrics.ratingTrend > 0 ? (
                   <TrendingUp className="mr-1 h-3 w-3" />
                 ) : (
@@ -355,11 +456,15 @@ export default function AnalyticsDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="font-medium text-sm">Assessments This Month</CardTitle>
+            <CardTitle className="font-medium text-sm">
+              Assessments This Month
+            </CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="font-bold text-2xl">{metrics.assessmentsThisMonth}</div>
+            <div className="font-bold text-2xl">
+              {metrics.assessmentsThisMonth}
+            </div>
             <p className="text-muted-foreground text-xs">
               {metrics.totalAssessments} total assessments
             </p>
@@ -396,20 +501,22 @@ export default function AnalyticsDashboard() {
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer height="100%" width="100%">
                 <PieChart>
                   <Pie
-                    data={statusDistributionData}
                     cx="50%"
                     cy="50%"
+                    data={statusDistributionData}
+                    dataKey="value"
                     innerRadius={60}
+                    label={({ name, percent }) =>
+                      `${name} ${(percent * 100).toFixed(0)}%`
+                    }
                     outerRadius={100}
                     paddingAngle={2}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   >
                     {statusDistributionData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                      <Cell fill={entry.color} key={`cell-${index}`} />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -431,13 +538,21 @@ export default function AnalyticsDashboard() {
           <CardContent>
             <div className="h-[300px]">
               {skillsBarData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer height="100%" width="100%">
                   <BarChart data={skillsBarData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                    <YAxis type="category" dataKey="skill" width={120} />
+                    <XAxis
+                      domain={[0, 100]}
+                      tickFormatter={(v) => `${v}%`}
+                      type="number"
+                    />
+                    <YAxis dataKey="skill" type="category" width={120} />
                     <Tooltip formatter={(value) => `${value}%`} />
-                    <Bar dataKey="belowPercent" fill="#ef4444" name="Below Benchmark %" />
+                    <Bar
+                      dataKey="belowPercent"
+                      fill="#ef4444"
+                      name="Below Benchmark %"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -456,27 +571,38 @@ export default function AnalyticsDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Assessment Activity Over Time</CardTitle>
-            <CardDescription>Weekly assessment counts and average ratings</CardDescription>
+            <CardDescription>
+              Weekly assessment counts and average ratings
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               {progressOverTimeData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer height="100%" width="100%">
                   <LineChart data={progressOverTimeData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="week" />
                     <YAxis yAxisId="left" />
-                    <YAxis yAxisId="right" orientation="right" domain={[1, 5]} />
+                    <YAxis
+                      domain={[1, 5]}
+                      orientation="right"
+                      yAxisId="right"
+                    />
                     <Tooltip />
                     <Legend />
-                    <Bar yAxisId="left" dataKey="assessments" fill="#3b82f6" name="Assessments" />
+                    <Bar
+                      dataKey="assessments"
+                      fill="#3b82f6"
+                      name="Assessments"
+                      yAxisId="left"
+                    />
                     <Line
-                      yAxisId="right"
-                      type="monotone"
                       dataKey="avgRating"
+                      name="Avg Rating"
                       stroke="#22c55e"
                       strokeWidth={2}
-                      name="Avg Rating"
+                      type="monotone"
+                      yAxisId="right"
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -493,22 +619,29 @@ export default function AnalyticsDashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Skill Category Performance</CardTitle>
-            <CardDescription>% of players on track by skill category</CardDescription>
+            <CardDescription>
+              % of players on track by skill category
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               {skillRadarData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={skillRadarData}>
+                <ResponsiveContainer height="100%" width="100%">
+                  <RadarChart
+                    cx="50%"
+                    cy="50%"
+                    data={skillRadarData}
+                    outerRadius="80%"
+                  >
                     <PolarGrid />
                     <PolarAngleAxis dataKey="category" />
                     <PolarRadiusAxis angle={90} domain={[0, 100]} />
                     <Radar
-                      name="On Track %"
                       dataKey="onTrackPercent"
-                      stroke="#22c55e"
                       fill="#22c55e"
                       fillOpacity={0.5}
+                      name="On Track %"
+                      stroke="#22c55e"
                     />
                     <Legend />
                     <Tooltip formatter={(value) => `${value}%`} />
@@ -538,22 +671,29 @@ export default function AnalyticsDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {analyticsData.playersNeedingAttention.map((player: { playerIdentityId: string; firstName: string; lastName: string; belowCount: number }) => (
-                <div
-                  key={player.playerIdentityId}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
-                  <div>
-                    <p className="font-medium">
-                      {player.firstName} {player.lastName}
-                    </p>
-                    <p className="text-muted-foreground text-sm">
-                      {player.belowCount} skills below benchmark
-                    </p>
+              {analyticsData.playersNeedingAttention.map(
+                (player: {
+                  playerIdentityId: string;
+                  firstName: string;
+                  lastName: string;
+                  belowCount: number;
+                }) => (
+                  <div
+                    className="flex items-center justify-between rounded-lg border p-3"
+                    key={player.playerIdentityId}
+                  >
+                    <div>
+                      <p className="font-medium">
+                        {player.firstName} {player.lastName}
+                      </p>
+                      <p className="text-muted-foreground text-sm">
+                        {player.belowCount} skills below benchmark
+                      </p>
+                    </div>
+                    <Badge variant="destructive">{player.belowCount}</Badge>
                   </div>
-                  <Badge variant="destructive">{player.belowCount}</Badge>
-                </div>
-              ))}
+                )
+              )}
             </div>
           </CardContent>
         </Card>

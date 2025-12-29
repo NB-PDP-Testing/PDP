@@ -16,15 +16,6 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +27,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
 type NoteType = "training" | "match" | "general";
@@ -197,30 +197,30 @@ export function VoiceNotesDashboard() {
         insightId,
         status: "applied",
       });
-      
+
       // Build success message based on where it was routed
       let message = "✓ Insight applied!";
       if (result.appliedTo && result.message) {
         // Show where the insight was routed
-        const destination = 
-          result.appliedTo === "playerInjuries" 
+        const destination =
+          result.appliedTo === "playerInjuries"
             ? "🩹 Injury Record Created"
-          : result.appliedTo === "passportGoals"
-            ? "🎯 Development Goal Created"
-          : result.appliedTo === "orgPlayerEnrollments.coachNotes"
-            ? "📝 Added to Player Notes"
-          : result.appliedTo === "sportPassports.coachNotes"
-            ? "📝 Added to Passport Notes"
-          : result.appliedTo === "team.coachNotes"
-            ? "🏆 Added to Team Notes"
-          : result.appliedTo === "skillAssessments"
-            ? "📊 Skill Rating Updated"
-          : "📋 Applied";
+            : result.appliedTo === "passportGoals"
+              ? "🎯 Development Goal Created"
+              : result.appliedTo === "orgPlayerEnrollments.coachNotes"
+                ? "📝 Added to Player Notes"
+                : result.appliedTo === "sportPassports.coachNotes"
+                  ? "📝 Added to Passport Notes"
+                  : result.appliedTo === "team.coachNotes"
+                    ? "🏆 Added to Team Notes"
+                    : result.appliedTo === "skillAssessments"
+                      ? "📊 Skill Rating Updated"
+                      : "📋 Applied";
         message = `${destination}: ${result.message}`;
       } else if (result.message) {
         message = `⚠️ ${result.message}`;
       }
-      
+
       showSuccessMessage(message);
     } catch (error) {
       console.error("Failed to apply insight:", error);
@@ -476,7 +476,9 @@ Example: 'Emma Murphy had a great session today. Her left foot passing is really
                       {insight.playerName ? (
                         <Badge variant="secondary">{insight.playerName}</Badge>
                       ) : (
-                        <Badge className="bg-purple-100 text-purple-700">🏆 Team</Badge>
+                        <Badge className="bg-purple-100 text-purple-700">
+                          🏆 Team
+                        </Badge>
                       )}
                       {insight.category && (
                         <Badge variant="outline">{insight.category}</Badge>
@@ -586,7 +588,7 @@ Example: 'Emma Murphy had a great session today. Her left foot passing is really
                         ) : note.insightsStatus === "completed" ? (
                           <Badge variant="secondary">No insights</Badge>
                         ) : null}
-                        
+
                         {/* Delete button */}
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
@@ -601,10 +603,12 @@ Example: 'Emma Murphy had a great session today. Her left foot passing is really
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Voice Note?</AlertDialogTitle>
+                              <AlertDialogTitle>
+                                Delete Voice Note?
+                              </AlertDialogTitle>
                               <AlertDialogDescription>
-                                This will permanently delete this voice note and all its insights. 
-                                This action cannot be undone.
+                                This will permanently delete this voice note and
+                                all its insights. This action cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>

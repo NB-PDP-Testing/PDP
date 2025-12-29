@@ -4,10 +4,8 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import {
   AlertCircle,
-  Calendar,
   CheckCircle,
   Clock,
-  FileText,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -139,8 +137,8 @@ function ParentDashboardContent() {
           <div>
             <h1 className="font-bold text-3xl">Your Family's Journey</h1>
             <p className="mt-2 text-blue-100">
-              Tracking {playerCount} {playerCount === 1 ? "child" : "children"} in{" "}
-              {activeOrganization?.name || "this organization"}
+              Tracking {playerCount} {playerCount === 1 ? "child" : "children"}{" "}
+              in {activeOrganization?.name || "this organization"}
             </p>
             {guardianIdentity && (
               <p className="mt-1 text-blue-200 text-sm">
@@ -219,11 +217,7 @@ function ParentDashboardContent() {
           <h2 className="mb-4 font-semibold text-xl">Your Children</h2>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {identityChildren.map((child) => (
-              <ChildCard
-                child={child}
-                key={child.player._id}
-                orgId={orgId}
-              />
+              <ChildCard child={child} key={child.player._id} orgId={orgId} />
             ))}
           </div>
         </div>
@@ -254,19 +248,21 @@ function ParentDashboardContent() {
                 <TrendingUp className="h-5 w-5 text-blue-600" />
                 Coming Soon
               </CardTitle>
-              <CardDescription>
-                More features are on the way
-              </CardDescription>
+              <CardDescription>More features are on the way</CardDescription>
             </CardHeader>
             <CardContent>
               <ul className="space-y-3">
                 <li className="flex items-center gap-3">
                   <Badge variant="outline">Planned</Badge>
-                  <span className="text-sm">Real-time schedule integration</span>
+                  <span className="text-sm">
+                    Real-time schedule integration
+                  </span>
                 </li>
                 <li className="flex items-center gap-3">
                   <Badge variant="outline">Planned</Badge>
-                  <span className="text-sm">Push notifications for coach feedback</span>
+                  <span className="text-sm">
+                    Push notifications for coach feedback
+                  </span>
                 </li>
                 <li className="flex items-center gap-3">
                   <Badge variant="outline">Planned</Badge>

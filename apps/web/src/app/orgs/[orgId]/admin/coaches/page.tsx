@@ -56,9 +56,12 @@ export default function ManageCoachesPage() {
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
-  const allPlayersData = useQuery(api.models.orgPlayerEnrollments.getPlayersForOrg, {
-    organizationId: orgId,
-  });
+  const allPlayersData = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
+    {
+      organizationId: orgId,
+    }
+  );
 
   // Get team-player links for accurate counts
   const teamPlayerLinks = useQuery(api.models.teams.getTeamPlayerLinks, {
@@ -113,7 +116,8 @@ export default function ManageCoachesPage() {
     teamPlayerLinks === undefined;
 
   // Get unique teams - use objects with id and name to preserve both
-  const uniqueTeams = teams?.map((t: any) => ({ id: t._id, name: t.name })) || [];
+  const uniqueTeams =
+    teams?.map((t: any) => ({ id: t._id, name: t.name })) || [];
   const uniqueAgeGroups = [
     ...new Set(teams?.map((t: any) => t.ageGroup).filter(Boolean) || []),
   ].sort();

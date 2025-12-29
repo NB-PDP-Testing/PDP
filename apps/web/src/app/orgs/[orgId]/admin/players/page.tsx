@@ -29,7 +29,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -50,7 +50,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 // Age group options
 const AGE_GROUPS = [
-  "U6", "U7", "U8", "U9", "U10", "U11", "U12", "U13", "U14", "U15", "U16", "U17", "U18", "U19", "U21", "Senior", "Adult"
+  "U6",
+  "U7",
+  "U8",
+  "U9",
+  "U10",
+  "U11",
+  "U12",
+  "U13",
+  "U14",
+  "U15",
+  "U16",
+  "U17",
+  "U18",
+  "U19",
+  "U21",
+  "Senior",
+  "Adult",
 ];
 
 // Get current season (e.g., "2024/2025")
@@ -91,13 +107,20 @@ export default function ManagePlayersPage() {
 
   // Add Player Dialog state
   const [showAddPlayerDialog, setShowAddPlayerDialog] = useState(false);
-  const [addPlayerForm, setAddPlayerForm] = useState<AddPlayerFormData>(emptyFormData);
+  const [addPlayerForm, setAddPlayerForm] =
+    useState<AddPlayerFormData>(emptyFormData);
   const [isAddingPlayer, setIsAddingPlayer] = useState(false);
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof AddPlayerFormData, string>>>({});
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<keyof AddPlayerFormData, string>>
+  >({});
 
   // Mutations
-  const createPlayerIdentity = useMutation(api.models.playerIdentities.createPlayerIdentity);
-  const enrollPlayer = useMutation(api.models.orgPlayerEnrollments.enrollPlayer);
+  const createPlayerIdentity = useMutation(
+    api.models.playerIdentities.createPlayerIdentity
+  );
+  const enrollPlayer = useMutation(
+    api.models.orgPlayerEnrollments.enrollPlayer
+  );
 
   // Get data from new identity system
   const enrolledPlayers = useQuery(
@@ -153,9 +176,7 @@ export default function ManagePlayersPage() {
     if (!addPlayerForm.lastName.trim()) {
       errors.lastName = "Last name is required";
     }
-    if (!addPlayerForm.dateOfBirth) {
-      errors.dateOfBirth = "Date of birth is required";
-    } else {
+    if (addPlayerForm.dateOfBirth) {
       // Check if date is valid
       const dob = new Date(addPlayerForm.dateOfBirth);
       const now = new Date();
@@ -164,6 +185,8 @@ export default function ManagePlayersPage() {
       } else if (now.getFullYear() - dob.getFullYear() > 100) {
         errors.dateOfBirth = "Please enter a valid date of birth";
       }
+    } else {
+      errors.dateOfBirth = "Date of birth is required";
     }
     if (!addPlayerForm.ageGroup) {
       errors.ageGroup = "Age group is required";
@@ -212,7 +235,10 @@ export default function ManagePlayersPage() {
     } catch (error) {
       console.error("Error adding player:", error);
       toast.error("Failed to add player", {
-        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
       });
     } finally {
       setIsAddingPlayer(false);
@@ -756,13 +782,16 @@ export default function ManagePlayersPage() {
         </CardContent>
       </Card>
       {/* Add Player Dialog */}
-      <Dialog open={showAddPlayerDialog} onOpenChange={(open) => {
-        if (!open) {
-          setAddPlayerForm(emptyFormData);
-          setFormErrors({});
-        }
-        setShowAddPlayerDialog(open);
-      }}>
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddPlayerForm(emptyFormData);
+            setFormErrors({});
+          }
+          setShowAddPlayerDialog(open);
+        }}
+        open={showAddPlayerDialog}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Add New Player</DialogTitle>
@@ -778,16 +807,19 @@ export default function ManagePlayersPage() {
                 First Name <span className="text-red-500">*</span>
               </Label>
               <Input
+                className={formErrors.firstName ? "border-red-500" : ""}
                 id="firstName"
-                placeholder="Enter first name"
-                value={addPlayerForm.firstName}
                 onChange={(e) => {
-                  setAddPlayerForm({ ...addPlayerForm, firstName: e.target.value });
+                  setAddPlayerForm({
+                    ...addPlayerForm,
+                    firstName: e.target.value,
+                  });
                   if (formErrors.firstName) {
                     setFormErrors({ ...formErrors, firstName: undefined });
                   }
                 }}
-                className={formErrors.firstName ? "border-red-500" : ""}
+                placeholder="Enter first name"
+                value={addPlayerForm.firstName}
               />
               {formErrors.firstName && (
                 <p className="text-red-500 text-sm">{formErrors.firstName}</p>
@@ -800,16 +832,19 @@ export default function ManagePlayersPage() {
                 Last Name <span className="text-red-500">*</span>
               </Label>
               <Input
+                className={formErrors.lastName ? "border-red-500" : ""}
                 id="lastName"
-                placeholder="Enter last name"
-                value={addPlayerForm.lastName}
                 onChange={(e) => {
-                  setAddPlayerForm({ ...addPlayerForm, lastName: e.target.value });
+                  setAddPlayerForm({
+                    ...addPlayerForm,
+                    lastName: e.target.value,
+                  });
                   if (formErrors.lastName) {
                     setFormErrors({ ...formErrors, lastName: undefined });
                   }
                 }}
-                className={formErrors.lastName ? "border-red-500" : ""}
+                placeholder="Enter last name"
+                value={addPlayerForm.lastName}
               />
               {formErrors.lastName && (
                 <p className="text-red-500 text-sm">{formErrors.lastName}</p>
@@ -822,17 +857,20 @@ export default function ManagePlayersPage() {
                 Date of Birth <span className="text-red-500">*</span>
               </Label>
               <Input
+                className={formErrors.dateOfBirth ? "border-red-500" : ""}
                 id="dateOfBirth"
-                type="date"
-                value={addPlayerForm.dateOfBirth}
+                max={new Date().toISOString().split("T")[0]}
                 onChange={(e) => {
-                  setAddPlayerForm({ ...addPlayerForm, dateOfBirth: e.target.value });
+                  setAddPlayerForm({
+                    ...addPlayerForm,
+                    dateOfBirth: e.target.value,
+                  });
                   if (formErrors.dateOfBirth) {
                     setFormErrors({ ...formErrors, dateOfBirth: undefined });
                   }
                 }}
-                className={formErrors.dateOfBirth ? "border-red-500" : ""}
-                max={new Date().toISOString().split("T")[0]}
+                type="date"
+                value={addPlayerForm.dateOfBirth}
               />
               {formErrors.dateOfBirth && (
                 <p className="text-red-500 text-sm">{formErrors.dateOfBirth}</p>
@@ -845,10 +883,10 @@ export default function ManagePlayersPage() {
                 Gender <span className="text-red-500">*</span>
               </Label>
               <Select
-                value={addPlayerForm.gender}
-                onValueChange={(value: "male" | "female" | "other") => 
+                onValueChange={(value: "male" | "female" | "other") =>
                   setAddPlayerForm({ ...addPlayerForm, gender: value })
                 }
+                value={addPlayerForm.gender}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select gender" />
@@ -867,15 +905,17 @@ export default function ManagePlayersPage() {
                 Age Group <span className="text-red-500">*</span>
               </Label>
               <Select
-                value={addPlayerForm.ageGroup}
                 onValueChange={(value) => {
                   setAddPlayerForm({ ...addPlayerForm, ageGroup: value });
                   if (formErrors.ageGroup) {
                     setFormErrors({ ...formErrors, ageGroup: undefined });
                   }
                 }}
+                value={addPlayerForm.ageGroup}
               >
-                <SelectTrigger className={formErrors.ageGroup ? "border-red-500" : ""}>
+                <SelectTrigger
+                  className={formErrors.ageGroup ? "border-red-500" : ""}
+                >
                   <SelectValue placeholder="Select age group" />
                 </SelectTrigger>
                 <SelectContent>
@@ -894,20 +934,17 @@ export default function ManagePlayersPage() {
 
           <DialogFooter>
             <Button
-              variant="outline"
+              disabled={isAddingPlayer}
               onClick={() => {
                 setShowAddPlayerDialog(false);
                 setAddPlayerForm(emptyFormData);
                 setFormErrors({});
               }}
-              disabled={isAddingPlayer}
+              variant="outline"
             >
               Cancel
             </Button>
-            <Button
-              onClick={handleAddPlayer}
-              disabled={isAddingPlayer}
-            >
+            <Button disabled={isAddingPlayer} onClick={handleAddPlayer}>
               {isAddingPlayer ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

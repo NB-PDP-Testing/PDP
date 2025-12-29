@@ -10,7 +10,6 @@ import {
   Mail,
   MessageCircle,
   Share2,
-  X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -32,8 +31,8 @@ import {
   type PassportPDFData,
   previewPDF,
   shareViaEmail,
-  shareViaWhatsApp,
   shareViaNative,
+  shareViaWhatsApp,
 } from "@/lib/pdf-generator";
 
 interface ShareModalProps {
@@ -63,13 +62,14 @@ export function ShareModal({
   }, [open]);
 
   // Clean up preview URL on unmount
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
-    };
-  }, [previewUrl]);
+    },
+    [previewUrl]
+  );
 
   const generatePDF = async () => {
     setIsGenerating(true);
@@ -90,7 +90,7 @@ export function ShareModal({
 
   const handleDownload = useCallback(() => {
     if (!pdfBytes) return;
-    
+
     const filename = `${playerName.replace(/\s+/g, "_")}_Passport_${new Date().toISOString().split("T")[0]}.pdf`;
     downloadPDF(pdfBytes, filename);
     toast.success("PDF downloaded successfully");
@@ -106,7 +106,7 @@ export function ShareModal({
       toast.error("PDF not ready yet");
       return;
     }
-    
+
     try {
       await shareViaEmail(pdfBytes, playerName);
       toast.success("Share opened", {
@@ -116,10 +116,12 @@ export function ShareModal({
       console.error("Email share failed:", error);
       // Fallback with email address
       if (emailAddress) {
-        const subject = encodeURIComponent(`Player Development Passport - ${playerName}`);
+        const subject = encodeURIComponent(
+          `Player Development Passport - ${playerName}`
+        );
         const body = encodeURIComponent(
           `Hi,\n\nPlease find attached the Player Development Passport for ${playerName}.\n\n` +
-          `Best regards`
+            "Best regards"
         );
         window.location.href = `mailto:${emailAddress}?subject=${subject}&body=${body}`;
         toast.info("Email client opened", {
@@ -134,10 +136,10 @@ export function ShareModal({
       toast.error("PDF not ready yet");
       return;
     }
-    
+
     try {
       const result = await shareViaWhatsApp(pdfBytes, playerName);
-      
+
       if (result.method === "native") {
         if (result.shared) {
           toast.success("Shared successfully via WhatsApp");
@@ -146,7 +148,8 @@ export function ShareModal({
       } else {
         // Fallback method - PDF was downloaded, WhatsApp opened
         toast.info("PDF downloaded", {
-          description: "WhatsApp opened - please attach the downloaded PDF to your message",
+          description:
+            "WhatsApp opened - please attach the downloaded PDF to your message",
         });
       }
     } catch (error) {
@@ -183,7 +186,7 @@ export function ShareModal({
   }, [pdfBytes, playerName]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -210,7 +213,7 @@ export function ShareModal({
                   </p>
                 </div>
               </div>
-              
+
               {isGenerating ? (
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               ) : (
@@ -291,7 +294,9 @@ export function ShareModal({
             >
               <MessageCircle className="mr-3 h-4 w-4" />
               Share via WhatsApp
-              <span className="ml-auto text-green-200 text-xs">includes PDF</span>
+              <span className="ml-auto text-green-200 text-xs">
+                includes PDF
+              </span>
             </Button>
 
             {/* Copy Link */}

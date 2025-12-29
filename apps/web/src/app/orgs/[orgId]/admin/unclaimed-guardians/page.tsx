@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { Calendar, Mail, Phone, Users } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -14,7 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { api } from "../../../../../../../packages/backend/convex/_generated/api";
 
 export default function UnclaimedGuardiansPage() {
   const params = useParams();
@@ -42,7 +42,8 @@ export default function UnclaimedGuardiansPage() {
   }
 
   const totalChildren = unclaimedGuardians.reduce(
-    (sum, g) => sum + g.childrenCount,
+    (sum: number, g: (typeof unclaimedGuardians)[number]) =>
+      sum + g.childrenCount,
     0
   );
 
@@ -101,7 +102,12 @@ export default function UnclaimedGuardiansPage() {
           <CardContent>
             <div className="font-bold text-2xl">
               {unclaimedGuardians.length > 0
-                ? Math.max(...unclaimedGuardians.map((g) => g.daysSinceCreated))
+                ? Math.max(
+                    ...unclaimedGuardians.map(
+                      (g: (typeof unclaimedGuardians)[number]) =>
+                        g.daysSinceCreated
+                    )
+                  )
                 : 0}
             </div>
             <p className="text-muted-foreground text-xs">Days ago</p>
@@ -140,67 +146,74 @@ export default function UnclaimedGuardiansPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {unclaimedGuardians.map((item) => (
-                    <TableRow key={item.guardian._id}>
-                      <TableCell className="font-medium">
-                        {item.guardian.firstName} {item.guardian.lastName}
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Mail className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-muted-foreground">
-                              {item.guardian.email}
-                            </span>
-                          </div>
-                          {item.guardian.phone && (
+                  {unclaimedGuardians.map(
+                    (item: (typeof unclaimedGuardians)[number]) => (
+                      <TableRow key={item.guardian._id}>
+                        <TableCell className="font-medium">
+                          {item.guardian.firstName} {item.guardian.lastName}
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
                             <div className="flex items-center gap-2 text-sm">
-                              <Phone className="h-3 w-3 text-muted-foreground" />
+                              <Mail className="h-3 w-3 text-muted-foreground" />
                               <span className="text-muted-foreground">
-                                {item.guardian.phone}
+                                {item.guardian.email}
                               </span>
                             </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {item.children.map((child, idx) => (
-                            <div className="text-sm" key={idx}>
-                              {child.firstName} {child.lastName}
-                            </div>
-                          ))}
-                          <Badge className="mt-1" variant="secondary">
-                            {item.childrenCount}{" "}
-                            {item.childrenCount === 1 ? "child" : "children"}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {item.daysSinceCreated === 0 ? (
-                            <Badge variant="outline">Today</Badge>
-                          ) : item.daysSinceCreated === 1 ? (
-                            <Badge variant="outline">Yesterday</Badge>
-                          ) : (
-                            <Badge variant="outline">
-                              {item.daysSinceCreated} days ago
+                            {item.guardian.phone && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Phone className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-muted-foreground">
+                                  {item.guardian.phone}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            {item.children.map(
+                              (
+                                child: (typeof item.children)[number],
+                                idx: number
+                              ) => (
+                                <div className="text-sm" key={idx}>
+                                  {child.firstName} {child.lastName}
+                                </div>
+                              )
+                            )}
+                            <Badge className="mt-1" variant="secondary">
+                              {item.childrenCount}{" "}
+                              {item.childrenCount === 1 ? "child" : "children"}
                             </Badge>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {item.guardian.createdFrom || "Import"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button size="sm" variant="outline">
-                          Send Reminder
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            {item.daysSinceCreated === 0 ? (
+                              <Badge variant="outline">Today</Badge>
+                            ) : item.daysSinceCreated === 1 ? (
+                              <Badge variant="outline">Yesterday</Badge>
+                            ) : (
+                              <Badge variant="outline">
+                                {item.daysSinceCreated} days ago
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            {item.guardian.createdFrom || "Import"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline">
+                            Send Reminder
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  )}
                 </TableBody>
               </Table>
             </div>

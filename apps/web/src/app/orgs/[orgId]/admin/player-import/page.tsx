@@ -175,10 +175,10 @@ export default function PlayerImportPage() {
   // Convert gender from identity format to team format for matching
   const genderToTeamFormat = (
     gender: "male" | "female" | "other"
-  ): "male" | "female" | "mixed" => {
-    if (gender === "male") return "male";
-    if (gender === "female") return "female";
-    return "mixed";
+  ): "Male" | "Female" | "Mixed" => {
+    if (gender === "male") return "Male";
+    if (gender === "female") return "Female";
+    return "Mixed";
   };
 
   // Parse relationship string to typed value

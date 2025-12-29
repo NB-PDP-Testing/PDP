@@ -123,12 +123,16 @@ export default function GAAImportPage() {
     gender: "male" | "female" | "mixed";
     season: string;
   }) => {
+    // Capitalize gender to match schema expectations
+    const gender = (teamData.gender.charAt(0).toUpperCase() +
+      teamData.gender.slice(1)) as "Male" | "Female" | "Mixed";
+
     const teamId = await createTeamMutation({
       name: teamData.name,
       organizationId: orgId,
       sport: teamData.sport,
       ageGroup: teamData.ageGroup,
-      gender: teamData.gender,
+      gender,
       season: teamData.season,
       isActive: true,
     });

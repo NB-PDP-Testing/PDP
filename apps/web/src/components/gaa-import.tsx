@@ -113,7 +113,7 @@ type DetectedTeam = {
   name: string;
   sport: string;
   ageGroup: string;
-  gender: "male" | "female" | "mixed";
+  gender: "Male" | "Female" | "Mixed";
   season: string;
   playerCount: number;
   existingTeamId?: string; // If matched to existing team
@@ -293,10 +293,10 @@ const GAAMembershipWizard = ({
     members.forEach((member) => {
       const normalizedGender =
         member.Gender?.toUpperCase() === "MALE"
-          ? "male"
+          ? "Male"
           : member.Gender?.toUpperCase() === "FEMALE"
-            ? "female"
-            : "mixed";
+            ? "Female"
+            : "Mixed";
 
       const teamKey = getTeamKey({
         sport: "GAA Football",
@@ -307,8 +307,8 @@ const GAAMembershipWizard = ({
 
       const teamName =
         member.AgeGroup === "Senior"
-          ? `Senior ${normalizedGender === "male" ? "Men" : normalizedGender === "female" ? "Women" : "Mixed"}`
-          : `${member.AgeGroup} ${normalizedGender === "male" ? "Male" : normalizedGender === "female" ? "Female" : "Mixed"}`;
+          ? `Senior ${normalizedGender === "Male" ? "Men" : normalizedGender === "Female" ? "Women" : "Mixed"}`
+          : `${member.AgeGroup} ${normalizedGender === "Male" ? "Male" : normalizedGender === "Female" ? "Female" : "Mixed"}`;
 
       if (teamMap.has(teamKey)) {
         const existing = teamMap.get(teamKey)!;
@@ -327,7 +327,7 @@ const GAAMembershipWizard = ({
           name: teamName,
           sport: "GAA Football",
           ageGroup: member.AgeGroup,
-          gender: normalizedGender as "male" | "female" | "mixed",
+          gender: normalizedGender as "Male" | "Female" | "Mixed",
           season: "2025",
           playerCount: 1,
           existingTeamId: existingTeam?._id,
@@ -1077,10 +1077,10 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
       data.forEach((member, idx) => {
         const normalizedGender =
           member.Gender?.toUpperCase() === "MALE"
-            ? "male"
+            ? "Male"
             : member.Gender?.toUpperCase() === "FEMALE"
-              ? "female"
-              : "mixed";
+              ? "Female"
+              : "Mixed";
         const teamId = getTeamIdByProperties(
           "GAA Football",
           member.AgeGroup,
@@ -1125,7 +1125,7 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
             name: team.name,
             sport: team.sport,
             ageGroup: team.ageGroup,
-            gender: team.gender,
+            gender: team.gender as any,
             season: team.season,
           });
 
@@ -1177,10 +1177,10 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
       parsedMembers.forEach((member, idx) => {
         const normalizedGender =
           member.Gender?.toUpperCase() === "MALE"
-            ? "male"
+            ? "Male"
             : member.Gender?.toUpperCase() === "FEMALE"
-              ? "female"
-              : "mixed";
+              ? "Female"
+              : "Mixed";
 
         // ✅ FIX #5: Use getTeamIdByProperties with updated localTeams
         // Note: This will work immediately because we have updatedLocalTeams in scope
@@ -1480,8 +1480,9 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
         guardiansCreated: importResult.guardiansCreated,
         guardiansReused: importResult.guardiansReused,
         guardiansLinkedToVerifiedAccounts:
-          importResult.guardiansLinkedToVerifiedAccounts,
-        guardiansAwaitingClaim: importResult.guardiansAwaitingClaim,
+          (importResult as any).guardiansLinkedToVerifiedAccounts || 0,
+        guardiansAwaitingClaim:
+          (importResult as any).guardiansAwaitingClaim || 0,
       });
     } catch (error) {
       console.error("❌ Identity import failed:", error);

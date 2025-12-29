@@ -1259,11 +1259,11 @@ function BulkCreateGoalsDialog({
 
     // Debug: show which players don't have passports
     if (teamPlayers.length > 0 && foundPassports.length < teamPlayers.length) {
-      const passportPlayerIds = new Set(
+      const passportPlayerIds = new Set<string>(
         foundPassports.map((p) => p.playerIdentityId)
       );
       const missingPlayers = teamPlayers
-        .filter((tp) => !passportPlayerIds.has(tp.playerIdentityId))
+        .filter((tp) => !passportPlayerIds.has(tp.playerIdentityId as string))
         .map((tp) => tp.playerIdentityId);
       console.warn(
         `[BulkGoals] ${missingPlayers.length} players in team don't have sport passports:`,

@@ -150,11 +150,11 @@ export function canPlayerJoinTeam(
   if (teamRank >= playerRank) {
     // Team is same age or older - allowed (may need approval for significant jumps)
     const ageGapIntroduction = teamRank - playerRank;
-    if (ageGap > 2) {
+    if (ageGapIntroduction > 2) {
       return {
         allowed: true,
         requiresOverride: true,
-        reason: `${playerAgeGroup} player joining ${teamAgeGroup} team (${ageGap} age groups up) requires admin approval`,
+        reason: `${playerAgeGroup} player joining ${teamAgeGroup} team (${ageGapIntroduction} age groups up) requires admin approval`,
       };
     }
 

@@ -227,7 +227,7 @@ export default function EditPlayerPassportPage() {
         <p className="mb-4 text-muted-foreground">
           The player you're looking for doesn't exist.
         </p>
-        <Button onClick={() => router.push(`/orgs/${orgId}/players`)}>
+        <Button onClick={() => router.push(`/orgs/${orgId}/players` as any)}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Players
         </Button>
@@ -444,7 +444,7 @@ export default function EditPlayerPassportPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {currentTeams.map((team) => {
+              {currentTeams.map((team: any) => {
                 const isSelected = selectedTeamIds.includes(team.teamId);
                 const isDisabled = team.isCoreTeam && !isAdmin && isSelected;
 
@@ -515,7 +515,7 @@ export default function EditPlayerPassportPage() {
                         <div className="flex items-center gap-2 text-muted-foreground text-xs">
                           <span>{team.ageGroup}</span>
                           <span>•</span>
-                          <span>{team.sport}</span>
+                          <span>{team.sportCode}</span>
                         </div>
                       </div>
 

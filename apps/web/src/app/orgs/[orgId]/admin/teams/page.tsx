@@ -5,7 +5,6 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
-  ArrowRight,
   Calendar,
   CheckCircle,
   ChevronDown,
@@ -16,15 +15,12 @@ import {
   Search,
   Shield,
   Trash2,
-  User,
-  UserCog,
   UserMinus,
   UserPlus,
   Users,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useState, useMemo } from "react";
-import { useSession } from "@/lib/auth-client";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -70,6 +66,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useSession } from "@/lib/auth-client";
 import { PlayerEligibilityBadge } from "./player-eligibility";
 
 interface TeamFormData {

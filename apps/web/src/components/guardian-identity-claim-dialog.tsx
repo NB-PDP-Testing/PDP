@@ -15,6 +15,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "./ui/alert-dialog";
+import { Checkbox } from "./ui/checkbox";
+import { Label } from "./ui/label";
 
 interface Child {
   playerIdentityId: Id<"playerIdentities">;

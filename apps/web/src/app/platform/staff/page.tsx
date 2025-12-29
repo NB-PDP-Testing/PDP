@@ -50,8 +50,12 @@ export default function PlatformStaffManagementPage() {
       };
     }
 
-    const staff = allUsers.filter((u) => u.isPlatformStaff);
-    const nonStaff = allUsers.filter((u) => !u.isPlatformStaff);
+    const staff = allUsers.filter(
+      (u: (typeof allUsers)[number]) => u.isPlatformStaff
+    );
+    const nonStaff = allUsers.filter(
+      (u: (typeof allUsers)[number]) => !u.isPlatformStaff
+    );
 
     return {
       staffUsers: staff,
@@ -66,7 +70,7 @@ export default function PlatformStaffManagementPage() {
 
     const query = searchQuery.toLowerCase();
     return nonStaffUsers.filter(
-      (u) =>
+      (u: (typeof nonStaffUsers)[number]) =>
         u.name?.toLowerCase().includes(query) ||
         u.email.toLowerCase().includes(query)
     );
@@ -173,66 +177,68 @@ export default function PlatformStaffManagementPage() {
                 <TabsContent value="current">
                   {staffUsers.length > 0 ? (
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {staffUsers.map((staffUser) => {
-                        const isCurrentUser = staffUser.email === user?.email;
-                        return (
-                          <Card
-                            className="border-purple-200 bg-gradient-to-br from-purple-50 to-white"
-                            key={staffUser._id}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
-                                    <Shield className="h-6 w-6 text-purple-600" />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate font-semibold">
-                                      {staffUser.name || "Unknown"}
-                                    </p>
-                                    <p className="truncate text-muted-foreground text-sm">
-                                      {staffUser.email}
-                                    </p>
-                                    {isCurrentUser && (
-                                      <Badge
-                                        className="mt-1 text-xs"
-                                        variant="outline"
-                                      >
-                                        You
-                                      </Badge>
-                                    )}
+                      {staffUsers.map(
+                        (staffUser: (typeof staffUsers)[number]) => {
+                          const isCurrentUser = staffUser.email === user?.email;
+                          return (
+                            <Card
+                              className="border-purple-200 bg-gradient-to-br from-purple-50 to-white"
+                              key={staffUser._id}
+                            >
+                              <CardContent className="p-4">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
+                                      <Shield className="h-6 w-6 text-purple-600" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate font-semibold">
+                                        {staffUser.name || "Unknown"}
+                                      </p>
+                                      <p className="truncate text-muted-foreground text-sm">
+                                        {staffUser.email}
+                                      </p>
+                                      {isCurrentUser && (
+                                        <Badge
+                                          className="mt-1 text-xs"
+                                          variant="outline"
+                                        >
+                                          You
+                                        </Badge>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                              <div className="mt-4 flex items-center justify-between">
-                                <Badge className="bg-purple-100 text-purple-700">
-                                  Platform Staff
-                                </Badge>
-                                <Button
-                                  className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                                  disabled={isCurrentUser}
-                                  onClick={() =>
-                                    handleTogglePlatformStaff(
-                                      staffUser.email,
-                                      true
-                                    )
-                                  }
-                                  size="sm"
-                                  title={
-                                    isCurrentUser
-                                      ? "You cannot remove your own staff access"
-                                      : "Remove staff access"
-                                  }
-                                  variant="ghost"
-                                >
-                                  <ShieldX className="mr-1 h-4 w-4" />
-                                  Remove
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
+                                <div className="mt-4 flex items-center justify-between">
+                                  <Badge className="bg-purple-100 text-purple-700">
+                                    Platform Staff
+                                  </Badge>
+                                  <Button
+                                    className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                    disabled={isCurrentUser}
+                                    onClick={() =>
+                                      handleTogglePlatformStaff(
+                                        staffUser.email,
+                                        true
+                                      )
+                                    }
+                                    size="sm"
+                                    title={
+                                      isCurrentUser
+                                        ? "You cannot remove your own staff access"
+                                        : "Remove staff access"
+                                    }
+                                    variant="ghost"
+                                  >
+                                    <ShieldX className="mr-1 h-4 w-4" />
+                                    Remove
+                                  </Button>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        }
+                      )}
                     </div>
                   ) : (
                     <Card className="border-dashed">
@@ -281,41 +287,45 @@ export default function PlatformStaffManagementPage() {
                   {/* User List */}
                   {filteredNonStaffUsers.length > 0 ? (
                     <div className="space-y-2">
-                      {filteredNonStaffUsers.map((nonStaffUser) => (
-                        <Card
-                          className="hover:bg-gray-50"
-                          key={nonStaffUser._id}
-                        >
-                          <CardContent className="flex items-center justify-between p-4">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
-                                <Users className="h-5 w-5 text-gray-600" />
+                      {filteredNonStaffUsers.map(
+                        (
+                          nonStaffUser: (typeof filteredNonStaffUsers)[number]
+                        ) => (
+                          <Card
+                            className="hover:bg-gray-50"
+                            key={nonStaffUser._id}
+                          >
+                            <CardContent className="flex items-center justify-between p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                                  <Users className="h-5 w-5 text-gray-600" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">
+                                    {nonStaffUser.name || "Unknown"}
+                                  </p>
+                                  <p className="text-muted-foreground text-sm">
+                                    {nonStaffUser.email}
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-medium">
-                                  {nonStaffUser.name || "Unknown"}
-                                </p>
-                                <p className="text-muted-foreground text-sm">
-                                  {nonStaffUser.email}
-                                </p>
-                              </div>
-                            </div>
-                            <Button
-                              className="bg-purple-600 hover:bg-purple-700"
-                              onClick={() =>
-                                handleTogglePlatformStaff(
-                                  nonStaffUser.email,
-                                  false
-                                )
-                              }
-                              size="sm"
-                            >
-                              <ShieldCheck className="mr-1 h-4 w-4" />
-                              Grant Staff
-                            </Button>
-                          </CardContent>
-                        </Card>
-                      ))}
+                              <Button
+                                className="bg-purple-600 hover:bg-purple-700"
+                                onClick={() =>
+                                  handleTogglePlatformStaff(
+                                    nonStaffUser.email,
+                                    false
+                                  )
+                                }
+                                size="sm"
+                              >
+                                <ShieldCheck className="mr-1 h-4 w-4" />
+                                Grant Staff
+                              </Button>
+                            </CardContent>
+                          </Card>
+                        )
+                      )}
                     </div>
                   ) : nonStaffUsers.length === 0 ? (
                     <Card className="border-dashed">

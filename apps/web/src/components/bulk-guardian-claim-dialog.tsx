@@ -25,7 +25,7 @@ interface ClaimableIdentity {
     _id: Id<"guardianIdentities">;
     firstName: string;
     lastName: string;
-    email: string;
+    email?: string;
     phone?: string;
     verificationStatus: string;
   };
@@ -89,7 +89,7 @@ export function BulkGuardianClaimDialog({
             await updateLinkConsent({
               guardianIdentityId: identity.guardianIdentity._id,
               playerIdentityId: child.playerIdentityId,
-              consentedToSharing,
+              consentedToSharing: consentToSharing,
             });
           }
 

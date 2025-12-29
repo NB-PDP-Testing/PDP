@@ -77,7 +77,12 @@ export const addCoachRoleToNeil = mutation({
 
     // Add coach and admin if not already present
     const rolesToAdd = ["coach", "admin"];
-    const newRoles = [...new Set([...currentRoles, ...rolesToAdd])];
+    const newRoles = [...new Set([...currentRoles, ...rolesToAdd])] as (
+      | "parent"
+      | "coach"
+      | "admin"
+      | "player"
+    )[];
 
     // Update the member record
     await ctx.runMutation(components.betterAuth.adapter.updateOne, {

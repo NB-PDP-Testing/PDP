@@ -47,7 +47,7 @@ export function CoachFeedback({ children, orgId }: CoachFeedbackProps) {
         })
         .map(({ child, passportData }) => ({
           player: child.player,
-          notes: passportData?.coachNotes || [],
+          notes: passportData?.coachNotes || "",
         })),
     [childPassports]
   );
@@ -71,31 +71,21 @@ export function CoachFeedback({ children, orgId }: CoachFeedbackProps) {
         <div className="space-y-4">
           {childrenWithNotes.map(({ player, notes }) => (
             <div key={player._id}>
-              {notes.slice(0, 3).map((note: any, idx: number) => (
-                <div
-                  className="rounded-lg border-l-4 border-l-blue-500 bg-blue-50/50 p-4"
-                  key={`${player._id}-${idx}`}
-                >
-                  <div className="mb-2 flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-                      <User className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">
-                        {player.firstName} {player.lastName}
-                      </p>
-                      {note.createdAt && (
-                        <p className="text-muted-foreground text-xs">
-                          {new Date(note.createdAt).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
+              <div className="rounded-lg border-l-4 border-l-blue-500 bg-blue-50/50 p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
+                    <User className="h-4 w-4 text-blue-600" />
                   </div>
-                  <p className="text-muted-foreground text-sm">
-                    {note.content || note}
-                  </p>
+                  <div>
+                    <p className="font-medium text-sm">
+                      {player.firstName} {player.lastName}
+                    </p>
+                  </div>
                 </div>
-              ))}
+                <p className="whitespace-pre-wrap text-muted-foreground text-sm">
+                  {notes}
+                </p>
+              </div>
             </div>
           ))}
         </div>

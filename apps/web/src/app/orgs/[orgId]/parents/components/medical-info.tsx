@@ -583,18 +583,18 @@ export function MedicalInfo({ children, orgId }: MedicalInfoProps) {
                       {child.hasAllergies && (
                         <Badge className="bg-orange-100 text-orange-700 text-xs">
                           <AlertCircle className="mr-1 h-3 w-3" />
-                          {child.profile.allergies.length} Allergies
+                          {child.profile?.allergies?.length || 0} Allergies
                         </Badge>
                       )}
                       {child.hasMedications && (
                         <Badge className="bg-blue-100 text-blue-700 text-xs">
                           <Pill className="mr-1 h-3 w-3" />
-                          {child.profile.medications.length} Meds
+                          {child.profile?.medications?.length || 0} Meds
                         </Badge>
                       )}
                       {child.hasConditions && (
                         <Badge className="bg-purple-100 text-purple-700 text-xs">
-                          {child.profile.conditions.length} Conditions
+                          {child.profile?.conditions?.length || 0} Conditions
                         </Badge>
                       )}
                     </div>

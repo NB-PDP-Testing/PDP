@@ -385,8 +385,8 @@ export const importPlayerWithIdentity = mutation({
           .query("guardianIdentities")
           .withIndex("by_name", (q) =>
             q
-              .eq("firstName", args.parentFirstName!.trim())
               .eq("lastName", args.parentLastName!.trim())
+              .eq("firstName", args.parentFirstName!.trim())
           )
           .collect();
 
@@ -857,8 +857,8 @@ export const batchImportPlayersWithIdentity = mutation({
               .query("guardianIdentities")
               .withIndex("by_name", (q) =>
                 q
-                  .eq("firstName", playerData.parentFirstName!.trim())
                   .eq("lastName", playerData.parentLastName!.trim())
+                  .eq("firstName", playerData.parentFirstName!.trim())
               )
               .collect();
 

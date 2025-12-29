@@ -25,7 +25,7 @@ const guardianIdentityValidator = v.object({
   _creationTime: v.number(),
   firstName: v.string(),
   lastName: v.string(),
-  email: v.string(),
+  email: v.optional(v.string()),
   phone: v.optional(v.string()),
   address: v.optional(v.string()),
   town: v.optional(v.string()),

@@ -215,8 +215,7 @@ export function CoachDashboard() {
 
       // Calculate core team (team where team.ageGroup === player.ageGroup)
       const coreTeam = playerTeamDetails.find(
-        (t: any) =>
-          t.ageGroup?.toLowerCase() === player.ageGroup?.toLowerCase()
+        (t: any) => t.ageGroup?.toLowerCase() === player.ageGroup?.toLowerCase()
       );
 
       // Get array of all team names

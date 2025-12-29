@@ -38,3 +38,6 @@ export const authClient = createAuthClient({
     }),
   ],
 });
+
+// Re-export the useSession hook for convenience
+export const useSession = authClient.useSession;

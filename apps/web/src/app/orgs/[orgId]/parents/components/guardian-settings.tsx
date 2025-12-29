@@ -24,7 +24,7 @@ interface GuardianSettingsProps {
     _id: Id<"guardianIdentities">;
     firstName: string;
     lastName: string;
-    email: string;
+    email?: string;
     phone?: string;
     verificationStatus?: string;
   } | null;

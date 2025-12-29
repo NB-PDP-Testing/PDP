@@ -255,7 +255,11 @@ export function SmartCoachDashboard({
   // Helper to get all teams for a player
   const getPlayerTeams = (player: any): string[] => {
     // First check if player has explicit teams array (from updated coach dashboard)
-    if (player.teams && Array.isArray(player.teams) && player.teams.length > 0) {
+    if (
+      player.teams &&
+      Array.isArray(player.teams) &&
+      player.teams.length > 0
+    ) {
       return player.teams;
     }
 
@@ -1654,12 +1658,12 @@ export function SmartCoachDashboard({
                                 player.coreTeamName === teamName;
                               return (
                                 <span
-                                  key={`${player._id}-${teamName}-${idx}`}
                                   className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
                                     isCoreTeam
                                       ? "bg-green-100 font-medium text-green-700"
                                       : "bg-gray-100 text-gray-700"
                                   }`}
+                                  key={`${player._id}-${teamName}-${idx}`}
                                   title={
                                     isCoreTeam
                                       ? "Core Team (matches age group)"

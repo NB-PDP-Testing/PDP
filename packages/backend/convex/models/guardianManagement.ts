@@ -445,6 +445,9 @@ export const addGuardianLink = mutation({
       playerIdentityId: args.playerId,
       relationship: args.relationship,
       isPrimary: args.isPrimary ?? false,
+      hasParentalResponsibility: true, // Default to true for manual links
+      canCollectFromTraining: true, // Default to true
+      consentedToSharing: false, // Default to false, guardian can change later
       createdAt: now,
       updatedAt: now,
     });

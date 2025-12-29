@@ -6,6 +6,7 @@
     "dev": "next dev --port=3000",
     "build": "next build",
     "start": "next start",
+    "check-types": "tsc --noEmit",
     "shadcn-update-all": "npx shadcn@latest add -o -a -y"
   },
   "dependencies": {

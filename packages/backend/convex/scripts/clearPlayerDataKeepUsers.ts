@@ -120,12 +120,13 @@ export const clearPlayerDataKeepUsers = internalMutation({
       deletedCounts.medicalProfiles++;
     }
 
-    console.log("Deleting emergency contacts...");
-    const emergencyContacts = await ctx.db.query("emergencyContacts").collect();
-    for (const contact of emergencyContacts) {
-      await ctx.db.delete(contact._id);
-      deletedCounts.emergencyContacts++;
-    }
+    // Emergency contacts table no longer exists in schema
+    // console.log("Deleting emergency contacts...");
+    // const emergencyContacts = await ctx.db.query("emergencyContacts").collect();
+    // for (const contact of emergencyContacts) {
+    //   await ctx.db.delete(contact._id);
+    //   deletedCounts.emergencyContacts++;
+    // }
 
     console.log("Deleting voice notes...");
     const voiceNotes = await ctx.db.query("voiceNotes").collect();
@@ -184,14 +185,15 @@ export const clearPlayerDataKeepUsers = internalMutation({
     }
 
     // 5. Delete organization data
-    console.log("Deleting player self-access requests...");
-    const accessRequests = await ctx.db
-      .query("playerSelfAccessRequests")
-      .collect();
-    for (const request of accessRequests) {
-      await ctx.db.delete(request._id);
-      deletedCounts.playerSelfAccessRequests++;
-    }
+    // playerSelfAccessRequests table no longer exists in schema
+    // console.log("Deleting player self-access requests...");
+    // const accessRequests = await ctx.db
+    //   .query("playerSelfAccessRequests")
+    //   .collect();
+    // for (const request of accessRequests) {
+    //   await ctx.db.delete(request._id);
+    //   deletedCounts.playerSelfAccessRequests++;
+    // }
 
     console.log("Deleting org join requests...");
     const joinRequests = await ctx.db.query("orgJoinRequests").collect();
@@ -200,26 +202,29 @@ export const clearPlayerDataKeepUsers = internalMutation({
       deletedCounts.orgJoinRequests++;
     }
 
-    console.log("Deleting coaches...");
-    const coaches = await ctx.db.query("coaches").collect();
-    for (const coach of coaches) {
-      await ctx.db.delete(coach._id);
-      deletedCounts.coaches++;
-    }
+    // coaches table no longer exists in schema
+    // console.log("Deleting coaches...");
+    // const coaches = await ctx.db.query("coaches").collect();
+    // for (const coach of coaches) {
+    //   await ctx.db.delete(coach._id);
+    //   deletedCounts.coaches++;
+    // }
 
-    console.log("Deleting members...");
-    const members = await ctx.db.query("members").collect();
-    for (const member of members) {
-      await ctx.db.delete(member._id);
-      deletedCounts.members++;
-    }
+    // members table is a Better Auth table, shouldn't be deleted via direct query
+    // console.log("Deleting members...");
+    // const members = await ctx.db.query("members").collect();
+    // for (const member of members) {
+    //   await ctx.db.delete(member._id);
+    //   deletedCounts.members++;
+    // }
 
-    console.log("Deleting organizations...");
-    const organizations = await ctx.db.query("organizations").collect();
-    for (const org of organizations) {
-      await ctx.db.delete(org._id);
-      deletedCounts.organizations++;
-    }
+    // organizations table is a Better Auth table, shouldn't be deleted via direct query
+    // console.log("Deleting organizations...");
+    // const organizations = await ctx.db.query("organizations").collect();
+    // for (const org of organizations) {
+    //   await ctx.db.delete(org._id);
+    //   deletedCounts.organizations++;
+    // }
 
     // 6. Delete reference data (age groups, sports)
     console.log("Deleting age groups...");

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { components } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
 
@@ -428,7 +429,7 @@ export const addPlayerToTeam = mutation({
       .first();
 
     const now = Date.now();
-    let teamPlayerIdentityId: string;
+    let teamPlayerIdentityId: Id<"teamPlayerIdentities">;
 
     if (existing) {
       // If inactive/transferred, reactivate
@@ -802,11 +803,16 @@ export const updatePlayerTeams = mutation({
     const now = Date.now();
     for (const teamId of toAdd) {
       try {
-        // Get team details
-        const team = await ctx.db
-          .query("teams")
-          .filter((q) => q.eq(q.field("_id"), teamId))
-          .first();
+        // Get team details from Better Auth
+        const teamResult = await ctx.runQuery(
+          components.betterAuth.adapter.findMany,
+          {
+            model: "team",
+            paginationOpts: { cursor: null, numItems: 1 },
+            where: [{ field: "_id", value: teamId, operator: "eq" }],
+          }
+        );
+        const team = teamResult.page[0] as BetterAuthDoc<"team"> | undefined;
 
         if (!team) {
           errors.push(`Team ${teamId} not found`);
@@ -862,11 +868,16 @@ export const updatePlayerTeams = mutation({
     // 4. Remove from teams (inline the remove logic with permission check)
     for (const teamId of toRemove) {
       try {
-        // Get team details
-        const team = await ctx.db
-          .query("teams")
-          .filter((q) => q.eq(q.field("_id"), teamId))
-          .first();
+        // Get team details from Better Auth
+        const teamResult = await ctx.runQuery(
+          components.betterAuth.adapter.findMany,
+          {
+            model: "team",
+            paginationOpts: { cursor: null, numItems: 1 },
+            where: [{ field: "_id", value: teamId, operator: "eq" }],
+          }
+        );
+        const team = teamResult.page[0] as BetterAuthDoc<"team"> | undefined;
 
         if (!team) {
           errors.push(`Team ${teamId} not found`);
@@ -902,11 +913,20 @@ export const updatePlayerTeams = mutation({
             team.sport === enrollment.sport;
 
           if (isCoreTeam) {
-            // Check user permissions
-            const user = await ctx.db
-              .query("users")
-              .withIndex("by_email", (q) => q.eq("email", args.userEmail))
-              .first();
+            // Check user permissions using Better Auth
+            const userResult = await ctx.runQuery(
+              components.betterAuth.adapter.findMany,
+              {
+                model: "user",
+                paginationOpts: { cursor: null, numItems: 1 },
+                where: [
+                  { field: "email", value: args.userEmail, operator: "eq" },
+                ],
+              }
+            );
+            const user = userResult.page[0] as
+              | BetterAuthDoc<"user">
+              | undefined;
 
             if (!user) {
               errors.push(
@@ -915,14 +935,24 @@ export const updatePlayerTeams = mutation({
               continue;
             }
 
-            const memberRecord = await ctx.db
-              .query("members")
-              .withIndex("by_userId_and_organizationId", (q) =>
-                q
-                  .eq("userId", user.id)
-                  .eq("organizationId", args.organizationId)
-              )
-              .first();
+            const memberResult = await ctx.runQuery(
+              components.betterAuth.adapter.findMany,
+              {
+                model: "member",
+                paginationOpts: { cursor: null, numItems: 1 },
+                where: [
+                  { field: "userId", value: user._id, operator: "eq" },
+                  {
+                    field: "organizationId",
+                    value: args.organizationId,
+                    operator: "eq",
+                  },
+                ],
+              }
+            );
+            const memberRecord = memberResult.page[0] as
+              | BetterAuthDoc<"member">
+              | undefined;
 
             const functionalRoles = memberRecord?.functionalRoles || [];
             const isAdmin = functionalRoles.includes("admin");
@@ -1485,10 +1515,15 @@ export const getTeamsForPlayerWithCoreFlag = query({
 
     const results = [];
     for (const member of members) {
-      const team = await ctx.db
-        .query("teams")
-        .filter((q) => q.eq(q.field("_id"), member.teamId))
-        .first();
+      const teamResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "team",
+          paginationOpts: { cursor: null, numItems: 1 },
+          where: [{ field: "_id", value: member.teamId, operator: "eq" }],
+        }
+      );
+      const team = teamResult.page[0] as BetterAuthDoc<"team"> | undefined;
 
       if (!team) {
         continue;

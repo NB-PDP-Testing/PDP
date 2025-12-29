@@ -1,5 +1,15 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { query } from "../_generated/server";
+
+type BetterAuthTeam = {
+  _id: string;
+  name: string;
+  sport: string;
+  ageGroup: string;
+  gender: string;
+  season: string;
+};
 
 // Analyze what would happen on re-import
 export const analyzeReimport = query({
@@ -16,7 +26,17 @@ export const analyzeReimport = query({
     const teamPlayerIdentities = await ctx.db
       .query("teamPlayerIdentities")
       .collect();
-    const teams = await ctx.db.query("teams").collect();
+
+    // Get all teams using Better Auth adapter
+    const teamsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "team",
+        paginationOpts: { cursor: null, numItems: 10_000 },
+        where: [],
+      }
+    );
+    const teams = teamsResult.page as BetterAuthTeam[];
 
     // Group teams by properties
     const teamsByAgeGroup = teams.reduce(

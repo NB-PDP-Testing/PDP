@@ -92,7 +92,9 @@ export const auditTeamAssignments = internalQuery({
     // 1. Get all player enrollments in the organization
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
-      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
       .collect();
 
     // 2. Get all teams in organization from Better Auth
@@ -112,8 +114,10 @@ export const auditTeamAssignments = internalQuery({
     );
     const allTeams = teamsResult.page as BetterAuthDoc<"team">[];
 
-    // Create a map of team IDs to team data
-    const teamMap = new Map(allTeams.map((team) => [team._id, team]));
+    // Create a map of team IDs to team data (using string keys for Better Auth IDs)
+    const teamMap = new Map<string, BetterAuthDoc<"team">>(
+      allTeams.map((team) => [team._id as string, team])
+    );
 
     // 3. For each enrolled player, validate their team assignments
     for (const enrollment of enrollments) {
@@ -133,7 +137,7 @@ export const auditTeamAssignments = internalQuery({
       // Get all team memberships for this player
       const teamMemberships = await ctx.db
         .query("teamPlayerIdentities")
-        .withIndex("by_player", (q) =>
+        .withIndex("by_playerIdentityId", (q) =>
           q.eq("playerIdentityId", playerIdentityId)
         )
         .filter((q) => q.eq(q.field("status"), "active"))
@@ -337,7 +341,9 @@ export const validateAndFixTeamAssignments = internalMutation({
     // 1. Get all player enrollments in the organization
     const enrollments = await ctx.db
       .query("orgPlayerEnrollments")
-      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
       .collect();
 
     // 2. Get all teams in organization from Better Auth
@@ -357,8 +363,10 @@ export const validateAndFixTeamAssignments = internalMutation({
     );
     const allTeams = teamsResult.page as BetterAuthDoc<"team">[];
 
-    // Create a map of team IDs to team data
-    const teamMap = new Map(allTeams.map((team) => [team._id, team]));
+    // Create a map of team IDs to team data (using string keys for Better Auth IDs)
+    const teamMap = new Map<string, BetterAuthDoc<"team">>(
+      allTeams.map((team) => [team._id as string, team])
+    );
 
     // 3. For each enrolled player, validate their team assignments
     for (const enrollment of enrollments) {
@@ -378,7 +386,7 @@ export const validateAndFixTeamAssignments = internalMutation({
       // Get all team memberships for this player
       const teamMemberships = await ctx.db
         .query("teamPlayerIdentities")
-        .withIndex("by_player", (q) =>
+        .withIndex("by_playerIdentityId", (q) =>
           q.eq("playerIdentityId", playerIdentityId)
         )
         .filter((q) => q.eq(q.field("status"), "active"))

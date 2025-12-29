@@ -48,7 +48,21 @@ export const clearAllDevData = mutation({
     }
 
     // Helper to check if a category should be deleted (defaults to true)
-    const shouldDelete = (category: keyof typeof args.selections) =>
+    type DeletionCategory =
+      | "playerIdentities"
+      | "guardianIdentities"
+      | "guardianPlayerLinks"
+      | "orgPlayerEnrollments"
+      | "teamPlayerIdentities"
+      | "sportPassports"
+      | "coachAssignments"
+      | "skillAssessments"
+      | "teams"
+      | "membersRoles"
+      | "sports"
+      | "referenceData";
+
+    const shouldDelete = (category: DeletionCategory) =>
       args.selections?.[category] !== false;
 
     console.log("⚠️  Starting dev data cleanup...");
@@ -218,15 +232,15 @@ export const clearAllDevData = mutation({
       }
     }
 
-    // 12. Delete other reference data
-    if (shouldDelete("referenceData")) {
-      console.log("Deleting reference data...");
-      const referenceData = await ctx.db.query("referenceData").collect();
-      for (const record of referenceData) {
-        await ctx.db.delete(record._id);
-        deleted.referenceData++;
-      }
-    }
+    // 12. Delete other reference data (table no longer exists in schema)
+    // if (shouldDelete("referenceData")) {
+    //   console.log("Deleting reference data...");
+    //   const referenceData = await ctx.db.query("referenceData").collect();
+    //   for (const record of referenceData) {
+    //     await ctx.db.delete(record._id);
+    //     deleted.referenceData++;
+    //   }
+    // }
 
     console.log("✅ Dev data cleanup complete!");
     console.log("Deleted:", deleted);
@@ -272,7 +286,15 @@ export const clearOrgData = mutation({
     }
 
     // Helper to check if a category should be deleted (defaults to true)
-    const shouldDelete = (category: keyof typeof args.selections) =>
+    type OrgDeletionCategory =
+      | "orgPlayerEnrollments"
+      | "teamPlayerIdentities"
+      | "sportPassports"
+      | "coachAssignments"
+      | "skillAssessments"
+      | "teams";
+
+    const shouldDelete = (category: OrgDeletionCategory) =>
       args.selections?.[category] !== false;
 
     console.log(`⚠️  Clearing data for org: ${args.organizationId}`);

@@ -34,8 +34,8 @@ export const seedDefaultSportRules = internalMutation({
     dryRun: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    const dryRun = args.dryRun;
-    const overwriteExisting = args.overwriteExisting;
+    const dryRun = args.dryRun ?? false;
+    const overwriteExisting = args.overwriteExisting ?? false;
     const errors: string[] = [];
     const sportsProcessed: string[] = [];
     let rulesCreated = 0;
@@ -248,8 +248,8 @@ export const seedTeamEnforcementLevels = internalMutation({
     dryRun: v.boolean(),
   }),
   handler: async (ctx, args) => {
-    const dryRun = args.dryRun;
-    const requireOverrideReason = true;
+    const dryRun = args.dryRun ?? false;
+    const requireOverrideReason = args.requireOverrideReason ?? true;
     const errors: string[] = [];
     const teamsProcessed = 0;
     const settingsCreated = 0;

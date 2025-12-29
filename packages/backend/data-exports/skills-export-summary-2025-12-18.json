@@ -1,0 +1,31 @@
+{
+  "exportedAt": "2025-12-18T16:52:41.553Z",
+  "convexUrl": "https://valuable-pig-963.convex.cloud",
+  "summary": {
+    "totalCategories": 20,
+    "totalDefinitions": 88,
+    "sports": [
+      {
+        "sportCode": "gaa_football",
+        "categoryCount": 8,
+        "skillCount": 16,
+        "activeCategories": 8,
+        "activeSkills": 16
+      },
+      {
+        "sportCode": "rugby",
+        "categoryCount": 6,
+        "skillCount": 44,
+        "activeCategories": 6,
+        "activeSkills": 44
+      },
+      {
+        "sportCode": "soccer",
+        "categoryCount": 6,
+        "skillCount": 28,
+        "activeCategories": 6,
+        "activeSkills": 28
+      }
+    ]
+  }
+}

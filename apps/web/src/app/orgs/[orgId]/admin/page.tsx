@@ -2,7 +2,15 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { Clock, Crown, Mail, Shield, UserCheck, Users } from "lucide-react";
+import {
+  Clock,
+  Crown,
+  Heart,
+  Mail,
+  Shield,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -32,7 +40,13 @@ export default function OrgAdminOverviewPage() {
     api.models.members.getPendingInvitations,
     { organizationId: orgId }
   );
-  const players = useQuery(api.models.players.getPlayersByOrganization, {
+  // Use NEW identity system to get player enrollments
+  const playerEnrollments = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
+    { organizationId: orgId }
+  );
+  // Get teams count
+  const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
   const memberCounts = useQuery(api.models.members.getMemberCountsByRole, {
@@ -45,7 +59,8 @@ export default function OrgAdminOverviewPage() {
   const isLoading =
     pendingRequests === undefined ||
     pendingInvitations === undefined ||
-    players === undefined ||
+    playerEnrollments === undefined ||
+    teams === undefined ||
     memberCounts === undefined;
 
   return (
@@ -106,15 +121,24 @@ export default function OrgAdminOverviewPage() {
               href={`/orgs/${orgId}/admin/teams` as Route}
               icon={Shield}
               title="Teams"
-              value={0}
+              value={teams?.length || 0}
               variant="secondary"
             />
             <StatCard
               description="Registered players"
+              href={`/orgs/${orgId}/admin/players` as Route}
               icon={Users}
               title="Players"
-              value={players?.length || 0}
+              value={playerEnrollments?.length || 0}
               variant="tertiary"
+            />
+            <StatCard
+              description="Emergency contacts & allergies"
+              href={`/orgs/${orgId}/admin/medical` as Route}
+              icon={Heart}
+              title="Medical Profiles"
+              value="View"
+              variant="secondary"
             />
           </>
         )}

@@ -5,6 +5,7 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
+  ArrowRight,
   Calendar,
   CheckCircle,
   ChevronDown,
@@ -15,12 +16,15 @@ import {
   Search,
   Shield,
   Trash2,
+  User,
+  UserCog,
   UserMinus,
   UserPlus,
   Users,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useSession } from "@/lib/auth-client";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -66,12 +70,13 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { PlayerEligibilityBadge } from "./player-eligibility";
 
 interface TeamFormData {
   name: string;
   sport: string;
   ageGroup: string;
-  gender: "Boys" | "Girls" | "Mixed" | "";
+  gender: "Male" | "Female" | "Mixed" | "Boys" | "Girls" | "";
   season: string;
   description: string;
   trainingSchedule: string;
@@ -115,7 +120,10 @@ const AGE_GROUPS = [
 
 // Component to fetch and display player count for a single team
 function TeamPlayerCount({ teamId }: { teamId: string }) {
-  const count = useQuery(api.models.players.getPlayerCountByTeam, { teamId });
+  const count = useQuery(
+    api.models.teamPlayerIdentities.getPlayerCountForTeam,
+    { teamId }
+  );
 
   if (count === undefined) {
     return <span className="text-muted-foreground">...</span>;
@@ -138,7 +146,9 @@ function TeamRoster({
   teamName: string;
   onManageClick: () => void;
 }) {
-  const players = useQuery(api.models.players.getPlayersByTeam, { teamId });
+  const players = useQuery(api.models.teamPlayerIdentities.getPlayersForTeam, {
+    teamId,
+  });
 
   if (!players) {
     return (
@@ -223,9 +233,12 @@ function PlayerAssignmentGrid({
     React.SetStateAction<{ add: string[]; remove: string[] }>
   >;
 }) {
-  const teamPlayers = useQuery(api.models.players.getPlayersByTeam, {
-    teamId,
-  });
+  const teamPlayers = useQuery(
+    api.models.teamPlayerIdentities.getPlayersForTeam,
+    {
+      teamId,
+    }
+  );
 
   if (!teamPlayers) {
     return (
@@ -360,9 +373,19 @@ function PlayerAssignmentGrid({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium text-sm">{player.name}</p>
-          <p className="truncate text-muted-foreground text-xs">
-            {player.ageGroup}
-          </p>
+          <div className="flex flex-wrap items-center gap-1">
+            <p className="truncate text-muted-foreground text-xs">
+              {player.ageGroup}
+            </p>
+            {player.playerIdentityId && (
+              <PlayerEligibilityBadge
+                compact
+                organizationId={player.organizationId || ""}
+                playerIdentityId={player.playerIdentityId}
+                teamId={teamId}
+              />
+            )}
+          </div>
         </div>
         <div
           className={`flex-shrink-0 ${
@@ -434,26 +457,68 @@ function PlayerAssignmentGrid({
 export default function ManageTeamsPage() {
   const params = useParams();
   const orgId = params.orgId as string;
+  const { data: session } = useSession();
+  const userEmail = session?.user?.email || "";
 
   // Get teams from backend (uses Better Auth component adapter)
-  const teams = useQuery(api.models.teams.getTeamsByOrganization, {
+  const teamsRaw = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
 
-  // Get all players for player assignment
-  const allPlayers = useQuery(api.models.players.getPlayersByOrganization, {
+  // Sort teams from oldest to youngest (by creation time)
+  const teams = teamsRaw?.sort((a, b) => a.createdAt - b.createdAt);
+
+  // DEBUG: Log team sport data
+  if (teams) {
+    console.log("🏟️ TEAMS PAGE - All teams:", teams);
+    console.log(
+      "🏟️ TEAMS PAGE - Teams with sport data:",
+      teams.map((t) => ({
+        _id: t._id,
+        name: t.name,
+        sport: t.sport,
+        hasSport: !!t.sport,
+      }))
+    );
+  }
+
+  // Get organization data (for supported sports)
+  const organization = useQuery(api.models.organizations.getOrganization, {
     organizationId: orgId,
   });
+
+  // Get available sports from reference data
+  const availableSports = useQuery(api.models.referenceData.getSports, {});
+
+  // Create sport code to name mapping
+  const sportCodeToName = useMemo(() => {
+    if (!availableSports) return new Map<string, string>();
+    return new Map(availableSports.map((sport) => [sport.code, sport.name]));
+  }, [availableSports]);
+
+  // Helper function to get sport display name
+  const getSportDisplayName = (sportCode: string | undefined) => {
+    if (!sportCode) return;
+    return sportCodeToName.get(sportCode) || sportCode;
+  };
+
+  // Get all players for player assignment (using NEW identity system)
+  const allPlayers = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
+    {
+      organizationId: orgId,
+    }
+  );
 
   // Mutations
   const createTeamMutation = useMutation(api.models.teams.createTeam);
   const updateTeamMutation = useMutation(api.models.teams.updateTeam);
   const deleteTeamMutation = useMutation(api.models.teams.deleteTeam);
   const addPlayerToTeamMutation = useMutation(
-    api.models.players.addPlayerToTeam
+    api.models.teamPlayerIdentities.addPlayerToTeam
   );
   const removePlayerFromTeamMutation = useMutation(
-    api.models.players.removePlayerFromTeam
+    api.models.teamPlayerIdentities.removePlayerFromTeam
   );
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -516,7 +581,17 @@ export default function ManageTeamsPage() {
   const openCreateDialog = () => {
     setEditingTeamId(null);
     setEditingTeamName("");
-    setFormData(defaultFormData);
+
+    // Default sport from organization's supported sports (use first sport if available)
+    const defaultSport =
+      organization?.supportedSports && organization.supportedSports.length > 0
+        ? organization.supportedSports[0]
+        : "";
+
+    setFormData({
+      ...defaultFormData,
+      sport: defaultSport,
+    });
     setPendingAssignments({ add: [], remove: [] });
     setPlayerSearch("");
     setFormDialogOpen(true);
@@ -525,11 +600,15 @@ export default function ManageTeamsPage() {
   const openEditDialog = (team: any) => {
     setEditingTeamId(team._id);
     setEditingTeamName(team.name);
+
+    // Keep the original gender value (no mapping needed since schema accepts all)
+    const mappedGender = team.gender || "";
+
     setFormData({
       name: team.name,
       sport: team.sport || "",
       ageGroup: team.ageGroup || "",
-      gender: (team.gender as TeamFormData["gender"]) || "",
+      gender: mappedGender,
       season: team.season || new Date().getFullYear().toString(),
       description: team.description || "",
       trainingSchedule: team.trainingSchedule || "",
@@ -560,7 +639,13 @@ export default function ManageTeamsPage() {
           name: formData.name,
           sport: formData.sport,
           ageGroup: formData.ageGroup,
-          gender: formData.gender as "Boys" | "Girls" | "Mixed" | undefined,
+          gender: formData.gender as
+            | "Male"
+            | "Female"
+            | "Mixed"
+            | "Boys"
+            | "Girls"
+            | undefined,
           season: formData.season,
           description: formData.description || undefined,
           trainingSchedule: formData.trainingSchedule || undefined,
@@ -568,21 +653,60 @@ export default function ManageTeamsPage() {
           isActive: formData.isActive,
         });
 
-        // Process player assignments
+        // Process player assignments (using NEW identity system)
         // Add new players
-        for (const playerId of pendingAssignments.add) {
-          await addPlayerToTeamMutation({
-            playerId: playerId as Id<"players">,
+        const addErrors: string[] = [];
+        for (const playerIdentityId of pendingAssignments.add) {
+          const result = await addPlayerToTeamMutation({
+            playerIdentityId: playerIdentityId as Id<"playerIdentities">,
             teamId: editingTeamId,
+            organizationId: orgId,
+            season: formData.season,
           });
+
+          if (!result.success) {
+            addErrors.push(result.error || "Unknown error adding player");
+            console.error("[Teams] Failed to add player:", {
+              playerIdentityId,
+              error: result.error,
+            });
+          }
+        }
+
+        // Show errors if any players failed to add
+        if (addErrors.length > 0) {
+          toast.error(
+            `Failed to add ${addErrors.length} player(s): ${addErrors[0]}${
+              addErrors.length > 1 ? ` (and ${addErrors.length - 1} more)` : ""
+            }`
+          );
         }
 
         // Remove players
-        for (const playerId of pendingAssignments.remove) {
-          await removePlayerFromTeamMutation({
-            playerId: playerId as Id<"players">,
+        for (const playerIdentityId of pendingAssignments.remove) {
+          console.log("[Teams] Removing player from team:", {
+            playerIdentityId,
             teamId: editingTeamId,
           });
+          try {
+            await removePlayerFromTeamMutation({
+              playerIdentityId: playerIdentityId as Id<"playerIdentities">,
+              teamId: editingTeamId,
+              organizationId: orgId,
+              userEmail,
+            });
+            console.log(
+              "[Teams] Player removed successfully:",
+              playerIdentityId
+            );
+          } catch (removeError) {
+            console.error("[Teams] Error removing player:", {
+              playerIdentityId,
+              teamId: editingTeamId,
+              error: removeError,
+            });
+            throw removeError; // Re-throw to be caught by outer try-catch
+          }
         }
 
         toast.success(`${formData.name} has been updated successfully.`);
@@ -592,7 +716,13 @@ export default function ManageTeamsPage() {
           organizationId: orgId,
           sport: formData.sport,
           ageGroup: formData.ageGroup,
-          gender: formData.gender as "Boys" | "Girls" | "Mixed" | undefined,
+          gender: formData.gender as
+            | "Male"
+            | "Female"
+            | "Mixed"
+            | "Boys"
+            | "Girls"
+            | undefined,
           season: formData.season,
           description: formData.description || undefined,
           trainingSchedule: formData.trainingSchedule || undefined,
@@ -636,8 +766,10 @@ export default function ManageTeamsPage() {
 
   const getGenderBadgeColor = (gender?: string) => {
     switch (gender) {
+      case "Male":
       case "Boys":
         return "bg-blue-500/10 text-blue-600 border-blue-500/20";
+      case "Female":
       case "Girls":
         return "bg-pink-500/10 text-pink-600 border-pink-500/20";
       case "Mixed":
@@ -731,7 +863,7 @@ export default function ManageTeamsPage() {
             <SelectItem value="all">All Sports</SelectItem>
             {uniqueSports.map((sport: string) => (
               <SelectItem key={sport} value={sport}>
-                {sport}
+                {getSportDisplayName(sport)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -812,7 +944,9 @@ export default function ManageTeamsPage() {
                             </div>
                             <div className="mt-1 flex flex-wrap items-center gap-2">
                               {team.sport && (
-                                <Badge variant="outline">{team.sport}</Badge>
+                                <Badge variant="outline">
+                                  {getSportDisplayName(team.sport)}
+                                </Badge>
                               )}
                               {team.ageGroup && (
                                 <Badge variant="outline">{team.ageGroup}</Badge>
@@ -1024,13 +1158,20 @@ export default function ManageTeamsPage() {
                     <SelectValue placeholder="Select sport" />
                   </SelectTrigger>
                   <SelectContent>
-                    {SPORTS.map((sport) => (
-                      <SelectItem key={sport} value={sport}>
-                        {sport}
+                    {availableSports?.map((sport) => (
+                      <SelectItem key={sport.code} value={sport.code}>
+                        {sport.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {organization?.supportedSports &&
+                  organization.supportedSports.length > 0 &&
+                  formData.sport === organization.supportedSports[0] && (
+                    <p className="text-muted-foreground text-xs">
+                      Auto-selected from organization
+                    </p>
+                  )}
               </div>
 
               <div className="space-y-2">
@@ -1071,9 +1212,11 @@ export default function ManageTeamsPage() {
                     <SelectValue placeholder="Select gender" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                    <SelectItem value="Mixed">Mixed</SelectItem>
                     <SelectItem value="Boys">Boys</SelectItem>
                     <SelectItem value="Girls">Girls</SelectItem>
-                    <SelectItem value="Mixed">Mixed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

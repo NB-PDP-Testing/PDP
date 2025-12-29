@@ -1,0 +1,202 @@
+[
+  {
+    "_creationTime": 1765991191435.113,
+    "_id": "m17fpqexcapa99vn6afbtda8xs7xe3rr",
+    "code": "ball_mastery",
+    "createdAt": 1765991191435,
+    "isActive": true,
+    "name": "Ball Mastery",
+    "sortOrder": 1,
+    "sportCode": "gaa_football"
+  },
+  {
+    "_creationTime": 1765991191435.114,
+    "_id": "m17eyjsbvy68847k8fzpz4ehr97xeg2p",
+    "code": "kicking",
+    "createdAt": 1765991191435,
+    "isActive": true,
+    "name": "Kicking",
+    "sortOrder": 2,
+    "sportCode": "gaa_football"
+  },
+  {
+    "_creationTime": 1765991191435.1147,
+    "_id": "m1790mve7af2c5vf4ycbpxd7297xf4ba",
+    "code": "catching",
+    "createdAt": 1765991191435,
+    "isActive": true,
+    "name": "Catching",
+    "sortOrder": 3,
+    "sportCode": "gaa_football"
+  },
+  {
+    "_creationTime": 1765991191435.1152,
+    "_id": "m172ka7s0w7m75bdym5p85gjad7xe63w",
+    "code": "free_taking",
+    "createdAt": 1765991191435,
+    "isActive": true,
+    "name": "Free Taking",
+    "sortOrder": 4,
+    "sportCode": "gaa_football"
+  },
+  {
+    "_creationTime": 1765991191435.116,
+    "_id": "m17ad1nwzjgnv3a8t8ceedz9r17xez2z",
+    "code": "passing",
+    "createdAt": 1765991191435,
+    "isActive": true,
+    "name": "Passing",
+    "sortOrder": 5,
+    "sportCode": "gaa_football"
+  },
+  {
+    "_creationTime": 1765991191435.1165,
+    "_id": "m177hx56cw95qy2qy1czf62gq97xeawx",
+    "code": "tactical",
+    "createdAt": 1765991191435,
+    "isActive": true,
+    "name": "Tactical & Decision Making",
+    "sortOrder": 6,
+    "sportCode": "gaa_football"
+  },
+  {
+    "_creationTime": 1765991191435.1177,
+    "_id": "m17cnh6qtmeq8hqfcnkqkcnmyh7xfcr2",
+    "code": "defensive",
+    "createdAt": 1765991191435,
+    "isActive": true,
+    "name": "Defensive",
+    "sortOrder": 7,
+    "sportCode": "gaa_football"
+  },
+  {
+    "_creationTime": 1765991191435.1182,
+    "_id": "m178pr0a53s7bs5v27vbqnws1s7xexr6",
+    "code": "laterality",
+    "createdAt": 1765991191435,
+    "isActive": true,
+    "name": "Laterality",
+    "sortOrder": 8,
+    "sportCode": "gaa_football"
+  },
+  {
+    "_creationTime": 1765991195573.4072,
+    "_id": "m179bgzdgqvgeryezp78gxajxh7xfmx3",
+    "code": "passing_handling",
+    "createdAt": 1765991195573,
+    "isActive": true,
+    "name": "Passing & Handling",
+    "sortOrder": 1,
+    "sportCode": "rugby"
+  },
+  {
+    "_creationTime": 1765991195573.4092,
+    "_id": "m177q6cywx7mtcsnjr7y1nmvf17xe7s2",
+    "code": "catching_receiving",
+    "createdAt": 1765991195573,
+    "isActive": true,
+    "name": "Catching & Receiving",
+    "sortOrder": 2,
+    "sportCode": "rugby"
+  },
+  {
+    "_creationTime": 1765991195573.411,
+    "_id": "m17940qb3weq0yttp4tkd8fvax7xe8r7",
+    "code": "running_ball_carry",
+    "createdAt": 1765991195573,
+    "isActive": true,
+    "name": "Running & Ball Carry",
+    "sortOrder": 3,
+    "sportCode": "rugby"
+  },
+  {
+    "_creationTime": 1765991195573.4128,
+    "_id": "m175ebsfwsmjejwn4gzgrmxna97xft52",
+    "code": "kicking",
+    "createdAt": 1765991195573,
+    "isActive": true,
+    "name": "Kicking",
+    "sortOrder": 4,
+    "sportCode": "rugby"
+  },
+  {
+    "_creationTime": 1765991195573.4148,
+    "_id": "m170vdda62nv3hgphnpde9k7xn7xecnj",
+    "code": "contact_breakdown",
+    "createdAt": 1765991195573,
+    "isActive": true,
+    "name": "Contact & Breakdown",
+    "sortOrder": 5,
+    "sportCode": "rugby"
+  },
+  {
+    "_creationTime": 1765991195573.417,
+    "_id": "m17frjydxqvbe673zjdn8s8zhd7xfdy2",
+    "code": "tactical",
+    "createdAt": 1765991195573,
+    "isActive": true,
+    "name": "Tactical & Game Awareness",
+    "sortOrder": 6,
+    "sportCode": "rugby"
+  },
+  {
+    "_creationTime": 1765991193543.0347,
+    "_id": "m170fb2jc16fz2bj6nyss10nq57xeqvj",
+    "code": "ball_mastery",
+    "createdAt": 1765991193543,
+    "isActive": true,
+    "name": "Ball Mastery",
+    "sortOrder": 1,
+    "sportCode": "soccer"
+  },
+  {
+    "_creationTime": 1765991193543.0361,
+    "_id": "m174vjeyjcm26phzqgded2nszh7xeynn",
+    "code": "passing",
+    "createdAt": 1765991193543,
+    "isActive": true,
+    "name": "Passing & Distribution",
+    "sortOrder": 2,
+    "sportCode": "soccer"
+  },
+  {
+    "_creationTime": 1765991193543.0374,
+    "_id": "m172r15gkzerjd4dnx6ckhwa7d7xe2pc",
+    "code": "shooting",
+    "createdAt": 1765991193543,
+    "isActive": true,
+    "name": "Shooting & Finishing",
+    "sortOrder": 3,
+    "sportCode": "soccer"
+  },
+  {
+    "_creationTime": 1765991193543.0386,
+    "_id": "m1701dk8afbqnprj619fjrfd3n7xfabt",
+    "code": "tactical",
+    "createdAt": 1765991193543,
+    "isActive": true,
+    "name": "Tactical & Awareness",
+    "sortOrder": 4,
+    "sportCode": "soccer"
+  },
+  {
+    "_creationTime": 1765991193543.0405,
+    "_id": "m17bndrzek84d93m4f90apshgd7xekrr",
+    "code": "physical",
+    "createdAt": 1765991193543,
+    "isActive": true,
+    "name": "Physical & Athletic",
+    "sortOrder": 5,
+    "sportCode": "soccer"
+  },
+  {
+    "_creationTime": 1765991193543.0417,
+    "_id": "m171fwyz8pceyg1kjtv7f6fd9d7xfm7s",
+    "code": "character",
+    "createdAt": 1765991193543,
+    "isActive": true,
+    "name": "Character & Team",
+    "sortOrder": 6,
+    "sportCode": "soccer"
+  }
+]

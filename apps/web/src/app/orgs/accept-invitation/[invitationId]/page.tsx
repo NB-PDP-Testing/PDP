@@ -154,7 +154,7 @@ export default function AcceptInvitationPage() {
         try {
           const userOrgs = await authClient.organization.list();
           const isAlreadyMember = userOrgs.data?.some(
-            (org) => org.id === invitation.organizationId
+            (org: { id: string }) => org.id === invitation.organizationId
           );
 
           if (isAlreadyMember) {

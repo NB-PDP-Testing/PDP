@@ -1,10 +1,11 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Brain } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { SmartCoachDashboard } from "@/components/smart-coach-dashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -14,6 +15,11 @@ export function CoachDashboard() {
   const params = useParams();
   const router = useRouter();
   const orgId = params.orgId as string;
+
+  // Handler for navigating to assess page
+  const handleAssessPlayers = () => {
+    router.push(`/orgs/${orgId}/coach/assess`);
+  };
   const currentUser = useCurrentUser();
   const { data: session } = authClient.useSession();
   const [searchTerm, setSearchTerm] = useState("");
@@ -23,6 +29,7 @@ export function CoachDashboard() {
   const [genderFilter, setGenderFilter] = useState<string>("all");
   const [reviewStatusFilter, setReviewStatusFilter] = useState<string>("all");
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
   // Fallback: use session user ID if Convex user query returns null
   const userId = currentUser?._id || session?.user?.id;
@@ -43,40 +50,89 @@ export function CoachDashboard() {
     organizationId: orgId,
   });
 
-  // Get all players for the organization
-  const allPlayers = useQuery(api.models.players.getPlayersByOrganization, {
-    organizationId: orgId,
-  });
+  // NEW: Get all players from identity system
+  const enrolledPlayersData = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
+    {
+      organizationId: orgId,
+    }
+  );
 
-  // Get team-player links to map players to teams
-  const teamPlayerLinks = useQuery(api.models.teams.getTeamPlayerLinks, {
-    organizationId: orgId,
-  });
+  // Transform identity-based players to legacy format for compatibility
+  const allPlayers = useMemo(() => {
+    if (!enrolledPlayersData) return;
+    return enrolledPlayersData.map(
+      ({ enrollment, player, sportCode }: any) => ({
+        _id: player._id, // playerIdentityId for navigation
+        name: `${player.firstName} ${player.lastName}`,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        ageGroup: enrollment.ageGroup,
+        gender: player.gender,
+        sport: sportCode || "Not assigned", // From sport passport
+        dateOfBirth: player.dateOfBirth,
+        lastReviewDate: enrollment.lastReviewDate,
+        reviewStatus: enrollment.reviewStatus,
+        coachNotes: enrollment.coachNotes,
+        enrollmentId: enrollment._id,
+        enrollmentStatus: enrollment.status,
+      })
+    );
+  }, [enrolledPlayersData]);
 
-  // Get coach's assigned team IDs (convert names to IDs if needed)
+  // Get team-player links from new identity system
+  const teamPlayerLinks = useQuery(
+    api.models.teamPlayerIdentities.getTeamMembersForOrg,
+    {
+      organizationId: orgId,
+      status: "active",
+    }
+  );
+
+  // Get skill assessments for all players
+  const playerSkillsData = useQuery(
+    api.models.skillAssessments.getLatestSkillsForCoachPlayers,
+    allPlayers && orgId
+      ? {
+          organizationId: orgId,
+          playerIdentityIds: allPlayers.map((p) => p._id),
+        }
+      : "skip"
+  );
+
+  // Get coach's assigned team IDs
+  // Note: Some coach assignments may have team names instead of IDs (legacy data)
+  // We need to handle both cases
   const coachTeamIds = useMemo(() => {
     if (!(coachAssignments && teams)) return [];
     const assignmentTeams = coachAssignments.teams || [];
 
-    // Convert team names/IDs to team IDs
-    return assignmentTeams
-      .map((teamValue: string) => {
-        // Check if it's already a team ID (exists in teams array by _id)
-        const teamById = teams.find((t: any) => t._id === teamValue);
-        if (teamById) {
-          return teamValue; // It's already an ID
-        }
+    // Create maps for both ID and name lookup
+    const teamIdSet = new Set(teams.map((t: any) => t._id));
+    const teamNameToId = new Map(teams.map((t: any) => [t.name, t._id]));
 
-        // Check if it's a team name (exists in teams array by name)
-        const teamByName = teams.find((t: any) => t.name === teamValue);
-        if (teamByName) {
-          return teamByName._id; // Convert name to ID
+    // Convert assignment values to team IDs (handles both ID and name formats)
+    const resolvedIds = assignmentTeams
+      .map((value: string) => {
+        // If it's already a valid team ID, use it
+        if (teamIdSet.has(value)) {
+          return value;
         }
-
-        // Fallback: return as-is (might be an ID that doesn't match)
-        return teamValue;
+        // Otherwise, try to look up by name
+        const idFromName = teamNameToId.get(value);
+        if (idFromName) {
+          console.log(
+            `[coach-dashboard] Resolved team name "${value}" to ID "${idFromName}"`
+          );
+          return idFromName;
+        }
+        console.warn(`[coach-dashboard] Could not resolve team: "${value}"`);
+        return null;
       })
-      .filter(Boolean);
+      .filter((id: string | null): id is string => id !== null);
+
+    // Deduplicate
+    return Array.from(new Set(resolvedIds));
   }, [coachAssignments, teams]);
 
   // Filter team-player links to only those for coach's assigned teams
@@ -88,10 +144,13 @@ export function CoachDashboard() {
   }, [teamPlayerLinks, coachTeamIds]);
 
   // Get unique player IDs from coach's team links
+  // Note: new identity system uses playerIdentityId instead of playerId
   const coachPlayerIds = useMemo(
     () =>
       new Set(
-        coachTeamPlayerLinks.map((link: any) => link.playerId.toString())
+        coachTeamPlayerLinks.map((link: any) =>
+          link.playerIdentityId.toString()
+        )
       ),
     [coachTeamPlayerLinks]
   );
@@ -104,7 +163,7 @@ export function CoachDashboard() {
     );
   }, [allPlayers, coachPlayerIds]);
 
-  // Map players with team names (similar to admin/coaches approach)
+  // Map players with team names and skills (similar to admin/coaches approach)
   const playersWithTeams = useMemo(() => {
     if (!(coachPlayers && teamPlayerLinks && teams)) {
       console.log("[coach-dashboard] playersWithTeams: missing data", {
@@ -119,26 +178,56 @@ export function CoachDashboard() {
       `[coach-dashboard] Mapping ${coachPlayers.length} players with ${teamPlayerLinks.length} links and ${teams.length} teams`
     );
 
+    // Create skills lookup map - use string keys for reliable lookups
+    const skillsMap = new Map<string, Record<string, number>>();
+    if (playerSkillsData) {
+      for (const playerSkills of playerSkillsData) {
+        // Convert ID to string for consistent map key lookup
+        skillsMap.set(
+          String(playerSkills.playerIdentityId),
+          playerSkills.skills
+        );
+      }
+    }
+
     const mapped = coachPlayers.map((player) => {
       // Find team links for this player (only from coach's assigned teams)
+      // Note: new identity system uses playerIdentityId instead of playerId
       const links = coachTeamPlayerLinks.filter(
-        (link: any) => link.playerId.toString() === player._id.toString()
+        (link: any) =>
+          link.playerIdentityId.toString() === player._id.toString()
       );
 
-      // Get team names from links
-      const playerTeams = links
+      // Get ALL team details from links (not just first one!)
+      const playerTeamDetails = links
         .map((link: any) => {
           const team = teams.find((t: any) => t._id === link.teamId);
-          return team?.name;
+          return team
+            ? {
+                teamId: team._id,
+                teamName: team.name,
+                ageGroup: team.ageGroup,
+                sport: team.sport,
+              }
+            : null;
         })
-        .filter(Boolean) as string[];
+        .filter(Boolean);
 
-      // Use first team name or empty string
+      // Calculate core team (team where team.ageGroup === player.ageGroup)
+      const coreTeam = playerTeamDetails.find(
+        (t: any) =>
+          t.ageGroup?.toLowerCase() === player.ageGroup?.toLowerCase()
+      );
+
+      // Get array of all team names
+      const playerTeams = playerTeamDetails.map((t: any) => t.teamName);
+
+      // Use first team name for compatibility (but we'll also pass playerTeams array)
       const teamName = playerTeams[0] || "";
 
-      if (links.length > 0 && !teamName) {
+      if (links.length > 0 && playerTeams.length === 0) {
         console.warn(
-          `[coach-dashboard] Player ${player._id} has ${links.length} links but no team name found`,
+          `[coach-dashboard] Player ${player._id} has ${links.length} links but no team names found`,
           {
             links: links.map((l: any) => l.teamId),
             teams: teams.map((t: any) => ({ id: t._id, name: t.name })),
@@ -146,19 +235,26 @@ export function CoachDashboard() {
         );
       }
 
+      // Get skills for this player - use string key for lookup
+      const skills = skillsMap.get(String(player._id)) || {};
+
       return {
         ...player,
-        teamName,
+        teamName, // First team for compatibility
         team: teamName, // For compatibility
+        teams: playerTeams, // ALL teams the player is on
+        teamDetails: playerTeamDetails, // Full team details including ageGroup
+        coreTeamName: coreTeam?.teamName, // Core team name
+        skills, // Add skills data for analytics
       };
     });
 
     console.log(
-      `[coach-dashboard] Mapped ${mapped.length} players, ${mapped.filter((p) => p.teamName).length} with team names`
+      `[coach-dashboard] Mapped ${mapped.length} players, ${mapped.filter((p) => p.teamName).length} with team names, ${mapped.filter((p) => Object.keys(p.skills || {}).length > 0).length} with skills`
     );
 
     return mapped;
-  }, [coachPlayers, coachTeamPlayerLinks, teams]);
+  }, [coachPlayers, coachTeamPlayerLinks, teams, playerSkillsData]);
 
   // Get unique values for filters from coach's players
   const uniqueAgeGroups = useMemo(() => {
@@ -190,11 +286,16 @@ export function CoachDashboard() {
       );
     }
 
-    // Filter by team
+    // Filter by team - check if player is on the filtered team (supports multi-team)
     if (teamFilter) {
-      filtered = filtered.filter(
-        (p) => p.teamName === teamFilter || p.team === teamFilter
-      );
+      filtered = filtered.filter((p) => {
+        // Check if player's teams array includes the filter team
+        if (p.teams && Array.isArray(p.teams)) {
+          return p.teams.includes(teamFilter);
+        }
+        // Fallback for backwards compatibility (single team)
+        return p.teamName === teamFilter || p.team === teamFilter;
+      });
     }
 
     // Filter by age group
@@ -215,9 +316,17 @@ export function CoachDashboard() {
     }
 
     // Filter by review status
-    if (reviewStatusFilter !== "all") {
-      filtered = filtered.filter((p) => p.reviewStatus === reviewStatusFilter);
+    if (reviewStatusFilter === "Completed") {
+      // Show only completed reviews
+      filtered = filtered.filter((p) => p.reviewStatus === "Completed");
+    } else if (reviewStatusFilter === "Overdue") {
+      // Show players who need review: overdue, no status, or never reviewed
+      filtered = filtered.filter(
+        (p) =>
+          p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate
+      );
     }
+    // "all" shows all players (no filter applied)
 
     return filtered;
   }, [
@@ -249,30 +358,61 @@ export function CoachDashboard() {
     ]
   );
 
-  // Get coach team names from assignments
-  // Convert team IDs to team names if needed
+  // Get selected team data (for team notes)
+  const selectedTeamData = useMemo(() => {
+    if (!(selectedTeam && teams)) return null;
+    const team = teams.find((t: any) => t.name === selectedTeam);
+    if (!team) return null;
+    return {
+      _id: team._id,
+      name: team.name,
+      coachNotes: team.coachNotes,
+    };
+  }, [selectedTeam, teams]);
+
+  // Mutation for updating team notes
+  const updateTeamNotes = useMutation(api.models.teams.updateTeamNotes);
+
+  // Handler for saving team notes
+  const handleSaveTeamNote = async (
+    teamId: string,
+    note: string
+  ): Promise<boolean> => {
+    try {
+      const result = await updateTeamNotes({
+        teamId,
+        note,
+        appendMode: true,
+      });
+      if (result.success) {
+        toast.success("Team note saved!", {
+          description: `Note added to ${result.teamName}`,
+        });
+        return true;
+      }
+      toast.error("Failed to save note");
+      return false;
+    } catch (error) {
+      toast.error("Failed to save note", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+      return false;
+    }
+  };
+
+  // Get coach team names from team IDs
+  // Coach assignments now store IDs directly, so just look up the names
   const coachTeamNames = useMemo(() => {
-    if (!(coachAssignments && teams)) return [];
-    const assignmentTeams = coachAssignments.teams || [];
+    if (!teams) return [];
 
-    // Convert team IDs to team names
-    return assignmentTeams.map((teamValue: string) => {
-      // Check if it's already a team name (exists in teams array)
-      const teamByName = teams.find((t: any) => t.name === teamValue);
-      if (teamByName) {
-        return teamValue; // It's already a name
-      }
+    // Create a map of team ID to name for quick lookup
+    const teamIdToName = new Map(teams.map((t: any) => [t._id, t.name]));
 
-      // Check if it's a team ID
-      const teamById = teams.find((t: any) => t._id === teamValue);
-      if (teamById) {
-        return teamById.name; // Convert ID to name
-      }
-
-      // Fallback: return as-is (might be a name that doesn't match exactly)
-      return teamValue;
-    });
-  }, [coachAssignments, teams]);
+    // Convert valid team IDs to team names
+    return coachTeamIds
+      .map((teamId: string) => teamIdToName.get(teamId))
+      .filter((name): name is string => !!name);
+  }, [coachTeamIds, teams]);
 
   // Check if any query is still loading
   // Note: null means loaded but no data found, undefined means still loading
@@ -286,6 +426,7 @@ export function CoachDashboard() {
     teams === undefined ||
     teamPlayerLinks === undefined ||
     allPlayers === undefined ||
+    playerSkillsData === undefined ||
     // Only check coachAssignments if we have a user
     (hasUser && coachAssignments === undefined);
 
@@ -451,30 +592,58 @@ export function CoachDashboard() {
     router.push(`/orgs/${orgId}/coach/voice-notes`);
   };
 
+  const handleViewInjuries = () => {
+    // Navigate to injury tracking page
+    router.push(`/orgs/${orgId}/coach/injuries`);
+  };
+
+  const handleViewGoals = () => {
+    // Navigate to goals dashboard
+    router.push(`/orgs/${orgId}/coach/goals`);
+  };
+
+  const handleViewMedical = () => {
+    // Navigate to medical info page
+    router.push(`/orgs/${orgId}/coach/medical`);
+  };
+
+  const handleViewMatchDay = () => {
+    // Navigate to match day ICE contacts page
+    router.push(`/orgs/${orgId}/coach/match-day`);
+  };
+
   return (
     <div className="space-y-6">
       <SmartCoachDashboard
         ageGroupFilter={ageGroupFilter}
+        allPlayers={playersWithTeams}
         coachTeams={coachTeamNames}
         genderFilter={genderFilter}
         isClubView={false}
         onAgeGroupFilterChange={setAgeGroupFilter}
+        onAssessPlayers={handleAssessPlayers}
         onClearTeamSelection={handleClearTeamSelection}
         onEditPlayer={handleEditPlayer}
         onFilterAllPlayers={handleFilterAllPlayers}
         onFilterCompletedReviews={handleFilterCompletedReviews}
         onFilterOverdueReviews={handleFilterOverdueReviews}
         onGenderFilterChange={setGenderFilter}
+        onSaveTeamNote={handleSaveTeamNote}
         onSearchChange={setSearchTerm}
         onSportFilterChange={setSportFilter}
         onTeamFilterChange={setTeamFilter}
         onViewAnalytics={handleViewAnalytics}
+        onViewGoals={handleViewGoals}
+        onViewInjuries={handleViewInjuries}
+        onViewMatchDay={handleViewMatchDay}
+        onViewMedical={handleViewMedical}
         onViewPlayer={handleViewPlayer}
         onViewTeam={handleViewTeam}
         onViewVoiceNotes={handleViewVoiceNotes}
         players={filteredPlayers}
         searchTerm={searchTerm}
         selectedTeam={selectedTeam}
+        selectedTeamData={selectedTeamData}
         sportFilter={sportFilter}
         teamFilter={teamFilter}
         uniqueAgeGroups={uniqueAgeGroups}

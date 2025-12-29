@@ -4,6 +4,7 @@ import {
   AlertCircle,
   BarChart3,
   Brain,
+  Calendar,
   CheckCircle,
   ChevronDown,
   ChevronUp,
@@ -11,12 +12,14 @@ import {
   Edit,
   Eye,
   FileText,
+  Heart,
   Mail,
   MessageCircle,
   Mic,
   Search,
   Share,
   Share2,
+  Shield,
   Target,
   TrendingDown,
   TrendingUp,
@@ -59,8 +62,15 @@ interface CorrelationInsight {
   severity: "info" | "warning" | "success";
 }
 
+interface TeamData {
+  _id: string;
+  name: string;
+  coachNotes?: string;
+}
+
 interface SmartCoachDashboardProps {
   players: any[];
+  allPlayers?: any[]; // Unfiltered list for stat counts - if not provided, uses players
   coachTeams?: string[];
   onViewTeam?: (teamName: string) => void;
   onViewAnalytics?: (teamName?: string) => void;
@@ -71,7 +81,14 @@ interface SmartCoachDashboardProps {
   onEditPlayer?: (player: any) => void;
   onClearTeamSelection?: () => void;
   onViewVoiceNotes?: () => void;
+  onViewInjuries?: () => void;
+  onViewGoals?: () => void;
+  onViewMedical?: () => void;
+  onViewMatchDay?: () => void;
+  onAssessPlayers?: () => void;
   selectedTeam?: string | null;
+  selectedTeamData?: TeamData | null; // Team data with coachNotes
+  onSaveTeamNote?: (teamId: string, note: string) => Promise<boolean>;
   isClubView?: boolean;
   // Search and filter props
   searchTerm?: string;
@@ -91,6 +108,7 @@ interface SmartCoachDashboardProps {
 
 export function SmartCoachDashboard({
   players,
+  allPlayers: allPlayersProp,
   coachTeams,
   onViewTeam,
   onViewAnalytics,
@@ -101,7 +119,14 @@ export function SmartCoachDashboard({
   onEditPlayer,
   onClearTeamSelection,
   onViewVoiceNotes,
+  onViewInjuries,
+  onViewGoals,
+  onViewMedical,
+  onViewMatchDay,
+  onAssessPlayers,
   selectedTeam,
+  selectedTeamData,
+  onSaveTeamNote,
   isClubView = false,
   // Search and filter props
   searchTerm = "",
@@ -136,6 +161,30 @@ export function SmartCoachDashboard({
     "name" | "team" | "ageGroup" | "lastReview"
   >("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Team notes state
+  const [showAddTeamNote, setShowAddTeamNote] = useState(false);
+  const [newTeamNote, setNewTeamNote] = useState("");
+  const [savingTeamNote, setSavingTeamNote] = useState(false);
+
+  // Handle saving team note
+  const handleSaveTeamNote = async () => {
+    if (!(selectedTeamData && newTeamNote.trim() && onSaveTeamNote)) return;
+
+    setSavingTeamNote(true);
+    try {
+      const success = await onSaveTeamNote(
+        selectedTeamData._id,
+        newTeamNote.trim()
+      );
+      if (success) {
+        setNewTeamNote("");
+        setShowAddTeamNote(false);
+      }
+    } finally {
+      setSavingTeamNote(false);
+    }
+  };
 
   useEffect(() => {
     calculateTeamAnalytics();
@@ -205,6 +254,12 @@ export function SmartCoachDashboard({
 
   // Helper to get all teams for a player
   const getPlayerTeams = (player: any): string[] => {
+    // First check if player has explicit teams array (from updated coach dashboard)
+    if (player.teams && Array.isArray(player.teams) && player.teams.length > 0) {
+      return player.teams;
+    }
+
+    // Fallback to single team (backwards compatibility)
     const teamName = player.teamName || player.team;
     if (teamName) {
       return [teamName];
@@ -242,12 +297,11 @@ export function SmartCoachDashboard({
     }));
 
     const analytics = dynamicTeams.map((team) => {
-      const teamPlayers = players.filter(
-        (p) =>
-          ((p as any).teamName === team.name ||
-            (p as any).team === team.name) &&
-          p
-      );
+      const teamPlayers = players.filter((p) => {
+        // Check if player is on this team (supports multi-team)
+        const playerTeamsList = getPlayerTeams(p);
+        return playerTeamsList.includes(team.name) && p;
+      });
 
       if (teamPlayers.length === 0) {
         return {
@@ -441,9 +495,10 @@ export function SmartCoachDashboard({
       });
     }
 
-    // Review status
-    const overdueCount = allPlayers.filter(
-      (p) => p.reviewStatus === "Overdue"
+    // Review status - count players who need review (overdue OR never reviewed)
+    const needsReviewCount = allPlayers.filter(
+      (p) =>
+        p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate
     ).length;
     const completedCount = allPlayers.filter(
       (p) => p.reviewStatus === "Completed"
@@ -451,10 +506,27 @@ export function SmartCoachDashboard({
     const reviewRate =
       allPlayers.length > 0 ? (completedCount / allPlayers.length) * 100 : 0;
 
-    if (overdueCount > 0) {
+    if (needsReviewCount > 0) {
+      const neverReviewedCount = allPlayers.filter(
+        (p) => !p.lastReviewDate
+      ).length;
+      const overdueCount = allPlayers.filter(
+        (p) => p.reviewStatus === "Overdue"
+      ).length;
+
+      let message = `⏰ ${needsReviewCount} player${needsReviewCount > 1 ? "s need" : " needs"} passport reviews`;
+      if (neverReviewedCount > 0 && overdueCount > 0) {
+        message += ` (${neverReviewedCount} never reviewed, ${overdueCount} overdue)`;
+      } else if (neverReviewedCount > 0) {
+        message += " (never assessed)";
+      } else {
+        message += " (90+ days overdue)";
+      }
+      message += `. Review completion rate: ${reviewRate.toFixed(0)}%.`;
+
       insights.push({
         type: "attendance",
-        message: `⏰ ${overdueCount} player${overdueCount > 1 ? "s have" : " has"} overdue passport reviews (90+ days). Review completion rate: ${reviewRate.toFixed(0)}%.`,
+        message,
         severity: "warning",
       });
     } else if (reviewRate >= 80) {
@@ -540,12 +612,11 @@ export function SmartCoachDashboard({
         return;
       }
 
-      const teamPlayers = players.filter(
-        (p) =>
-          ((p as any).teamName === team.teamName ||
-            (p as any).team === team.teamName) &&
-          p
-      );
+      const teamPlayers = players.filter((p) => {
+        // Check if player is on this team (supports multi-team)
+        const playerTeamsList = getPlayerTeams(p);
+        return playerTeamsList.includes(team.teamName) && p;
+      });
 
       // ⚡ OPTIMIZED: Only send minimal data needed by backend (not full player objects)
       const teamData = {
@@ -579,13 +650,20 @@ export function SmartCoachDashboard({
   return (
     <div className="space-y-4 md:space-y-6">
       {/* My Teams Section */}
-      <div className="rounded-lg bg-gradient-to-r from-green-600 to-green-700 p-4 text-white shadow-md md:p-6">
+      <div
+        className="rounded-lg p-4 text-white shadow-md md:p-6"
+        style={{
+          background:
+            "linear-gradient(to right, var(--org-primary), var(--org-primary))",
+          filter: "brightness(0.95)",
+        }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 md:gap-3">
             <Users className="flex-shrink-0" size={28} />
             <div>
               <h2 className="font-bold text-xl md:text-2xl">My Teams</h2>
-              <p className="text-green-100 text-xs md:text-sm">
+              <p className="text-white/80 text-xs md:text-sm">
                 Dashboard & Insights
               </p>
             </div>
@@ -608,127 +686,136 @@ export function SmartCoachDashboard({
         </div>
       </div>
 
-      {/* Overall Statistics */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-        <Card
-          className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-blue-50 hover:shadow-lg"
-          onClick={() => onFilterAllPlayers?.()}
-        >
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <Users className="text-blue-600" size={20} />
-              <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
-                {players.length}
-              </div>
-            </div>
-            <div className="font-medium text-gray-600 text-xs md:text-sm">
-              Total Players
-            </div>
-            <div className="mt-1 text-blue-600 text-xs">Click to view all</div>
-            <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
-              <div
-                className="h-1 rounded-full bg-blue-600"
-                style={{ width: "100%" }}
-              />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Overall Statistics - Always use allPlayers for counts (unfiltered) */}
+      {(() => {
+        // Use allPlayers for stats if provided, otherwise fall back to players
+        const statsPlayers = allPlayersProp || players;
+        const totalCount = statsPlayers.length;
+        const completedCount = statsPlayers.filter(
+          (p) => p.reviewStatus === "Completed"
+        ).length;
+        const needsReviewCount = statsPlayers.filter(
+          (p) =>
+            p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate
+        ).length;
+        const playersWithSkills = statsPlayers.filter(
+          (p) => Object.keys(p.skills || {}).length > 0
+        );
+        const avgSkill =
+          playersWithSkills.length > 0
+            ? playersWithSkills.reduce(
+                (sum, p) => sum + calculatePlayerAvgSkill(p),
+                0
+              ) / playersWithSkills.length
+            : 0;
 
-        <Card
-          className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-green-50 hover:shadow-lg"
-          onClick={() => onFilterCompletedReviews?.()}
-        >
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <CheckCircle className="text-green-600" size={20} />
-              <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
-                {players.filter((p) => p.reviewStatus === "Completed").length}
-              </div>
-            </div>
-            <div className="font-medium text-gray-600 text-xs md:text-sm">
-              Reviews Complete
-            </div>
-            <div className="mt-1 text-green-600 text-xs">Click to view</div>
-            <div className="mt-2 h-1 w-full rounded-full bg-green-100">
-              <div
-                className="h-1 rounded-full bg-green-600 transition-all duration-500"
-                style={{
-                  width: `${
-                    (players.filter((p) => p.reviewStatus === "Completed")
-                      .length /
-                      players.length) *
-                    100
-                  }%`,
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        return (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            <Card
+              className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-blue-50 hover:shadow-lg"
+              onClick={() => onFilterAllPlayers?.()}
+            >
+              <CardContent className="pt-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <Users className="text-blue-600" size={20} />
+                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                    {totalCount}
+                  </div>
+                </div>
+                <div className="font-medium text-gray-600 text-xs md:text-sm">
+                  Total Players
+                </div>
+                <div className="mt-1 text-blue-600 text-xs">
+                  Click to view all
+                </div>
+                <div className="mt-2 h-1 w-full rounded-full bg-blue-100">
+                  <div
+                    className="h-1 rounded-full bg-blue-600"
+                    style={{ width: "100%" }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card
-          className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-red-50 hover:shadow-lg"
-          onClick={() => onFilterOverdueReviews?.()}
-        >
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <AlertCircle className="text-red-600" size={20} />
-              <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
-                {players.filter((p) => p.reviewStatus === "Overdue").length}
-              </div>
-            </div>
-            <div className="font-medium text-gray-600 text-xs md:text-sm">
-              Reviews Overdue
-            </div>
-            <div className="mt-1 text-red-600 text-xs">Click to view</div>
-            <div className="mt-2 h-1 w-full rounded-full bg-red-100">
-              <div
-                className="h-1 rounded-full bg-red-600 transition-all duration-500"
-                style={{
-                  width: `${
-                    (players.filter((p) => p.reviewStatus === "Overdue")
-                      .length /
-                      players.length) *
-                    100
-                  }%`,
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
+            <Card
+              className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-green-50 hover:shadow-lg"
+              onClick={() => onFilterCompletedReviews?.()}
+            >
+              <CardContent className="pt-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <CheckCircle className="text-green-600" size={20} />
+                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                    {completedCount}
+                  </div>
+                </div>
+                <div className="font-medium text-gray-600 text-xs md:text-sm">
+                  Reviews Complete
+                </div>
+                <div className="mt-1 text-green-600 text-xs">Click to view</div>
+                <div className="mt-2 h-1 w-full rounded-full bg-green-100">
+                  <div
+                    className="h-1 rounded-full bg-green-600 transition-all duration-500"
+                    style={{
+                      width: `${totalCount > 0 ? (completedCount / totalCount) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="transition-shadow duration-200 hover:shadow-lg">
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <TrendingUp className="text-purple-600" size={20} />
-              <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
-                {(
-                  players.reduce(
-                    (sum, p) => sum + calculatePlayerAvgSkill(p),
-                    0
-                  ) / players.length
-                ).toFixed(1)}
-              </div>
-            </div>
-            <div className="text-gray-600 text-sm">Avg Skill Level</div>
-            <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
-              <div
-                className="h-1 rounded-full bg-purple-600 transition-all duration-500"
-                style={{
-                  width: `${
-                    (players.reduce(
-                      (sum, p) => sum + calculatePlayerAvgSkill(p),
-                      0
-                    ) /
-                      players.length /
-                      5) *
-                    100
-                  }%`,
-                }}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            <Card
+              className="cursor-pointer transition-all duration-200 hover:scale-105 hover:bg-red-50 hover:shadow-lg"
+              onClick={() => onFilterOverdueReviews?.()}
+            >
+              <CardContent className="pt-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <AlertCircle className="text-red-600" size={20} />
+                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                    {needsReviewCount}
+                  </div>
+                </div>
+                <div className="font-medium text-gray-600 text-xs md:text-sm">
+                  Needs Review
+                </div>
+                <div className="mt-1 text-red-600 text-xs">Click to view</div>
+                <div className="mt-2 h-1 w-full rounded-full bg-red-100">
+                  <div
+                    className="h-1 rounded-full bg-red-600 transition-all duration-500"
+                    style={{
+                      width: `${totalCount > 0 ? (needsReviewCount / totalCount) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="transition-shadow duration-200 hover:shadow-lg">
+              <CardContent className="pt-6">
+                <div className="mb-2 flex items-center justify-between">
+                  <TrendingUp className="text-purple-600" size={20} />
+                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                    {playersWithSkills.length === 0 ? "—" : avgSkill.toFixed(1)}
+                  </div>
+                </div>
+                <div className="text-gray-600 text-sm">Avg Skill Level</div>
+                <div className="mt-1 text-purple-600 text-xs">
+                  {playersWithSkills.length === 0
+                    ? "No assessments yet"
+                    : `${playersWithSkills.length} assessed`}
+                </div>
+                <div className="mt-2 h-1 w-full rounded-full bg-purple-100">
+                  <div
+                    className="h-1 rounded-full bg-purple-600 transition-all duration-500"
+                    style={{
+                      width: `${playersWithSkills.length === 0 ? 0 : (avgSkill / 5) * 100}%`,
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
 
       {/* Show selected team indicator if a team is selected */}
       {selectedTeam && (
@@ -954,7 +1041,16 @@ export function SmartCoachDashboard({
             Quick Actions
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 md:gap-3">
+        <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4 md:gap-3">
+          {onAssessPlayers && (
+            <Button
+              className="flex items-center justify-center gap-2 bg-emerald-600 py-3 font-medium text-sm transition-colors hover:bg-emerald-700"
+              onClick={onAssessPlayers}
+            >
+              <Edit className="flex-shrink-0" size={16} />
+              <span className="truncate">Assess Players</span>
+            </Button>
+          )}
           <Button
             className="flex items-center justify-center gap-2 bg-green-600 py-3 font-medium text-sm transition-colors hover:bg-green-700"
             onClick={handleGenerateSessionPlan}
@@ -978,20 +1074,56 @@ export function SmartCoachDashboard({
               <span className="truncate">Voice Notes</span>
             </Button>
           )}
+          {onViewInjuries && (
+            <Button
+              className="flex items-center justify-center gap-2 bg-red-600 py-3 font-medium text-sm transition-colors hover:bg-red-700"
+              onClick={onViewInjuries}
+            >
+              <AlertCircle className="flex-shrink-0" size={16} />
+              <span className="truncate">Injury Tracking</span>
+            </Button>
+          )}
+          {onViewGoals && (
+            <Button
+              className="flex items-center justify-center gap-2 bg-amber-600 py-3 font-medium text-sm transition-colors hover:bg-amber-700"
+              onClick={onViewGoals}
+            >
+              <Target className="flex-shrink-0" size={16} />
+              <span className="truncate">Goals Dashboard</span>
+            </Button>
+          )}
+          {onViewMedical && (
+            <Button
+              className="flex items-center justify-center gap-2 bg-pink-600 py-3 font-medium text-sm transition-colors hover:bg-pink-700"
+              onClick={onViewMedical}
+            >
+              <Heart className="flex-shrink-0" size={16} />
+              <span className="truncate">Medical Info</span>
+            </Button>
+          )}
+          {onViewMatchDay && (
+            <Button
+              className="flex items-center justify-center gap-2 bg-red-600 py-3 font-medium text-sm transition-colors hover:bg-red-700"
+              onClick={onViewMatchDay}
+            >
+              <Calendar className="flex-shrink-0" size={16} />
+              <span className="truncate">Match Day ICE</span>
+            </Button>
+          )}
         </CardContent>
       </Card>
 
-      {/* Data Insights */}
-      {insights.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="flex-shrink-0 text-blue-600" size={20} />
-              {isClubView ? "Club-Wide Data Insights" : "Team Data Insights"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 md:space-y-3">
-            {insights.map((insight, idx) => (
+      {/* Data Insights - Always show, even if empty */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="flex-shrink-0 text-blue-600" size={20} />
+            {isClubView ? "Club-Wide Data Insights" : "Team Data Insights"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 md:space-y-3">
+          {insights.length > 0 ? (
+            insights.map((insight, idx) => (
               <div
                 className={`flex items-start gap-2 rounded-lg p-3 md:gap-3 ${
                   insight.severity === "warning"
@@ -1017,10 +1149,23 @@ export function SmartCoachDashboard({
                   {insight.message}
                 </p>
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+            ))
+          ) : (
+            <div className="py-8 text-center">
+              <BarChart3 className="mx-auto mb-3 text-gray-300" size={48} />
+              <p className="mb-2 font-medium text-gray-600">No insights yet</p>
+              <p className="mb-3 text-gray-500 text-sm">
+                Insights will appear automatically when players have skill
+                assessments recorded.
+              </p>
+              <p className="text-gray-400 text-xs">
+                💡 Navigate to the Assess page to record player skills, or
+                import benchmark data from Dev Tools.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* AI Recommendations */}
       <Card>
@@ -1063,75 +1208,90 @@ export function SmartCoachDashboard({
             </div>
           ) : (
             <div className="space-y-3 md:space-y-4">
-              {aiRecommendations.map((rec, idx) => (
-                <div
-                  className="rounded-lg border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-3 md:p-4"
-                  key={idx}
-                >
-                  <div className="mb-3 flex items-start gap-2 md:gap-3">
-                    <div
-                      className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full font-bold text-white text-xs md:h-8 md:w-8 md:text-sm ${
-                        rec.priority === 1
-                          ? "bg-red-600"
-                          : rec.priority === 2
-                            ? "bg-orange-600"
-                            : "bg-green-600"
-                      }`}
-                    >
-                      {rec.priority}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="mb-1 font-bold text-gray-800 text-sm leading-tight md:text-base">
-                        {rec.title}
-                      </h4>
-                      <p className="mb-3 text-gray-600 text-xs leading-relaxed md:text-sm">
-                        {rec.description}
-                      </p>
-
-                      <div className="mb-3">
-                        <div className="mb-2 font-semibold text-gray-700 text-xs">
-                          {isClubView
-                            ? "Recommended Club-Wide Actions:"
-                            : "Recommended Actions:"}
-                        </div>
-                        <ul className="space-y-1.5">
-                          {rec.actionItems.map((action, i) => (
-                            <li
-                              className="flex items-start gap-2 text-gray-600 text-xs"
-                              key={i}
-                            >
-                              <CheckCircle
-                                className="mt-0.5 flex-shrink-0 text-green-600"
-                                size={12}
-                              />
-                              <span className="leading-relaxed">{action}</span>
-                            </li>
-                          ))}
-                        </ul>
+              {aiRecommendations.length > 0 ? (
+                aiRecommendations.map((rec, idx) => (
+                  <div
+                    className="rounded-lg border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-3 md:p-4"
+                    key={idx}
+                  >
+                    <div className="mb-3 flex items-start gap-2 md:gap-3">
+                      <div
+                        className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full font-bold text-white text-xs md:h-8 md:w-8 md:text-sm ${
+                          rec.priority === 1
+                            ? "bg-red-600"
+                            : rec.priority === 2
+                              ? "bg-orange-600"
+                              : "bg-green-600"
+                        }`}
+                      >
+                        {rec.priority}
                       </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="mb-1 font-bold text-gray-800 text-sm leading-tight md:text-base">
+                          {rec.title}
+                        </h4>
+                        <p className="mb-3 text-gray-600 text-xs leading-relaxed md:text-sm">
+                          {rec.description}
+                        </p>
 
-                      {rec.playersAffected.length > 0 && (
-                        <div
-                          className={`rounded border p-2 text-gray-600 text-xs ${
-                            isClubView
-                              ? "border-purple-200 bg-purple-50"
-                              : "border-gray-200 bg-gray-50"
-                          }`}
-                        >
-                          <span className="font-semibold">
+                        <div className="mb-3">
+                          <div className="mb-2 font-semibold text-gray-700 text-xs">
                             {isClubView
-                              ? "Teams/Players Impacted: "
-                              : "Focus on: "}
-                          </span>
-                          <span className="break-words">
-                            {rec.playersAffected.join(", ")}
-                          </span>
+                              ? "Recommended Club-Wide Actions:"
+                              : "Recommended Actions:"}
+                          </div>
+                          <ul className="space-y-1.5">
+                            {rec.actionItems.map((action, i) => (
+                              <li
+                                className="flex items-start gap-2 text-gray-600 text-xs"
+                                key={i}
+                              >
+                                <CheckCircle
+                                  className="mt-0.5 flex-shrink-0 text-green-600"
+                                  size={12}
+                                />
+                                <span className="leading-relaxed">
+                                  {action}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                      )}
+
+                        {rec.playersAffected.length > 0 && (
+                          <div
+                            className={`rounded border p-2 text-gray-600 text-xs ${
+                              isClubView
+                                ? "border-purple-200 bg-purple-50"
+                                : "border-gray-200 bg-gray-50"
+                            }`}
+                          >
+                            <span className="font-semibold">
+                              {isClubView
+                                ? "Teams/Players Impacted: "
+                                : "Focus on: "}
+                            </span>
+                            <span className="break-words">
+                              {rec.playersAffected.join(", ")}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="py-8 text-center">
+                  <Brain className="mx-auto mb-3 text-purple-300" size={48} />
+                  <p className="mb-2 font-medium text-gray-600">
+                    Ready to generate AI recommendations
+                  </p>
+                  <p className="mb-4 text-gray-500 text-sm">
+                    Click the button below to get personalized coaching insights
+                    powered by AI.
+                  </p>
                 </div>
-              ))}
+              )}
 
               <Button
                 className="w-full bg-purple-600 py-2.5 font-medium transition-colors hover:bg-purple-700"
@@ -1146,6 +1306,102 @@ export function SmartCoachDashboard({
           )}
         </CardContent>
       </Card>
+
+      {/* Team Notes Section - Shown when a team is selected (even when empty) */}
+      {selectedTeam && (
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="text-blue-600" size={20} />
+                Team Notes: {selectedTeam}
+              </CardTitle>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={() => setShowAddTeamNote(!showAddTeamNote)}
+                size="sm"
+              >
+                {showAddTeamNote ? (
+                  <>
+                    <X className="mr-1" size={16} />
+                    Cancel
+                  </>
+                ) : (
+                  <>
+                    <Edit className="mr-1" size={16} />
+                    Add Note
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Add Note Form */}
+            {showAddTeamNote && (
+              <div className="space-y-3 rounded-lg border border-blue-200 bg-white p-4">
+                <textarea
+                  className="min-h-[100px] w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => setNewTeamNote(e.target.value)}
+                  placeholder="Add a note about this team (e.g., training observations, match notes, areas to focus on)..."
+                  value={newTeamNote}
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    onClick={() => {
+                      setShowAddTeamNote(false);
+                      setNewTeamNote("");
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700"
+                    disabled={!newTeamNote.trim() || savingTeamNote}
+                    onClick={handleSaveTeamNote}
+                    size="sm"
+                  >
+                    {savingTeamNote ? (
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-white border-b-2" />
+                    ) : null}
+                    Save Note
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Display existing notes */}
+            {selectedTeamData?.coachNotes ? (
+              <div className="space-y-3">
+                {selectedTeamData.coachNotes
+                  .split("\n\n")
+                  .map((note: string, idx: number) => (
+                    <div
+                      className="rounded-lg border border-blue-200 bg-white p-3"
+                      key={idx}
+                    >
+                      <p className="whitespace-pre-wrap text-gray-700 text-sm">
+                        {note}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <div className="py-6 text-center">
+                <FileText className="mx-auto mb-2 text-gray-300" size={32} />
+                <p className="text-gray-500 text-sm">
+                  No notes yet for this team
+                </p>
+                <p className="text-gray-400 text-xs">
+                  Add notes about training sessions, matches, or team
+                  development
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Search and Filters Section - Positioned right above player table */}
       {(onSearchChange ||
@@ -1373,14 +1629,52 @@ export function SmartCoachDashboard({
                             <p className="font-medium text-gray-900">
                               {player.name || "Unnamed"}
                             </p>
-                            <p className="text-gray-500 text-xs md:hidden">
-                              {player.ageGroup}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-gray-500 text-xs md:hidden">
+                                {player.ageGroup}
+                              </p>
+                              {player.coachNotes && (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700"
+                                  title={player.coachNotes}
+                                >
+                                  <FileText size={10} />
+                                  Notes
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600 text-sm">
-                        {getPlayerTeams(player).join(", ") || "Not assigned"}
+                        {getPlayerTeams(player).length > 0 ? (
+                          <div className="flex flex-wrap items-center gap-1">
+                            {getPlayerTeams(player).map((teamName, idx) => {
+                              const isCoreTeam =
+                                player.coreTeamName === teamName;
+                              return (
+                                <span
+                                  key={`${player._id}-${teamName}-${idx}`}
+                                  className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
+                                    isCoreTeam
+                                      ? "bg-green-100 font-medium text-green-700"
+                                      : "bg-gray-100 text-gray-700"
+                                  }`}
+                                  title={
+                                    isCoreTeam
+                                      ? "Core Team (matches age group)"
+                                      : "Additional Team"
+                                  }
+                                >
+                                  {isCoreTeam && <Shield size={12} />}
+                                  {teamName}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          "Not assigned"
+                        )}
                       </td>
                       <td className="hidden px-4 py-3 text-gray-600 text-sm md:table-cell">
                         {player.ageGroup}
@@ -1645,12 +1939,11 @@ export function SmartCoachDashboard({
                   onClick={() => {
                     const team = teamAnalytics.find((t) => t.playerCount > 0);
                     if (team) {
-                      const teamPlayers = players.filter(
-                        (p) =>
-                          ((p as any).teamName === team.teamName ||
-                            (p as any).team === team.teamName) &&
-                          p
-                      );
+                      const teamPlayers = players.filter((p) => {
+                        // Check if player is on this team (supports multi-team)
+                        const playerTeamsList = getPlayerTeams(p);
+                        return playerTeamsList.includes(team.teamName) && p;
+                      });
                       setPlanToShare({
                         player: {
                           name: `${team.teamName} Session Plan`,

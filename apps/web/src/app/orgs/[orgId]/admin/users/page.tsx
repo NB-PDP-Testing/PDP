@@ -48,7 +48,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { authClient } from "@/lib/auth-client";
 
-type FunctionalRole = "coach" | "parent" | "admin";
+type FunctionalRole = "coach" | "parent" | "admin" | "player";
 
 interface UserEditState {
   [userId: string]: {
@@ -82,9 +82,12 @@ export default function ManageUsersPage() {
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
-  const allPlayers = useQuery(api.models.players.getPlayersByOrganization, {
-    organizationId: orgId,
-  });
+  const allPlayersData = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
+    {
+      organizationId: orgId,
+    }
+  );
 
   // Mutations
   const updateMemberFunctionalRoles = useMutation(
@@ -93,10 +96,24 @@ export default function ManageUsersPage() {
   const updateCoachAssignments = useMutation(
     api.models.coaches.updateCoachAssignments
   );
-  const linkPlayers = useMutation(api.models.players.linkPlayersToParent);
-  const unlinkPlayers = useMutation(api.models.players.unlinkPlayersFromParent);
+  // Player linking uses new identity-based guardian system
+  const linkPlayers = useMutation(
+    api.models.guardianPlayerLinks.linkPlayersToGuardian
+  );
+  const unlinkPlayers = useMutation(
+    api.models.guardianPlayerLinks.unlinkPlayersFromGuardian
+  );
   const resendInvitation = useMutation(api.models.members.resendInvitation);
   const cancelInvitation = useMutation(api.models.members.cancelInvitation);
+
+  // Transform enrollment data to match expected player format
+  const allPlayers =
+    allPlayersData?.map((enrollment: any) => ({
+      _id: enrollment.playerIdentityId, // Use identity ID as key
+      name: `${enrollment.firstName} ${enrollment.lastName}`,
+      ageGroup: enrollment.ageGroup,
+      sport: enrollment.sport || "Unknown",
+    })) || [];
 
   const [editStates, setEditStates] = useState<UserEditState>({});
   const [loading, setLoading] = useState<string | null>(null);
@@ -148,6 +165,8 @@ export default function ManageUsersPage() {
         return <UserCircle className="h-4 w-4" />;
       case "admin":
         return <Shield className="h-4 w-4" />;
+      case "player":
+        return <UserCircle className="h-4 w-4" />;
       default:
         return <UserCheck className="h-4 w-4" />;
     }
@@ -161,6 +180,8 @@ export default function ManageUsersPage() {
         return "bg-blue-100 text-blue-700 border-blue-300";
       case "admin":
         return "bg-purple-100 text-purple-700 border-purple-300";
+      case "player":
+        return "bg-orange-100 text-orange-700 border-orange-300";
       default:
         return "bg-gray-100 text-gray-700 border-gray-300";
     }
@@ -358,16 +379,16 @@ export default function ManageUsersPage() {
 
         if (toLink.length > 0) {
           await linkPlayers({
-            playerIds: toLink as Id<"players">[],
-            parentEmail: member.user.email,
+            playerIdentityIds: toLink as Id<"playerIdentities">[],
+            guardianEmail: member.user.email,
             organizationId: orgId,
           });
         }
 
         if (toUnlink.length > 0) {
           await unlinkPlayers({
-            playerIds: toUnlink as Id<"players">[],
-            parentEmail: member.user.email,
+            playerIdentityIds: toUnlink as Id<"playerIdentities">[],
+            guardianEmail: member.user.email,
             organizationId: orgId,
           });
         }
@@ -937,26 +958,28 @@ export default function ManageUsersPage() {
                         Functional Roles (select multiple)
                       </Label>
                       <div className="flex flex-wrap gap-2">
-                        {(["coach", "parent", "admin"] as const).map((role) => (
-                          <label
-                            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                              state.functionalRoles.includes(role)
-                                ? getRoleBadgeColor(role)
-                                : "border-gray-200 bg-white hover:bg-gray-50"
-                            }`}
-                            key={role}
-                          >
-                            <Checkbox
-                              checked={state.functionalRoles.includes(role)}
-                              className="sr-only"
-                              onCheckedChange={() =>
-                                toggleFunctionalRole(member.userId, role)
-                              }
-                            />
-                            {getRoleIcon(role)}
-                            <span className="capitalize">{role}</span>
-                          </label>
-                        ))}
+                        {(["coach", "parent", "admin", "player"] as const).map(
+                          (role) => (
+                            <label
+                              className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                                state.functionalRoles.includes(role)
+                                  ? getRoleBadgeColor(role)
+                                  : "border-gray-200 bg-white hover:bg-gray-50"
+                              }`}
+                              key={role}
+                            >
+                              <Checkbox
+                                checked={state.functionalRoles.includes(role)}
+                                className="sr-only"
+                                onCheckedChange={() =>
+                                  toggleFunctionalRole(member.userId, role)
+                                }
+                              />
+                              {getRoleIcon(role)}
+                              <span className="capitalize">{role}</span>
+                            </label>
+                          )
+                        )}
                       </div>
                       <p className="text-muted-foreground text-xs">
                         Users can have multiple roles. For example, a coach can

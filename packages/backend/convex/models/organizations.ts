@@ -32,6 +32,7 @@ export const getOrganization = query({
       colors: v.optional(v.array(v.string())),
       website: v.optional(v.union(v.null(), v.string())),
       socialLinks: socialLinksValidator,
+      supportedSports: v.optional(v.array(v.string())),
     })
   ),
   handler: async (ctx, args) => {
@@ -58,6 +59,7 @@ export const getOrganization = query({
         instagram: org.socialInstagram as string | null | undefined,
         linkedin: org.socialLinkedin as string | null | undefined,
       },
+      supportedSports: org.supportedSports as string[] | undefined,
     };
   },
 });
@@ -363,6 +365,91 @@ export const updateOrganizationSocialLinks = mutation({
         update,
       },
     });
+
+    return null;
+  },
+});
+
+/**
+ * Update organization supported sports
+ * Allows setting which sports the organization supports (multi-sport organizations)
+ * Only organization owners and admins can update supported sports
+ */
+export const updateOrganizationSports = mutation({
+  args: {
+    organizationId: v.string(),
+    supportedSports: v.array(v.string()), // Array of sport codes: ["gaa_football", "hurling", etc.]
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Check if user is owner or admin of this organization
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "userId",
+            value: user._id,
+            operator: "eq",
+          },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      throw new Error("You are not a member of this organization");
+    }
+
+    const role = memberResult.role;
+    if (role !== "owner" && role !== "admin") {
+      throw new Error(
+        "Only organization owners and admins can update supported sports"
+      );
+    }
+
+    // Validate sport codes exist in the sports table
+    if (args.supportedSports.length > 0) {
+      for (const sportCode of args.supportedSports) {
+        const sport = await ctx.db
+          .query("sports")
+          .withIndex("by_code", (q) => q.eq("code", sportCode))
+          .first();
+
+        if (!sport) {
+          throw new Error(
+            `Invalid sport code: ${sportCode}. Please select from available sports.`
+          );
+        }
+      }
+    }
+
+    // Update the organization using Better Auth component adapter
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "organization",
+        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+        update: {
+          supportedSports: args.supportedSports,
+        },
+      },
+    });
+
+    console.log(
+      `[updateOrganizationSports] Updated supported sports for org ${args.organizationId}:`,
+      args.supportedSports
+    );
 
     return null;
   },
@@ -749,10 +836,131 @@ export const approveDeletionRequest = mutation({
       `[approveDeletionRequest] Request ${args.requestId} approved by ${user.email}, executing deletion...`
     );
 
-    // Execute comprehensive data cleanup
+    // Execute comprehensive data cleanup for identity system
     const orgId = request.organizationId;
 
-    // 1. Delete all players and related data for this org
+    console.log(`⚠️  Clearing data for org: ${orgId}`);
+
+    const deleted = {
+      // Identity system tables
+      orgPlayerEnrollments: 0,
+      teamPlayerIdentities: 0,
+      sportPassports: 0,
+      playerIdentitiesOrphaned: 0,
+      guardianIdentitiesOrphaned: 0,
+      guardianPlayerLinks: 0,
+      // Legacy tables
+      players: 0,
+      injuries: 0,
+      developmentGoals: 0,
+      medicalProfiles: 0,
+      teamPlayers: 0,
+      // Org-scoped tables
+      coachAssignments: 0,
+      teamGoals: 0,
+      voiceNotes: 0,
+      joinRequests: 0,
+      approvalActions: 0,
+    };
+
+    // === IDENTITY SYSTEM CLEANUP ===
+
+    // 1. Get all teams for this org (needed for junction table cleanup)
+    const teams = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "team",
+      paginationOpts: { cursor: null, numItems: 1000 },
+      where: [{ field: "organizationId", value: orgId, operator: "eq" }],
+    });
+
+    // 2. Delete team-player assignments for this org's teams
+    console.log("Deleting team player identities...");
+    for (const team of teams.page || []) {
+      const teamPlayers = await ctx.db
+        .query("teamPlayerIdentities")
+        .withIndex("by_teamId", (q) => q.eq("teamId", team._id as string))
+        .collect();
+
+      for (const record of teamPlayers) {
+        await ctx.db.delete(record._id);
+        deleted.teamPlayerIdentities++;
+      }
+    }
+
+    // 3. Delete sport passports for this org
+    console.log("Deleting sport passports...");
+    const sportPassports = await ctx.db
+      .query("sportPassports")
+      .withIndex("by_organizationId", (q) => q.eq("organizationId", orgId))
+      .collect();
+    for (const record of sportPassports) {
+      await ctx.db.delete(record._id);
+      deleted.sportPassports++;
+    }
+
+    // 4. Delete org enrollments and track player IDs
+    console.log("Deleting org player enrollments...");
+    const enrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_organizationId", (q) => q.eq("organizationId", orgId))
+      .collect();
+
+    const enrolledPlayerIds = enrollments.map((e) => e.playerIdentityId);
+
+    for (const record of enrollments) {
+      await ctx.db.delete(record._id);
+      deleted.orgPlayerEnrollments++;
+    }
+
+    // 5. Check for orphaned player identities (no enrollments in any org)
+    console.log("Checking for orphaned player identities...");
+    for (const playerId of enrolledPlayerIds) {
+      const remainingEnrollments = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .collect();
+
+      if (remainingEnrollments.length === 0) {
+        // This player is not enrolled in any other org
+        // Delete guardian-player links first
+        const guardianLinks = await ctx.db
+          .query("guardianPlayerLinks")
+          .withIndex("by_player", (q) => q.eq("playerIdentityId", playerId))
+          .collect();
+
+        for (const link of guardianLinks) {
+          await ctx.db.delete(link._id);
+          deleted.guardianPlayerLinks++;
+        }
+
+        // Delete the player identity
+        await ctx.db.delete(playerId);
+        deleted.playerIdentitiesOrphaned++;
+      }
+    }
+
+    // 6. Check for orphaned guardian identities (no linked players)
+    console.log("Checking for orphaned guardian identities...");
+    const allGuardians = await ctx.db.query("guardianIdentities").collect();
+    for (const guardian of allGuardians) {
+      const links = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", guardian._id)
+        )
+        .collect();
+
+      if (links.length === 0) {
+        await ctx.db.delete(guardian._id);
+        deleted.guardianIdentitiesOrphaned++;
+      }
+    }
+
+    // === LEGACY TABLE CLEANUP ===
+
+    // 7. Delete all legacy players and related data for this org
+    console.log("Deleting legacy players and related data...");
     const players = await ctx.db
       .query("players")
       .withIndex("by_organizationId", (q) => q.eq("organizationId", orgId))
@@ -766,6 +974,7 @@ export const approveDeletionRequest = mutation({
         .collect();
       for (const injury of injuries) {
         await ctx.db.delete(injury._id);
+        deleted.injuries++;
       }
 
       // Delete development goals for this player
@@ -775,6 +984,7 @@ export const approveDeletionRequest = mutation({
         .collect();
       for (const goal of goals) {
         await ctx.db.delete(goal._id);
+        deleted.developmentGoals++;
       }
 
       // Delete medical profiles for this player
@@ -784,6 +994,7 @@ export const approveDeletionRequest = mutation({
         .collect();
       for (const profile of medicalProfiles) {
         await ctx.db.delete(profile._id);
+        deleted.medicalProfiles++;
       }
 
       // Delete team-player associations
@@ -793,38 +1004,40 @@ export const approveDeletionRequest = mutation({
         .collect();
       for (const tp of teamPlayers) {
         await ctx.db.delete(tp._id);
+        deleted.teamPlayers++;
       }
 
       // Delete the player
       await ctx.db.delete(player._id);
+      deleted.players++;
     }
-    console.log(`[approveDeletionRequest] Deleted ${players.length} players`);
 
-    // 2. Delete coach assignments
+    // === ORG-SCOPED DATA CLEANUP ===
+
+    // 8. Delete coach assignments
+    console.log("Deleting coach assignments...");
     const coachAssignments = await ctx.db
       .query("coachAssignments")
       .withIndex("by_organizationId", (q) => q.eq("organizationId", orgId))
       .collect();
     for (const ca of coachAssignments) {
       await ctx.db.delete(ca._id);
+      deleted.coachAssignments++;
     }
-    console.log(
-      `[approveDeletionRequest] Deleted ${coachAssignments.length} coach assignments`
-    );
 
-    // 3. Delete team goals
+    // 9. Delete team goals
+    console.log("Deleting team goals...");
     const teamGoals = await ctx.db
       .query("teamGoals")
       .withIndex("by_organizationId", (q) => q.eq("organizationId", orgId))
       .collect();
     for (const tg of teamGoals) {
       await ctx.db.delete(tg._id);
+      deleted.teamGoals++;
     }
-    console.log(
-      `[approveDeletionRequest] Deleted ${teamGoals.length} team goals`
-    );
 
-    // 4. Delete voice notes (and their audio storage)
+    // 10. Delete voice notes (and their audio storage)
+    console.log("Deleting voice notes...");
     const voiceNotes = await ctx.db
       .query("voiceNotes")
       .withIndex("by_orgId", (q) => q.eq("orgId", orgId))
@@ -841,36 +1054,35 @@ export const approveDeletionRequest = mutation({
         }
       }
       await ctx.db.delete(vn._id);
+      deleted.voiceNotes++;
     }
-    console.log(
-      `[approveDeletionRequest] Deleted ${voiceNotes.length} voice notes`
-    );
 
-    // 5. Delete join requests for this org
+    // 11. Delete join requests for this org
+    console.log("Deleting join requests...");
     const joinRequests = await ctx.db
       .query("orgJoinRequests")
       .withIndex("by_organizationId", (q) => q.eq("organizationId", orgId))
       .collect();
     for (const jr of joinRequests) {
       await ctx.db.delete(jr._id);
+      deleted.joinRequests++;
     }
-    console.log(
-      `[approveDeletionRequest] Deleted ${joinRequests.length} join requests`
-    );
 
-    // 6. Delete approval actions audit trail
+    // 12. Delete approval actions audit trail
+    console.log("Deleting approval actions...");
     const approvalActions = await ctx.db
       .query("approvalActions")
       .withIndex("by_organizationId", (q) => q.eq("organizationId", orgId))
       .collect();
     for (const aa of approvalActions) {
       await ctx.db.delete(aa._id);
+      deleted.approvalActions++;
     }
-    console.log(
-      `[approveDeletionRequest] Deleted ${approvalActions.length} approval actions`
-    );
 
-    // 7. Delete the organization using Better Auth (cascades members, teams, invitations)
+    console.log("✅ Org data cleanup complete!");
+    console.log("Deleted:", deleted);
+
+    // 13. Delete the organization using Better Auth (cascades members, teams, invitations)
     await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
       input: {
         model: "organization",
@@ -879,7 +1091,7 @@ export const approveDeletionRequest = mutation({
     });
     console.log(`[approveDeletionRequest] Deleted organization ${orgId}`);
 
-    // 8. Mark deletion request as completed
+    // 14. Mark deletion request as completed
     await ctx.db.patch(args.requestId, {
       status: "completed",
       completedAt: Date.now(),

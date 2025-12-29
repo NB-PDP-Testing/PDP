@@ -2,14 +2,20 @@
 
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import {
+  BarChart3,
   Clipboard,
   GraduationCap,
   Home,
+  Key,
+  LineChart,
   Settings,
   Shield,
+  ShieldAlert,
   Upload,
   UserCheck,
   Users,
+  UsersRound,
+  Wrench,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -91,9 +97,19 @@ export default function OrgAdminLayout({
       icon: Shield,
     },
     {
+      href: `/orgs/${orgId}/admin/overrides` as Route,
+      label: "Overrides",
+      icon: ShieldAlert,
+    },
+    {
       href: `/orgs/${orgId}/admin/coaches` as Route,
       label: "Coaches",
       icon: GraduationCap,
+    },
+    {
+      href: `/orgs/${orgId}/admin/guardians` as Route,
+      label: "Guardians",
+      icon: UsersRound,
     },
     {
       href: `/orgs/${orgId}/admin/users`,
@@ -116,9 +132,29 @@ export default function OrgAdminLayout({
       icon: Upload,
     },
     {
+      href: `/orgs/${orgId}/admin/benchmarks` as Route,
+      label: "Benchmarks",
+      icon: BarChart3,
+    },
+    {
+      href: `/orgs/${orgId}/admin/analytics` as Route,
+      label: "Analytics",
+      icon: LineChart,
+    },
+    {
+      href: `/orgs/${orgId}/admin/player-access` as Route,
+      label: "Player Access",
+      icon: Key,
+    },
+    {
       href: `/orgs/${orgId}/admin/settings` as Route,
       label: "Settings",
       icon: Settings,
+    },
+    {
+      href: `/orgs/${orgId}/admin/dev-tools` as Route,
+      label: "Dev Tools",
+      icon: Wrench,
     },
   ];
 

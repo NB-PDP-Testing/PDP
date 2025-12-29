@@ -9,8 +9,32 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+interface Goal {
+  id: string;
+  type: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  progress: number;
+  targetDate?: string;
+  completedDate?: string;
+  milestones?: Array<{
+    id: string;
+    description: string;
+    completed: boolean;
+    completedDate?: string;
+  }>;
+  linkedSkills?: string[];
+  parentCanView: boolean;
+  coachNotes?: string;
+  playerNotes?: string;
+  createdAt: number;
+}
+
 interface PlayerData {
   actions?: string;
+  goals?: Goal[];
 }
 
 interface Props {
@@ -20,8 +44,26 @@ interface Props {
 export function GoalsSection({ player }: Props) {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Parse goals from actions field (MVP format: "🎯 GOAL...")
+  // Parse goals from new goals array OR legacy actions field
   const parseGoals = () => {
+    // New identity system: goals array
+    if (player.goals && player.goals.length > 0) {
+      return player.goals.map((goal) => ({
+        id: goal.id,
+        title: goal.title,
+        description: goal.description ? [goal.description] : [],
+        progress: goal.progress ?? 0,
+        targetDate: goal.targetDate ?? null,
+        parentHelp: [], // New system doesn't have this in goals, could be in notes
+        status: goal.status,
+        priority: goal.priority,
+        type: goal.type,
+        milestones: goal.milestones ?? [],
+        linkedSkills: goal.linkedSkills ?? [],
+      }));
+    }
+
+    // Legacy MVP format: actions field with "🎯 GOAL..."
     if (!player.actions) return [];
 
     return player.actions
@@ -75,11 +117,32 @@ export function GoalsSection({ player }: Props) {
           progress,
           targetDate,
           parentHelp,
+          status: "in_progress",
+          priority: "medium",
+          type: "development",
+          milestones: [],
+          linkedSkills: [],
         };
       });
   };
 
   const goals = parseGoals();
+
+  // Status badge colors
+  const statusColors: Record<string, { bg: string; text: string }> = {
+    not_started: { bg: "bg-gray-100", text: "text-gray-700" },
+    in_progress: { bg: "bg-blue-100", text: "text-blue-700" },
+    completed: { bg: "bg-green-100", text: "text-green-700" },
+    on_hold: { bg: "bg-yellow-100", text: "text-yellow-700" },
+    cancelled: { bg: "bg-red-100", text: "text-red-700" },
+  };
+
+  const priorityColors: Record<string, { bg: string; text: string }> = {
+    low: { bg: "bg-gray-100", text: "text-gray-600" },
+    medium: { bg: "bg-yellow-100", text: "text-yellow-700" },
+    high: { bg: "bg-orange-100", text: "text-orange-700" },
+    critical: { bg: "bg-red-100", text: "text-red-700" },
+  };
 
   if (goals.length === 0) {
     return (
@@ -141,12 +204,30 @@ export function GoalsSection({ player }: Props) {
                 <div className="border-l-4 border-l-blue-500 bg-blue-50 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
-                      <h4 className="mb-2 flex items-center gap-2 font-semibold text-blue-900 text-sm">
-                        <Target className="h-4 w-4" />
-                        {goal.title}
-                      </h4>
+                      <div className="mb-2 flex items-center justify-between">
+                        <h4 className="flex items-center gap-2 font-semibold text-blue-900 text-sm">
+                          <Target className="h-4 w-4" />
+                          {goal.title}
+                        </h4>
+                        <div className="flex gap-2">
+                          {goal.status && (
+                            <span
+                              className={`rounded px-2 py-0.5 text-xs ${statusColors[goal.status]?.bg ?? "bg-gray-100"} ${statusColors[goal.status]?.text ?? "text-gray-700"}`}
+                            >
+                              {goal.status.replace("_", " ")}
+                            </span>
+                          )}
+                          {goal.priority && goal.priority !== "medium" && (
+                            <span
+                              className={`rounded px-2 py-0.5 text-xs ${priorityColors[goal.priority]?.bg ?? "bg-gray-100"} ${priorityColors[goal.priority]?.text ?? "text-gray-700"}`}
+                            >
+                              {goal.priority}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                       <div className="space-y-1 text-gray-700 text-xs">
-                        {goal.description.map((line, i) => (
+                        {goal.description.map((line: string, i: number) => (
                           <div className="flex items-start gap-2" key={i}>
                             <span className="font-bold text-blue-600">→</span>
                             <span>{line}</span>
@@ -186,13 +267,32 @@ export function GoalsSection({ player }: Props) {
                     </div>
                   )}
 
-                  {/* Target date */}
-                  {goal.targetDate && (
-                    <div className="mt-2 flex items-center gap-1 text-gray-600 text-xs">
-                      <Calendar className="h-3 w-3" />
-                      <span>Target: {goal.targetDate}</span>
-                    </div>
-                  )}
+                  {/* Target date and milestones */}
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-gray-600 text-xs">
+                    {goal.targetDate && (
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        <span>Target: {goal.targetDate}</span>
+                      </div>
+                    )}
+                    {goal.milestones && goal.milestones.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <span>
+                          Milestones:{" "}
+                          {
+                            goal.milestones.filter((m: any) => m.completed)
+                              .length
+                          }
+                          /{goal.milestones.length}
+                        </span>
+                      </div>
+                    )}
+                    {goal.linkedSkills && goal.linkedSkills.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <span>Skills: {goal.linkedSkills.join(", ")}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Parent Help Section */}

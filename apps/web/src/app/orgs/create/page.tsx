@@ -7,6 +7,7 @@ import {
   Unauthenticated,
   useAction,
   useMutation,
+  useQuery,
 } from "convex/react";
 import {
   AlertCircle,
@@ -78,15 +79,20 @@ export default function CreateOrganizationPage() {
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
   const [scraping, setScraping] = useState(false);
   const [scrapedData, setScrapedData] = useState<ScrapedData | null>(null);
+  const [selectedSports, setSelectedSports] = useState<string[]>([]);
 
   // Use Convex query to get user with custom fields
   const user = useCurrentUser();
+  const availableSports = useQuery(api.models.referenceData.getSports, {});
   const scrapeWebsite = useAction(api.models.organizationScraper.scrapeWebsite);
   const updateOrganizationColors = useMutation(
     api.models.organizations.updateOrganizationColors
   );
   const updateOrganizationSocialLinks = useMutation(
     api.models.organizations.updateOrganizationSocialLinks
+  );
+  const updateOrganizationSports = useMutation(
+    api.models.organizations.updateOrganizationSports
   );
 
   // Redirect if not platform staff
@@ -247,6 +253,11 @@ export default function CreateOrganizationPage() {
       return;
     }
 
+    if (selectedSports.length === 0) {
+      toast.error("Please select at least one sport for this organization");
+      return;
+    }
+
     setLoading(true);
     try {
       // Create organization using Better Auth client API
@@ -311,6 +322,19 @@ export default function CreateOrganizationPage() {
               // Don't show warning for social links - not critical
             }
           }
+        }
+
+        // Save supported sports (required)
+        try {
+          await updateOrganizationSports({
+            organizationId: data.id,
+            supportedSports: selectedSports,
+          });
+        } catch (sportsError) {
+          console.error("Failed to save supported sports:", sportsError);
+          toast.error(
+            "Organization created, but sports could not be saved. Please update them in settings."
+          );
         }
 
         toast.success(`Organization "${name}" created successfully!`);
@@ -787,6 +811,114 @@ export default function CreateOrganizationPage() {
                   )}
                 </div>
 
+                {/* Supported Sports Selection */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label>
+                        Supported Sports{" "}
+                        <span className="text-destructive">*</span>
+                      </Label>
+                      <p className="text-muted-foreground text-xs">
+                        Select at least one sport your organization supports.
+                        Teams will default to these sports.
+                      </p>
+                    </div>
+                    {selectedSports.length > 0 && (
+                      <Button
+                        onClick={() => {
+                          setSelectedSports([]);
+                          toast.success("Sports cleared");
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        Clear All
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Warning if no sports available */}
+                  {(!availableSports || availableSports.length === 0) && (
+                    <div className="flex items-start gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+                      <AlertCircle className="mt-0.5 h-5 w-5 text-destructive" />
+                      <div className="space-y-1">
+                        <p className="font-medium text-destructive text-sm">
+                          Required Reference Data Missing
+                        </p>
+                        <p className="text-destructive/90 text-xs">
+                          Cannot create organization:{" "}
+                          <strong>
+                            sports, skill categories, and skill definitions
+                          </strong>{" "}
+                          are required to assign a club/org ID. Please contact
+                          platform staff to set up this reference data before
+                          proceeding.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {availableSports?.map((sport) => (
+                      <label
+                        className="flex cursor-pointer items-center gap-3 rounded-lg border bg-background p-3 hover:bg-muted/50"
+                        htmlFor={`sport-${sport.code}`}
+                        key={sport.code}
+                      >
+                        <input
+                          checked={selectedSports.includes(sport.code)}
+                          className="h-4 w-4"
+                          disabled={loading}
+                          id={`sport-${sport.code}`}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedSports([
+                                ...selectedSports,
+                                sport.code,
+                              ]);
+                            } else {
+                              setSelectedSports(
+                                selectedSports.filter((s) => s !== sport.code)
+                              );
+                            }
+                          }}
+                          type="checkbox"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">
+                            {sport.name}
+                          </div>
+                          {sport.governingBody && (
+                            <div className="text-muted-foreground text-xs">
+                              {sport.governingBody}
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+
+                  {selectedSports.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      <span className="text-muted-foreground text-sm">
+                        Selected:
+                      </span>
+                      {selectedSports.map((sportCode) => {
+                        const sport = availableSports?.find(
+                          (s) => s.code === sportCode
+                        );
+                        return (
+                          <Badge key={sportCode} variant="secondary">
+                            {sport?.name || sportCode}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 {/* Colors Selection */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -999,7 +1131,9 @@ export default function CreateOrganizationPage() {
                       !name ||
                       !slug ||
                       slugAvailable === false ||
-                      checkingSlug
+                      checkingSlug ||
+                      !availableSports ||
+                      availableSports.length === 0
                     }
                     type="submit"
                   >

@@ -3,6 +3,7 @@
 import {
   ChevronDown,
   ChevronUp,
+  FileText,
   MessageSquare,
   User,
   Users,
@@ -28,14 +29,12 @@ interface Props {
 }
 
 export function NotesSection({ player, isCoach }: Props) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const hasNotes = Boolean(
+    player.coachNotes || player.parentNotes || player.playerNotes
+  );
 
-  const hasNotes =
-    player.coachNotes || player.parentNotes || player.playerNotes;
-
-  if (!hasNotes) {
-    return null;
-  }
+  // Expand by default if there are notes, collapse if empty
+  const [isExpanded, setIsExpanded] = useState(hasNotes);
 
   return (
     <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
@@ -44,48 +43,78 @@ export function NotesSection({ player, isCoach }: Props) {
           <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Notes & Feedback
+                <FileText className="h-5 w-5" />
+                Development Notes
               </CardTitle>
-              {isExpanded ? (
-                <ChevronUp className="h-5 w-5 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-muted-foreground" />
-              )}
+              <div className="flex items-center gap-2">
+                {hasNotes && (
+                  <Badge className="text-xs" variant="secondary">
+                    {
+                      [
+                        player.coachNotes,
+                        player.parentNotes,
+                        player.playerNotes,
+                      ].filter(Boolean).length
+                    }{" "}
+                    notes
+                  </Badge>
+                )}
+                {isExpanded ? (
+                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
             </div>
           </CardHeader>
         </CollapsibleTrigger>
 
         <CollapsibleContent>
           <CardContent className="space-y-4">
-            {/* Coach Notes */}
-            {player.coachNotes && (
-              <NoteCard
-                content={player.coachNotes}
-                icon={<MessageSquare className="h-4 w-4" />}
-                title="Coach Notes"
-                variant="coach"
-              />
-            )}
+            {hasNotes ? (
+              <>
+                {/* Coach Notes */}
+                {player.coachNotes && (
+                  <NoteCard
+                    content={player.coachNotes}
+                    icon={<MessageSquare className="h-4 w-4" />}
+                    title="Coach Notes"
+                    variant="coach"
+                  />
+                )}
 
-            {/* Parent Notes */}
-            {player.parentNotes && (
-              <NoteCard
-                content={player.parentNotes}
-                icon={<Users className="h-4 w-4" />}
-                title="Parent/Guardian Notes"
-                variant="parent"
-              />
-            )}
+                {/* Parent Notes */}
+                {player.parentNotes && (
+                  <NoteCard
+                    content={player.parentNotes}
+                    icon={<Users className="h-4 w-4" />}
+                    title="Parent/Guardian Notes"
+                    variant="parent"
+                  />
+                )}
 
-            {/* Player Self-Assessment */}
-            {player.playerNotes && (
-              <NoteCard
-                content={player.playerNotes}
-                icon={<User className="h-4 w-4" />}
-                title="Player Self-Assessment"
-                variant="player"
-              />
+                {/* Player Self-Assessment */}
+                {player.playerNotes && (
+                  <NoteCard
+                    content={player.playerNotes}
+                    icon={<User className="h-4 w-4" />}
+                    title="Player Self-Assessment"
+                    variant="player"
+                  />
+                )}
+              </>
+            ) : (
+              <div className="py-4 text-center">
+                <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+                <p className="text-muted-foreground text-sm">
+                  No development notes recorded yet.
+                </p>
+                {isCoach && (
+                  <p className="mt-1 text-muted-foreground text-xs">
+                    Notes can be added when editing the player profile.
+                  </p>
+                )}
+              </div>
             )}
           </CardContent>
         </CollapsibleContent>

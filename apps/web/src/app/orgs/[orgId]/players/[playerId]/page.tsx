@@ -6,12 +6,17 @@ import { useQuery } from "convex/react";
 import { ArrowLeft, Edit, Loader2, Share2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { BenchmarkComparison } from "@/components/benchmark-comparison";
+import { SkillRadarChart } from "@/components/skill-radar-chart";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
+import type { PassportPDFData } from "@/lib/pdf-generator";
 import { BasicInformationSection } from "./components/basic-info-section";
+import { EmergencyContactsSection } from "./components/emergency-contacts-section";
 import { GoalsSection } from "./components/goals-section";
 import { NotesSection } from "./components/notes-section";
 import { PositionsFitnessSection } from "./components/positions-fitness-section";
+import { ShareModal } from "./components/share-modal";
 import { SkillsSection } from "./components/skills-section";
 
 export default function PlayerPassportPage() {
@@ -20,13 +25,16 @@ export default function PlayerPassportPage() {
   const orgId = params.orgId as string;
   const playerId = params.playerId as string;
 
-  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
-  // Get player passport data
-  const playerData = useQuery(api.models.players.getPlayerPassport, {
-    playerId: playerId as Id<"players">,
-    organizationId: orgId,
-  });
+  // Use new identity system (legacy fallback removed)
+  const playerData = useQuery(
+    api.models.sportPassports.getFullPlayerPassportView,
+    {
+      playerIdentityId: playerId as Id<"playerIdentities">,
+      organizationId: orgId,
+    }
+  );
 
   // Get current user session
   const { data: session } = authClient.useSession();
@@ -92,17 +100,32 @@ export default function PlayerPassportPage() {
     router.push(`/orgs/${orgId}/players/${playerId}/edit`);
   };
 
-  const handleShare = async () => {
-    setIsPdfGenerating(true);
-    try {
-      // TODO: Implement PDF generation
-      alert("PDF generation coming soon!");
-    } catch (error) {
-      console.error("Failed to generate PDF:", error);
-    } finally {
-      setIsPdfGenerating(false);
-    }
-  };
+  // Transform player data for PDF generation
+  const pdfData: PassportPDFData | null = playerData
+    ? {
+        playerName: playerData.name || "Unknown Player",
+        dateOfBirth: (playerData as any).dateOfBirth,
+        ageGroup: (playerData as any).ageGroup,
+        sport: playerData.sportCode,
+        organization: (playerData as any).organizationName,
+        skills: playerData.skills as Record<string, number> | undefined,
+        goals: (playerData as any).goals?.map((g: any) => ({
+          title: g.title || g.description,
+          status: g.status,
+          targetDate: g.targetDate,
+        })),
+        notes: (playerData as any).notes?.map((n: any) => ({
+          content: n.content || n.note,
+          coachName: n.coachName || n.authorName,
+          date:
+            n.date ||
+            new Date(n.createdAt || n._creationTime).toLocaleDateString(),
+        })),
+        overallScore: (playerData as any).overallScore,
+        trainingAttendance: (playerData as any).trainingAttendance,
+        matchAttendance: (playerData as any).matchAttendance,
+      }
+    : null;
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8">
@@ -120,33 +143,65 @@ export default function PlayerPassportPage() {
           </Button>
         )}
 
-        <Button
-          disabled={isPdfGenerating}
-          onClick={handleShare}
-          variant="secondary"
-        >
-          {isPdfGenerating ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating...
-            </>
-          ) : (
-            <>
-              <Share2 className="mr-2 h-4 w-4" />
-              Share PDF
-            </>
-          )}
+        <Button onClick={() => setShowShareModal(true)} variant="secondary">
+          <Share2 className="mr-2 h-4 w-4" />
+          Share / Export
         </Button>
       </div>
 
       {/* Player Passport Sections */}
       <div className="space-y-4">
-        <BasicInformationSection player={playerData} />
-        <GoalsSection player={playerData} />
-        <SkillsSection player={playerData} />
-        <PositionsFitnessSection player={playerData} />
-        <NotesSection isCoach={permissions.canEdit} player={playerData} />
+        {/* Cast to any since components define their own interfaces for the properties they need */}
+        <BasicInformationSection player={playerData as any} />
+
+        {/* Emergency Contacts - for adult players, shown right after basic info */}
+        {"playerType" in playerData && playerData.playerType === "adult" && (
+          <EmergencyContactsSection
+            isEditable={false}
+            playerIdentityId={playerId as Id<"playerIdentities">} // Coaches can view but not edit adult player's contacts
+            playerType="adult"
+          />
+        )}
+
+        {/* Skills Radar Chart - visual overview of player skills */}
+        {playerData.sportCode && (
+          <SkillRadarChart
+            dateOfBirth={(playerData as any).dateOfBirth}
+            playerId={playerId as Id<"playerIdentities">}
+            sportCode={playerData.sportCode}
+          />
+        )}
+
+        {/* Benchmark Comparison - only for new identity system with sport passport */}
+        {"playerIdentityId" in playerData &&
+          playerData.playerIdentityId &&
+          playerData.sportCode && (
+            <BenchmarkComparison
+              dateOfBirth={(playerData as any).dateOfBirth ?? ""}
+              playerId={playerData.playerIdentityId}
+              showAllSkills={true}
+              sportCode={playerData.sportCode}
+            />
+          )}
+
+        <GoalsSection player={playerData as any} />
+        <NotesSection
+          isCoach={permissions.canEdit}
+          player={playerData as any}
+        />
+        <SkillsSection player={playerData as any} />
+        <PositionsFitnessSection player={playerData as any} />
       </div>
+
+      {/* Share Modal */}
+      {pdfData && (
+        <ShareModal
+          onOpenChange={setShowShareModal}
+          open={showShareModal}
+          playerData={pdfData}
+          playerName={playerData.name || "Player"}
+        />
+      )}
     </div>
   );
 }

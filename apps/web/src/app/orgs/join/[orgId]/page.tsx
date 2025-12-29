@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-type FunctionalRole = "coach" | "parent" | "admin";
+type FunctionalRole = "coach" | "parent" | "admin" | "player";
 
 type ChildEntry = {
   name: string;
@@ -47,7 +47,7 @@ type ChildEntry = {
 };
 
 const SPORTS = ["GAA Football", "Soccer", "Rugby", "GAA Hurling"] as const;
-const GENDERS = ["Boys", "Girls", "Mixed"] as const;
+const GENDERS = ["male", "female", "mixed"] as const;
 
 export default function JoinOrganizationRequestPage() {
   const params = useParams();
@@ -328,6 +328,40 @@ export default function JoinOrganizationRequestPage() {
                     <p className="mt-1 text-muted-foreground text-sm">
                       View your children&apos;s development progress, passports,
                       and provide feedback.
+                    </p>
+                  </div>
+                </button>
+
+                {/* Player Role (Adult) */}
+                <button
+                  className={`flex w-full cursor-pointer items-start gap-4 rounded-lg border p-4 text-left transition-colors ${
+                    selectedRoles.includes("player")
+                      ? "border-orange-500 bg-orange-50 dark:bg-orange-950/30"
+                      : "hover:bg-accent/50"
+                  }`}
+                  disabled={isSubmitting}
+                  onClick={() => toggleRole("player")}
+                  type="button"
+                >
+                  <div
+                    className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border ${
+                      selectedRoles.includes("player")
+                        ? "border-orange-500 bg-orange-500 text-white"
+                        : "border-input"
+                    }`}
+                  >
+                    {selectedRoles.includes("player") && (
+                      <Check className="h-3 w-3" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-orange-600" />
+                      <span className="font-medium">Player (Adult)</span>
+                    </div>
+                    <p className="mt-1 text-muted-foreground text-sm">
+                      Access your own player passport, track your development,
+                      and view your goals and assessments.
                     </p>
                   </div>
                 </button>

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import {
   action,
   internalMutation,
@@ -12,7 +12,7 @@ import {
 
 const insightValidator = v.object({
   id: v.string(),
-  playerId: v.optional(v.id("players")),
+  playerIdentityId: v.optional(v.id("playerIdentities")),
   playerName: v.optional(v.string()),
   title: v.string(),
   description: v.string(),
@@ -240,6 +240,11 @@ export const generateUploadUrl = action({
 
 /**
  * Update insight status (apply or dismiss)
+ * When applying, actually routes the insight to the appropriate table:
+ * - injury → playerInjuries table
+ * - skill_progress → passportGoals table
+ * - behavior → sportPassports.coachNotes
+ * - performance → sportPassports.coachNotes
  */
 export const updateInsightStatus = mutation({
   args: {
@@ -247,30 +252,470 @@ export const updateInsightStatus = mutation({
     insightId: v.string(),
     status: v.union(v.literal("applied"), v.literal("dismissed")),
   },
-  returns: v.null(),
+  returns: v.object({
+    success: v.boolean(),
+    appliedTo: v.optional(v.string()),
+    recordId: v.optional(v.string()),
+    message: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
     const note = await ctx.db.get(args.noteId);
     if (!note) {
       throw new Error("Note not found");
     }
 
-    const updatedInsights = note.insights.map((insight) => {
-      if (insight.id === args.insightId) {
+    // Find the insight
+    const insight = note.insights.find((i) => i.id === args.insightId);
+    if (!insight) {
+      throw new Error("Insight not found");
+    }
+
+    let appliedTo: string | undefined;
+    let recordId: string | undefined;
+    let message: string | undefined;
+
+    // If applying, route to appropriate table based on category
+    // Uses new identity system tables only
+    if (args.status === "applied" && insight.playerIdentityId) {
+      const category = insight.category?.toLowerCase() || "";
+      const now = Date.now();
+      const today = new Date().toISOString().split("T")[0];
+
+      // Get the player identity
+      const playerIdentity = await ctx.db.get(insight.playerIdentityId);
+      if (playerIdentity) {
+        const playerName =
+          insight.playerName ||
+          `${playerIdentity.firstName} ${playerIdentity.lastName}`;
+
+        switch (category) {
+          case "injury": {
+            // Create injury record in playerInjuries table
+            const injuryId = await ctx.db.insert("playerInjuries", {
+              playerIdentityId: insight.playerIdentityId,
+              injuryType: "Voice Note Reported",
+              bodyPart: "Unknown",
+              dateOccurred: today,
+              dateReported: today,
+              severity: "minor",
+              status: "active",
+              description: `${insight.title}\n\n${insight.description}${insight.recommendedUpdate ? `\n\nRecommended: ${insight.recommendedUpdate}` : ""}`,
+              occurredDuring: note.type === "match" ? "match" : "training",
+              occurredAtOrgId: note.orgId,
+              isVisibleToAllOrgs: true,
+              reportedBy: note.coachId,
+              reportedByRole: "coach",
+              createdAt: now,
+              updatedAt: now,
+            });
+            appliedTo = "playerInjuries";
+            recordId = injuryId;
+            message = `Injury record created for ${playerName}`;
+            break;
+          }
+
+          case "skill_rating": {
+            // Update/create a skill assessment for specific skill
+            // AI should include skill name in the title or description
+            const passport = await ctx.db
+              .query("sportPassports")
+              .withIndex("by_playerIdentityId", (q) =>
+                q.eq("playerIdentityId", insight.playerIdentityId!)
+              )
+              .first();
+
+            if (passport) {
+              // Try to parse rating from description or recommendedUpdate
+              // Handle both numeric (3, 4/5) and word numbers (three, four)
+              const wordToNum: Record<string, number> = {
+                one: 1,
+                two: 2,
+                three: 3,
+                four: 4,
+                five: 5,
+                "1": 1,
+                "2": 2,
+                "3": 3,
+                "4": 4,
+                "5": 5,
+              };
+
+              // Patterns to match: "Rating: 4", "set to 3", "to three", "improved to 4/5", "level 3"
+              const patterns = [
+                /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(\d)(?:\/5)?/i,
+                /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(one|two|three|four|five)(?:\/5)?/i,
+              ];
+
+              let newRating: number | null = null;
+
+              // Check description first
+              for (const pattern of patterns) {
+                const match =
+                  insight.description.match(pattern) ||
+                  insight.recommendedUpdate?.match(pattern);
+                if (match) {
+                  const val = match[1].toLowerCase();
+                  newRating = wordToNum[val] || Number.parseInt(val) || null;
+                  if (newRating) break;
+                }
+              }
+
+              // Try to extract skill name from title
+              const skillName = insight.title
+                .replace(/skill\s*(rating|assessment|update)?:?\s*/i, "")
+                .trim();
+
+              if (newRating && newRating >= 1 && newRating <= 5) {
+                // Create skill assessment record
+                const assessmentId = await ctx.db.insert("skillAssessments", {
+                  passportId: passport._id,
+                  playerIdentityId: insight.playerIdentityId,
+                  sportCode: passport.sportCode,
+                  skillCode: skillName.toLowerCase().replace(/\s+/g, "_"),
+                  organizationId: note.orgId,
+                  rating: newRating,
+                  assessmentDate: today,
+                  assessmentType: note.type === "match" ? "match" : "training",
+                  assessedByName: "Voice Note",
+                  assessorRole: "coach",
+                  notes: `${insight.description}${insight.recommendedUpdate ? `\n\nRecommended: ${insight.recommendedUpdate}` : ""}`,
+                  createdAt: now,
+                });
+
+                // Update passport's last assessment date
+                await ctx.db.patch(passport._id, {
+                  lastAssessmentDate: today,
+                  lastAssessmentType:
+                    note.type === "match" ? "match" : "training",
+                  assessmentCount: (passport.assessmentCount || 0) + 1,
+                  updatedAt: now,
+                });
+
+                appliedTo = "skillAssessments";
+                recordId = assessmentId;
+                message = `Skill assessment "${skillName}" set to ${newRating}/5 for ${playerName}`;
+              } else {
+                // No rating found, create a goal instead
+                const goalId = await ctx.db.insert("passportGoals", {
+                  passportId: passport._id,
+                  playerIdentityId: insight.playerIdentityId,
+                  organizationId: note.orgId,
+                  title: insight.title,
+                  description: `${insight.description}${insight.recommendedUpdate ? `\n\nRecommended: ${insight.recommendedUpdate}` : ""}`,
+                  category: "technical",
+                  priority: "medium",
+                  status: "not_started",
+                  progress: 0,
+                  parentCanView: true,
+                  createdBy: note.coachId,
+                  createdAt: now,
+                  updatedAt: now,
+                });
+                appliedTo = "passportGoals";
+                recordId = goalId;
+                message = `Development goal created for ${playerName} (no rating value found - use "Rating: X" format)`;
+              }
+            } else {
+              message = `No sport passport found for ${playerName}`;
+            }
+            break;
+          }
+
+          case "skill_progress": {
+            // Find passport for this player
+            const passport = await ctx.db
+              .query("sportPassports")
+              .withIndex("by_playerIdentityId", (q) =>
+                q.eq("playerIdentityId", insight.playerIdentityId!)
+              )
+              .first();
+
+            if (passport) {
+              // Check if there's actually a rating mentioned - if so, create skill assessment instead
+              const wordToNum: Record<string, number> = {
+                one: 1,
+                two: 2,
+                three: 3,
+                four: 4,
+                five: 5,
+                "1": 1,
+                "2": 2,
+                "3": 3,
+                "4": 4,
+                "5": 5,
+              };
+
+              const patterns = [
+                /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(\d)(?:\/5)?/i,
+                /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(one|two|three|four|five)(?:\/5)?/i,
+              ];
+
+              let foundRating: number | null = null;
+              const textToSearch = `${insight.description} ${insight.recommendedUpdate || ""} ${insight.title}`;
+
+              for (const pattern of patterns) {
+                const match = textToSearch.match(pattern);
+                if (match) {
+                  const val = match[1].toLowerCase();
+                  foundRating = wordToNum[val] || Number.parseInt(val) || null;
+                  if (foundRating) break;
+                }
+              }
+
+              if (foundRating && foundRating >= 1 && foundRating <= 5) {
+                // There's a rating - create skill assessment instead of goal
+                const skillName = insight.title
+                  .replace(
+                    /skill\s*(rating|assessment|update|progress|improved?)?:?\s*/i,
+                    ""
+                  )
+                  .trim();
+
+                const assessmentId = await ctx.db.insert("skillAssessments", {
+                  passportId: passport._id,
+                  playerIdentityId: insight.playerIdentityId,
+                  sportCode: passport.sportCode,
+                  skillCode: skillName.toLowerCase().replace(/\s+/g, "_"),
+                  organizationId: note.orgId,
+                  rating: foundRating,
+                  assessmentDate: today,
+                  assessmentType: note.type === "match" ? "match" : "training",
+                  assessedByName: "Voice Note",
+                  assessorRole: "coach",
+                  notes: `${insight.description}${insight.recommendedUpdate ? `\n\nRecommended: ${insight.recommendedUpdate}` : ""}`,
+                  createdAt: now,
+                });
+
+                await ctx.db.patch(passport._id, {
+                  lastAssessmentDate: today,
+                  lastAssessmentType:
+                    note.type === "match" ? "match" : "training",
+                  assessmentCount: (passport.assessmentCount || 0) + 1,
+                  updatedAt: now,
+                });
+
+                appliedTo = "skillAssessments";
+                recordId = assessmentId;
+                message = `Skill "${skillName}" set to ${foundRating}/5 for ${playerName}`;
+              } else {
+                // No rating found - create passport goal as before
+                const goalId = await ctx.db.insert("passportGoals", {
+                  passportId: passport._id,
+                  playerIdentityId: insight.playerIdentityId,
+                  organizationId: note.orgId,
+                  title: insight.title,
+                  description: `${insight.description}${insight.recommendedUpdate ? `\n\nRecommended: ${insight.recommendedUpdate}` : ""}`,
+                  category: "technical",
+                  priority: "medium",
+                  status: "not_started",
+                  progress: 0,
+                  parentCanView: true,
+                  createdBy: note.coachId,
+                  createdAt: now,
+                  updatedAt: now,
+                });
+                appliedTo = "passportGoals";
+                recordId = goalId;
+                message = `Development goal created for ${playerName}`;
+              }
+            } else {
+              // No passport exists, add to enrollment notes instead
+              const enrollment = await ctx.db
+                .query("orgPlayerEnrollments")
+                .withIndex("by_player_and_org", (q) =>
+                  q
+                    .eq("playerIdentityId", insight.playerIdentityId!)
+                    .eq("organizationId", note.orgId)
+                )
+                .first();
+
+              if (enrollment) {
+                const existingNotes = enrollment.coachNotes || "";
+                const newNote = `[${new Date().toLocaleDateString()}] GOAL: ${insight.title} - ${insight.description}`;
+                await ctx.db.patch(enrollment._id, {
+                  coachNotes: existingNotes
+                    ? `${existingNotes}\n\n${newNote}`
+                    : newNote,
+                  updatedAt: now,
+                });
+                appliedTo = "orgPlayerEnrollments.coachNotes";
+                recordId = enrollment._id;
+                message = `Goal added to ${playerName}'s enrollment notes (no sport passport found)`;
+              } else {
+                message = `No sport passport or enrollment found for ${playerName}`;
+              }
+            }
+            break;
+          }
+
+          case "behavior":
+          case "performance":
+          case "attitude":
+          case "communication":
+          case "general":
+          default: {
+            // Add to sport passport's coach notes (shown on player profile Development Notes)
+            const passport = await ctx.db
+              .query("sportPassports")
+              .withIndex("by_playerIdentityId", (q) =>
+                q.eq("playerIdentityId", insight.playerIdentityId!)
+              )
+              .first();
+
+            if (passport) {
+              const existingNotes = passport.coachNotes || "";
+              const newNote = `[${new Date().toLocaleDateString()}] ${insight.title}: ${insight.description}${insight.recommendedUpdate ? ` (Recommended: ${insight.recommendedUpdate})` : ""}`;
+              await ctx.db.patch(passport._id, {
+                coachNotes: existingNotes
+                  ? `${existingNotes}\n\n${newNote}`
+                  : newNote,
+                updatedAt: now,
+              });
+              appliedTo = "sportPassports.coachNotes";
+              recordId = passport._id;
+              message = `Development note added to ${playerName}'s profile`;
+            } else {
+              // Fallback to enrollment notes if no passport exists
+              const enrollment = await ctx.db
+                .query("orgPlayerEnrollments")
+                .withIndex("by_player_and_org", (q) =>
+                  q
+                    .eq("playerIdentityId", insight.playerIdentityId!)
+                    .eq("organizationId", note.orgId)
+                )
+                .first();
+
+              if (enrollment) {
+                const existingNotes = enrollment.coachNotes || "";
+                const newNote = `[${new Date().toLocaleDateString()}] ${insight.title}: ${insight.description}${insight.recommendedUpdate ? ` (Recommended: ${insight.recommendedUpdate})` : ""}`;
+                const updatedNotes = existingNotes
+                  ? `${existingNotes}\n\n${newNote}`
+                  : newNote;
+
+                await ctx.db.patch(enrollment._id, {
+                  coachNotes: updatedNotes,
+                  updatedAt: now,
+                });
+
+                appliedTo = "orgPlayerEnrollments.coachNotes";
+                recordId = enrollment._id;
+                message = `Note added to ${playerName}'s enrollment (no sport passport found)`;
+              } else {
+                message = `No passport or enrollment found for ${playerName}`;
+              }
+            }
+            break;
+          }
+        }
+      } else {
+        message = "Player identity not found";
+      }
+    } else if (args.status === "applied" && !insight.playerIdentityId) {
+      // This is a team-level insight (no player linked)
+      // Route to team notes - since there's no player, ANY category goes to team
+      const category = insight.category?.toLowerCase() || "";
+
+      // Always route to team notes when there's no player linked
+      // This is simpler and more intuitive - if there's no player, it's a team note
+      {
+        // Try to find a team based on note type or context
+        // For now, we'll use the Better Auth adapter to find teams for this org
+        // and add the note to all teams (or ideally the most relevant one)
+
+        const now = Date.now();
+        const newNote = `[${new Date().toLocaleDateString()}] ${insight.title}: ${insight.description}${insight.recommendedUpdate ? ` (Recommended: ${insight.recommendedUpdate})` : ""}`;
+
+        // Get teams for this organization using Better Auth component
+        const teamsResult = await ctx.runQuery(
+          components.betterAuth.adapter.findMany,
+          {
+            model: "team",
+            paginationOpts: { cursor: null, numItems: 100 },
+            where: [
+              { field: "organizationId", value: note.orgId, operator: "eq" },
+            ],
+          }
+        );
+
+        const teams = teamsResult.page as Array<{
+          _id: string;
+          name: string;
+          coachNotes?: string;
+        }>;
+
+        if (teams.length === 1) {
+          // Only one team - add note to it
+          const team = teams[0];
+          const existingNotes = team.coachNotes || "";
+          const updatedNotes = existingNotes
+            ? `${existingNotes}\n\n${newNote}`
+            : newNote;
+
+          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+            input: {
+              model: "team",
+              where: [{ field: "_id", value: team._id, operator: "eq" }],
+              update: {
+                coachNotes: updatedNotes,
+                updatedAt: now,
+              },
+            },
+          });
+
+          appliedTo = "team.coachNotes";
+          recordId = team._id;
+          message = `Team note added to ${team.name}`;
+        } else if (teams.length > 1) {
+          // Multiple teams - add to the first one (could be improved with team detection logic)
+          const team = teams[0];
+          const existingNotes = team.coachNotes || "";
+          const updatedNotes = existingNotes
+            ? `${existingNotes}\n\n${newNote}`
+            : newNote;
+
+          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+            input: {
+              model: "team",
+              where: [{ field: "_id", value: team._id, operator: "eq" }],
+              update: {
+                coachNotes: updatedNotes,
+                updatedAt: now,
+              },
+            },
+          });
+
+          appliedTo = "team.coachNotes";
+          recordId = team._id;
+          message = `Team note added to ${team.name} (${teams.length} teams available)`;
+        } else {
+          message = "No teams found for this organization to add the note to.";
+        }
+      }
+    }
+
+    // Update the insight status
+    const updatedInsights = note.insights.map((i) => {
+      if (i.id === args.insightId) {
         return {
-          ...insight,
+          ...i,
           status: args.status,
           appliedDate:
             args.status === "applied" ? new Date().toISOString() : undefined,
         };
       }
-      return insight;
+      return i;
     });
 
     await ctx.db.patch(args.noteId, {
       insights: updatedInsights,
     });
 
-    return null;
+    return {
+      success: true,
+      appliedTo,
+      recordId,
+      message,
+    };
   },
 });
 

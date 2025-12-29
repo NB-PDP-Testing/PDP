@@ -23,12 +23,14 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
-// interface Organization {
-//   id: string;
-//   name: string;
-//   slug: string;
-//   logo?: string | null;
-// }
+interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  logo?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: Date;
+}
 
 export function OrgSelector() {
   const router = useRouter();
@@ -43,7 +45,9 @@ export function OrgSelector() {
   const { data: organizations, isPending: isLoadingOrganizations } =
     authClient.useListOrganizations();
 
-  const currentOrg = organizations?.find((org) => org.id === urlOrgId);
+  const currentOrg = organizations?.find(
+    (org: Organization) => org.id === urlOrgId
+  );
 
   const handleSelectOrg = (orgId: string) => {
     setOpen(false);
@@ -86,7 +90,7 @@ export function OrgSelector() {
           <CommandList>
             <CommandEmpty>No organization found.</CommandEmpty>
             <CommandGroup heading="Your Organizations">
-              {organizations?.map((org) => (
+              {organizations?.map((org: Organization) => (
                 <CommandItem
                   key={org.id}
                   onSelect={() => handleSelectOrg(org.id)}

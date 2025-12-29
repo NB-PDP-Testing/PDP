@@ -961,7 +961,7 @@ const enrolledInCurrentOrg = children?.filter(
 
 ### 9.1 Objective
 
-Implement sport-specific skill tracking with temporal assessments.
+Implement sport-specific skill tracking with temporal assessments, benchmark comparisons, and cross-sport injury visibility.
 
 ### 9.2 Tables to Create
 
@@ -1034,6 +1034,95 @@ skillAssessments: defineTable({
   .index("by_skillDefinitionId", ["skillDefinitionId"])
   .index("by_assessedAt", ["assessedAt"])
   .index("by_passport_and_skill", ["sportPassportId", "skillDefinitionId"]),
+
+// Skill benchmarks (expected ratings by age group)
+// Platform admins manage these to define what's expected at each level
+skillBenchmarks: defineTable({
+  skillDefinitionId: v.id("skillDefinitions"),
+  sportCode: v.string(),           // Denormalized for queries
+  ageGroupCode: v.string(),        // "u8", "u9", etc.
+
+  // Benchmark ratings (what's expected at this age)
+  minimumExpected: v.number(),     // 1-5: Floor for this age
+  targetRating: v.number(),        // 1-5: Expected competency
+  advancedRating: v.number(),      // 1-5: Above average threshold
+
+  // Optional descriptors
+  notes: v.optional(v.string()),
+
+  // Admin management
+  createdBy: v.optional(v.string()), // Platform admin userId
+  updatedBy: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_skillDefinitionId", ["skillDefinitionId"])
+  .index("by_sportCode", ["sportCode"])
+  .index("by_sportCode_and_ageGroup", ["sportCode", "ageGroupCode"])
+  .index("by_skill_and_ageGroup", ["skillDefinitionId", "ageGroupCode"]),
+
+// Platform-level injury records (visible across all enrollments)
+// Safety-first: all orgs should see active injuries
+playerInjuries: defineTable({
+  playerIdentityId: v.id("playerIdentities"),
+
+  // Injury details
+  injuryType: v.string(),
+  bodyPart: v.string(),
+  dateOccurred: v.string(),
+  dateReported: v.string(),
+  severity: v.union(v.literal("Minor"), v.literal("Moderate"), v.literal("Severe")),
+  status: v.union(v.literal("Active"), v.literal("Recovering"), v.literal("Healed")),
+  description: v.string(),
+  treatment: v.string(),
+  expectedReturn: v.optional(v.string()),
+  actualReturn: v.optional(v.string()),
+
+  // Context: Where did it occur?
+  occurredDuringOrgId: v.optional(v.string()),     // Which org's activity
+  occurredDuringSport: v.optional(v.string()),     // Which sport
+  occurredDuringActivity: v.optional(v.union(
+    v.literal("training"),
+    v.literal("match"),
+    v.literal("other")
+  )),
+
+  // Return to play protocol (universal across orgs)
+  returnToPlayProtocol: v.array(v.object({
+    id: v.string(),
+    description: v.string(),
+    completed: v.boolean(),
+    completedDate: v.optional(v.string()),
+    completedByOrgId: v.optional(v.string()),
+  })),
+
+  // Visibility control
+  visibleToAllOrgs: v.boolean(),  // Default true - safety first
+
+  // Metadata
+  reportedByUserId: v.optional(v.string()),
+  reportedByOrgId: v.optional(v.string()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+  .index("by_playerIdentityId", ["playerIdentityId"])
+  .index("by_status", ["status"])
+  .index("by_player_and_status", ["playerIdentityId", "status"]),
+
+// Org-specific injury notes/updates
+// Each org can add their own observations while seeing the shared injury record
+orgInjuryNotes: defineTable({
+  injuryId: v.id("playerInjuries"),
+  organizationId: v.string(),
+
+  // Coach notes specific to this org's context
+  note: v.string(),
+  addedBy: v.string(),           // userId
+  addedByRole: v.string(),       // "coach", "admin"
+  addedAt: v.number(),
+})
+  .index("by_injuryId", ["injuryId"])
+  .index("by_organizationId", ["organizationId"]),
 ```
 
 ### 9.3 Backend Functions to Create
@@ -1058,6 +1147,36 @@ skillAssessments: defineTable({
 | `getAssessmentsBySeason` | Query | Get all assessments for a season |
 | `calculateSkillProgress` | Query | Calculate improvement over time |
 
+**File:** `packages/backend/convex/models/skillBenchmarks.ts`
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `getBenchmarksForSport` | Query | Get all benchmarks for a sport |
+| `getBenchmarkForSkillAndAge` | Query | Get benchmark for specific skill+age |
+| `setBenchmark` | Mutation | Set/update a benchmark (platform admin) |
+| `importBenchmarks` | Mutation | Bulk import benchmarks from data |
+| `comparePlayerToBenchmark` | Query | Compare player ratings to benchmarks |
+| `generateScorecard` | Query | Generate full scorecard with comparisons |
+
+**File:** `packages/backend/convex/models/playerInjuries.ts`
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `reportInjury` | Mutation | Report a new injury |
+| `getInjuriesForPlayer` | Query | Get all injuries for a player identity |
+| `getActiveInjuriesForPlayer` | Query | Get only active/recovering injuries |
+| `updateInjuryStatus` | Mutation | Update injury status |
+| `updateReturnToPlay` | Mutation | Update return-to-play protocol |
+| `getInjuriesVisibleToOrg` | Query | Get injuries visible to an org |
+
+**File:** `packages/backend/convex/models/orgInjuryNotes.ts`
+
+| Function | Type | Purpose |
+|----------|------|---------|
+| `addInjuryNote` | Mutation | Add org-specific note to injury |
+| `getNotesForInjury` | Query | Get all notes for an injury |
+| `getNotesForOrg` | Query | Get all injury notes added by an org |
+
 ### 9.4 Success Criteria
 
 | # | Criterion | Test Method |
@@ -1069,15 +1188,28 @@ skillAssessments: defineTable({
 | 5 | Latest ratings denormalized | `currentSkillRatings` updated |
 | 6 | Multi-sport works | Same player, different sport passports |
 | 7 | Progress calculation works | Show improvement over time |
+| 8 | Can set benchmarks | Platform admin sets benchmark |
+| 9 | Can compare to benchmark | Query shows player vs benchmark |
+| 10 | Can import benchmarks | Bulk import from data works |
+| 11 | Can report injury | Create injury for player identity |
+| 12 | Injury visible cross-org | Injury created in org A visible in org B |
+| 13 | Org-specific notes work | Each org can add own notes |
+| 14 | Return-to-play tracking | Protocol steps can be completed |
 
 ### 9.5 Deliverables Checklist
 
 - [ ] Schema updated with sportPassports and skillAssessments
+- [ ] Schema updated with skillBenchmarks
+- [ ] Schema updated with playerInjuries and orgInjuryNotes
 - [ ] `sportPassports.ts` model file created
 - [ ] `skillAssessments.ts` model file created
+- [ ] `skillBenchmarks.ts` model file created
+- [ ] `playerInjuries.ts` model file created
+- [ ] `orgInjuryNotes.ts` model file created
 - [ ] Skill assessment recording works
-- [ ] History queries work
-- [ ] All 7 success criteria pass
+- [ ] Benchmark comparison works
+- [ ] Injury cross-org visibility works
+- [ ] All 14 success criteria pass
 - [ ] Progress log updated
 
 ---

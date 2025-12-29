@@ -123,6 +123,10 @@ export default function OrgSettingsPage() {
   const [socialLinkedin, setSocialLinkedin] = useState("");
   const [savingSocial, setSavingSocial] = useState(false);
 
+  // Supported sports state
+  const [selectedSports, setSelectedSports] = useState<string[]>([]);
+  const [savingSports, setSavingSports] = useState(false);
+
   // Owner transfer state
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [selectedNewOwner, setSelectedNewOwner] = useState<string | null>(null);
@@ -142,11 +146,17 @@ export default function OrgSettingsPage() {
   const updateOrganizationSocialLinks = useMutation(
     api.models.organizations.updateOrganizationSocialLinks
   );
+  const updateOrganizationSports = useMutation(
+    api.models.organizations.updateOrganizationSports
+  );
 
-  // Query for org data including social links
+  // Query for org data including social links and supported sports
   const orgData = useQuery(api.models.organizations.getOrganization, {
     organizationId: orgId,
   });
+
+  // Query for available sports
+  const availableSports = useQuery(api.models.referenceData.getSports, {});
 
   // Deletion request queries and mutations
   const deletionRequest = useQuery(
@@ -194,7 +204,7 @@ export default function OrgSettingsPage() {
     loadOrg();
   }, [orgId]);
 
-  // Populate social links from Convex query
+  // Populate social links and supported sports from Convex query
   useEffect(() => {
     if (orgData) {
       setWebsite(orgData.website || "");
@@ -202,6 +212,7 @@ export default function OrgSettingsPage() {
       setSocialTwitter(orgData.socialLinks?.twitter || "");
       setSocialInstagram(orgData.socialLinks?.instagram || "");
       setSocialLinkedin(orgData.socialLinks?.linkedin || "");
+      setSelectedSports(orgData.supportedSports || []);
     }
   }, [orgData]);
 
@@ -292,6 +303,24 @@ export default function OrgSettingsPage() {
       toast.error((error as Error)?.message || "Failed to update social links");
     } finally {
       setSavingSocial(false);
+    }
+  };
+
+  const handleSaveSports = async () => {
+    setSavingSports(true);
+    try {
+      await updateOrganizationSports({
+        organizationId: orgId,
+        supportedSports: selectedSports,
+      });
+      toast.success("Supported sports updated successfully!");
+    } catch (error) {
+      console.error("Error updating supported sports:", error);
+      toast.error(
+        (error as Error)?.message || "Failed to update supported sports"
+      );
+    } finally {
+      setSavingSports(false);
     }
   };
 
@@ -1007,6 +1036,101 @@ export default function OrgSettingsPage() {
                 </>
               )}
             </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Supported Sports - Only for owners and admins */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Supported Sports
+            </CardTitle>
+            <CardDescription>
+              Select the sports your organization supports. Teams will default
+              to these sports when created.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-2 sm:grid-cols-2">
+              {availableSports?.map((sport) => (
+                <label
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border bg-background p-3 hover:bg-muted/50"
+                  htmlFor={`settings-sport-${sport.code}`}
+                  key={sport.code}
+                >
+                  <input
+                    checked={selectedSports.includes(sport.code)}
+                    className="h-4 w-4"
+                    disabled={savingSports}
+                    id={`settings-sport-${sport.code}`}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedSports([...selectedSports, sport.code]);
+                      } else {
+                        setSelectedSports(
+                          selectedSports.filter((s) => s !== sport.code)
+                        );
+                      }
+                    }}
+                    type="checkbox"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">{sport.name}</div>
+                    {sport.governingBody && (
+                      <div className="text-muted-foreground text-xs">
+                        {sport.governingBody}
+                      </div>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            {selectedSports.length > 0 && (
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <Label className="mb-3 block text-sm">Selected Sports</Label>
+                <div className="flex flex-wrap gap-2">
+                  {selectedSports.map((sportCode) => {
+                    const sport = availableSports?.find(
+                      (s) => s.code === sportCode
+                    );
+                    return (
+                      <Badge key={sportCode} variant="secondary">
+                        {sport?.name || sportCode}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <Button
+              disabled={savingSports}
+              onClick={handleSaveSports}
+              type="button"
+            >
+              {savingSports ? (
+                <>
+                  <Save className="mr-2 h-4 w-4 animate-pulse" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Save Supported Sports
+                </>
+              )}
+            </Button>
+
+            <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+              <p className="text-blue-900 text-sm">
+                Teams created in this organization will automatically default to
+                the first selected sport.
+              </p>
+            </div>
           </CardContent>
         </Card>
       )}

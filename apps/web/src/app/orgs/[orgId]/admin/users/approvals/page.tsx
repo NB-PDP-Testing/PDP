@@ -45,16 +45,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 
-// Types for smart match results
+// Types for smart match results (from guardian identity system)
 interface SmartMatch {
-  _id: string;
+  playerIdentityId: string;
   name: string;
   ageGroup: string;
-  sport: string;
+  dateOfBirth: string;
   matchScore: number;
   matchReasons: string[];
   confidence: "high" | "medium" | "low" | "none";
-  existingParentEmail: string | null;
+  existingGuardianEmail: string | null;
+  isAlreadyLinked: boolean;
 }
 
 // Confidence badge colors
@@ -161,9 +162,9 @@ export default function JoinRequestApprovalsPage() {
   };
 
   // Fetch smart matches for the selected parent request
-  // Now passes all available data for better matching
+  // Now uses new guardian identity system
   const smartMatches = useQuery(
-    api.models.players.getSmartMatchesForParent,
+    api.models.guardianPlayerLinks.getSmartMatchesForGuardian,
     selectedRequest &&
       (selectedRequest.requestedFunctionalRoles?.includes("parent") ||
         selectedRequest.requestedRole === "parent")
@@ -995,12 +996,16 @@ export default function JoinRequestApprovalsPage() {
                       {highConfidenceMatches.map((match) => (
                         <div
                           className="flex cursor-pointer items-center gap-3 rounded p-2 hover:bg-green-100"
-                          key={match._id}
-                          onClick={() => togglePlayer(match._id)}
+                          key={match.playerIdentityId}
+                          onClick={() => togglePlayer(match.playerIdentityId)}
                         >
                           <Checkbox
-                            checked={selectedPlayerIds.includes(match._id)}
-                            onCheckedChange={() => togglePlayer(match._id)}
+                            checked={selectedPlayerIds.includes(
+                              match.playerIdentityId
+                            )}
+                            onCheckedChange={() =>
+                              togglePlayer(match.playerIdentityId)
+                            }
                           />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
@@ -1008,15 +1013,15 @@ export default function JoinRequestApprovalsPage() {
                               {getConfidenceBadge(match.confidence)}
                             </div>
                             <p className="text-muted-foreground text-xs">
-                              {match.ageGroup} • {match.sport}
+                              {match.ageGroup}
                             </p>
                             <p className="text-green-700 text-xs">
                               {match.matchReasons.join(" • ")}
                             </p>
                           </div>
-                          {selectedPlayerIds.includes(match._id) && (
-                            <Check className="h-4 w-4 text-green-600" />
-                          )}
+                          {selectedPlayerIds.includes(
+                            match.playerIdentityId
+                          ) && <Check className="h-4 w-4 text-green-600" />}
                         </div>
                       ))}
                     </div>
@@ -1043,12 +1048,16 @@ export default function JoinRequestApprovalsPage() {
                         {otherMatches.map((match) => (
                           <div
                             className="flex cursor-pointer items-center gap-3 rounded p-2 hover:bg-muted"
-                            key={match._id}
-                            onClick={() => togglePlayer(match._id)}
+                            key={match.playerIdentityId}
+                            onClick={() => togglePlayer(match.playerIdentityId)}
                           >
                             <Checkbox
-                              checked={selectedPlayerIds.includes(match._id)}
-                              onCheckedChange={() => togglePlayer(match._id)}
+                              checked={selectedPlayerIds.includes(
+                                match.playerIdentityId
+                              )}
+                              onCheckedChange={() =>
+                                togglePlayer(match.playerIdentityId)
+                              }
                             />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
@@ -1058,15 +1067,15 @@ export default function JoinRequestApprovalsPage() {
                                 {getConfidenceBadge(match.confidence)}
                               </div>
                               <p className="text-muted-foreground text-xs">
-                                {match.ageGroup} • {match.sport}
+                                {match.ageGroup}
                               </p>
                               <p className="text-muted-foreground text-xs">
                                 {match.matchReasons.join(" • ")}
                               </p>
                             </div>
-                            {selectedPlayerIds.includes(match._id) && (
-                              <Check className="h-4 w-4 text-green-600" />
-                            )}
+                            {selectedPlayerIds.includes(
+                              match.playerIdentityId
+                            ) && <Check className="h-4 w-4 text-green-600" />}
                           </div>
                         ))}
                       </div>

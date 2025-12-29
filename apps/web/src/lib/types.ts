@@ -40,7 +40,7 @@ export type FunctionalRole = "coach" | "parent" | "admin";
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 // Team gender
-export type TeamGender = "Boys" | "Girls" | "Mixed";
+export type TeamGender = "Male" | "Female" | "Mixed" | "Boys" | "Girls";
 
 // Parent/Guardian information
 export interface ParentGuardian {

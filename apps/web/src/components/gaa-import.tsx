@@ -1,6 +1,7 @@
 // disable biome in this file
 // biome-ignore-all lint: reason for disabling
 
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import {
   AlertCircle,
   CheckCircle,
@@ -14,8 +15,9 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { Player, ReviewStatus, Team } from "@/lib/types";
+import type { ReviewStatus, Team } from "@/lib/types";
 
 // Skills type for GAA Football
 type GAASkills = {
@@ -102,7 +104,7 @@ type TeamCreateData = {
   name: string;
   sport: string;
   ageGroup: string;
-  gender: "Boys" | "Girls" | "Mixed";
+  gender: "male" | "female" | "mixed";
   season: string;
 };
 
@@ -111,10 +113,71 @@ type DetectedTeam = {
   name: string;
   sport: string;
   ageGroup: string;
-  gender: "Boys" | "Girls" | "Mixed";
+  gender: "male" | "female" | "mixed";
   season: string;
   playerCount: number;
   existingTeamId?: string; // If matched to existing team
+};
+
+// Type for identity player (from new enrollment system)
+type IdentityPlayer = {
+  _id: string;
+  name: string;
+  ageGroup: string;
+  sport?: string;
+  gender: string;
+  teamId: string;
+  organizationId: string;
+  season: string;
+  dateOfBirth?: string;
+  parentFirstName?: string;
+  parentSurname?: string;
+  lastReviewDate?: string;
+  playerIdentityId?: string;
+  enrollmentId?: string;
+};
+
+// Type for batch import result
+type BatchImportResult = {
+  totalProcessed: number;
+  playersCreated: number;
+  playersReused: number;
+  guardiansCreated: number;
+  guardiansReused: number;
+  enrollmentsCreated: number;
+  enrollmentsReused: number;
+  errors: string[];
+  // Player identity IDs with their original index for team assignment
+  playerIdentities: Array<{
+    index: number;
+    playerIdentityId: Id<"playerIdentities">;
+    wasCreated: boolean;
+  }>;
+};
+
+// Type for player import data (new identity system)
+type IdentityImportPlayer = {
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  gender: "male" | "female" | "other";
+  ageGroup: string;
+  season: string;
+  address?: string;
+  town?: string;
+  postcode?: string;
+  country?: string;
+  parentFirstName?: string;
+  parentLastName?: string;
+  parentEmail?: string;
+  parentPhone?: string;
+  parentRelationship?:
+    | "mother"
+    | "father"
+    | "guardian"
+    | "grandparent"
+    | "other";
+  teamId?: string;
 };
 
 const GAAMembershipWizard = ({
@@ -122,74 +185,26 @@ const GAAMembershipWizard = ({
   onComplete,
   existingPlayers,
   existingTeams,
-  createPlayerMutation,
-  bulkImportPlayersMutation,
+  batchImportWithIdentity,
+  bulkAddToTeam,
   createTeamMutation,
-  deletePlayerMutation,
+  organizationId,
 }: {
   onClose: () => void;
   onComplete: () => Promise<void>;
-  existingPlayers: Player[];
+  existingPlayers: IdentityPlayer[];
   existingTeams: Team[];
-  createPlayerMutation: (data: PlayerCreateData) => Promise<string>;
-  bulkImportPlayersMutation: (data: {
-    players: Array<{
-      name: string;
-      ageGroup: string;
-      sport: string;
-      gender: string;
-      organizationId: string;
-      season: string;
-      teamId: string;
-      completionDate?: string;
-      dateOfBirth?: string;
-      address?: string;
-      town?: string;
-      postcode?: string;
-      parentFirstName?: string;
-      parentSurname?: string;
-      parentEmail?: string;
-      parentPhone?: string;
-      skills?: Record<string, number>;
-      familyId?: string;
-      inferredParentFirstName?: string;
-      inferredParentSurname?: string;
-      inferredParentEmail?: string;
-      inferredParentPhone?: string;
-      inferredFromSource?: string;
-      createdFrom?: string;
-      coachNotes?: string;
-      reviewedWith?: {
-        coach: boolean;
-        parent: boolean;
-        player: boolean;
-        forum: boolean;
-      };
-      attendance?: { training: string; matches: string };
-      positions?: {
-        favourite: string;
-        leastFavourite: string;
-        coachesPref: string;
-        dominantSide: string;
-        goalkeeper: string;
-      };
-      fitness?: {
-        pushPull: string;
-        core: string;
-        endurance: string;
-        speed: string;
-        broncoBeep: string;
-      };
-      injuryNotes?: string;
-      otherInterests?: string;
-      communications?: string;
-      actions?: string;
-      parentNotes?: string;
-      playerNotes?: string;
-    }>;
-  }) => Promise<{ created: number; playerIds: string[] }>;
+  batchImportWithIdentity: (args: {
+    organizationId: string;
+    sportCode?: string;
+    players: IdentityImportPlayer[];
+  }) => Promise<BatchImportResult>;
+  bulkAddToTeam: (
+    teamId: string,
+    playerIdentityIds: Id<"playerIdentities">[]
+  ) => Promise<{ added: number; skipped: number }>;
   createTeamMutation: (data: TeamCreateData) => Promise<string>;
-  deletePlayerMutation: (data: { id: string }) => Promise<void>;
+  organizationId: string;
 }) => {
   const [step, setStep] = useState(1);
   const [csvData, setCsvData] = useState("");
@@ -208,13 +223,21 @@ const GAAMembershipWizard = ({
     skipped?: number;
     replaced?: number;
     teamsCreated?: number;
+    guardiansCreated?: number;
+    guardiansReused?: number;
+    guardiansLinkedToVerifiedAccounts?: number;
+    guardiansAwaitingClaim?: number;
   } | null>(null);
   const [duplicates, setDuplicates] = useState<
-    Array<{ index: number; member: any; existingPlayer: Player }>
+    Array<{ index: number; member: any; existingPlayer: IdentityPlayer }>
   >([]);
   const [duplicateResolutions, setDuplicateResolutions] = useState<
     Record<number, "replace" | "keep" | "skip">
   >({});
+  const [duplicateSearch, setDuplicateSearch] = useState("");
+  const [selectedDuplicates, setSelectedDuplicates] = useState<Set<number>>(
+    new Set()
+  );
   const [importFilter, setImportFilter] = useState<"all" | "youth" | "senior">(
     "all"
   );
@@ -270,10 +293,10 @@ const GAAMembershipWizard = ({
     members.forEach((member) => {
       const normalizedGender =
         member.Gender?.toUpperCase() === "MALE"
-          ? "Boys"
+          ? "male"
           : member.Gender?.toUpperCase() === "FEMALE"
-            ? "Girls"
-            : "Mixed";
+            ? "female"
+            : "mixed";
 
       const teamKey = getTeamKey({
         sport: "GAA Football",
@@ -284,8 +307,8 @@ const GAAMembershipWizard = ({
 
       const teamName =
         member.AgeGroup === "Senior"
-          ? `Senior ${normalizedGender === "Boys" ? "Men" : normalizedGender === "Girls" ? "Women" : "Mixed"}`
-          : `${member.AgeGroup} ${normalizedGender}`;
+          ? `Senior ${normalizedGender === "male" ? "Men" : normalizedGender === "female" ? "Women" : "Mixed"}`
+          : `${member.AgeGroup} ${normalizedGender === "male" ? "Male" : normalizedGender === "female" ? "Female" : "Mixed"}`;
 
       if (teamMap.has(teamKey)) {
         const existing = teamMap.get(teamKey)!;
@@ -304,7 +327,7 @@ const GAAMembershipWizard = ({
           name: teamName,
           sport: "GAA Football",
           ageGroup: member.AgeGroup,
-          gender: normalizedGender as "Boys" | "Girls" | "Mixed",
+          gender: normalizedGender as "male" | "female" | "mixed",
           season: "2025",
           playerCount: 1,
           existingTeamId: existingTeam?._id,
@@ -721,10 +744,6 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
 
         // For youth members, try to match with parent records
         if (isYouth) {
-          // Map contact fields for youth
-          row.ParentEmail = row.Email || "";
-          row.ParentPhone = row.Phone || "";
-
           // Try to find matching parent record
           let parentRecord = null;
           const childAddressKey =
@@ -767,12 +786,17 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
             parentRecord = parentsByAddress.get(childAddressKey);
           }
 
-          // If we found a parent record, use their name
+          // If we found a parent record, use their contact info
           if (parentRecord) {
             row.ParentFirstName = parentRecord.FirstName || "";
             row.ParentSurname = parentRecord.Surname || "";
+            // ✅ FIX: Use PARENT's email and phone, not child's
+            row.ParentEmail = parentRecord.Email || "";
+            row.ParentPhone = parentRecord.Phone || "";
           } else {
-            // Fallback: infer surname from child's surname
+            // Fallback: use child's contact info and infer surname from child
+            row.ParentEmail = row.Email || "";
+            row.ParentPhone = row.Phone || "";
             row.ParentSurname = row.Surname || "";
           }
         } else {
@@ -792,13 +816,68 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
     return members;
   };
 
+  // Helper: Get team name by team ID
+  const getTeamNameById = (teamId: string | undefined): string => {
+    if (!teamId) return "No Team";
+    const team = localTeams.find((t) => t._id === teamId);
+    return team ? `${team.name} (${team.ageGroup} ${team.gender})` : teamId;
+  };
+
+  // Helper: Filter duplicates by search term
+  const filteredDuplicates = duplicates.filter((dup) => {
+    if (!duplicateSearch) return true;
+    const search = duplicateSearch.toLowerCase();
+    const memberName = dup.member.FullName?.toLowerCase() || "";
+    const memberDOB = dup.member.DateOfBirth?.toLowerCase() || "";
+    const existingName = dup.existingPlayer.name?.toLowerCase() || "";
+    const teamName = getTeamNameById(dup.existingPlayer.teamId).toLowerCase();
+    return (
+      memberName.includes(search) ||
+      memberDOB.includes(search) ||
+      existingName.includes(search) ||
+      teamName.includes(search)
+    );
+  });
+
+  // Helper: Toggle all duplicates selection
+  const toggleSelectAll = () => {
+    if (selectedDuplicates.size === filteredDuplicates.length) {
+      setSelectedDuplicates(new Set());
+    } else {
+      setSelectedDuplicates(
+        new Set(filteredDuplicates.map((dup) => dup.index))
+      );
+    }
+  };
+
+  // Helper: Toggle individual duplicate selection
+  const toggleDuplicateSelection = (index: number) => {
+    const newSelected = new Set(selectedDuplicates);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    setSelectedDuplicates(newSelected);
+  };
+
+  // Helper: Apply bulk decision to selected duplicates
+  const applyBulkDecision = (decision: "replace" | "keep" | "skip") => {
+    const newResolutions = { ...duplicateResolutions };
+    selectedDuplicates.forEach((index) => {
+      newResolutions[index] = decision;
+    });
+    setDuplicateResolutions(newResolutions);
+    setSelectedDuplicates(new Set()); // Clear selection after applying
+  };
+
   const checkForDuplicates = async (members: any[]) => {
     // Use existing players from Convex (passed as prop)
     // Find duplicates based on name + date of birth match
     const foundDuplicates: Array<{
       index: number;
       member: any;
-      existingPlayer: Player;
+      existingPlayer: IdentityPlayer;
     }> = [];
 
     members.forEach((member, index) => {
@@ -998,10 +1077,10 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
       data.forEach((member, idx) => {
         const normalizedGender =
           member.Gender?.toUpperCase() === "MALE"
-            ? "Boys"
+            ? "male"
             : member.Gender?.toUpperCase() === "FEMALE"
-              ? "Girls"
-              : "Mixed";
+              ? "female"
+              : "mixed";
         const teamId = getTeamIdByProperties(
           "GAA Football",
           member.AgeGroup,
@@ -1034,8 +1113,10 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
   const handleCreateMissingTeams = async () => {
     setCreatingTeams(true);
     const teamsCreated: Team[] = [];
+    const teamIdMap = new Map<string, string>(); // Track created team IDs by teamKey
 
     try {
+      // ✅ FIX #1: Create teams and track IDs
       for (const team of detectedTeams) {
         const teamKey = getTeamKey(team);
         if (teamsToCreate.has(teamKey) && !team.existingTeamId) {
@@ -1048,11 +1129,14 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
             season: team.season,
           });
 
-          // Add to local teams
+          // Track the created team ID
+          teamIdMap.set(teamKey, teamId);
+
+          // Add to local teams array
           teamsCreated.push({
             _id: teamId,
             name: team.name,
-            organizationId: "", // Will be set by the backend
+            organizationId: organizationId,
             createdAt: Date.now(),
             sport: team.sport,
             ageGroup: team.ageGroup,
@@ -1061,38 +1145,68 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
             isActive: true,
           });
 
-          // Update detected team with new ID
-          team.existingTeamId = teamId;
+          console.log(`✅ Created team: ${team.name} (ID: ${teamId})`);
         }
       }
 
-      // Update local teams state
-      setLocalTeams([...localTeams, ...teamsCreated]);
-      setDetectedTeams([...detectedTeams]);
+      // ✅ FIX #2: Update detectedTeams immutably with new team IDs
+      const updatedDetectedTeams = detectedTeams.map((team) => {
+        const teamKey = getTeamKey(team);
+        const newTeamId = teamIdMap.get(teamKey);
+        if (newTeamId) {
+          return { ...team, existingTeamId: newTeamId };
+        }
+        return team;
+      });
 
-      // Now assign teams to members
+      // ✅ FIX #3: Update state with new immutable array
+      const updatedLocalTeams = [...localTeams, ...teamsCreated];
+      setLocalTeams(updatedLocalTeams);
+      setDetectedTeams(updatedDetectedTeams);
+
+      console.log(
+        `📊 Team creation complete: ${teamsCreated.length} teams created`
+      );
+      console.log(`📊 Total teams available: ${updatedLocalTeams.length}`);
+
+      // ✅ FIX #4: Assign teams using the updated localTeams
       const assignments: Record<string, string> = {};
+      let successfulAssignments = 0;
+      let failedAssignments = 0;
+
       parsedMembers.forEach((member, idx) => {
         const normalizedGender =
           member.Gender?.toUpperCase() === "MALE"
-            ? "Boys"
+            ? "male"
             : member.Gender?.toUpperCase() === "FEMALE"
-              ? "Girls"
-              : "Mixed";
+              ? "female"
+              : "mixed";
 
-        // Find the team in detected teams
-        const matchedTeam = detectedTeams.find(
+        // ✅ FIX #5: Use getTeamIdByProperties with updated localTeams
+        // Note: This will work immediately because we have updatedLocalTeams in scope
+        const teamId = updatedLocalTeams.find(
           (t) =>
             t.sport === "GAA Football" &&
             t.ageGroup === member.AgeGroup &&
             t.gender === normalizedGender &&
             t.season === "2025"
-        );
+        )?._id;
 
-        if (matchedTeam?.existingTeamId) {
-          assignments[idx] = matchedTeam.existingTeamId;
+        if (teamId) {
+          assignments[idx] = teamId;
+          successfulAssignments++;
+        } else {
+          console.warn(
+            `⚠️ No team found for ${member.FullName} (${member.AgeGroup} ${normalizedGender})`
+          );
+          failedAssignments++;
         }
       });
+
+      console.log(
+        `📊 Team assignments: ${successfulAssignments} successful, ${failedAssignments} failed`
+      );
+
       setTeamAssignments(assignments);
 
       // Check for duplicates
@@ -1131,120 +1245,23 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
   const createPassports = async () => {
     setImporting(true);
     let skipped = 0;
-    let replaced = 0;
     const familyMap = new Map<string, string>();
-
-    // Helper to convert GAASkills to Record<string, number>
-    const convertSkillsToRecord = (
-      gaaSkills: GAASkills
-    ): Record<string, number> => {
-      const result: Record<string, number> = {};
-      for (const [key, value] of Object.entries(gaaSkills)) {
-        if (typeof value === "number") {
-          result[key] = value;
-        }
-      }
-      return result;
-    };
 
     console.log("🔄 Phase 1: Processing duplicates...");
 
-    // Phase 1: Handle deletions for "replace" resolutions in parallel
-    const deletions = [];
+    // Phase 1: Count skipped players based on duplicate resolutions
     for (let i = 0; i < parsedMembers.length; i++) {
       const resolution = duplicateResolutions[i];
-
       if (resolution === "skip" || resolution === "keep") {
         skipped++;
-        continue;
-      }
-
-      if (resolution === "replace") {
-        const duplicate = duplicates.find((d) => d.index === i);
-        if (duplicate?.existingPlayer._id) {
-          deletions.push(
-            deletePlayerMutation({ id: duplicate.existingPlayer._id })
-              .then(() => {
-                replaced++;
-                console.log(`🗑️  Deleted: ${duplicate.existingPlayer.name}`);
-              })
-              .catch((error) => {
-                console.error(`❌ Delete failed:`, error);
-              })
-          );
-        }
       }
     }
 
-    if (deletions.length > 0) {
-      await Promise.all(deletions);
-      console.log(`✅ Deleted ${replaced} existing players`);
-    }
+    console.log("📋 Phase 2: Preparing player data for identity system...");
 
-    console.log("📋 Phase 2: Preparing player data...");
-
-    // Phase 2: Prepare all player data (no I/O, just data preparation)
-    const playersToCreate: Array<{
-      name: string;
-      ageGroup: string;
-      sport: string;
-      gender: string;
-      organizationId: string;
-      season: string;
-      teamId: string;
-      completionDate?: string;
-      dateOfBirth?: string;
-      address?: string;
-      town?: string;
-      postcode?: string;
-      parentFirstName?: string;
-      parentSurname?: string;
-      parentEmail?: string;
-      parentPhone?: string;
-      skills?: Record<string, number>;
-      familyId?: string;
-      inferredParentFirstName?: string;
-      inferredParentSurname?: string;
-      inferredParentEmail?: string;
-      inferredParentPhone?: string;
-      inferredFromSource?: string;
-      createdFrom?: string;
-      coachNotes?: string;
-      reviewedWith?: {
-        coach: boolean;
-        parent: boolean;
-        player: boolean;
-        forum: boolean;
-      };
-      attendance?: { training: string; matches: string };
-      positions?: {
-        favourite: string;
-        leastFavourite: string;
-        coachesPref: string;
-        dominantSide: string;
-        goalkeeper: string;
-      };
-      fitness?: {
-        pushPull: string;
-        core: string;
-        endurance: string;
-        speed: string;
-        broncoBeep: string;
-      };
-      injuryNotes?: string;
-      otherInterests?: string;
-      communications?: string;
-      actions?: string;
-      parentNotes?: string;
-      playerNotes?: string;
-    }> = [];
-
-    let familyCounter = 0;
-
-    // Get organizationId from the first team assignment
-    const firstTeamId = Object.values(teamAssignments)[0];
-    const firstTeam = localTeams.find((t) => t._id === firstTeamId);
-    const organizationId = firstTeam?.organizationId || "";
+    // Phase 2: Prepare player data for the NEW identity system
+    const playersToImport: Array<IdentityImportPlayer & { teamId: string }> =
+      [];
 
     for (let i = 0; i < parsedMembers.length; i++) {
       const resolution = duplicateResolutions[i];
@@ -1256,154 +1273,150 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
 
       const member = parsedMembers[i];
 
-      // Create family ID
-      const address = (member.Address || "")
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "");
-      const postcode = (member.Postcode || "")
-        .toLowerCase()
-        .trim()
-        .replace(/\s+/g, "");
-      const familyKey = `${address}_${postcode}`;
-
-      let familyId = familyMap.get(familyKey);
-      if (!familyId) {
-        familyId = `family_${Date.now()}_${familyCounter++}`;
-        familyMap.set(familyKey, familyId);
-      }
-
-      // Determine skills based on strategy
-      let skills: Record<string, number>;
-      if (skillRatingStrategy === "blank") {
-        skills = {
-          soloing: 1,
-          kickingLong: 1,
-          kickingShort: 1,
-          freeTakingGround: 1,
-          freeTakingHand: 1,
-          handPassing: 1,
-          pickupToeLift: 1,
-          highCatching: 1,
-          tackling: 1,
-          positionalSense: 1,
-          tracking: 1,
-          decisionMaking: 1,
-          decisionSpeed: 1,
-          ballHandling: 1,
-          leftSide: 1,
-          rightSide: 1,
-        };
-      } else if (skillRatingStrategy === "middle") {
-        skills = {
-          soloing: 3,
-          kickingLong: 3,
-          kickingShort: 3,
-          freeTakingGround: 3,
-          freeTakingHand: 3,
-          handPassing: 3,
-          pickupToeLift: 3,
-          highCatching: 3,
-          tackling: 3,
-          positionalSense: 3,
-          tracking: 3,
-          decisionMaking: 3,
-          decisionSpeed: 3,
-          ballHandling: 3,
-          leftSide: 3,
-          rightSide: 3,
-        };
-      } else {
-        skills = convertSkillsToRecord(
-          getAgeAppropriateSkills(member.AgeGroup)
-        );
-      }
-
       const assignedTeamId = teamAssignments[i];
       if (!assignedTeamId) {
-        console.error(`❌ No team assigned for ${member.FullName}`);
+        console.error(
+          `❌ No team assigned for ${member.FullName} (${member.AgeGroup} ${member.Gender})`
+        );
+        console.error(
+          `   This player will be skipped. Please ensure teams exist for all age groups.`
+        );
         skipped++;
         continue;
       }
 
-      playersToCreate.push({
-        name: member.FullName,
+      // Parse name into first and last
+      const nameParts = member.FullName.split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || nameParts[0] || "";
+
+      // Convert gender to identity system format
+      const genderRaw = member.Gender?.toUpperCase();
+      const gender: "male" | "female" | "other" =
+        genderRaw === "MALE"
+          ? "male"
+          : genderRaw === "FEMALE"
+            ? "female"
+            : "other";
+
+      // Build the identity import data
+      playersToImport.push({
+        firstName,
+        lastName,
+        dateOfBirth: member.DateOfBirth || "",
+        gender,
         ageGroup: member.AgeGroup,
-        sport: "GAA Football",
-        gender: member.Gender,
-        organizationId,
-        teamId: assignedTeamId,
-        completionDate: new Date().toISOString().split("T")[0],
         season: "2025",
-        reviewedWith: {
-          coach: false,
-          parent: false,
-          player: false,
-          forum: false,
-        },
-        attendance: { training: "", matches: "" },
-        injuryNotes: "",
-        skills,
-        positions: {
-          favourite: "",
-          leastFavourite: "",
-          coachesPref: "",
-          dominantSide: "",
-          goalkeeper: "",
-        },
-        fitness: {
-          pushPull: "",
-          core: "",
-          endurance: "",
-          speed: "",
-          broncoBeep: "",
-        },
-        otherInterests: "",
-        communications: "",
-        actions: "",
-        coachNotes: `Imported from membership database
-${member.ParentFirstName ? `Parent: ${member.ParentFirstName} ${member.ParentSurname}` : member.ParentSurname ? `Parent/Guardian: ${member.ParentSurname}` : "Parent: Unknown"}
-Contact: ${member.ParentEmail || "No email"}
-Phone: ${member.ParentPhone || "No phone"}
-Address: ${member.Address || ""}, ${member.Town || ""} ${member.Postcode || ""}`.trim(),
-        parentNotes: "",
-        playerNotes: "",
-        createdFrom: "GAA Membership Import",
-        familyId,
-        inferredParentFirstName: member.ParentFirstName || undefined,
-        inferredParentSurname: member.ParentSurname || undefined,
-        inferredParentEmail:
-          member.ParentEmail?.toLowerCase().trim() || undefined,
-        inferredParentPhone: member.ParentPhone || undefined,
-        inferredFromSource: `GAA Membership Import ${new Date().toISOString().split("T")[0]}`,
-        parentFirstName: member.ParentFirstName || undefined,
-        parentSurname: member.ParentSurname || undefined,
-        parentEmail: member.ParentEmail || undefined,
-        parentPhone: member.ParentPhone || undefined,
-        dateOfBirth: member.DateOfBirth || undefined,
         address: member.Address || undefined,
         town: member.Town || undefined,
         postcode: member.Postcode || undefined,
+        country: "Ireland",
+        parentFirstName: member.ParentFirstName || undefined,
+        parentLastName: member.ParentSurname || undefined,
+        parentEmail: member.ParentEmail?.toLowerCase().trim() || undefined,
+        parentPhone: member.ParentPhone || undefined,
+        parentRelationship: "guardian" as const,
+        teamId: assignedTeamId,
       });
     }
 
     console.log(
-      `📦 Prepared ${playersToCreate.length} players for bulk import`
+      `📦 Prepared ${playersToImport.length} players for identity import`
     );
 
-    // Phase 3: Bulk import all players at once!
+    // Phase 3: Import identities, guardians, and enrollments
     console.log(
-      `🚀 Phase 3: Bulk importing ${playersToCreate.length} players (single transaction)...`
+      `🚀 Phase 3: Importing ${playersToImport.length} player identities...`
     );
 
     try {
-      const result = await bulkImportPlayersMutation({
-        players: playersToCreate,
+      // Step 1: Batch import player identities, guardians, enrollments, AND sport passports
+      console.log("   (passports will be auto-created during enrollment)");
+      const importResult = await batchImportWithIdentity({
+        organizationId: organizationId,
+        sportCode: "gaa_football", // Auto-create passports during enrollment
+        players: playersToImport.map((p) => ({
+          firstName: p.firstName,
+          lastName: p.lastName,
+          dateOfBirth: p.dateOfBirth,
+          gender: p.gender,
+          ageGroup: p.ageGroup,
+          season: p.season,
+          address: p.address,
+          town: p.town,
+          postcode: p.postcode,
+          country: p.country,
+          parentFirstName: p.parentFirstName,
+          parentLastName: p.parentLastName,
+          parentEmail: p.parentEmail,
+          parentPhone: p.parentPhone,
+          parentRelationship: p.parentRelationship,
+        })),
       });
 
       console.log(
-        `✅ Bulk import complete! Created ${result.created} players with team assignments in a single transaction`
+        `✅ Identity import complete! Created ${importResult.playersCreated} players, reused ${importResult.playersReused}`
       );
+      console.log(
+        `   Guardians: ${importResult.guardiansCreated} created, ${importResult.guardiansReused} reused`
+      );
+      console.log(
+        `   Enrollments: ${importResult.enrollmentsCreated} created, ${importResult.enrollmentsReused} reused`
+      );
+
+      if (importResult.errors.length > 0) {
+        console.warn("⚠️ Import errors:", importResult.errors);
+      }
+
+      // Step 2: Add players to teams (grouped by teamId)
+      console.log("📋 Phase 4: Team assignments...");
+
+      // Group players by team using the returned playerIdentities and original playersToImport
+      const playersByTeam = new Map<string, Id<"playerIdentities">[]>();
+
+      for (const identity of importResult.playerIdentities) {
+        const originalPlayer = playersToImport[identity.index];
+        if (originalPlayer?.teamId) {
+          const teamPlayers = playersByTeam.get(originalPlayer.teamId) || [];
+          teamPlayers.push(identity.playerIdentityId);
+          playersByTeam.set(originalPlayer.teamId, teamPlayers);
+        }
+      }
+
+      // Add players to each team (PARALLEL)
+      let totalTeamAssignments = 0;
+
+      console.log(
+        `   Assigning players to ${playersByTeam.size} teams in parallel...`
+      );
+
+      const teamAssignmentPromises = Array.from(playersByTeam.entries()).map(
+        async ([teamId, playerIds]) => {
+          try {
+            const teamResult = await bulkAddToTeam(teamId, playerIds);
+            console.log(
+              `   Team ${getTeamNameById(teamId)}: ${teamResult.added} added, ${teamResult.skipped} already on team`
+            );
+            return { success: true, added: teamResult.added };
+          } catch (error) {
+            console.error(
+              `   ❌ Failed to add players to team ${getTeamNameById(teamId)}:`,
+              error
+            );
+            return { success: false, added: 0 };
+          }
+        }
+      );
+
+      const teamResults = await Promise.all(teamAssignmentPromises);
+      totalTeamAssignments = teamResults.reduce((sum, r) => sum + r.added, 0);
+
+      console.log(
+        `✅ Team assignments complete! ${totalTeamAssignments} players assigned to ${playersByTeam.size} teams`
+      );
+
+      // Sport passports were auto-created during enrollment (Phase 3)
+      console.log("✅ Sport passports were auto-created during enrollment!");
 
       // Log audit
       const filterDesc =
@@ -1413,35 +1426,65 @@ Address: ${member.Address || ""}, ${member.Town || ""} ${member.Postcode || ""}`
             ? "youth players only"
             : "senior players only";
 
-      console.log("[AUDIT] BULK_IMPORT", {
-        message: `Bulk imported ${result.created} player passports from GAA membership database (${filterDesc})`,
+      console.log("[AUDIT] IDENTITY_IMPORT", {
+        message: `Imported ${importResult.playersCreated} player identities from GAA membership database (${filterDesc})`,
         user: "Admin",
-        recordCount: result.created,
+        playersCreated: importResult.playersCreated,
+        playersReused: importResult.playersReused,
+        guardiansCreated: importResult.guardiansCreated,
+        enrollmentsCreated: importResult.enrollmentsCreated,
+        teamAssignments: totalTeamAssignments,
+        passportsCreated: importResult.enrollmentsCreated, // Auto-created during enrollment
         familyCount: familyMap.size,
-        playerIds: result.playerIds,
         fileName: "membership_import.csv",
         metadata: {
-          importSource: "GAA Membership Wizard - Bulk Import",
-          skillRatingStrategy,
+          importSource: "GAA Membership Wizard - Identity Import",
           importFilter,
-          teams: Array.from(new Set(Object.values(teamAssignments))),
+          organizationId,
         },
         priority: "high",
       });
 
       console.log(
-        `🎉 Import complete! Created: ${result.created}, Skipped: ${skipped}, Replaced: ${replaced}`
+        `🎉 Import complete! Players: ${importResult.playersCreated} created, ${importResult.playersReused} reused | Teams: ${totalTeamAssignments} assigned | Passports: ${importResult.enrollmentsCreated} auto-created | Skipped: ${skipped}`
       );
 
+      // ✅ FIX #6: Warn user if players were skipped due to missing teams
+      if (skipped > 0) {
+        const playersWithoutTeams = parsedMembers.filter(
+          (_, idx) => !teamAssignments[idx]
+        );
+        const missingTeamInfo = playersWithoutTeams
+          .map((m) => `${m.AgeGroup} ${m.Gender}`)
+          .filter((v, i, a) => a.indexOf(v) === i) // unique
+          .join(", ");
+
+        console.warn(
+          `⚠️ WARNING: ${skipped} players were skipped due to missing team assignments`
+        );
+        console.warn(`   Missing teams for: ${missingTeamInfo}`);
+
+        alert(
+          `⚠️ Import completed with warnings:\n\n` +
+            `${skipped} player(s) were skipped because no teams exist for:\n${missingTeamInfo}\n\n` +
+            `Please create teams for these age groups and re-import these players.`
+        );
+      }
+
       setResults({
-        created: result.created,
+        created: importResult.playersCreated,
         families: familyMap.size,
         skipped,
-        replaced,
+        replaced: importResult.playersReused,
+        teamsCreated: playersByTeam.size,
+        guardiansCreated: importResult.guardiansCreated,
+        guardiansReused: importResult.guardiansReused,
+        guardiansLinkedToVerifiedAccounts:
+          importResult.guardiansLinkedToVerifiedAccounts,
+        guardiansAwaitingClaim: importResult.guardiansAwaitingClaim,
       });
     } catch (error) {
-      console.error("❌ Bulk import failed:", error);
-      // Show error to user
+      console.error("❌ Identity import failed:", error);
       alert(
         `Import failed: ${error instanceof Error ? error.message : "Unknown error"}. Please check console for details.`
       );
@@ -1449,7 +1492,7 @@ Address: ${member.Address || ""}, ${member.Town || ""} ${member.Postcode || ""}`
         created: 0,
         families: familyMap.size,
         skipped,
-        replaced,
+        replaced: 0,
       });
     }
 
@@ -2021,20 +2064,105 @@ Address: ${member.Address || ""}, ${member.Town || ""} ${member.Postcode || ""}`
                 </p>
               </div>
 
+              {/* Search and Bulk Actions */}
+              <div className="mb-4 space-y-3">
+                {/* Search Box */}
+                <div className="relative">
+                  <input
+                    className="w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 focus:border-blue-500 focus:outline-none"
+                    onChange={(e) => setDuplicateSearch(e.target.value)}
+                    placeholder="Search duplicates by name, DOB, or team..."
+                    type="text"
+                    value={duplicateSearch}
+                  />
+                  <svg
+                    className="-translate-y-1/2 absolute top-1/2 left-3 h-5 w-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                    />
+                  </svg>
+                </div>
+
+                {/* Select All and Bulk Actions */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2 text-gray-700 text-sm">
+                    <input
+                      checked={
+                        filteredDuplicates.length > 0 &&
+                        selectedDuplicates.size === filteredDuplicates.length
+                      }
+                      className="h-4 w-4 rounded border-gray-300"
+                      onChange={toggleSelectAll}
+                      type="checkbox"
+                    />
+                    Select All ({selectedDuplicates.size} selected)
+                  </label>
+
+                  {selectedDuplicates.size > 0 && (
+                    <div className="flex gap-2">
+                      <button
+                        className="rounded bg-green-600 px-3 py-1 text-white text-xs hover:bg-green-700"
+                        onClick={() => applyBulkDecision("replace")}
+                      >
+                        Replace All Selected
+                      </button>
+                      <button
+                        className="rounded bg-blue-600 px-3 py-1 text-white text-xs hover:bg-blue-700"
+                        onClick={() => applyBulkDecision("keep")}
+                      >
+                        Keep All Selected
+                      </button>
+                      <button
+                        className="rounded bg-gray-600 px-3 py-1 text-white text-xs hover:bg-gray-700"
+                        onClick={() => applyBulkDecision("skip")}
+                      >
+                        Skip All Selected
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {filteredDuplicates.length < duplicates.length && (
+                  <p className="text-gray-600 text-sm">
+                    Showing {filteredDuplicates.length} of {duplicates.length}{" "}
+                    duplicates
+                  </p>
+                )}
+              </div>
+
               <div className="max-h-96 space-y-4 overflow-y-auto">
-                {duplicates.map((dup, idx) => (
+                {filteredDuplicates.map((dup, idx) => (
                   <div
-                    className="rounded-lg border border-gray-300 bg-white p-4"
+                    className={`rounded-lg border p-4 ${
+                      selectedDuplicates.has(dup.index)
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-300 bg-white"
+                    }`}
                     key={idx}
                   >
-                    <div className="mb-3">
-                      <h4 className="font-bold text-gray-800">
-                        {dup.member.FullName}
-                      </h4>
-                      <p className="text-gray-600 text-sm">
-                        DOB: {dup.member.DateOfBirth} • Team:{" "}
-                        {teamAssignments[dup.index]}
-                      </p>
+                    <div className="mb-3 flex items-start gap-3">
+                      <input
+                        checked={selectedDuplicates.has(dup.index)}
+                        className="mt-1 h-4 w-4 rounded border-gray-300"
+                        onChange={() => toggleDuplicateSelection(dup.index)}
+                        type="checkbox"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-bold text-gray-800">
+                          {dup.member.FullName}
+                        </h4>
+                        <p className="text-gray-600 text-sm">
+                          DOB: {dup.member.DateOfBirth} • Team:{" "}
+                          {getTeamNameById(teamAssignments[dup.index])}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -2044,7 +2172,8 @@ Address: ${member.Address || ""}, ${member.Town || ""} ${member.Postcode || ""}`
                         </h5>
                         <div className="space-y-1 text-gray-700 text-xs">
                           <p>
-                            <strong>Team:</strong> {dup.existingPlayer.teamId}
+                            <strong>Team:</strong>{" "}
+                            {getTeamNameById(dup.existingPlayer.teamId)}
                           </p>
                           <p>
                             <strong>Season:</strong> {dup.existingPlayer.season}
@@ -2068,7 +2197,8 @@ Address: ${member.Address || ""}, ${member.Town || ""} ${member.Postcode || ""}`
                         </h5>
                         <div className="space-y-1 text-gray-700 text-xs">
                           <p>
-                            <strong>Team:</strong> {teamAssignments[dup.index]}
+                            <strong>Team:</strong>{" "}
+                            {getTeamNameById(teamAssignments[dup.index])}
                           </p>
                           <p>
                             <strong>Season:</strong> 2025
@@ -2578,26 +2708,67 @@ Address: ${member.Address || ""}, ${member.Town || ""} ${member.Postcode || ""}`
                   Import Complete!
                 </h3>
                 <p className="mb-6 text-center text-gray-600">
-                  Player passports have been successfully created
+                  Player identities and guardian links have been successfully
+                  created
                 </p>
 
-                <div
-                  className={`mb-6 grid w-full max-w-md grid-cols-1 gap-4 sm:grid-cols-2 ${results.skipped || results.replaced ? "sm:grid-cols-2 md:grid-cols-4" : ""}`}
-                >
+                <div className="mb-6 grid w-full max-w-4xl grid-cols-2 gap-4 md:grid-cols-3">
+                  {/* Players Created */}
                   <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-center">
                     <p className="mb-1 text-gray-600 text-sm">
-                      Passports Created
+                      Players Created
                     </p>
                     <p className="font-bold text-3xl text-green-700">
                       {results.created}
                     </p>
                   </div>
+
+                  {/* Families */}
                   <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-center">
                     <p className="mb-1 text-gray-600 text-sm">Families</p>
                     <p className="font-bold text-3xl text-blue-700">
                       {results.families}
                     </p>
                   </div>
+
+                  {/* Guardians Linked */}
+                  <div className="rounded-lg border border-purple-200 bg-purple-50 p-4 text-center">
+                    <p className="mb-1 text-gray-600 text-sm">
+                      Guardians Linked
+                    </p>
+                    <p className="font-bold text-3xl text-purple-700">
+                      {(results.guardiansCreated || 0) +
+                        (results.guardiansReused || 0)}
+                    </p>
+                  </div>
+
+                  {/* Verified Accounts */}
+                  {results.guardiansLinkedToVerifiedAccounts !== undefined &&
+                  results.guardiansLinkedToVerifiedAccounts > 0 ? (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-center">
+                      <p className="mb-1 text-gray-600 text-sm">
+                        Verified Accounts
+                      </p>
+                      <p className="font-bold text-3xl text-emerald-700">
+                        {results.guardiansLinkedToVerifiedAccounts}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {/* Awaiting Claim */}
+                  {results.guardiansAwaitingClaim !== undefined &&
+                  results.guardiansAwaitingClaim > 0 ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center">
+                      <p className="mb-1 text-gray-600 text-sm">
+                        Awaiting Claim
+                      </p>
+                      <p className="font-bold text-3xl text-amber-700">
+                        {results.guardiansAwaitingClaim}
+                      </p>
+                    </div>
+                  ) : null}
+
+                  {/* Replaced */}
                   {results.replaced && results.replaced > 0 ? (
                     <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 text-center">
                       <p className="mb-1 text-gray-600 text-sm">Replaced</p>
@@ -2606,6 +2777,8 @@ Address: ${member.Address || ""}, ${member.Town || ""} ${member.Postcode || ""}`
                       </p>
                     </div>
                   ) : null}
+
+                  {/* Skipped */}
                   {results.skipped && results.skipped > 0 ? (
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center">
                       <p className="mb-1 text-gray-600 text-sm">Skipped</p>
@@ -2616,12 +2789,12 @@ Address: ${member.Address || ""}, ${member.Town || ""} ${member.Postcode || ""}`
                   ) : null}
                 </div>
 
-                <button
+                <Link
                   className="rounded-lg bg-green-600 px-8 py-3 font-medium text-white transition-colors hover:bg-green-700"
-                  onClick={onClose}
+                  href={`/orgs/${organizationId}/admin`}
                 >
                   View Dashboard
-                </button>
+                </Link>
               </div>
             </>
           )}

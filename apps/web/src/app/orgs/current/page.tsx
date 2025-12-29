@@ -1,6 +1,12 @@
 "use client";
 
-import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
+import { api } from "@pdp/backend/convex/_generated/api";
+import {
+  Authenticated,
+  AuthLoading,
+  Unauthenticated,
+  useQuery,
+} from "convex/react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
@@ -56,6 +62,8 @@ function getRedirectRoute(
         return `/orgs/${orgId}/admin` as Route;
       case "parent":
         return `/orgs/${orgId}/parents` as Route;
+      case "player":
+        return `/orgs/${orgId}/player` as Route;
     }
   }
 
@@ -72,6 +80,7 @@ function getRedirectRoute(
   const hasAdminFunctional = functionalRoles.includes("admin");
   const hasCoach = functionalRoles.includes("coach");
   const hasParent = functionalRoles.includes("parent");
+  const hasPlayer = functionalRoles.includes("player");
 
   // Priority 1: Coach (prioritized over admin for daily use)
   // Users with both coach and admin roles will default to coach dashboard
@@ -89,6 +98,11 @@ function getRedirectRoute(
     return `/orgs/${orgId}/parents` as Route;
   }
 
+  // Priority 4: Player (adult players)
+  if (hasPlayer) {
+    return `/orgs/${orgId}/player` as Route;
+  }
+
   // Default: Organizations list (user has no specific role)
   return "/orgs";
 }
@@ -96,6 +110,11 @@ function getRedirectRoute(
 function RedirectToActiveOrg() {
   const { data: activeOrganization } = authClient.useActiveOrganization();
   const { data: member } = authClient.useActiveMember();
+  const { data: organizations } = authClient.useListOrganizations();
+  // Also query memberships directly from Convex as a fallback
+  const convexMemberships = useQuery(
+    api.models.members.getMembersForAllOrganizations
+  );
   const user = useCurrentUser();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -136,19 +155,97 @@ function RedirectToActiveOrg() {
     }
 
     if (!activeOrganization) {
-      // For new users without organizations, redirect to join page
-      // This allows them to browse and request to join organizations
+      // Check if user has any organization memberships but no active one set
+      // This can happen if the active org was never set after joining
+      console.log(
+        "[orgs/current] No active organization found, checking memberships..."
+      );
+      console.log("[orgs/current] Better Auth organizations:", organizations);
+      console.log("[orgs/current] Convex memberships:", convexMemberships);
+
+      // Wait for data to load before making a decision
+      if (organizations === undefined && convexMemberships === undefined) {
+        console.log("[orgs/current] Data still loading, waiting...");
+        return;
+      }
+
+      // Try Better Auth organizations first
+      if (organizations && organizations.length > 0) {
+        console.log(
+          "[orgs/current] User has orgs but no active one, setting first org:",
+          organizations[0].id
+        );
+        authClient.organization.setActive({
+          organizationId: organizations[0].id,
+        });
+        return;
+      }
+
+      // Fallback: Try Convex memberships (more reliable when SDK has issues)
+      if (convexMemberships && convexMemberships.length > 0) {
+        console.log(
+          "[orgs/current] Found Convex memberships, setting first org:",
+          convexMemberships[0].organizationId
+        );
+        authClient.organization.setActive({
+          organizationId: convexMemberships[0].organizationId,
+        });
+        return;
+      }
+
+      // If Convex still loading but Better Auth returned null, wait for Convex
+      if (convexMemberships === undefined) {
+        console.log("[orgs/current] Waiting for Convex membership data...");
+        return;
+      }
+
+      // No organizations at all, redirect to join page
+      console.log(
+        "[orgs/current] User has no organization memberships, redirecting to join page"
+      );
       router.push("/orgs/join" as Route);
       return;
     }
 
-    // Defensive check: if member data is missing, redirect to orgs list
+    // Wait for member data to load (it may take a moment after setting active org)
     if (!member) {
-      console.warn(
-        "[orgs/current] Member data missing for active organization",
-        activeOrganization.id
+      // Check if we have membership data from Convex we can use instead
+      const convexMember = convexMemberships?.find(
+        (m) => m.organizationId === activeOrganization.id
       );
-      router.push("/orgs");
+
+      if (convexMember) {
+        console.log(
+          "[orgs/current] Using Convex membership data while SDK member loads:",
+          convexMember
+        );
+        // Use Convex data to determine route
+        const functionalRoles = convexMember.functionalRoles || [];
+        const activeFunctionalRole = convexMember.activeFunctionalRole;
+        const memberRole = convexMember.betterAuthRole as
+          | OrgMemberRole
+          | undefined;
+
+        const redirectRoute = getRedirectRoute(
+          activeOrganization.id,
+          memberRole,
+          functionalRoles,
+          activeFunctionalRole
+        );
+
+        console.log("[orgs/current] Redirect decision (from Convex):", {
+          orgId: activeOrganization.id,
+          memberRole,
+          functionalRoles,
+          activeFunctionalRole,
+          redirectRoute,
+        });
+
+        router.push(redirectRoute);
+        return;
+      }
+
+      console.log("[orgs/current] Waiting for member data to load...");
       return;
     }
 
@@ -184,7 +281,15 @@ function RedirectToActiveOrg() {
     }
 
     router.push(redirectRoute);
-  }, [router, activeOrganization, member, user, redirect]);
+  }, [
+    router,
+    activeOrganization,
+    member,
+    user,
+    redirect,
+    organizations,
+    convexMemberships,
+  ]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

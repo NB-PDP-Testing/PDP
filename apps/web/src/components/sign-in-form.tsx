@@ -33,7 +33,9 @@ function SignInFormContent() {
             router.push(destination);
             toast.success("Welcome back! Let's get to work.");
           },
-          onError: (error) => {
+          onError: (error: {
+            error: { message?: string; statusText?: string };
+          }) => {
             toast.error(
               error.error.message ||
                 error.error.statusText ||

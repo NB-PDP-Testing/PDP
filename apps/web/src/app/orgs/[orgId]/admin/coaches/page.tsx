@@ -56,9 +56,12 @@ export default function ManageCoachesPage() {
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
-  const allPlayers = useQuery(api.models.players.getPlayersByOrganization, {
-    organizationId: orgId,
-  });
+  const allPlayersData = useQuery(
+    api.models.orgPlayerEnrollments.getPlayersForOrg,
+    {
+      organizationId: orgId,
+    }
+  );
 
   // Get team-player links for accurate counts
   const teamPlayerLinks = useQuery(api.models.teams.getTeamPlayerLinks, {
@@ -108,12 +111,13 @@ export default function ManageCoachesPage() {
   const isLoading =
     membersLoading ||
     teams === undefined ||
-    allPlayers === undefined ||
+    allPlayersData === undefined ||
     coachAssignments === undefined ||
     teamPlayerLinks === undefined;
 
-  // Get unique values for assignments
-  const uniqueTeams = [...new Set(teams?.map((t: any) => t.name) || [])];
+  // Get unique teams - use objects with id and name to preserve both
+  const uniqueTeams =
+    teams?.map((t: any) => ({ id: t._id, name: t.name })) || [];
   const uniqueAgeGroups = [
     ...new Set(teams?.map((t: any) => t.ageGroup).filter(Boolean) || []),
   ].sort();
@@ -516,21 +520,21 @@ export default function ManageCoachesPage() {
                                   uniqueTeams.map((team) => (
                                     <Button
                                       className={
-                                        editData.teams.includes(team)
+                                        editData.teams.includes(team.id)
                                           ? "bg-green-600 text-white hover:bg-green-700"
                                           : ""
                                       }
-                                      key={team}
-                                      onClick={() => toggleTeam(team)}
+                                      key={team.id}
+                                      onClick={() => toggleTeam(team.id)}
                                       size="sm"
                                       type="button"
                                       variant={
-                                        editData.teams.includes(team)
+                                        editData.teams.includes(team.id)
                                           ? "default"
                                           : "outline"
                                       }
                                     >
-                                      {team}
+                                      {team.name}
                                     </Button>
                                   ))
                                 ) : (

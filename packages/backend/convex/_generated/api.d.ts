@@ -12,19 +12,59 @@ import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
 import type * as auth from "../auth.js";
+import type * as crons from "../crons.js";
 import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
+import type * as lib_ageGroupUtils from "../lib/ageGroupUtils.js";
+import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
+import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
+import type * as models_adultPlayers from "../models/adultPlayers.js";
+import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
+import type * as models_checkUserRoles from "../models/checkUserRoles.js";
 import type * as models_coaches from "../models/coaches.js";
 import type * as models_demoAsks from "../models/demoAsks.js";
+import type * as models_diagnosticIdentityCheck from "../models/diagnosticIdentityCheck.js";
+import type * as models_emergencyContacts from "../models/emergencyContacts.js";
+import type * as models_fixNeilsRoles from "../models/fixNeilsRoles.js";
+import type * as models_guardianIdentities from "../models/guardianIdentities.js";
+import type * as models_guardianManagement from "../models/guardianManagement.js";
+import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
+import type * as models_medicalProfiles from "../models/medicalProfiles.js";
 import type * as models_members from "../models/members.js";
+import type * as models_orgGuardianProfiles from "../models/orgGuardianProfiles.js";
+import type * as models_orgInjuryNotes from "../models/orgInjuryNotes.js";
 import type * as models_orgJoinRequests from "../models/orgJoinRequests.js";
+import type * as models_orgPlayerEnrollments from "../models/orgPlayerEnrollments.js";
 import type * as models_organizationScraper from "../models/organizationScraper.js";
 import type * as models_organizations from "../models/organizations.js";
+import type * as models_passportGoals from "../models/passportGoals.js";
+import type * as models_playerEmergencyContacts from "../models/playerEmergencyContacts.js";
+import type * as models_playerIdentities from "../models/playerIdentities.js";
+import type * as models_playerImport from "../models/playerImport.js";
+import type * as models_playerInjuries from "../models/playerInjuries.js";
+import type * as models_playerSelfAccess from "../models/playerSelfAccess.js";
 import type * as models_players from "../models/players.js";
+import type * as models_referenceData from "../models/referenceData.js";
+import type * as models_skillAssessments from "../models/skillAssessments.js";
+import type * as models_skillBenchmarks from "../models/skillBenchmarks.js";
+import type * as models_sportAgeGroupConfig from "../models/sportAgeGroupConfig.js";
+import type * as models_sportPassports from "../models/sportPassports.js";
+import type * as models_sports from "../models/sports.js";
+import type * as models_teamPlayerIdentities from "../models/teamPlayerIdentities.js";
 import type * as models_teams from "../models/teams.js";
 import type * as models_users from "../models/users.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
 import type * as privateData from "../privateData.js";
+import type * as scripts_analyzeReimport from "../scripts/analyzeReimport.js";
+import type * as scripts_clearDevData from "../scripts/clearDevData.js";
+import type * as scripts_clearPlayerDataKeepUsers from "../scripts/clearPlayerDataKeepUsers.js";
+import type * as scripts_debugPlayerData from "../scripts/debugPlayerData.js";
+import type * as scripts_findPlayerByName from "../scripts/findPlayerByName.js";
+import type * as scripts_getOrgId from "../scripts/getOrgId.js";
+import type * as scripts_migrateEnrollmentSport from "../scripts/migrateEnrollmentSport.js";
+import type * as scripts_queryExisting from "../scripts/queryExisting.js";
+import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSportRules.js";
+import type * as scripts_validateTeamAssignments from "../scripts/validateTeamAssignments.js";
 import type * as todos from "../todos.js";
 import type * as utils_email from "../utils/email.js";
 
@@ -39,19 +79,59 @@ declare const fullApi: ApiFromModules<{
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
   "actions/voiceNotes": typeof actions_voiceNotes;
   auth: typeof auth;
+  crons: typeof crons;
   healthCheck: typeof healthCheck;
   http: typeof http;
+  "lib/ageGroupUtils": typeof lib_ageGroupUtils;
+  "migrations/cleanSlate": typeof migrations_cleanSlate;
+  "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
+  "models/adultPlayers": typeof models_adultPlayers;
+  "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
+  "models/checkUserRoles": typeof models_checkUserRoles;
   "models/coaches": typeof models_coaches;
   "models/demoAsks": typeof models_demoAsks;
+  "models/diagnosticIdentityCheck": typeof models_diagnosticIdentityCheck;
+  "models/emergencyContacts": typeof models_emergencyContacts;
+  "models/fixNeilsRoles": typeof models_fixNeilsRoles;
+  "models/guardianIdentities": typeof models_guardianIdentities;
+  "models/guardianManagement": typeof models_guardianManagement;
+  "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
+  "models/medicalProfiles": typeof models_medicalProfiles;
   "models/members": typeof models_members;
+  "models/orgGuardianProfiles": typeof models_orgGuardianProfiles;
+  "models/orgInjuryNotes": typeof models_orgInjuryNotes;
   "models/orgJoinRequests": typeof models_orgJoinRequests;
+  "models/orgPlayerEnrollments": typeof models_orgPlayerEnrollments;
   "models/organizationScraper": typeof models_organizationScraper;
   "models/organizations": typeof models_organizations;
+  "models/passportGoals": typeof models_passportGoals;
+  "models/playerEmergencyContacts": typeof models_playerEmergencyContacts;
+  "models/playerIdentities": typeof models_playerIdentities;
+  "models/playerImport": typeof models_playerImport;
+  "models/playerInjuries": typeof models_playerInjuries;
+  "models/playerSelfAccess": typeof models_playerSelfAccess;
   "models/players": typeof models_players;
+  "models/referenceData": typeof models_referenceData;
+  "models/skillAssessments": typeof models_skillAssessments;
+  "models/skillBenchmarks": typeof models_skillBenchmarks;
+  "models/sportAgeGroupConfig": typeof models_sportAgeGroupConfig;
+  "models/sportPassports": typeof models_sportPassports;
+  "models/sports": typeof models_sports;
+  "models/teamPlayerIdentities": typeof models_teamPlayerIdentities;
   "models/teams": typeof models_teams;
   "models/users": typeof models_users;
   "models/voiceNotes": typeof models_voiceNotes;
   privateData: typeof privateData;
+  "scripts/analyzeReimport": typeof scripts_analyzeReimport;
+  "scripts/clearDevData": typeof scripts_clearDevData;
+  "scripts/clearPlayerDataKeepUsers": typeof scripts_clearPlayerDataKeepUsers;
+  "scripts/debugPlayerData": typeof scripts_debugPlayerData;
+  "scripts/findPlayerByName": typeof scripts_findPlayerByName;
+  "scripts/getOrgId": typeof scripts_getOrgId;
+  "scripts/migrateEnrollmentSport": typeof scripts_migrateEnrollmentSport;
+  "scripts/queryExisting": typeof scripts_queryExisting;
+  "scripts/seedDefaultSportRules": typeof scripts_seedDefaultSportRules;
+  "scripts/validateTeamAssignments": typeof scripts_validateTeamAssignments;
   todos: typeof todos;
   "utils/email": typeof utils_email;
 }>;
@@ -160,9 +240,10 @@ export declare const components: {
             | {
                 data: {
                   ageGroup?: string;
+                  coachNotes?: string;
                   createdAt: number;
                   description?: string;
-                  gender?: "Boys" | "Girls" | "Mixed";
+                  gender?: "Male" | "Female" | "Mixed" | "Boys" | "Girls";
                   homeVenue?: string;
                   isActive?: boolean;
                   name: string;
@@ -194,20 +275,27 @@ export declare const components: {
                   socialInstagram?: null | string;
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
+                  supportedSports?: Array<string>;
                   website?: null | string;
                 };
                 model: "organization";
               }
             | {
                 data: {
-                  activeFunctionalRole?: "coach" | "parent" | "admin";
+                  activeFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   createdAt: number;
-                  functionalRoles?: Array<"coach" | "parent" | "admin">;
+                  functionalRoles?: Array<
+                    "coach" | "parent" | "admin" | "player"
+                  >;
                   organizationId: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
                     requestedAt: string;
-                    role: "coach" | "parent" | "admin";
+                    role: "coach" | "parent" | "admin" | "player";
                   }>;
                   role: string;
                   userId: string;
@@ -426,6 +514,7 @@ export declare const components: {
                     | "trainingSchedule"
                     | "homeVenue"
                     | "isActive"
+                    | "coachNotes"
                     | "_id";
                   operator?:
                     | "lt"
@@ -490,6 +579,7 @@ export declare const components: {
                     | "socialInstagram"
                     | "socialLinkedin"
                     | "website"
+                    | "supportedSports"
                     | "_id";
                   operator?:
                     | "lt"
@@ -787,6 +877,7 @@ export declare const components: {
                     | "trainingSchedule"
                     | "homeVenue"
                     | "isActive"
+                    | "coachNotes"
                     | "_id";
                   operator?:
                     | "lt"
@@ -851,6 +942,7 @@ export declare const components: {
                     | "socialInstagram"
                     | "socialLinkedin"
                     | "website"
+                    | "supportedSports"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1273,9 +1365,10 @@ export declare const components: {
                 model: "team";
                 update: {
                   ageGroup?: string;
+                  coachNotes?: string;
                   createdAt?: number;
                   description?: string;
-                  gender?: "Boys" | "Girls" | "Mixed";
+                  gender?: "Male" | "Female" | "Mixed" | "Boys" | "Girls";
                   homeVenue?: string;
                   isActive?: boolean;
                   name?: string;
@@ -1300,6 +1393,7 @@ export declare const components: {
                     | "trainingSchedule"
                     | "homeVenue"
                     | "isActive"
+                    | "coachNotes"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1366,6 +1460,7 @@ export declare const components: {
                   socialInstagram?: null | string;
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
+                  supportedSports?: Array<string>;
                   website?: null | string;
                 };
                 where?: Array<{
@@ -1382,6 +1477,7 @@ export declare const components: {
                     | "socialInstagram"
                     | "socialLinkedin"
                     | "website"
+                    | "supportedSports"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1407,14 +1503,20 @@ export declare const components: {
             | {
                 model: "member";
                 update: {
-                  activeFunctionalRole?: "coach" | "parent" | "admin";
+                  activeFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   createdAt?: number;
-                  functionalRoles?: Array<"coach" | "parent" | "admin">;
+                  functionalRoles?: Array<
+                    "coach" | "parent" | "admin" | "player"
+                  >;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
                     requestedAt: string;
-                    role: "coach" | "parent" | "admin";
+                    role: "coach" | "parent" | "admin" | "player";
                   }>;
                   role?: string;
                   userId?: string;
@@ -1740,9 +1842,10 @@ export declare const components: {
                 model: "team";
                 update: {
                   ageGroup?: string;
+                  coachNotes?: string;
                   createdAt?: number;
                   description?: string;
-                  gender?: "Boys" | "Girls" | "Mixed";
+                  gender?: "Male" | "Female" | "Mixed" | "Boys" | "Girls";
                   homeVenue?: string;
                   isActive?: boolean;
                   name?: string;
@@ -1767,6 +1870,7 @@ export declare const components: {
                     | "trainingSchedule"
                     | "homeVenue"
                     | "isActive"
+                    | "coachNotes"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1833,6 +1937,7 @@ export declare const components: {
                   socialInstagram?: null | string;
                   socialLinkedin?: null | string;
                   socialTwitter?: null | string;
+                  supportedSports?: Array<string>;
                   website?: null | string;
                 };
                 where?: Array<{
@@ -1849,6 +1954,7 @@ export declare const components: {
                     | "socialInstagram"
                     | "socialLinkedin"
                     | "website"
+                    | "supportedSports"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1874,14 +1980,20 @@ export declare const components: {
             | {
                 model: "member";
                 update: {
-                  activeFunctionalRole?: "coach" | "parent" | "admin";
+                  activeFunctionalRole?:
+                    | "coach"
+                    | "parent"
+                    | "admin"
+                    | "player";
                   createdAt?: number;
-                  functionalRoles?: Array<"coach" | "parent" | "admin">;
+                  functionalRoles?: Array<
+                    "coach" | "parent" | "admin" | "player"
+                  >;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
                     requestedAt: string;
-                    role: "coach" | "parent" | "admin";
+                    role: "coach" | "parent" | "admin" | "player";
                   }>;
                   role?: string;
                   userId?: string;

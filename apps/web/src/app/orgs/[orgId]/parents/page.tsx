@@ -4,13 +4,11 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import {
   AlertCircle,
-  Calendar,
-  ChevronRight,
-  FileText,
+  CheckCircle,
+  Clock,
   TrendingUp,
   Users,
 } from "lucide-react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useMemo } from "react";
 import Loader from "@/components/loader";
@@ -23,7 +21,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
+import { AIPracticeAssistant } from "./components/ai-practice-assistant";
+import { ChildCard } from "./components/child-card";
+import { CoachFeedback } from "./components/coach-feedback";
+import { GuardianSettings } from "./components/guardian-settings";
+import { MedicalInfo } from "./components/medical-info";
+import { WeeklySchedule } from "./components/weekly-schedule";
 
 function ParentDashboardContent() {
   const params = useParams();
@@ -40,13 +45,14 @@ function ParentDashboardContent() {
       : "skip"
   );
 
-  // Get players linked to this parent by email
-  const linkedPlayers = useQuery(
-    api.models.players.getPlayersForParent,
-    session?.user?.email
-      ? { organizationId: orgId, parentEmail: session.user.email }
-      : "skip"
-  );
+  // Get children from guardian identity system
+  // Pass user email to enable fallback lookup for unclaimed guardian identities
+  const {
+    guardianIdentity,
+    children: identityChildren,
+    isLoading: identityLoading,
+    hasIdentity,
+  } = useGuardianChildrenInOrg(orgId, session?.user?.email);
 
   // Check if user has parent functional role or is admin/owner
   const hasParentRole = useMemo(() => {
@@ -59,10 +65,27 @@ function ParentDashboardContent() {
     );
   }, [roleDetails]);
 
-  const playerCount = linkedPlayers?.length ?? 0;
+  // Use identity-based children count
+  const playerCount = identityChildren.length;
+
+  // Calculate summary stats
+  const summaryStats = useMemo(() => {
+    let completedReviews = 0;
+    let dueSoon = 0;
+    let overdue = 0;
+
+    identityChildren.forEach((child) => {
+      const status = child.enrollment?.reviewStatus?.toLowerCase();
+      if (status === "completed") completedReviews++;
+      else if (status === "due soon" || status === "due_soon") dueSoon++;
+      else if (status === "overdue") overdue++;
+    });
+
+    return { completedReviews, dueSoon, overdue };
+  }, [identityChildren]);
 
   // Show loading state while checking roles
-  if (roleDetails === undefined) {
+  if (roleDetails === undefined || identityLoading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <Loader />
@@ -109,28 +132,27 @@ function ParentDashboardContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="font-bold text-3xl text-foreground">Parent Dashboard</h1>
-        <p className="mt-2 text-muted-foreground">
-          Track your children's development and progress
-        </p>
+      <div className="rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="font-bold text-3xl">Your Family's Journey</h1>
+            <p className="mt-2 text-blue-100">
+              Tracking {playerCount} {playerCount === 1 ? "child" : "children"}{" "}
+              in {activeOrganization?.name || "this organization"}
+            </p>
+            {guardianIdentity && (
+              <p className="mt-1 text-blue-200 text-sm">
+                Welcome back, {guardianIdentity.firstName}!
+              </p>
+            )}
+          </div>
+          {guardianIdentity && (
+            <GuardianSettings guardianIdentity={guardianIdentity} />
+          )}
+        </div>
       </div>
 
-      {/* Coming Soon Badge */}
-      <div className="flex items-center gap-2">
-        <Badge
-          className="border-blue-200 bg-blue-50 text-blue-700"
-          variant="outline"
-        >
-          <TrendingUp className="mr-1 h-3 w-3" />
-          Coming Soon
-        </Badge>
-        <span className="text-muted-foreground text-sm">
-          Full parent dashboard is under development
-        </span>
-      </div>
-
-      {/* Stats Cards */}
+      {/* Summary Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -142,8 +164,7 @@ function ParentDashboardContent() {
           <CardContent>
             <div className="font-bold text-2xl">{playerCount}</div>
             <p className="text-muted-foreground text-xs">
-              {playerCount === 1 ? "child" : "children"} in{" "}
-              {activeOrganization?.name || "this organization"}
+              Active in {activeOrganization?.name || "this org"}
             </p>
           </CardContent>
         </Card>
@@ -151,73 +172,114 @@ function ParentDashboardContent() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-medium text-sm">
-              Weekly Schedule
+              Reviews Complete
             </CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="font-bold text-2xl">-</div>
-            <p className="text-muted-foreground text-xs">Coming soon</p>
+            <div className="font-bold text-2xl text-green-600">
+              {summaryStats.completedReviews}
+            </div>
+            <p className="text-muted-foreground text-xs">Up to date</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">
-              Coach Feedback
-            </CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="font-medium text-sm">Due Soon</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="font-bold text-2xl">-</div>
-            <p className="text-muted-foreground text-xs">Coming soon</p>
+            <div className="font-bold text-2xl text-yellow-600">
+              {summaryStats.dueSoon}
+            </div>
+            <p className="text-muted-foreground text-xs">Reviews pending</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">
-              Progress Insights
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="font-medium text-sm">Overdue</CardTitle>
+            <AlertCircle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
-            <div className="font-bold text-2xl">-</div>
-            <p className="text-muted-foreground text-xs">Coming soon</p>
+            <div className="font-bold text-2xl text-red-600">
+              {summaryStats.overdue}
+            </div>
+            <p className="text-muted-foreground text-xs">Needs attention</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Linked Children Section */}
+      {/* Children Cards */}
       {playerCount > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Children</CardTitle>
-            <CardDescription>
-              Click on a child to view their player passport
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {linkedPlayers?.map((player: any) => (
-                <Link
-                  className="group flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-accent"
-                  href={`/orgs/${orgId}/players/${player._id}`}
-                  key={player._id}
-                >
-                  <div>
-                    <div className="font-medium">{player.name}</div>
-                    <div className="flex gap-2 text-muted-foreground text-sm">
-                      <span>{player.ageGroup}</span>
-                      {player.sport && <span>• {player.sport}</span>}
-                    </div>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-1" />
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <div>
+          <h2 className="mb-4 font-semibold text-xl">Your Children</h2>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {identityChildren.map((child) => (
+              <ChildCard child={child} key={child.player._id} orgId={orgId} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Weekly Schedule */}
+      {playerCount > 0 && <WeeklySchedule children={identityChildren} />}
+
+      {/* Coach Feedback Section */}
+      {playerCount > 0 && (
+        <CoachFeedback children={identityChildren} orgId={orgId} />
+      )}
+
+      {/* Medical Information Section */}
+      {playerCount > 0 && (
+        <MedicalInfo children={identityChildren} orgId={orgId} />
+      )}
+
+      {/* AI Practice Assistant */}
+      {playerCount > 0 && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <AIPracticeAssistant children={identityChildren} orgId={orgId} />
+
+          {/* Coming Soon Features */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+                Coming Soon
+              </CardTitle>
+              <CardDescription>More features are on the way</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-3">
+                <li className="flex items-center gap-3">
+                  <Badge variant="outline">Planned</Badge>
+                  <span className="text-sm">
+                    Real-time schedule integration
+                  </span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Badge variant="outline">Planned</Badge>
+                  <span className="text-sm">
+                    Push notifications for coach feedback
+                  </span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Badge variant="outline">Planned</Badge>
+                  <span className="text-sm">Progress reports PDF export</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Badge variant="outline">Planned</Badge>
+                  <span className="text-sm">Multi-sport comparison views</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Badge variant="outline">Planned</Badge>
+                  <span className="text-sm">Skill radar charts</span>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* No Children Linked Message */}
@@ -241,44 +303,6 @@ function ParentDashboardContent() {
           </CardContent>
         </Card>
       )}
-
-      {/* Features Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Family's Journey</CardTitle>
-          <CardDescription>
-            The parent dashboard will provide comprehensive insights into your
-            children's sports development
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <h3 className="font-semibold text-sm">Planned Features:</h3>
-              <ul className="list-inside list-disc space-y-1 text-muted-foreground text-sm">
-                <li>Weekly schedule calendar</li>
-                <li>Coach feedback and notes</li>
-                <li>Performance metrics and skills tracking</li>
-                <li>Attendance tracking</li>
-                <li>Goal progress and milestones</li>
-                <li>Injury and medical information</li>
-                <li>AI-powered practice plans</li>
-              </ul>
-            </div>
-            <div className="space-y-2">
-              <h3 className="font-semibold text-sm">Current Status:</h3>
-              <ul className="list-inside list-disc space-y-1 text-muted-foreground text-sm">
-                <li>Parent role identification</li>
-                <li>Player linking system</li>
-                <li>Basic player passport view</li>
-                <li>Dashboard components (in progress)</li>
-                <li>Schedule integration (planned)</li>
-                <li>AI practice assistant (planned)</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

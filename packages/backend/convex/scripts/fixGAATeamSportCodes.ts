@@ -70,7 +70,7 @@ export const fixGAATeams = internalMutation({
 
     if (args.dryRun) {
       console.log("[FixGAATeams] DRY RUN - Teams that would be updated:");
-      gaaTeams.forEach((team) => {
+      for (const team of gaaTeams) {
         console.log(
           `  - ${team.name} (ID: ${team._id}): "${team.sport}" → "gaa_football"`
         );
@@ -80,7 +80,7 @@ export const fixGAATeams = internalMutation({
           oldSport: team.sport || "",
           newSport: "gaa_football",
         });
-      });
+      }
 
       return {
         totalTeams: allTeams.length,
@@ -116,20 +116,22 @@ export const fixGAATeams = internalMutation({
           newSport: "gaa_football",
         });
 
-        updated++;
+        updated += 1;
         console.log(`[FixGAATeams] ✅ Updated: ${team.name}`);
       } catch (error) {
         const errorMsg = `Failed to update team ${team._id} (${team.name}): ${error}`;
         console.error(`[FixGAATeams] ❌ ${errorMsg}`);
         errorDetails.push(errorMsg);
-        errors++;
+        errors += 1;
       }
     }
 
     console.log(`[FixGAATeams] COMPLETE: Updated ${updated} teams`);
     if (errors > 0) {
       console.error(`[FixGAATeams] Errors: ${errors}`);
-      errorDetails.forEach((err) => console.error(`  - ${err}`));
+      for (const err of errorDetails) {
+        console.error(`  - ${err}`);
+      }
     }
 
     return {

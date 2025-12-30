@@ -29,7 +29,7 @@ export function CoachDashboard() {
   const [genderFilter, setGenderFilter] = useState<string>("all");
   const [reviewStatusFilter, setReviewStatusFilter] = useState<string>("all");
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [_selectedTeamId, _setSelectedTeamId] = useState<string | null>(null);
 
   // Fallback: use session user ID if Convex user query returns null
   const userId = currentUser?._id || session?.user?.id;
@@ -60,7 +60,9 @@ export function CoachDashboard() {
 
   // Transform identity-based players to legacy format for compatibility
   const allPlayers = useMemo(() => {
-    if (!enrolledPlayersData) return;
+    if (!enrolledPlayersData) {
+      return;
+    }
     return enrolledPlayersData.map(
       ({ enrollment, player, sportCode }: any) => ({
         _id: player._id, // playerIdentityId for navigation
@@ -104,7 +106,9 @@ export function CoachDashboard() {
   // Note: Some coach assignments may have team names instead of IDs (legacy data)
   // We need to handle both cases
   const coachTeamIds = useMemo(() => {
-    if (!(coachAssignments && teams)) return [];
+    if (!(coachAssignments && teams)) {
+      return [];
+    }
     const assignmentTeams = coachAssignments.teams || [];
 
     // Create maps for both ID and name lookup
@@ -137,7 +141,9 @@ export function CoachDashboard() {
 
   // Filter team-player links to only those for coach's assigned teams
   const coachTeamPlayerLinks = useMemo(() => {
-    if (!teamPlayerLinks || coachTeamIds.length === 0) return [];
+    if (!teamPlayerLinks || coachTeamIds.length === 0) {
+      return [];
+    }
     return teamPlayerLinks.filter((link: any) =>
       coachTeamIds.includes(link.teamId)
     );
@@ -157,7 +163,9 @@ export function CoachDashboard() {
 
   // Filter players to only those in coach's teams
   const coachPlayers = useMemo(() => {
-    if (!allPlayers || coachPlayerIds.size === 0) return [];
+    if (!allPlayers || coachPlayerIds.size === 0) {
+      return [];
+    }
     return allPlayers.filter((player) =>
       coachPlayerIds.has(player._id.toString())
     );
@@ -253,7 +261,7 @@ export function CoachDashboard() {
     );
 
     return mapped;
-  }, [coachPlayers, coachTeamPlayerLinks, teams, playerSkillsData]);
+  }, [coachPlayers, teams, playerSkillsData, teamPlayerLinks]);
 
   // Get unique values for filters from coach's players
   const uniqueAgeGroups = useMemo(() => {
@@ -359,9 +367,13 @@ export function CoachDashboard() {
 
   // Get selected team data (for team notes)
   const selectedTeamData = useMemo(() => {
-    if (!(selectedTeam && teams)) return null;
+    if (!(selectedTeam && teams)) {
+      return null;
+    }
     const team = teams.find((t: any) => t.name === selectedTeam);
-    if (!team) return null;
+    if (!team) {
+      return null;
+    }
     return {
       _id: team._id,
       name: team.name,
@@ -402,7 +414,9 @@ export function CoachDashboard() {
   // Get coach team names from team IDs
   // Coach assignments now store IDs directly, so just look up the names
   const coachTeamNames = useMemo(() => {
-    if (!teams) return [];
+    if (!teams) {
+      return [];
+    }
 
     // Create a map of team ID to name for quick lookup
     const teamIdToName = new Map(teams.map((t: any) => [t._id, t.name]));

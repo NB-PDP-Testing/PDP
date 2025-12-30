@@ -13,6 +13,9 @@
 import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 
+// Regex for splitting names by whitespace
+const WHITESPACE_REGEX = /\s+/;
+
 export const checkPlayerSport = internalQuery({
   args: {
     playerName: v.string(),
@@ -50,7 +53,7 @@ export const checkPlayerSport = internalQuery({
   }),
   handler: async (ctx, args) => {
     // Search for player by name
-    const nameParts = args.playerName.trim().split(/\s+/);
+    const nameParts = args.playerName.trim().split(WHITESPACE_REGEX);
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(" ");
 

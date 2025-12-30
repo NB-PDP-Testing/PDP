@@ -753,7 +753,7 @@ export const bulkAddPlayersToTeam = mutation({
         .first();
 
       if (existing && existing.status === "active") {
-        skipped++;
+        skipped += 1;
         continue;
       }
 
@@ -766,7 +766,7 @@ export const bulkAddPlayersToTeam = mutation({
           leftDate: undefined,
           updatedAt: now,
         });
-        added++;
+        added += 1;
       } else {
         // Create new
         await ctx.db.insert("teamPlayerIdentities", {
@@ -779,7 +779,7 @@ export const bulkAddPlayersToTeam = mutation({
           createdAt: now,
           updatedAt: now,
         });
-        added++;
+        added += 1;
       }
     }
 
@@ -1091,7 +1091,7 @@ export const getCoreTeamForPlayer = query({
       )
       .first();
 
-    if (!(enrollment && enrollment.ageGroup)) {
+    if (!enrollment?.ageGroup) {
       return null;
     }
 
@@ -1279,8 +1279,12 @@ export const getCurrentTeamsForPlayer = query({
 
     // Sort: core team first, then by team name
     results.sort((a, b) => {
-      if (a.isCoreTeam && !b.isCoreTeam) return -1;
-      if (!a.isCoreTeam && b.isCoreTeam) return 1;
+      if (a.isCoreTeam && !b.isCoreTeam) {
+        return -1;
+      }
+      if (!a.isCoreTeam && b.isCoreTeam) {
+        return 1;
+      }
       return a.teamName.localeCompare(b.teamName);
     });
 
@@ -1325,7 +1329,7 @@ export const getEligibleTeamsForPlayer = query({
       )
       .first();
 
-    if (!(enrollment && enrollment.ageGroup)) {
+    if (!enrollment?.ageGroup) {
       return [];
     }
 
@@ -1532,8 +1536,12 @@ export const getEligibleTeamsForPlayer = query({
 
     results.sort((a, b) => {
       // Core team always first
-      if (a.isCoreTeam && !b.isCoreTeam) return -1;
-      if (!a.isCoreTeam && b.isCoreTeam) return 1;
+      if (a.isCoreTeam && !b.isCoreTeam) {
+        return -1;
+      }
+      if (!a.isCoreTeam && b.isCoreTeam) {
+        return 1;
+      }
 
       // Then by eligibility status
       return (
@@ -1674,8 +1682,12 @@ export const getTeamsForPlayerWithCoreFlag = query({
     // 4. Sort: core first, then by age group order
     results.sort((a, b) => {
       // Core team first
-      if (a.isCoreTeam && !b.isCoreTeam) return -1;
-      if (!a.isCoreTeam && b.isCoreTeam) return 1;
+      if (a.isCoreTeam && !b.isCoreTeam) {
+        return -1;
+      }
+      if (!a.isCoreTeam && b.isCoreTeam) {
+        return 1;
+      }
 
       // Then by age group rank
       const aRank = DEFAULT_AGE_GROUP_ORDER.indexOf(a.ageGroup.toLowerCase());

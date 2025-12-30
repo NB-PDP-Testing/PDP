@@ -30,7 +30,7 @@ export const cleanupEnrollmentSport = internalMutation({
     errorDetails: v.array(v.string()),
   }),
   handler: async (ctx, args) => {
-    const batchSize = args.batchSize ?? 100;
+    const _batchSize = args.batchSize ?? 100;
     const errorDetails: string[] = [];
 
     // Get all enrollments with sport field populated
@@ -46,11 +46,11 @@ export const cleanupEnrollmentSport = internalMutation({
     if (args.dryRun) {
       console.log("[Cleanup] DRY RUN - No changes will be made");
       console.log("[Cleanup] Would null out sport field for:");
-      enrollmentsWithSport.slice(0, 10).forEach((e) => {
+      for (const e of enrollmentsWithSport.slice(0, 10)) {
         console.log(
           `  - Enrollment ${e._id}: sport="${e.sport}", org=${e.organizationId}`
         );
-      });
+      }
       if (enrollmentsWithSport.length > 10) {
         console.log(
           `  ... and ${enrollmentsWithSport.length - 10} more enrollments`
@@ -73,6 +73,10 @@ export const cleanupEnrollmentSport = internalMutation({
     for (const enrollment of enrollmentsWithSport) {
       try {
         // Verify sport passport exists before removing enrollment.sport
+        if (!enrollment.sport) {
+          continue; // Skip if no sport field
+        }
+
         const sportPassport = await ctx.db
           .query("sportPassports")
           .withIndex("by_player_and_org", (q) =>
@@ -82,7 +86,7 @@ export const cleanupEnrollmentSport = internalMutation({
           )
           .filter((q) =>
             q.and(
-              q.eq(q.field("sportCode"), enrollment.sport!),
+              q.eq(q.field("sportCode"), enrollment.sport),
               q.eq(q.field("status"), "active")
             )
           )
@@ -92,7 +96,7 @@ export const cleanupEnrollmentSport = internalMutation({
           const error = `Enrollment ${enrollment._id} has sport ${enrollment.sport} but no matching active sport passport`;
           console.error(`[Cleanup] ${error}`);
           errorDetails.push(error);
-          errors++;
+          errors += 1;
           continue;
         }
 
@@ -102,7 +106,7 @@ export const cleanupEnrollmentSport = internalMutation({
           updatedAt: Date.now(),
         });
 
-        nulled++;
+        nulled += 1;
 
         if (nulled % 100 === 0) {
           console.log(
@@ -113,7 +117,7 @@ export const cleanupEnrollmentSport = internalMutation({
         const errorMsg = `Failed to process enrollment ${enrollment._id}: ${error}`;
         console.error(`[Cleanup] ${errorMsg}`);
         errorDetails.push(errorMsg);
-        errors++;
+        errors += 1;
       }
     }
 
@@ -122,7 +126,9 @@ export const cleanupEnrollmentSport = internalMutation({
 
     if (errors > 0) {
       console.error("[Cleanup] Error details:");
-      errorDetails.forEach((err) => console.error(`  - ${err}`));
+      for (const err of errorDetails) {
+        console.error(`  - ${err}`);
+      }
     }
 
     return {

@@ -471,7 +471,40 @@ Legend: 🏠 Core Team | ⚡ Playing Up | 🛡️ Override Active
 
 ---
 
-### Priority 5: Team Assignment Quick Actions (🟢 LOW)
+### Priority 5: Clickable Table Rows (🟢 LOW - Quick Fix)
+
+**Feature:** Click anywhere on player row to navigate to player page
+
+**Current Problem:**
+- Table rows have `cursor-pointer` styling suggesting they're clickable
+- But clicking the row does nothing
+- Must scroll right and click small "Edit" button
+- Inconsistent with other table views in the app
+
+**File:** `/apps/web/src/app/orgs/[orgId]/admin/players/page.tsx`
+
+**Fix Required:**
+```typescript
+// Line 636 - Add onClick to <tr>
+<tr
+  className="cursor-pointer transition-colors hover:bg-accent/50"
+  key={player._id}
+  onClick={() => router.push(`/orgs/${orgId}/players/${player._id}`)} // ← ADD THIS
+>
+```
+
+**Notes:**
+- Checkbox column (line 642) already has `stopPropagation()` ✅
+- Actions column (line 712) already has `stopPropagation()` ✅
+- These prevent row click when clicking checkbox/buttons
+
+**Impact:** Better UX consistency, fewer clicks to view player details
+
+**Estimated Effort:** 5 minutes
+
+---
+
+### Priority 6: Team Assignment Quick Actions (🟢 LOW)
 
 **Feature:** Context menu / quick actions for faster operations
 

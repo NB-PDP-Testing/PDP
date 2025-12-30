@@ -636,6 +636,9 @@ export default function ManagePlayersPage() {
                     <tr
                       className="cursor-pointer transition-colors hover:bg-accent/50"
                       key={player._id}
+                      onClick={() =>
+                        router.push(`/orgs/${orgId}/players/${player._id}`)
+                      }
                     >
                       <td
                         className="px-4 py-3"

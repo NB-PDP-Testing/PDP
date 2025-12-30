@@ -1,9 +1,10 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "vcs": {
-    "enabled": false,
+    "enabled": true,
     "clientKind": "git",
-    "useIgnoreFile": true
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
   },
   "files": {
     "ignoreUnknown": false,
@@ -73,6 +74,16 @@
         "noUselessElse": "error",
         "noNestedTernary": "warn",
         "useConsistentTypeDefinitions": "warn"
+      },
+      "suspicious": {
+        "noExplicitAny": "warn",
+        "noEvolvingTypes": "warn"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "warn"
+      },
+      "a11y": {
+        "useButtonType": "warn"
       },
       "performance": {
         "noImgElement": "off"

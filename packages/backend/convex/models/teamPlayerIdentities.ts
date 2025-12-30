@@ -65,7 +65,7 @@ export const getPlayersForTeam = query({
     }
 
     // Enrich with player details
-    const results = [];
+    const results: any[] = [];
     for (const member of members) {
       const player = await ctx.db.get(member.playerIdentityId);
       if (player) {
@@ -1240,7 +1240,7 @@ export const getCurrentTeamsForPlayer = query({
     const playerSportCodes = sportPassports.map((p) => p.sportCode);
 
     // 3. Enrich with team details from Better Auth
-    const results = [];
+    const results: any[] = [];
     for (const member of memberships) {
       const teamResult = await ctx.runQuery(
         components.betterAuth.adapter.findOne,
@@ -1433,7 +1433,7 @@ export const getEligibleTeamsForPlayer = query({
       "senior",
     ];
 
-    const results = [];
+    const results: any[] = [];
     for (const team of allTeams) {
       const teamAgeGroup = team.ageGroup || "";
       const teamSport = team.sport || "";
@@ -1639,7 +1639,7 @@ export const getTeamsForPlayerWithCoreFlag = query({
       "senior",
     ];
 
-    const results = [];
+    const results: any[] = [];
     for (const member of members) {
       const teamResult = await ctx.runQuery(
         components.betterAuth.adapter.findMany,

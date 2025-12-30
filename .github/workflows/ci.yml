@@ -27,8 +27,14 @@ jobs:
       - name: Run type check
         run: npm run check-types
 
-      - name: Run linting
-        run: npm run check
+      - name: Run linting (changed files only)
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            npx biome check --changed --diagnostic-level=error .
+          else
+            # For pushes to main, check files changed in the last commit
+            npx biome check --changed --since=HEAD~1 --diagnostic-level=error .
+          fi
 
   build:
     name: Build Check

@@ -34,6 +34,7 @@ jobs:
 
       # Temporarily disabled - linting has pre-existing issues across codebase
       # TODO: Re-enable once codebase-wide linting is addressed
+      # See CI_CD_STATUS.md for full action plan and tracking
       # - name: Run linting (changed files only)
       #   run: |
       #     if [ "${{ github.event_name }}" == "pull_request" ]; then
@@ -87,6 +88,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # TODO: Make blocking once vulnerabilities are reviewed and addressed
+      # See CI_CD_STATUS.md for security audit action plan
       - name: Run npm audit
         run: npm audit --audit-level=moderate
         continue-on-error: true

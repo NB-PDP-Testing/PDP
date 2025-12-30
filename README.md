@@ -72,3 +72,15 @@ pdp/
 - `npm run dev:setup`: Setup and configure your Convex project
 - `npm run check-types`: Check TypeScript types across all apps
 - `npm run check`: Run Biome formatting and linting
+
+## CI/CD Pipeline
+
+**Status:** ✅ Passing (with regressions)
+
+The project uses GitHub Actions for continuous integration. See [CI_CD_STATUS.md](./CI_CD_STATUS.md) for:
+- Current pipeline status
+- Known quality regressions
+- Technical debt tracking
+- Action plan for improvements
+
+**⚠️ Important:** Linting is currently disabled in CI while we address technical debt. Run `npx biome check .` locally before committing.

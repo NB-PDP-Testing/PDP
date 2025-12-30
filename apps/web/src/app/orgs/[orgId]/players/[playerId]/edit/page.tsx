@@ -5,7 +5,7 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Loader2, Save, User } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,23 @@ export default function EditPlayerPassportPage() {
     playerIdentityId: playerId as Id<"playerIdentities">,
     organizationId: orgId,
   });
+
+  // Query sports reference data
+  const sports = useQuery(api.models.referenceData.getSports);
+
+  // Helper: Sport code to display name mapping
+  const sportCodeToName = useMemo(() => {
+    const map = new Map<string, string>();
+    sports?.forEach((sport) => {
+      map.set(sport.code, sport.name);
+    });
+    return map;
+  }, [sports]);
+
+  const getSportDisplayName = (sportCode: string | undefined) => {
+    if (!sportCode) return "Unknown";
+    return sportCodeToName.get(sportCode) || sportCode;
+  };
 
   // Query current teams for player (Phase 1 immediate fix)
   const currentTeams = useQuery(
@@ -515,7 +532,7 @@ export default function EditPlayerPassportPage() {
                         <div className="flex items-center gap-2 text-muted-foreground text-xs">
                           <span>{team.ageGroup}</span>
                           <span>•</span>
-                          <span>{team.sportCode}</span>
+                          <span>{getSportDisplayName(team.sportCode)}</span>
                         </div>
                       </div>
 

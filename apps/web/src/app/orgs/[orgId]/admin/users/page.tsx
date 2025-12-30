@@ -112,7 +112,7 @@ export default function ManageUsersPage() {
       _id: enrollment.playerIdentityId, // Use identity ID as key
       name: `${enrollment.firstName} ${enrollment.lastName}`,
       ageGroup: enrollment.ageGroup,
-      sport: enrollment.sport || "Unknown",
+      sport: enrollment.sportCode || "Unknown", // Phase 3: Use sportCode from sportPassports
     })) || [];
 
   const [editStates, setEditStates] = useState<UserEditState>({});

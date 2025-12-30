@@ -276,6 +276,19 @@ const GAAMembershipWizard = ({
     setLocalTeams(existingTeams);
   }, [existingTeams]);
 
+  // Helper to convert sport code to display name
+  const getSportDisplayName = (sportCode: string) => {
+    const sportNames: Record<string, string> = {
+      gaa_football: "GAA Football",
+      hurling: "Hurling",
+      camogie: "Camogie",
+      ladies_football: "Ladies Football",
+      soccer: "Soccer",
+      rugby: "Rugby",
+    };
+    return sportNames[sportCode] || sportCode;
+  };
+
   // Helper to generate team key for comparison
   const getTeamKey = (team: {
     sport: string;
@@ -299,7 +312,7 @@ const GAAMembershipWizard = ({
             : "Mixed";
 
       const teamKey = getTeamKey({
-        sport: "GAA Football",
+        sport: "gaa_football", // Use sport code, not display name
         ageGroup: member.AgeGroup,
         gender: normalizedGender,
         season: "2025",
@@ -317,7 +330,7 @@ const GAAMembershipWizard = ({
         // Check if this team already exists
         const existingTeam = localTeams.find(
           (t) =>
-            t.sport === "GAA Football" &&
+            t.sport === "gaa_football" && // Use sport code, not display name
             t.ageGroup === member.AgeGroup &&
             t.gender === normalizedGender &&
             t.season === "2025"
@@ -325,7 +338,7 @@ const GAAMembershipWizard = ({
 
         teamMap.set(teamKey, {
           name: teamName,
-          sport: "GAA Football",
+          sport: "gaa_football", // Use sport code, not display name
           ageGroup: member.AgeGroup,
           gender: normalizedGender as "Male" | "Female" | "Mixed",
           season: "2025",
@@ -1082,7 +1095,7 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
               ? "Female"
               : "Mixed";
         const teamId = getTeamIdByProperties(
-          "GAA Football",
+          "gaa_football", // Use sport code, not display name
           member.AgeGroup,
           normalizedGender,
           "2025"
@@ -1186,7 +1199,7 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
         // Note: This will work immediately because we have updatedLocalTeams in scope
         const teamId = updatedLocalTeams.find(
           (t) =>
-            t.sport === "GAA Football" &&
+            t.sport === "gaa_football" && // Use sport code, not display name
             t.ageGroup === member.AgeGroup &&
             t.gender === normalizedGender &&
             t.season === "2025"
@@ -1980,8 +1993,8 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
                             {team.name}
                           </p>
                           <p className="text-gray-600 text-xs">
-                            {team.sport} • {team.ageGroup} • {team.gender} •{" "}
-                            {team.season}
+                            {getSportDisplayName(team.sport)} • {team.ageGroup}{" "}
+                            • {team.gender} • {team.season}
                           </p>
                         </div>
                       </div>
@@ -2622,7 +2635,10 @@ Anne,Brown,9/8/88,FEMALE,anne.brown@email.com,0851112223,ADULT,`;
                               </select>
                               {assignedTeam && (
                                 <div className="mt-1 text-gray-500 text-xs">
-                                  {assignedTeam.sport} • {assignedTeam.season}
+                                  {getSportDisplayName(
+                                    assignedTeam.sport || ""
+                                  )}{" "}
+                                  • {assignedTeam.season}
                                 </div>
                               )}
                             </td>

@@ -121,13 +121,28 @@ export const auditTeamAssignments = internalQuery({
 
     // 3. For each enrolled player, validate their team assignments
     for (const enrollment of enrollments) {
-      if (!(enrollment.ageGroup && enrollment.sport)) {
-        continue; // Skip players without age group or sport
+      if (!enrollment.ageGroup) {
+        continue; // Skip players without age group
       }
 
       const playerAgeGroup = enrollment.ageGroup;
-      const playerSport = enrollment.sport;
       const playerIdentityId = enrollment.playerIdentityId;
+
+      // Phase 3: Get player's sport passports
+      // Sport is now stored in sportPassports, not enrollment
+      const sportPassports = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_player_and_org", (q) =>
+          q
+            .eq("playerIdentityId", playerIdentityId)
+            .eq("organizationId", enrollment.organizationId)
+        )
+        .filter((q) => q.eq(q.field("status"), "active"))
+        .collect();
+
+      if (sportPassports.length === 0) {
+        continue; // Skip players without active sport
+      }
 
       // Get player name
       const playerIdentity = await ctx.db.get(playerIdentityId);
@@ -145,101 +160,66 @@ export const auditTeamAssignments = internalQuery({
 
       totalAssignments += teamMemberships.length;
 
-      // Check if player is on their core team
-      let hasCoreTeam = false;
-      const coreTeam = allTeams.find(
-        (team) =>
-          team.ageGroup?.toLowerCase() === playerAgeGroup.toLowerCase() &&
-          team.sport === playerSport
-      );
+      // For validation, check each sport passport against team assignments
+      for (const passport of sportPassports) {
+        const playerSport = passport.sportCode;
 
-      if (coreTeam) {
-        const isOnCoreTeam = teamMemberships.some(
-          (tm) => tm.teamId === coreTeam._id
+        // Check if player is on their core team for this sport
+        let hasCoreTeam = false;
+        const coreTeam = allTeams.find(
+          (team) =>
+            team.ageGroup?.toLowerCase() === playerAgeGroup.toLowerCase() &&
+            team.sport === playerSport
         );
-        if (isOnCoreTeam) {
-          hasCoreTeam = true;
+
+        if (coreTeam) {
+          const isOnCoreTeam = teamMemberships.some(
+            (tm) => tm.teamId === coreTeam._id
+          );
+          if (isOnCoreTeam) {
+            hasCoreTeam = true;
+          }
         }
-      }
 
-      if (!hasCoreTeam && coreTeam) {
-        // Player has a core team but isn't on it
-        coreTeamMissing.push({
-          playerName,
-          playerIdentityId,
-          playerAgeGroup,
-          playerSport,
-        });
-      }
-
-      // Validate each team membership
-      for (const membership of teamMemberships) {
-        const team = teamMap.get(membership.teamId);
-        if (!team) continue;
-
-        const teamAgeGroup = team.ageGroup || "";
-        const teamSport = team.sport || "";
-
-        // Check 1: Sport match
-        if (teamSport !== playerSport) {
-          violations.push({
+        if (!hasCoreTeam && coreTeam) {
+          // Player has a core team but isn't on it
+          coreTeamMissing.push({
             playerName,
             playerIdentityId,
             playerAgeGroup,
             playerSport,
-            teamName: team.name || "Unknown Team",
-            teamId: team._id,
-            teamAgeGroup,
-            teamSport,
-            violationType: "sport_mismatch",
-            reason: `Player enrolled in ${playerSport} but assigned to ${teamSport} team`,
-            autoFixed: false,
           });
-          continue; // Skip age check if sport doesn't match
         }
 
-        // Check 2: Age eligibility (using same logic as addPlayerToTeam)
-        // Get sport eligibility rules
-        const sportRules = await ctx.db
-          .query("sportAgeGroupEligibilityRules")
-          .withIndex("by_sport", (q) => q.eq("sportCode", playerSport))
-          .filter((q) => q.eq(q.field("isActive"), true))
-          .collect();
+        // Validate each team membership for this sport
+        for (const membership of teamMemberships) {
+          const team = teamMap.get(membership.teamId);
+          if (!team) continue;
 
-        const eligibilityResult = canPlayerJoinTeam(
-          playerAgeGroup,
-          teamAgeGroup,
-          playerSport,
-          sportRules
-        );
+          const teamAgeGroup = team.ageGroup || "";
+          const teamSport = team.sport || "";
 
-        if (!eligibilityResult.allowed) {
-          violations.push({
-            playerName,
-            playerIdentityId,
-            playerAgeGroup,
-            playerSport,
-            teamName: team.name || "Unknown Team",
-            teamId: team._id,
-            teamAgeGroup,
-            teamSport,
-            violationType: "age_ineligible",
-            reason:
-              eligibilityResult.reason ||
-              `Player (${playerAgeGroup}) not eligible for team (${teamAgeGroup})`,
-            autoFixed: false,
-          });
-        } else if (eligibilityResult.requiresOverride) {
-          // Check if override already exists
-          const existingOverride = await ctx.db
-            .query("ageGroupEligibilityOverrides")
-            .withIndex("by_player_and_team", (q) =>
-              q.eq("playerIdentityId", playerIdentityId).eq("teamId", team._id)
-            )
+          // Only validate memberships for teams matching this sport
+          if (teamSport !== playerSport) {
+            continue; // Skip teams not matching this sport passport
+          }
+
+          // Check age eligibility (using same logic as addPlayerToTeam)
+          // Get sport eligibility rules
+          const sportRules = await ctx.db
+            .query("sportAgeGroupEligibilityRules")
+            .withIndex("by_sport", (q) => q.eq("sportCode", playerSport))
             .filter((q) => q.eq(q.field("isActive"), true))
-            .first();
+            .collect();
 
-          if (!existingOverride) {
+          const eligibilityResult = canPlayerJoinTeam(
+            playerAgeGroup,
+            teamAgeGroup,
+            playerSport,
+            sportRules
+          );
+
+          if (!eligibilityResult.allowed) {
             violations.push({
               playerName,
               playerIdentityId,
@@ -252,9 +232,38 @@ export const auditTeamAssignments = internalQuery({
               violationType: "age_ineligible",
               reason:
                 eligibilityResult.reason ||
-                `Player (${playerAgeGroup}) requires override for team (${teamAgeGroup})`,
+                `Player (${playerAgeGroup}) not eligible for team (${teamAgeGroup})`,
               autoFixed: false,
             });
+          } else if (eligibilityResult.requiresOverride) {
+            // Check if override already exists
+            const existingOverride = await ctx.db
+              .query("ageGroupEligibilityOverrides")
+              .withIndex("by_player_and_team", (q) =>
+                q
+                  .eq("playerIdentityId", playerIdentityId)
+                  .eq("teamId", team._id)
+              )
+              .filter((q) => q.eq(q.field("isActive"), true))
+              .first();
+
+            if (!existingOverride) {
+              violations.push({
+                playerName,
+                playerIdentityId,
+                playerAgeGroup,
+                playerSport,
+                teamName: team.name || "Unknown Team",
+                teamId: team._id,
+                teamAgeGroup,
+                teamSport,
+                violationType: "age_ineligible",
+                reason:
+                  eligibilityResult.reason ||
+                  `Player (${playerAgeGroup}) requires override for team (${teamAgeGroup})`,
+                autoFixed: false,
+              });
+            }
           }
         }
       }

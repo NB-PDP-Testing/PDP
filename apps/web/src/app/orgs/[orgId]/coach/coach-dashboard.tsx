@@ -191,9 +191,9 @@ export function CoachDashboard() {
     }
 
     const mapped = coachPlayers.map((player) => {
-      // Find team links for this player (only from coach's assigned teams)
-      // Note: new identity system uses playerIdentityId instead of playerId
-      const links = coachTeamPlayerLinks.filter(
+      // Find team links for this player (USE ALL TEAM LINKS, NOT JUST COACH'S TEAMS)
+      // This ensures we show all teams the player is on, not just the coach's assigned teams
+      const links = teamPlayerLinks.filter(
         (link: any) =>
           link.playerIdentityId.toString() === player._id.toString()
       );

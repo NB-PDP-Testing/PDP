@@ -766,3 +766,28 @@ export const deletePassport = mutation({
     return null;
   },
 });
+
+/**
+ * Get all sport codes for a player in an organization
+ * Phase 3: Helper query for UI to display player's sports from sportPassports
+ */
+export const getSportsForPlayer = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    const passports = await ctx.db
+      .query("sportPassports")
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("organizationId", args.organizationId)
+      )
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    return passports.map((p) => p.sportCode);
+  },
+});

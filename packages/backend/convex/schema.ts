@@ -319,7 +319,7 @@ export default defineSchema({
     clubMembershipNumber: v.optional(v.string()),
     ageGroup: v.string(),
     season: v.string(),
-    sport: v.optional(v.string()), // Sport code - added Phase 2. Optional for backwards compatibility during migration
+    sport: v.optional(v.string()), // DEPRECATED Phase 3: Use sportPassports.sportCode instead. This field is kept for backwards compatibility but should not be used.
 
     // Status
     status: v.union(
@@ -453,6 +453,7 @@ export default defineSchema({
   })
     .index("by_playerIdentityId", ["playerIdentityId"])
     .index("by_player_and_sport", ["playerIdentityId", "sportCode"])
+    .index("by_player_and_org", ["playerIdentityId", "organizationId"]) // Added Phase 3: Optimize sport validation JOINs
     .index("by_organizationId", ["organizationId"])
     .index("by_org_and_sport", ["organizationId", "sportCode"])
     .index("by_status", ["organizationId", "sportCode", "status"]),

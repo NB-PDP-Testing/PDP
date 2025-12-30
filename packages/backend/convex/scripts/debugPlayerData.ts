@@ -29,7 +29,13 @@ export const debugPlayerProfile = internalQuery({
       v.object({
         _id: v.string(),
         ageGroup: v.union(v.string(), v.null()),
-        sport: v.union(v.string(), v.null()),
+        status: v.string(),
+      })
+    ),
+    sportPassports: v.array(
+      v.object({
+        _id: v.string(),
+        sportCode: v.string(),
         status: v.string(),
       })
     ),
@@ -80,8 +86,23 @@ export const debugPlayerProfile = internalQuery({
       issues.push("No enrollment found for this organization");
     } else if (!enrollment.ageGroup) {
       issues.push("Enrollment missing ageGroup");
-    } else if (!enrollment.sport) {
-      issues.push("Enrollment missing sport");
+    }
+
+    // Phase 3: Check sport passports instead of enrollment.sport
+    // Sport is now stored in sportPassports, not enrollment
+    const sportPassports = enrollment
+      ? await ctx.db
+          .query("sportPassports")
+          .withIndex("by_player_and_org", (q) =>
+            q
+              .eq("playerIdentityId", args.playerIdentityId)
+              .eq("organizationId", enrollment.organizationId)
+          )
+          .collect()
+      : [];
+
+    if (enrollment && sportPassports.length === 0) {
+      issues.push("No sport passports found");
     }
 
     // 3. Check all team memberships
@@ -150,10 +171,14 @@ export const debugPlayerProfile = internalQuery({
         ? {
             _id: enrollment._id,
             ageGroup: enrollment.ageGroup ?? null,
-            sport: enrollment.sport ?? null,
             status: enrollment.status,
           }
         : null,
+      sportPassports: sportPassports.map((p) => ({
+        _id: p._id,
+        sportCode: p.sportCode,
+        status: p.status,
+      })),
       teamMemberships: teamMemberships.map((m) => ({
         _id: m._id,
         teamId: m.teamId,

@@ -98,6 +98,20 @@ export default function AssessPlayerPage() {
     }
   );
 
+  // Helper: Sport code to display name mapping
+  const sportCodeToName = useMemo(() => {
+    const map = new Map<string, string>();
+    sports?.forEach((sport) => {
+      map.set(sport.code, sport.name);
+    });
+    return map;
+  }, [sports]);
+
+  const getSportDisplayName = (sportCode: string | undefined) => {
+    if (!sportCode) return "";
+    return sportCodeToName.get(sportCode) || sportCode;
+  };
+
   // Get coach's assigned teams with enriched team details
   const coachAssignments = useQuery(
     api.models.coaches.getCoachAssignmentsWithTeams,
@@ -742,7 +756,7 @@ export default function AssessPlayerPage() {
                         {team.teamName}
                         {team.sportCode && (
                           <span className="ml-2 text-muted-foreground text-xs">
-                            ({team.sportCode.toUpperCase()})
+                            ({getSportDisplayName(team.sportCode)})
                           </span>
                         )}
                       </SelectItem>

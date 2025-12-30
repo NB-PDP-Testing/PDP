@@ -964,6 +964,8 @@ export const batchImportPlayersWithIdentity = mutation({
           .first();
 
         if (existingEnrollment) {
+          // Phase 3: Update enrollment without sport field
+          // Sport is managed via sportPassports, not enrollment
           await ctx.db.patch(existingEnrollment._id, {
             ageGroup: playerData.ageGroup,
             season: playerData.season,
@@ -971,6 +973,8 @@ export const batchImportPlayersWithIdentity = mutation({
           });
           results.enrollmentsReused++;
         } else {
+          // Phase 3: Create enrollment without sport field
+          // Sport is stored in sportPassports (created below), not in enrollment
           await ctx.db.insert("orgPlayerEnrollments", {
             playerIdentityId,
             organizationId: args.organizationId,
@@ -983,7 +987,8 @@ export const batchImportPlayersWithIdentity = mutation({
           results.enrollmentsCreated++;
         }
 
-        // Auto-create sport passport if sportCode provided (inline optimization)
+        // Auto-create sport passport if sportCode provided
+        // This is the source of truth for player's sport enrollment
         if (args.sportCode) {
           const existingPassport = await ctx.db
             .query("sportPassports")

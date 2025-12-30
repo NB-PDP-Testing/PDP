@@ -284,17 +284,35 @@ export const addPlayerToTeam = mutation({
     // Sport-specific age eligibility validation (unless bypassed)
     if (!args.bypassValidation) {
       const playerAgeGroup = enrollment.ageGroup || "";
-      const playerSport = enrollment.sport || "";
       const teamAgeGroup = team.ageGroup || "";
       const teamSport = team.sport || "";
 
-      // Verify sport codes match
-      if (teamSport !== playerSport) {
+      // Phase 3: Check if player has sport passport for team's sport
+      // Sport is now stored in sportPassports, not enrollment
+      const playerPassport = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_player_and_org", (q) =>
+          q
+            .eq("playerIdentityId", args.playerIdentityId)
+            .eq("organizationId", args.organizationId)
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("sportCode"), teamSport),
+            q.eq(q.field("status"), "active")
+          )
+        )
+        .first();
+
+      if (!playerPassport) {
         return {
           success: false,
-          error: `Sport mismatch - player enrolled in ${playerSport}, team plays ${teamSport}`,
+          error: `Player does not have active enrollment in ${teamSport}. Please enroll player in this sport first.`,
         };
       }
+
+      // Sport is valid - use sportCode from passport for subsequent validations
+      const playerSport = playerPassport.sportCode;
 
       // Get team enforcement settings
       const enforcementSettings = await ctx.db
@@ -521,10 +539,25 @@ export const removePlayerFromTeam = mutation({
       const team = teamResult.page[0] as BetterAuthDoc<"team"> | undefined;
 
       if (team) {
-        // 3. If team.ageGroup === enrollment.ageGroup AND sport matches (core team), check permissions
+        // 3. Phase 3: Check if core team using sportPassports
+        // Get player's sport passports for this org
+        const sportPassports = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_player_and_org", (q) =>
+            q
+              .eq("playerIdentityId", args.playerIdentityId)
+              .eq("organizationId", args.organizationId)
+          )
+          .filter((q) => q.eq(q.field("status"), "active"))
+          .collect();
+
+        const playerSportCodes = sportPassports.map((p) => p.sportCode);
+        const teamSport = team.sport || "";
+
+        // Core team: age group matches AND player has sportPassport for team's sport
         const isCoreTeam =
           team.ageGroup?.toLowerCase() === enrollment.ageGroup?.toLowerCase() &&
-          team.sport === enrollment.sport;
+          playerSportCodes.includes(teamSport);
 
         if (isCoreTeam) {
           // Get user from Better Auth
@@ -907,10 +940,24 @@ export const updatePlayerTeams = mutation({
           .first();
 
         if (enrollment) {
+          // Phase 3: Check if core team using sportPassports
+          const sportPassports = await ctx.db
+            .query("sportPassports")
+            .withIndex("by_player_and_org", (q) =>
+              q
+                .eq("playerIdentityId", args.playerIdentityId)
+                .eq("organizationId", args.organizationId)
+            )
+            .filter((q) => q.eq(q.field("status"), "active"))
+            .collect();
+
+          const playerSportCodes = sportPassports.map((p) => p.sportCode);
+          const teamSport = team.sport || "";
+
           const isCoreTeam =
             team.ageGroup?.toLowerCase() ===
               enrollment.ageGroup?.toLowerCase() &&
-            team.sport === enrollment.sport;
+            playerSportCodes.includes(teamSport);
 
           if (isCoreTeam) {
             // Check user permissions using Better Auth
@@ -1034,7 +1081,7 @@ export const getCoreTeamForPlayer = query({
     })
   ),
   handler: async (ctx, args) => {
-    // 1. Get player's enrollment to find their age group and sport
+    // 1. Get player's enrollment to find their age group
     const enrollment = await ctx.db
       .query("orgPlayerEnrollments")
       .withIndex("by_player_and_org", (q) =>
@@ -1044,8 +1091,24 @@ export const getCoreTeamForPlayer = query({
       )
       .first();
 
-    if (!(enrollment && enrollment.ageGroup && enrollment.sport)) {
+    if (!(enrollment && enrollment.ageGroup)) {
       return null;
+    }
+
+    // Phase 3: Get all active sport passports for this player in this org
+    // Sport is now stored in sportPassports, not enrollment
+    const sportPassports = await ctx.db
+      .query("sportPassports")
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("organizationId", args.organizationId)
+      )
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    if (sportPassports.length === 0) {
+      return null; // No active sports
     }
 
     // 2. Get all teams in org from Better Auth
@@ -1065,12 +1128,16 @@ export const getCoreTeamForPlayer = query({
     );
     const allTeams = teamsResult.page as BetterAuthDoc<"team">[];
 
-    // Find team matching enrollment's age group AND sport (core team)
-    const coreTeam = allTeams.find(
-      (team) =>
-        team.ageGroup?.toLowerCase() === enrollment.ageGroup?.toLowerCase() &&
-        team.sport === enrollment.sport
-    );
+    // Find core team matching enrollment age group AND any of player's sports
+    // Priority: Return first matching sport (usually there's only one)
+    const coreTeam = allTeams.find((team) => {
+      const matchesAgeGroup =
+        team.ageGroup?.toLowerCase() === enrollment.ageGroup?.toLowerCase();
+      const matchesSport = sportPassports.some(
+        (passport) => passport.sportCode === team.sport
+      );
+      return matchesAgeGroup && matchesSport;
+    });
 
     if (!coreTeam) {
       return null;
@@ -1156,6 +1223,22 @@ export const getCurrentTeamsForPlayer = query({
 
     const enrollmentAgeGroup = enrollment?.ageGroup?.toLowerCase() || "";
 
+    // Phase 3: Get player's sport passports
+    // Sport is now stored in sportPassports, not enrollment
+    const sportPassports = enrollment
+      ? await ctx.db
+          .query("sportPassports")
+          .withIndex("by_player_and_org", (q) =>
+            q
+              .eq("playerIdentityId", args.playerIdentityId)
+              .eq("organizationId", args.organizationId)
+          )
+          .filter((q) => q.eq(q.field("status"), "active"))
+          .collect()
+      : [];
+
+    const playerSportCodes = sportPassports.map((p) => p.sportCode);
+
     // 3. Enrich with team details from Better Auth
     const results = [];
     for (const member of memberships) {
@@ -1172,8 +1255,10 @@ export const getCurrentTeamsForPlayer = query({
         const teamAgeGroup = team.ageGroup?.toLowerCase() || "";
         const teamSport = team.sport || "";
 
-        // Calculate core team (ageGroup match for now - sport will be added in Phase 2)
-        const isCoreTeam = teamAgeGroup === enrollmentAgeGroup;
+        // Calculate core team: age group match AND sport match (Phase 3)
+        const isCoreTeam =
+          teamAgeGroup === enrollmentAgeGroup &&
+          playerSportCodes.includes(teamSport);
 
         results.push({
           _id: member._id,
@@ -1230,7 +1315,7 @@ export const getEligibleTeamsForPlayer = query({
     })
   ),
   handler: async (ctx, args) => {
-    // 1. Get player's enrollment to find their age group and sport
+    // 1. Get player's enrollment to find their age group
     const enrollment = await ctx.db
       .query("orgPlayerEnrollments")
       .withIndex("by_player_and_org", (q) =>
@@ -1240,12 +1325,29 @@ export const getEligibleTeamsForPlayer = query({
       )
       .first();
 
-    if (!(enrollment && enrollment.ageGroup && enrollment.sport)) {
+    if (!(enrollment && enrollment.ageGroup)) {
       return [];
     }
 
     const playerAgeGroup = enrollment.ageGroup;
-    const playerSport = enrollment.sport;
+
+    // Phase 3: Get all active sport passports
+    // Sport is now stored in sportPassports, not enrollment
+    const sportPassports = await ctx.db
+      .query("sportPassports")
+      .withIndex("by_player_and_org", (q) =>
+        q
+          .eq("playerIdentityId", args.playerIdentityId)
+          .eq("organizationId", args.organizationId)
+      )
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    if (sportPassports.length === 0) {
+      return []; // No active sports
+    }
+
+    const playerSportCodes = sportPassports.map((p) => p.sportCode);
 
     // 2. Get all teams in org from Better Auth
     const teamsResult = await ctx.runQuery(
@@ -1275,12 +1377,16 @@ export const getEligibleTeamsForPlayer = query({
 
     const currentTeamIds = new Set(currentMemberships.map((m) => m.teamId));
 
-    // 4. Get sport-specific eligibility rules for player's sport
+    // 4. Get sport-specific eligibility rules for ALL player's sports
     const sportRules = await ctx.db
       .query("sportAgeGroupEligibilityRules")
-      .withIndex("by_sport", (q) => q.eq("sportCode", playerSport))
       .filter((q) => q.eq(q.field("isActive"), true))
       .collect();
+
+    // Filter to only rules relevant to player's sports
+    const relevantSportRules = sportRules.filter((rule) =>
+      playerSportCodes.includes(rule.sportCode)
+    );
 
     // 5. Get active overrides for this player
     const now = Date.now();
@@ -1328,10 +1434,10 @@ export const getEligibleTeamsForPlayer = query({
       const teamAgeGroup = team.ageGroup || "";
       const teamSport = team.sport || "";
 
-      // Determine if this is the core team
+      // Determine if this is the core team (age group match AND sport match)
       const isCoreTeam =
         teamAgeGroup.toLowerCase() === playerAgeGroup.toLowerCase() &&
-        teamSport === playerSport;
+        playerSportCodes.includes(teamSport);
 
       // Check current membership
       const isCurrentlyOn = currentTeamIds.has(team._id);
@@ -1354,15 +1460,10 @@ export const getEligibleTeamsForPlayer = query({
         eligibilityStatus = "eligible";
         reason = "Core team (matches enrollment age group)";
       }
-      // Check sport match
-      else if (teamSport !== playerSport) {
-        eligibilityStatus = "ineligible";
-        reason = `Sport mismatch (player: ${playerSport}, team: ${teamSport})`;
-      }
-      // Check age eligibility using sport rules
-      else {
+      // Check if team sport matches ANY of player's sports
+      else if (playerSportCodes.includes(teamSport)) {
         // Check if there's a specific rule for this age group combination
-        const specificRule = sportRules.find(
+        const specificRule = relevantSportRules.find(
           (rule) =>
             rule.fromAgeGroupCode.toLowerCase() ===
               playerAgeGroup.toLowerCase() &&
@@ -1404,6 +1505,9 @@ export const getEligibleTeamsForPlayer = query({
             reason = "Playing in younger age group requires admin approval";
           }
         }
+      } else {
+        eligibilityStatus = "ineligible";
+        reason = `Player not enrolled in ${teamSport}`;
       }
 
       results.push({
@@ -1491,7 +1595,21 @@ export const getTeamsForPlayerWithCoreFlag = query({
       .first();
 
     const enrollmentAgeGroup = enrollment?.ageGroup?.toLowerCase() || "";
-    const enrollmentSport = enrollment?.sport || "";
+
+    // Phase 3: Get player's sport passports (for core team determination)
+    const sportPassports = enrollment
+      ? await ctx.db
+          .query("sportPassports")
+          .withIndex("by_player_and_org", (q) =>
+            q
+              .eq("playerIdentityId", args.playerIdentityId)
+              .eq("organizationId", args.organizationId)
+          )
+          .filter((q) => q.eq(q.field("status"), "active"))
+          .collect()
+      : [];
+
+    const playerSportCodes = sportPassports.map((p) => p.sportCode);
 
     // 3. Enrich each team membership with team details and core flag
     const DEFAULT_AGE_GROUP_ORDER = [
@@ -1532,9 +1650,11 @@ export const getTeamsForPlayerWithCoreFlag = query({
       const teamAgeGroup = team.ageGroup?.toLowerCase() || "";
       const teamSport = team.sport || "";
 
-      // Check if this is the core team
+      // Phase 3: Check if this is the core team using sportPassports
+      // Core team: age group matches AND player has sportPassport for team's sport
       const isCoreTeam =
-        teamAgeGroup === enrollmentAgeGroup && teamSport === enrollmentSport;
+        teamAgeGroup === enrollmentAgeGroup &&
+        playerSportCodes.includes(teamSport);
 
       results.push({
         _id: member._id,

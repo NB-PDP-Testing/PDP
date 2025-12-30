@@ -662,10 +662,12 @@ export default function ManageTeamsPage() {
           });
 
           if (!result.success) {
-            addErrors.push(result.error || "Unknown error adding player");
+            const errorMsg = result.error || "Unknown error adding player";
+            addErrors.push(errorMsg);
             console.error("[Teams] Failed to add player:", {
               playerIdentityId,
-              error: result.error,
+              error: errorMsg,
+              fullResult: result,
             });
           }
         }

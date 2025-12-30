@@ -40,8 +40,9 @@ lerna-debug.log*
 .alchemy
 
 # Convex generated files
-**/convex/_generated/
-**/betterAuth/_generated/
+# Convex generated files are now committed to support CI
+# **/convex/_generated/
+# **/betterAuth/_generated/
 
 # Testing
 coverage

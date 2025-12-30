@@ -26,11 +26,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate Convex types
-        working-directory: packages/backend
-        run: npx convex codegen --typecheck disable
-        env:
-          CONVEX_DEPLOY_KEY: 'dummy-key-for-codegen'
+      # Convex generated files are now committed to repo (not generated in CI)
+      # This avoids needing a live Convex deployment for CI
 
       - name: Run type check
         run: npm run check-types
@@ -62,12 +59,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Generate Convex types
-        working-directory: packages/backend
-        run: npx convex codegen --typecheck disable
-        env:
-          CONVEX_DEPLOY_KEY: 'dummy-key-for-codegen'
 
       - name: Build
         run: npm run build
@@ -120,12 +111,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Generate Convex types
-        working-directory: packages/backend
-        run: npx convex codegen --typecheck disable
-        env:
-          CONVEX_DEPLOY_KEY: 'dummy-key-for-codegen'
 
       - name: Build for production
         run: npm run build

@@ -421,6 +421,13 @@ export default function ManageUsersPage() {
       return;
     }
 
+    if (inviteFunctionalRoles.length === 0) {
+      toast.error(
+        "Please select at least one functional role (Coach, Parent, or Admin)"
+      );
+      return;
+    }
+
     setInviting(true);
     try {
       // Auto-infer Better Auth role from functional roles:
@@ -752,14 +759,50 @@ export default function ManageUsersPage() {
                           <span>
                             Invited by {invitation.inviter?.name || "Unknown"}
                           </span>
-                          {invitation.role && (
-                            <>
-                              <span>•</span>
-                              <Badge className="text-xs" variant="outline">
-                                {invitation.role}
-                              </Badge>
-                            </>
-                          )}
+                          {(() => {
+                            // Extract functional roles from metadata
+                            const metadata = invitation.metadata as any;
+                            const functionalRoles =
+                              metadata?.suggestedFunctionalRoles || [];
+
+                            // Show functional roles if available, otherwise fall back to Better Auth role
+                            if (functionalRoles.length > 0) {
+                              return functionalRoles.map(
+                                (role: string, index: number) => (
+                                  <span key={role}>
+                                    <span>•</span>
+                                    <Badge
+                                      className="text-xs"
+                                      variant="outline"
+                                    >
+                                      {role.charAt(0).toUpperCase() +
+                                        role.slice(1)}
+                                    </Badge>
+                                  </span>
+                                )
+                              );
+                            }
+                            if (invitation.role) {
+                              return (
+                                <>
+                                  <span>•</span>
+                                  <Badge
+                                    className="text-xs"
+                                    variant="secondary"
+                                  >
+                                    {invitation.role}
+                                  </Badge>
+                                  <Badge
+                                    className="text-xs"
+                                    variant="destructive"
+                                  >
+                                    No functional role
+                                  </Badge>
+                                </>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                         <p className="text-muted-foreground text-xs">
                           {isExpired ? (

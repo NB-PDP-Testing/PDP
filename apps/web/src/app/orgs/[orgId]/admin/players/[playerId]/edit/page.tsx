@@ -88,6 +88,20 @@ export default function EditPlayerPage() {
     api.models.teamPlayerIdentities.updatePlayerTeams
   );
 
+  // Helper to format date for date input (YYYY-MM-DD)
+  const formatDateForInput = (dateString: string | undefined) => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    } catch {
+      return "";
+    }
+  };
+
   // Populate form when data loads
   useEffect(() => {
     if (playerIdentity && enrollment) {
@@ -95,7 +109,7 @@ export default function EditPlayerPage() {
         firstName: playerIdentity.firstName || "",
         lastName: playerIdentity.lastName || "",
         email: playerIdentity.email || "",
-        dateOfBirth: playerIdentity.dateOfBirth || "",
+        dateOfBirth: formatDateForInput(playerIdentity.dateOfBirth),
         gender: playerIdentity.gender || "male",
         ageGroup: enrollment.ageGroup || "",
         coachNotes: enrollment.coachNotes || "",
@@ -489,9 +503,9 @@ export default function EditPlayerPage() {
                 </div>
               )}
 
-              {/* Available Teams */}
+              {/* Available Teams (Eligible only) */}
               {eligibleTeams.filter(
-                (t) => !t.isCurrentlyOn && t.eligibilityStatus !== "ineligible"
+                (t) => !t.isCurrentlyOn && t.eligibilityStatus === "eligible"
               ).length > 0 && (
                 <div>
                   <h3 className="mb-2 font-medium text-sm">
@@ -499,8 +513,7 @@ export default function EditPlayerPage() {
                     {
                       eligibleTeams.filter(
                         (t) =>
-                          !t.isCurrentlyOn &&
-                          t.eligibilityStatus !== "ineligible"
+                          !t.isCurrentlyOn && t.eligibilityStatus === "eligible"
                       ).length
                     }
                     )
@@ -510,7 +523,7 @@ export default function EditPlayerPage() {
                       .filter(
                         (team) =>
                           !team.isCurrentlyOn &&
-                          team.eligibilityStatus !== "ineligible"
+                          team.eligibilityStatus === "eligible"
                       )
                       .map((team) => {
                         const isSelected = selectedTeamIds.includes(
@@ -547,25 +560,87 @@ export default function EditPlayerPage() {
                               <p className="text-muted-foreground text-xs">
                                 {team.ageGroup} • {team.sportCode}
                               </p>
-                              {team.eligibilityStatus === "eligible" && (
-                                <Badge
-                                  className="mt-1 gap-1 border-green-500 text-green-700 text-xs"
-                                  variant="outline"
-                                >
-                                  <CheckCircle className="h-2.5 w-2.5" />
-                                  Eligible
-                                </Badge>
-                              )}
-                              {team.eligibilityStatus ===
-                                "requiresOverride" && (
-                                <Badge
-                                  className="mt-1 gap-1 border-yellow-500 text-xs text-yellow-700"
-                                  variant="outline"
-                                >
-                                  <AlertTriangle className="h-2.5 w-2.5" />
-                                  Needs Approval
-                                </Badge>
-                              )}
+                              <Badge
+                                className="mt-1 gap-1 border-green-500 text-green-700 text-xs"
+                                variant="outline"
+                              >
+                                <CheckCircle className="h-2.5 w-2.5" />
+                                Eligible
+                              </Badge>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Teams Requiring Approval */}
+              {eligibleTeams.filter(
+                (t) =>
+                  !t.isCurrentlyOn && t.eligibilityStatus === "requiresOverride"
+              ).length > 0 && (
+                <div>
+                  <h3 className="mb-2 font-medium text-sm">
+                    Needs Approval (
+                    {
+                      eligibleTeams.filter(
+                        (t) =>
+                          !t.isCurrentlyOn &&
+                          t.eligibilityStatus === "requiresOverride"
+                      ).length
+                    }
+                    )
+                  </h3>
+                  <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                    {eligibleTeams
+                      .filter(
+                        (team) =>
+                          !team.isCurrentlyOn &&
+                          team.eligibilityStatus === "requiresOverride"
+                      )
+                      .map((team) => {
+                        const isSelected = selectedTeamIds.includes(
+                          team.teamId
+                        );
+
+                        return (
+                          <div
+                            className="flex items-start gap-3 rounded-lg border border-yellow-300 border-dashed bg-yellow-50/50 p-3"
+                            key={team.teamId}
+                          >
+                            <Checkbox
+                              checked={isSelected}
+                              className="mt-0.5"
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedTeamIds([
+                                    ...selectedTeamIds,
+                                    team.teamId,
+                                  ]);
+                                } else {
+                                  setSelectedTeamIds(
+                                    selectedTeamIds.filter(
+                                      (id) => id !== team.teamId
+                                    )
+                                  );
+                                }
+                              }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="font-medium text-sm">
+                                {team.teamName}
+                              </span>
+                              <p className="text-muted-foreground text-xs">
+                                {team.ageGroup} • {team.sportCode}
+                              </p>
+                              <Badge
+                                className="mt-1 gap-1 border-yellow-500 text-xs text-yellow-700"
+                                variant="outline"
+                              >
+                                <AlertTriangle className="h-2.5 w-2.5" />
+                                Needs Approval
+                              </Badge>
                             </div>
                           </div>
                         );

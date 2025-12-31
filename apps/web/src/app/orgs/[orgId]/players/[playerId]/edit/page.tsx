@@ -104,6 +104,20 @@ export default function EditPlayerPassportPage() {
     api.models.teamPlayerIdentities.removePlayerFromTeam
   );
 
+  // Helper to format date for date input (YYYY-MM-DD)
+  const formatDateForInput = (dateString: string | undefined) => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    } catch {
+      return "";
+    }
+  };
+
   // Populate form when data loads
   useEffect(() => {
     if (playerIdentity) {
@@ -112,7 +126,7 @@ export default function EditPlayerPassportPage() {
         firstName: playerIdentity.firstName || "",
         lastName: playerIdentity.lastName || "",
         email: playerIdentity.email || "",
-        dateOfBirth: playerIdentity.dateOfBirth || "",
+        dateOfBirth: formatDateForInput(playerIdentity.dateOfBirth),
         gender: playerIdentity.gender || "male",
       }));
     }

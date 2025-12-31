@@ -279,6 +279,7 @@ export function createAuth(
       google: {
         clientId: process.env.GOOGLE_CLIENT_ID as string,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+        prompt: "select_account", // Forces account selection
       },
       microsoft: {
         clientId: process.env.MICROSOFT_CLIENT_ID as string,

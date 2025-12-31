@@ -463,12 +463,13 @@ export default function EditPlayerPassportPage() {
         </Card>
       </div>
 
-      {/* Team Assignment Section */}
+      {/* Team Assignments */}
       <Card>
         <CardHeader>
           <CardTitle>Team Assignments</CardTitle>
           <CardDescription>
-            Select which teams this player is assigned to
+            Select which teams this player is on. Core teams are automatically
+            assigned based on age group and sport.
           </CardDescription>
         </CardHeader>
         <CardContent>

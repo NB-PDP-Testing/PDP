@@ -404,10 +404,10 @@ export default function EditPlayerPage() {
         </Card>
       </div>
 
-      {/* Team Management - Full Width */}
+      {/* Team Assignments - Full Width */}
       <Card>
         <CardHeader>
-          <CardTitle>Team Management</CardTitle>
+          <CardTitle>Team Assignments</CardTitle>
           <CardDescription>
             Select which teams this player is on. Core teams are automatically
             assigned based on age group and sport.

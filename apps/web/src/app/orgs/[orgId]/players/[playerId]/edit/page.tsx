@@ -286,11 +286,11 @@ export default function EditPlayerPassportPage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
             <User className="h-7 w-7 text-blue-600" />
           </div>
-          <div>
+          <div className="flex-1">
             <p className="font-semibold text-lg">
               {playerIdentity.firstName} {playerIdentity.lastName}
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">{playerIdentity.playerType}</Badge>
               {enrollment && (
                 <Badge
@@ -300,6 +300,17 @@ export default function EditPlayerPassportPage() {
                 >
                   {enrollment.status}
                 </Badge>
+              )}
+              {playerIdentity.dateOfBirth && (
+                <span className="text-muted-foreground text-sm">
+                  • DOB:{" "}
+                  {new Date(playerIdentity.dateOfBirth).toLocaleDateString()}
+                </span>
+              )}
+              {enrollment?.ageGroup && (
+                <span className="text-muted-foreground text-sm">
+                  • {enrollment.ageGroup}
+                </span>
               )}
             </div>
           </div>
@@ -463,7 +474,8 @@ export default function EditPlayerPassportPage() {
             <div className="space-y-3">
               {currentTeams.map((team: any) => {
                 const isSelected = selectedTeamIds.includes(team.teamId);
-                const isDisabled = team.isCoreTeam && !isAdmin && isSelected;
+                // Core teams should always be disabled for non-admins (cannot be checked or unchecked)
+                const isDisabled = team.isCoreTeam && !isAdmin;
 
                 return (
                   <div

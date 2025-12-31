@@ -305,6 +305,7 @@ export default function AcceptInvitationPage() {
           // - Coach team assignments if specified
           // - Parent-player links if specified
           // Note: Auto-mapping Better Auth "admin"/"owner" → functional "admin" is done in beforeAddMember hook
+          let syncSucceeded = false;
           try {
             const syncResult = await syncFunctionalRolesFromInvitation({
               invitationId,
@@ -312,34 +313,58 @@ export default function AcceptInvitationPage() {
               userId: session.user.id,
               userEmail: session.user.email,
             });
+
             console.log(
               "[AcceptInvitation] Sync result:",
+              `success: ${syncResult.success}`,
               `roles: ${syncResult.functionalRolesAssigned.join(", ")}`,
               `teams: ${syncResult.coachTeamsAssigned}`,
               `players: ${syncResult.playersLinked}`
             );
+
+            // Check if sync actually succeeded
+            if (!syncResult.success) {
+              console.error(
+                "[AcceptInvitation] Sync failed:",
+                syncResult.error || "Unknown error"
+              );
+              setErrorMessage(
+                `Warning: Your invitation was accepted, but there was an issue assigning your roles. ${syncResult.error || "Please contact an administrator to assign your roles manually."}`
+              );
+              setStatus("error");
+              return; // Don't redirect - show error
+            }
+
+            syncSucceeded = true;
           } catch (error) {
             console.error(
               "[AcceptInvitation] Error syncing functional roles:",
               error
             );
-            // Don't fail the invitation acceptance if this fails
+            setErrorMessage(
+              `Warning: Your invitation was accepted, but there was an issue assigning your roles. ${error instanceof Error ? error.message : "Unknown error"}. Please contact an administrator to assign your roles manually.`
+            );
+            setStatus("error");
+            return; // Don't redirect - show error
           }
 
-          // Set the organization as active before redirecting
-          // This ensures the user sees the correct organization context
-          try {
-            await authClient.organization.setActive({ organizationId });
-            console.log("Organization set as active:", organizationId);
-          } catch (error) {
-            console.error("Error setting active organization:", error);
-            // Continue with redirect even if setting active fails
-          }
+          // Only proceed if sync succeeded
+          if (syncSucceeded) {
+            // Set the organization as active before redirecting
+            // This ensures the user sees the correct organization context
+            try {
+              await authClient.organization.setActive({ organizationId });
+              console.log("Organization set as active:", organizationId);
+            } catch (error) {
+              console.error("Error setting active organization:", error);
+              // Continue with redirect even if setting active fails (not critical)
+            }
 
-          // Redirect to the organization dashboard after a short delay
-          setTimeout(() => {
-            router.push(`/orgs/${organizationId}`);
-          }, 2000);
+            // Redirect to the organization dashboard after a short delay
+            setTimeout(() => {
+              router.push(`/orgs/${organizationId}`);
+            }, 2000);
+          }
         } else {
           // Fallback: redirect to organizations list
           setTimeout(() => {

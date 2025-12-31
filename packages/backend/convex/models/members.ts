@@ -990,6 +990,7 @@ export const syncFunctionalRolesFromInvitation = mutation({
   },
   returns: v.object({
     success: v.boolean(),
+    error: v.optional(v.string()),
     functionalRolesAssigned: v.array(
       v.union(v.literal("coach"), v.literal("parent"), v.literal("admin"))
     ),
@@ -1015,12 +1016,13 @@ export const syncFunctionalRolesFromInvitation = mutation({
     );
 
     if (!invitationResult) {
-      console.log(
-        "[syncFunctionalRolesFromInvitation] Invitation not found:",
+      console.error(
+        "[syncFunctionalRolesFromInvitation] ERROR: Invitation not found:",
         args.invitationId
       );
       return {
         success: false,
+        error: "Invitation not found in database",
         functionalRolesAssigned: [],
         coachTeamsAssigned: 0,
         playersLinked: 0,
@@ -1029,10 +1031,40 @@ export const syncFunctionalRolesFromInvitation = mutation({
 
     // Extract metadata
     const metadata = invitationResult.metadata as any;
+    console.log(
+      "[syncFunctionalRolesFromInvitation] Invitation metadata:",
+      JSON.stringify(metadata, null, 2)
+    );
+
     const suggestedRoles: ("coach" | "parent" | "admin")[] =
       metadata?.suggestedFunctionalRoles || [];
     const roleSpecificData = metadata?.roleSpecificData || {};
     const suggestedPlayerLinks: string[] = metadata?.suggestedPlayerLinks || [];
+
+    console.log(
+      "[syncFunctionalRolesFromInvitation] Extracted data:",
+      `suggestedRoles: ${JSON.stringify(suggestedRoles)}`,
+      `teams: ${JSON.stringify(roleSpecificData.teams)}`,
+      `playerLinks: ${JSON.stringify(suggestedPlayerLinks)}`
+    );
+
+    // Check if there's actually any data to sync
+    if (
+      suggestedRoles.length === 0 &&
+      (!roleSpecificData.teams || roleSpecificData.teams.length === 0) &&
+      suggestedPlayerLinks.length === 0
+    ) {
+      console.warn(
+        "[syncFunctionalRolesFromInvitation] WARNING: No metadata found in invitation. User will have no roles assigned."
+      );
+      return {
+        success: true, // Not an error - invitation just had no metadata
+        error: "No roles or assignments specified in invitation",
+        functionalRolesAssigned: [],
+        coachTeamsAssigned: 0,
+        playersLinked: 0,
+      };
+    }
 
     let coachTeamsAssigned = 0;
     let playersLinked = 0;
@@ -1059,12 +1091,16 @@ export const syncFunctionalRolesFromInvitation = mutation({
     );
 
     if (!memberResult) {
-      console.log(
-        "[syncFunctionalRolesFromInvitation] Member not found for user:",
-        userId
+      console.error(
+        "[syncFunctionalRolesFromInvitation] ERROR: Member not found for user:",
+        userId,
+        "in organization:",
+        args.organizationId
       );
       return {
         success: false,
+        error:
+          "Member record not found. Please ensure the invitation was accepted properly.",
         functionalRolesAssigned: [],
         coachTeamsAssigned: 0,
         playersLinked: 0,

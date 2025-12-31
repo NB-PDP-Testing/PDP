@@ -270,13 +270,9 @@ export default function EditPlayerPassportPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button
-          onClick={() => router.push(`/orgs/${orgId}/players/${playerId}`)}
-          size="sm"
-          variant="outline"
-        >
+        <Button onClick={() => router.back()} size="sm" variant="outline">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Passport
+          Back
         </Button>
         <div className="flex-1">
           <h1 className="font-bold text-2xl">Edit Player Profile</h1>

@@ -65,6 +65,7 @@ import type * as scripts_findPlayerByName from "../scripts/findPlayerByName.js";
 import type * as scripts_fixGAATeamSportCodes from "../scripts/fixGAATeamSportCodes.js";
 import type * as scripts_getOrgId from "../scripts/getOrgId.js";
 import type * as scripts_migrateEnrollmentSport from "../scripts/migrateEnrollmentSport.js";
+import type * as scripts_previewOrgCleanup from "../scripts/previewOrgCleanup.js";
 import type * as scripts_queryExisting from "../scripts/queryExisting.js";
 import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSportRules.js";
 import type * as scripts_validateTeamAssignments from "../scripts/validateTeamAssignments.js";
@@ -135,6 +136,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/fixGAATeamSportCodes": typeof scripts_fixGAATeamSportCodes;
   "scripts/getOrgId": typeof scripts_getOrgId;
   "scripts/migrateEnrollmentSport": typeof scripts_migrateEnrollmentSport;
+  "scripts/previewOrgCleanup": typeof scripts_previewOrgCleanup;
   "scripts/queryExisting": typeof scripts_queryExisting;
   "scripts/seedDefaultSportRules": typeof scripts_seedDefaultSportRules;
   "scripts/validateTeamAssignments": typeof scripts_validateTeamAssignments;

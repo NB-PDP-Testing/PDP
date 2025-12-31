@@ -224,11 +224,11 @@ export default function EditPlayerPage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-100">
             <User className="h-7 w-7 text-blue-600" />
           </div>
-          <div>
+          <div className="flex-1">
             <p className="font-semibold text-lg">
               {playerIdentity.firstName} {playerIdentity.lastName}
             </p>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">{playerIdentity.playerType}</Badge>
               {enrollment && (
                 <Badge
@@ -238,6 +238,17 @@ export default function EditPlayerPage() {
                 >
                   {enrollment.status}
                 </Badge>
+              )}
+              {playerIdentity.dateOfBirth && (
+                <span className="text-muted-foreground text-sm">
+                  • DOB:{" "}
+                  {new Date(playerIdentity.dateOfBirth).toLocaleDateString()}
+                </span>
+              )}
+              {enrollment?.ageGroup && (
+                <span className="text-muted-foreground text-sm">
+                  • {enrollment.ageGroup}
+                </span>
               )}
             </div>
           </div>
@@ -377,110 +388,251 @@ export default function EditPlayerPage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Team Management */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Team Management</CardTitle>
-            <CardDescription>
-              Select which teams this player is on
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {eligibleTeams && eligibleTeams.length > 0 ? (
-              <div className="space-y-3">
-                {eligibleTeams.map((team) => {
-                  const isSelected = selectedTeamIds.includes(team.teamId);
-                  const isDisabled =
-                    team.isCoreTeam || team.eligibilityStatus === "ineligible";
-
-                  return (
-                    <div
-                      className="flex items-center justify-between rounded-lg border p-3"
-                      key={team.teamId}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          checked={isSelected}
-                          disabled={isDisabled}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedTeamIds([
-                                ...selectedTeamIds,
-                                team.teamId,
-                              ]);
-                            } else {
-                              setSelectedTeamIds(
-                                selectedTeamIds.filter(
-                                  (id) => id !== team.teamId
-                                )
-                              );
-                            }
-                          }}
-                        />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{team.teamName}</span>
-                            {team.isCoreTeam && (
-                              <Badge className="gap-1" variant="default">
-                                <Shield className="h-3 w-3" />
-                                Core Team
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-muted-foreground text-xs">
-                            {team.ageGroup} • {team.sportCode}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Eligibility Status */}
-                      <div className="flex items-center gap-2">
-                        {team.eligibilityStatus === "eligible" && (
-                          <Badge
-                            className="gap-1 border-green-500 text-green-700"
-                            variant="outline"
-                          >
-                            <CheckCircle className="h-3 w-3" />
-                            Eligible
-                          </Badge>
-                        )}
-                        {team.eligibilityStatus === "hasOverride" && (
-                          <Badge className="gap-1" variant="secondary">
-                            <Shield className="h-3 w-3" />
-                            Override Active
-                          </Badge>
-                        )}
-                        {team.eligibilityStatus === "requiresOverride" && (
-                          <Badge
-                            className="gap-1 border-yellow-500 text-yellow-700"
-                            variant="outline"
-                          >
-                            <AlertTriangle className="h-3 w-3" />
-                            Needs Approval
-                          </Badge>
-                        )}
-                        {team.eligibilityStatus === "ineligible" && (
-                          <Badge className="gap-1" variant="destructive">
-                            Ineligible
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {eligibleTeams.some((t) => t.isCoreTeam) && (
-                  <p className="text-muted-foreground text-xs">
-                    * Core team cannot be removed. Contact an admin to modify.
-                  </p>
-                )}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-sm">Loading teams...</p>
-            )}
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Team Management - Full Width */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Team Management</CardTitle>
+          <CardDescription>
+            Select which teams this player is on. Core teams are automatically
+            assigned based on age group and sport.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {eligibleTeams && eligibleTeams.length > 0 ? (
+            <div className="space-y-4">
+              {/* Current Teams */}
+              {eligibleTeams.filter((t) => t.isCurrentlyOn).length > 0 && (
+                <div>
+                  <h3 className="mb-2 font-medium text-sm">
+                    Current Teams (
+                    {eligibleTeams.filter((t) => t.isCurrentlyOn).length})
+                  </h3>
+                  <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                    {eligibleTeams
+                      .filter((team) => team.isCurrentlyOn)
+                      .map((team) => {
+                        const isSelected = selectedTeamIds.includes(
+                          team.teamId
+                        );
+                        const isDisabled =
+                          team.isCoreTeam ||
+                          team.eligibilityStatus === "ineligible";
+
+                        return (
+                          <div
+                            className="flex items-start gap-3 rounded-lg border p-3"
+                            key={team.teamId}
+                          >
+                            <Checkbox
+                              checked={isSelected}
+                              className="mt-0.5"
+                              disabled={isDisabled}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedTeamIds([
+                                    ...selectedTeamIds,
+                                    team.teamId,
+                                  ]);
+                                } else {
+                                  setSelectedTeamIds(
+                                    selectedTeamIds.filter(
+                                      (id) => id !== team.teamId
+                                    )
+                                  );
+                                }
+                              }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="font-medium text-sm">
+                                  {team.teamName}
+                                </span>
+                                {team.isCoreTeam && (
+                                  <Badge
+                                    className="gap-1 text-xs"
+                                    variant="default"
+                                  >
+                                    <Shield className="h-2.5 w-2.5" />
+                                    Core
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-muted-foreground text-xs">
+                                {team.ageGroup} • {team.sportCode}
+                              </p>
+                              {team.eligibilityStatus === "hasOverride" && (
+                                <Badge
+                                  className="mt-1 gap-1 text-xs"
+                                  variant="secondary"
+                                >
+                                  <Shield className="h-2.5 w-2.5" />
+                                  Override
+                                </Badge>
+                              )}
+                              {team.eligibilityStatus ===
+                                "requiresOverride" && (
+                                <Badge
+                                  className="mt-1 gap-1 border-yellow-500 text-xs text-yellow-700"
+                                  variant="outline"
+                                >
+                                  <AlertTriangle className="h-2.5 w-2.5" />
+                                  Needs Approval
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Available Teams */}
+              {eligibleTeams.filter(
+                (t) => !t.isCurrentlyOn && t.eligibilityStatus !== "ineligible"
+              ).length > 0 && (
+                <div>
+                  <h3 className="mb-2 font-medium text-sm">
+                    Available Teams (
+                    {
+                      eligibleTeams.filter(
+                        (t) =>
+                          !t.isCurrentlyOn &&
+                          t.eligibilityStatus !== "ineligible"
+                      ).length
+                    }
+                    )
+                  </h3>
+                  <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                    {eligibleTeams
+                      .filter(
+                        (team) =>
+                          !team.isCurrentlyOn &&
+                          team.eligibilityStatus !== "ineligible"
+                      )
+                      .map((team) => {
+                        const isSelected = selectedTeamIds.includes(
+                          team.teamId
+                        );
+
+                        return (
+                          <div
+                            className="flex items-start gap-3 rounded-lg border border-dashed p-3"
+                            key={team.teamId}
+                          >
+                            <Checkbox
+                              checked={isSelected}
+                              className="mt-0.5"
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedTeamIds([
+                                    ...selectedTeamIds,
+                                    team.teamId,
+                                  ]);
+                                } else {
+                                  setSelectedTeamIds(
+                                    selectedTeamIds.filter(
+                                      (id) => id !== team.teamId
+                                    )
+                                  );
+                                }
+                              }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="font-medium text-sm">
+                                {team.teamName}
+                              </span>
+                              <p className="text-muted-foreground text-xs">
+                                {team.ageGroup} • {team.sportCode}
+                              </p>
+                              {team.eligibilityStatus === "eligible" && (
+                                <Badge
+                                  className="mt-1 gap-1 border-green-500 text-green-700 text-xs"
+                                  variant="outline"
+                                >
+                                  <CheckCircle className="h-2.5 w-2.5" />
+                                  Eligible
+                                </Badge>
+                              )}
+                              {team.eligibilityStatus ===
+                                "requiresOverride" && (
+                                <Badge
+                                  className="mt-1 gap-1 border-yellow-500 text-xs text-yellow-700"
+                                  variant="outline"
+                                >
+                                  <AlertTriangle className="h-2.5 w-2.5" />
+                                  Needs Approval
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Ineligible Teams */}
+              {eligibleTeams.filter((t) => t.eligibilityStatus === "ineligible")
+                .length > 0 && (
+                <details className="group">
+                  <summary className="flex cursor-pointer items-center gap-2 font-medium text-muted-foreground text-sm">
+                    <span>
+                      Ineligible Teams (
+                      {
+                        eligibleTeams.filter(
+                          (t) => t.eligibilityStatus === "ineligible"
+                        ).length
+                      }
+                      )
+                    </span>
+                  </summary>
+                  <div className="mt-2 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+                    {eligibleTeams
+                      .filter((team) => team.eligibilityStatus === "ineligible")
+                      .map((team) => (
+                        <div
+                          className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 opacity-60"
+                          key={team.teamId}
+                        >
+                          <Checkbox
+                            checked={false}
+                            className="mt-0.5"
+                            disabled
+                          />
+                          <div className="min-w-0 flex-1">
+                            <span className="font-medium text-sm">
+                              {team.teamName}
+                            </span>
+                            <p className="text-muted-foreground text-xs">
+                              {team.ageGroup} • {team.sportCode}
+                            </p>
+                            <Badge
+                              className="mt-1 gap-1 text-xs"
+                              variant="destructive"
+                            >
+                              Ineligible
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </details>
+              )}
+
+              {eligibleTeams.some((t) => t.isCoreTeam) && (
+                <p className="text-muted-foreground text-xs">
+                  * Core teams are automatically assigned and cannot be removed
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm">Loading teams...</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

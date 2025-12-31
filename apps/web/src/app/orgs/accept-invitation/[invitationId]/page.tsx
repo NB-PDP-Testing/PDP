@@ -41,6 +41,41 @@ export default function AcceptInvitationPage() {
     api.models.members.syncFunctionalRolesFromInvitation
   );
 
+  // Timeout protection: if page is stuck loading for >15 seconds, show error
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (status === "loading" || status === "checking") {
+        console.error(
+          "[AcceptInvitation] ❌ TIMEOUT: Page stuck in",
+          status,
+          "state for >15 seconds"
+        );
+        console.error(
+          "[AcceptInvitation] Session state:",
+          session === undefined
+            ? "undefined"
+            : session === null
+              ? "null"
+              : "loaded"
+        );
+        console.error(
+          "[AcceptInvitation] Invitation state:",
+          invitation === undefined
+            ? "undefined"
+            : invitation === null
+              ? "null"
+              : "loaded"
+        );
+        setStatus("error");
+        setErrorMessage(
+          "The invitation is taking too long to load. Please check your internet connection and try refreshing the page. If the problem persists, contact support."
+        );
+      }
+    }, 15_000); // 15 seconds
+
+    return () => clearTimeout(timeout);
+  }, [status, session, invitation]);
+
   useEffect(() => {
     console.log("[AcceptInvitation] ===== PAGE MOUNTED =====");
     console.log("[AcceptInvitation] Invitation ID from params:", invitationId);

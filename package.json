@@ -12,7 +12,6 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
-    "prebuild": "npm run check-types",
     "validate": "npm run check-types && npm run check",
     "dev:web": "turbo -F web dev",
     "dev:server": "turbo -F @pdp/backend dev",

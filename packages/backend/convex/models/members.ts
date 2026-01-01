@@ -1,7 +1,17 @@
 import type { Member } from "better-auth/plugins";
+import type { GenericDatabaseReader } from "convex/server";
 import { v } from "convex/values";
-import { components, internal } from "../_generated/api";
-import { mutation, query } from "../_generated/server";
+import { api, components, internal } from "../_generated/api";
+import type { DataModel } from "../_generated/dataModel";
+import { internalMutation, mutation, query } from "../_generated/server";
+
+/**
+ * Type helper for Better Auth teamMember table (not in Convex schema)
+ * This table is managed by the Better Auth component
+ */
+type BetterAuthDb = GenericDatabaseReader<DataModel> & {
+  query(tableName: "teamMember"): any;
+};
 
 /**
  * Organization member management functions
@@ -903,7 +913,7 @@ export const updateInvitationMetadata = mutation({
  * Helper: Log an invitation event to the audit trail
  * This creates a record in invitationEvents table for tracking invitation lifecycle
  */
-export const logInvitationEvent = mutation({
+export const logInvitationEvent = internalMutation({
   args: {
     invitationId: v.string(),
     organizationId: v.string(),
@@ -1285,8 +1295,8 @@ export const getPendingInvitationsByEmail = query({
               if (player) {
                 return {
                   _id: player._id,
-                  firstName: player.firstName,
-                  lastName: player.lastName,
+                  firstName: (player as any).firstName,
+                  lastName: (player as any).lastName,
                 };
               }
               return null;
@@ -1358,7 +1368,10 @@ export const getPendingInvitationsWithAssignments = query({
   ),
   handler: async (ctx, args) => {
     // Get all pending invitations for the organization
-    const invitations = await getPendingInvitations(ctx, args);
+    const invitations = await ctx.runQuery(
+      api.models.members.getPendingInvitations,
+      args
+    );
 
     // Enrich with assignments
     const enriched = await Promise.all(
@@ -1426,8 +1439,8 @@ export const getPendingInvitationsWithAssignments = query({
               if (player) {
                 return {
                   _id: player._id,
-                  firstName: player.firstName,
-                  lastName: player.lastName,
+                  firstName: (player as any).firstName,
+                  lastName: (player as any).lastName,
                 };
               }
               return null;
@@ -3256,7 +3269,7 @@ export const getRemovalPreview = query({
     // Count impact: voice notes
     const voiceNotes = await ctx.db.query("voiceNotes").collect();
     const userVoiceNotes = voiceNotes.filter(
-      (vn) =>
+      (vn: any) =>
         vn.coachId === args.userId && vn.organizationId === args.organizationId
     );
 
@@ -3658,7 +3671,7 @@ export const removeFromOrganization = mutation({
     }
 
     // Check if removal is allowed
-    const preview = await getRemovalPreview(ctx, {
+    const preview = await ctx.runQuery(api.models.members.getRemovalPreview, {
       organizationId: args.organizationId,
       userId: args.userId,
     });
@@ -3713,8 +3726,10 @@ export const removeFromOrganization = mutation({
 
       // 3. Delete team memberships (if teamMember table exists)
       try {
-        const teamMembers = await ctx.db.query("teamMember").collect();
-        for (const tm of teamMembers) {
+        const teamMembers = await (ctx.db as BetterAuthDb)
+          .query("teamMember")
+          .collect();
+        for (const tm of teamMembers as any[]) {
           // Get team to check if it belongs to this organization
           const teamResult = await ctx.runQuery(
             components.betterAuth.adapter.findOne,
@@ -3745,7 +3760,7 @@ export const removeFromOrganization = mutation({
       // 4. Delete voice notes
       const voiceNotes = await ctx.db.query("voiceNotes").collect();
       const userVoiceNotes = voiceNotes.filter(
-        (vn) =>
+        (vn: any) =>
           vn.coachId === args.userId &&
           vn.organizationId === args.organizationId
       );

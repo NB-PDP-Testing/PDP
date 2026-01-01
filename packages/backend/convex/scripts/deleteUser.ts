@@ -1,5 +1,23 @@
+import type {
+  GenericDatabaseReader,
+  GenericDatabaseWriter,
+} from "convex/server";
 import { v } from "convex/values";
+import type { DataModel } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
+
+/**
+ * Type helper for Better Auth tables (not in Convex schema)
+ * These tables are managed by the Better Auth component
+ */
+type BetterAuthDb = GenericDatabaseReader<DataModel> & {
+  query(tableName: "user" | "session" | "member" | "invitation"): any;
+};
+
+type BetterAuthDbWriter = GenericDatabaseWriter<DataModel> & {
+  query(tableName: "user" | "session" | "member" | "invitation"): any;
+  delete(id: string): Promise<void>;
+};
 
 /**
  * Delete User and All Related Data
@@ -47,8 +65,8 @@ export const deleteUserByEmail = internalMutation({
     };
 
     // 1. Find the user
-    const users = await ctx.db.query("user").collect();
-    const user = users.find((u) => u.email.toLowerCase() === email);
+    const users = await (ctx.db as BetterAuthDb).query("user").collect();
+    const user = users.find((u: any) => u.email.toLowerCase() === email);
 
     if (!user) {
       console.log(`[DeleteUser] ❌ User not found: ${email}`);
@@ -62,8 +80,8 @@ export const deleteUserByEmail = internalMutation({
     console.log(`[DeleteUser] ✓ Found user: ${user.id} (${user.email})`);
 
     // 2. Delete sessions
-    const sessions = await ctx.db.query("session").collect();
-    const userSessions = sessions.filter((s) => s.userId === user.id);
+    const sessions = await (ctx.db as BetterAuthDb).query("session").collect();
+    const userSessions = sessions.filter((s: any) => s.userId === user.id);
 
     console.log(`[DeleteUser] Found ${userSessions.length} sessions to delete`);
 
@@ -77,8 +95,8 @@ export const deleteUserByEmail = internalMutation({
     }
 
     // 3. Delete organization memberships
-    const members = await ctx.db.query("member").collect();
-    const userMembers = members.filter((m) => m.userId === user.id);
+    const members = await (ctx.db as BetterAuthDb).query("member").collect();
+    const userMembers = members.filter((m: any) => m.userId === user.id);
 
     console.log(
       `[DeleteUser] Found ${userMembers.length} organization memberships to delete`
@@ -94,9 +112,11 @@ export const deleteUserByEmail = internalMutation({
     }
 
     // 4. Delete pending invitations
-    const invitations = await ctx.db.query("invitation").collect();
+    const invitations = await (ctx.db as BetterAuthDb)
+      .query("invitation")
+      .collect();
     const userInvitations = invitations.filter(
-      (i) => i.email.toLowerCase() === email
+      (i: any) => i.email.toLowerCase() === email
     );
 
     console.log(

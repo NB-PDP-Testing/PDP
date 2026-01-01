@@ -1,7 +1,17 @@
+import type { GenericDatabaseReader } from "convex/server";
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { api, components } from "../_generated/api";
+import type { DataModel } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
+
+/**
+ * Type helper for Better Auth teamMember table (not in Convex schema)
+ * This table is managed by the Better Auth component
+ */
+type BetterAuthDb = GenericDatabaseReader<DataModel> & {
+  query(tableName: "teamMember"): any;
+};
 
 /**
  * Get current authenticated user using Better Auth
@@ -198,10 +208,7 @@ export const getUserDeletionPreview = query({
   }),
   handler: async (ctx, args) => {
     // Permission: isPlatformStaff only
-    const caller = await ctx.runQuery(
-      components.betterAuth.userFunctions.getUser,
-      {}
-    );
+    const caller = await authComponent.safeGetAuthUser(ctx);
     if (!caller?.isPlatformStaff) {
       throw new Error("Only platform staff can preview user deletion");
     }
@@ -342,7 +349,7 @@ export const getUserDeletionPreview = query({
         paginationOpts: { cursor: null, numItems: 1000 },
         where: [{ field: "userId", value: user._id, operator: "eq" }],
       }),
-      ctx.db.query("teamMember").collect(),
+      (ctx.db as BetterAuthDb).query("teamMember").collect(),
       ctx.db.query("coachAssignments").collect(),
       ctx.db.query("guardianIdentities").collect(),
       ctx.db.query("playerIdentities").collect(),
@@ -381,7 +388,8 @@ export const getUserDeletionPreview = query({
         sessions: sessionsResult.page.length,
         accounts: accountsResult.page.length,
         members: membersResult.page.length,
-        teamMembers: teamMembers.filter((tm) => tm.userId === user._id).length,
+        teamMembers: teamMembers.filter((tm: any) => tm.userId === user._id)
+          .length,
         coachAssignments: coachAssignments.filter(
           (ca) => ca.userId === user._id
         ).length,
@@ -427,10 +435,7 @@ export const deleteUserAccount = mutation({
   }),
   handler: async (ctx, args) => {
     // Permission: isPlatformStaff only
-    const caller = await ctx.runQuery(
-      components.betterAuth.userFunctions.getUser,
-      {}
-    );
+    const caller = await authComponent.safeGetAuthUser(ctx);
     if (!caller?.isPlatformStaff) {
       return {
         success: false,
@@ -465,7 +470,12 @@ export const deleteUserAccount = mutation({
     }
 
     // Check blockers via preview
-    const preview = await getUserDeletionPreview(ctx, { email: args.email });
+    const preview = await ctx.runQuery(
+      api.models.users.getUserDeletionPreview,
+      {
+        email: args.email,
+      }
+    );
 
     if (!preview.canDelete) {
       return {

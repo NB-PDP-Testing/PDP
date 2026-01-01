@@ -3188,6 +3188,10 @@ export const getRemovalPreview = query({
           playersManaged: 0,
           invitationsSent: 0,
           voiceNotes: 0,
+          guardianProfiles: 0,
+          playerEnrollments: 0,
+          sportPassports: 0,
+          pendingInvitations: 0,
         },
       };
     }
@@ -3478,7 +3482,7 @@ export const disableMemberAccess = mutation({
       }
     );
 
-    const disableType =
+    const disableType: "account" | "org_only" =
       allMemberships.page.length === 1 ? "account" : "org_only";
 
     // Update member record with disable fields

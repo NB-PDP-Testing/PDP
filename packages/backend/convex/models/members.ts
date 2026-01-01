@@ -66,6 +66,63 @@ export const getMembersByOrganization = query({
 });
 
 /**
+ * Get a specific member by user ID and organization ID
+ */
+export const getMemberByUserId = query({
+  args: {
+    userId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.union(v.any(), v.null()),
+  handler: async (ctx, args) => {
+    // Find the member record for this user in this organization
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: args.userId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      return null;
+    }
+
+    // Fetch user details
+    const userResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "_id",
+            value: memberResult.userId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    return {
+      ...memberResult,
+      user: userResult,
+    };
+  },
+});
+
+/**
  * Get members count by role for an organization
  */
 export const getMemberCountsByRole = query({
@@ -721,6 +778,224 @@ export const getPendingInvitations = query({
 });
 
 /**
+ * Update invitation metadata after Better Auth creates it
+ * This is a workaround because Better Auth client doesn't support custom metadata
+ */
+export const updateInvitationMetadata = mutation({
+  args: {
+    invitationId: v.string(),
+    metadata: v.any(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    try {
+      // Find the invitation
+      const invitationResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "invitation",
+          where: [
+            {
+              field: "_id",
+              value: args.invitationId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+
+      if (!invitationResult) {
+        return {
+          success: false,
+          error: "Invitation not found",
+        };
+      }
+
+      // Check if this is initial creation or modification
+      const oldMetadata = invitationResult.metadata;
+      const isInitialCreation =
+        !oldMetadata || Object.keys(oldMetadata).length === 0;
+
+      // Get current user for audit trail
+      const identity = await ctx.auth.getUserIdentity();
+      let currentUser = null;
+      if (identity && identity.email) {
+        currentUser = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [
+              {
+                field: "email",
+                value: identity.email,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+      }
+
+      // Update invitation with metadata
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "invitation",
+          where: [{ field: "_id", value: args.invitationId, operator: "eq" }],
+          update: {
+            metadata: args.metadata,
+          },
+        },
+      });
+
+      console.log(
+        "[updateInvitationMetadata] Updated invitation",
+        args.invitationId,
+        "with metadata:",
+        args.metadata
+      );
+
+      // Log the appropriate event
+      if (isInitialCreation) {
+        // This is the initial creation with metadata
+        await ctx.runMutation(internal.models.members.logInvitationEvent, {
+          invitationId: args.invitationId,
+          organizationId: invitationResult.organizationId,
+          eventType: "created",
+          performedBy:
+            currentUser?._id || invitationResult.inviterId || "unknown",
+          performedByName: currentUser?.name,
+          performedByEmail: currentUser?.email,
+          metadata: args.metadata,
+        });
+      } else {
+        // This is a modification of existing invitation
+        await ctx.runMutation(internal.models.members.logInvitationEvent, {
+          invitationId: args.invitationId,
+          organizationId: invitationResult.organizationId,
+          eventType: "modified",
+          performedBy: currentUser?._id || "unknown",
+          performedByName: currentUser?.name,
+          performedByEmail: currentUser?.email,
+          changes: {
+            field: "metadata",
+            oldValue: oldMetadata,
+            newValue: args.metadata,
+          },
+        });
+      }
+
+      return {
+        success: true,
+      };
+    } catch (error: any) {
+      console.error("[updateInvitationMetadata] Error:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to update invitation metadata",
+      };
+    }
+  },
+});
+
+/**
+ * Helper: Log an invitation event to the audit trail
+ * This creates a record in invitationEvents table for tracking invitation lifecycle
+ */
+export const logInvitationEvent = mutation({
+  args: {
+    invitationId: v.string(),
+    organizationId: v.string(),
+    eventType: v.union(
+      v.literal("created"),
+      v.literal("resent"),
+      v.literal("modified"),
+      v.literal("cancelled"),
+      v.literal("accepted"),
+      v.literal("rejected"),
+      v.literal("expired")
+    ),
+    performedBy: v.string(), // User ID
+    performedByName: v.optional(v.string()),
+    performedByEmail: v.optional(v.string()),
+    changes: v.optional(
+      v.object({
+        field: v.string(),
+        oldValue: v.any(),
+        newValue: v.any(),
+      })
+    ),
+    metadata: v.optional(v.any()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.insert("invitationEvents", {
+      invitationId: args.invitationId,
+      organizationId: args.organizationId,
+      eventType: args.eventType,
+      performedBy: args.performedBy,
+      performedByName: args.performedByName,
+      performedByEmail: args.performedByEmail,
+      timestamp: Date.now(),
+      changes: args.changes,
+      metadata: args.metadata,
+    });
+    return null;
+  },
+});
+
+/**
+ * Get invitation events history (audit trail)
+ * Returns all events for a given invitation in chronological order
+ */
+export const getInvitationEvents = query({
+  args: {
+    invitationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("invitationEvents"),
+      _creationTime: v.number(),
+      invitationId: v.string(),
+      organizationId: v.string(),
+      eventType: v.union(
+        v.literal("created"),
+        v.literal("resent"),
+        v.literal("modified"),
+        v.literal("cancelled"),
+        v.literal("accepted"),
+        v.literal("rejected"),
+        v.literal("expired")
+      ),
+      performedBy: v.string(),
+      performedByName: v.optional(v.string()),
+      performedByEmail: v.optional(v.string()),
+      timestamp: v.number(),
+      changes: v.optional(
+        v.object({
+          field: v.string(),
+          oldValue: v.any(),
+          newValue: v.any(),
+        })
+      ),
+      metadata: v.optional(v.any()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const events = await ctx.db
+      .query("invitationEvents")
+      .withIndex("by_invitationId", (q) =>
+        q.eq("invitationId", args.invitationId)
+      )
+      .collect();
+
+    // Sort by timestamp ascending (chronological order)
+    return events.sort((a, b) => a.timestamp - b.timestamp);
+  },
+});
+
+/**
  * Cancel a pending invitation
  */
 export const cancelInvitation = mutation({
@@ -752,6 +1027,22 @@ export const cancelInvitation = mutation({
       throw new Error("Only pending invitations can be cancelled");
     }
 
+    // Get current user for audit trail
+    const identity = await ctx.auth.getUserIdentity();
+    let currentUser = null;
+    if (identity && identity.email) {
+      currentUser = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: identity.email,
+            operator: "eq",
+          },
+        ],
+      });
+    }
+
     // Update invitation status to cancelled
     await ctx.runMutation(components.betterAuth.adapter.updateOne, {
       input: {
@@ -761,6 +1052,16 @@ export const cancelInvitation = mutation({
           status: "cancelled",
         },
       },
+    });
+
+    // Log the cancellation event
+    await ctx.runMutation(internal.models.members.logInvitationEvent, {
+      invitationId: args.invitationId,
+      organizationId: invitationResult.organizationId,
+      eventType: "cancelled",
+      performedBy: currentUser?._id || "unknown",
+      performedByName: currentUser?.name,
+      performedByEmail: currentUser?.email,
     });
 
     return null;
@@ -854,6 +1155,312 @@ export const getInvitationById = query({
       expiresAt: invitationResult.expiresAt,
       isExpired,
     };
+  },
+});
+
+/**
+ * Get all pending invitations for the current user by email
+ * Used for auto-detecting invitations on login/signup
+ * Returns invitations with organization details and functional roles
+ */
+export const getPendingInvitationsByEmail = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.string(),
+      organizationId: v.string(),
+      organizationName: v.string(),
+      email: v.string(),
+      role: v.union(v.string(), v.null()),
+      functionalRoles: v.array(v.string()),
+      teams: v.array(
+        v.object({
+          _id: v.string(),
+          name: v.string(),
+          ageGroup: v.union(v.string(), v.null()),
+        })
+      ),
+      players: v.array(
+        v.object({
+          _id: v.string(),
+          firstName: v.string(),
+          lastName: v.string(),
+        })
+      ),
+      expiresAt: v.number(),
+      isExpired: v.boolean(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get current user from auth context
+    const identity = await ctx.auth.getUserIdentity();
+    if (!(identity && identity.email)) {
+      return [];
+    }
+
+    // Find all pending invitations for this email
+    const invitationsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "invitation",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "email",
+            value: identity.email.toLowerCase(),
+            operator: "eq",
+          },
+          {
+            field: "status",
+            value: "pending",
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    // Enrich with organization details and assignments
+    const enriched = await Promise.all(
+      invitationsResult.page.map(async (inv: any) => {
+        const orgResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "organization",
+            where: [
+              {
+                field: "_id",
+                value: inv.organizationId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        const metadata = inv.metadata || {};
+        const functionalRoles = metadata.suggestedFunctionalRoles || [];
+
+        // Fetch team details for coaches
+        let teams = [];
+        const teamIds = metadata.roleSpecificData?.teams || [];
+        if (teamIds.length > 0) {
+          teams = await Promise.all(
+            teamIds.map(async (teamId: string) => {
+              const teamResult = await ctx.runQuery(
+                components.betterAuth.adapter.findOne,
+                {
+                  model: "team",
+                  where: [
+                    {
+                      field: "_id",
+                      value: teamId,
+                      operator: "eq",
+                    },
+                  ],
+                }
+              );
+
+              if (teamResult) {
+                return {
+                  _id: teamResult._id,
+                  name: teamResult.name,
+                  ageGroup: teamResult.ageGroup || null,
+                };
+              }
+              return null;
+            })
+          ).then((results) => results.filter(Boolean));
+        }
+
+        // Fetch player details for parents
+        let players = [];
+        const playerIds = metadata.suggestedPlayerLinks || [];
+        if (playerIds.length > 0) {
+          players = await Promise.all(
+            playerIds.map(async (playerId: string) => {
+              const player = await ctx.db.get(playerId as any);
+              if (player) {
+                return {
+                  _id: player._id,
+                  firstName: player.firstName,
+                  lastName: player.lastName,
+                };
+              }
+              return null;
+            })
+          ).then((results) => results.filter(Boolean));
+        }
+
+        return {
+          _id: inv._id,
+          organizationId: inv.organizationId,
+          organizationName: orgResult?.name || "Unknown",
+          email: inv.email,
+          role: inv.role || null,
+          functionalRoles,
+          teams,
+          players,
+          expiresAt: inv.expiresAt,
+          isExpired: inv.expiresAt < Date.now(),
+        };
+      })
+    );
+
+    // Filter out expired invitations
+    return enriched.filter((i) => !i.isExpired);
+  },
+});
+
+/**
+ * Get pending invitations with detailed assignments for admin UI
+ * Enriches invitations with team assignments (for coaches) and player links (for parents)
+ * Also includes resend history and functional roles
+ */
+export const getPendingInvitationsWithAssignments = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.string(),
+      email: v.string(),
+      role: v.union(v.string(), v.null()),
+      functionalRoles: v.array(v.string()),
+      teams: v.array(
+        v.object({
+          _id: v.string(),
+          name: v.string(),
+          ageGroup: v.union(v.string(), v.null()),
+        })
+      ),
+      players: v.array(
+        v.object({
+          _id: v.string(),
+          firstName: v.string(),
+          lastName: v.string(),
+        })
+      ),
+      inviter: v.object({ name: v.union(v.string(), v.null()) }),
+      sentAt: v.number(),
+      expiresAt: v.number(),
+      isExpired: v.boolean(),
+      resendCount: v.number(),
+      resendHistory: v.array(
+        v.object({
+          resentAt: v.number(),
+          resentByName: v.string(),
+        })
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all pending invitations for the organization
+    const invitations = await getPendingInvitations(ctx, args);
+
+    // Enrich with assignments
+    const enriched = await Promise.all(
+      invitations.map(async (inv: any) => {
+        const metadata = inv.metadata || {};
+
+        // Debug logging
+        console.log(
+          "[getPendingInvitationsWithAssignments] Processing invitation:",
+          {
+            invitationId: inv._id,
+            email: inv.email,
+            hasMetadata: !!inv.metadata,
+            metadata,
+          }
+        );
+
+        // Extract functional roles
+        const functionalRoles = metadata.suggestedFunctionalRoles || [];
+
+        console.log(
+          "[getPendingInvitationsWithAssignments] Extracted functionalRoles:",
+          functionalRoles
+        );
+
+        // Fetch team details for coaches
+        let teams = [];
+        const teamIds = metadata.roleSpecificData?.teams || [];
+        if (teamIds.length > 0) {
+          teams = await Promise.all(
+            teamIds.map(async (teamId: string) => {
+              const teamResult = await ctx.runQuery(
+                components.betterAuth.adapter.findOne,
+                {
+                  model: "team",
+                  where: [
+                    {
+                      field: "_id",
+                      value: teamId,
+                      operator: "eq",
+                    },
+                  ],
+                }
+              );
+
+              if (teamResult) {
+                return {
+                  _id: teamResult._id,
+                  name: teamResult.name,
+                  ageGroup: teamResult.ageGroup || null,
+                };
+              }
+              return null;
+            })
+          ).then((results) => results.filter(Boolean));
+        }
+
+        // Fetch player details for parents
+        let players = [];
+        const playerIds = metadata.suggestedPlayerLinks || [];
+        if (playerIds.length > 0) {
+          players = await Promise.all(
+            playerIds.map(async (playerId: string) => {
+              const player = await ctx.db.get(playerId as any);
+              if (player) {
+                return {
+                  _id: player._id,
+                  firstName: player.firstName,
+                  lastName: player.lastName,
+                };
+              }
+              return null;
+            })
+          ).then((results) => results.filter(Boolean));
+        }
+
+        // Extract resend history
+        const resendHistory = (metadata.resendHistory || []).map(
+          (resend: any) => ({
+            resentAt: resend.resentAt,
+            resentByName: resend.resentByName,
+          })
+        );
+
+        return {
+          _id: inv._id,
+          email: inv.email,
+          role: inv.role || null,
+          functionalRoles,
+          teams,
+          players,
+          inviter: { name: inv.inviter?.name || null },
+          sentAt: inv._creationTime || Date.now(),
+          expiresAt: inv.expiresAt,
+          isExpired: inv.isExpired,
+          resendCount: resendHistory.length,
+          resendHistory,
+        };
+      })
+    );
+
+    return enriched;
   },
 });
 
@@ -1247,6 +1854,20 @@ export const syncFunctionalRolesFromInvitation = mutation({
         );
       }
     }
+
+    // Log the acceptance event
+    await ctx.runMutation(internal.models.members.logInvitationEvent, {
+      invitationId: args.invitationId,
+      organizationId: args.organizationId,
+      eventType: "accepted",
+      performedBy: args.userId,
+      performedByEmail: args.userEmail,
+      metadata: {
+        functionalRolesAssigned: suggestedRoles,
+        coachTeamsAssigned,
+        playersLinked,
+      },
+    });
 
     return {
       success: true,
@@ -2160,6 +2781,47 @@ export const resendInvitation = mutation({
       }
     );
 
+    // Get current user for resend tracking
+    const identity = await ctx.auth.getUserIdentity();
+    let currentUser = null;
+    if (identity && identity.email) {
+      currentUser = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: identity.email,
+            operator: "eq",
+          },
+        ],
+      });
+    }
+
+    // Track resend history in invitation metadata
+    const currentMetadata = invitationResult.metadata || {};
+    const resendHistory = currentMetadata.resendHistory || [];
+
+    const updatedMetadata = {
+      ...currentMetadata,
+      resendHistory: [
+        ...resendHistory,
+        {
+          resentAt: Date.now(),
+          resentBy: currentUser?._id || "unknown",
+          resentByName: currentUser?.name || currentUser?.email || "Unknown",
+        },
+      ],
+    };
+
+    // Update invitation with new metadata
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "invitation",
+        where: [{ field: "_id", value: args.invitationId, operator: "eq" }],
+        update: { metadata: updatedMetadata } as any,
+      },
+    });
+
     // Schedule action to resend email
     // Normalize SITE_URL to remove trailing slash
     const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
@@ -2186,6 +2848,16 @@ export const resendInvitation = mutation({
         "⚠️ resendInvitationEmail action not found. Email will not be sent."
       );
     }
+
+    // Log the resend event
+    await ctx.runMutation(internal.models.members.logInvitationEvent, {
+      invitationId: args.invitationId,
+      organizationId: invitationResult.organizationId,
+      eventType: "resent",
+      performedBy: currentUser?._id || "unknown",
+      performedByName: currentUser?.name,
+      performedByEmail: currentUser?.email,
+    });
 
     return null;
   },
@@ -2447,5 +3119,797 @@ export const transferOwnership = mutation({
       previousOwnerEmail: (currentUserResult.email as string) || null,
       newOwnerEmail: (newOwnerUser?.email as string) || null,
     };
+  },
+});
+
+// ============ ORGANIZATION-LEVEL MEMBER REMOVAL (Section 19) ============
+
+/**
+ * Preview the impact of removing a member from an organization
+ * Shows blockers (e.g., is only owner) and data relationships
+ * Used by org owners/admins before removing a member
+ */
+export const getRemovalPreview = query({
+  args: {
+    organizationId: v.string(),
+    userId: v.string(),
+  },
+  returns: v.object({
+    canRemove: v.boolean(),
+    blockers: v.array(
+      v.object({
+        type: v.string(),
+        message: v.string(),
+      })
+    ),
+    impacts: v.object({
+      teamsCoached: v.number(),
+      playersManaged: v.number(),
+      invitationsSent: v.number(),
+      voiceNotes: v.number(),
+      guardianProfiles: v.number(),
+      playerEnrollments: v.number(),
+      sportPassports: v.number(),
+      pendingInvitations: v.number(),
+    }),
+  }),
+  handler: async (ctx, args) => {
+    const blockers = [];
+
+    // Find the member record
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "userId",
+            value: args.userId,
+            operator: "eq",
+          },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      return {
+        canRemove: false,
+        blockers: [
+          { type: "not_found", message: "Member not found in organization" },
+        ],
+        impacts: {
+          teamsCoached: 0,
+          playersManaged: 0,
+          invitationsSent: 0,
+          voiceNotes: 0,
+        },
+      };
+    }
+
+    // BLOCKER: Check if user is the only owner
+    if (memberResult.role === "owner") {
+      const allMembersResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "member",
+          paginationOpts: {
+            cursor: null,
+            numItems: 1000,
+          },
+          where: [
+            {
+              field: "organizationId",
+              value: args.organizationId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+
+      const allOwners = allMembersResult.page.filter(
+        (m: any) => m.role === "owner"
+      );
+
+      if (allOwners.length === 1) {
+        blockers.push({
+          type: "is_only_owner",
+          message:
+            "User is the only owner. Transfer ownership before removing.",
+        });
+      }
+    }
+
+    // Count impact: coach assignments
+    const coachAssignments = await ctx.db.query("coachAssignments").collect();
+    const userCoachAssignments = coachAssignments.filter(
+      (ca) =>
+        ca.userId === args.userId && ca.organizationId === args.organizationId
+    );
+
+    // Count impact: guardian identities (players managed)
+    const guardianIdentities = await ctx.db
+      .query("guardianIdentities")
+      .collect();
+    const userGuardianIdentities = guardianIdentities.filter(
+      (gi) => gi.userId === args.userId
+    );
+
+    // Get player links for those guardians
+    const guardianIdentityIds = userGuardianIdentities.map((gi) => gi._id);
+    const guardianPlayerLinks = await ctx.db
+      .query("guardianPlayerLinks")
+      .collect();
+    const userPlayerLinks = guardianPlayerLinks.filter((gpl) =>
+      guardianIdentityIds.includes(gpl.guardianIdentityId)
+    );
+
+    // Count impact: voice notes
+    const voiceNotes = await ctx.db.query("voiceNotes").collect();
+    const userVoiceNotes = voiceNotes.filter(
+      (vn) =>
+        vn.coachId === args.userId && vn.organizationId === args.organizationId
+    );
+
+    // Count impact: invitations sent (all statuses)
+    const invitationsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "invitation",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "inviterId",
+            value: args.userId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    // Count impact: pending invitations that will be cancelled
+    const pendingInvitationsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "invitation",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "inviterId",
+            value: args.userId,
+            operator: "eq",
+            connector: "AND",
+          },
+          {
+            field: "status",
+            value: "pending",
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    // Count impact: guardian org profiles
+    let guardianProfileCount = 0;
+    for (const guardianIdentity of userGuardianIdentities) {
+      const orgProfiles = await ctx.db
+        .query("orgGuardianProfiles")
+        .withIndex("by_guardian_and_org", (q) =>
+          q
+            .eq("guardianIdentityId", guardianIdentity._id)
+            .eq("organizationId", args.organizationId)
+        )
+        .collect();
+      guardianProfileCount += orgProfiles.length;
+    }
+
+    // Count impact: player enrollments (if user is adult player)
+    const playerIdentities = await ctx.db.query("playerIdentities").collect();
+    const userPlayerIdentities = playerIdentities.filter(
+      (pi) => pi.userId === args.userId && pi.playerType === "adult"
+    );
+
+    let playerEnrollmentCount = 0;
+    let sportPassportCount = 0;
+
+    for (const playerIdentity of userPlayerIdentities) {
+      const enrollments = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_player_and_org", (q) =>
+          q
+            .eq("playerIdentityId", playerIdentity._id)
+            .eq("organizationId", args.organizationId)
+        )
+        .collect();
+      playerEnrollmentCount += enrollments.length;
+
+      const passports = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_player_and_org", (q) =>
+          q
+            .eq("playerIdentityId", playerIdentity._id)
+            .eq("organizationId", args.organizationId)
+        )
+        .collect();
+      sportPassportCount += passports.length;
+    }
+
+    return {
+      canRemove: blockers.length === 0,
+      blockers,
+      impacts: {
+        teamsCoached: userCoachAssignments.length,
+        playersManaged: userPlayerLinks.length,
+        invitationsSent: invitationsResult.page.length,
+        voiceNotes: userVoiceNotes.length,
+        guardianProfiles: guardianProfileCount,
+        playerEnrollments: playerEnrollmentCount,
+        sportPassports: sportPassportCount,
+        pendingInvitations: pendingInvitationsResult.page.length,
+      },
+    };
+  },
+});
+
+/**
+ * Disable a member's access to an organization
+ * Temporarily suspends access without removing data
+ * Can be reactivated later with enableMemberAccess
+ */
+export const disableMemberAccess = mutation({
+  args: {
+    organizationId: v.string(),
+    userId: v.string(),
+    reason: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    error: v.optional(v.string()),
+    disableType: v.optional(
+      v.union(v.literal("org_only"), v.literal("account"))
+    ),
+  }),
+  handler: async (ctx, args) => {
+    // Get current user for audit trail
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity?.email) {
+      return {
+        success: false,
+        error: "Not authenticated",
+      };
+    }
+
+    const currentUser = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: identity.email,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!currentUser) {
+      return {
+        success: false,
+        error: "Current user not found",
+      };
+    }
+
+    // Find the member to disable
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: args.userId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      return {
+        success: false,
+        error: "Member not found",
+      };
+    }
+
+    // Check if member is already disabled
+    if ((memberResult as any).isDisabled) {
+      return {
+        success: false,
+        error: "Member is already disabled",
+      };
+    }
+
+    // Determine disable type: check how many orgs the user belongs to
+    const allMemberships = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        where: [
+          {
+            field: "userId",
+            value: args.userId,
+            operator: "eq",
+          },
+        ],
+        paginationOpts: {
+          cursor: null,
+          numItems: 100,
+        },
+      }
+    );
+
+    const disableType =
+      allMemberships.page.length === 1 ? "account" : "org_only";
+
+    // Update member record with disable fields
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
+        update: {
+          isDisabled: true,
+          disabledAt: Date.now(),
+          disabledBy: currentUser._id,
+          disableReason: args.reason || undefined,
+          disableType,
+        },
+      },
+    });
+
+    console.log(
+      `[disableMemberAccess] Disabled user ${args.userId} in org ${args.organizationId}`,
+      `Type: ${disableType}, Reason: ${args.reason || "None provided"}`
+    );
+
+    return {
+      success: true,
+      disableType,
+    };
+  },
+});
+
+/**
+ * Re-enable a disabled member's access to an organization
+ * Removes the suspension and restores access
+ */
+export const enableMemberAccess = mutation({
+  args: {
+    organizationId: v.string(),
+    userId: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Find the member to enable
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+          {
+            field: "userId",
+            value: args.userId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      return {
+        success: false,
+        error: "Member not found",
+      };
+    }
+
+    // Check if member is actually disabled
+    if (!(memberResult as any).isDisabled) {
+      return {
+        success: false,
+        error: "Member is not disabled",
+      };
+    }
+
+    // Remove disable fields
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "member",
+        where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
+        update: {
+          isDisabled: false,
+          disabledAt: undefined,
+          disabledBy: undefined,
+          disableReason: undefined,
+          disableType: undefined,
+        },
+      },
+    });
+
+    console.log(
+      `[enableMemberAccess] Re-enabled user ${args.userId} in org ${args.organizationId}`
+    );
+
+    return {
+      success: true,
+    };
+  },
+});
+
+/**
+ * Remove a member from an organization (org-level deletion)
+ * Only removes org-specific data, preserves user account and data in other orgs
+ * Used by org owners/admins
+ */
+export const removeFromOrganization = mutation({
+  args: {
+    organizationId: v.string(),
+    userId: v.string(),
+    reason: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Permission check: must be owner or admin
+    const identity = await ctx.auth.getUserIdentity();
+    if (!(identity && identity.email)) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    // Find current user by email
+    const currentUser = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: identity.email,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!currentUser) {
+      return { success: false, error: "Not authenticated" };
+    }
+
+    const callerMemberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "userId",
+            value: currentUser._id,
+            operator: "eq",
+          },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (
+      !(
+        callerMemberResult &&
+        ["owner", "admin"].includes(callerMemberResult.role)
+      )
+    ) {
+      return { success: false, error: "Insufficient permissions" };
+    }
+
+    // Check if removal is allowed
+    const preview = await getRemovalPreview(ctx, {
+      organizationId: args.organizationId,
+      userId: args.userId,
+    });
+
+    if (!preview.canRemove) {
+      return {
+        success: false,
+        error: preview.blockers[0]?.message || "Cannot remove member",
+      };
+    }
+
+    try {
+      // 1. Delete member record
+      const memberResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "member",
+          where: [
+            {
+              field: "userId",
+              value: args.userId,
+              operator: "eq",
+            },
+            {
+              field: "organizationId",
+              value: args.organizationId,
+              operator: "eq",
+              connector: "AND",
+            },
+          ],
+        }
+      );
+
+      if (memberResult) {
+        await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+          input: {
+            model: "member",
+            where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
+          },
+        });
+      }
+
+      // 2. Delete coach assignments
+      const coachAssignments = await ctx.db.query("coachAssignments").collect();
+      const userCoachAssignments = coachAssignments.filter(
+        (ca) =>
+          ca.userId === args.userId && ca.organizationId === args.organizationId
+      );
+      for (const ca of userCoachAssignments) {
+        await ctx.db.delete(ca._id);
+      }
+
+      // 3. Delete team memberships (if teamMember table exists)
+      try {
+        const teamMembers = await ctx.db.query("teamMember").collect();
+        for (const tm of teamMembers) {
+          // Get team to check if it belongs to this organization
+          const teamResult = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "team",
+              where: [
+                {
+                  field: "_id",
+                  value: tm.teamId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+
+          if (
+            teamResult &&
+            teamResult.organizationId === args.organizationId &&
+            tm.userId === args.userId
+          ) {
+            await ctx.db.delete(tm._id);
+          }
+        }
+      } catch (error) {
+        console.log(`[removeFromOrganization] No teamMember table: ${error}`);
+      }
+
+      // 4. Delete voice notes
+      const voiceNotes = await ctx.db.query("voiceNotes").collect();
+      const userVoiceNotes = voiceNotes.filter(
+        (vn) =>
+          vn.coachId === args.userId &&
+          vn.organizationId === args.organizationId
+      );
+      for (const vn of userVoiceNotes) {
+        await ctx.db.delete(vn._id);
+      }
+
+      // 5. Delete guardian org profiles (if user is a parent)
+      try {
+        const guardianIdentities = await ctx.db
+          .query("guardianIdentities")
+          .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+          .collect();
+
+        for (const guardianIdentity of guardianIdentities) {
+          const orgProfiles = await ctx.db
+            .query("orgGuardianProfiles")
+            .withIndex("by_guardian_and_org", (q) =>
+              q
+                .eq("guardianIdentityId", guardianIdentity._id)
+                .eq("organizationId", args.organizationId)
+            )
+            .collect();
+
+          for (const profile of orgProfiles) {
+            await ctx.db.delete(profile._id);
+          }
+        }
+      } catch (error) {
+        console.log(
+          `[removeFromOrganization] Error deleting guardian profiles: ${error}`
+        );
+      }
+
+      // 6. Delete player enrollments (if user is an adult player)
+      try {
+        const playerIdentities = await ctx.db
+          .query("playerIdentities")
+          .collect();
+        const userPlayerIdentities = playerIdentities.filter(
+          (pi) => pi.userId === args.userId && pi.playerType === "adult"
+        );
+
+        for (const playerIdentity of userPlayerIdentities) {
+          const enrollments = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_player_and_org", (q) =>
+              q
+                .eq("playerIdentityId", playerIdentity._id)
+                .eq("organizationId", args.organizationId)
+            )
+            .collect();
+
+          for (const enrollment of enrollments) {
+            await ctx.db.delete(enrollment._id);
+          }
+        }
+      } catch (error) {
+        console.log(
+          `[removeFromOrganization] Error deleting player enrollments: ${error}`
+        );
+      }
+
+      // 7. Delete sport passports (if user is an adult player)
+      try {
+        const playerIdentities = await ctx.db
+          .query("playerIdentities")
+          .collect();
+        const userPlayerIdentities = playerIdentities.filter(
+          (pi) => pi.userId === args.userId && pi.playerType === "adult"
+        );
+
+        for (const playerIdentity of userPlayerIdentities) {
+          const passports = await ctx.db
+            .query("sportPassports")
+            .withIndex("by_player_and_org", (q) =>
+              q
+                .eq("playerIdentityId", playerIdentity._id)
+                .eq("organizationId", args.organizationId)
+            )
+            .collect();
+
+          for (const passport of passports) {
+            await ctx.db.delete(passport._id);
+          }
+        }
+      } catch (error) {
+        console.log(
+          `[removeFromOrganization] Error deleting sport passports: ${error}`
+        );
+      }
+
+      // 8. Cancel pending invitations sent by this user
+      try {
+        const pendingInvitationsResult = await ctx.runQuery(
+          components.betterAuth.adapter.findMany,
+          {
+            model: "invitation",
+            paginationOpts: {
+              cursor: null,
+              numItems: 1000,
+            },
+            where: [
+              {
+                field: "inviterId",
+                value: args.userId,
+                operator: "eq",
+              },
+              {
+                field: "organizationId",
+                value: args.organizationId,
+                operator: "eq",
+                connector: "AND",
+              },
+              {
+                field: "status",
+                value: "pending",
+                operator: "eq",
+                connector: "AND",
+              },
+            ],
+          }
+        );
+
+        for (const invitation of pendingInvitationsResult.page) {
+          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+            input: {
+              model: "invitation",
+              where: [{ field: "_id", value: invitation._id, operator: "eq" }],
+              update: {
+                status: "cancelled",
+              },
+            },
+          });
+        }
+      } catch (error) {
+        console.log(
+          `[removeFromOrganization] Error canceling invitations: ${error}`
+        );
+      }
+
+      // 9. Log to audit trail (if approvalActions table exists)
+      try {
+        await ctx.db.insert("approvalActions", {
+          userId: args.userId,
+          adminId: currentUser._id,
+          action: "removed_from_org" as any,
+          organizationId: args.organizationId,
+          timestamp: Date.now(),
+          reason: args.reason,
+        } as any);
+      } catch (error) {
+        console.log(
+          `[removeFromOrganization] Could not log to audit: ${error}`
+        );
+      }
+
+      console.log(
+        `[removeFromOrganization] Successfully removed user ${args.userId} from org ${args.organizationId}`
+      );
+
+      return { success: true };
+    } catch (error) {
+      console.error("[removeFromOrganization] Error:", error);
+      return {
+        success: false,
+        error: `Failed to remove member: ${error}`,
+      };
+    }
   },
 });

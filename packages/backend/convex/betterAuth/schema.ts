@@ -147,11 +147,49 @@ const customMemberTable = defineTable({
       })
     )
   ),
+
+  // User disable/suspend fields
+  isDisabled: v.optional(v.boolean()),
+  disabledAt: v.optional(v.number()),
+  disabledBy: v.optional(v.string()), // User ID who disabled
+  disableReason: v.optional(v.string()),
+  disableType: v.optional(
+    v.union(
+      v.literal("org_only"), // Access to this org disabled
+      v.literal("account") // Entire account disabled (if only 1 org)
+    )
+  ),
 })
   .index("organizationId", ["organizationId"])
   .index("userId", ["userId"])
   .index("role", ["role"])
-  .index("organizationId_userId", ["organizationId", "userId"]);
+  .index("organizationId_userId", ["organizationId", "userId"])
+  .index("organizationId_role", ["organizationId", "role"])
+  .index("isDisabled", ["isDisabled"]);
+
+// Extend the invitation table with metadata field for functional roles
+const customInvitationTable = defineTable({
+  // Better Auth base fields
+  organizationId: v.string(),
+  email: v.string(),
+  role: v.optional(v.union(v.null(), v.string())),
+  teamId: v.optional(v.union(v.null(), v.string())),
+  status: v.string(),
+  expiresAt: v.number(),
+  inviterId: v.string(),
+
+  // Custom field: metadata for storing functional roles and assignments
+  metadata: v.optional(v.any()),
+})
+  .index("organizationId", ["organizationId"])
+  .index("email", ["email"])
+  .index("role", ["role"])
+  .index("teamId", ["teamId"])
+  .index("status", ["status"])
+  .index("inviterId", ["inviterId"])
+  .index("email_status", ["email", "status"])
+  .index("organizationId_status", ["organizationId", "status"])
+  .index("inviterId_organizationId", ["inviterId", "organizationId"]);
 
 export const tables = {
   ...generatedTables,
@@ -163,6 +201,8 @@ export const tables = {
   organization: customOrganizationTable,
   // Override member table with custom index
   member: customMemberTable,
+  // Override invitation table with metadata field
+  invitation: customInvitationTable,
 };
 
 const schema = defineSchema(tables);

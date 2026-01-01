@@ -1189,6 +1189,49 @@ export default defineSchema({
     .index("by_timestamp", ["timestamp"])
     .index("by_organizationId", ["organizationId"]),
 
+  // Invitation Events Audit Trail
+  // Tracks complete lineage of invitations: created, resent, modified, cancelled, accepted
+  invitationEvents: defineTable({
+    invitationId: v.string(), // Better Auth invitation ID
+    organizationId: v.string(), // Better Auth organization ID
+
+    // Event type
+    eventType: v.union(
+      v.literal("created"),
+      v.literal("resent"),
+      v.literal("modified"),
+      v.literal("cancelled"),
+      v.literal("accepted"),
+      v.literal("rejected"),
+      v.literal("expired")
+    ),
+
+    // Who performed the action
+    performedBy: v.string(), // User ID who performed the action
+    performedByName: v.optional(v.string()), // Name for display
+    performedByEmail: v.optional(v.string()), // Email for display
+
+    // When
+    timestamp: v.number(),
+
+    // For "modified" events - what changed
+    changes: v.optional(
+      v.object({
+        field: v.string(), // "functionalRoles", "teams", "players"
+        oldValue: v.any(),
+        newValue: v.any(),
+      })
+    ),
+
+    // Event-specific metadata
+    metadata: v.optional(v.any()),
+  })
+    .index("by_invitationId", ["invitationId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_eventType", ["eventType"])
+    .index("by_timestamp", ["timestamp"])
+    .index("by_invitation_and_timestamp", ["invitationId", "timestamp"]),
+
   // Organization Join Requests
   // Architecture Note: requestedRole is Better Auth hierarchy role (auto-inferred from functional roles)
   // requestedFunctionalRoles contains capabilities (coach, parent, admin)

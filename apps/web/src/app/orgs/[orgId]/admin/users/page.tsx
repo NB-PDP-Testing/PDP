@@ -8,12 +8,14 @@ import {
   ChevronDown,
   ChevronUp,
   Crown,
+  Eye,
   Loader2,
   Mail,
   Save,
   Search,
   Send,
   Shield,
+  Trash2,
   UserCheck,
   UserCircle,
   UserPlus,
@@ -47,6 +49,11 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { authClient } from "@/lib/auth-client";
+import { DisableMemberDialog } from "./disable-member-dialog";
+import { EditInvitationModal } from "./edit-invitation-modal";
+import { InvitationDetailModal } from "./invitation-detail-modal";
+import { InvitationHistoryModal } from "./invitation-history-modal";
+import { RemoveFromOrgDialog } from "./remove-from-org-dialog";
 
 type FunctionalRole = "coach" | "parent" | "admin" | "player";
 
@@ -66,16 +73,24 @@ export default function ManageUsersPage() {
   const { theme } = useOrgTheme();
   const orgId = params.orgId as string;
 
+  // Get current user session
+  const { data: session } = authClient.useSession();
+
   // Get members with all details (coach assignments, linked players)
   const membersWithDetails = useQuery(
     api.models.members.getMembersWithDetails,
     { organizationId: orgId }
   );
 
-  // Get pending invitations
+  // Get pending invitations with detailed assignments
   const pendingInvitations = useQuery(
-    api.models.members.getPendingInvitations,
+    api.models.members.getPendingInvitationsWithAssignments,
     { organizationId: orgId }
+  );
+
+  // Find current user's member record in this org
+  const currentMember = membersWithDetails?.find(
+    (member) => member.user?.email === session?.user?.email
   );
 
   // Get teams and players for the organization
@@ -105,6 +120,9 @@ export default function ManageUsersPage() {
   );
   const resendInvitation = useMutation(api.models.members.resendInvitation);
   const cancelInvitation = useMutation(api.models.members.cancelInvitation);
+  const updateInvitationMetadata = useMutation(
+    api.models.members.updateInvitationMetadata
+  );
 
   // Transform enrollment data to match expected player format
   const allPlayers =
@@ -133,6 +151,35 @@ export default function ManageUsersPage() {
   const [invitePlayerIds, setInvitePlayerIds] = useState<string[]>([]); // Player IDs for parent
   const [invitePlayerSearch, setInvitePlayerSearch] = useState(""); // Search term for players
   const [inviting, setInviting] = useState(false);
+
+  // Invitation detail modal state
+  const [selectedInvitationId, setSelectedInvitationId] = useState<
+    string | null
+  >(null);
+
+  // Invitation history modal state
+  const [historyInvitation, setHistoryInvitation] = useState<{
+    invitationId: string;
+    email: string;
+  } | null>(null);
+
+  // Invitation edit modal state
+  const [editingInvitation, setEditingInvitation] = useState<any | null>(null);
+
+  // Disable member dialog state
+  const [disablingMember, setDisablingMember] = useState<{
+    userId: string;
+    name: string;
+    email: string;
+    isDisabled?: boolean;
+  } | null>(null);
+
+  // Remove from org dialog state
+  const [removingMember, setRemovingMember] = useState<{
+    userId: string;
+    name: string;
+    email: string;
+  } | null>(null);
 
   // Helper function to infer Better Auth role from functional roles
   // If functional roles include "admin", Better Auth role should be "admin"
@@ -472,13 +519,64 @@ export default function ManageUsersPage() {
           inviteFunctionalRoles.length > 0 ? (metadata as any) : undefined,
       };
 
-      const { error } = await authClient.organization.inviteMember(
+      // Debug logging
+      console.log("[Invite] Sending invitation with options:", {
+        email: inviteEmail,
+        role: betterAuthRole,
+        metadata,
+      });
+
+      const result = await authClient.organization.inviteMember(
         inviteOptions as any
       );
 
-      if (error) {
-        toast.error(error.message || "Failed to send invitation");
+      console.log("[Invite] Better Auth result:", result);
+      console.log("[Invite] Result data:", result.data);
+      console.log(
+        "[Invite] Result data keys:",
+        result.data ? Object.keys(result.data) : "no data"
+      );
+
+      if (result.error) {
+        toast.error(result.error.message || "Failed to send invitation");
       } else {
+        // Better Auth created the invitation, now update it with metadata
+        // This is a workaround because Better Auth client doesn't support custom metadata
+        const invitationId =
+          (result.data as { invitation?: { id?: string }; id?: string })
+            ?.invitation?.id || (result.data as { id?: string })?.id;
+
+        console.log("[Invite] Extracted invitation ID:", invitationId);
+        console.log(
+          "[Invite] Has functional roles:",
+          inviteFunctionalRoles.length > 0
+        );
+
+        if (invitationId && inviteFunctionalRoles.length > 0) {
+          console.log("[Invite] Updating invitation with metadata:", {
+            invitationId,
+            metadata,
+          });
+
+          const updateResult = await updateInvitationMetadata({
+            invitationId,
+            metadata,
+          });
+
+          if (!updateResult.success) {
+            console.error(
+              "[Invite] Failed to update metadata:",
+              updateResult.error
+            );
+            toast.error(
+              "Invitation sent but failed to save roles. Please resend."
+            );
+            return;
+          }
+
+          console.log("[Invite] Successfully updated invitation metadata");
+        }
+
         const rolesStr =
           inviteFunctionalRoles.length > 0
             ? ` as ${inviteFunctionalRoles.join(", ")}`
@@ -755,32 +853,52 @@ export default function ManageUsersPage() {
                       </div>
                       <div>
                         <p className="font-medium">{invitation.email}</p>
-                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                        <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-sm">
                           <span>
                             Invited by {invitation.inviter?.name || "Unknown"}
                           </span>
                           {(() => {
-                            // Extract functional roles from metadata
-                            const metadata = invitation.metadata as any;
+                            // Use functional roles from backend query (already extracted from metadata)
                             const functionalRoles =
-                              metadata?.suggestedFunctionalRoles || [];
+                              invitation.functionalRoles || [];
 
-                            // Show functional roles if available, otherwise fall back to Better Auth role
+                            // Show functional roles if available with inline assignments
                             if (functionalRoles.length > 0) {
-                              return functionalRoles.map(
-                                (role: string, index: number) => (
-                                  <span key={role}>
-                                    <span>•</span>
-                                    <Badge
-                                      className="text-xs"
-                                      variant="outline"
-                                    >
-                                      {role.charAt(0).toUpperCase() +
-                                        role.slice(1)}
-                                    </Badge>
-                                  </span>
-                                )
-                              );
+                              return functionalRoles.map((role: string) => (
+                                <span
+                                  className="flex items-center gap-1.5"
+                                  key={role}
+                                >
+                                  <span>•</span>
+                                  <Badge className="text-xs" variant="outline">
+                                    {role.charAt(0).toUpperCase() +
+                                      role.slice(1)}
+                                  </Badge>
+                                  {/* Show teams inline if coach role */}
+                                  {role === "coach" &&
+                                    invitation.teams?.length > 0 && (
+                                      <span className="flex items-center gap-1 text-blue-600 text-xs">
+                                        →
+                                        {invitation.teams
+                                          .map((t: any) => t.name)
+                                          .join(", ")}
+                                      </span>
+                                    )}
+                                  {/* Show players inline if parent role */}
+                                  {role === "parent" &&
+                                    invitation.players?.length > 0 && (
+                                      <span className="flex items-center gap-1 text-green-600 text-xs">
+                                        →
+                                        {invitation.players
+                                          .map(
+                                            (p: any) =>
+                                              `${p.firstName} ${p.lastName}`
+                                          )
+                                          .join(", ")}
+                                      </span>
+                                    )}
+                                </span>
+                              ));
                             }
                             if (invitation.role) {
                               return (
@@ -814,10 +932,97 @@ export default function ManageUsersPage() {
                               {expiresAt.toLocaleDateString()})
                             </span>
                           )}
+                          {(() => {
+                            // Show resend tracking if available
+                            const resendHistory =
+                              invitation.metadata?.resendHistory || [];
+                            if (resendHistory.length > 0) {
+                              const lastResend =
+                                resendHistory[resendHistory.length - 1];
+                              const lastSentDate = new Date(
+                                lastResend.resentAt
+                              );
+                              const daysAgo = Math.floor(
+                                (Date.now() - lastResend.resentAt) /
+                                  (1000 * 60 * 60 * 24)
+                              );
+                              return (
+                                <span className="ml-2">
+                                  • Resent {resendHistory.length}{" "}
+                                  {resendHistory.length === 1
+                                    ? "time"
+                                    : "times"}
+                                  {daysAgo === 0
+                                    ? " (today)"
+                                    : daysAgo === 1
+                                      ? " (yesterday)"
+                                      : ` (${daysAgo} days ago)`}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        onClick={() => setEditingInvitation(invitation)}
+                        size="sm"
+                        title="Edit invitation roles and assignments"
+                        variant="ghost"
+                      >
+                        <svg
+                          className="mr-2 h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        Edit
+                      </Button>
+                      <Button
+                        onClick={() =>
+                          setHistoryInvitation({
+                            invitationId: invitation._id,
+                            email: invitation.email,
+                          })
+                        }
+                        size="sm"
+                        title="View invitation history"
+                        variant="ghost"
+                      >
+                        <svg
+                          className="mr-2 h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        History
+                      </Button>
+                      <Button
+                        onClick={() => setSelectedInvitationId(invitation._id)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Details
+                      </Button>
                       {!isExpired && (
                         <Button
                           disabled={loading === invitation._id}
@@ -941,6 +1146,26 @@ export default function ManageUsersPage() {
 
                     <div className="flex items-center gap-2">
                       <div className="flex flex-wrap gap-1">
+                        {/* Suspended Badge - show if member is disabled */}
+                        {member.isDisabled && (
+                          <Badge className="border-red-300 bg-red-100 text-red-700">
+                            <svg
+                              className="mr-1 h-3 w-3"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                            Suspended
+                          </Badge>
+                        )}
                         {/* Owner Badge - show if Better Auth role is "owner" */}
                         {member.role === "owner" && (
                           <Badge className="border-amber-300 bg-amber-100 text-amber-700">
@@ -978,17 +1203,83 @@ export default function ManageUsersPage() {
                             })}
                       </div>
 
-                      <Button
-                        onClick={() => toggleExpanded(member.userId)}
-                        size="sm"
-                        variant="ghost"
-                      >
-                        {state.expanded ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
+                      <div className="flex items-center gap-2">
+                        {/* Suspend/Restore button (admin/owner only) */}
+                        {(currentMember?.role === "owner" ||
+                          currentMember?.role === "admin") &&
+                          member.role !== "owner" && (
+                            <Button
+                              onClick={() =>
+                                setDisablingMember({
+                                  userId: member.userId,
+                                  name: member.name || member.email,
+                                  email: member.email,
+                                  isDisabled: member.isDisabled,
+                                })
+                              }
+                              size="sm"
+                              title={
+                                member.isDisabled
+                                  ? "Restore member access"
+                                  : "Suspend member access"
+                              }
+                              variant="ghost"
+                            >
+                              <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                {member.isDisabled ? (
+                                  <path
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                ) : (
+                                  <path
+                                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                )}
+                              </svg>
+                            </Button>
+                          )}
+
+                        {/* Remove from org button (admin/owner only) */}
+                        {(currentMember?.role === "owner" ||
+                          currentMember?.role === "admin") && (
+                          <Button
+                            onClick={() =>
+                              setRemovingMember({
+                                userId: member.userId,
+                                name: member.name || member.email,
+                                email: member.email,
+                              })
+                            }
+                            size="sm"
+                            variant="ghost"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
-                      </Button>
+
+                        <Button
+                          onClick={() => toggleExpanded(member.userId)}
+                          size="sm"
+                          variant="ghost"
+                        >
+                          {state.expanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
@@ -1529,6 +1820,84 @@ export default function ManageUsersPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Invitation Detail Modal */}
+      {selectedInvitationId && pendingInvitations && (
+        <InvitationDetailModal
+          invitation={
+            pendingInvitations.find(
+              (inv: { _id: string }) => inv._id === selectedInvitationId
+            ) || null
+          }
+          isOpen={!!selectedInvitationId}
+          onCancel={async () => {
+            try {
+              await cancelInvitation({ invitationId: selectedInvitationId });
+              toast.success("Invitation cancelled successfully");
+              setSelectedInvitationId(null);
+            } catch (error) {
+              toast.error("Failed to cancel invitation");
+            }
+          }}
+          onClose={() => setSelectedInvitationId(null)}
+          onResend={async () => {
+            try {
+              await resendInvitation({ invitationId: selectedInvitationId });
+              toast.success("Invitation resent successfully");
+            } catch (error) {
+              toast.error("Failed to resend invitation");
+            }
+          }}
+        />
+      )}
+
+      {/* Invitation History Modal */}
+      {historyInvitation && (
+        <InvitationHistoryModal
+          invitationId={historyInvitation.invitationId}
+          inviteeEmail={historyInvitation.email}
+          onClose={() => setHistoryInvitation(null)}
+        />
+      )}
+
+      {/* Invitation Edit Modal */}
+      {editingInvitation && (
+        <EditInvitationModal
+          invitation={editingInvitation}
+          onClose={() => setEditingInvitation(null)}
+          onSuccess={() => {
+            setEditingInvitation(null);
+            // Refresh will happen automatically via Convex reactivity
+          }}
+          organizationId={orgId}
+        />
+      )}
+
+      {/* Disable/Enable Member Dialog */}
+      {disablingMember && (
+        <DisableMemberDialog
+          member={disablingMember}
+          onClose={() => setDisablingMember(null)}
+          onSuccess={() => {
+            setDisablingMember(null);
+            // Refresh will happen automatically via Convex reactivity
+          }}
+          organizationId={orgId}
+        />
+      )}
+
+      {/* Remove from Organization Dialog */}
+      {removingMember && (
+        <RemoveFromOrgDialog
+          member={removingMember}
+          onClose={() => setRemovingMember(null)}
+          onSuccess={() => {
+            setRemovingMember(null);
+            // Refresh will happen automatically via Convex reactivity
+          }}
+          organizationId={orgId}
+        />
+      )}
     </div>
   );
 }

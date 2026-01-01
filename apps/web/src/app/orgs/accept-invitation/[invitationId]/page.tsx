@@ -342,6 +342,13 @@ export default function AcceptInvitationPage() {
           // Note: Auto-mapping Better Auth "admin"/"owner" → functional "admin" is done in beforeAddMember hook
           let syncSucceeded = false;
           try {
+            console.log("[AcceptInvitation] Starting role sync with:", {
+              invitationId,
+              organizationId,
+              userId: session.user.id,
+              userEmail: session.user.email,
+            });
+
             const syncResult = await syncFunctionalRolesFromInvitation({
               invitationId,
               organizationId,
@@ -349,10 +356,12 @@ export default function AcceptInvitationPage() {
               userEmail: session.user.email,
             });
 
+            console.log("[AcceptInvitation] ✅ Sync completed!");
+            console.log("[AcceptInvitation] Full sync result:", syncResult);
             console.log(
-              "[AcceptInvitation] Sync result:",
+              "[AcceptInvitation] Sync summary:",
               `success: ${syncResult.success}`,
-              `roles: ${syncResult.functionalRolesAssigned.join(", ")}`,
+              `roles: ${syncResult.functionalRolesAssigned.join(", ") || "none"}`,
               `teams: ${syncResult.coachTeamsAssigned}`,
               `players: ${syncResult.playersLinked}`
             );

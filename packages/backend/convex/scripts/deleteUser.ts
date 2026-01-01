@@ -1,5 +1,5 @@
-import { internalMutation } from "../_generated/server";
 import { v } from "convex/values";
+import { internalMutation } from "../_generated/server";
 
 /**
  * Delete User and All Related Data
@@ -33,9 +33,11 @@ export const deleteUserByEmail = internalMutation({
     const dryRun = args.dryRun ?? true;
     const email = args.email.toLowerCase().trim();
 
-    console.log(`[DeleteUser] ${dryRun ? "DRY RUN" : "EXECUTING"}: Deleting user ${email}`);
+    console.log(
+      `[DeleteUser] ${dryRun ? "DRY RUN" : "EXECUTING"}: Deleting user ${email}`
+    );
 
-    let deletedRecords = {
+    const deletedRecords = {
       user: 0,
       sessions: 0,
       members: 0,
@@ -46,7 +48,7 @@ export const deleteUserByEmail = internalMutation({
 
     // 1. Find the user
     const users = await ctx.db.query("user").collect();
-    const user = users.find(u => u.email.toLowerCase() === email);
+    const user = users.find((u) => u.email.toLowerCase() === email);
 
     if (!user) {
       console.log(`[DeleteUser] ❌ User not found: ${email}`);
@@ -61,67 +63,73 @@ export const deleteUserByEmail = internalMutation({
 
     // 2. Delete sessions
     const sessions = await ctx.db.query("session").collect();
-    const userSessions = sessions.filter(s => s.userId === user.id);
+    const userSessions = sessions.filter((s) => s.userId === user.id);
 
     console.log(`[DeleteUser] Found ${userSessions.length} sessions to delete`);
 
-    if (!dryRun) {
+    if (dryRun) {
+      deletedRecords.sessions = userSessions.length;
+    } else {
       for (const session of userSessions) {
         await ctx.db.delete(session._id);
         deletedRecords.sessions++;
       }
-    } else {
-      deletedRecords.sessions = userSessions.length;
     }
 
     // 3. Delete organization memberships
     const members = await ctx.db.query("member").collect();
-    const userMembers = members.filter(m => m.userId === user.id);
+    const userMembers = members.filter((m) => m.userId === user.id);
 
-    console.log(`[DeleteUser] Found ${userMembers.length} organization memberships to delete`);
+    console.log(
+      `[DeleteUser] Found ${userMembers.length} organization memberships to delete`
+    );
 
-    if (!dryRun) {
+    if (dryRun) {
+      deletedRecords.members = userMembers.length;
+    } else {
       for (const member of userMembers) {
         await ctx.db.delete(member._id);
         deletedRecords.members++;
       }
-    } else {
-      deletedRecords.members = userMembers.length;
     }
 
     // 4. Delete pending invitations
     const invitations = await ctx.db.query("invitation").collect();
     const userInvitations = invitations.filter(
-      i => i.email.toLowerCase() === email
+      (i) => i.email.toLowerCase() === email
     );
 
-    console.log(`[DeleteUser] Found ${userInvitations.length} invitations to delete`);
+    console.log(
+      `[DeleteUser] Found ${userInvitations.length} invitations to delete`
+    );
 
-    if (!dryRun) {
+    if (dryRun) {
+      deletedRecords.invitations = userInvitations.length;
+    } else {
       for (const invitation of userInvitations) {
         await ctx.db.delete(invitation._id);
         deletedRecords.invitations++;
       }
-    } else {
-      deletedRecords.invitations = userInvitations.length;
     }
 
     // 5. Delete coach team assignments (if coachAssignments table exists)
     try {
       const coachAssignments = await ctx.db.query("coachAssignments").collect();
       const userCoachAssignments = coachAssignments.filter(
-        ca => ca.userId === user.id
+        (ca) => ca.userId === user.id
       );
 
-      console.log(`[DeleteUser] Found ${userCoachAssignments.length} coach assignments to delete`);
+      console.log(
+        `[DeleteUser] Found ${userCoachAssignments.length} coach assignments to delete`
+      );
 
-      if (!dryRun) {
+      if (dryRun) {
+        deletedRecords.coachAssignments = userCoachAssignments.length;
+      } else {
         for (const assignment of userCoachAssignments) {
           await ctx.db.delete(assignment._id);
           deletedRecords.coachAssignments++;
         }
-      } else {
-        deletedRecords.coachAssignments = userCoachAssignments.length;
       }
     } catch (error) {
       console.log(`[DeleteUser] No coachAssignments table or error: ${error}`);
@@ -129,32 +137,46 @@ export const deleteUserByEmail = internalMutation({
 
     // 6. Delete parent-player links (if guardianPlayerLinks table exists)
     try {
+      // First, find all guardian identities for this user
+      const guardianIdentities = await ctx.db
+        .query("guardianIdentities")
+        .collect();
+      const userGuardianIdentities = guardianIdentities.filter(
+        (gi) => gi.userId === user._id
+      );
+      const guardianIdentityIds = userGuardianIdentities.map((gi) => gi._id);
+
+      // Then find all guardian-player links for those identities
       const guardianLinks = await ctx.db.query("guardianPlayerLinks").collect();
-      const userGuardianLinks = guardianLinks.filter(
-        gl => gl.guardianUserId === user.id
+      const userGuardianLinks = guardianLinks.filter((gl) =>
+        guardianIdentityIds.includes(gl.guardianIdentityId)
       );
 
-      console.log(`[DeleteUser] Found ${userGuardianLinks.length} parent-player links to delete`);
+      console.log(
+        `[DeleteUser] Found ${userGuardianLinks.length} parent-player links to delete`
+      );
 
-      if (!dryRun) {
+      if (dryRun) {
+        deletedRecords.parentPlayerLinks = userGuardianLinks.length;
+      } else {
         for (const link of userGuardianLinks) {
           await ctx.db.delete(link._id);
           deletedRecords.parentPlayerLinks++;
         }
-      } else {
-        deletedRecords.parentPlayerLinks = userGuardianLinks.length;
       }
     } catch (error) {
-      console.log(`[DeleteUser] No guardianPlayerLinks table or error: ${error}`);
+      console.log(
+        `[DeleteUser] No guardianPlayerLinks table or error: ${error}`
+      );
     }
 
     // 7. Finally, delete the user
     console.log(`[DeleteUser] Deleting user record: ${user.id}`);
 
-    if (!dryRun) {
-      await ctx.db.delete(user._id);
+    if (dryRun) {
       deletedRecords.user = 1;
     } else {
+      await ctx.db.delete(user._id);
       deletedRecords.user = 1;
     }
 
@@ -163,7 +185,7 @@ export const deleteUserByEmail = internalMutation({
       : `Successfully deleted user ${email} and all related data`;
 
     console.log(`[DeleteUser] ✅ ${summary}`);
-    console.log(`[DeleteUser] Deleted records:`, deletedRecords);
+    console.log("[DeleteUser] Deleted records:", deletedRecords);
 
     return {
       success: true,

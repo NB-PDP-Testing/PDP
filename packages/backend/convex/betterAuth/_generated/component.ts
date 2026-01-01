@@ -147,9 +147,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "admin"
                     | "player";
                   createdAt: number;
+                  disableReason?: string;
+                  disableType?: "org_only" | "account";
+                  disabledAt?: number;
+                  disabledBy?: string;
                   functionalRoles?: Array<
                     "coach" | "parent" | "admin" | "player"
                   >;
+                  isDisabled?: boolean;
                   organizationId: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
@@ -166,6 +171,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   email: string;
                   expiresAt: number;
                   inviterId: string;
+                  metadata?: any;
                   organizationId: string;
                   role?: null | string;
                   status: string;
@@ -474,6 +480,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "isDisabled"
+                    | "disabledAt"
+                    | "disabledBy"
+                    | "disableReason"
+                    | "disableType"
                     | "_id";
                   operator?:
                     | "lt"
@@ -508,6 +519,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "status"
                     | "expiresAt"
                     | "inviterId"
+                    | "metadata"
                     | "_id";
                   operator?:
                     | "lt"
@@ -838,6 +850,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "isDisabled"
+                    | "disabledAt"
+                    | "disabledBy"
+                    | "disableReason"
+                    | "disableType"
                     | "_id";
                   operator?:
                     | "lt"
@@ -872,6 +889,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "status"
                     | "expiresAt"
                     | "inviterId"
+                    | "metadata"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1373,9 +1391,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "admin"
                     | "player";
                   createdAt?: number;
+                  disableReason?: string;
+                  disableType?: "org_only" | "account";
+                  disabledAt?: number;
+                  disabledBy?: string;
                   functionalRoles?: Array<
                     "coach" | "parent" | "admin" | "player"
                   >;
+                  isDisabled?: boolean;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
@@ -1395,6 +1418,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "isDisabled"
+                    | "disabledAt"
+                    | "disabledBy"
+                    | "disableReason"
+                    | "disableType"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1423,6 +1451,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   email?: string;
                   expiresAt?: number;
                   inviterId?: string;
+                  metadata?: any;
                   organizationId?: string;
                   role?: null | string;
                   status?: string;
@@ -1438,6 +1467,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "status"
                     | "expiresAt"
                     | "inviterId"
+                    | "metadata"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1851,9 +1881,14 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "admin"
                     | "player";
                   createdAt?: number;
+                  disableReason?: string;
+                  disableType?: "org_only" | "account";
+                  disabledAt?: number;
+                  disabledBy?: string;
                   functionalRoles?: Array<
                     "coach" | "parent" | "admin" | "player"
                   >;
+                  isDisabled?: boolean;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
@@ -1873,6 +1908,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "isDisabled"
+                    | "disabledAt"
+                    | "disabledBy"
+                    | "disableReason"
+                    | "disableType"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1901,6 +1941,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   email?: string;
                   expiresAt?: number;
                   inviterId?: string;
+                  metadata?: any;
                   organizationId?: string;
                   role?: null | string;
                   status?: string;
@@ -1916,6 +1957,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "status"
                     | "expiresAt"
                     | "inviterId"
+                    | "metadata"
                     | "_id";
                   operator?:
                     | "lt"

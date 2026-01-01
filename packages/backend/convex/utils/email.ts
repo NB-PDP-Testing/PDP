@@ -38,7 +38,9 @@ export async function sendOrganizationInvitation(
   // Format roles for display
   const rolesDisplay =
     functionalRoles && functionalRoles.length > 0
-      ? functionalRoles.map((r) => r.charAt(0).toUpperCase() + r.slice(1)).join(", ")
+      ? functionalRoles
+          .map((r) => r.charAt(0).toUpperCase() + r.slice(1))
+          .join(", ")
       : role; // Fallback to Better Auth role if no functional roles
 
   // Email template
@@ -190,12 +192,20 @@ This invitation will expire in 7 days. If you didn't expect this invitation, you
 export function generateWhatsAppInvitationMessage(
   data: InvitationEmailData
 ): string {
-  const { invitedByUsername, organizationName, inviteLink, role, functionalRoles } = data;
+  const {
+    invitedByUsername,
+    organizationName,
+    inviteLink,
+    role,
+    functionalRoles,
+  } = data;
 
   // Format roles for display
   const rolesDisplay =
     functionalRoles && functionalRoles.length > 0
-      ? functionalRoles.map((r) => r.charAt(0).toUpperCase() + r.slice(1)).join(", ")
+      ? functionalRoles
+          .map((r) => r.charAt(0).toUpperCase() + r.slice(1))
+          .join(", ")
       : role;
 
   let message = `🏆 *You've been invited to join ${organizationName} on PlayerARC!*\n\n`;

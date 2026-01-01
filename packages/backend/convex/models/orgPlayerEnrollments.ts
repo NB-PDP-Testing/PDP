@@ -174,8 +174,28 @@ export const getPlayersForOrg = query({
     status: v.optional(enrollmentStatusValidator),
     ageGroup: v.optional(v.string()),
   },
-  // Using v.any() for joined query results - schema validation happens at document level
-  returns: v.array(v.any()),
+  returns: v.array(
+    v.object({
+      _id: v.id("playerIdentities"),
+      name: v.string(),
+      firstName: v.string(),
+      lastName: v.string(),
+      dateOfBirth: v.string(),
+      gender: v.union(
+        v.literal("male"),
+        v.literal("female"),
+        v.literal("other")
+      ),
+      ageGroup: v.optional(v.string()),
+      season: v.optional(v.string()),
+      sportCode: v.optional(v.string()),
+      playerIdentityId: v.id("playerIdentities"),
+      enrollmentId: v.id("orgPlayerEnrollments"),
+      organizationId: v.string(),
+      enrollment: v.any(),
+      player: v.any(),
+    })
+  ),
   handler: async (ctx, args) => {
     const enrollmentsQuery = ctx.db
       .query("orgPlayerEnrollments")

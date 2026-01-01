@@ -61,6 +61,7 @@ import type * as scripts_cleanupEnrollmentSport from "../scripts/cleanupEnrollme
 import type * as scripts_clearDevData from "../scripts/clearDevData.js";
 import type * as scripts_clearPlayerDataKeepUsers from "../scripts/clearPlayerDataKeepUsers.js";
 import type * as scripts_debugPlayerData from "../scripts/debugPlayerData.js";
+import type * as scripts_deleteUser from "../scripts/deleteUser.js";
 import type * as scripts_findPlayerByName from "../scripts/findPlayerByName.js";
 import type * as scripts_fixGAATeamSportCodes from "../scripts/fixGAATeamSportCodes.js";
 import type * as scripts_getOrgId from "../scripts/getOrgId.js";
@@ -132,6 +133,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/clearDevData": typeof scripts_clearDevData;
   "scripts/clearPlayerDataKeepUsers": typeof scripts_clearPlayerDataKeepUsers;
   "scripts/debugPlayerData": typeof scripts_debugPlayerData;
+  "scripts/deleteUser": typeof scripts_deleteUser;
   "scripts/findPlayerByName": typeof scripts_findPlayerByName;
   "scripts/fixGAATeamSportCodes": typeof scripts_fixGAATeamSportCodes;
   "scripts/getOrgId": typeof scripts_getOrgId;
@@ -296,9 +298,14 @@ export declare const components: {
                     | "admin"
                     | "player";
                   createdAt: number;
+                  disableReason?: string;
+                  disableType?: "org_only" | "account";
+                  disabledAt?: number;
+                  disabledBy?: string;
                   functionalRoles?: Array<
                     "coach" | "parent" | "admin" | "player"
                   >;
+                  isDisabled?: boolean;
                   organizationId: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
@@ -315,6 +322,7 @@ export declare const components: {
                   email: string;
                   expiresAt: number;
                   inviterId: string;
+                  metadata?: any;
                   organizationId: string;
                   role?: null | string;
                   status: string;
@@ -622,6 +630,11 @@ export declare const components: {
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "isDisabled"
+                    | "disabledAt"
+                    | "disabledBy"
+                    | "disableReason"
+                    | "disableType"
                     | "_id";
                   operator?:
                     | "lt"
@@ -656,6 +669,7 @@ export declare const components: {
                     | "status"
                     | "expiresAt"
                     | "inviterId"
+                    | "metadata"
                     | "_id";
                   operator?:
                     | "lt"
@@ -985,6 +999,11 @@ export declare const components: {
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "isDisabled"
+                    | "disabledAt"
+                    | "disabledBy"
+                    | "disableReason"
+                    | "disableType"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1019,6 +1038,7 @@ export declare const components: {
                     | "status"
                     | "expiresAt"
                     | "inviterId"
+                    | "metadata"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1517,9 +1537,14 @@ export declare const components: {
                     | "admin"
                     | "player";
                   createdAt?: number;
+                  disableReason?: string;
+                  disableType?: "org_only" | "account";
+                  disabledAt?: number;
+                  disabledBy?: string;
                   functionalRoles?: Array<
                     "coach" | "parent" | "admin" | "player"
                   >;
+                  isDisabled?: boolean;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
@@ -1539,6 +1564,11 @@ export declare const components: {
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "isDisabled"
+                    | "disabledAt"
+                    | "disabledBy"
+                    | "disableReason"
+                    | "disableType"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1567,6 +1597,7 @@ export declare const components: {
                   email?: string;
                   expiresAt?: number;
                   inviterId?: string;
+                  metadata?: any;
                   organizationId?: string;
                   role?: null | string;
                   status?: string;
@@ -1582,6 +1613,7 @@ export declare const components: {
                     | "status"
                     | "expiresAt"
                     | "inviterId"
+                    | "metadata"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1994,9 +2026,14 @@ export declare const components: {
                     | "admin"
                     | "player";
                   createdAt?: number;
+                  disableReason?: string;
+                  disableType?: "org_only" | "account";
+                  disabledAt?: number;
+                  disabledBy?: string;
                   functionalRoles?: Array<
                     "coach" | "parent" | "admin" | "player"
                   >;
+                  isDisabled?: boolean;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
@@ -2016,6 +2053,11 @@ export declare const components: {
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "isDisabled"
+                    | "disabledAt"
+                    | "disabledBy"
+                    | "disableReason"
+                    | "disableType"
                     | "_id";
                   operator?:
                     | "lt"
@@ -2044,6 +2086,7 @@ export declare const components: {
                   email?: string;
                   expiresAt?: number;
                   inviterId?: string;
+                  metadata?: any;
                   organizationId?: string;
                   role?: null | string;
                   status?: string;
@@ -2059,6 +2102,7 @@ export declare const components: {
                     | "status"
                     | "expiresAt"
                     | "inviterId"
+                    | "metadata"
                     | "_id";
                   operator?:
                     | "lt"

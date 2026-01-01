@@ -3,6 +3,7 @@
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { ConvexReactClient } from "convex/react";
 import { authClient } from "@/lib/auth-client";
+import { PendingInvitationsModal } from "./pending-invitations-modal";
 import { ThemeProvider } from "./theme-provider";
 import { Toaster } from "./ui/sonner";
 
@@ -18,6 +19,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     >
       <ConvexBetterAuthProvider authClient={authClient} client={convex}>
         {children}
+        <PendingInvitationsModal />
       </ConvexBetterAuthProvider>
       <Toaster richColors />
     </ThemeProvider>

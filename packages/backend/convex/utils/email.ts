@@ -11,7 +11,8 @@ interface InvitationEmailData {
   invitedByEmail: string;
   organizationName: string;
   inviteLink: string;
-  role?: string;
+  role?: string; // Better Auth role (fallback)
+  functionalRoles?: string[]; // Functional roles (Coach, Parent, Admin)
 }
 
 /**
@@ -31,7 +32,14 @@ export async function sendOrganizationInvitation(
     organizationName,
     inviteLink,
     role,
+    functionalRoles,
   } = data;
+
+  // Format roles for display
+  const rolesDisplay =
+    functionalRoles && functionalRoles.length > 0
+      ? functionalRoles.map((r) => r.charAt(0).toUpperCase() + r.slice(1)).join(", ")
+      : role; // Fallback to Better Auth role if no functional roles
 
   // Email template
   const subject = `Invitation to join ${organizationName} on PlayerARC`;
@@ -72,10 +80,10 @@ export async function sendOrganizationInvitation(
           <h2 style="color: #1E3A5F; margin-top: 0;">You've been invited!</h2>
           <p>Hi there,</p>
           <p>
-            <strong>${invitedByUsername}</strong> (${invitedByEmail}) has invited you to join 
+            <strong>${invitedByUsername}</strong> (${invitedByEmail}) has invited you to join
             <strong>${organizationName}</strong> on PlayerARC.
           </p>
-          ${role ? `<p><strong>Role:</strong> ${role}</p>` : ""}
+          ${rolesDisplay ? `<p><strong>Role${functionalRoles && functionalRoles.length > 1 ? "s" : ""}:</strong> ${rolesDisplay}</p>` : ""}
           <p>
             PlayerARC is a comprehensive platform for managing youth sports development, 
             helping coaches and parents collaborate to support young athletes.
@@ -109,7 +117,7 @@ You've been invited to join ${organizationName} on PlayerARC!
 
 ${invitedByUsername} (${invitedByEmail}) has invited you to join ${organizationName}.
 
-${role ? `Role: ${role}\n` : ""}
+${rolesDisplay ? `Role${functionalRoles && functionalRoles.length > 1 ? "s" : ""}: ${rolesDisplay}\n` : ""}
 PlayerARC is a comprehensive platform for managing youth sports development.
 
 Accept your invitation by clicking this link:
@@ -182,12 +190,18 @@ This invitation will expire in 7 days. If you didn't expect this invitation, you
 export function generateWhatsAppInvitationMessage(
   data: InvitationEmailData
 ): string {
-  const { invitedByUsername, organizationName, inviteLink, role } = data;
+  const { invitedByUsername, organizationName, inviteLink, role, functionalRoles } = data;
+
+  // Format roles for display
+  const rolesDisplay =
+    functionalRoles && functionalRoles.length > 0
+      ? functionalRoles.map((r) => r.charAt(0).toUpperCase() + r.slice(1)).join(", ")
+      : role;
 
   let message = `🏆 *You've been invited to join ${organizationName} on PlayerARC!*\n\n`;
   message += `${invitedByUsername} has invited you to join ${organizationName}.\n\n`;
-  if (role) {
-    message += `Role: ${role}\n\n`;
+  if (rolesDisplay) {
+    message += `Role${functionalRoles && functionalRoles.length > 1 ? "s" : ""}: ${rolesDisplay}\n\n`;
   }
   message +=
     "PlayerARC helps coaches and parents collaborate to support young athletes.\n\n";

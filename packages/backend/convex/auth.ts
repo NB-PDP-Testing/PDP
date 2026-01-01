@@ -135,13 +135,20 @@ export function createAuth(
         // Email invitation configuration
         async sendInvitationEmail(data) {
           const inviteLink = `${siteUrl}/orgs/accept-invitation/${data.id}`;
+          // Extract functional roles from invitation metadata
+          // Note: TypeScript types don't include metadata, so we cast to any
+          const invitation = data.invitation as any;
+          const metadata = invitation.metadata;
+          const functionalRoles = metadata?.suggestedFunctionalRoles || [];
+
           await sendOrganizationInvitation({
             email: data.email,
             invitedByUsername: data.inviter.user.name || "Someone",
             invitedByEmail: data.inviter.user.email,
             organizationName: data.organization.name,
             inviteLink,
-            role: data.role || undefined,
+            role: data.role || undefined, // Better Auth role (for fallback)
+            functionalRoles, // Functional roles from metadata
           });
         },
 

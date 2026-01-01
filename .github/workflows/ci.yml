@@ -31,7 +31,6 @@ jobs:
 
       - name: Run type check
         run: npm run check-types
-        continue-on-error: true  # Temporarily non-blocking due to Better Auth type generation issues
 
       # Temporarily disabled - linting has pre-existing issues across codebase
       # TODO: Re-enable once codebase-wide linting is addressed

@@ -176,7 +176,7 @@ export const buildInsights = internalAction({
       const rosterContext = players.length
         ? players
             .map(
-              (player) =>
+              (player: any) =>
                 `- ${player.firstName} ${player.lastName} (ID: ${player.playerIdentityId})${
                   player.ageGroup ? `, Age Group: ${player.ageGroup}` : ""
                 }${player.sport ? `, Sport: ${player.sport}` : ""}`

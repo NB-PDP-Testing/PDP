@@ -470,7 +470,7 @@ export const deleteUserAccount = mutation({
     }
 
     // Check blockers via preview
-    const preview = await ctx.runQuery(
+    const preview: any = await ctx.runQuery(
       api.models.users.getUserDeletionPreview,
       {
         email: args.email,

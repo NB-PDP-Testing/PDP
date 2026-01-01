@@ -1368,13 +1368,13 @@ export const getPendingInvitationsWithAssignments = query({
   ),
   handler: async (ctx, args) => {
     // Get all pending invitations for the organization
-    const invitations = await ctx.runQuery(
+    const invitations: any[] = await ctx.runQuery(
       api.models.members.getPendingInvitations,
       args
     );
 
     // Enrich with assignments
-    const enriched = await Promise.all(
+    const enriched: any[] = await Promise.all(
       invitations.map(async (inv: any) => {
         const metadata = inv.metadata || {};
 
@@ -3671,10 +3671,13 @@ export const removeFromOrganization = mutation({
     }
 
     // Check if removal is allowed
-    const preview = await ctx.runQuery(api.models.members.getRemovalPreview, {
-      organizationId: args.organizationId,
-      userId: args.userId,
-    });
+    const preview: any = await ctx.runQuery(
+      api.models.members.getRemovalPreview,
+      {
+        organizationId: args.organizationId,
+        userId: args.userId,
+      }
+    );
 
     if (!preview.canRemove) {
       return {

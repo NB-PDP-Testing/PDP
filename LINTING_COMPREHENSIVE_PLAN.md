@@ -1,8 +1,29 @@
 # Linting Comprehensive Review & Implementation Plan
 
 **Date:** 2026-01-01
-**Status:** 📋 PLANNED - Ready for Implementation
+**Status:** 🚧 IN PROGRESS - Manual Approach
 **Current State:** 971 Errors, 745 Warnings, 11 Infos (1,727 Total Issues)
+
+---
+
+## ⚠️ Implementation Update (2026-01-02)
+
+**Phase 0:** ✅ COMPLETE - CI now lints changed files only
+**Phase 1:** ⏭️ SKIPPED - Auto-fixes cause TypeScript errors
+
+**Decision:** Adopted **Option A - Manual Approach**
+
+After attempting mass auto-fixes, we discovered that Biome marks most fixes as "unsafe" and applying them introduces TypeScript errors (particularly with `useExhaustiveDependencies` adding dependencies in wrong order, causing "used before declaration" errors).
+
+**Revised Strategy:**
+- ✅ Phase 0 complete: CI protection in place
+- ⏭️ Skip mass auto-fixes (Phase 1)
+- 🎯 Focus on high-impact manual fixes:
+  - Phase 4: Remove `any` types (352 issues)
+  - Fix linting as we modify files naturally
+  - Incremental improvement over time
+
+See "Revised Phased Implementation Plan" section below.
 
 ---
 
@@ -635,7 +656,141 @@ function buildCoachingPrompt(teamData: TeamData): string {
 
 ---
 
-## Timeline Summary
+## Revised Phased Implementation Plan (2026-01-02)
+
+Based on the auto-fix analysis, we're adopting a **manual, incremental approach** rather than mass auto-fixes.
+
+### ✅ Phase 0: CI Configuration (COMPLETE)
+
+**Status:** ✅ Done
+**Duration:** 2 hours
+**Completed:** 2026-01-02
+
+**Achievements:**
+- Re-enabled linting in CI for changed files only
+- Created comprehensive implementation plan
+- Prevents new linting issues from being introduced
+
+**Result:** CI now catches linting errors in changed files without blocking existing issues.
+
+---
+
+### ⏭️ Phase 1: Auto-Fixes (SKIPPED)
+
+**Status:** ⏭️ Skipped
+**Reason:** Biome's "unsafe" fixes introduce TypeScript errors
+
+**What we learned:**
+- Most Biome fixes are marked "unsafe" (565 out of 565)
+- Applying them causes "used before declaration" errors
+- `useExhaustiveDependencies` auto-fixes break React hooks
+- Mass auto-fixes require manual review for each fix
+
+**Decision:** Skip mass auto-fixes, focus on manual improvements
+
+---
+
+### 🎯 Phase 2 (NEW): High-Impact Manual Fixes
+
+**Priority:** 🔴 High
+**Duration:** Ongoing (2-3 months)
+**Strategy:** Incremental improvement alongside feature work
+
+#### Approach: "Fix as You Go"
+
+**Rule:** When modifying any file, fix linting issues in that file
+
+**Priority Order:**
+
+1. **Remove Explicit `any` Types** (352 issues - 20% of all problems)
+   - Replace with proper types
+   - Highest impact on code quality
+   - Do this first when touching a file
+
+2. **Simplify Complex Functions** (130 issues - 8% of problems)
+   - Refactor functions over complexity threshold
+   - Extract helpers, reduce nesting
+   - Second priority when refactoring
+
+3. **Fix Accessibility Issues** (67 issues - 4% of problems)
+   - Add button types
+   - Add ARIA labels
+   - Fix keyboard navigation
+   - When working on UI components
+
+4. **Style & Quality Issues** (as encountered)
+   - Fix during file modifications
+   - Add braces to if statements
+   - Convert interfaces to types
+   - Low priority, but easy wins
+
+#### Guidelines for Developers
+
+**Before committing any file:**
+```bash
+# Check linting for your changed files
+npx biome check --changed .
+
+# Fix what you can
+npx biome check --write path/to/your/file.ts
+
+# Manually review and fix remaining issues
+```
+
+**In code reviews:**
+- Require linting fixes for modified files
+- Don't merge PRs that add new linting errors
+- Encourage fixing nearby issues (within reason)
+
+---
+
+### 📊 Phase 3 (NEW): Track Progress
+
+**Monthly Review:**
+- Count remaining linting issues
+- Identify files with most issues
+- Plan targeted cleanup sprints
+
+**Metrics to track:**
+```bash
+# Get current count
+npx biome check . 2>&1 | tail -5
+
+# Track over time in CI_CD_STATUS.md
+```
+
+**Goal:** Reduce issues by 10-15% per month through natural file modifications
+
+---
+
+### 🎯 Phase 4 (NEW): Targeted Cleanup Sprints (Optional)
+
+**When time allows:**
+
+1. **API Routes Cleanup** (1-2 hours)
+   - Fix all `any` types in API routes
+   - Small, focused area
+   - High visibility
+
+2. **Component Type Safety** (2-3 hours)
+   - Fix prop types in shared components
+   - Improves developer experience
+   - Good for a slow week
+
+3. **Accessibility Sprint** (2-3 hours)
+   - Fix all button type issues
+   - Add missing ARIA labels
+   - Compliance improvement
+
+**These are optional quick wins when you have downtime.**
+
+---
+
+## Original Timeline Summary (For Reference)
+
+*The original plan assumed mass auto-fixes would work. Keeping this for reference but NOT the active plan.*
+
+
 
 | Phase | Duration | Cumulative | Priority |
 |-------|----------|------------|----------|

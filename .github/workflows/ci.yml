@@ -32,17 +32,36 @@ jobs:
       - name: Run type check
         run: npm run check-types
 
-      # Temporarily disabled - linting has pre-existing issues across codebase
-      # TODO: Re-enable once codebase-wide linting is addressed
-      # See CI_CD_STATUS.md for full action plan and tracking
-      # - name: Run linting (changed files only)
-      #   run: |
-      #     if [ "${{ github.event_name }}" == "pull_request" ]; then
-      #       npx biome check --changed --diagnostic-level=error .
-      #     else
-      #       # For pushes to main, check files changed in the last commit
-      #       npx biome check --changed --since=HEAD~1 --diagnostic-level=error .
-      #     fi
+  lint:
+    name: Lint Check (Changed Files)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full git history for --changed to work
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Phase 0: Re-enabled linting for changed files only
+      # This prevents new linting issues while allowing gradual fixes
+      # See LINTING_COMPREHENSIVE_PLAN.md for full implementation plan
+      - name: Run linting (changed files only)
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            npx biome check --changed --diagnostic-level=error .
+          else
+            # For pushes to main, check files changed in the last commit
+            npx biome check --changed --since=HEAD~1 --diagnostic-level=error .
+          fi
 
   build:
     name: Build Check

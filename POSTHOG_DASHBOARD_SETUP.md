@@ -1,371 +1,322 @@
 # PostHog Dashboard Setup Guide
 
 **Date:** January 3, 2026
-**Time to Complete:** 30-45 minutes
+**Time to Complete:** 15-20 minutes (starter dashboards)
 
-This guide walks you through creating 5 essential dashboards in PostHog for monitoring PDP/PlayerARC (3 product dashboards + 2 marketing dashboards).
+This guide shows you how to create dashboards with **what's tracking NOW**, plus how to add business event tracking later.
 
 ---
 
-## 🎯 Dashboard 1: User Onboarding Funnel
+## ⚡ Quick Start: What's Tracking Right Now
 
-**Purpose:** Track how users complete signup and organization setup
+**Currently Active Events:**
+- ✅ `$pageview` - All page navigation (automatic)
+- ✅ `user_logged_in` - User login events
+- ✅ `user_logged_out` - User logout events
+- ✅ `$autocapture` - Clicks, form submissions (automatic)
 
-### Step-by-Step:
+**Not Yet Tracking (need code changes):**
+- ❌ `organization_created`, `team_created`, `player_enrolled`
+- ❌ `voice_note_recorded`, `skill_assessment_completed`
+- ❌ `ai_insight_generated`, `parent_dashboard_accessed`
 
-1. **Go to PostHog Dashboard**
-   - Click **"Insights"** in left sidebar
-   - Click **"+ New insight"**
+---
 
-2. **Create Funnel:**
-   - Select **"Funnels"** tab
-   - Name: "User Onboarding Funnel"
+## 🎯 Phase 1: Starter Dashboards (Available NOW)
 
-3. **Add Steps:**
-   - Step 1: `user_signed_up` (or `$pageview` with URL `/`)
+These dashboards work with events that are already being tracked.
+
+### Dashboard 1: Traffic & Navigation
+
+**Purpose:** See how users navigate your app
+
+#### How to Create:
+
+1. **Navigate to Dashboards:**
+   - Click **"Dashboard"** in the left sidebar
+   - Click **"+ New dashboard"** (top right)
+   - Name it: "📊 Traffic Analytics"
+
+2. **Add Insight 1 - Pageviews Over Time:**
+   - Click **"Add insight"**
+   - Select **"Trends"**
+   - Event: `$pageview`
+   - Display: **Total count**
+   - Interval: **Daily**
+   - Click **"Save & add to dashboard"**
+
+3. **Add Insight 2 - Most Viewed Pages:**
+   - Click **"Add insight"** again
+   - Select **"Trends"**
+   - Event: `$pageview`
+   - Breakdown: **$current_url**
+   - Chart type: **Bar chart**
+   - Time range: **Last 7 days**
+   - Click **"Save & add to dashboard"**
+
+4. **Add Insight 3 - Unique Visitors:**
+   - Click **"Add insight"**
+   - Select **"Trends"**
+   - Event: `$pageview`
+   - Display: **Unique users**
+   - Interval: **Daily**
+   - Click **"Save & add to dashboard"**
+
+**What you'll see:** Traffic patterns, popular pages, visitor counts
+
+---
+
+### Dashboard 2: User Activity
+
+**Purpose:** Monitor active users and sessions
+
+#### How to Create:
+
+1. **Create New Dashboard:**
+   - Click **"+ New dashboard"**
+   - Name it: "👥 User Activity"
+
+2. **Add Insight 1 - Daily Active Users:**
+   - Click **"Add insight"**
+   - Select **"Trends"**
+   - Event: **Any event** (or `$pageview`)
+   - Display: **Unique users**
+   - Interval: **Daily**
+   - Click **"Save & add to dashboard"**
+
+3. **Add Insight 2 - Login Activity:**
+   - Click **"Add insight"**
+   - Select **"Trends"**
+   - Event: `user_logged_in`
+   - Display: **Total count**
+   - Interval: **Daily**
+   - Click **"Save & add to dashboard"**
+
+4. **Add Insight 3 - Session Duration:**
+   - Click **"Add insight"**
+   - Select **"Trends"**
+   - Event: `$pageview`
+   - Property filter: **$session_duration** (exists)
+   - Aggregation: **Average**
+   - Click **"Save & add to dashboard"**
+
+**What you'll see:** Daily active users, login patterns, session lengths
+
+---
+
+### Dashboard 3: Marketing Pages (Pre-Signup)
+
+**Purpose:** Track anonymous visitors on marketing pages
+
+#### How to Create:
+
+1. **Create New Dashboard:**
+   - Click **"+ New dashboard"**
+   - Name it: "📢 Marketing Analytics"
+
+2. **Add Insight 1 - Marketing Page Views:**
+   - Click **"Add insight"**
+   - Select **"Trends"**
+   - Event: `$pageview`
+   - Filter: **$current_url** does NOT contain `/orgs/` (exclude app pages)
+   - Display: **Total count**
+   - Interval: **Daily**
+   - Click **"Save & add to dashboard"**
+
+3. **Add Insight 2 - Traffic Sources:**
+   - Click **"Add insight"**
+   - Select **"Trends"**
+   - Event: `$pageview`
+   - Breakdown: **$referring_domain**
+   - Chart type: **Bar chart**
+   - Time range: **Last 7 days**
+   - Click **"Save & add to dashboard"**
+
+4. **Add Insight 3 - Top Landing Pages:**
+   - Click **"Add insight"**
+   - Select **"Trends"**
+   - Event: `$pageview`
+   - Filter: **$entry_current_url** (exists) - this shows first page visited
+   - Breakdown: **$entry_current_url**
+   - Chart type: **Bar chart**
+   - Click **"Save & add to dashboard"**
+
+**What you'll see:** Marketing traffic, referral sources, popular landing pages
+
+---
+
+## 🚀 Phase 2: Business Event Tracking (Add As You Build Features)
+
+Once you add event tracking to your code, you can create these dashboards.
+
+### How to Add Event Tracking to Your Code
+
+**Example: Track when an organization is created**
+
+```typescript
+// In your organization creation code:
+import { useAnalytics } from "@/lib/analytics";
+import { AnalyticsEvents } from "@/lib/analytics";
+
+function CreateOrgComponent() {
+  const { track } = useAnalytics();
+
+  const handleCreateOrg = async (orgData) => {
+    // Your org creation logic
+    const org = await createOrganization(orgData);
+
+    // Track the event
+    track(AnalyticsEvents.ORG_CREATED, {
+      org_id: org.id,
+      org_name: org.name,
+    });
+  };
+}
+```
+
+### Events to Add as Features Are Built:
+
+**When building Organization features:**
+- `organization_created` - When org is created
+- `organization_joined` - When user joins an org
+- `team_created` - When team is created
+- `player_enrolled` - When player is added to team
+
+**When building Voice Notes:**
+- `voice_note_recorded` - When coach records a note
+- `voice_note_transcribed` - When transcription completes
+- `ai_insight_generated` - When AI analyzes the note
+
+**When building Assessments:**
+- `skill_assessment_started` - When assessment begins
+- `skill_assessment_completed` - When assessment is submitted
+
+**When building Parent Features:**
+- `parent_dashboard_accessed` - When parent views their dashboard
+- `player_profile_viewed` - When profile is opened
+
+---
+
+## 📊 Future Dashboard: Onboarding Funnel
+
+**Create this AFTER you add organization/team event tracking**
+
+### Steps:
+1. Click **"Add insight"** → **"Funnels"**
+2. Add funnel steps:
+   - Step 1: `user_logged_in` (or `$pageview` with URL `/signup`)
    - Step 2: `organization_created`
    - Step 3: `team_created`
    - Step 4: `player_enrolled`
+3. Conversion window: **7 days**
+4. Save to a new dashboard: "🚀 Product Metrics"
 
-4. **Configure:**
-   - Conversion window: **7 days**
-   - Breakdown: None (or by `$referrer` to see sources)
-
-5. **Save to Dashboard:**
-   - Click **"Save"**
-   - **"Add to dashboard"** → **"Create new dashboard"**
-   - Name: "🚀 Product Overview"
-
-### What to Monitor:
-- **Drop-off between steps** → Where users get stuck
-- **Conversion rate** → % completing full onboarding
-- **Time between steps** → How long setup takes
+**Note:** This won't work until you add the tracking code for `organization_created`, `team_created`, and `player_enrolled`.
 
 ---
 
-## 📊 Dashboard 2: Feature Adoption
+## 📊 Future Dashboard: Feature Adoption
 
-**Purpose:** Track which features are being used
+**Create this AFTER you add feature event tracking**
 
-### Step-by-Step:
+### Insights to Create:
+- Voice notes recorded over time
+- Skill assessments completed
+- AI insights generated
+- Most used features (bar chart)
 
-1. **Create New Insight:**
-   - Type: **"Trends"**
-   - Name: "Feature Usage Over Time"
-
-2. **Add Events:**
-   - `voice_note_recorded`
-   - `skill_assessment_completed`
-   - `ai_insight_generated`
-   - `parent_dashboard_accessed`
-
-3. **Configure:**
-   - Interval: **Weekly**
-   - Chart type: **Line chart**
-   - Display: **Total count**
-
-4. **Save to Dashboard:**
-   - Add to **"🚀 Product Overview"**
-
-### Additional Insights to Add:
-
-**Most Used Features (Last 30 Days):**
-- Type: **Bar chart**
-- Events: All feature events
-- Breakdown: By event name
-- Shows which features are most popular
-
-**Feature Adoption Rate:**
-- Type: **Trends**
-- Formula: `unique users who did X / total users`
-- Measures feature penetration
+**Required:** Add event tracking to each feature first (see Phase 2 above)
 
 ---
 
-## 👥 Dashboard 3: User Engagement
+## ✅ Quick Setup Checklist
 
-**Purpose:** Monitor active users and retention
+### Phase 1 - Available Now (15-20 min):
+- [ ] Traffic Analytics dashboard
+  - [ ] Pageviews over time
+  - [ ] Most viewed pages
+  - [ ] Unique visitors
+- [ ] User Activity dashboard
+  - [ ] Daily active users
+  - [ ] Login activity
+  - [ ] Session duration
+- [ ] Marketing Analytics dashboard
+  - [ ] Marketing page views
+  - [ ] Traffic sources
+  - [ ] Top landing pages
 
-### Create These Insights:
-
-**1. Weekly Active Users (WAU):**
-- Type: **Trends**
-- Event: Any event (or `$pageview`)
-- Display: **Unique users**
-- Interval: **Weekly**
-
-**2. Daily Active Users (DAU):**
-- Same as WAU but interval: **Daily**
-
-**3. Stickiness (DAU/MAU):**
-- Type: **Stickiness**
-- Shows how often users return
-- Good target: >20%
-
-**4. User Retention:**
-- Type: **Retention**
-- Initial event: `user_signed_up`
-- Returning event: Any event
-- Shows % users returning after signup
-
-**5. Session Duration:**
-- Type: **Trends**
-- Event: `$pageview`
-- Property: `$session_duration`
-- Aggregation: **Average**
-
-### Save All to Dashboard:
-- Create new dashboard: "📈 User Engagement"
+### Phase 2 - Add Later (as features are built):
+- [ ] Add organization event tracking to code
+- [ ] Add team event tracking to code
+- [ ] Add voice note event tracking to code
+- [ ] Add skill assessment event tracking to code
+- [ ] Create Onboarding Funnel dashboard
+- [ ] Create Feature Adoption dashboard
 
 ---
 
-## 🎯 Dashboard 4: Marketing Performance
+## 💡 How to Find Events in PostHog
 
-**Purpose:** Track anonymous visitors on marketing pages (pre-signup analytics)
+**To see what events are actually being captured:**
 
-### Create These Insights:
+1. Go to **"Activity"** in the left sidebar
+2. Look at the **"EVENT"** column - you'll see:
+   - `$pageview` (lots of these)
+   - `user_logged_in`
+   - `user_logged_out`
+   - `$autocapture` (clicks)
+3. These are the only events you can use in dashboards right now
 
-**1. Landing Page Views:**
-- Type: **Trends**
-- Event: `$pageview`
-- Filter: URL path contains `/platform` OR `/` (homepage)
-- Display: **Total count**
-- Interval: **Daily**
-- Shows: Traffic to your marketing pages
-
-**2. Top Marketing Pages:**
-- Type: **Bar chart**
-- Event: `$pageview`
-- Breakdown: By `$current_url`
-- Filter: URL does NOT contain `/orgs/` (exclude app pages)
-- Shows: Which marketing pages get the most traffic
-
-**3. Traffic Sources:**
-- Type: **Trends**
-- Event: `$pageview`
-- Breakdown: By `$referring_domain`
-- Shows: Where visitors come from (direct, Google, social, etc.)
-
-**4. Average Time on Marketing Pages:**
-- Type: **Trends**
-- Event: `$pageview`
-- Filter: URL path = `/platform` (or other marketing pages)
-- Property: `$session_duration`
-- Aggregation: **Average**
-- Shows: How engaging your marketing content is
-
-**5. Bounce Rate:**
-- Type: **Trends**
-- Formula: `Sessions with only 1 pageview / Total sessions`
-- Shows: % of visitors who leave after viewing one page
-
-### Save to Dashboard:
-- Create new dashboard: "📢 Marketing Analytics"
-
-### What to Monitor:
-- **Traffic trends** → Are visits increasing?
-- **Popular pages** → Which content resonates?
-- **Referral sources** → Where to focus marketing efforts?
-- **Engagement** → Are visitors reading or bouncing?
-
----
-
-## 🚀 Dashboard 5: Marketing Conversion Funnel
-
-**Purpose:** Track the journey from anonymous visitor to signed-up user
-
-### Step-by-Step:
-
-1. **Create New Funnel Insight:**
-   - Type: **"Funnels"**
-   - Name: "Marketing to Signup Conversion"
-
-2. **Add Funnel Steps:**
-   - Step 1: `$pageview` with URL path = `/` (homepage visit)
-   - Step 2: `$pageview` with URL path = `/platform` (explored features)
-   - Step 3: `$pageview` with URL path = `/signup` (visited signup page)
-   - Step 4: `user_signed_up` (completed registration)
-
-3. **Configure:**
-   - Conversion window: **30 days** (visitors may return later)
-   - Breakdown: By `$referring_domain` (see which sources convert best)
-
-4. **Save to Dashboard:**
-   - Add to **"📢 Marketing Analytics"**
-
-### Additional Marketing Insights:
-
-**Signup Page Performance:**
-- Type: **Trends**
-- Event: `$pageview`
-- Filter: URL path = `/signup`
-- Compare with `user_signed_up` event
-- Shows: Signup page views vs actual signups
-
-**Platform Page Clicks:**
-- Type: **Trends**
-- Event: `$autocapture` (clicks on platform page)
-- Filter: URL contains `/platform`
-- Breakdown: By element text
-- Shows: Which buttons/links get clicked most
-
-**Session Recordings for Drop-offs:**
-- Go to **Session Recordings**
-- Filter: Visited `/signup` but did NOT complete `user_signed_up`
-- Watch recordings to see why users don't complete signup
-
-### What to Monitor:
-- **Conversion rate** → % of visitors who sign up
-- **Drop-off points** → Where in the funnel users leave
-- **Source performance** → Which marketing channels convert best
-- **Signup friction** → Session recordings show UX issues
-
----
-
-## 🎨 Recommended Dashboard Layout
-
-### Dashboard 1: "🚀 Product Overview"
-```
-┌────────────────────────────────┐
-│   User Onboarding Funnel       │  ← Big, top priority
-├────────────────┬───────────────┤
-│ Feature Usage  │ Most Used     │  ← Side by side
-│ Over Time      │ Features      │
-├────────────────┴───────────────┤
-│   Key Metrics Summary          │  ← Numbers at a glance
-│   • Total Users: X             │
-│   • Active Orgs: Y             │
-│   • Players Tracked: Z         │
-└────────────────────────────────┘
-```
-
-### Dashboard 2: "📈 User Engagement"
-```
-┌────────────────┬───────────────┐
-│ Weekly Active  │ Daily Active  │
-│ Users          │ Users         │
-├────────────────┴───────────────┤
-│   User Retention Curve         │
-├────────────────┬───────────────┤
-│ Stickiness     │ Avg Session   │
-│ (DAU/MAU)      │ Duration      │
-└────────────────┴───────────────┘
-```
-
-### Dashboard 3: "📢 Marketing Analytics"
-```
-┌────────────────────────────────┐
-│ Marketing → Signup Funnel      │  ← Top priority
-├────────────────┬───────────────┤
-│ Landing Page   │ Traffic       │  ← Side by side
-│ Views          │ Sources       │
-├────────────────┼───────────────┤
-│ Top Pages      │ Avg Time on   │
-│ (Bar Chart)    │ Site          │
-└────────────────┴───────────────┘
-```
-
----
-
-## 🔔 Set Up Alerts (Optional)
-
-**Create alerts for important drops:**
-
-1. **Go to Insights → Create Alert**
-2. **Alert examples:**
-   - WAU drops below 50 → Email you
-   - Onboarding funnel conversion < 50% → Slack notification
-   - Error rate > 5% → Immediate alert
-
----
-
-## 📝 Quick Setup Checklist
-
-Use this checklist as you create dashboards:
-
-### Dashboard 1: Product Overview
-- [ ] User Onboarding Funnel (4 steps)
-- [ ] Feature Usage Over Time (line chart)
-- [ ] Most Used Features (bar chart)
-- [ ] Feature Adoption Rate (%)
-
-### Dashboard 2: User Engagement
-- [ ] Weekly Active Users (WAU)
-- [ ] Daily Active Users (DAU)
-- [ ] Stickiness (DAU/MAU ratio)
-- [ ] User Retention curve
-- [ ] Average session duration
-
-### Dashboard 3: Marketing Analytics
-- [ ] Marketing to Signup Funnel (4 steps)
-- [ ] Landing Page Views (trends)
-- [ ] Top Marketing Pages (bar chart)
-- [ ] Traffic Sources (breakdown by referrer)
-- [ ] Average Time on Marketing Pages
-- [ ] Signup Page Performance
-
-### Bonus:
-- [ ] Set up 1-2 alerts for critical metrics
-- [ ] Create "Session Replays" saved filters
-- [ ] Add team members to PostHog
+**To see what URLs are being tracked:**
+1. Go to **"Activity"**
+2. Click on a `$pageview` event
+3. Look at the **"URL / SCREEN"** column
 
 ---
 
 ## 🎯 What Metrics to Watch Weekly
 
-**Critical Product Metrics:**
-1. **Weekly Active Users** → Growing?
-2. **Onboarding Conversion** → >50% ideal
-3. **Retention (Week 1)** → >40% is good
-4. **Feature Adoption** → Are key features used?
+**With Current Tracking:**
+- Daily active users (growing?)
+- Login frequency (are users returning?)
+- Most viewed pages (what's popular?)
+- Session duration (how engaged are users?)
+- Traffic sources (where do visitors come from?)
 
-**Critical Marketing Metrics:**
-1. **Marketing Page Traffic** → Are visits increasing?
-2. **Marketing → Signup Conversion** → >10% is good for B2B SaaS
-3. **Traffic Sources** → Which channels bring users?
-4. **Bounce Rate** → <40% is healthy
-
-**Red Flags:**
-- ⚠️ WAU declining week-over-week
-- ⚠️ Onboarding drop-off > 50% at any step
-- ⚠️ Retention < 20%
-- ⚠️ Key features unused
-- ⚠️ Marketing traffic declining
-- ⚠️ Signup conversion < 5%
-- ⚠️ Bounce rate > 60%
+**After Adding Business Events:**
+- Onboarding conversion rate (signup → org → team → player)
+- Feature adoption (which features are used?)
+- Retention (do users come back?)
 
 ---
 
-## 💡 Pro Tips
+## 🔧 Troubleshooting
 
-### 1. Start Simple
-Don't create 20 dashboards on day one. Start with these 2-3, add more as needed.
+**"I don't see any data in my dashboard"**
+- Make sure you're looking at the right time range (try "Last 7 days")
+- Check if events are actually being captured in the Activity view
+- Remember: Business events won't show up until you add tracking code
 
-### 2. Use Saved Filters
-Create filters like:
-- "Coaches only"
-- "Parents only"
-- "Sessions with errors"
-- "Long sessions (>5 min)"
+**"The event I want doesn't exist"**
+- Check the "Events to Add" section in Phase 2
+- You need to add `track()` calls in your code first
+- See the code example above
 
-### 3. Share Dashboards
-Share links with your team to keep everyone aligned on metrics.
-
-### 4. Weekly Review Ritual
-Pick a day (e.g., Monday 9am) to review dashboards and note trends.
+**"Insights not showing in Dashboard menu"**
+- PostHog updated their UI - use "Add insight" from within a dashboard
+- Or click "Dashboard" → "+ New dashboard" → "Add insight"
 
 ---
 
-## 🚀 Next Steps After Setup
+## 🚀 Next Steps
 
-Once dashboards are running:
-1. **Week 1:** Watch the data, understand patterns
-2. **Week 2:** Identify one improvement (e.g., fix onboarding drop-off)
-3. **Week 3:** Measure impact of changes
-4. **Ongoing:** Add dashboards as you add features
+1. **Today:** Create the 3 starter dashboards (Phase 1)
+2. **This Week:** Review the dashboards daily to understand traffic patterns
+3. **As You Build:** Add event tracking to each new feature (Phase 2)
+4. **Monthly:** Create new dashboards as more events become available
 
 ---
 
 **Questions?** See PostHog docs: https://posthog.com/docs/product-analytics/dashboards
 
-**Ready to create your dashboards?** Follow this guide step-by-step in PostHog! 📊
+**Ready to start?** Follow Phase 1 to create your first 3 dashboards! 📊

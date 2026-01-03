@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import z from "zod";
+import { AnalyticsEvents, useAnalytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { api } from "../../../../packages/backend/convex/_generated/api";
 import { GuardianIdentityClaimDialog } from "./guardian-identity-claim-dialog";
@@ -15,6 +16,7 @@ import { Label } from "./ui/label";
 
 export default function SignUpForm({ redirect }: { redirect?: string | null }) {
   const router = useRouter();
+  const { track } = useAnalytics();
   const [pendingClaim, setPendingClaim] = useState<{
     email: string;
     name: string;
@@ -44,6 +46,12 @@ export default function SignUpForm({ redirect }: { redirect?: string | null }) {
         },
         {
           onSuccess: async (ctx) => {
+            // Track signup event
+            track(AnalyticsEvents.USER_SIGNED_UP, {
+              method: "email",
+              has_redirect: !!redirect,
+            });
+
             // Check if there's a claimable guardian identity
             // Get the newly created userId from the session
             const session = await authClient.getSession();

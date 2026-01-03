@@ -1,9 +1,9 @@
 # PostHog Dashboard Setup Guide
 
 **Date:** January 3, 2026
-**Time to Complete:** 20-30 minutes
+**Time to Complete:** 30-45 minutes
 
-This guide walks you through creating 3 essential dashboards in PostHog for monitoring PDP/PlayerARC.
+This guide walks you through creating 5 essential dashboards in PostHog for monitoring PDP/PlayerARC (3 product dashboards + 2 marketing dashboards).
 
 ---
 
@@ -119,6 +119,109 @@ This guide walks you through creating 3 essential dashboards in PostHog for moni
 
 ---
 
+## 🎯 Dashboard 4: Marketing Performance
+
+**Purpose:** Track anonymous visitors on marketing pages (pre-signup analytics)
+
+### Create These Insights:
+
+**1. Landing Page Views:**
+- Type: **Trends**
+- Event: `$pageview`
+- Filter: URL path contains `/platform` OR `/` (homepage)
+- Display: **Total count**
+- Interval: **Daily**
+- Shows: Traffic to your marketing pages
+
+**2. Top Marketing Pages:**
+- Type: **Bar chart**
+- Event: `$pageview`
+- Breakdown: By `$current_url`
+- Filter: URL does NOT contain `/orgs/` (exclude app pages)
+- Shows: Which marketing pages get the most traffic
+
+**3. Traffic Sources:**
+- Type: **Trends**
+- Event: `$pageview`
+- Breakdown: By `$referring_domain`
+- Shows: Where visitors come from (direct, Google, social, etc.)
+
+**4. Average Time on Marketing Pages:**
+- Type: **Trends**
+- Event: `$pageview`
+- Filter: URL path = `/platform` (or other marketing pages)
+- Property: `$session_duration`
+- Aggregation: **Average**
+- Shows: How engaging your marketing content is
+
+**5. Bounce Rate:**
+- Type: **Trends**
+- Formula: `Sessions with only 1 pageview / Total sessions`
+- Shows: % of visitors who leave after viewing one page
+
+### Save to Dashboard:
+- Create new dashboard: "📢 Marketing Analytics"
+
+### What to Monitor:
+- **Traffic trends** → Are visits increasing?
+- **Popular pages** → Which content resonates?
+- **Referral sources** → Where to focus marketing efforts?
+- **Engagement** → Are visitors reading or bouncing?
+
+---
+
+## 🚀 Dashboard 5: Marketing Conversion Funnel
+
+**Purpose:** Track the journey from anonymous visitor to signed-up user
+
+### Step-by-Step:
+
+1. **Create New Funnel Insight:**
+   - Type: **"Funnels"**
+   - Name: "Marketing to Signup Conversion"
+
+2. **Add Funnel Steps:**
+   - Step 1: `$pageview` with URL path = `/` (homepage visit)
+   - Step 2: `$pageview` with URL path = `/platform` (explored features)
+   - Step 3: `$pageview` with URL path = `/signup` (visited signup page)
+   - Step 4: `user_signed_up` (completed registration)
+
+3. **Configure:**
+   - Conversion window: **30 days** (visitors may return later)
+   - Breakdown: By `$referring_domain` (see which sources convert best)
+
+4. **Save to Dashboard:**
+   - Add to **"📢 Marketing Analytics"**
+
+### Additional Marketing Insights:
+
+**Signup Page Performance:**
+- Type: **Trends**
+- Event: `$pageview`
+- Filter: URL path = `/signup`
+- Compare with `user_signed_up` event
+- Shows: Signup page views vs actual signups
+
+**Platform Page Clicks:**
+- Type: **Trends**
+- Event: `$autocapture` (clicks on platform page)
+- Filter: URL contains `/platform`
+- Breakdown: By element text
+- Shows: Which buttons/links get clicked most
+
+**Session Recordings for Drop-offs:**
+- Go to **Session Recordings**
+- Filter: Visited `/signup` but did NOT complete `user_signed_up`
+- Watch recordings to see why users don't complete signup
+
+### What to Monitor:
+- **Conversion rate** → % of visitors who sign up
+- **Drop-off points** → Where in the funnel users leave
+- **Source performance** → Which marketing channels convert best
+- **Signup friction** → Session recordings show UX issues
+
+---
+
 ## 🎨 Recommended Dashboard Layout
 
 ### Dashboard 1: "🚀 Product Overview"
@@ -146,6 +249,19 @@ This guide walks you through creating 3 essential dashboards in PostHog for moni
 ├────────────────┬───────────────┤
 │ Stickiness     │ Avg Session   │
 │ (DAU/MAU)      │ Duration      │
+└────────────────┴───────────────┘
+```
+
+### Dashboard 3: "📢 Marketing Analytics"
+```
+┌────────────────────────────────┐
+│ Marketing → Signup Funnel      │  ← Top priority
+├────────────────┬───────────────┤
+│ Landing Page   │ Traffic       │  ← Side by side
+│ Views          │ Sources       │
+├────────────────┼───────────────┤
+│ Top Pages      │ Avg Time on   │
+│ (Bar Chart)    │ Site          │
 └────────────────┴───────────────┘
 ```
 
@@ -180,6 +296,14 @@ Use this checklist as you create dashboards:
 - [ ] User Retention curve
 - [ ] Average session duration
 
+### Dashboard 3: Marketing Analytics
+- [ ] Marketing to Signup Funnel (4 steps)
+- [ ] Landing Page Views (trends)
+- [ ] Top Marketing Pages (bar chart)
+- [ ] Traffic Sources (breakdown by referrer)
+- [ ] Average Time on Marketing Pages
+- [ ] Signup Page Performance
+
 ### Bonus:
 - [ ] Set up 1-2 alerts for critical metrics
 - [ ] Create "Session Replays" saved filters
@@ -189,17 +313,26 @@ Use this checklist as you create dashboards:
 
 ## 🎯 What Metrics to Watch Weekly
 
-**Critical Metrics:**
+**Critical Product Metrics:**
 1. **Weekly Active Users** → Growing?
 2. **Onboarding Conversion** → >50% ideal
 3. **Retention (Week 1)** → >40% is good
 4. **Feature Adoption** → Are key features used?
+
+**Critical Marketing Metrics:**
+1. **Marketing Page Traffic** → Are visits increasing?
+2. **Marketing → Signup Conversion** → >10% is good for B2B SaaS
+3. **Traffic Sources** → Which channels bring users?
+4. **Bounce Rate** → <40% is healthy
 
 **Red Flags:**
 - ⚠️ WAU declining week-over-week
 - ⚠️ Onboarding drop-off > 50% at any step
 - ⚠️ Retention < 20%
 - ⚠️ Key features unused
+- ⚠️ Marketing traffic declining
+- ⚠️ Signup conversion < 5%
+- ⚠️ Bounce rate > 60%
 
 ---
 

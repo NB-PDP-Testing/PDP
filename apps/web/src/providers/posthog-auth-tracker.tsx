@@ -27,9 +27,8 @@ export function PostHogAuthTracker() {
       const userEmail = session.user.email;
 
       // Check if this is an internal user
-      const internalEmails = [
-        "neil.barne@gmail.com", // Add your team emails here
-      ];
+      // Temporarily disabled - tracking all users during initial setup
+      const internalEmails: string[] = [];
 
       if (userEmail && internalEmails.includes(userEmail)) {
         // Internal user - opt out of tracking

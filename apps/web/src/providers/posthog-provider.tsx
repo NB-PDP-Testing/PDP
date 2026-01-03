@@ -20,18 +20,6 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
           maskAllInputs: true, // Privacy: mask all form inputs by default
           maskTextSelector: ".sensitive", // Mask elements with 'sensitive' class
         },
-        // Filter out internal team emails from analytics
-        loaded: (posthog) => {
-          // Get current user email from session
-          const userEmail = posthog.get_property("email");
-          const internalEmails = [
-            "neil.barne@gmail.com", // Your email - add more team emails as needed
-          ];
-
-          if (userEmail && internalEmails.includes(userEmail)) {
-            posthog.opt_out_capturing(); // Stop tracking for internal users
-          }
-        },
       });
     }
   }, []);

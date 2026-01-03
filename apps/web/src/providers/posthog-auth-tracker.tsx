@@ -24,18 +24,32 @@ export function PostHogAuthTracker() {
 
     // User logged in (session exists and is new)
     if (currentUserId && currentUserId !== previousUserId) {
-      // Identify user with PostHog
-      posthog.identify(currentUserId, {
-        email: session.user.email,
-        name: session.user.name,
-        // Add any other user properties
-      });
+      const userEmail = session.user.email;
 
-      // Track login event (only if this is not the first load)
-      if (previousUserId !== null) {
-        posthog.capture(AnalyticsEvents.USER_LOGGED_IN, {
-          email: session.user.email,
+      // Check if this is an internal user
+      const internalEmails = [
+        "neil.barne@gmail.com", // Add your team emails here
+      ];
+
+      if (userEmail && internalEmails.includes(userEmail)) {
+        // Internal user - opt out of tracking
+        posthog.opt_out_capturing();
+        console.log(
+          "🚫 [PostHog] Internal user detected, opted out of tracking"
+        );
+      } else {
+        // External user - identify and track
+        posthog.identify(currentUserId, {
+          email: userEmail,
+          name: session.user.name,
         });
+
+        // Track login event (only if this is not the first load)
+        if (previousUserId !== null) {
+          posthog.capture(AnalyticsEvents.USER_LOGGED_IN, {
+            email: userEmail,
+          });
+        }
       }
 
       previousSessionRef.current = currentUserId;

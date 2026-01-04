@@ -79,11 +79,13 @@ uat/
 
 ## Test Files Mapped to Test Cases
 
-| Test File | Test Cases Covered |
-|-----------|-------------------|
-| `auth.spec.ts` | TEST-AUTH-001 to TEST-AUTH-004 |
-| `admin.spec.ts` | TEST-ADMIN-001 to TEST-ADMIN-004 |
-| `coach.spec.ts` | TEST-COACH-001 to TEST-COACH-004 |
+| Test File | Test Cases Covered | Tests |
+|-----------|-------------------|-------|
+| `setup.spec.ts` | TEST-SETUP-001 to TEST-SETUP-010 | 21 |
+| `auth.spec.ts` | TEST-AUTH-001 to TEST-AUTH-004 | 7 |
+| `admin.spec.ts` | TEST-ADMIN-001 to TEST-ADMIN-004 | 7 |
+| `coach.spec.ts` | TEST-COACH-001 to TEST-COACH-004 | 5 |
+| **Total** | **22 Test Cases** | **40 Tests** |
 
 ## CI/CD Integration
 

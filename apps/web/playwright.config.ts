@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
  * See https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
-  testDir: './uat',
+  testDir: './uat/tests',
   
   /* Run tests in files in parallel */
   fullyParallel: true,
@@ -44,11 +44,17 @@ export default defineConfig({
   /* Configure projects for major browsers */
   projects: [
     /* Setup project - runs before tests to set up auth states */
-    { name: 'setup', testMatch: /.*\.setup\.ts/ },
+    { 
+      name: 'setup', 
+      testDir: './uat',
+      testMatch: /auth\.setup\.ts/ 
+    },
     
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testDir: './uat/tests',
+      testMatch: /.*\.spec\.ts/,
       dependencies: ['setup'],
     },
     
@@ -56,6 +62,8 @@ export default defineConfig({
     {
       name: 'mobile-chrome',
       use: { ...devices['Pixel 5'] },
+      testDir: './uat/tests',
+      testMatch: /.*\.spec\.ts/,
       dependencies: ['setup'],
     },
     

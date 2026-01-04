@@ -45,20 +45,119 @@ export const TEST_USERS = {
 ### 4. Run Tests
 
 ```bash
-# Run all tests
+# Run all tests (all groups)
 npm run test
 
-# Run tests in UI mode (interactive)
-npm run test:ui
+# Run Initial Setup tests only (Group 1 - for fresh environment)
+npm run test:setup
 
-# Run tests with browser visible
+# Run Continuous tests only (Group 2 - after code changes)
+npm run test:continuous
+
+# Run mobile viewport tests
+npm run test:mobile
+
+# Run in UI mode (interactive)
+npm run test:ui
+npm run test:ui:setup      # UI mode for setup tests only
+npm run test:ui:continuous # UI mode for continuous tests only
+
+# Run with browser visible
 npm run test:headed
 
-# Run specific test file
-npx playwright test auth.spec.ts
-
-# Run tests in debug mode
+# Run in debug mode
 npm run test:debug
+
+# List all available tests
+npm run test:list
+```
+
+## Test Groups
+
+Tests are organized into two groups for different use cases:
+
+### Group 1: Initial Setup Tests (`npm run test:setup`)
+
+**When to run:** Once when setting up a fresh environment (after database reset)
+
+| Test File | Purpose |
+|-----------|---------|
+| `setup.spec.ts` | First-time organization setup, user onboarding, team creation |
+
+**Test Cases:**
+- TEST-SETUP-001: Platform Staff Creates First Organization
+- TEST-SETUP-002: Non-Platform Staff Cannot Create Organizations
+- TEST-SETUP-003: Owner First Login Experience
+- TEST-SETUP-004: Owner Creates First Team
+- TEST-SETUP-005: Owner Invites First Admin
+- TEST-SETUP-006: First Admin Accepts Invitation
+- TEST-SETUP-007: Owner Invites First Coach
+- TEST-SETUP-008: First Coach Accepts and Gets Team Assignment
+- TEST-SETUP-009: Admin Creates First Players
+- TEST-SETUP-010: Owner Invites First Parent
+
+### Group 2: Continuous Tests (`npm run test:continuous`)
+
+**When to run:** Regularly after code changes to ensure nothing is broken
+
+| Test File | Purpose |
+|-----------|---------|
+| `auth.spec.ts` | Login, signup, logout, session management |
+| `admin.spec.ts` | Admin dashboard, approval workflows |
+| `coach.spec.ts` | Coach dashboard, player management |
+
+**Test Cases:**
+- TEST-AUTH-001 to TEST-AUTH-004: Authentication flows
+- TEST-ADMIN-001 to TEST-ADMIN-004: Admin operations
+- TEST-COACH-001 to TEST-COACH-004: Coach operations
+
+### Typical Workflow
+
+```bash
+# 1. Fresh environment setup (run once)
+cd packages/backend
+npx convex run scripts/fullReset:fullReset '{"confirmNuclearDelete": true}'
+npx convex run models/referenceData:seedAllReferenceData
+
+# 2. Run Initial Setup tests - creates first user via signup
+cd apps/web
+npm run test:setup
+
+# 3. IMPORTANT: Bootstrap the first platform staff user
+# The first user does NOT automatically become platform staff.
+# After the first user signs up, run this command to grant platform staff privileges:
+cd packages/backend
+npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff '{"email": "owner_pdp@outlook.com"}'
+
+# 4. To check who has platform staff privileges:
+npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
+
+# 5. After any code changes, run Continuous tests
+cd apps/web
+npm run test:continuous
+
+# 6. Before release, run all tests
+npm run test
+```
+
+### Platform Staff Bootstrap
+
+The `isPlatformStaff` flag must be explicitly set on user accounts. It is NOT automatically granted to the first user.
+
+**Available scripts:**
+
+| Script | Purpose |
+|--------|---------|
+| `setFirstPlatformStaff` | Sets a user as platform staff (only works if NO platform staff exists - safety check) |
+| `listPlatformStaff` | Shows all current platform staff users and total user count |
+
+**Usage:**
+```bash
+# Set first platform staff (safe - fails if platform staff already exists)
+npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff '{"email": "user@example.com"}'
+
+# Check current platform staff
+npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
 ```
 
 ## Test Structure
@@ -68,9 +167,10 @@ uat/
 ├── fixtures/
 │   └── test-utils.ts    # Shared utilities, test users, helper functions
 ├── tests/
-│   ├── auth.spec.ts     # Authentication tests (login, signup, logout)
-│   ├── admin.spec.ts    # Admin dashboard & approval tests
-│   ├── coach.spec.ts    # Coach dashboard tests
+│   ├── setup.spec.ts    # GROUP 1: Initial setup tests
+│   ├── auth.spec.ts     # GROUP 2: Authentication tests
+│   ├── admin.spec.ts    # GROUP 2: Admin dashboard tests
+│   ├── coach.spec.ts    # GROUP 2: Coach dashboard tests
 │   └── ...
 ├── auth.setup.ts        # Authentication setup (creates logged-in sessions)
 ├── .auth/               # Saved auth states (gitignored)

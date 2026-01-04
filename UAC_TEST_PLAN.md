@@ -2,9 +2,9 @@
 
 ## PDP (Player Development Platform) / PlayerARC
 
-**Version:** 1.0  
-**Date:** March 1, 2026  
-**Status:** Ready for Execution  
+**Version:** 1.1  
+**Date:** January 4, 2026  
+**Status:** GitHub Project Board Created - Ready for Execution  
 **Focus Users:** Platform Admin, Coach, Adult Player, Parent
 
 ---
@@ -116,9 +116,119 @@ This document provides comprehensive step-by-step testing procedures for end-use
 
 ---
 
-## 4. Platform Admin Testing
+## 4. First-Time Setup & Onboarding Testing
 
-### 4.1 Authentication & Access
+This section covers the critical first-time setup scenarios when an organization is being established for the first time.
+
+### 4.0 Platform Staff - Organization Creation
+
+#### TEST-SETUP-001: Platform Staff Creates First Organization
+
+| Field               | Value                                                                                                                                                                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify platform staff can create a new organization from scratch                                                                                                                                                                                 |
+| **Preconditions**   | Platform staff account exists with `isPlatformStaff: true` flag                                                                                                                                                                                 |
+| **Steps**           | 1. Navigate to `/login`<br>2. Enter platform staff credentials<br>3. Sign in<br>4. Navigate to `/orgs/create`<br>5. Enter organization name: "New Club FC"<br>6. Set primary color and secondary color<br>7. Upload logo (optional)<br>8. Click "Create Organization" |
+| **Expected Result** | - Organization creation form accessible only to platform staff<br>- All required fields validated<br>- Organization created successfully<br>- Platform staff becomes organization owner<br>- Redirect to new organization dashboard         |
+| **Pass/Fail**       | ☐                                                                                                                                                                                                                                               |
+
+#### TEST-SETUP-002: Non-Platform Staff Cannot Create Organizations
+
+| Field               | Value                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify regular users cannot access organization creation                                                 |
+| **Preconditions**   | Regular user account (no platform staff flag)                                                            |
+| **Steps**           | 1. Log in as regular user<br>2. Manually navigate to `/orgs/create`                                      |
+| **Expected Result** | - Access denied or redirected<br>- Cannot see organization creation form<br>- Error message displayed   |
+| **Pass/Fail**       | ☐                                                                                                       |
+
+### 4.0.1 Owner First-Time Setup
+
+#### TEST-SETUP-003: Owner First Login Experience
+
+| Field               | Value                                                                                                                                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Objective**       | Verify what the organization owner sees on their very first login after organization creation                                                                                                                                         |
+| **Preconditions**   | New organization just created, owner logging in for first time                                                                                                                                                                        |
+| **Steps**           | 1. Log in as organization owner<br>2. Observe initial dashboard state<br>3. Review onboarding prompts/checklist                                                                                                                      |
+| **Expected Result** | - Dashboard loads with empty state messaging<br>- Onboarding checklist or setup wizard displayed<br>- Clear guidance on next steps (create team, invite admin)<br>- Stats show 0 players, 0 teams, 0 coaches                       |
+| **Pass/Fail**       | ☐                                                                                                                                                                                                                                    |
+
+#### TEST-SETUP-004: Owner Creates First Team
+
+| Field               | Value                                                                                                                                                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify owner can create the first team in a new organization                                                                                                                                                            |
+| **Preconditions**   | New organization with no teams                                                                                                                                                                                          |
+| **Steps**           | 1. Navigate to `/admin/teams`<br>2. Observe empty state messaging<br>3. Click "Create Team" or "Add First Team"<br>4. Enter: Name: "U10 Boys", Sport: "GAA Football", Age Group: "U10", Gender: "Male"<br>5. Click "Create Team" |
+| **Expected Result** | - Empty state shows "No teams yet" message<br>- Clear CTA to create first team<br>- Team creation form works<br>- Team created successfully<br>- Appears in team list<br>- Onboarding progress updates (if applicable) |
+| **Pass/Fail**       | ☐                                                                                                                                                                                                                      |
+
+#### TEST-SETUP-005: Owner Invites First Admin
+
+| Field               | Value                                                                                                                                                                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify owner can invite the first administrator to help manage the organization                                                                                                                                                                    |
+| **Preconditions**   | New organization with only owner as member                                                                                                                                                                                                         |
+| **Steps**           | 1. Navigate to `/admin/users`<br>2. Observe single member (owner only)<br>3. Click "Invite Member"<br>4. Enter email: `newadmin@example.com`<br>5. Select role: "admin"<br>6. Add optional message<br>7. Click "Send Invitation"                   |
+| **Expected Result** | - Member list shows owner only initially<br>- Can send invitation email<br>- Pending invitation appears in list<br>- Invitation email sent to recipient<br>- Success toast displayed                                                               |
+| **Pass/Fail**       | ☐                                                                                                                                                                                                                                                 |
+
+#### TEST-SETUP-006: First Admin Accepts Invitation
+
+| Field               | Value                                                                                                                                                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify invited admin can accept invitation and set up their account                                                                                                                                                                  |
+| **Preconditions**   | Invitation email sent, recipient has email access                                                                                                                                                                                    |
+| **Steps**           | 1. Open invitation email<br>2. Click invitation link<br>3. If new user: complete registration<br>4. If existing user: sign in<br>5. Accept invitation on acceptance page<br>6. Observe assigned role                                |
+| **Expected Result** | - Invitation link works correctly<br>- Can register new account or sign in existing<br>- Invitation accepted successfully<br>- User added to organization with admin role<br>- Redirect to organization dashboard with admin access |
+| **Pass/Fail**       | ☐                                                                                                                                                                                                                                   |
+
+#### TEST-SETUP-007: Owner Invites First Coach
+
+| Field               | Value                                                                                                                                                                                                                                                |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify owner/admin can invite the first coach and assign teams                                                                                                                                                                                        |
+| **Preconditions**   | Organization has at least one team created                                                                                                                                                                                                            |
+| **Steps**           | 1. Navigate to `/admin/users`<br>2. Click "Invite Member"<br>3. Enter email: `coach@example.com`<br>4. Select role: "coach"<br>5. (If available) Pre-assign teams: "U10 Boys"<br>6. Click "Send Invitation"                                           |
+| **Expected Result** | - Can invite with coach role<br>- Team pre-assignment option available (or configured after acceptance)<br>- Invitation sent successfully<br>- Pending invitation visible                                                                            |
+| **Pass/Fail**       | ☐                                                                                                                                                                                                                                                    |
+
+#### TEST-SETUP-008: First Coach Accepts and Gets Team Assignment
+
+| Field               | Value                                                                                                                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Objective**       | Verify coach invitation acceptance and team assignment workflow                                                                                                                                                           |
+| **Preconditions**   | Coach invitation sent                                                                                                                                                                                                     |
+| **Steps**           | 1. Coach clicks invitation link<br>2. Registers/signs in<br>3. Accepts invitation<br>4. Admin assigns teams (if not pre-assigned)<br>5. Coach navigates to `/coach` dashboard                                            |
+| **Expected Result** | - Coach added to organization<br>- Teams assigned by admin<br>- Coach dashboard accessible<br>- Assigned teams visible<br>- Empty player state shown (no players yet)                                                    |
+| **Pass/Fail**       | ☐                                                                                                                                                                                                                        |
+
+#### TEST-SETUP-009: Admin Creates First Players
+
+| Field               | Value                                                                                                                                                                                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify admin can add the first players to the organization                                                                                                                                                                                    |
+| **Preconditions**   | Organization with team but no players                                                                                                                                                                                                         |
+| **Steps**           | 1. Navigate to `/admin/players`<br>2. Observe empty state<br>3. Click "Add Player" or use GAA Import<br>4. Enter player details: Name, DOB, Gender<br>5. Assign to team: "U10 Boys"<br>6. Save                                                |
+| **Expected Result** | - Empty state messaging shown initially<br>- Can add individual players<br>- Can bulk import via GAA wizard<br>- Player created and assigned to team<br>- Appears in player list<br>- Coach can now see player in their dashboard            |
+| **Pass/Fail**       | ☐                                                                                                                                                                                                                                            |
+
+#### TEST-SETUP-010: Owner Invites First Parent
+
+| Field               | Value                                                                                                                                                                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify parent invitation and child linking workflow                                                                                                                                                                                |
+| **Preconditions**   | Player exists in organization                                                                                                                                                                                                      |
+| **Steps**           | 1. Navigate to player record<br>2. Find parent email field or invitation option<br>3. Enter parent email<br>4. Send invitation<br>5. Parent accepts invitation<br>6. Verify child linking                                         |
+| **Expected Result** | - Can invite parent via player record or user management<br>- Parent receives invitation<br>- Upon acceptance, parent linked to child<br>- Parent dashboard shows linked child<br>- Smart matching suggestions work if applicable |
+| **Pass/Fail**       | ☐                                                                                                                                                                                                                                 |
+
+---
+
+## 4.1 Platform Admin Testing
+
+### 4.1.1 Authentication & Access
 
 #### TEST-ADMIN-AUTH-001: Admin Login
 
@@ -1230,6 +1340,686 @@ This document provides comprehensive step-by-step testing procedures for end-use
 
 #### TEST-INVITE-002: Expired Invitation
 
-| Field         | Value                              |
-| ------------- | ---------------------------------- |
-| **Objective** | Verify expired invitation handling |
+| Field               | Value                                                                            |
+| ------------------- | -------------------------------------------------------------------------------- |
+| **Objective**       | Verify expired invitation handling                                               |
+| **Preconditions**   | Invitation has expired                                                           |
+| **Steps**           | 1. Click expired invitation link                                                 |
+| **Expected Result** | - Error message displayed<br>- Cannot accept<br>- Contact admin instructions     |
+| **Pass/Fail**       | ☐                                                                                |
+
+---
+
+## 9. Additional UAT Tests (Gap Analysis)
+
+The following tests were identified through comprehensive code analysis as missing from the original test plan.
+
+### 9.1 Platform Staff Features
+
+#### TEST-PLATFORM-001: Platform Staff Dashboard Access
+
+| Field               | Value                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Objective**       | Verify platform staff can access `/platform` routes                                                    |
+| **Preconditions**   | User has `isPlatformStaff: true` flag                                                                  |
+| **Steps**           | 1. Login as platform staff<br>2. Navigate to `/platform`<br>3. Review dashboard                        |
+| **Expected Result** | - Platform dashboard accessible<br>- Shows platform-wide stats<br>- Navigation to sub-sections works   |
+| **Pass/Fail**       | ☐                                                                                                      |
+
+#### TEST-PLATFORM-002: Manage Sports
+
+| Field               | Value                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify platform staff can create/edit/delete sports                                                       |
+| **Preconditions**   | Platform staff logged in                                                                                  |
+| **Steps**           | 1. Navigate to `/platform/sports`<br>2. Create new sport<br>3. Edit existing sport<br>4. Delete sport     |
+| **Expected Result** | - CRUD operations work<br>- Sports list updates<br>- Validation enforced                                  |
+| **Pass/Fail**       | ☐                                                                                                         |
+
+#### TEST-PLATFORM-003: Manage Skill Categories
+
+| Field               | Value                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify platform staff can manage skill categories per sport                                               |
+| **Preconditions**   | Platform staff logged in, sports exist                                                                    |
+| **Steps**           | 1. Navigate to `/platform/skills`<br>2. Select sport<br>3. Create/edit/delete skill categories            |
+| **Expected Result** | - Categories organize under sports<br>- Can reorder categories<br>- Changes persist                       |
+| **Pass/Fail**       | ☐                                                                                                         |
+
+#### TEST-PLATFORM-004: Manage Skill Definitions
+
+| Field               | Value                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify platform staff can manage individual skills                                                        |
+| **Preconditions**   | Platform staff logged in, categories exist                                                                |
+| **Steps**           | 1. Navigate to `/platform/skills`<br>2. Expand category<br>3. Create/edit/delete skills                   |
+| **Expected Result** | - Skills linked to categories<br>- Age group applicability configured<br>- Assessment criteria defined    |
+| **Pass/Fail**       | ☐                                                                                                         |
+
+#### TEST-PLATFORM-005: Platform Staff Management
+
+| Field               | Value                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify platform staff can be added/removed                                                                |
+| **Preconditions**   | Platform staff logged in                                                                                  |
+| **Steps**           | 1. Navigate to `/platform/staff`<br>2. Add new staff by email<br>3. Remove existing staff                 |
+| **Expected Result** | - Can grant platform staff access<br>- Can revoke access<br>- Changes take effect immediately             |
+| **Pass/Fail**       | ☐                                                                                                         |
+
+#### TEST-PLATFORM-006: Bulk Skills Import
+
+| Field               | Value                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify bulk import of skills via JSON/CSV                                                                 |
+| **Preconditions**   | Platform staff logged in, valid import file                                                               |
+| **Steps**           | 1. Navigate to skills page<br>2. Click bulk import<br>3. Upload file<br>4. Preview and confirm            |
+| **Expected Result** | - File parsed correctly<br>- Preview shows items to import<br>- Import creates records<br>- Summary shown |
+| **Pass/Fail**       | ☐                                                                                                         |
+
+### 9.2 Player Management (Extended)
+
+#### TEST-PLAYER-CREATE-001: Create Player (Admin)
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify admin can create new player manually                                                                    |
+| **Preconditions**   | Admin logged in                                                                                                |
+| **Steps**           | 1. Navigate to `/admin/players`<br>2. Click "Add Player"<br>3. Fill form<br>4. Save                            |
+| **Expected Result** | - Form validates required fields<br>- Player created<br>- Assigned to org<br>- Can assign to team              |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-PLAYER-EDIT-001: Edit Player Basic Info
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify admin/coach can edit player details                                                                     |
+| **Preconditions**   | Player exists, user has edit permission                                                                        |
+| **Steps**           | 1. Navigate to player passport<br>2. Click edit<br>3. Update name, DOB, positions<br>4. Save                   |
+| **Expected Result** | - Edit form loads current data<br>- Changes validate<br>- Updates persist<br>- Audit trail created             |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-PLAYER-IMPORT-001: Bulk Player Import via CSV
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify bulk player import via CSV                                                                              |
+| **Preconditions**   | Admin logged in, valid CSV file                                                                                |
+| **Steps**           | 1. Navigate to `/admin/player-import`<br>2. Upload CSV<br>3. Map columns<br>4. Preview<br>5. Import            |
+| **Expected Result** | - CSV parsed<br>- Column mapping works<br>- Preview shows players<br>- Import creates records                  |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-PLAYER-TEAM-001: Player Team Assignment
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify player can be assigned to team                                                                          |
+| **Preconditions**   | Player exists, teams exist                                                                                     |
+| **Steps**           | 1. Navigate to player or team management<br>2. Assign player to team<br>3. Save                                |
+| **Expected Result** | - Assignment created<br>- Player appears in team roster<br>- Coach sees player                                 |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-PLAYER-MULTI-TEAM-001: Multi-Team Player
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify player can be on multiple teams                                                                         |
+| **Preconditions**   | Player exists, multiple teams exist                                                                            |
+| **Steps**           | 1. Assign player to Team A<br>2. Also assign to Team B<br>3. Verify both assignments                           |
+| **Expected Result** | - Player on both teams<br>- Both coaches see player<br>- Core team identified                                  |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-PLAYER-DELETE-001: Player Delete/Archive
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify player can be removed from org                                                                          |
+| **Preconditions**   | Player exists                                                                                                  |
+| **Steps**           | 1. Navigate to player<br>2. Click delete/archive<br>3. Confirm                                                 |
+| **Expected Result** | - Player archived/deleted<br>- Removed from team rosters<br>- Historical data preserved (if archived)          |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+### 9.3 Skill Assessment (Extended)
+
+#### TEST-ASSESS-BATCH-001: Batch Assessment
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify coach can assess multiple players at once                                                               |
+| **Preconditions**   | Multiple players in assigned team                                                                              |
+| **Steps**           | 1. Navigate to assess page<br>2. Select multiple players<br>3. Rate common skill<br>4. Save all                |
+| **Expected Result** | - Multiple players selected<br>- Single rating applied to all<br>- All assessments saved                       |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-ASSESS-HISTORY-001: Assessment History
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify assessment history is viewable                                                                          |
+| **Preconditions**   | Player with multiple assessments                                                                               |
+| **Steps**           | 1. Navigate to player passport<br>2. Click on skill<br>3. View history                                         |
+| **Expected Result** | - All assessments listed<br>- Shows date, assessor, rating<br>- Can see trend                                  |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-ASSESS-STATUS-001: Assessment Triggers Review Status
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify assessment updates review status                                                                        |
+| **Preconditions**   | Player with overdue review                                                                                     |
+| **Steps**           | 1. Note player's review status<br>2. Complete assessment<br>3. Check review status                             |
+| **Expected Result** | - Review date updated<br>- Status changes to "Completed"<br>- Next review date calculated                      |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+### 9.4 Team Management (Extended)
+
+#### TEST-TEAM-CREATE-001: Create Team
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify admin can create new team                                                                               |
+| **Preconditions**   | Admin logged in                                                                                                |
+| **Steps**           | 1. Navigate to `/admin/teams`<br>2. Click "Create Team"<br>3. Fill form<br>4. Save                             |
+| **Expected Result** | - Team created<br>- Appears in list<br>- Can assign players/coaches                                            |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-TEAM-COACH-001: Assign Coach to Team
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify admin can assign coach to team                                                                          |
+| **Preconditions**   | Team exists, coach exists                                                                                      |
+| **Steps**           | 1. Navigate to team or coach management<br>2. Assign coach to team<br>3. Save                                  |
+| **Expected Result** | - Assignment created<br>- Coach sees team in dashboard<br>- Coach can access team players                      |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-TEAM-COACH-REMOVE-001: Remove Coach from Team
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify coach can be unassigned from team                                                                       |
+| **Preconditions**   | Coach assigned to team                                                                                         |
+| **Steps**           | 1. Navigate to coach assignments<br>2. Remove team<br>3. Save                                                  |
+| **Expected Result** | - Assignment removed<br>- Coach no longer sees team<br>- Coach loses access to team players                    |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-TEAM-ELIGIBILITY-001: Player Eligibility Override
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify age group restrictions can be overridden                                                                |
+| **Preconditions**   | Player outside team's age group                                                                                |
+| **Steps**           | 1. Try to assign player to team<br>2. See warning<br>3. Apply override<br>4. Confirm                           |
+| **Expected Result** | - Warning shown for mismatch<br>- Override option available<br>- Player assigned with override note            |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+### 9.5 Benchmark Features
+
+#### TEST-BENCH-CREATE-001: Create Custom Benchmark
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify org can create custom benchmarks                                                                        |
+| **Preconditions**   | Admin logged in                                                                                                |
+| **Steps**           | 1. Navigate to `/admin/benchmarks`<br>2. Create custom benchmark<br>3. Set values<br>4. Save                   |
+| **Expected Result** | - Custom benchmark created<br>- Appears alongside NGB<br>- Used in comparisons                                 |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-BENCH-COMPARE-001: Player vs Benchmark Compare
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify player skills compared to benchmark                                                                     |
+| **Preconditions**   | Player has assessments, benchmarks configured                                                                  |
+| **Steps**           | 1. Navigate to player passport<br>2. Find benchmark comparison section                                         |
+| **Expected Result** | - Player rating vs benchmark shown<br>- Color coded (above/at/below)<br>- Gap analysis visible                 |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+### 9.6 Organization Settings (Extended)
+
+#### TEST-ORG-EDIT-001: Edit Org Name/Logo
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify org details can be updated                                                                              |
+| **Preconditions**   | Owner or admin logged in                                                                                       |
+| **Steps**           | 1. Navigate to `/admin/settings`<br>2. Update org name<br>3. Upload new logo<br>4. Save                        |
+| **Expected Result** | - Name updated<br>- Logo uploaded and displayed<br>- Changes reflected throughout app                          |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-ORG-THEME-001: Theme Applied to UI
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify theme colors apply to UI components                                                                     |
+| **Preconditions**   | Custom colors configured                                                                                       |
+| **Steps**           | 1. Set custom primary/secondary colors<br>2. Navigate through app<br>3. Verify color application               |
+| **Expected Result** | - Headers use theme colors<br>- Buttons styled correctly<br>- Consistent branding throughout                   |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-ORG-SPORT-001: Sport Association
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify org can be associated with sports                                                                       |
+| **Preconditions**   | Sports exist in platform                                                                                       |
+| **Steps**           | 1. Navigate to settings<br>2. Select associated sports<br>3. Save                                              |
+| **Expected Result** | - Sports linked to org<br>- Only relevant skills shown<br>- Team sports filtered                               |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+### 9.7 User Management (Extended)
+
+#### TEST-USER-DISABLE-001: Disable Member Access
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify admin can temporarily suspend member                                                                    |
+| **Preconditions**   | Active member exists                                                                                           |
+| **Steps**           | 1. Navigate to user management<br>2. Find member<br>3. Click "Disable"<br>4. Enter reason<br>5. Confirm        |
+| **Expected Result** | - Member disabled<br>- Cannot log in to org<br>- Shows as disabled in list<br>- Reason recorded                |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-USER-ENABLE-001: Re-enable Member
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify disabled member can be restored                                                                         |
+| **Preconditions**   | Disabled member exists                                                                                         |
+| **Steps**           | 1. Find disabled member<br>2. Click "Enable"<br>3. Confirm                                                     |
+| **Expected Result** | - Member re-enabled<br>- Can log in again<br>- Previous roles restored                                         |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-USER-REMOVE-001: Remove Member from Org
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify full removal with cascade                                                                               |
+| **Preconditions**   | Member exists with data (coach assignments, etc.)                                                              |
+| **Steps**           | 1. Find member<br>2. Click "Remove from Org"<br>3. Review impact preview<br>4. Confirm                         |
+| **Expected Result** | - Impact preview shown<br>- Member removed<br>- Related data cleaned up<br>- Cannot access org                 |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-USER-TRANSFER-001: Transfer Org Ownership
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify owner can transfer ownership                                                                            |
+| **Preconditions**   | Owner logged in, another admin exists                                                                          |
+| **Steps**           | 1. Navigate to settings<br>2. Find ownership transfer<br>3. Select new owner<br>4. Confirm                     |
+| **Expected Result** | - Ownership transferred<br>- Previous owner becomes admin<br>- New owner has full control                      |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+### 9.8 Invitation System (Extended)
+
+#### TEST-INV-ROLES-001: Invitation with Roles
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify functional roles set on invite                                                                          |
+| **Preconditions**   | Admin logged in                                                                                                |
+| **Steps**           | 1. Create invitation<br>2. Select functional roles (coach/parent/admin)<br>3. Send                             |
+| **Expected Result** | - Roles saved with invitation<br>- Applied when accepted<br>- Visible in pending list                          |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-INV-TEAMS-001: Invitation with Team Assignment
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify teams pre-assigned for coach invites                                                                    |
+| **Preconditions**   | Teams exist                                                                                                    |
+| **Steps**           | 1. Create coach invitation<br>2. Select teams<br>3. Send<br>4. Accept invitation                               |
+| **Expected Result** | - Teams pre-selected<br>- Coach assignment created on acceptance<br>- Coach sees teams immediately             |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-INV-RESEND-001: Resend Invitation
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify invitation can be resent                                                                                |
+| **Preconditions**   | Pending invitation exists                                                                                      |
+| **Steps**           | 1. Find pending invitation<br>2. Click "Resend"<br>3. Confirm                                                  |
+| **Expected Result** | - New email sent<br>- Resend count updated<br>- Expiry potentially extended                                    |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-INV-CANCEL-001: Cancel Invitation
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify admin can cancel pending invite                                                                         |
+| **Preconditions**   | Pending invitation exists                                                                                      |
+| **Steps**           | 1. Find pending invitation<br>2. Click "Cancel"<br>3. Confirm                                                  |
+| **Expected Result** | - Invitation cancelled<br>- Link no longer works<br>- Removed from pending list                                |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-INV-AUDIT-001: Invitation Audit Trail
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify invitation history is tracked                                                                           |
+| **Preconditions**   | Invitation with events (created, resent, etc.)                                                                 |
+| **Steps**           | 1. Find invitation<br>2. View history/audit trail                                                              |
+| **Expected Result** | - All events logged<br>- Shows who, when, what action<br>- Chronological order                                 |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+### 9.9 Parent Features (Extended)
+
+#### TEST-PARENT-SKILLS-001: View Child Skills
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify parent can see child's skill assessments                                                                |
+| **Preconditions**   | Child has skill assessments                                                                                    |
+| **Steps**           | 1. Navigate to child passport<br>2. Review skills section                                                      |
+| **Expected Result** | - Skills displayed by category<br>- Ratings visible<br>- Progress indicators shown                             |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-PARENT-GOALS-001: View Child Goals
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify parent can see development goals                                                                        |
+| **Preconditions**   | Child has goals with parent visibility                                                                         |
+| **Steps**           | 1. Navigate to child passport<br>2. Review goals section                                                       |
+| **Expected Result** | - Goals displayed<br>- Progress shown<br>- "How parents can help" visible                                      |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-PARENT-SCHEDULE-001: View Child Schedule
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify parent can see training schedule                                                                        |
+| **Preconditions**   | Schedule configured for team                                                                                   |
+| **Steps**           | 1. Navigate to parent dashboard<br>2. Find schedule section                                                    |
+| **Expected Result** | - Weekly schedule displayed<br>- Training times shown<br>- Match days highlighted                              |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-PARENT-AI-001: AI Practice Assistant
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify AI practice recommendations work                                                                        |
+| **Preconditions**   | Child has skill assessments                                                                                    |
+| **Steps**           | 1. Navigate to parent dashboard<br>2. Find AI practice assistant<br>3. Request recommendations                 |
+| **Expected Result** | - AI generates personalized drills<br>- Based on child's weaknesses<br>- Age-appropriate activities            |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-PARENT-SETTINGS-001: Update Guardian Settings
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify parent can update contact info                                                                          |
+| **Preconditions**   | Parent logged in                                                                                               |
+| **Steps**           | 1. Navigate to settings<br>2. Update phone/address<br>3. Update notification preferences<br>4. Save            |
+| **Expected Result** | - Contact info updated<br>- Notification prefs saved<br>- Changes persist                                      |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-PARENT-MEDICAL-001: View Child Medical Info
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify parent can see medical profile                                                                          |
+| **Preconditions**   | Child has medical info                                                                                         |
+| **Steps**           | 1. Navigate to child passport<br>2. Find medical section                                                       |
+| **Expected Result** | - Allergies displayed<br>- Medications shown<br>- Emergency contacts listed                                    |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+### 9.10 Guardian/Parent Linking
+
+#### TEST-GUARDIAN-BULK-001: Bulk Guardian Claim
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify parent can claim multiple children at once                                                              |
+| **Preconditions**   | Multiple unclaimed children match parent email                                                                 |
+| **Steps**           | 1. Login as parent<br>2. See unclaimed children prompt<br>3. Select children to claim<br>4. Confirm            |
+| **Expected Result** | - Multiple children claimable<br>- All selected linked<br>- Appear in dashboard                                |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-GUARDIAN-ADMIN-001: Admin Links Parent to Player
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify admin can manually link parent to child                                                                 |
+| **Preconditions**   | Parent and player exist                                                                                        |
+| **Steps**           | 1. Navigate to player or guardians management<br>2. Add guardian link<br>3. Specify relationship<br>4. Save    |
+| **Expected Result** | - Link created<br>- Parent sees child<br>- Relationship recorded                                               |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-GUARDIAN-UNCLAIMED-001: View Unclaimed Guardians
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify admin can see unlinked guardians                                                                        |
+| **Preconditions**   | Guardian identities exist without user links                                                                   |
+| **Steps**           | 1. Navigate to `/admin/unclaimed-guardians`<br>2. Review list                                                  |
+| **Expected Result** | - Unclaimed guardians listed<br>- Shows player associations<br>- Can send invitations                          |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+### 9.11 Player Self-Access
+
+#### TEST-ACCESS-ADULT-001: Adult Player Self-Access
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify adult player can view own passport                                                                      |
+| **Preconditions**   | Adult player (18+) with passport                                                                               |
+| **Steps**           | 1. Login as adult player<br>2. Navigate to own passport                                                        |
+| **Expected Result** | - Passport accessible<br>- All sections viewable<br>- Cannot edit (read-only for players)                      |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-ACCESS-TOKEN-001: Player Access Token
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify shareable passport link generation                                                                      |
+| **Preconditions**   | Player passport exists                                                                                         |
+| **Steps**           | 1. Navigate to player passport<br>2. Click "Share"<br>3. Generate link<br>4. Copy and test                     |
+| **Expected Result** | - Token generated<br>- Link shareable<br>- Expiry configurable<br>- Limited data exposure                      |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-ACCESS-PUBLIC-001: Public Passport View
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify passport viewable via token                                                                             |
+| **Preconditions**   | Valid share token exists                                                                                       |
+| **Steps**           | 1. Open shared link (not logged in)<br>2. View passport                                                        |
+| **Expected Result** | - Passport displays<br>- Limited data shown (configured sections)<br>- No edit capabilities                    |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+### 9.12 Analytics & Reporting
+
+#### TEST-ANALYTICS-ADMIN-001: Admin Dashboard Stats
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify org-wide statistics display                                                                             |
+| **Preconditions**   | Org has players, teams, assessments                                                                            |
+| **Steps**           | 1. Navigate to admin dashboard<br>2. Review stat cards                                                         |
+| **Expected Result** | - Player count accurate<br>- Team count accurate<br>- Assessment stats shown<br>- Trends displayed             |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-ANALYTICS-COACH-001: Coach Analytics View
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify team performance analytics                                                                              |
+| **Preconditions**   | Coach with team data                                                                                           |
+| **Steps**           | 1. Navigate to coach dashboard<br>2. Click "Analytics"<br>3. Review team stats                                 |
+| **Expected Result** | - Team averages shown<br>- Strengths/weaknesses identified<br>- Comparison charts available                    |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-ANALYTICS-PROGRESS-001: Player Progress Over Time
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify historical skill progression                                                                            |
+| **Preconditions**   | Player with multiple assessments over time                                                                     |
+| **Steps**           | 1. Navigate to player passport<br>2. View progress charts                                                      |
+| **Expected Result** | - Historical data plotted<br>- Trend lines shown<br>- Improvement/regression visible                           |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+### 9.13 Navigation & Multi-Org
+
+#### TEST-NAV-ORG-001: Org Switcher
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify user can switch between organizations                                                                   |
+| **Preconditions**   | User member of multiple orgs                                                                                   |
+| **Steps**           | 1. Click org switcher in header<br>2. Select different org<br>3. Observe context change                        |
+| **Expected Result** | - Org list shown<br>- Switch works<br>- Context updates (players, teams, etc.)                                 |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-NAV-ROLE-001: Role Switcher
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify active functional role switching                                                                        |
+| **Preconditions**   | User with multiple functional roles                                                                            |
+| **Steps**           | 1. Find role switcher<br>2. Switch from coach to parent<br>3. Observe navigation change                        |
+| **Expected Result** | - Role options shown<br>- Active role changes<br>- Dashboard/nav updates accordingly                           |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-NAV-SIDEBAR-001: Sidebar Navigation
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify all sidebar links work                                                                                  |
+| **Preconditions**   | User logged in with role                                                                                       |
+| **Steps**           | 1. Click each sidebar link<br>2. Verify page loads                                                             |
+| **Expected Result** | - All links functional<br>- Correct pages load<br>- No 404 errors                                              |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-NAV-BREADCRUMB-001: Breadcrumb Navigation
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify breadcrumbs show correct path                                                                           |
+| **Preconditions**   | Deep navigation (e.g., org > admin > players > player)                                                         |
+| **Steps**           | 1. Navigate deep into app<br>2. Check breadcrumbs<br>3. Click breadcrumb links                                 |
+| **Expected Result** | - Path accurate<br>- Links work<br>- Can navigate back via breadcrumbs                                         |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+### 9.14 Error Handling & Edge Cases
+
+#### TEST-ERR-EMPTY-001: Empty State - No Players
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify coach dashboard with no players                                                                         |
+| **Preconditions**   | Coach assigned to empty team                                                                                   |
+| **Steps**           | 1. Login as coach<br>2. Navigate to dashboard                                                                  |
+| **Expected Result** | - "No players" message shown<br>- Helpful guidance provided<br>- No errors                                     |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-ERR-EMPTY-002: Empty State - No Teams
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify org with no teams configured                                                                            |
+| **Preconditions**   | New org with no teams                                                                                          |
+| **Steps**           | 1. Navigate to teams management                                                                                |
+| **Expected Result** | - "No teams yet" message<br>- CTA to create team<br>- No errors                                                |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-ERR-403-001: Permission Denied Page
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify unauthorized access handling                                                                            |
+| **Preconditions**   | User without admin role                                                                                        |
+| **Steps**           | 1. Manually navigate to `/admin/users`                                                                         |
+| **Expected Result** | - Access denied message<br>- No data exposed<br>- Redirect or helpful message                                  |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+#### TEST-ERR-404-001: 404 Not Found
+
+| Field               | Value                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify invalid route/entity handling                                                                           |
+| **Preconditions**   | None                                                                                                           |
+| **Steps**           | 1. Navigate to invalid URL<br>2. Or try to access non-existent player ID                                       |
+| **Expected Result** | - 404 page shown<br>- Helpful navigation options<br>- No sensitive info exposed                                |
+| **Pass/Fail**       | ☐                                                                                                              |
+
+---
+
+## 10. Test Execution Status
+
+### 10.1 GitHub Project Board Setup
+
+**Board URL:** https://github.com/orgs/NB-PDP-Testing/projects/6/views/1
+
+All 99 test cases from this UAT plan have been created as GitHub issues and added to a project board for tracking.
+
+**Setup Completed:** January 4, 2026
+
+### 10.2 Issue Format
+
+Each test case was created as a GitHub issue with:
+- **Title Format:** `NNN TEST-CATEGORY-NNN Test Name`
+  - Example: `011 TEST-AUTH-001 Email Registration`
+- **Description:** Full test steps from this document
+- **Labels:** `test` + priority label (`high-priority`, `medium-priority`, `low-priority`)
+- **Project Field:** Priority (P0, P1, P2)
+
+### 10.3 Priority Distribution
+
+| Priority | Count | Label | Categories |
+|----------|-------|-------|------------|
+| **P0 (High)** | ~40 | `high-priority` | SETUP, AUTH, ADMIN, ROLE, PLATFORM, PLAYER-MGMT, TEAM, USER-MGMT, PARENT-SKILLS |
+| **P1 (Medium)** | ~40 | `medium-priority` | JOIN, COACH, PARENT, PASSPORT, ASSESS, BENCH, ORG, INV, PARENT-DASHBOARD, GUARDIAN, ACCESS, ANALYTICS |
+| **P2 (Low)** | ~19 | `low-priority` | API, AUDIT, SEC, UX, PERF, RESIL, NAV, ERR |
+
+### 10.4 Priority Rationale
+
+Based on Section 9.4 of the USER_TESTING_PROCESS.md Risk-Based Prioritization:
+
+1. **P0 - Critical Path Tests:**
+   - Authentication flows (security foundation)
+   - First-time setup & onboarding (user activation)
+   - Admin approval workflows (user onboarding blocker)
+   - Role permissions (data access control)
+   - Core management features (platform, player, team, user)
+
+2. **P1 - Core User Journey Tests:**
+   - Organization join flows
+   - Coach dashboard & assessments
+   - Parent dashboard
+   - Player passport viewing
+   - Invitations & guardian linking
+
+3. **P2 - Non-Functional & Edge Case Tests:**
+   - Security edge cases (session expiry, cross-org access)
+   - UX polish (loading states, skeletons)
+   - Performance testing
+   - Resilience testing
+   - Error handling & empty states
+
+### 10.5 Scripts Created
+
+The following scripts were created in `.github/` for managing test issues:
+
+| Script | Purpose |
+|--------|---------|
+| `create-test-issues.ps1` | Create GitHub issues from test plan |
+| `rename-issues.ps1` | Rename issues to standard format |
+| `set-remaining-priorities.ps1` | Add priority labels to unlabeled issues |
+| `set-project-priority-v2.ps1` | Set Priority field values in project board |
+
+### 10.6 Test Execution Workflow
+
+1. **Test Execution:**
+   - Testers work through issues in priority order (P0 → P1 → P2)
+   - Move issues through project columns: `To Do` → `In Progress` → `Done`
+   - Add comments with test results and evidence
+
+2. **Bug Reporting:**
+   - If test fails, create linked bug issue
+   - Reference original test issue
+   - Use bug report template from Section 9
+
+3. **Progress Tracking:**
+   - View project board for real-time status
+   - Filter by priority or category labels
+   - Monitor completion percentage

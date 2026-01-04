@@ -304,13 +304,13 @@ graph TD
 #### User Accounts
 | Role | Email Pattern | Password | Notes |
 |------|---------------|----------|-------|
-| Platform Staff | `staff@test.com` | `Test123!` | Has `isPlatformStaff: true` |
-| Org Owner | `owner@test.com` | `Test123!` | Created test org |
-| Admin | `admin@test.com` | `Test123!` | Approved as admin |
-| Coach | `coach@test.com` | `Test123!` | Has team assignments |
-| Parent | `parent@test.com` | `Test123!` | Has linked children |
-| Multi-Role | `multi@test.com` | `Test123!` | Coach + Parent roles |
-| New User | `newuser@test.com` | `Test123!` | Fresh account |
+| Platform Staff | `staff_pdp@outlook.com` | `Ask John` | Has `isPlatformStaff: true` |
+| Org Owner | `owner_pdp@outlook.com` | `Ask John` | Created test org |
+| Admin | `adm1n_pdp@outlook.com` | `Ask John` | Approved as admin |
+| Coach | `coach_pdp@outlook.com` | `Ask John` | Has team assignments |
+| Parent | `parent_pdp@outlook.com` | `Ask John` | Has linked children |
+| Multi-Role | `multi_pdp@outlook.com` | `Ask John` | Coach + Parent roles |
+| New User | `newuser_pdp@outlook.com` | `Ask John` | Fresh account |
 
 #### Test Organization
 - **Name:** Test Club FC

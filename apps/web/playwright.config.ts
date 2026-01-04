@@ -3,12 +3,26 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Playwright configuration for PDP E2E tests
  * See https://playwright.dev/docs/test-configuration
+ * 
+ * TEST GROUPS:
+ * 
+ * 1. Initial Setup Tests (Group 1):
+ *    - Run once when setting up a fresh environment
+ *    - Uses initial-auth.setup.ts (creates accounts via SIGNUP)
+ *    - Tests: setup.spec.ts
+ *    - Command: npm run test:setup
+ * 
+ * 2. Continuous Tests (Group 2):
+ *    - Run regularly after code changes
+ *    - Uses auth.setup.ts (logs into EXISTING accounts)
+ *    - Tests: auth.spec.ts, admin.spec.ts, coach.spec.ts
+ *    - Command: npm run test:continuous
  */
 export default defineConfig({
   testDir: './uat/tests',
   
   /* Run tests in files in parallel */
-  fullyParallel: true,
+  fullyParallel: false, // Run tests sequentially for setup
   
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
@@ -17,7 +31,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   
   /* Opt out of parallel tests on CI */
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1, // Single worker for sequential execution
   
   /* Reporter to use */
   reporter: [
@@ -41,43 +55,81 @@ export default defineConfig({
     video: 'on-first-retry',
   },
 
-  /* Configure projects for major browsers */
+  /* Configure projects for different test groups */
   projects: [
-    /* Setup project - runs before tests to set up auth states */
+    // ========================================
+    // INITIAL SETUP AUTH - Creates accounts via SIGNUP
+    // For fresh environment (no existing users)
+    // ========================================
     { 
-      name: 'setup', 
+      name: 'initial-auth-setup', 
+      testDir: './uat',
+      testMatch: /initial-auth\.setup\.ts/ 
+    },
+    
+    // ========================================
+    // CONTINUOUS AUTH - Logs into EXISTING accounts
+    // For environments with existing users
+    // ========================================
+    { 
+      name: 'auth-setup', 
       testDir: './uat',
       testMatch: /auth\.setup\.ts/ 
     },
     
+    // ========================================
+    // GROUP 1: INITIAL SETUP TESTS
+    // Run once when setting up a fresh environment
+    // NO dependencies - tests handle their own signup/login
+    // Command: npm run test:setup
+    // ========================================
     {
-      name: 'chromium',
+      name: 'initial-setup',
+      use: { ...devices['Desktop Chrome'] },
+      testDir: './uat/tests',
+      testMatch: /setup\.spec\.ts/,
+      // No dependencies - tests do their own signup/login for fresh environment
+    },
+    
+    // ========================================
+    // GROUP 2: CONTINUOUS TESTS
+    // Run regularly after code changes
+    // Uses auth-setup (login-based)
+    // Command: npm run test:continuous
+    // ========================================
+    {
+      name: 'continuous',
+      use: { ...devices['Desktop Chrome'] },
+      testDir: './uat/tests',
+      testMatch: /^(?!setup\.spec\.ts$).*\.spec\.ts$/,
+      testIgnore: /setup\.spec\.ts/,
+      dependencies: ['auth-setup'],
+    },
+    
+    // ========================================
+    // ALL TESTS - Runs both groups sequentially
+    // Command: npm run test
+    // ========================================
+    {
+      name: 'all-desktop',
       use: { ...devices['Desktop Chrome'] },
       testDir: './uat/tests',
       testMatch: /.*\.spec\.ts/,
-      dependencies: ['setup'],
+      dependencies: ['auth-setup'],
     },
     
-    /* Test against mobile viewport */
+    // ========================================
+    // MOBILE TESTS - Continuous tests on mobile viewport
+    // Command: npm run test:mobile
+    // ========================================
     {
-      name: 'mobile-chrome',
+      name: 'mobile',
       use: { ...devices['Pixel 5'] },
       testDir: './uat/tests',
       testMatch: /.*\.spec\.ts/,
-      dependencies: ['setup'],
+      testIgnore: /setup\.spec\.ts/, // Setup tests are desktop-focused
+      dependencies: ['auth-setup'],
     },
-    
-    /* Uncomment for cross-browser testing */
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    //   dependencies: ['setup'],
-    // },
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    //   dependencies: ['setup'],
-    // },
   ],
 
   /* Run your local dev server before starting the tests */

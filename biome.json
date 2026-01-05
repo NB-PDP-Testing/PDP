@@ -30,7 +30,10 @@
       "!**/apps/web/src/components/ui",
       "!**/apps/web/src/hooks/use-mobile.ts",
       "!**/packages/backend/**/_generated",
-      "!**/mvp-app"
+      "!**/mvp-app",
+      "!**/apps/web/uat",
+      "!**/test-results",
+      "!**/playwright-report"
     ]
   },
   "formatter": {

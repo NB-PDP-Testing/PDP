@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS, TEST_ORG, TEST_TEAMS, TEST_INVITATIONS } from '../fixtures/test-utils';
+import { test, expect, TEST_USERS, TEST_ORG, TEST_TEAMS } from '../fixtures/test-utils';
 import path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';

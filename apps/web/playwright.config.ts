@@ -138,5 +138,7 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
+    // Ensure the dev server always starts from the apps/web directory
+    cwd: __dirname,
   },
 });

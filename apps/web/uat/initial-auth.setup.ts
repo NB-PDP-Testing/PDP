@@ -1,5 +1,5 @@
 import { test as setup } from '@playwright/test';
-import { TEST_USERS, AUTH_STATES } from './fixtures/test-utils';
+import { TEST_USERS } from './fixtures/test-utils';
 import path from 'path';
 
 /**

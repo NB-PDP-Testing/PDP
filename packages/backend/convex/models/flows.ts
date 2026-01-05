@@ -644,3 +644,255 @@ async function getUserTeams(
 
   return [...new Set(teamIds)] as string[];
 }
+
+// ============================================================
+// PLATFORM FLOW MANAGEMENT (Platform Staff Only)
+// ============================================================
+
+/**
+ * Get all platform flows (for admin UI)
+ * Platform staff only
+ */
+export const getAllPlatformFlows = query({
+  args: {},
+  returns: v.array(v.any()),
+  handler: async (ctx) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    // Check if platform staff
+    if (!user.isPlatformStaff) {
+      throw new Error("Only platform staff can access platform flows");
+    }
+
+    // Get all platform-scoped flows
+    const flows = await ctx.db
+      .query("flows")
+      .withIndex("by_scope", (q) => q.eq("scope", "platform"))
+      .order("desc")
+      .collect();
+
+    return flows;
+  },
+});
+
+/**
+ * Create a new platform flow
+ * Platform staff only
+ */
+export const createPlatformFlow = mutation({
+  args: {
+    name: v.string(),
+    description: v.optional(v.string()),
+    type: v.union(
+      v.literal("onboarding"),
+      v.literal("announcement"),
+      v.literal("action_required"),
+      v.literal("feature_tour"),
+      v.literal("system_alert")
+    ),
+    priority: v.union(
+      v.literal("blocking"),
+      v.literal("high"),
+      v.literal("medium"),
+      v.literal("low")
+    ),
+    steps: v.array(
+      v.object({
+        id: v.string(),
+        type: v.union(
+          v.literal("page"),
+          v.literal("modal"),
+          v.literal("banner"),
+          v.literal("toast")
+        ),
+        title: v.string(),
+        content: v.string(),
+        ctaText: v.optional(v.string()),
+        ctaAction: v.optional(v.string()),
+        dismissible: v.boolean(),
+      })
+    ),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    active: v.boolean(),
+  },
+  returns: v.id("flows"),
+  handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    // Check if platform staff
+    if (!user.isPlatformStaff) {
+      throw new Error("Only platform staff can create platform flows");
+    }
+
+    const now = Date.now();
+
+    const flowId = await ctx.db.insert("flows", {
+      name: args.name,
+      description: args.description,
+      type: args.type,
+      priority: args.priority,
+      scope: "platform",
+      createdBy: user._id,
+      createdByRole: "platform_staff",
+      triggers: [],
+      steps: args.steps,
+      startDate: args.startDate,
+      endDate: args.endDate,
+      active: args.active,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return flowId;
+  },
+});
+
+/**
+ * Update an existing platform flow
+ * Platform staff only
+ */
+export const updatePlatformFlow = mutation({
+  args: {
+    flowId: v.id("flows"),
+    name: v.optional(v.string()),
+    description: v.optional(v.string()),
+    type: v.optional(
+      v.union(
+        v.literal("onboarding"),
+        v.literal("announcement"),
+        v.literal("action_required"),
+        v.literal("feature_tour"),
+        v.literal("system_alert")
+      )
+    ),
+    priority: v.optional(
+      v.union(
+        v.literal("blocking"),
+        v.literal("high"),
+        v.literal("medium"),
+        v.literal("low")
+      )
+    ),
+    steps: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          type: v.union(
+            v.literal("page"),
+            v.literal("modal"),
+            v.literal("banner"),
+            v.literal("toast")
+          ),
+          title: v.string(),
+          content: v.string(),
+          ctaText: v.optional(v.string()),
+          ctaAction: v.optional(v.string()),
+          dismissible: v.boolean(),
+        })
+      )
+    ),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    active: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    // Check if platform staff
+    if (!user.isPlatformStaff) {
+      throw new Error("Only platform staff can update platform flows");
+    }
+
+    // Verify flow exists and is platform-scoped
+    const flow = await ctx.db.get(args.flowId);
+    if (!flow) throw new Error("Flow not found");
+    if (flow.scope !== "platform") {
+      throw new Error("Can only update platform-scoped flows");
+    }
+
+    // Update flow
+    const updates: any = { updatedAt: Date.now() };
+    if (args.name !== undefined) updates.name = args.name;
+    if (args.description !== undefined) updates.description = args.description;
+    if (args.type !== undefined) updates.type = args.type;
+    if (args.priority !== undefined) updates.priority = args.priority;
+    if (args.steps !== undefined) updates.steps = args.steps;
+    if (args.startDate !== undefined) updates.startDate = args.startDate;
+    if (args.endDate !== undefined) updates.endDate = args.endDate;
+    if (args.active !== undefined) updates.active = args.active;
+
+    await ctx.db.patch(args.flowId, updates);
+
+    return null;
+  },
+});
+
+/**
+ * Delete a platform flow
+ * Platform staff only
+ */
+export const deletePlatformFlow = mutation({
+  args: {
+    flowId: v.id("flows"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    // Check if platform staff
+    if (!user.isPlatformStaff) {
+      throw new Error("Only platform staff can delete platform flows");
+    }
+
+    // Verify flow exists and is platform-scoped
+    const flow = await ctx.db.get(args.flowId);
+    if (!flow) throw new Error("Flow not found");
+    if (flow.scope !== "platform") {
+      throw new Error("Can only delete platform-scoped flows");
+    }
+
+    await ctx.db.delete(args.flowId);
+
+    return null;
+  },
+});
+
+/**
+ * Toggle a platform flow's active status
+ * Platform staff only
+ */
+export const togglePlatformFlowActive = mutation({
+  args: {
+    flowId: v.id("flows"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+
+    // Check if platform staff
+    if (!user.isPlatformStaff) {
+      throw new Error("Only platform staff can toggle platform flows");
+    }
+
+    // Verify flow exists and is platform-scoped
+    const flow = await ctx.db.get(args.flowId);
+    if (!flow) throw new Error("Flow not found");
+    if (flow.scope !== "platform") {
+      throw new Error("Can only toggle platform-scoped flows");
+    }
+
+    await ctx.db.patch(args.flowId, {
+      active: !flow.active,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});

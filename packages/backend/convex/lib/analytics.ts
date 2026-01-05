@@ -109,8 +109,10 @@ export async function trackEvent(
 /**
  * Get current user ID from auth context
  */
-export function getUserId(ctx: MutationCtx | QueryCtx): string | undefined {
-  const identity = ctx.auth.getUserIdentity();
+export async function getUserId(
+  ctx: MutationCtx | QueryCtx
+): Promise<string | undefined> {
+  const identity = await ctx.auth.getUserIdentity();
   return identity?.subject;
 }
 
@@ -124,7 +126,7 @@ export async function track(
 ) {
   await trackEvent(ctx, {
     event,
-    userId: getUserId(ctx),
+    userId: await getUserId(ctx),
     properties,
   });
 }

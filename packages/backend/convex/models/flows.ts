@@ -640,7 +640,7 @@ async function getUserTeams(
     )
     .collect();
 
-  const teamIds = coachAssignments.map((a: any) => a.teamId);
+  const teamIds = coachAssignments.map((a: any) => a.teamId as string);
 
-  return [...new Set(teamIds)];
+  return [...new Set(teamIds)] as string[];
 }

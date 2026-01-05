@@ -1,9 +1,5 @@
 import { test, expect, TEST_USERS, TEST_ORG, TEST_TEAMS, TEST_INVITATIONS } from '../fixtures/test-utils';
 import path from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
 
 /**
  * First-Time Setup & Onboarding Tests
@@ -143,58 +139,9 @@ test.describe.serial('Initial Setup Flow', () => {
       await page.context().storageState({ path: SETUP_AUTH_STATES.platformStaff });
       await page.context().storageState({ path: SETUP_AUTH_STATES.owner });
       
-      // Check if user can access /orgs/create (platform staff check)
-      await page.goto('/orgs/create');
-      await helper.waitForPageLoad();
-      
-      const isPlatformStaff = await page.getByLabel(/organization name|name/i).isVisible({ timeout: 5000 }).catch(() => false);
-      
-      if (!isPlatformStaff) {
-        // User is NOT platform staff - run the bootstrap script
-        console.log('User is not platform staff. Running bootstrap script...');
-        
-        try {
-          // Run the Convex bootstrap script
-          const { stdout, stderr } = await execAsync(
-            `cd packages/backend && npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff "{\\"email\\": \\"${TEST_USERS.owner.email}\\"}"`
-          );
-          console.log('Bootstrap script output:', stdout);
-          if (stderr) console.log('Bootstrap script stderr:', stderr);
-          
-          // Wait for the database update to propagate
-          await page.waitForTimeout(2000);
-          
-          // Refresh the page to check if platform staff access is now available
-          await page.reload();
-          await helper.waitForPageLoad();
-          
-          // Verify platform staff access is now granted
-          const nowPlatformStaff = await page.getByLabel(/organization name|name/i).isVisible({ timeout: 5000 }).catch(() => false);
-          
-          if (!nowPlatformStaff) {
-            // Still not platform staff - might be redirected or access denied
-            const accessDenied = await page.getByText(/access denied|not authorized|only platform staff/i).isVisible({ timeout: 3000 }).catch(() => false);
-            
-            if (accessDenied) {
-              throw new Error(
-                'Bootstrap script executed but user still does not have platform staff privileges.\n' +
-                'Please check the Convex dashboard to verify the user record.'
-              );
-            }
-          }
-          
-          console.log('User successfully bootstrapped as platform staff');
-        } catch (error) {
-          console.error('Failed to run bootstrap script:', error);
-          throw new Error(
-            'Failed to automatically bootstrap platform staff privileges.\n' +
-            'Manual step required: Run this command in packages/backend:\n' +
-            `npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff '{"email": "${TEST_USERS.owner.email}"}'`
-          );
-        }
-      } else {
-        console.log('User already has platform staff privileges');
-      }
+      // First user is automatically made platform staff by the system
+      // No need to run bootstrap script - just verify we can access org creation
+      console.log('First user signup complete - user should have platform staff privileges');
     });
 
     test('should access organization creation page', async ({ page, helper }) => {

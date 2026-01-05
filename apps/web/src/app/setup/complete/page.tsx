@@ -5,10 +5,11 @@ import { useQuery } from "convex/react";
 import { ArrowRight, CheckCircle, Trophy, UserPlus, Users } from "lucide-react";
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { PDPLogo } from "@/components/pdp-logo";
 import { Button } from "@/components/ui/button";
 
-export default function SetupCompletePage() {
+function SetupCompleteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orgId = searchParams.get("orgId");
@@ -206,5 +207,21 @@ export default function SetupCompletePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="text-muted-foreground">Loading...</div>
+    </div>
+  );
+}
+
+export default function SetupCompletePage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <SetupCompleteContent />
+    </Suspense>
   );
 }

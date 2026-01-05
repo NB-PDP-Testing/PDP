@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS, AUTH_STATES } from '../fixtures/test-utils';
+import { test, expect, AUTH_STATES } from '../fixtures/test-utils';
 
 /**
  * Coach Dashboard Tests

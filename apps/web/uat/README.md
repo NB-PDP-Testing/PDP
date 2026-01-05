@@ -2,6 +2,16 @@
 
 This directory contains User Acceptance Tests for the PDP application using [Playwright](https://playwright.dev/).
 
+## ⚠️ Security Notice
+
+**Test credentials in this directory are for ISOLATED TEST ENVIRONMENTS ONLY.**
+
+- Test accounts use intentionally weak passwords (e.g., `Password123!`) for testing purposes
+- These credentials should **NEVER** be used in production or staging environments
+- Test environments must be completely isolated from production systems
+- All test accounts should be regularly cleaned up after testing
+- The password pattern used here is deliberately simple for test automation - this is NOT a secure password pattern
+
 ## Quick Start
 
 ### 1. Install Playwright

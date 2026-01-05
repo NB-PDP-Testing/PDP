@@ -152,8 +152,28 @@ The `isPlatformStaff` flag must be explicitly set on user accounts. It is NOT au
 | `listPlatformStaff` | Shows all current platform staff users and total user count |
 
 **Usage:**
+
+**Windows (Command Prompt):**
 ```bash
 # Set first platform staff (safe - fails if platform staff already exists)
+npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff "{\"email\": \"user@example.com\"}"
+
+# Check current platform staff
+npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
+```
+
+**Windows (PowerShell):**
+```powershell
+# Set first platform staff
+npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff '{"email": "user@example.com"}'
+
+# Check current platform staff
+npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
+```
+
+**macOS/Linux:**
+```bash
+# Set first platform staff
 npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff '{"email": "user@example.com"}'
 
 # Check current platform staff

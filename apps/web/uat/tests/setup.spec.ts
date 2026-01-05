@@ -425,7 +425,6 @@ test.describe.serial('Initial Setup Flow', () => {
       // Should be denied access or redirected
       const hasAccessDenied = await page.getByText(/access denied|not authorized|permission|cannot create/i).isVisible({ timeout: 10000 }).catch(() => false);
       const redirectedAway = !page.url().includes('/orgs/create');
-      const hasNoForm = !(await page.getByLabel(/organization name/i).isVisible({ timeout: 5000 }).catch(() => false));
       
       // At least one of these should be true for proper access control
       // If all are false, the test will still pass (platform may allow org creation for all)

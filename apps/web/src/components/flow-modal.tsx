@@ -3,7 +3,10 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
 import { X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 
@@ -13,16 +16,62 @@ interface FlowModalProps {
 }
 
 export function FlowModal({ flow, step }: FlowModalProps) {
+  const router = useRouter();
+  const startFlow = useMutation(api.models.flows.startFlow);
   const completeStep = useMutation(api.models.flows.completeFlowStep);
   const dismissFlow = useMutation(api.models.flows.dismissFlow);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isStarted, setIsStarted] = useState(!!flow.progress);
+
+  // Start the flow if not already started
+  const ensureFlowStarted = async () => {
+    if (!(isStarted || flow.progress)) {
+      try {
+        await startFlow({ flowId: flow._id });
+        setIsStarted(true);
+      } catch (error) {
+        console.error("Failed to start flow:", error);
+        throw error;
+      }
+    }
+  };
 
   const handleContinue = async () => {
-    await completeStep({ flowId: flow._id, stepId: step.id });
+    if (isProcessing) {
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      // Ensure flow is started before completing step
+      await ensureFlowStarted();
+      await completeStep({ flowId: flow._id, stepId: step.id });
+
+      // Navigate to ctaAction if specified
+      if (step.ctaAction) {
+        router.push(step.ctaAction);
+      }
+    } catch (error) {
+      console.error("Failed to complete flow step:", error);
+      toast.error("Failed to continue. Please try again.");
+      setIsProcessing(false);
+    }
   };
 
   const handleDismiss = async () => {
-    if (step.dismissible) {
+    if (!step.dismissible || isProcessing) {
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      // Ensure flow is started before dismissing
+      await ensureFlowStarted();
       await dismissFlow({ flowId: flow._id });
+    } catch (error) {
+      console.error("Failed to dismiss flow:", error);
+      toast.error("Failed to dismiss. Please try again.");
+      setIsProcessing(false);
     }
   };
 
@@ -50,11 +99,17 @@ export function FlowModal({ flow, step }: FlowModalProps) {
         </div>
         <div className="flex justify-end gap-2 pt-4">
           {step.dismissible && (
-            <Button onClick={handleDismiss} variant="outline">
+            <Button
+              disabled={isProcessing}
+              onClick={handleDismiss}
+              variant="outline"
+            >
               Skip
             </Button>
           )}
-          <Button onClick={handleContinue}>{step.ctaText || "Continue"}</Button>
+          <Button disabled={isProcessing} onClick={handleContinue}>
+            {isProcessing ? "Processing..." : step.ctaText || "Continue"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

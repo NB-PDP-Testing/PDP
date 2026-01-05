@@ -626,6 +626,13 @@ export const getAllOrganizationFlows = query({
     // Verify user is admin of this organization
     let membership;
     try {
+      console.log(
+        "[getAllOrganizationFlows] Checking membership for user:",
+        user._id,
+        "org:",
+        args.organizationId
+      );
+
       membership = await ctx.runQuery(components.betterAuth.adapter.findOne, {
         model: "member",
         where: [
@@ -637,19 +644,59 @@ export const getAllOrganizationFlows = query({
           },
         ],
       });
+
+      console.log("[getAllOrganizationFlows] Membership result:", membership);
     } catch (error) {
-      console.error("Error checking organization membership:", error);
+      console.error(
+        "[getAllOrganizationFlows] Error checking organization membership:",
+        error
+      );
+      console.error(
+        "[getAllOrganizationFlows] Error details:",
+        JSON.stringify(error, null, 2)
+      );
+      console.error("[getAllOrganizationFlows] User ID:", user._id);
+      console.error(
+        "[getAllOrganizationFlows] Organization ID:",
+        args.organizationId
+      );
+
+      // Provide detailed error for debugging
       throw new Error(
-        "Failed to verify organization membership. Please try again."
+        `Failed to check organization membership: ${
+          error instanceof Error ? error.message : String(error)
+        }. User: ${user._id}, Org: ${args.organizationId}`
       );
     }
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
-      throw new Error("Only organization admins can view all flows");
+    if (!membership) {
+      console.log(
+        "[getAllOrganizationFlows] No membership found for user:",
+        user._id,
+        "in org:",
+        args.organizationId
+      );
+      throw new Error(
+        `You are not a member of this organization. User: ${user._id}, Org: ${args.organizationId}`
+      );
     }
+
+    if (membership.role !== "admin" && membership.role !== "owner") {
+      console.log(
+        "[getAllOrganizationFlows] User has insufficient role:",
+        membership.role
+      );
+      throw new Error(
+        `Only organization admins can view flows. Your role: ${membership.role}`
+      );
+    }
+
+    console.log(
+      "[getAllOrganizationFlows] Access granted for user:",
+      user._id,
+      "with role:",
+      membership.role
+    );
 
     // Get all organization flows (including inactive)
     const flows = await ctx.db

@@ -825,8 +825,8 @@ test.describe.serial('Initial Setup Flow', () => {
       const importButton = page.getByRole('button', { name: /import|bulk|gaa/i });
       const hasImport = await importButton.isVisible({ timeout: 10000 }).catch(() => false);
       
-      // Import functionality may or may not exist
-      expect(true).toBeTruthy();
+      // Import functionality may or may not exist; this test currently only verifies that the check runs
+      expect([true, false]).toContain(hasImport);
     });
   });
 

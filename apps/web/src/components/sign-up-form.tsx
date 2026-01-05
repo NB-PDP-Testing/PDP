@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -22,6 +22,11 @@ export default function SignUpForm({ redirect }: { redirect?: string | null }) {
     name: string;
     userId: string;
   } | null>(null);
+
+  // First-user auto-assignment mutation
+  const autoAssignFirstUser = useMutation(
+    api.models.users.autoAssignFirstUserAsPlatformStaff
+  );
 
   // Check for claimable identity when we have email + name
   const claimableIdentity = useQuery(
@@ -52,12 +57,24 @@ export default function SignUpForm({ redirect }: { redirect?: string | null }) {
               has_redirect: !!redirect,
             });
 
-            // Check if there's a claimable guardian identity
             // Get the newly created userId from the session
             const session = await authClient.getSession();
             const userId = session.data?.user?.id;
 
             if (userId) {
+              // Check if this is the first user and auto-assign platform staff
+              const result = await autoAssignFirstUser({ userId });
+
+              // If this was the first user, redirect to setup wizard
+              if (result.wasFirstUser) {
+                toast.success(
+                  "🎉 Welcome! Let's set up your platform together."
+                );
+                router.push("/setup/welcome" as Route);
+                return;
+              }
+
+              // Not the first user - check for claimable guardian identity
               // Set pending claim to trigger the query
               setPendingClaim({
                 email: value.email,

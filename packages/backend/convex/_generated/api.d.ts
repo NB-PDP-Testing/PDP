@@ -27,6 +27,7 @@ import type * as models_demoAsks from "../models/demoAsks.js";
 import type * as models_diagnosticIdentityCheck from "../models/diagnosticIdentityCheck.js";
 import type * as models_emergencyContacts from "../models/emergencyContacts.js";
 import type * as models_fixNeilsRoles from "../models/fixNeilsRoles.js";
+import type * as models_flows from "../models/flows.js";
 import type * as models_guardianIdentities from "../models/guardianIdentities.js";
 import type * as models_guardianManagement from "../models/guardianManagement.js";
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
@@ -102,6 +103,7 @@ declare const fullApi: ApiFromModules<{
   "models/diagnosticIdentityCheck": typeof models_diagnosticIdentityCheck;
   "models/emergencyContacts": typeof models_emergencyContacts;
   "models/fixNeilsRoles": typeof models_fixNeilsRoles;
+  "models/flows": typeof models_flows;
   "models/guardianIdentities": typeof models_guardianIdentities;
   "models/guardianManagement": typeof models_guardianManagement;
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { Calendar, Megaphone, Plus, Users } from "lucide-react";
+import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -30,14 +31,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "../../../../../../../../packages/backend/convex/_generated/api";
 
-export default function OrganizationAnnouncementsPage({
-  params,
-}: {
-  params: { orgId: string };
-}) {
+export default function OrganizationAnnouncementsPage() {
+  const params = useParams();
+  const orgId = params.orgId as string;
+
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const orgFlows = useQuery(api.models.flows.getAllOrganizationFlows, {
-    organizationId: params.orgId,
+    organizationId: orgId,
   });
   const createFlow = useMutation(api.models.flows.createOrganizationFlow);
 
@@ -62,7 +62,7 @@ export default function OrganizationAnnouncementsPage({
 
     try {
       await createFlow({
-        organizationId: params.orgId,
+        organizationId: orgId,
         name: formData.name,
         type: formData.type,
         priority: formData.priority,

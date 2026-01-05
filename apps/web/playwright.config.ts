@@ -107,8 +107,44 @@ export default defineConfig({
     },
     
     // ========================================
+    // AUTH TESTS - Authentication tests only
+    // Command: npx playwright test --project=auth-tests
+    // ========================================
+    {
+      name: 'auth-tests',
+      use: { ...devices['Desktop Chrome'] },
+      testDir: './uat/tests',
+      testMatch: /auth\.spec\.ts/,
+      // No dependencies - tests handle their own login
+    },
+    
+    // ========================================
+    // COACH TESTS - Coach dashboard tests only
+    // Command: npx playwright test --project=coach-tests
+    // ========================================
+    {
+      name: 'coach-tests',
+      use: { ...devices['Desktop Chrome'] },
+      testDir: './uat/tests',
+      testMatch: /coach\.spec\.ts/,
+      dependencies: ['auth-setup'],
+    },
+    
+    // ========================================
+    // ADMIN TESTS - Admin dashboard tests only
+    // Command: npx playwright test --project=admin-tests
+    // ========================================
+    {
+      name: 'admin-tests',
+      use: { ...devices['Desktop Chrome'] },
+      testDir: './uat/tests',
+      testMatch: /admin\.spec\.ts/,
+      dependencies: ['auth-setup'],
+    },
+    
+    // ========================================
     // ALL TESTS - Runs both groups sequentially
-    // Command: npm run test
+    // Command: npm run test OR npx playwright test --project=all-desktop
     // ========================================
     {
       name: 'all-desktop',

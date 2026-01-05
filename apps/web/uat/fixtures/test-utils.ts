@@ -170,7 +170,7 @@ export const test = base.extend<{ helper: TestHelper; testState: TestState }>({
     const state: TestState = {
       createdOrgId: '',
       setCreatedOrgId(id: string) {
-        this.createdOrgId = id;
+        state.createdOrgId = id;
       },
     };
     await use(state);

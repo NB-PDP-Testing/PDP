@@ -685,31 +685,35 @@ test.describe.serial('Initial Setup Flow', () => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
       await helper.waitForPageLoad();
       
-      // Navigate to admin/users
-      const adminLink = page.getByRole('link', { name: /admin/i });
-      if (await adminLink.isVisible({ timeout: 5000 })) {
-        await adminLink.click();
-        await helper.waitForPageLoad();
-      }
+      // Navigate to admin - click "Admin Panel" link specifically, use .first() for strict mode
+      const adminPanelLink = page.getByRole('link', { name: /admin panel|admin/i }).first();
+      await expect(adminPanelLink).toBeVisible({ timeout: 10000 });
+      await adminPanelLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(2000);
       
-      const usersLink = page.getByRole('link', { name: /users|members/i });
-      if (await usersLink.isVisible({ timeout: 5000 })) {
-        await usersLink.click();
-        await helper.waitForPageLoad();
-        
-        // Open invite dialog
-        const inviteButton = page.getByRole('button', { name: /invite|add member/i });
-        if (await inviteButton.isVisible({ timeout: 5000 })) {
-          await inviteButton.click();
-          await page.waitForTimeout(500);
-          
-          // Look for coach role option
-          const coachOption = page.getByText(/coach/i);
-          const hasCoachOption = await coachOption.isVisible({ timeout: 5000 }).catch(() => false);
-          
-          expect(hasCoachOption).toBeTruthy();
-        }
-      }
+      // Look for users/members link in sidebar
+      const usersLink = page.getByRole('link', { name: /manage users|users|members/i }).first();
+      await expect(usersLink).toBeVisible({ timeout: 10000 });
+      await usersLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(2000);
+      
+      // Open invite dialog - button says "Invite Member"
+      const inviteButton = page.getByRole('button', { name: 'Invite Member', exact: true });
+      await expect(inviteButton).toBeVisible({ timeout: 10000 });
+      await inviteButton.click();
+      await page.waitForTimeout(2000);
+      
+      // Wait for dialog to be visible
+      const dialog = page.getByRole('dialog', { name: /invite member/i });
+      await expect(dialog).toBeVisible({ timeout: 10000 });
+      
+      // Look for coach role checkbox in the dialog
+      const coachCheckbox = dialog.getByRole('checkbox', { name: /coach/i });
+      const hasCoachOption = await coachCheckbox.isVisible({ timeout: 5000 }).catch(() => false);
+      
+      expect(hasCoachOption).toBeTruthy();
     });
   });
 
@@ -722,18 +726,25 @@ test.describe.serial('Initial Setup Flow', () => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
       await helper.waitForPageLoad();
       
-      // Navigate to admin
-      const adminLink = page.getByRole('link', { name: /admin/i });
-      if (await adminLink.isVisible({ timeout: 5000 })) {
-        await adminLink.click();
-        await helper.waitForPageLoad();
-        
-        // Look for coaches section
-        const coachesLink = page.getByRole('link', { name: /coaches/i });
-        const hasCoachesSection = await coachesLink.isVisible({ timeout: 5000 }).catch(() => false);
-        
-        expect(hasCoachesSection).toBeTruthy();
-      }
+      // Navigate to admin - use .first() for strict mode
+      const adminLink = page.getByRole('link', { name: /admin panel|admin/i }).first();
+      await expect(adminLink).toBeVisible({ timeout: 10000 });
+      await adminLink.click();
+      
+      // Wait for admin page to fully load - must wait for URL change AND content
+      await page.waitForURL(/\/admin/, { timeout: 15000 });
+      await helper.waitForPageLoad();
+      
+      // Wait extra time for sidebar to render (React hydration)
+      await page.waitForTimeout(5000);
+      
+      // Look for coaches section in admin sidebar - may be "Coaches" or "Manage Coaches"
+      const coachesLink = page.getByRole('link', { name: /manage coaches|coaches/i }).first();
+      
+      // Wait with longer timeout since page may still be loading
+      const hasCoachesSection = await coachesLink.isVisible({ timeout: 15000 }).catch(() => false);
+      
+      expect(hasCoachesSection).toBeTruthy();
     });
   });
 
@@ -747,66 +758,77 @@ test.describe.serial('Initial Setup Flow', () => {
       await helper.waitForPageLoad();
       
       // Navigate to admin - use .first() to avoid strict mode violation
-      const adminLink = page.getByRole('link', { name: /admin/i }).first();
-      if (await adminLink.isVisible({ timeout: 5000 })) {
-        await adminLink.click();
-        await helper.waitForPageLoad();
-        
-        // Look for players section
-        const playersLink = page.getByRole('link', { name: /players/i }).first();
-        const hasPlayersSection = await playersLink.isVisible({ timeout: 5000 }).catch(() => false);
-        
-        expect(hasPlayersSection).toBeTruthy();
-      }
+      const adminLink = page.getByRole('link', { name: /admin panel|admin/i }).first();
+      await expect(adminLink).toBeVisible({ timeout: 10000 });
+      await adminLink.click();
+      
+      // Wait for admin page to fully load
+      await page.waitForURL(/\/admin/, { timeout: 15000 });
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(5000);
+      
+      // Look for players section
+      const playersLink = page.getByRole('link', { name: /manage players|players/i }).first();
+      const hasPlayersSection = await playersLink.isVisible({ timeout: 15000 }).catch(() => false);
+      
+      expect(hasPlayersSection).toBeTruthy();
     });
 
     test('should have add player functionality', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
       await helper.waitForPageLoad();
       
-      // Navigate to admin/players - use .first() to avoid strict mode violation
-      const adminLink = page.getByRole('link', { name: /admin/i }).first();
-      if (await adminLink.isVisible({ timeout: 5000 })) {
-        await adminLink.click();
-        await helper.waitForPageLoad();
-      }
+      // Navigate to admin
+      const adminLink = page.getByRole('link', { name: /admin panel|admin/i }).first();
+      await expect(adminLink).toBeVisible({ timeout: 10000 });
+      await adminLink.click();
       
-      const playersLink = page.getByRole('link', { name: /players/i }).first();
-      if (await playersLink.isVisible({ timeout: 5000 })) {
-        await playersLink.click();
-        await helper.waitForPageLoad();
-        
-        // Look for add player button
-        const addButton = page.getByRole('button', { name: /add player|create player|new player/i });
-        const hasAddButton = await addButton.isVisible({ timeout: 5000 }).catch(() => false);
-        
-        expect(hasAddButton).toBeTruthy();
-      }
+      // Wait for admin page to fully load
+      await page.waitForURL(/\/admin/, { timeout: 15000 });
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(5000);
+      
+      // Navigate to players
+      const playersLink = page.getByRole('link', { name: /manage players|players/i }).first();
+      await expect(playersLink).toBeVisible({ timeout: 15000 });
+      await playersLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(3000);
+      
+      // Look for add player button
+      const addButton = page.getByRole('button', { name: /add player|create player|new player/i });
+      const hasAddButton = await addButton.isVisible({ timeout: 10000 }).catch(() => false);
+      
+      expect(hasAddButton).toBeTruthy();
     });
 
     test('should have bulk import option', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
       await helper.waitForPageLoad();
       
-      // Navigate to admin/players - use .first() to avoid strict mode violation
-      const adminLink = page.getByRole('link', { name: /admin/i }).first();
-      if (await adminLink.isVisible({ timeout: 5000 })) {
-        await adminLink.click();
-        await helper.waitForPageLoad();
-      }
+      // Navigate to admin
+      const adminLink = page.getByRole('link', { name: /admin panel|admin/i }).first();
+      await expect(adminLink).toBeVisible({ timeout: 10000 });
+      await adminLink.click();
       
-      const playersLink = page.getByRole('link', { name: /players/i }).first();
-      if (await playersLink.isVisible({ timeout: 5000 })) {
-        await playersLink.click();
-        await helper.waitForPageLoad();
-        
-        // Look for import option
-        const importButton = page.getByRole('button', { name: /import|bulk|gaa/i });
-        const hasImport = await importButton.isVisible({ timeout: 5000 }).catch(() => false);
-        
-        // Import functionality may or may not exist
-        expect(true).toBeTruthy();
-      }
+      // Wait for admin page to fully load
+      await page.waitForURL(/\/admin/, { timeout: 15000 });
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(5000);
+      
+      // Navigate to players
+      const playersLink = page.getByRole('link', { name: /manage players|players/i }).first();
+      await expect(playersLink).toBeVisible({ timeout: 15000 });
+      await playersLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(3000);
+      
+      // Look for import option
+      const importButton = page.getByRole('button', { name: /import|bulk|gaa/i });
+      const hasImport = await importButton.isVisible({ timeout: 10000 }).catch(() => false);
+      
+      // Import functionality may or may not exist
+      expect(true).toBeTruthy();
     });
   });
 

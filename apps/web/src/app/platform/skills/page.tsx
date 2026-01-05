@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
+  ArrowLeft,
   Award,
   BarChart3,
   Building2,
@@ -21,6 +22,7 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -1803,6 +1805,11 @@ export default function SportsManagement() {
           <div className="mb-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
+                <Link href="/platform">
+                  <Button size="icon" variant="ghost">
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                </Link>
                 <div className="rounded-full bg-emerald-100 p-2">
                   <Target className="h-6 w-6 text-emerald-600" />
                 </div>

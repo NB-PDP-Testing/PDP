@@ -4,12 +4,12 @@ import { mutation } from "../_generated/server";
 
 /**
  * Bootstrap the first platform staff user
- * 
+ *
  * This script sets a user as platform staff WITHOUT requiring existing platform staff.
  * Should only be used for initial setup of a fresh environment.
- * 
+ *
  * Safety check: Only works if there are currently NO platform staff users.
- * 
+ *
  * Usage:
  * npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff '{"email": "user@example.com"}'
  */
@@ -38,8 +38,10 @@ export const setFirstPlatformStaff = mutation({
     const allUsers = usersResult.page || [];
 
     // Safety check: Only allow if no platform staff exists
-    const existingPlatformStaff = allUsers.filter((u: any) => u.isPlatformStaff === true);
-    
+    const existingPlatformStaff = allUsers.filter(
+      (u: any) => u.isPlatformStaff === true
+    );
+
     if (existingPlatformStaff.length > 0) {
       return {
         success: false,
@@ -81,17 +83,19 @@ export const setFirstPlatformStaff = mutation({
 
 /**
  * Check who the current platform staff are
- * 
+ *
  * Usage:
  * npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
  */
 export const listPlatformStaff = mutation({
   args: {},
   returns: v.object({
-    platformStaff: v.array(v.object({
-      email: v.string(),
-      name: v.union(v.string(), v.null()),
-    })),
+    platformStaff: v.array(
+      v.object({
+        email: v.string(),
+        name: v.union(v.string(), v.null()),
+      })
+    ),
     totalUsers: v.number(),
   }),
   handler: async (ctx) => {

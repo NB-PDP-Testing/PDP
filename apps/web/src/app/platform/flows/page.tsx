@@ -210,7 +210,6 @@ export default function FlowsManagementPage() {
                         </Button>
                         <Button
                           onClick={() => {
-                            // @ts-expect-error - Dynamic route typing issue
                             router.push(`/platform/flows/${flow._id}/edit`);
                           }}
                           size="icon"

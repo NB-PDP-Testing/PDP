@@ -427,8 +427,8 @@ test.describe.serial('Initial Setup Flow', () => {
       const redirectedAway = !page.url().includes('/orgs/create');
       
       // At least one of these should be true for proper access control
-      // If all are false, the test will still pass (platform may allow org creation for all)
-      expect(true).toBeTruthy();
+      const accessControlEnforced = hasAccessDenied || redirectedAway || hasNoForm;
+      expect(accessControlEnforced).toBeTruthy();
     });
   });
 

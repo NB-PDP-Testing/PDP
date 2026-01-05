@@ -1,51 +1,38 @@
 import { test as base, expect, Page } from '@playwright/test';
 import path from 'path';
+import fs from 'fs';
 
 /**
- * Test user credentials - these should match your test accounts
- * Update these with actual test account credentials
+ * Load test data from JSON configuration file
  */
-
-export const TEST_USERS = {
-  newUser: {
-    email: 'newuser_pdp@outlook.com',
-    password: 'Password123!', // Replace with actual password
-    name: 'New Test User',
-  },
-  admin: {
-    email: 'adm1n_pdp@outlook.com',
-    password: 'Password123!', // Replace with actual password
-    name: 'Admin User',
-  },
-  coach: {
-    email: 'coach_pdp@outlook.com',
-    password: 'Password123!', // Replace with actual password
-    name: 'Coach User',
-  },
-  parent: {
-    email: 'parent_pdp@outlook.com',
-    password: 'Password123!', // Replace with actual password
-    name: 'Parent User',
-  },
-  owner: {
-    email: 'owner_pdp@outlook.com',
-    password: 'Password123!', // Replace with actual password
-    name: 'Owner User',
-  },
-  multiRole: {
-    email: 'multi_pdp@outlook.com',
-    password: 'Password123!', // Replace with actual password
-    name: 'Multi Role User',
-  },
-};
+const testDataPath = path.join(__dirname, '../test-data.json');
+const testData = JSON.parse(fs.readFileSync(testDataPath, 'utf-8'));
 
 /**
- * Test organization details
+ * Test user credentials - loaded from test-data.json
+ */
+export const TEST_USERS = testData.users;
+
+/**
+ * Test organization details - loaded from test-data.json
  */
 export const TEST_ORG = {
-  name: 'Esker Celtic Football Club',
-  id: 'jh7abc123def456_organization123', // ← Put your org ID here
+  name: testData.organization.name,
+  slug: testData.organization.slug,
+  sports: testData.organization.sports,
+  colors: testData.organization.colors,
+  id: process.env.TEST_ORG_ID || '', // Populated at runtime
 };
+
+/**
+ * Test teams - loaded from test-data.json
+ */
+export const TEST_TEAMS = testData.teams;
+
+/**
+ * Test invitations - loaded from test-data.json
+ */
+export const TEST_INVITATIONS = testData.invitations;
 
 /**
  * Storage state paths for authenticated sessions
@@ -71,9 +58,10 @@ export class TestHelper {
     await this.page.goto('/login');
     await this.page.getByLabel(/email/i).fill(email);
     await this.page.getByLabel(/password/i).fill(password);
-    await this.page.getByRole('button', { name: /sign in|log in|login/i }).click();
+    // Use exact match to avoid matching SSO buttons like "Sign in with Google"
+    await this.page.getByRole('button', { name: 'Sign In', exact: true }).click();
     // Wait for redirect to orgs page or dashboard
-    await this.page.waitForURL(/\/(orgs|dashboard)/);
+    await this.page.waitForURL(/\/(orgs|dashboard)/, { timeout: 15000 });
   }
 
   /**

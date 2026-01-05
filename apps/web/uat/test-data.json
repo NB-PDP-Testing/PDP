@@ -1,0 +1,80 @@
+{
+  "description": "UAT Test Data Configuration",
+  "version": "1.0.0",
+  "lastUpdated": "2026-01-05",
+  
+  "users": {
+    "owner": {
+      "email": "owner_pdp@outlook.com",
+      "password": "Password123!",
+      "name": "Owner User",
+      "description": "Organization owner - becomes platform staff"
+    },
+    "admin": {
+      "email": "adm1n_pdp@outlook.com",
+      "password": "Password123!",
+      "name": "Admin User",
+      "description": "Organization administrator"
+    },
+    "coach": {
+      "email": "coach_pdp@outlook.com",
+      "password": "Password123!",
+      "name": "Coach User",
+      "description": "Team coach"
+    },
+    "parent": {
+      "email": "parent_pdp@outlook.com",
+      "password": "Password123!",
+      "name": "Parent User",
+      "description": "Player guardian/parent"
+    },
+    "newUser": {
+      "email": "newuser_pdp@outlook.com",
+      "password": "Password123!",
+      "name": "New Test User",
+      "description": "New user for signup tests"
+    },
+    "multiRole": {
+      "email": "multi_pdp@outlook.com",
+      "password": "Password123!",
+      "name": "Multi Role User",
+      "description": "User with multiple roles"
+    }
+  },
+  
+  "organization": {
+    "name": "Test Club FC",
+    "slug": "test-club-fc",
+    "sports": ["Soccer"],
+    "colors": {
+      "primary": "#2563EB",
+      "secondary": "#059669"
+    },
+    "description": "Test organization for UAT"
+  },
+  
+  "teams": [
+    {
+      "name": "Test Club FC 11.13 Boys Sun",
+      "ageGroup": "U12",
+      "sport": "Soccer",
+      "gender": "Boys",
+      "description": "First test team"
+    }
+  ],
+  
+  "invitations": {
+    "admin": {
+      "email": "adm1n_pdp@outlook.com",
+      "roles": ["admin"]
+    },
+    "coach": {
+      "email": "coach_pdp@outlook.com",
+      "roles": ["coach"]
+    },
+    "parent": {
+      "email": "parent_pdp@outlook.com",
+      "roles": ["parent"]
+    }
+  }
+}

@@ -2023,3 +2023,185 @@ The following scripts were created in `.github/` for managing test issues:
    - View project board for real-time status
    - Filter by priority or category labels
    - Monitor completion percentage
+
+---
+
+## 11. Flow System & User Experience Testing
+
+### 11.1 Overview
+
+**New Feature:** Modular Wizard & Flow System
+**Implementation Date:** January 5, 2026
+**Version:** 1.0
+
+The Flow System enables dynamic content delivery to users through various display types (modals, pages, banners, toasts) with support for:
+- Platform-wide flows managed by platform staff
+- Organization-scoped announcements managed by org admins  
+- Automated user onboarding with guided wizards
+- Multi-step wizard progression with progress tracking
+
+### 11.2 Comprehensive Test Documentation
+
+A complete set of 67 UAT test cases has been created specifically for the Flow System.
+
+**Document:** [`FLOW_SYSTEM_UAT_TESTS.md`](./FLOW_SYSTEM_UAT_TESTS.md)
+
+**Test Coverage:**
+- 11 Platform Staff Flow Management tests
+- 8 Organization Admin Announcement tests  
+- 12 User Flow Experience tests
+- 6 First User Onboarding tests
+- 5 Flow Interception & Display tests
+- 7 End-to-End Integration tests
+
+### 11.3 Critical Flow System Tests (Priority P0)
+
+The following high-priority test cases should be executed first:
+
+#### TEST-FLOW-PLATFORM-001: View Platform Flows List
+
+| Field | Value |
+|-------|-------|
+| **Objective** | Verify platform staff can access flow management UI |
+| **Preconditions** | Logged in as platform staff |
+| **Steps** | 1. Navigate to `/platform/flows`<br>2. Verify page loads and displays flow list |
+| **Expected Result** | - Flow list page accessible<br>- Stats cards display correctly<br>- Can create/edit/delete flows |
+| **Pass/Fail** | ☐ |
+
+#### TEST-FLOW-PLATFORM-003: Create Simple Announcement Flow
+
+| Field | Value |
+|-------|-------|
+| **Objective** | Verify basic flow creation workflow |
+| **Preconditions** | Platform staff logged in |
+| **Steps** | 1. Click "Create Flow"<br>2. Fill form with valid data<br>3. Save flow |
+| **Expected Result** | - Flow created successfully<br>- Appears in list<br>- Can be activated |
+| **Pass/Fail** | ☐ |
+
+#### TEST-FLOW-ORG-003: Create Announcement for All Members
+
+| Field | Value |
+|-------|-------|
+| **Objective** | Verify org admin can create announcements |
+| **Preconditions** | Org admin logged in |
+| **Steps** | 1. Navigate to `/orgs/[orgId]/admin/announcements`<br>2. Create new announcement<br>3. Target all members |
+| **Expected Result** | - Announcement created<br>- All org members will receive it on next login |
+| **Pass/Fail** | ☐ |
+
+#### TEST-FLOW-USER-001: Flow Displays on Login
+
+| Field | Value |
+|-------|-------|
+| **Objective** | Verify flow interception works |
+| **Preconditions** | Active flow exists |
+| **Steps** | 1. Logout<br>2. Login as regular user<br>3. Observe flow display |
+| **Expected Result** | - Flow automatically displays after login<br>- User can interact with flow<br>- Flow completion tracked |
+| **Pass/Fail** | ☐ |
+
+#### TEST-FLOW-ONBOARD-001: First User Auto-Detection
+
+| Field | Value |
+|-------|-------|
+| **Objective** | Verify first user becomes platform staff automatically |
+| **Preconditions** | Fresh database (0 users) |
+| **Steps** | 1. Sign up as first user<br>2. Check user permissions |
+| **Expected Result** | - `isPlatformStaff: true` set automatically<br>- Onboarding flow created and displayed |
+| **Pass/Fail** | ☐ |
+
+### 11.4 Integration with Existing Tests
+
+Flow System tests complement existing UAT categories:
+
+| Existing Test Area | Flow System Integration |
+|--------------------|------------------------|
+| **Authentication (Section 4.1)** | First user onboarding flow triggers after signup |
+| **Admin Testing (Section 4.2)** | Platform staff can manage flows |
+| **User Management (Section 4.2)** | Organization admins can send announcements to members |
+| **Onboarding (Section 3.2)** | Guided wizard replaces manual setup steps |
+
+### 11.5 Test Execution Priority
+
+**Phase 1 - Core Functionality (P0):**
+1. Platform flow creation and editing (Tests 001-008)
+2. Organization announcement creation (Tests 001-006)
+3. Flow display and interception (Tests 001-003)
+4. First user onboarding (Tests 001-003)
+
+**Phase 2 - User Experience (P1):**
+5. Multi-step wizard navigation (Tests 008-009)
+6. All display types (modal, page, banner, toast) (Tests 004-007)
+7. Flow completion and dismissal (Tests 010-012)
+8. Role-based targeting (Tests 001-003 in Interception)
+
+**Phase 3 - Integration & Edge Cases (P2):**
+9. End-to-end lifecycle tests (Tests E2E-001 to E2E-003)
+10. Performance and reliability (Tests E2E-004 to E2E-005)
+11. Error handling (Tests E2E-006 to E2E-007)
+
+### 11.6 Testing Notes
+
+**Important Considerations:**
+- Flow system requires real-time database (Convex)
+- Test with multiple users simultaneously to verify isolation
+- Clear browser cache between tests for accurate flow interception
+- Verify mobile responsiveness of all display types
+- Check analytics events fire correctly (if analytics enabled)
+
+**Environment Reset:**
+- Before testing, clear all flows from database
+- Reset userFlowProgress table between test runs
+- Verify test users have correct organization memberships
+
+### 11.7 Success Criteria
+
+The Flow System passes UAT when:
+- [ ] All P0 tests pass (100%)
+- [ ] At least 90% of P1 tests pass  
+- [ ] No critical bugs blocking user workflows
+- [ ] Platform staff can create and manage flows without errors
+- [ ] Organization admins can send announcements to members
+- [ ] Users receive and complete flows as expected
+- [ ] First user onboarding works on fresh deployment
+
+### 11.8 Known Limitations
+
+*Document any known limitations or future enhancements:*
+
+1. **Analytics:** Flow view and completion analytics are tracked but reporting UI not yet implemented
+2. **Scheduling:** Flow scheduling (future start/end dates) supported in backend but no UI calendar picker
+3. **Templates:** No flow templates yet - each flow must be created from scratch
+4. **Preview:** No live preview mode when creating/editing flows
+
+---
+
+## 12. Test Completion Sign-Off
+
+### 12.1 Overall Progress
+
+| Test Area | Total Tests | Passed | Failed | Blocked | Not Run |
+|-----------|-------------|--------|--------|---------|---------|
+| Setup & Onboarding | 10 | | | | |
+| Authentication | 12 | | | | |
+| Admin Testing | 25 | | | | |
+| Coach Testing | 15 | | | | |
+| Parent Testing | 12 | | | | |
+| Cross-Role Scenarios | 10 | | | | |
+| **Flow System (NEW)** | **67** | | | | |
+| **Total** | **151** | | | | |
+
+### 12.2 Test Sign-Off
+
+| Role | Name | Date | Signature |
+|------|------|------|-----------|
+| Platform Staff Tester | | | |
+| Org Admin Tester | | | |
+| Coach Tester | | | |
+| Parent Tester | | | |
+| QA Lead | | | |
+| Product Owner | | | |
+
+---
+
+**UAT Plan Version:** 2.0 (Updated for Flow System)
+**Last Updated:** January 5, 2026
+

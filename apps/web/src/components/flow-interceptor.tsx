@@ -13,18 +13,19 @@ interface FlowInterceptorProps {
   children: React.ReactNode;
 }
 
+// Extract organization ID from path (e.g., /orgs/123/...)
+const ORG_PATH_REGEX = /\/orgs\/([^/]+)/;
+const extractOrgIdFromPath = (path: string): string | null => {
+  const match = path.match(ORG_PATH_REGEX);
+  return match ? match[1] : null;
+};
+
 export function FlowInterceptor({ children }: FlowInterceptorProps) {
   const router = useRouter();
   const pathname = usePathname();
   const activeFlows = useQuery(api.models.flows.getActiveFlowsForUser);
   const startFlow = useMutation(api.models.flows.startFlow);
   const [currentFlow, setCurrentFlow] = useState<any>(null);
-
-  // Extract organization ID from path (e.g., /orgs/123/...)
-  const extractOrgIdFromPath = (path: string): string | null => {
-    const match = path.match(/\/orgs\/([^/]+)/);
-    return match ? match[1] : null;
-  };
 
   const orgId = extractOrgIdFromPath(pathname);
 

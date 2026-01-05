@@ -75,171 +75,183 @@ export default function FlowsManagementPage() {
   const inactiveFlows = flows.filter((f) => !f.active);
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/platform">
-            <Button size="icon" variant="ghost">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="font-bold text-3xl">Flow Management</h1>
-            <p className="text-muted-foreground">
-              Create and manage user flows, wizards, and announcements
-            </p>
-          </div>
-        </div>
-        <Link href="/platform/flows/create">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Flow
-          </Button>
-        </Link>
-      </div>
-
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">Total Flows</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl">{flows.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">Active Flows</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl text-green-600">
-              {activeFlows.length}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="font-medium text-sm">
-              Inactive Flows
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="font-bold text-2xl text-gray-500">
-              {inactiveFlows.length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>All Flows</CardTitle>
-          <CardDescription>
-            Manage platform-wide flows and announcements
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {flows.length === 0 ? (
-            <div className="py-12 text-center">
-              <p className="text-muted-foreground">No flows created yet.</p>
-              <Link href="/platform/flows/create">
-                <Button className="mt-4" variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Your First Flow
+    <div className="min-h-screen bg-gradient-to-b from-[#1E3A5F] via-[#1E3A5F] to-white p-4 sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
+          {/* Header */}
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link href="/platform">
+                <Button size="icon" variant="ghost">
+                  <ArrowLeft className="h-4 w-4" />
                 </Button>
               </Link>
+              <div>
+                <h1 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
+                  Flow Management
+                </h1>
+                <p className="mt-2 text-muted-foreground">
+                  Create and manage user flows, wizards, and announcements
+                </p>
+              </div>
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Steps</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {flows.map((flow) => (
-                  <TableRow key={flow._id}>
-                    <TableCell className="font-medium">
-                      {flow.name}
-                      {flow.description && (
-                        <p className="text-muted-foreground text-xs">
-                          {flow.description}
-                        </p>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{flow.type}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          flow.priority === "blocking"
-                            ? "destructive"
-                            : flow.priority === "high"
-                              ? "default"
-                              : "secondary"
-                        }
-                      >
-                        {flow.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={flow.active ? "default" : "outline"}>
-                        {flow.active ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{flow.steps.length} steps</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          onClick={() => handleToggleActive(flow._id)}
-                          size="icon"
-                          title={
-                            flow.active ? "Deactivate flow" : "Activate flow"
-                          }
-                          variant="ghost"
-                        >
-                          {flow.active ? (
-                            <PowerOff className="h-4 w-4" />
-                          ) : (
-                            <Power className="h-4 w-4" />
+            <Link href="/platform/flows/create">
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Flow
+              </Button>
+            </Link>
+          </div>
+
+          {/* Stats */}
+          <div className="mb-6 grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="font-medium text-sm">
+                  Total Flows
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="font-bold text-2xl">{flows.length}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="font-medium text-sm">
+                  Active Flows
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="font-bold text-2xl text-green-600">
+                  {activeFlows.length}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="font-medium text-sm">
+                  Inactive Flows
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="font-bold text-2xl text-gray-500">
+                  {inactiveFlows.length}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>All Flows</CardTitle>
+              <CardDescription>
+                Manage platform-wide flows and announcements
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {flows.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-muted-foreground">No flows created yet.</p>
+                  <Link href="/platform/flows/create">
+                    <Button className="mt-4" variant="outline">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Your First Flow
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Steps</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {flows.map((flow) => (
+                      <TableRow key={flow._id}>
+                        <TableCell className="font-medium">
+                          {flow.name}
+                          {flow.description && (
+                            <p className="text-muted-foreground text-xs">
+                              {flow.description}
+                            </p>
                           )}
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            router.push(`/platform/flows/${flow._id}/edit`);
-                          }}
-                          size="icon"
-                          variant="ghost"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          onClick={() => handleDelete(flow._id)}
-                          size="icon"
-                          variant="ghost"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{flow.type}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              flow.priority === "blocking"
+                                ? "destructive"
+                                : flow.priority === "high"
+                                  ? "default"
+                                  : "secondary"
+                            }
+                          >
+                            {flow.priority}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={flow.active ? "default" : "outline"}>
+                            {flow.active ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{flow.steps.length} steps</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              onClick={() => handleToggleActive(flow._id)}
+                              size="icon"
+                              title={
+                                flow.active
+                                  ? "Deactivate flow"
+                                  : "Activate flow"
+                              }
+                              variant="ghost"
+                            >
+                              {flow.active ? (
+                                <PowerOff className="h-4 w-4" />
+                              ) : (
+                                <Power className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                router.push(`/platform/flows/${flow._id}/edit`);
+                              }}
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              onClick={() => handleDelete(flow._id)}
+                              size="icon"
+                              variant="ghost"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

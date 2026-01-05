@@ -48,6 +48,14 @@ lerna-debug.log*
 coverage
 .nyc_output
 
+# Playwright test results
+test-results/
+playwright-report/
+playwright/.cache/
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/uat/.auth/
+
 # Misc
 *.tgz
 .cache

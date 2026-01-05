@@ -5,7 +5,7 @@ import { mutation } from "../_generated/server";
 /**
  * ⚠️ NUCLEAR OPTION: Delete EVERYTHING including users, orgs, and sessions
  * This completely resets the database to a fresh state
- * 
+ *
  * Usage:
  * npx convex run scripts/fullReset:fullReset '{"confirmNuclearDelete": true}'
  */
@@ -43,7 +43,9 @@ export const fullReset = mutation({
   }),
   handler: async (ctx, args) => {
     if (!args.confirmNuclearDelete) {
-      throw new Error("Set confirmNuclearDelete: true to proceed with FULL database reset");
+      throw new Error(
+        "Set confirmNuclearDelete: true to proceed with FULL database reset"
+      );
     }
 
     console.log("☢️  FULL DATABASE RESET - Deleting EVERYTHING...");
@@ -128,7 +130,9 @@ export const fullReset = mutation({
 
     // Team player identities
     console.log("Deleting team player identities...");
-    const teamPlayerIdentities = await ctx.db.query("teamPlayerIdentities").collect();
+    const teamPlayerIdentities = await ctx.db
+      .query("teamPlayerIdentities")
+      .collect();
     for (const record of teamPlayerIdentities) {
       await ctx.db.delete(record._id);
       deleted.teamPlayerIdentities++;
@@ -152,7 +156,9 @@ export const fullReset = mutation({
 
     // Guardian-player links
     console.log("Deleting guardian-player links...");
-    const guardianPlayerLinks = await ctx.db.query("guardianPlayerLinks").collect();
+    const guardianPlayerLinks = await ctx.db
+      .query("guardianPlayerLinks")
+      .collect();
     for (const record of guardianPlayerLinks) {
       await ctx.db.delete(record._id);
       deleted.guardianPlayerLinks++;
@@ -168,7 +174,9 @@ export const fullReset = mutation({
 
     // Guardian identities
     console.log("Deleting guardian identities...");
-    const guardianIdentities = await ctx.db.query("guardianIdentities").collect();
+    const guardianIdentities = await ctx.db
+      .query("guardianIdentities")
+      .collect();
     for (const record of guardianIdentities) {
       await ctx.db.delete(record._id);
       deleted.guardianIdentities++;
@@ -264,7 +272,9 @@ export const fullReset = mutation({
       await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
         input: {
           model: "invitation",
-          where: [{ field: "_id", value: invitation._id as string, operator: "eq" }],
+          where: [
+            { field: "_id", value: invitation._id as string, operator: "eq" },
+          ],
         },
       });
       deleted.invitations++;
@@ -284,7 +294,9 @@ export const fullReset = mutation({
       await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
         input: {
           model: "member",
-          where: [{ field: "_id", value: member._id as string, operator: "eq" }],
+          where: [
+            { field: "_id", value: member._id as string, operator: "eq" },
+          ],
         },
       });
       deleted.members++;
@@ -324,7 +336,9 @@ export const fullReset = mutation({
       await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
         input: {
           model: "session",
-          where: [{ field: "_id", value: session._id as string, operator: "eq" }],
+          where: [
+            { field: "_id", value: session._id as string, operator: "eq" },
+          ],
         },
       });
       deleted.sessions++;
@@ -344,7 +358,9 @@ export const fullReset = mutation({
       await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
         input: {
           model: "account",
-          where: [{ field: "_id", value: account._id as string, operator: "eq" }],
+          where: [
+            { field: "_id", value: account._id as string, operator: "eq" },
+          ],
         },
       });
       deleted.accounts++;

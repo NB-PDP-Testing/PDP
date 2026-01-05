@@ -424,7 +424,6 @@ test.describe.serial('Initial Setup Flow', () => {
       
       // Should be denied access or redirected
       const hasAccessDenied = await page.getByText(/access denied|not authorized|permission|cannot create/i).isVisible({ timeout: 10000 }).catch(() => false);
-      const redirectedAway = !page.url().includes('/orgs/create');
       
       // At least one of these should be true for proper access control
       const accessControlEnforced = hasAccessDenied || redirectedAway || hasNoForm;

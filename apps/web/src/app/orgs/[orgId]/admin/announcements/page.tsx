@@ -94,6 +94,17 @@ export default function OrganizationAnnouncementsPage({
     }
   };
 
+  // Show loading state
+  if (orgFlows === undefined) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="text-center">
+          <div className="text-muted-foreground">Loading announcements...</div>
+        </div>
+      </div>
+    );
+  }
+
   const activeFlows = orgFlows?.filter((f) => f.active) || [];
   const scheduledFlows =
     orgFlows?.filter((f) => f.startDate && f.startDate > Date.now()) || [];

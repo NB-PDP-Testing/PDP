@@ -612,10 +612,21 @@ export const getAllOrganizationFlows = query({
       throw new Error("Not authenticated");
     }
 
+    // Platform staff can view all flows
+    if (user.isPlatformStaff) {
+      const flows = await ctx.db
+        .query("flows")
+        .withIndex("by_organization", (q) =>
+          q.eq("organizationId", args.organizationId)
+        )
+        .collect();
+      return flows;
+    }
+
     // Verify user is admin of this organization
-    const membership = await ctx.runQuery(
-      components.betterAuth.adapter.findOne,
-      {
+    let membership;
+    try {
+      membership = await ctx.runQuery(components.betterAuth.adapter.findOne, {
         model: "member",
         where: [
           { field: "userId", value: user._id, operator: "eq" },
@@ -625,8 +636,13 @@ export const getAllOrganizationFlows = query({
             operator: "eq",
           },
         ],
-      }
-    );
+      });
+    } catch (error) {
+      console.error("Error checking organization membership:", error);
+      throw new Error(
+        "Failed to verify organization membership. Please try again."
+      );
+    }
 
     if (
       !membership ||

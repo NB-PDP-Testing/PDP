@@ -8,6 +8,7 @@ import {
   Home,
   Key,
   LineChart,
+  Megaphone,
   Settings,
   Shield,
   ShieldAlert,
@@ -140,6 +141,11 @@ export default function OrgAdminLayout({
       href: `/orgs/${orgId}/admin/analytics` as Route,
       label: "Analytics",
       icon: LineChart,
+    },
+    {
+      href: `/orgs/${orgId}/admin/announcements` as Route,
+      label: "Announcements",
+      icon: Megaphone,
     },
     {
       href: `/orgs/${orgId}/admin/player-access` as Route,

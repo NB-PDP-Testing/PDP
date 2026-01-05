@@ -2,9 +2,9 @@
 
 ## Comprehensive UAT, Compliance, and Quality Assurance Documentation
 
-**Version:** 1.0  
-**Date:** December 2025  
-**Status:** Ready for Execution
+**Version:** 1.1  
+**Date:** January 2026  
+**Status:** Ready for Execution - Playwright UAT Tests Added
 
 ---
 
@@ -895,13 +895,96 @@ graph TD
 
 ## 9. Test Execution Artifacts
 
-### 9.1 Manual Testing Checklist
+### 9.1 Automated Playwright UAT Tests
+
+The project includes a comprehensive Playwright E2E test suite located at `apps/web/uat/tests/`. These tests cover the initial setup flow and can be run either via CLI or the Playwright UI.
+
+#### Running UAT Tests
+
+**Prerequisites:**
+```bash
+cd apps/web
+npm install
+```
+
+**Start the dev server (in a separate terminal):**
+```bash
+npm run dev
+```
+
+**Run all tests with UI (recommended):**
+```bash
+cd apps/web && npx playwright test --ui
+```
+
+**Run tests via CLI:**
+```bash
+# All setup tests
+npm run test:setup
+
+# Specific test group
+npx playwright test --project=initial-setup
+
+# Single test by name
+npx playwright test --grep "should create team"
+
+# With visible browser
+npx playwright test --headed
+```
+
+**List available tests:**
+```bash
+npx playwright test --list --project=initial-setup
+```
+
+#### Test Configuration
+
+Test data is stored in `apps/web/uat/test-data.json`:
+- Test user accounts and passwords
+- Test organization details
+- Test team configurations
+- Invitation email addresses
+
+#### Automated Test Coverage (18 tests)
+
+| Test ID | Test Name | Description |
+|---------|-----------|-------------|
+| TEST-SETUP-001 | Platform Staff Creates First Organization | First user signup, platform staff privileges, org creation |
+| TEST-SETUP-002 | Non-Platform Staff Cannot Create Organizations | Access control verification |
+| TEST-SETUP-003 | Owner First Login Experience | Dashboard loading, organization display |
+| TEST-SETUP-004 | Owner Creates First Team | Team creation with sport, age group, gender |
+| TEST-SETUP-005 | Owner Invites First Admin | Invite member functionality, admin role assignment |
+| TEST-SETUP-006 | First Admin Accepts Invitation | Invitation acceptance flow (skipped - requires email) |
+| TEST-SETUP-007 | Owner Invites First Coach | Coach role invitation with team preferences |
+| TEST-SETUP-008 | First Coach Gets Team Assignment | Coach management section verification |
+| TEST-SETUP-009 | Admin Creates First Players | Player management and bulk import options |
+| TEST-SETUP-010 | Owner Invites First Parent | Parent role invitation |
+
+#### Test Projects
+
+The Playwright config (`apps/web/playwright.config.ts`) defines several projects:
+
+| Project | Purpose | Command |
+|---------|---------|---------|
+| `initial-setup` | Fresh environment onboarding tests | `npm run test:setup` |
+| `continuous` | Tests for existing users (login-based) | `npm run test:continuous` |
+| `all-desktop` | All tests on desktop Chrome | `npm run test` |
+| `mobile` | Mobile viewport tests | `npm run test:mobile` |
+
+#### Test Helpers & Fixtures
+
+Located at `apps/web/uat/fixtures/test-utils.ts`:
+- `TestHelper` class with common operations (login, logout, navigation)
+- Shared test data constants (`TEST_USERS`, `TEST_ORG`, `TEST_TEAMS`)
+- Authentication state management
+
+### 9.2 Manual Testing Checklist
 
 ```markdown
 ## Pre-Test Setup
 - [ ] Local environment running (`npm run dev`)
 - [ ] Test database seeded with test data
-- [ ] Test accounts created
+- [ ] Test accounts created (see test-data.json)
 - [ ] Browser DevTools open (Network, Console tabs)
 
 ## Authentication Tests
@@ -1115,5 +1198,15 @@ MICROSOFT_CLIENT_SECRET=test-ms-secret
 ---
 
 **Document Maintainer:** QA Team  
-**Last Updated:** December 2025  
+**Last Updated:** January 2026  
 **Next Review:** Upon major feature release
+
+---
+
+## Changelog
+
+### v1.1 (January 2026)
+- Added Playwright UAT test suite documentation (Section 9.1)
+- Added 18 automated tests covering initial setup flow
+- Added test execution commands and project configuration
+- Added test-data.json configuration details

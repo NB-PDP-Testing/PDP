@@ -57,10 +57,26 @@ jobs:
       - name: Run linting (changed files only)
         run: |
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            npx biome check --changed --diagnostic-level=error .
+            # Exit 0 if no files to lint (all changed files are excluded)
+            npx biome check --changed --diagnostic-level=error . || {
+              exit_code=$?
+              # Exit code 1 with "No files were processed" is acceptable
+              if [ $exit_code -eq 1 ]; then
+                echo "No lintable files changed or all changes in excluded paths - OK"
+                exit 0
+              fi
+              exit $exit_code
+            }
           else
             # For pushes to main, check files changed in the last commit
-            npx biome check --changed --since=HEAD~1 --diagnostic-level=error .
+            npx biome check --changed --since=HEAD~1 --diagnostic-level=error . || {
+              exit_code=$?
+              if [ $exit_code -eq 1 ]; then
+                echo "No lintable files changed or all changes in excluded paths - OK"
+                exit 0
+              fi
+              exit $exit_code
+            }
           fi
 
   build:

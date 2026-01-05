@@ -55,6 +55,120 @@ export const getCurrentUser = query({
 });
 
 /**
+ * Check if this is the first user in the system
+ * Used for automatic first-user platform staff assignment
+ * Returns true if there are zero users in the system
+ */
+export const isFirstUser = query({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => {
+    const usersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "user",
+        paginationOpts: {
+          cursor: null,
+          numItems: 2, // Only need to check if there are 0 or 1+ users
+        },
+        where: [],
+      }
+    );
+
+    return (usersResult.page?.length ?? 0) === 0;
+  },
+});
+
+/**
+ * Automatically assign the first user as platform staff
+ * This solves the bootstrap problem where the first user needs
+ * platform staff privileges to create organizations
+ *
+ * Safety: Only works if user count is exactly 1 (the newly created user)
+ * Returns: { success: boolean, wasFirstUser: boolean }
+ */
+export const autoAssignFirstUserAsPlatformStaff = mutation({
+  args: {
+    userId: v.string(),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    wasFirstUser: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Get total user count
+    const usersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "user",
+        paginationOpts: {
+          cursor: null,
+          numItems: 2, // Only need to check if there's exactly 1 user
+        },
+        where: [],
+      }
+    );
+
+    const userCount = usersResult.page?.length ?? 0;
+
+    // Safety: Only assign if this is truly the first and only user
+    if (userCount !== 1) {
+      return {
+        success: false,
+        wasFirstUser: false,
+      };
+    }
+
+    // Verify the user exists
+    const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [
+        {
+          field: "_id",
+          value: args.userId,
+          operator: "eq",
+        },
+      ],
+    });
+
+    if (!user) {
+      return {
+        success: false,
+        wasFirstUser: false,
+      };
+    }
+
+    // Check if already assigned (idempotent operation)
+    if (user.isPlatformStaff === true) {
+      return {
+        success: true,
+        wasFirstUser: true,
+      };
+    }
+
+    // Assign platform staff status
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: args.userId, operator: "eq" }],
+        update: {
+          isPlatformStaff: true,
+        },
+      },
+    });
+
+    console.log(
+      `[First User Bootstrap] Assigned platform staff to user ${args.userId}`
+    );
+
+    return {
+      success: true,
+      wasFirstUser: true,
+    };
+  },
+});
+
+/**
  * Find a user by email address
  * Useful for admin operations to find users
  */

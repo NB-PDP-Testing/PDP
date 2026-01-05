@@ -75,8 +75,8 @@ export const AnalyticsEvents = {
  * Track event from backend mutation/query
  * Sends event to PostHog and logs for debugging
  */
-export async function trackEvent(
-  ctx: MutationCtx | QueryCtx,
+export function trackEvent(
+  _ctx: MutationCtx | QueryCtx,
   event: {
     event: string;
     userId?: string;
@@ -94,7 +94,7 @@ export async function trackEvent(
   // Uncomment if you create an analyticsEvents table
   /*
   try {
-    await ctx.db.insert("analyticsEvents", {
+    await _ctx.db.insert("analyticsEvents", {
       event: event.event,
       userId: event.userId,
       properties: event.properties || {},

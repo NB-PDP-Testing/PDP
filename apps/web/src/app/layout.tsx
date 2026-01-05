@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import "../index.css";
+import { FlowInterceptor } from "@/components/flow-interceptor";
 import Providers from "@/components/providers";
 import { PostHogAuthTracker } from "@/providers/posthog-auth-tracker";
 import { PostHogPageView } from "@/providers/posthog-pageview";
@@ -40,7 +41,9 @@ export default function RootLayout({
             <PostHogPageView />
           </Suspense>
           <PostHogAuthTracker />
-          <div className="grid h-svh grid-rows-[auto_1fr]">{children}</div>
+          <FlowInterceptor>
+            <div className="grid h-svh grid-rows-[auto_1fr]">{children}</div>
+          </FlowInterceptor>
         </Providers>
       </body>
     </html>

@@ -473,7 +473,7 @@ test.describe.serial('Initial Setup Flow', () => {
       await page.waitForURL(/\/orgs/, { timeout: 15000 });
       
       // Wait for page to fully load - give React time to hydrate
-      await page.waitForTimeout(5000);
+      await helper.waitForPageLoad();
       
       // The page should have org content - being on /orgs is sufficient
       // as it means authentication worked and the dashboard loaded

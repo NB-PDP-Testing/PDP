@@ -3,6 +3,18 @@
   "version": "1.0.0",
   "lastUpdated": "2026-01-05",
   
+  "security": {
+    "notice": "⚠️ SECURITY NOTICE: These credentials are for TESTING ONLY",
+    "warnings": [
+      "These test accounts use intentionally weak passwords (Password123!) for testing purposes only",
+      "These credentials should ONLY be used in isolated test environments",
+      "NEVER use these credentials or this password pattern in production environments",
+      "Test environments should be completely isolated from production systems",
+      "All test accounts should be regularly cleaned up after testing"
+    ],
+    "environment": "isolated-test-only"
+  },
+  
   "users": {
     "owner": {
       "email": "owner_pdp@outlook.com",

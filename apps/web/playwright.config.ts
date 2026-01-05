@@ -101,7 +101,7 @@ export default defineConfig({
       name: 'continuous',
       use: { ...devices['Desktop Chrome'] },
       testDir: './uat/tests',
-      testMatch: /^(?!setup\.spec\.ts$).*\.spec\.ts$/,
+      testMatch: /.*\.spec\.ts$/,
       testIgnore: /setup\.spec\.ts/,
       dependencies: ['auth-setup'],
     },
@@ -138,5 +138,7 @@ export default defineConfig({
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
+    // Ensure the dev server always starts from the apps/web directory
+    cwd: __dirname,
   },
 });

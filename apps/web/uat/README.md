@@ -29,17 +29,19 @@ TEST_ORG_ID=your_test_org_id_here
 
 ### 3. Update Test User Credentials
 
-Edit `uat/fixtures/test-utils.ts` and update the `TEST_USERS` object with your actual test account credentials:
+Edit `uat/fixtures/test-data.json` and update the test user entries with your actual test account credentials:
 
-```typescript
-export const TEST_USERS = {
-  admin: {
-    email: 'your-admin@example.com',
-    password: 'your-password',
-    name: 'Admin User',
-  },
-  // ... other users
-};
+```json
+{
+  "users": {
+    "admin": {
+      "email": "your-admin@example.com",
+      "password": "your-password",
+      "name": "Admin User"
+    }
+    // ... other users
+  }
+}
 ```
 
 ### 4. Run Tests

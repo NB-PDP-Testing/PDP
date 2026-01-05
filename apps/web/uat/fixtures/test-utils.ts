@@ -151,12 +151,29 @@ export class TestHelper {
 }
 
 /**
- * Extended test fixture with helper utilities
+ * Test state interface for sharing data between tests
  */
-export const test = base.extend<{ helper: TestHelper }>({
+export interface TestState {
+  createdOrgId: string;
+  setCreatedOrgId: (id: string) => void;
+}
+
+/**
+ * Extended test fixture with helper utilities and shared test state
+ */
+export const test = base.extend<{ helper: TestHelper; testState: TestState }>({
   helper: async ({ page }, use) => {
     const helper = new TestHelper(page);
     await use(helper);
+  },
+  testState: async ({}, use) => {
+    const state: TestState = {
+      createdOrgId: '',
+      setCreatedOrgId(id: string) {
+        this.createdOrgId = id;
+      },
+    };
+    await use(state);
   },
 });
 

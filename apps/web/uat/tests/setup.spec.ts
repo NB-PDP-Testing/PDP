@@ -33,9 +33,6 @@ const SETUP_AUTH_STATES = {
   coach: path.join(__dirname, '../.auth/setup-coach.json'),
 };
 
-// Store created org ID
-let createdOrgId = '';
-
 // Get the first team from config
 const TEST_TEAM = TEST_TEAMS[0];
 
@@ -237,7 +234,7 @@ test.describe.serial('Initial Setup Flow', () => {
       }
     });
 
-    test('should create first organization', async ({ page, helper }) => {
+    test('should create first organization', async ({ page, helper, testState }) => {
       // Login first
       await page.goto('/login');
       await page.getByLabel(/email/i).fill(TEST_USERS.owner.email);
@@ -332,16 +329,16 @@ test.describe.serial('Initial Setup Flow', () => {
       // Wait for org to be created
       await page.waitForURL(/\/orgs\/[^/]+/, { timeout: 15000 });
       
-      // Extract org ID from URL
+      // Extract org ID from URL and store in test state
       const url = page.url();
       const match = url.match(/\/orgs\/([^/]+)/);
       if (match) {
-        createdOrgId = match[1];
+        testState.setCreatedOrgId(match[1]);
       }
       
       // Verify org was created
       expect(url).toMatch(/\/orgs\/[^/]+/);
-      expect(createdOrgId).toBeTruthy();
+      expect(testState.createdOrgId).toBeTruthy();
     });
   });
 

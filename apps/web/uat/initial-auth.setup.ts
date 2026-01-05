@@ -1,4 +1,4 @@
-import { test as setup, expect } from '@playwright/test';
+import { test as setup } from '@playwright/test';
 import { TEST_USERS, AUTH_STATES } from './fixtures/test-utils';
 import path from 'path';
 

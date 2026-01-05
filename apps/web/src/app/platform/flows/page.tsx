@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
-import { Edit, Plus, Power, PowerOff, Trash2 } from "lucide-react";
+import { ArrowLeft, Edit, Plus, Power, PowerOff, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -78,11 +78,18 @@ export default function FlowsManagementPage() {
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-bold text-3xl">Flow Management</h1>
-          <p className="text-muted-foreground">
-            Create and manage user flows, wizards, and announcements
-          </p>
+        <div className="flex items-center gap-4">
+          <Link href="/platform">
+            <Button size="icon" variant="ghost">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="font-bold text-3xl">Flow Management</h1>
+            <p className="text-muted-foreground">
+              Create and manage user flows, wizards, and announcements
+            </p>
+          </div>
         </div>
         <Link href="/platform/flows/create">
           <Button>

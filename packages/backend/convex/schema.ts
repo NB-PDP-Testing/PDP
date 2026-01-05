@@ -1564,4 +1564,140 @@ export default defineSchema({
     .index("by_player", ["playerIdentityId", "timestamp"])
     .index("by_org", ["organizationId", "timestamp"])
     .index("by_user", ["userId", "timestamp"]),
+
+  // ============================================================
+  // MODULAR WIZARD & FLOW SYSTEM
+  // Reusable flow system for onboarding, announcements, alerts
+  // ============================================================
+
+  // Flow definitions - configured by platform staff or org admins
+  flows: defineTable({
+    // Basic info
+    name: v.string(),
+    description: v.optional(v.string()),
+
+    // Flow type
+    type: v.union(
+      v.literal("onboarding"),
+      v.literal("announcement"),
+      v.literal("action_required"),
+      v.literal("feature_tour"),
+      v.literal("system_alert")
+    ),
+
+    // Priority level
+    priority: v.union(
+      v.literal("blocking"), // Must complete before accessing app
+      v.literal("high"), // Shows immediately but can be dismissed
+      v.literal("medium"), // Shows on next login
+      v.literal("low") // Shows as notification/badge
+    ),
+
+    // Scope & Permissions
+    scope: v.union(
+      v.literal("platform"), // Platform staff only - all organizations
+      v.literal("organization"), // Org admins - their organization only
+      v.literal("team") // Team admins - their team only (future)
+    ),
+
+    // Who created this flow
+    createdBy: v.string(), // User ID
+    createdByRole: v.union(
+      v.literal("platform_staff"),
+      v.literal("org_admin"),
+      v.literal("team_admin")
+    ),
+
+    // Organization context (null for platform-wide flows)
+    organizationId: v.optional(v.string()),
+
+    // Audience within organization
+    targetAudience: v.optional(
+      v.union(
+        v.literal("all_members"), // Everyone in org
+        v.literal("coaches"), // Only coaches
+        v.literal("parents"), // Only parents/guardians
+        v.literal("admins"), // Only org admins
+        v.literal("specific_teams") // Specific teams
+      )
+    ),
+
+    // If targetAudience is "specific_teams"
+    targetTeamIds: v.optional(v.array(v.string())),
+
+    // Trigger conditions (array of condition objects)
+    triggers: v.array(v.any()),
+
+    // Target roles for platform-wide flows
+    targetRoles: v.optional(v.array(v.string())),
+
+    // Target organizations for platform-wide flows
+    targetOrganizations: v.optional(v.array(v.string())),
+
+    // Flow steps
+    steps: v.array(
+      v.object({
+        id: v.string(),
+        type: v.union(
+          v.literal("page"), // Full page wizard step
+          v.literal("modal"), // Modal overlay
+          v.literal("banner"), // Top banner
+          v.literal("toast") // Toast notification
+        ),
+        title: v.string(),
+        content: v.string(), // Markdown or HTML
+        ctaText: v.optional(v.string()),
+        ctaAction: v.optional(v.string()), // Route or action
+        dismissible: v.boolean(),
+      })
+    ),
+
+    // Scheduling
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+
+    // Status
+    active: v.boolean(),
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_active", ["active"])
+    .index("by_type", ["type"])
+    .index("by_scope", ["scope"])
+    .index("by_organization", ["organizationId"])
+    .index("by_organization_and_active", ["organizationId", "active"]),
+
+  // Track user progress through flows
+  userFlowProgress: defineTable({
+    userId: v.string(), // Better Auth user ID
+    flowId: v.id("flows"),
+
+    // Progress tracking
+    currentStepId: v.optional(v.string()),
+    completedStepIds: v.array(v.string()),
+
+    // Status
+    status: v.union(
+      v.literal("pending"), // Not started
+      v.literal("in_progress"), // Started but not completed
+      v.literal("completed"), // All steps completed
+      v.literal("dismissed"), // User dismissed without completing
+      v.literal("expired") // Flow expired before completion
+    ),
+
+    // Metadata
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    dismissedAt: v.optional(v.number()),
+
+    // Analytics
+    timeSpent: v.optional(v.number()), // milliseconds
+    interactionCount: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_flow", ["flowId"])
+    .index("by_user_and_flow", ["userId", "flowId"])
+    .index("by_status", ["status"]),
 });

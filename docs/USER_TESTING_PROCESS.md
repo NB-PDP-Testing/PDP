@@ -959,6 +959,7 @@ Test data is stored in `apps/web/uat/test-data.json`:
 | TEST-SETUP-008 | First Coach Gets Team Assignment | Coach management section verification |
 | TEST-SETUP-009 | Admin Creates First Players | Player management and bulk import options |
 | TEST-SETUP-010 | Owner Invites First Parent | Parent role invitation |
+| TEST-SETUP-011 | Platform Admin Edits Organisation | Edit org settings: slug, sports, social media links |
 
 #### Test Projects
 

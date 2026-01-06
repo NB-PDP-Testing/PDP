@@ -1478,16 +1478,27 @@ test.describe.serial('Initial Onboarding Flow', () => {
         // After creating a player, we may be redirected to the player detail page
         // Navigate back to the players list to add the next player
         if (i < playersToCreate.length - 1) {
-          // Check if we're still on the players list
-          const onPlayersList = page.url().includes('/admin/players') && !page.url().includes('/admin/players/');
-          if (!onPlayersList) {
-            console.log('  Navigating back to players list...');
-            // Click on Players link in sidebar to go back to the list
-            const playersNavLink = page.getByRole('link', { name: /manage players|players/i }).first();
-            if (await playersNavLink.isVisible({ timeout: 3000 }).catch(() => false)) {
-              await playersNavLink.click();
+          // Check if we're still on the players list (URL contains /admin/players but NOT /admin/players/[id])
+          const currentUrl = page.url();
+          const isOnPlayerDetail = currentUrl.match(/\/admin\/players\/[^\/]+$/);
+          
+          if (isOnPlayerDetail) {
+            console.log('  On player detail page, navigating back to players list...');
+            
+            // Click the Back button on the player detail page
+            const backButton = page.getByRole('button', { name: /back/i }).first();
+            if (await backButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+              await backButton.click();
               await helper.waitForPageLoad();
               await page.waitForTimeout(2000);
+            } else {
+              // Fallback: navigate directly via sidebar link
+              const playersNavLink = page.getByRole('link', { name: /manage players|players/i }).first();
+              if (await playersNavLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+                await playersNavLink.click();
+                await helper.waitForPageLoad();
+                await page.waitForTimeout(2000);
+              }
             }
           }
         }

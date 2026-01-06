@@ -3,7 +3,9 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation } from "convex/react";
 import { AlertCircle, X } from "lucide-react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 import { Button } from "./ui/button";
 
 interface FlowBannerProps {
@@ -12,16 +14,54 @@ interface FlowBannerProps {
 }
 
 export function FlowBanner({ flow, step }: FlowBannerProps) {
+  const startFlow = useMutation(api.models.flows.startFlow);
   const completeStep = useMutation(api.models.flows.completeFlowStep);
   const dismissFlow = useMutation(api.models.flows.dismissFlow);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isStarted, setIsStarted] = useState(!!flow.progress);
+
+  // Start the flow if not already started
+  const ensureFlowStarted = async () => {
+    if (!(isStarted || flow.progress)) {
+      try {
+        await startFlow({ flowId: flow._id });
+        setIsStarted(true);
+      } catch (error) {
+        console.error("Failed to start flow:", error);
+        throw error;
+      }
+    }
+  };
 
   const handleContinue = async () => {
-    await completeStep({ flowId: flow._id, stepId: step.id });
+    if (isProcessing) {
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await ensureFlowStarted();
+      await completeStep({ flowId: flow._id, stepId: step.id });
+    } catch (error) {
+      console.error("Failed to complete flow step:", error);
+      toast.error("Failed to continue. Please try again.");
+      setIsProcessing(false);
+    }
   };
 
   const handleDismiss = async () => {
-    if (step.dismissible) {
+    if (!step.dismissible || isProcessing) {
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await ensureFlowStarted();
       await dismissFlow({ flowId: flow._id });
+    } catch (error) {
+      console.error("Failed to dismiss flow:", error);
+      toast.error("Failed to dismiss. Please try again.");
+      setIsProcessing(false);
     }
   };
 
@@ -51,16 +91,18 @@ export function FlowBanner({ flow, step }: FlowBannerProps) {
         <div className="flex items-center gap-2">
           {step.ctaText && (
             <Button
+              disabled={isProcessing}
               onClick={handleContinue}
               size="sm"
               variant={flow.priority === "blocking" ? "secondary" : "default"}
             >
-              {step.ctaText}
+              {isProcessing ? "Processing..." : step.ctaText}
             </Button>
           )}
           {step.dismissible && (
             <button
-              className="p-1 opacity-70 transition-opacity hover:opacity-100"
+              className="p-1 opacity-70 transition-opacity hover:opacity-100 disabled:opacity-50"
+              disabled={isProcessing}
               onClick={handleDismiss}
               type="button"
             >

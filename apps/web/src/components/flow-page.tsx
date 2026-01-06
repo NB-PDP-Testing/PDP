@@ -21,7 +21,6 @@ export function FlowPage({ flow, step }: FlowPageProps) {
   };
 
   // Calculate progress
-  const progress = flow.progress || { completedStepIds: [] };
   const currentStepIndex = flow.steps.findIndex((s: any) => s.id === step.id);
   const totalSteps = flow.steps.length;
 
@@ -50,7 +49,7 @@ export function FlowPage({ flow, step }: FlowPageProps) {
         {/* Progress Indicator */}
         {totalSteps > 1 && (
           <div className="flex justify-center gap-2">
-            {flow.steps.map((_: any, index: number) => (
+            {flow.steps.map((s: any, index: number) => (
               <div
                 className={`h-2 w-20 rounded-full transition-colors ${
                   index < currentStepIndex
@@ -59,7 +58,7 @@ export function FlowPage({ flow, step }: FlowPageProps) {
                       ? "bg-blue-600"
                       : "bg-muted"
                 }`}
-                key={index}
+                key={s.id}
               />
             ))}
           </div>

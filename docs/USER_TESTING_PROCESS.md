@@ -2,9 +2,9 @@
 
 ## Comprehensive UAT, Compliance, and Quality Assurance Documentation
 
-**Version:** 1.1  
+**Version:** 1.2  
 **Date:** January 2026  
-**Status:** Ready for Execution - Playwright UAT Tests Added
+**Status:** Ready for Execution - Comprehensive Playwright UAT Tests Implemented
 
 ---
 
@@ -945,7 +945,16 @@ Test data is stored in `apps/web/uat/test-data.json`:
 - Test team configurations
 - Invitation email addresses
 
-#### Automated Test Coverage (18 tests)
+#### Automated Test Coverage Summary
+
+| Test File | Test IDs | Status | Description |
+|-----------|----------|--------|-------------|
+| `setup.spec.ts` | TEST-SETUP-001 to 010 | ✅ Implemented | Initial setup and onboarding flows |
+| `auth.spec.ts` | TEST-AUTH-001, 002, 003, 004 | ✅ Implemented | Authentication flows |
+| `coach.spec.ts` | TEST-COACH-001, 002, 003, 004 | ✅ Implemented | Coach dashboard functionality |
+| `admin.spec.ts` | TEST-ADMIN-001, 002, 003, 004 | ✅ Implemented | Admin approval workflows |
+
+#### Setup Tests (setup.spec.ts) - 18 tests
 
 | Test ID | Test Name | Description |
 |---------|-----------|-------------|
@@ -960,6 +969,34 @@ Test data is stored in `apps/web/uat/test-data.json`:
 | TEST-SETUP-009 | Admin Creates First Players | Player management and bulk import options |
 | TEST-SETUP-010 | Owner Invites First Parent | Parent role invitation |
 | TEST-SETUP-011 | Platform Admin Edits Organisation | Edit org settings: slug, sports, social media links |
+
+#### Authentication Tests (auth.spec.ts) - 7 tests
+
+| Test ID | Test Name | Description |
+|---------|-----------|-------------|
+| TEST-AUTH-001 | Email Registration | Signup page display, duplicate email handling, weak password validation |
+| TEST-AUTH-002 | Google SSO Login | SSO button visibility (skipped - requires OAuth) |
+| TEST-AUTH-003 | Session Persistence | Session survives page refresh |
+| TEST-AUTH-004 | Logout | Logout flow, protected route access denial |
+
+#### Coach Dashboard Tests (coach.spec.ts) - 4 tests
+
+| Test ID | Test Name | Description |
+|---------|-----------|-------------|
+| TEST-COACH-001 | View Assigned Team Players | Dashboard display, team cards, "No Teams Assigned" handling |
+| TEST-COACH-002 | Filter Players by Team | Team filter functionality |
+| TEST-COACH-003 | Navigate to Player Passport | Player row click → passport navigation |
+| TEST-COACH-004 | Filter by Review Status | Overdue/status filter functionality |
+
+#### Admin Approval Tests (admin.spec.ts) - 5 tests
+
+| Test ID | Test Name | Description |
+|---------|-----------|-------------|
+| TEST-ADMIN-001 | View Pending Requests | Dashboard display, pending badge, approvals navigation |
+| TEST-ADMIN-002 | Approve Coach Request | Team assignment dialog (skipped - requires pending request) |
+| TEST-ADMIN-003 | Approve Parent Request | Smart matching dialog (skipped - requires pending request) |
+| TEST-ADMIN-004 | Reject Request with Reason | Reason validation, confirm button state |
+| Access Control | Deny Non-Admin Access | Coach cannot access admin pages |
 
 #### Test Projects
 
@@ -979,7 +1016,36 @@ Located at `apps/web/uat/fixtures/test-utils.ts`:
 - Shared test data constants (`TEST_USERS`, `TEST_ORG`, `TEST_TEAMS`)
 - Authentication state management
 
-### 9.2 Manual Testing Checklist
+### 9.2 Implementation Status by Test Category
+
+#### ✅ Fully Automated Tests
+
+| Category | Tests | Status |
+|----------|-------|--------|
+| Initial Setup Flow | TEST-SETUP-001 to 010 | ✅ Implemented in `setup.spec.ts` |
+| Authentication | TEST-AUTH-001, 003, 004 | ✅ Implemented in `auth.spec.ts` |
+| Coach Dashboard | TEST-COACH-001 to 004 | ✅ Implemented in `coach.spec.ts` |
+| Admin Dashboard | TEST-ADMIN-001 | ✅ Implemented in `admin.spec.ts` |
+| Admin Access Control | Access denial test | ✅ Implemented in `admin.spec.ts` |
+
+#### ⏭️ Skipped Tests (Require Special Setup)
+
+| Test | Reason | Manual Alternative |
+|------|--------|-------------------|
+| TEST-AUTH-002 (Google SSO) | Requires OAuth credentials | Test manually in browser |
+| TEST-ADMIN-002, 003, 004 | Require pending requests in database | Create test data first |
+| TEST-SETUP-006 (Invitation Accept) | Requires email delivery | Use invitation link manually |
+
+#### 📋 Not Yet Automated (Manual Testing Required)
+
+| Category | Tests | Notes |
+|----------|-------|-------|
+| Organization Join Flow | TEST-JOIN-001 to 004 | Planned for future sprint |
+| Parent Dashboard | TEST-PARENT-001, 002 | Planned for future sprint |
+| Player Passport | TEST-PASSPORT-001 to 003 | Planned for future sprint |
+| Role Requests | TEST-ROLE-001 to 003 | Planned for future sprint |
+
+### 9.3 Manual Testing Checklist
 
 ```markdown
 ## Pre-Test Setup
@@ -1174,6 +1240,67 @@ Located at `apps/web/uat/fixtures/test-utils.ts`:
 
 ---
 
+### 9.4 Test Fixtures and Helpers
+
+The test suite uses shared fixtures located at `apps/web/uat/fixtures/test-utils.ts`:
+
+```typescript
+// Key exports from test-utils.ts
+export const TEST_USERS = {
+  owner: { email: 'owner_pdp@outlook.com', password: '...', name: 'Test Owner' },
+  admin: { email: 'adm1n_pdp@outlook.com', password: '...', name: 'Test Admin' },
+  coach: { email: 'coach_pdp@outlook.com', password: '...', name: 'Test Coach' },
+  parent: { email: 'parent_pdp@outlook.com', password: '...', name: 'Test Parent' },
+};
+
+export const TEST_ORG = {
+  name: 'Test Club FC',
+  sports: ['Soccer', 'GAA Football'],
+  colors: { primary: '#2563eb', secondary: '#059669' },
+};
+
+export const TEST_TEAMS = [
+  { name: 'Test Club FC 11.13 Boys Sun', ageGroup: 'U11', gender: 'Boys', sport: 'Soccer' },
+];
+
+// TestHelper class provides:
+// - login(email, password) - Authenticate user
+// - logout() - Sign out current user
+// - goToAdmin() - Navigate to admin dashboard
+// - goToCoach() - Navigate to coach dashboard
+// - waitForPageLoad() - Wait for network idle
+```
+
+### 9.5 Running Specific Test Categories
+
+```bash
+# Run only setup tests (fresh environment)
+npm run test:setup
+
+# Run authentication tests
+npx playwright test auth.spec.ts
+
+# Run coach tests
+npx playwright test coach.spec.ts
+
+# Run admin tests
+npx playwright test admin.spec.ts
+
+# Run all tests with UI mode
+npx playwright test --ui
+
+# Run specific test by name
+npx playwright test --grep "should create team"
+
+# Run tests with visible browser
+npx playwright test --headed
+
+# Run tests with debug mode
+npx playwright test --debug
+```
+
+---
+
 ## Appendix A: Test Data Setup Scripts
 
 ```javascript
@@ -1205,6 +1332,15 @@ MICROSOFT_CLIENT_SECRET=test-ms-secret
 ---
 
 ## Changelog
+
+### v1.2 (January 2026)
+- Updated test implementation status across all test files
+- Added auth.spec.ts documentation (TEST-AUTH-001, 002, 003, 004)
+- Added coach.spec.ts documentation (TEST-COACH-001, 002, 003, 004)
+- Added admin.spec.ts documentation (TEST-ADMIN-001, 002, 003, 004)
+- Added implementation status summary by category
+- Added test fixtures and helpers documentation
+- Added specific test running commands
 
 ### v1.1 (January 2026)
 - Added Playwright UAT test suite documentation (Section 9.1)

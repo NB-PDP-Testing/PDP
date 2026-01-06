@@ -17,6 +17,7 @@ import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as lib_ageGroupUtils from "../lib/ageGroupUtils.js";
 import type * as lib_analytics from "../lib/analytics.js";
+import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
 import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
 import type * as models_adultPlayers from "../models/adultPlayers.js";
@@ -93,6 +94,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/ageGroupUtils": typeof lib_ageGroupUtils;
   "lib/analytics": typeof lib_analytics;
+  "lib/firstUserSetup": typeof lib_firstUserSetup;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
   "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
   "models/adultPlayers": typeof models_adultPlayers;

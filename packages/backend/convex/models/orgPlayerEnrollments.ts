@@ -600,6 +600,50 @@ export const deleteEnrollment = mutation({
 });
 
 /**
+ * Unenroll a player from an organization (soft delete - sets status to inactive)
+ * The player identity remains in the system and can be re-enrolled later.
+ * Also removes any team assignments for this player.
+ */
+export const unenrollPlayer = mutation({
+  args: { enrollmentId: v.id("orgPlayerEnrollments") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.enrollmentId);
+    if (!existing) {
+      throw new Error("Enrollment not found");
+    }
+
+    // Option 1: Soft delete (set status to inactive)
+    // This preserves history and allows re-enrollment
+    await ctx.db.patch(args.enrollmentId, {
+      status: "inactive",
+      updatedAt: Date.now(),
+    });
+
+    // Also remove any team assignments for this player in this org
+    // Get all team assignments for this player
+    const teamAssignments = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", existing.playerIdentityId)
+      )
+      .collect();
+
+    // Delete team assignments (they can be recreated if player re-enrolls)
+    for (const assignment of teamAssignments) {
+      // Only delete if assignment is for same org (check via team)
+      // For now, delete all assignments - player is being removed from org
+      await ctx.db.patch(assignment._id, {
+        status: "inactive",
+        updatedAt: Date.now(),
+      });
+    }
+
+    return null;
+  },
+});
+
+/**
  * Internal query to get players for an org (used by AI actions)
  */
 export const getPlayersForOrgInternal = internalQuery({

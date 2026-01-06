@@ -95,77 +95,77 @@
       "firstName": "Liam",
       "lastName": "Murphy",
       "dateOfBirth": "2017-01-01",
-      "gender": "Boys",
+      "gender": "Male",
       "ageGroup": "U10"
     },
     {
       "firstName": "Noah",
       "lastName": "O'Brien",
       "dateOfBirth": "2017-01-01",
-      "gender": "Boys",
+      "gender": "Male",
       "ageGroup": "U10"
     },
     {
       "firstName": "Jack",
       "lastName": "Kelly",
       "dateOfBirth": "2017-01-01",
-      "gender": "Boys",
+      "gender": "Male",
       "ageGroup": "U10"
     },
     {
       "firstName": "James",
       "lastName": "Ryan",
       "dateOfBirth": "2017-01-01",
-      "gender": "Boys",
+      "gender": "Male",
       "ageGroup": "U10"
     },
     {
       "firstName": "Conor",
       "lastName": "Walsh",
       "dateOfBirth": "2017-01-01",
-      "gender": "Boys",
+      "gender": "Male",
       "ageGroup": "U10"
     },
     {
       "firstName": "Sean",
       "lastName": "McCarthy",
       "dateOfBirth": "2017-01-01",
-      "gender": "Boys",
+      "gender": "Male",
       "ageGroup": "U10"
     },
     {
       "firstName": "Daniel",
       "lastName": "Byrne",
       "dateOfBirth": "2017-01-01",
-      "gender": "Boys",
+      "gender": "Male",
       "ageGroup": "U10"
     },
     {
       "firstName": "Adam",
       "lastName": "Doyle",
       "dateOfBirth": "2017-01-01",
-      "gender": "Boys",
+      "gender": "Male",
       "ageGroup": "U10"
     },
     {
       "firstName": "Cian",
       "lastName": "O'Sullivan",
       "dateOfBirth": "2017-01-01",
-      "gender": "Boys",
+      "gender": "Male",
       "ageGroup": "U10"
     },
     {
       "firstName": "Finn",
       "lastName": "Brennan",
       "dateOfBirth": "2017-01-01",
-      "gender": "Boys",
+      "gender": "Male",
       "ageGroup": "U10"
     },
     {
       "firstName": "Oisin",
       "lastName": "Dunne",
       "dateOfBirth": "2017-01-01",
-      "gender": "Boys",
+      "gender": "Male",
       "ageGroup": "U10"
     }
   ]

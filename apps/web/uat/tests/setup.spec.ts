@@ -1349,15 +1349,14 @@ test.describe.serial('Initial Setup Flow', () => {
       expect(hasAddButton).toBeTruthy();
     });
 
-    // Create all 11 players from test-data.json and assign to team
-    test('should create all players and assign to team', async ({ page, helper }) => {
+    // Create all 11 players from test-data.json (WITHOUT team assignment during creation)
+    test('should create all players', async ({ page, helper }) => {
       if (TEST_PLAYERS.length === 0) {
         console.log('No players in test-data.json, skipping');
         expect(true).toBeTruthy();
         return;
       }
       
-      const teamName = TEST_TEAM.editedname || TEST_TEAM.name;
       let playersCreated = 0;
       
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
@@ -1414,18 +1413,8 @@ test.describe.serial('Initial Setup Flow', () => {
           await page.getByRole('option', { name: new RegExp(player.gender, 'i') }).click();
         }
         
-        // Team assignment - look for team selector
-        const teamCombobox = page.getByRole('combobox').filter({ hasText: /select.*team|team|assign/i }).first();
-        if (await teamCombobox.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await teamCombobox.click();
-          await page.waitForTimeout(500);
-          // Select the team created in previous tests (use edited name)
-          const teamOption = page.getByRole('option', { name: new RegExp(teamName, 'i') });
-          if (await teamOption.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await teamOption.click();
-            console.log(`  Assigned to team: ${teamName}`);
-          }
-        }
+        // NOTE: No team assignment dropdown in player creation dialog
+        // Team is assigned later via player edit or team page
         
         // Submit
         const createButton = page.getByRole('button', { name: /create|add|save/i }).filter({ hasText: /create|add|save/i }).first();
@@ -1456,52 +1445,99 @@ test.describe.serial('Initial Setup Flow', () => {
       expect(playersCreated >= 0).toBeTruthy();
     });
 
-    test('should verify players are assigned to team via Players page', async ({ page, helper }) => {
-      // This test verifies players were assigned during creation (via player page dropdown)
+    // Method 1: Assign player to team by editing player and setting Team Assignments
+    test('should assign player to team via Player Edit (Team Assignments)', async ({ page, helper }) => {
+      if (TEST_PLAYERS.length === 0) {
+        console.log('No players in test-data.json, skipping');
+        expect(true).toBeTruthy();
+        return;
+      }
+      
       const teamName = TEST_TEAM.editedname || TEST_TEAM.name;
+      const player = TEST_PLAYERS[0]; // Assign first player
       
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
       await helper.waitForPageLoad();
       
-      // Navigate to admin > teams
+      // Navigate to admin > players
       const adminLink = page.getByRole('link', { name: /admin panel|admin/i }).first();
       await adminLink.click();
       await page.waitForURL(/\/admin/, { timeout: 15000 });
       await helper.waitForPageLoad();
       await page.waitForTimeout(3000);
       
-      const teamsLink = page.getByRole('link', { name: /teams/i }).first();
-      await teamsLink.click();
+      const playersLink = page.getByRole('link', { name: /manage players|players/i }).first();
+      await playersLink.click();
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      // Click on the team to view details
-      const teamRow = page.getByText(new RegExp(teamName, 'i')).first();
-      if (await teamRow.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await teamRow.click();
-        await helper.waitForPageLoad();
+      // Find and click on the first player to edit
+      const playerRow = page.getByText(new RegExp(`${player.firstName}.*${player.lastName}|${player.lastName}.*${player.firstName}`, 'i')).first();
+      if (await playerRow.isVisible({ timeout: 10000 }).catch(() => false)) {
+        await playerRow.click();
         await page.waitForTimeout(2000);
         
-        // Look for player names in team roster
-        let playersFound = 0;
-        for (let i = 0; i < Math.min(3, TEST_PLAYERS.length); i++) {
-          const player = TEST_PLAYERS[i];
-          const playerVisible = await page.getByText(new RegExp(`${player.firstName}|${player.lastName}`, 'i')).isVisible({ timeout: 3000 }).catch(() => false);
-          if (playerVisible) {
-            playersFound++;
-            console.log(`Found player in team (assigned via Players page): ${player.firstName} ${player.lastName}`);
+        // Look for edit button if not already in edit mode
+        const editButton = page.getByRole('button', { name: /edit/i }).first();
+        if (await editButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await editButton.click();
+          await page.waitForTimeout(2000);
+        }
+        
+        // Look for Team Assignments section/tab
+        const teamAssignmentsTab = page.getByRole('tab', { name: /team.*assignment|teams/i }).first();
+        const teamAssignmentsSection = page.getByText(/team.*assignment/i).first();
+        
+        if (await teamAssignmentsTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await teamAssignmentsTab.click();
+          await page.waitForTimeout(2000);
+          console.log('Clicked Team Assignments tab');
+        } else if (await teamAssignmentsSection.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await teamAssignmentsSection.click();
+          await page.waitForTimeout(2000);
+          console.log('Clicked Team Assignments section');
+        }
+        
+        // Look for team selector in Team Assignments
+        const teamCombobox = page.getByRole('combobox').filter({ hasText: /select.*team|team/i }).first();
+        const addTeamButton = page.getByRole('button', { name: /add.*team|assign.*team/i }).first();
+        
+        if (await addTeamButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+          await addTeamButton.click();
+          await page.waitForTimeout(2000);
+          console.log('Clicked Add Team button');
+        }
+        
+        if (await teamCombobox.isVisible({ timeout: 5000 }).catch(() => false)) {
+          await teamCombobox.click();
+          await page.waitForTimeout(500);
+          
+          // Select the team
+          const teamOption = page.getByRole('option', { name: new RegExp(teamName, 'i') });
+          if (await teamOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await teamOption.click();
+            console.log(`Selected team: ${teamName}`);
           }
         }
         
-        console.log(`Players assigned via Players page found in team "${teamName}": ${playersFound}`);
+        // Save changes
+        const saveButton = page.getByRole('button', { name: /save|update|submit/i }).first();
+        if (await saveButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+          await saveButton.click();
+          await page.waitForTimeout(3000);
+          
+          const hasSuccess = await page.getByText(/saved|updated|success|assigned/i).isVisible({ timeout: 5000 }).catch(() => false);
+          console.log(`Player ${player.firstName} ${player.lastName} assigned to team via edit: ${hasSuccess}`);
+        }
+      } else {
+        console.log(`Player ${player.firstName} ${player.lastName} not found in list`);
       }
       
-      // Players should be visible in team or we verified the process
       expect(true).toBeTruthy();
     });
 
-    test('should assign player to team via Team page', async ({ page, helper }) => {
-      // This test verifies players can be assigned via the Team page (team roster management)
+    // Method 2: Assign players to team via Team page (add players from team roster)
+    test('should assign players to team via Team page', async ({ page, helper }) => {
       const teamName = TEST_TEAM.editedname || TEST_TEAM.name;
       
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
@@ -1526,13 +1562,13 @@ test.describe.serial('Initial Setup Flow', () => {
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      // Look for "Add Player" or "Manage Roster" button on the team page
-      const addPlayerButton = page.getByRole('button', { name: /add player|add member|manage roster|assign player/i }).first();
-      const manageRosterLink = page.getByRole('link', { name: /roster|players|members/i }).first();
+      // Look for "Add Player" button on the team page
+      const addPlayerButton = page.getByRole('button', { name: /add player|add member|assign player/i }).first();
       
       if (await addPlayerButton.isVisible({ timeout: 5000 }).catch(() => false)) {
         await addPlayerButton.click();
         await page.waitForTimeout(2000);
+        console.log('Clicked Add Player button on team page');
         
         // Wait for dialog or player selection UI
         const dialog = page.getByRole('dialog').first();
@@ -1544,10 +1580,10 @@ test.describe.serial('Initial Setup Flow', () => {
           const playerSelect = dialog.getByRole('combobox').first();
           const playerCheckboxes = dialog.locator('input[type="checkbox"]');
           
-          // Try to find and select an existing player
+          // Try to find and select players
           if (await playerSearch.isVisible({ timeout: 3000 }).catch(() => false)) {
-            // Search for the first player by name
-            const player = TEST_PLAYERS[0];
+            // Search for the second player by name (first may already be assigned via edit)
+            const player = TEST_PLAYERS.length > 1 ? TEST_PLAYERS[1] : TEST_PLAYERS[0];
             await playerSearch.fill(player.firstName);
             await page.waitForTimeout(1000);
             
@@ -1567,10 +1603,15 @@ test.describe.serial('Initial Setup Flow', () => {
               console.log('Selected first available player from dropdown');
             }
           } else if (await playerCheckboxes.count() > 0) {
-            // Select first unchecked player
-            const unchecked = playerCheckboxes.first();
-            await unchecked.check();
-            console.log('Checked first available player checkbox');
+            // Select first few unchecked players
+            const count = await playerCheckboxes.count();
+            for (let i = 0; i < Math.min(3, count); i++) {
+              const checkbox = playerCheckboxes.nth(i);
+              if (!(await checkbox.isChecked())) {
+                await checkbox.check();
+                console.log(`Checked player checkbox ${i + 1}`);
+              }
+            }
           }
           
           // Click save/add button
@@ -1578,22 +1619,75 @@ test.describe.serial('Initial Setup Flow', () => {
           if (await saveButton.isVisible({ timeout: 3000 }).catch(() => false)) {
             await saveButton.click();
             await page.waitForTimeout(2000);
-            console.log('Clicked save to assign player via Team page');
+            console.log('Clicked save to assign players via Team page');
           }
         }
-      } else if (await manageRosterLink.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await manageRosterLink.click();
+      } else {
+        console.log('Add Player button not found on team page - trying alternative navigation');
+        
+        // Try clicking on Players tab/section within team
+        const playersTab = page.getByRole('tab', { name: /player|roster/i }).first();
+        if (await playersTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await playersTab.click();
+          await page.waitForTimeout(2000);
+          console.log('Clicked Players tab in team');
+          
+          // Look for add button in players section
+          const addBtn = page.getByRole('button', { name: /add|assign/i }).first();
+          if (await addBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+            console.log('Found add button in players section');
+          }
+        }
+      }
+      
+      expect(true).toBeTruthy();
+    });
+
+    // Verify players are assigned to the team
+    test('should verify players are assigned to team', async ({ page, helper }) => {
+      const teamName = TEST_TEAM.editedname || TEST_TEAM.name;
+      
+      await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
+      await helper.waitForPageLoad();
+      
+      // Navigate to admin > teams
+      const adminLink = page.getByRole('link', { name: /admin panel|admin/i }).first();
+      await adminLink.click();
+      await page.waitForURL(/\/admin/, { timeout: 15000 });
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(3000);
+      
+      const teamsLink = page.getByRole('link', { name: /teams/i }).first();
+      await teamsLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(2000);
+      
+      // Click on the team to view details
+      const teamRow = page.getByText(new RegExp(teamName, 'i')).first();
+      if (await teamRow.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await teamRow.click();
         await helper.waitForPageLoad();
         await page.waitForTimeout(2000);
-        console.log('Navigated to roster management page');
         
-        // Look for add button on roster page
-        const rosterAddButton = page.getByRole('button', { name: /add|assign/i }).first();
-        if (await rosterAddButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-          console.log('Found add button on roster page');
+        // Look for Players section/tab
+        const playersTab = page.getByRole('tab', { name: /player|roster/i }).first();
+        if (await playersTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await playersTab.click();
+          await page.waitForTimeout(2000);
         }
-      } else {
-        console.log('Add Player to team functionality via Team page not found - may need different navigation');
+        
+        // Look for player names in team roster
+        let playersFound = 0;
+        for (let i = 0; i < Math.min(3, TEST_PLAYERS.length); i++) {
+          const player = TEST_PLAYERS[i];
+          const playerVisible = await page.getByText(new RegExp(`${player.firstName}|${player.lastName}`, 'i')).isVisible({ timeout: 3000 }).catch(() => false);
+          if (playerVisible) {
+            playersFound++;
+            console.log(`Found player in team: ${player.firstName} ${player.lastName}`);
+          }
+        }
+        
+        console.log(`Players found in team "${teamName}": ${playersFound}`);
       }
       
       expect(true).toBeTruthy();

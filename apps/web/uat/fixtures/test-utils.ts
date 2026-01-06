@@ -43,6 +43,11 @@ export const TEST_TEAMS = testData.teams;
 export const TEST_INVITATIONS = testData.invitations;
 
 /**
+ * Test players - loaded from test-data.json
+ */
+export const TEST_PLAYERS = testData.players || [];
+
+/**
  * Storage state paths for authenticated sessions
  */
 export const AUTH_STATES = {

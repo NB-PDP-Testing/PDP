@@ -2,6 +2,8 @@
 
 import {
   Database,
+  Home,
+  Megaphone,
   Settings,
   Shield,
   Target,
@@ -22,6 +24,19 @@ export default function PlatformDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1E3A5F] via-[#1E3A5F] to-white p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl">
+        {/* Back to Home Button */}
+        <div className="mb-6">
+          <Link href="/">
+            <button
+              className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-white transition-all hover:bg-white/20"
+              type="button"
+            >
+              <Home className="h-4 w-4" />
+              <span>Back to Home</span>
+            </button>
+          </Link>
+        </div>
+
         {/* Platform Welcome Section */}
         <div className="mb-12 text-center text-white">
           <div className="mb-6 flex justify-center">
@@ -173,6 +188,30 @@ export default function PlatformDashboard() {
                     <li>• Grant staff access</li>
                     <li>• Revoke permissions</li>
                     <li>• View all platform users</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* Flow Management */}
+            <Link href="/platform/flows">
+              <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-lg bg-green-100 p-2">
+                      <Megaphone className="h-6 w-6 text-green-600" />
+                    </div>
+                    <CardTitle>Flow Management</CardTitle>
+                  </div>
+                  <CardDescription>
+                    Manage user flows and platform announcements
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-1 text-muted-foreground text-sm">
+                    <li>• Create platform flows</li>
+                    <li>• Send announcements</li>
+                    <li>• Manage user journeys</li>
                   </ul>
                 </CardContent>
               </Card>

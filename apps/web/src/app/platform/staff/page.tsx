@@ -3,6 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
+  ArrowLeft,
   Search,
   Shield,
   ShieldCheck,
@@ -10,6 +11,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -120,13 +122,20 @@ export default function PlatformStaffManagementPage() {
         <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
           {/* Header with Stats */}
           <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
-                Platform Staff Management
-              </h1>
-              <p className="mt-2 text-muted-foreground">
-                Manage platform-wide administrator permissions
-              </p>
+            <div className="flex items-center gap-4">
+              <Link href="/platform">
+                <Button size="icon" variant="ghost">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
+              <div>
+                <h1 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
+                  Platform Staff Management
+                </h1>
+                <p className="mt-2 text-muted-foreground">
+                  Manage platform-wide administrator permissions
+                </p>
+              </div>
             </div>
             <div className="flex gap-4">
               <Card className="border-purple-200 bg-purple-50">

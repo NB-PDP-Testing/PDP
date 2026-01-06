@@ -2,7 +2,7 @@ import type { Member } from "better-auth/plugins";
 import type { GenericDatabaseReader } from "convex/server";
 import { v } from "convex/values";
 import { api, components, internal } from "../_generated/api";
-import type { DataModel } from "../_generated/dataModel";
+import type { DataModel, Id } from "../_generated/dataModel";
 import { internalMutation, mutation, query } from "../_generated/server";
 
 /**
@@ -1803,68 +1803,164 @@ export const syncFunctionalRolesFromInvitation = mutation({
     if (suggestedRoles.includes("parent") && userEmail) {
       const normalizedEmail = userEmail.toLowerCase().trim();
 
-      // 3a. First, link specific players from invitation metadata
-      if (suggestedPlayerLinks.length > 0) {
-        // Query players by ID from the players table
-        const players = await ctx.db.query("players").collect();
-        const playerMap = new Map(players.map((p) => [p._id, p]));
+      // 3a. Find or create guardian identity for this parent
+      let guardian = await ctx.db
+        .query("guardianIdentities")
+        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+        .first();
 
-        for (const playerId of suggestedPlayerLinks) {
-          try {
-            const player = playerMap.get(playerId as any);
-            if (
-              player &&
-              player.organizationId === args.organizationId &&
-              !player.parentEmail
-            ) {
-              await ctx.db.patch(player._id, {
-                parentEmail: normalizedEmail,
-              });
-              playersLinked++;
-            }
-          } catch (error) {
-            console.error(
-              "[syncFunctionalRolesFromInvitation] Error linking player:",
-              playerId,
-              error
-            );
-          }
-        }
+      if (!guardian) {
+        // Create guardian identity - get user info if available
+        const user = await ctx.db
+          .query("user")
+          .filter((q) => q.eq(q.field("email"), normalizedEmail))
+          .first();
 
+        const guardianId = await ctx.db.insert("guardianIdentities", {
+          firstName: user?.name?.split(" ")[0] || "",
+          lastName: user?.name?.split(" ").slice(1).join(" ") || "",
+          email: normalizedEmail,
+          phone: user?.phone || undefined,
+          verificationStatus: "email_verified", // Email verified because they accepted invitation
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          createdFrom: "invitation",
+        });
+        guardian = await ctx.db.get(guardianId);
         console.log(
-          "[syncFunctionalRolesFromInvitation] Linked",
-          playersLinked,
-          "specific players to parent:",
-          userEmail
+          "[syncFunctionalRolesFromInvitation] Created guardian identity:",
+          guardianId
         );
       }
 
-      // 3b. Auto-link using new guardian identity system
-      // This matches guardian email to player identities enrolled in this org
-      try {
-        const autoLinkResult = await ctx.runMutation(
-          internal.models.guardianPlayerLinks.autoLinkGuardianToPlayersInternal,
-          {
-            guardianEmail: normalizedEmail,
-            organizationId: args.organizationId,
-          }
-        );
-
-        if (autoLinkResult.linked > 0) {
-          console.log(
-            "[syncFunctionalRolesFromInvitation] Auto-linked",
-            autoLinkResult.linked,
-            "players via guardian identity system:",
-            autoLinkResult.playerNames.join(", ")
-          );
-          // Add to total (avoid double counting)
-          playersLinked = Math.max(playersLinked, autoLinkResult.linked);
-        }
-      } catch (error) {
+      if (!guardian) {
         console.error(
-          "[syncFunctionalRolesFromInvitation] Error in auto-link:",
-          error
+          "[syncFunctionalRolesFromInvitation] Failed to create guardian identity for:",
+          normalizedEmail
         );
+      } else {
+        // 3b. Link specific players from invitation metadata using new identity system
+        if (suggestedPlayerLinks.length > 0) {
+          console.log(
+            "[syncFunctionalRolesFromInvitation] Linking specific players:",
+            suggestedPlayerLinks
+          );
+
+          for (const playerIdentityId of suggestedPlayerLinks) {
+            try {
+              // Verify the player identity exists
+              const playerIdentity = await ctx.db.get(
+                playerIdentityId as Id<"playerIdentities">
+              );
+              if (!playerIdentity) {
+                console.warn(
+                  "[syncFunctionalRolesFromInvitation] Player identity not found:",
+                  playerIdentityId
+                );
+                continue;
+              }
+
+              // Check player is enrolled in this organization
+              const enrollment = await ctx.db
+                .query("orgPlayerEnrollments")
+                .withIndex("by_player_and_org", (q) =>
+                  q
+                    .eq("playerIdentityId", playerIdentityId as Id<"playerIdentities">)
+                    .eq("organizationId", args.organizationId)
+                )
+                .first();
+
+              if (!enrollment || enrollment.status !== "active") {
+                console.warn(
+                  "[syncFunctionalRolesFromInvitation] Player not actively enrolled in org:",
+                  playerIdentityId,
+                  "enrollment:",
+                  enrollment?.status
+                );
+                continue;
+              }
+
+              // Check if link already exists
+              const existingLink = await ctx.db
+                .query("guardianPlayerLinks")
+                .withIndex("by_guardian_and_player", (q) =>
+                  q
+                    .eq("guardianIdentityId", guardian!._id)
+                    .eq("playerIdentityId", playerIdentityId as Id<"playerIdentities">)
+                )
+                .first();
+
+              if (existingLink) {
+                console.log(
+                  "[syncFunctionalRolesFromInvitation] Link already exists for player:",
+                  playerIdentityId
+                );
+                playersLinked++;
+                continue;
+              }
+
+              // Create the guardian-player link
+              await ctx.db.insert("guardianPlayerLinks", {
+                guardianIdentityId: guardian._id,
+                playerIdentityId: playerIdentityId as Id<"playerIdentities">,
+                relationship: "guardian",
+                isPrimary: true,
+                hasParentalResponsibility: true,
+                canCollectFromTraining: true,
+                consentedToSharing: true,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+              });
+
+              playersLinked++;
+              console.log(
+                "[syncFunctionalRolesFromInvitation] Created guardian-player link:",
+                guardian._id,
+                "->",
+                playerIdentityId,
+                `(${playerIdentity.firstName} ${playerIdentity.lastName})`
+              );
+            } catch (error) {
+              console.error(
+                "[syncFunctionalRolesFromInvitation] Error linking player:",
+                playerIdentityId,
+                error
+              );
+            }
+          }
+
+          console.log(
+            "[syncFunctionalRolesFromInvitation] Linked",
+            playersLinked,
+            "specific players to parent:",
+            userEmail
+          );
+        }
+
+        // 3c. Also run auto-link to catch any additional matches by email
+        try {
+          const autoLinkResult = await ctx.runMutation(
+            internal.models.guardianPlayerLinks.autoLinkGuardianToPlayersInternal,
+            {
+              guardianEmail: normalizedEmail,
+              organizationId: args.organizationId,
+            }
+          );
+
+          if (autoLinkResult.linked > 0) {
+            console.log(
+              "[syncFunctionalRolesFromInvitation] Auto-linked",
+              autoLinkResult.linked,
+              "additional players via email matching:",
+              autoLinkResult.playerNames.join(", ")
+            );
+          }
+        } catch (error) {
+          console.error(
+            "[syncFunctionalRolesFromInvitation] Error in auto-link:",
+            error
+          );
+        }
       }
     }
 

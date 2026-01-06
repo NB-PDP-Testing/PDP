@@ -16,7 +16,9 @@ export const getActiveFlowsForUser = query({
   returns: v.array(v.any()),
   handler: async (ctx) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) return [];
+    if (!user) {
+      return [];
+    }
 
     // Get all active platform-scoped flows
     const allFlows = await ctx.db
@@ -26,13 +28,17 @@ export const getActiveFlowsForUser = query({
       .collect();
 
     // Filter flows based on trigger conditions and target audience
-    const applicableFlows = [];
+    const applicableFlows: any[] = [];
 
     for (const flow of allFlows) {
       // Check if within date range
       const now = Date.now();
-      if (flow.startDate && now < flow.startDate) continue;
-      if (flow.endDate && now > flow.endDate) continue;
+      if (flow.startDate && now < flow.startDate) {
+        continue;
+      }
+      if (flow.endDate && now > flow.endDate) {
+        continue;
+      }
 
       // Check if user has already completed/dismissed this flow
       const progress = await ctx.db
@@ -56,7 +62,12 @@ export const getActiveFlowsForUser = query({
     }
 
     // Sort by priority (blocking > high > medium > low)
-    const priorityOrder = { blocking: 0, high: 1, medium: 2, low: 3 };
+    const priorityOrder: Record<string, number> = {
+      blocking: 0,
+      high: 1,
+      medium: 2,
+      low: 3,
+    };
     applicableFlows.sort(
       (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]
     );
@@ -76,7 +87,9 @@ export const getOrganizationFlows = query({
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) return [];
+    if (!user) {
+      return [];
+    }
 
     // Get organization-scoped flows
     const orgFlows = await ctx.db
@@ -106,16 +119,22 @@ export const getOrganizationFlows = query({
       }
     );
 
-    if (!userMembership) return [];
+    if (!userMembership) {
+      return [];
+    }
 
     // Filter flows based on targetAudience
-    const applicableFlows = [];
+    const applicableFlows: any[] = [];
 
     for (const flow of orgFlows) {
       // Check date range
       const now = Date.now();
-      if (flow.startDate && now < flow.startDate) continue;
-      if (flow.endDate && now > flow.endDate) continue;
+      if (flow.startDate && now < flow.startDate) {
+        continue;
+      }
+      if (flow.endDate && now > flow.endDate) {
+        continue;
+      }
 
       // Check target audience
       if (flow.targetAudience === "all_members") {
@@ -176,7 +195,7 @@ export const getOrganizationFlows = query({
     }
 
     // Filter out flows user has already completed/dismissed
-    const applicableFlowsWithProgress = [];
+    const applicableFlowsWithProgress: any[] = [];
     for (const flow of applicableFlows) {
       const progress = await ctx.db
         .query("userFlowProgress")
@@ -199,7 +218,12 @@ export const getOrganizationFlows = query({
     }
 
     // Sort by priority
-    const priorityOrder = { blocking: 0, high: 1, medium: 2, low: 3 };
+    const priorityOrder: Record<string, number> = {
+      blocking: 0,
+      high: 1,
+      medium: 2,
+      low: 3,
+    };
     applicableFlowsWithProgress.sort(
       (a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]
     );
@@ -222,7 +246,9 @@ export const startFlow = mutation({
   returns: v.id("userFlowProgress"),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
 
     // Check if progress already exists
     const existing = await ctx.db
@@ -265,7 +291,9 @@ export const completeFlowStep = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
 
     const progress = await ctx.db
       .query("userFlowProgress")
@@ -274,14 +302,18 @@ export const completeFlowStep = mutation({
       )
       .first();
 
-    if (!progress) throw new Error("Flow progress not found");
+    if (!progress) {
+      throw new Error("Flow progress not found");
+    }
 
     // Add step to completed steps
     const completedStepIds = [...progress.completedStepIds, args.stepId];
 
     // Check if all steps are completed
     const flow = await ctx.db.get(args.flowId);
-    if (!flow) throw new Error("Flow not found");
+    if (!flow) {
+      throw new Error("Flow not found");
+    }
 
     const allStepsCompleted = flow.steps.every((step) =>
       completedStepIds.includes(step.id)
@@ -309,7 +341,9 @@ export const dismissFlow = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
 
     const progress = await ctx.db
       .query("userFlowProgress")
@@ -318,7 +352,9 @@ export const dismissFlow = mutation({
       )
       .first();
 
-    if (!progress) throw new Error("Flow progress not found");
+    if (!progress) {
+      throw new Error("Flow progress not found");
+    }
 
     await ctx.db.patch(progress._id, {
       status: "dismissed",
@@ -362,7 +398,9 @@ export const createOrganizationFlow = mutation({
   returns: v.id("flows"),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
 
     // Verify user is admin of this organization
     const membership = await ctx.runQuery(
@@ -443,10 +481,14 @@ export const updateOrganizationFlow = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
 
     const flow = await ctx.db.get(args.flowId);
-    if (!flow) throw new Error("Flow not found");
+    if (!flow) {
+      throw new Error("Flow not found");
+    }
 
     // Verify user is admin of this organization
     if (flow.organizationId) {
@@ -474,16 +516,31 @@ export const updateOrganizationFlow = mutation({
     }
 
     // Update the flow
-    const updates: any = { updatedAt: Date.now() };
-    if (args.name !== undefined) updates.name = args.name;
-    if (args.description !== undefined) updates.description = args.description;
-    if (args.priority !== undefined) updates.priority = args.priority;
-    if (args.targetAudience !== undefined)
+    const updates: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.name !== undefined) {
+      updates.name = args.name;
+    }
+    if (args.description !== undefined) {
+      updates.description = args.description;
+    }
+    if (args.priority !== undefined) {
+      updates.priority = args.priority;
+    }
+    if (args.targetAudience !== undefined) {
       updates.targetAudience = args.targetAudience;
-    if (args.steps !== undefined) updates.steps = args.steps;
-    if (args.active !== undefined) updates.active = args.active;
-    if (args.startDate !== undefined) updates.startDate = args.startDate;
-    if (args.endDate !== undefined) updates.endDate = args.endDate;
+    }
+    if (args.steps !== undefined) {
+      updates.steps = args.steps;
+    }
+    if (args.active !== undefined) {
+      updates.active = args.active;
+    }
+    if (args.startDate !== undefined) {
+      updates.startDate = args.startDate;
+    }
+    if (args.endDate !== undefined) {
+      updates.endDate = args.endDate;
+    }
 
     await ctx.db.patch(args.flowId, updates);
 
@@ -501,10 +558,14 @@ export const deleteOrganizationFlow = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
 
     const flow = await ctx.db.get(args.flowId);
-    if (!flow) throw new Error("Flow not found");
+    if (!flow) {
+      throw new Error("Flow not found");
+    }
 
     // Verify user is admin of this organization
     if (flow.organizationId) {
@@ -547,12 +608,32 @@ export const getAllOrganizationFlows = query({
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Platform staff can view all flows
+    if (user.isPlatformStaff) {
+      const flows = await ctx.db
+        .query("flows")
+        .withIndex("by_organization", (q) =>
+          q.eq("organizationId", args.organizationId)
+        )
+        .collect();
+      return flows;
+    }
 
     // Verify user is admin of this organization
-    const membership = await ctx.runQuery(
-      components.betterAuth.adapter.findOne,
-      {
+    let membership;
+    try {
+      console.log(
+        "[getAllOrganizationFlows] Checking membership for user:",
+        user._id,
+        "org:",
+        args.organizationId
+      );
+
+      membership = await ctx.runQuery(components.betterAuth.adapter.findOne, {
         model: "member",
         where: [
           { field: "userId", value: user._id, operator: "eq" },
@@ -562,15 +643,60 @@ export const getAllOrganizationFlows = query({
             operator: "eq",
           },
         ],
-      }
-    );
+      });
 
-    if (
-      !membership ||
-      (membership.role !== "admin" && membership.role !== "owner")
-    ) {
-      throw new Error("Only organization admins can view all flows");
+      console.log("[getAllOrganizationFlows] Membership result:", membership);
+    } catch (error) {
+      console.error(
+        "[getAllOrganizationFlows] Error checking organization membership:",
+        error
+      );
+      console.error(
+        "[getAllOrganizationFlows] Error details:",
+        JSON.stringify(error, null, 2)
+      );
+      console.error("[getAllOrganizationFlows] User ID:", user._id);
+      console.error(
+        "[getAllOrganizationFlows] Organization ID:",
+        args.organizationId
+      );
+
+      // Provide detailed error for debugging
+      throw new Error(
+        `Failed to check organization membership: ${
+          error instanceof Error ? error.message : String(error)
+        }. User: ${user._id}, Org: ${args.organizationId}`
+      );
     }
+
+    if (!membership) {
+      console.log(
+        "[getAllOrganizationFlows] No membership found for user:",
+        user._id,
+        "in org:",
+        args.organizationId
+      );
+      throw new Error(
+        `You are not a member of this organization. User: ${user._id}, Org: ${args.organizationId}`
+      );
+    }
+
+    if (membership.role !== "admin" && membership.role !== "owner") {
+      console.log(
+        "[getAllOrganizationFlows] User has insufficient role:",
+        membership.role
+      );
+      throw new Error(
+        `Only organization admins can view flows. Your role: ${membership.role}`
+      );
+    }
+
+    console.log(
+      "[getAllOrganizationFlows] Access granted for user:",
+      user._id,
+      "with role:",
+      membership.role
+    );
 
     // Get all organization flows (including inactive)
     const flows = await ctx.db
@@ -588,11 +714,13 @@ export const getAllOrganizationFlows = query({
 // HELPER FUNCTIONS
 // ============================================================
 
+// biome-ignore lint/suspicious/noExplicitAny: Convex context type
 async function checkIfUserIsCoach(
   ctx: any,
   userId: string,
   orgId: string
 ): Promise<boolean> {
+  // biome-ignore lint/suspicious/noExplicitAny: Convex query builder type
   const assignments = await ctx.db
     .query("coachAssignments")
     .filter((q: any) =>
@@ -606,11 +734,13 @@ async function checkIfUserIsCoach(
   return !!assignments;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: Convex context type
 async function checkIfUserIsParent(
   ctx: any,
   userId: string,
   orgId: string
 ): Promise<boolean> {
+  // biome-ignore lint/suspicious/noExplicitAny: Convex query builder type
   const guardianIdentity = await ctx.db
     .query("guardianIdentities")
     .filter((q: any) =>
@@ -624,12 +754,14 @@ async function checkIfUserIsParent(
   return !!guardianIdentity;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: Convex context type
 async function getUserTeams(
   ctx: any,
   userId: string,
   orgId: string
 ): Promise<string[]> {
   // Check coach team assignments
+  // biome-ignore lint/suspicious/noExplicitAny: Convex query builder type
   const coachAssignments = await ctx.db
     .query("coachAssignments")
     .filter((q: any) =>
@@ -640,6 +772,7 @@ async function getUserTeams(
     )
     .collect();
 
+  // biome-ignore lint/suspicious/noExplicitAny: Convex document type
   const teamIds = coachAssignments.map((a: any) => a.teamId as string);
 
   return [...new Set(teamIds)] as string[];
@@ -658,7 +791,9 @@ export const getAllPlatformFlows = query({
   returns: v.array(v.any()),
   handler: async (ctx) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
 
     // Check if platform staff
     if (!user.isPlatformStaff) {
@@ -720,7 +855,9 @@ export const createPlatformFlow = mutation({
   returns: v.id("flows"),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
 
     // Check if platform staff
     if (!user.isPlatformStaff) {
@@ -801,7 +938,9 @@ export const updatePlatformFlow = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
 
     // Check if platform staff
     if (!user.isPlatformStaff) {
@@ -810,21 +949,39 @@ export const updatePlatformFlow = mutation({
 
     // Verify flow exists and is platform-scoped
     const flow = await ctx.db.get(args.flowId);
-    if (!flow) throw new Error("Flow not found");
+    if (!flow) {
+      throw new Error("Flow not found");
+    }
     if (flow.scope !== "platform") {
       throw new Error("Can only update platform-scoped flows");
     }
 
     // Update flow
-    const updates: any = { updatedAt: Date.now() };
-    if (args.name !== undefined) updates.name = args.name;
-    if (args.description !== undefined) updates.description = args.description;
-    if (args.type !== undefined) updates.type = args.type;
-    if (args.priority !== undefined) updates.priority = args.priority;
-    if (args.steps !== undefined) updates.steps = args.steps;
-    if (args.startDate !== undefined) updates.startDate = args.startDate;
-    if (args.endDate !== undefined) updates.endDate = args.endDate;
-    if (args.active !== undefined) updates.active = args.active;
+    const updates: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.name !== undefined) {
+      updates.name = args.name;
+    }
+    if (args.description !== undefined) {
+      updates.description = args.description;
+    }
+    if (args.type !== undefined) {
+      updates.type = args.type;
+    }
+    if (args.priority !== undefined) {
+      updates.priority = args.priority;
+    }
+    if (args.steps !== undefined) {
+      updates.steps = args.steps;
+    }
+    if (args.startDate !== undefined) {
+      updates.startDate = args.startDate;
+    }
+    if (args.endDate !== undefined) {
+      updates.endDate = args.endDate;
+    }
+    if (args.active !== undefined) {
+      updates.active = args.active;
+    }
 
     await ctx.db.patch(args.flowId, updates);
 
@@ -843,7 +1000,9 @@ export const deletePlatformFlow = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
 
     // Check if platform staff
     if (!user.isPlatformStaff) {
@@ -852,7 +1011,9 @@ export const deletePlatformFlow = mutation({
 
     // Verify flow exists and is platform-scoped
     const flow = await ctx.db.get(args.flowId);
-    if (!flow) throw new Error("Flow not found");
+    if (!flow) {
+      throw new Error("Flow not found");
+    }
     if (flow.scope !== "platform") {
       throw new Error("Can only delete platform-scoped flows");
     }
@@ -874,7 +1035,9 @@ export const togglePlatformFlowActive = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user) throw new Error("Not authenticated");
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
 
     // Check if platform staff
     if (!user.isPlatformStaff) {
@@ -883,7 +1046,9 @@ export const togglePlatformFlowActive = mutation({
 
     // Verify flow exists and is platform-scoped
     const flow = await ctx.db.get(args.flowId);
-    if (!flow) throw new Error("Flow not found");
+    if (!flow) {
+      throw new Error("Flow not found");
+    }
     if (flow.scope !== "platform") {
       throw new Error("Can only toggle platform-scoped flows");
     }

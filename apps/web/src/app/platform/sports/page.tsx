@@ -3,6 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import {
+  ArrowLeft,
   CheckCircle,
   Plus,
   Settings,
@@ -10,6 +11,7 @@ import {
   Trophy,
   XCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -268,14 +270,21 @@ export default function PlatformSportsManagementPage() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
           <div className="mb-6 flex items-center justify-between">
-            <div>
-              <h1 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
-                Platform Sports Management
-              </h1>
-              <p className="mt-2 text-muted-foreground">
-                Configure sports and age group eligibility rules for all
-                organizations
-              </p>
+            <div className="flex items-center gap-4">
+              <Link href="/platform">
+                <Button size="icon" variant="ghost">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </Link>
+              <div>
+                <h1 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
+                  Platform Sports Management
+                </h1>
+                <p className="mt-2 text-muted-foreground">
+                  Configure sports and age group eligibility rules for all
+                  organizations
+                </p>
+              </div>
             </div>
 
             <Dialog onOpenChange={setCreateDialogOpen} open={createDialogOpen}>

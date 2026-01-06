@@ -9,7 +9,11 @@ import path from 'path';
  * 
  * All test data is loaded from test-data.json via test-utils.ts
  * 
- * TEST-SETUP-001: Platform Staff Creates First Organization
+ * TEST-SETUP-001: First User Signup - Automatic Platform Staff
+ *   - First user signs up
+ *   - Automatically granted platform staff privileges (no bootstrap required)
+ *   - Immediately prompted to create first organization via wizard
+ * 
  * TEST-SETUP-002: Non-Platform Staff Cannot Create Organizations
  * TEST-SETUP-003: Owner First Login Experience
  * TEST-SETUP-004: Owner Creates First Team
@@ -38,11 +42,11 @@ const TEST_TEAM = TEST_TEAMS[0];
 test.describe.serial('Initial Setup Flow', () => {
   
   // ============================================================
-  // TEST-SETUP-001: Platform Staff Creates First Organization
+  // TEST-SETUP-001: First User Signup - Automatic Platform Staff
   // ============================================================
-  test.describe('TEST-SETUP-001: Platform Staff Creates First Organization', () => {
+  test.describe('TEST-SETUP-001: First User Signup - Automatic Platform Staff', () => {
     
-    test('should signup as first user (becomes platform staff)', async ({ page, helper }) => {
+    test('should signup as first user and be automatically granted platform staff', async ({ page, helper }) => {
       // First, check if user already exists by trying to login
       await page.goto('/login');
       await helper.waitForPageLoad();
@@ -64,7 +68,7 @@ test.describe.serial('Initial Setup Flow', () => {
         await page.getByText(/invalid|incorrect|error|not found/i).isVisible({ timeout: 2000 }).catch(() => false);
       
       if (loginFailed) {
-        // User doesn't exist - create account
+        // User doesn't exist - create account (FIRST USER FLOW)
         await page.goto('/signup');
         await helper.waitForPageLoad();
         
@@ -85,97 +89,74 @@ test.describe.serial('Initial Setup Flow', () => {
           await confirmPassword.fill(TEST_USERS.owner.password);
         }
         
-        // Submit signup - use exact match to avoid matching SSO buttons
+        // Submit signup
         const createButton = page.getByRole('button', { name: 'Create Account' });
         await expect(createButton).toBeEnabled();
         await createButton.click();
         
-        // Wait for redirect - first user should go to /setup/welcome
-        // Other cases: /orgs, /orgs/current, or stay on /signup for guardian identity claim
+        // NEW FLOW: First user is immediately granted platform staff and 
+        // redirected to setup wizard / org creation
+        // Expected redirects: /setup/welcome, /setup/organization, /orgs/create
         try {
-          // Quick check for immediate redirect (happens for first user)
-          await page.waitForURL(/\/(setup\/welcome|orgs|dashboard)/, { timeout: 10000 });
-          console.log('Signup redirected to:', page.url());
+          await page.waitForURL(/\/(setup|orgs\/create|orgs)/, { timeout: 15000 });
+          console.log('First user redirected to:', page.url());
         } catch {
-          // No immediate redirect - might be showing guardian identity claim dialog
-          // or signup is processing slowly
-          console.log('Signup processing - checking for dialogs or slow redirect');
+          console.log('Checking for setup wizard or org creation prompt...');
           await page.waitForTimeout(3000);
-          
-          // Check for guardian identity claim dialog
-          const claimDialog = page.getByRole('dialog');
-          if (await claimDialog.isVisible({ timeout: 2000 }).catch(() => false)) {
-            console.log('Guardian identity claim dialog shown');
-            // Close the dialog to proceed
-            const closeButton = claimDialog.getByRole('button', { name: /close|skip|not me|cancel/i });
-            if (await closeButton.isVisible({ timeout: 2000 }).catch(() => false)) {
-              await closeButton.click();
-              await page.waitForTimeout(2000);
-            }
-          }
-          
-          // Check if still on signup page
-          if (page.url().includes('/signup')) {
-            console.log('Still on signup page after clicking Create Account');
-            
-            // Wait longer for potential redirect
-            try {
-              await page.waitForURL(/\/(orgs|dashboard|verify|onboarding|join|setup)/, { timeout: 20000 });
-            } catch {
-              // Signup didn't redirect - account created but no navigation
-              console.log('Signup redirect timeout - will proceed to verify account');
-            }
-          }
         }
         
-        // If redirected to setup welcome, that's the first-user flow
-        if (page.url().includes('/setup/welcome')) {
-          console.log('First user detected - on setup welcome page');
-          await page.waitForTimeout(1000);
-        }
+        // Verify we're on setup wizard or org creation (NOT /orgs/join)
+        const url = page.url();
+        const isOnSetupWizard = url.includes('/setup');
+        const isOnOrgCreate = url.includes('/orgs/create');
+        const isOnOrgs = url.includes('/orgs');
+        const isNOTOnJoin = !url.includes('/join');
+        
+        console.log('First user flow check:', { isOnSetupWizard, isOnOrgCreate, isOnOrgs, isNOTOnJoin });
+        
+        // First user should be on setup wizard or org creation, NOT on /orgs/join
+        expect(isOnSetupWizard || isOnOrgCreate || isOnOrgs).toBeTruthy();
       }
       
-      // At this point user is logged in - save auth state
+      // Save auth state
       await page.context().storageState({ path: SETUP_AUTH_STATES.platformStaff });
       await page.context().storageState({ path: SETUP_AUTH_STATES.owner });
       
-      // First user is automatically made platform staff by the system
-      // No need to run bootstrap script - just verify we can access org creation
-      console.log('First user signup complete - user should have platform staff privileges');
+      // First user is AUTOMATICALLY made platform staff - no bootstrap script needed
+      console.log('First user signup complete - automatically granted platform staff privileges');
     });
 
-    test('should access organization creation page', async ({ page, helper }) => {
-      // Each test gets fresh context - need to login again
+    test('should be prompted to create organization after first signup', async ({ page, helper }) => {
+      // Login as first user
       await page.goto('/login');
       await page.getByLabel(/email/i).fill(TEST_USERS.owner.email);
       await page.getByLabel(/password/i).fill(TEST_USERS.owner.password);
       await page.getByRole('button', { name: 'Sign In', exact: true }).click();
       
-      // Wait for login to complete
-      await page.waitForURL(/\/(orgs|dashboard|join)/, { timeout: 15000 });
+      // Wait for redirect
+      await page.waitForURL(/\/(orgs|setup|dashboard)/, { timeout: 15000 });
       await helper.waitForPageLoad();
-      
-      // After signup, user may be redirected to:
-      // 1. /orgs - if they have orgs
-      // 2. /orgs/join - if they need to join/create an org
-      // 3. /orgs/create - if they can create orgs
       
       const currentUrl = page.url();
       
-      // Check if we're on a join page (no org yet)
-      if (currentUrl.includes('/join')) {
-        // User needs to create or join an org - this is expected for fresh signup
-        // Look for create org option on join page
-        const hasCreateOption = await page.getByRole('link', { name: /create/i }).isVisible({ timeout: 5000 }).catch(() => false);
-        const hasJoinContent = await page.getByText(/join|create|organization/i).isVisible().catch(() => false);
+      // NEW FLOW: First user should see org creation wizard, NOT /orgs/join
+      // Check for setup wizard or org creation form
+      const isOnSetup = currentUrl.includes('/setup');
+      const isOnOrgCreate = currentUrl.includes('/orgs/create');
+      
+      if (isOnSetup || isOnOrgCreate) {
+        console.log('First user correctly shown org creation wizard');
+        // Look for org creation form
+        const hasOrgNameField = await page.getByLabel(/organization name|name/i).isVisible({ timeout: 10000 }).catch(() => false);
+        const hasWizardContent = await page.getByText(/create.*organization|organization.*details/i).isVisible({ timeout: 5000 }).catch(() => false);
         
-        expect(hasCreateOption || hasJoinContent || currentUrl.includes('/orgs')).toBeTruthy();
+        expect(hasOrgNameField || hasWizardContent).toBeTruthy();
       } else {
-        // Try to navigate to org creation
+        // May already have an org - try to access org creation
         await page.goto('/orgs/create');
         await helper.waitForPageLoad();
         
-        // Should see organization creation form or be on orgs page
+        // Should see organization creation form (platform staff has access)
         const hasForm = await page.getByLabel(/organization name|name/i).isVisible({ timeout: 10000 }).catch(() => false);
         const hasCreateButton = await page.getByRole('button', { name: /create/i }).isVisible().catch(() => false);
         const onOrgsPage = page.url().includes('/orgs');

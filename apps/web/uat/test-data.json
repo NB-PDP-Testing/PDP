@@ -50,7 +50,15 @@
       "primary": "#2563EB",
       "secondary": "#059669"
     },
-    "description": "Test organization for UAT"
+    "description": "Test organization for UAT",
+    "editedname": "Test Club FC Updated",
+    "editedslug": "test-club-fc-updated",
+    "sports": ["Soccer", "Rugby"],
+    "Website": "https://www.testclubfc.com",
+    "FaceBook": "https://www.facebook.com/testclubfc",
+    "Twitter": "https://www.twitter.com/testclubfc",
+    "Instagram": "https://www.instagram.com/testclubfc",
+    "Linkedin": "https://www.linkedin.com/company/testclubfc"
   },
   
   "teams": [
@@ -59,7 +67,11 @@
       "ageGroup": "U12",
       "sport": "Soccer",
       "gender": "Boys",
-      "description": "First test team"
+      "description": "First test team",
+      "trainingSchedule": "Sundays 10am-12pm",
+      "HomeVenue": "Test Club Stadium",
+      "editedname": "Test Club FC 11.13 Boys Sun Updated"
+      
     }
   ],
   
@@ -76,5 +88,85 @@
       "email": "parent_pdp@outlook.com",
       "roles": ["parent"]
     }
-  }
+  },
+  
+  "players": [
+    {
+      "firstName": "Liam",
+      "lastName": "Murphy",
+      "dateOfBirth": "2017-01-01",
+      "gender": "Boys",
+      "ageGroup": "U10"
+    },
+    {
+      "firstName": "Noah",
+      "lastName": "O'Brien",
+      "dateOfBirth": "2017-01-01",
+      "gender": "Boys",
+      "ageGroup": "U10"
+    },
+    {
+      "firstName": "Jack",
+      "lastName": "Kelly",
+      "dateOfBirth": "2017-01-01",
+      "gender": "Boys",
+      "ageGroup": "U10"
+    },
+    {
+      "firstName": "James",
+      "lastName": "Ryan",
+      "dateOfBirth": "2017-01-01",
+      "gender": "Boys",
+      "ageGroup": "U10"
+    },
+    {
+      "firstName": "Conor",
+      "lastName": "Walsh",
+      "dateOfBirth": "2017-01-01",
+      "gender": "Boys",
+      "ageGroup": "U10"
+    },
+    {
+      "firstName": "Sean",
+      "lastName": "McCarthy",
+      "dateOfBirth": "2017-01-01",
+      "gender": "Boys",
+      "ageGroup": "U10"
+    },
+    {
+      "firstName": "Daniel",
+      "lastName": "Byrne",
+      "dateOfBirth": "2017-01-01",
+      "gender": "Boys",
+      "ageGroup": "U10"
+    },
+    {
+      "firstName": "Adam",
+      "lastName": "Doyle",
+      "dateOfBirth": "2017-01-01",
+      "gender": "Boys",
+      "ageGroup": "U10"
+    },
+    {
+      "firstName": "Cian",
+      "lastName": "O'Sullivan",
+      "dateOfBirth": "2017-01-01",
+      "gender": "Boys",
+      "ageGroup": "U10"
+    },
+    {
+      "firstName": "Finn",
+      "lastName": "Brennan",
+      "dateOfBirth": "2017-01-01",
+      "gender": "Boys",
+      "ageGroup": "U10"
+    },
+    {
+      "firstName": "Oisin",
+      "lastName": "Dunne",
+      "dateOfBirth": "2017-01-01",
+      "gender": "Boys",
+      "ageGroup": "U10"
+    }
+  ]
 }

@@ -949,9 +949,9 @@ Test data is stored in `apps/web/uat/test-data.json`:
 
 | Test ID | Test Name | Description |
 |---------|-----------|-------------|
-| TEST-SETUP-001 | Platform Staff Creates First Organization | First user signup, platform staff privileges, org creation |
-| TEST-SETUP-002 | Non-Platform Staff Cannot Create Organizations | Access control verification |
-| TEST-SETUP-003 | Owner First Login Experience | Dashboard loading, organization display |
+| TEST-SETUP-001 | First User Signup - Automatic Platform Staff | First user creates account, is immediately granted platform staff status, and is prompted to create first organization via wizard |
+| TEST-SETUP-002 | Non-Platform Staff Cannot Create Organizations | Access control verification - subsequent users cannot access org creation |
+| TEST-SETUP-003 | Owner First Login Experience | Dashboard loading, organization display after org creation |
 | TEST-SETUP-004 | Owner Creates First Team | Team creation with sport, age group, gender |
 | TEST-SETUP-005 | Owner Invites First Admin | Invite member functionality, admin role assignment |
 | TEST-SETUP-006 | First Admin Accepts Invitation | Invitation acceptance flow (skipped - requires email) |

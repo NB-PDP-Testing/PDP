@@ -74,25 +74,31 @@ npm run test:list
 
 ### Running with Dev Server Already Running
 
-If you already have the dev server running (`npm run dev`), use `npx playwright test` directly with the `--project` flag:
+If you already have the dev server running (`npm run dev`), use `npx playwright test` directly. **Important:** Run from the `apps/web` directory:
+
+```bash
+cd apps/web
+```
 
 | Project | Command | Tests |
 |---------|---------|-------|
-| `initial-onboarding` | `npx playwright test --project=initial-onboarding` | onboarding.spec.ts (25+ tests) |
+| `initial-onboarding` | `npx playwright test --project=initial-onboarding` | onboarding.spec.ts (46 tests) |
 | `auth-tests` | `npx playwright test --project=auth-tests` | auth.spec.ts (7 tests) |
 | `admin-tests` | `npx playwright test --project=admin-tests` | admin.spec.ts (7 tests) |
 | `coach-tests` | `npx playwright test --project=coach-tests` | coach.spec.ts (5 tests) |
-| `continuous` | `npx playwright test --project=continuous` | All except onboarding.spec.ts |
+| `continuous` | `npx playwright test --project=continuous` | auth, admin, coach tests |
 | `all-desktop` | `npx playwright test --project=all-desktop` | All tests |
 | `mobile` | `npx playwright test --project=mobile` | All tests (mobile viewport) |
 
 **Example:**
 ```bash
-# Dev server already running in another terminal
+# IMPORTANT: Must be in apps/web directory
+cd apps/web
+
 # Run just the onboarding tests
 npx playwright test --project=initial-onboarding
 
-# Run a specific test file
+# Run a specific test file directly
 npx playwright test onboarding.spec.ts
 
 # Run tests with visible browser

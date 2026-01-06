@@ -7,10 +7,10 @@ import { defineConfig, devices } from "@playwright/test";
  *
  * TEST GROUPS:
  *
- * 1. Initial Setup Tests (Group 1):
+ * 1. Initial Onboarding Tests (Group 1):
  *    - Run once when setting up a fresh environment
- *    - Tests: setup.spec.ts
- *    - Command: npm run test:setup
+ *    - Tests: onboarding.spec.ts
+ *    - Command: npm run test:onboarding
  *
  * 2. Continuous Tests (Group 2):
  *    - Run regularly after code changes
@@ -47,27 +47,26 @@ export default defineConfig({
     },
 
     // ========================================
-    // GROUP 1: INITIAL SETUP TESTS
+    // GROUP 1: INITIAL ONBOARDING TESTS
     // Run once when setting up a fresh environment
-    // Command: npm run test:setup
+    // Command: npm run test:onboarding
     // ========================================
     {
-      name: "initial-setup",
+      name: "initial-onboarding",
       use: { ...devices["Desktop Chrome"] },
-      testMatch: /setup\.spec\.ts/,
+      testMatch: /onboarding\.spec\.ts/,
       // No dependencies - tests handle their own signup/login
     },
 
     // ========================================
     // GROUP 2: CONTINUOUS TESTS
-    // Run regularly after code changes - EXCLUDES setup.spec.ts
+    // Run regularly after code changes - EXCLUDES onboarding.spec.ts
     // Command: npm run test:continuous
     // ========================================
     {
       name: "continuous",
       use: { ...devices["Desktop Chrome"] },
-      testMatch: /.*\.spec\.ts$/,
-      testIgnore: /setup\.spec\.ts/,
+      testMatch: /^(auth|admin|coach)\.spec\.ts$/,
       dependencies: ["auth-setup"],
     },
 
@@ -111,6 +110,18 @@ export default defineConfig({
       name: "all-desktop",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /.*\.spec\.ts/,
+      dependencies: ["auth-setup"],
+    },
+
+    // ========================================
+    // MOBILE TESTS - Continuous tests on mobile viewport
+    // Command: npm run test:mobile
+    // ========================================
+    {
+      name: "mobile",
+      use: { ...devices["Pixel 5"] },
+      testMatch: /.*\.spec\.ts/,
+      testIgnore: /onboarding\.spec\.ts/, // Onboarding tests are desktop-focused
       dependencies: ["auth-setup"],
     },
   ],

@@ -101,8 +101,7 @@ export default defineConfig({
       name: "continuous",
       use: { ...devices["Desktop Chrome"] },
       testDir: "./uat/tests",
-      testMatch: /^(?!onboarding\.spec\.ts$).*\.spec\.ts$/,
-      testIgnore: /onboarding\.spec\.ts/,
+      testMatch: /^(auth|admin|coach)\.spec\.ts$/,
       dependencies: ["auth-setup"],
     },
 

@@ -10,12 +10,12 @@
 
 "use client";
 
-import { ChevronRight, Edit, BarChart3, Star } from "lucide-react";
+import { BarChart3, ChevronRight, Edit, Star } from "lucide-react";
 import Link from "next/link";
-import { useState, useRef } from "react";
-import { cn } from "@/lib/utils";
+import { useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface Player {
   id: string;
@@ -94,7 +94,6 @@ export function MobilePlayerCard({
       <div className="flex items-center gap-0.5">
         {[...Array(5)].map((_, i) => (
           <Star
-            key={i}
             className={cn(
               "h-3 w-3",
               i < fullStars
@@ -103,9 +102,10 @@ export function MobilePlayerCard({
                   ? "fill-yellow-400/50 text-yellow-400"
                   : "fill-muted text-muted"
             )}
+            key={i}
           />
         ))}
-        <span className="ml-1 text-xs text-muted-foreground">
+        <span className="ml-1 text-muted-foreground text-xs">
           ({rating.toFixed(1)})
         </span>
       </div>
@@ -123,10 +123,6 @@ export function MobilePlayerCard({
         style={{ width: ACTION_WIDTH }}
       >
         <button
-          onClick={() => {
-            onEdit?.(player);
-            closeActions();
-          }}
           className={cn(
             "flex flex-1 flex-col items-center justify-center gap-1",
             "bg-blue-500 text-white",
@@ -134,54 +130,58 @@ export function MobilePlayerCard({
             "min-h-[44px] min-w-[44px]",
             "active:bg-blue-600"
           )}
-        >
-          <Edit className="h-5 w-5" />
-          <span className="text-xs font-medium">Edit</span>
-        </button>
-        <button
           onClick={() => {
-            onViewStats?.(player);
+            onEdit?.(player);
             closeActions();
           }}
+        >
+          <Edit className="h-5 w-5" />
+          <span className="font-medium text-xs">Edit</span>
+        </button>
+        <button
           className={cn(
             "flex flex-1 flex-col items-center justify-center gap-1",
             "bg-green-500 text-white",
             "min-h-[44px] min-w-[44px]",
             "active:bg-green-600"
           )}
+          onClick={() => {
+            onViewStats?.(player);
+            closeActions();
+          }}
         >
           <BarChart3 className="h-5 w-5" />
-          <span className="text-xs font-medium">Stats</span>
+          <span className="font-medium text-xs">Stats</span>
         </button>
       </div>
 
       {/* Main card content */}
       <div
-        ref={cardRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        className={cn(
+          "relative rounded-lg border bg-card",
+          "transition-transform duration-200 ease-out",
+          "active:bg-accent/50"
+        )}
         onClick={() => {
           if (isRevealed) {
             closeActions();
           }
         }}
-        className={cn(
-          "relative bg-card border rounded-lg",
-          "transition-transform duration-200 ease-out",
-          "active:bg-accent/50"
-        )}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
+        onTouchStart={handleTouchStart}
+        ref={cardRef}
         style={{
           transform: `translateX(-${swipeOffset}px)`,
         }}
       >
         <Link
-          href={`/orgs/${orgId}/players/${player.id}`}
           className="flex items-center gap-4 p-4"
+          href={`/orgs/${orgId}/players/${player.id}`}
         >
           {/* Avatar */}
           <Avatar className="h-12 w-12 shrink-0">
-            <AvatarImage src={player.avatarUrl} alt={player.name} />
+            <AvatarImage alt={player.name} src={player.avatarUrl} />
             <AvatarFallback>
               {player.name
                 .split(" ")
@@ -192,37 +192,33 @@ export function MobilePlayerCard({
           </Avatar>
 
           {/* Player Info */}
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-base truncate">
+              <h3 className="truncate font-semibold text-base">
                 {player.name}
               </h3>
             </div>
-            <div className="flex items-center gap-2 mt-1">
-              <Badge variant="secondary" className="text-xs">
+            <div className="mt-1 flex items-center gap-2">
+              <Badge className="text-xs" variant="secondary">
                 U{player.age}
               </Badge>
-              <span className="text-sm text-muted-foreground truncate">
+              <span className="truncate text-muted-foreground text-sm">
                 {player.position}
               </span>
             </div>
-            <div className="mt-1.5">
-              {renderRating(player.rating)}
-            </div>
+            <div className="mt-1.5">{renderRating(player.rating)}</div>
           </div>
 
           {/* Team & Chevron */}
-          <div className="flex flex-col items-end gap-1 shrink-0">
-            <span className="text-sm text-muted-foreground">
-              {player.team}
-            </span>
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <span className="text-muted-foreground text-sm">{player.team}</span>
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </div>
         </Link>
 
         {/* Swipe hint indicator */}
         {!isRevealed && (
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+          <div className="-translate-y-1/2 pointer-events-none absolute top-1/2 right-2">
             <div className="flex items-center gap-1 text-muted-foreground/30">
               <span className="text-xs">←</span>
             </div>
@@ -282,7 +278,7 @@ export function MobilePlayerList({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Pull-to-refresh indicator */}
       <div
         className={cn(
@@ -293,17 +289,17 @@ export function MobilePlayerList({
       >
         <div
           className={cn(
-            "w-6 h-6 border-2 border-primary border-t-transparent rounded-full",
+            "h-6 w-6 rounded-full border-2 border-primary border-t-transparent",
             isRefreshing && "animate-spin"
           )}
           style={{
-            transform: !isRefreshing
-              ? `rotate(${(pullDistance / REFRESH_THRESHOLD) * 360}deg)`
-              : undefined,
+            transform: isRefreshing
+              ? undefined
+              : `rotate(${(pullDistance / REFRESH_THRESHOLD) * 360}deg)`,
           }}
         />
         {pullDistance > REFRESH_THRESHOLD && !isRefreshing && (
-          <span className="ml-2 text-sm text-muted-foreground">
+          <span className="ml-2 text-muted-foreground text-sm">
             Release to refresh
           </span>
         )}
@@ -311,40 +307,40 @@ export function MobilePlayerList({
 
       {/* Player List */}
       <div
-        ref={listRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
+        className="flex-1 space-y-2 overflow-y-auto px-4 pb-20"
         onTouchEnd={handleTouchEnd}
-        className="flex-1 overflow-y-auto space-y-2 px-4 pb-20"
+        onTouchMove={handleTouchMove}
+        onTouchStart={handleTouchStart}
+        ref={listRef}
       >
         {isLoading ? (
           // Skeleton loading state
           [...Array(5)].map((_, i) => (
             <div
+              className="flex animate-pulse items-center gap-4 rounded-lg border bg-card p-4"
               key={i}
-              className="flex items-center gap-4 p-4 bg-card border rounded-lg animate-pulse"
             >
               <div className="h-12 w-12 rounded-full bg-muted" />
               <div className="flex-1 space-y-2">
-                <div className="h-4 w-32 bg-muted rounded" />
-                <div className="h-3 w-24 bg-muted rounded" />
-                <div className="h-3 w-20 bg-muted rounded" />
+                <div className="h-4 w-32 rounded bg-muted" />
+                <div className="h-3 w-24 rounded bg-muted" />
+                <div className="h-3 w-20 rounded bg-muted" />
               </div>
-              <div className="h-4 w-16 bg-muted rounded" />
+              <div className="h-4 w-16 rounded bg-muted" />
             </div>
           ))
         ) : players.length === 0 ? (
           // Empty state
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
               <Users className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="font-semibold text-lg">No players yet</h3>
-            <p className="text-muted-foreground text-sm mt-1 max-w-xs">
+            <p className="mt-1 max-w-xs text-muted-foreground text-sm">
               Get started by adding your first player or importing from a
               spreadsheet.
             </p>
-            <button className="mt-4 inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium">
+            <button className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground">
               <Plus className="h-5 w-5" />
               Add Player
             </button>
@@ -354,10 +350,10 @@ export function MobilePlayerList({
           players.map((player) => (
             <MobilePlayerCard
               key={player.id}
-              player={player}
-              orgId={orgId}
               onEdit={(p) => console.log("Edit", p)}
               onViewStats={(p) => console.log("Stats", p)}
+              orgId={orgId}
+              player={player}
             />
           ))
         )}
@@ -367,7 +363,7 @@ export function MobilePlayerList({
 }
 
 // Need to import these at top
-import { Users, Plus } from "lucide-react";
+import { Plus, Users } from "lucide-react";
 
 /**
  * USAGE EXAMPLE:

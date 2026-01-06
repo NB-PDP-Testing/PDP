@@ -7,8 +7,8 @@
  * Research shows skeleton screens can reduce perceived loading time by up to 10%
  */
 
-import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 /**
  * PLAYER CARD SKELETON
@@ -16,9 +16,9 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export function PlayerCardSkeleton() {
   return (
-    <div className="flex items-center gap-4 p-4 bg-card border rounded-lg">
+    <div className="flex items-center gap-4 rounded-lg border bg-card p-4">
       {/* Avatar skeleton */}
-      <Skeleton className="h-12 w-12 rounded-full shrink-0" />
+      <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
 
       {/* Content skeleton */}
       <div className="flex-1 space-y-2">
@@ -34,7 +34,7 @@ export function PlayerCardSkeleton() {
       </div>
 
       {/* Right side */}
-      <div className="flex flex-col items-end gap-2 shrink-0">
+      <div className="flex shrink-0 flex-col items-end gap-2">
         <Skeleton className="h-4 w-16" />
         <Skeleton className="h-5 w-5" />
       </div>
@@ -62,7 +62,7 @@ export function PlayerListSkeleton({ count = 5 }: { count?: number }) {
  */
 export function StatsCardSkeleton() {
   return (
-    <div className="p-4 bg-card border rounded-lg space-y-3">
+    <div className="space-y-3 rounded-lg border bg-card p-4">
       {/* Icon + Title */}
       <div className="flex items-center justify-between">
         <Skeleton className="h-4 w-24" />
@@ -101,11 +101,11 @@ export function DashboardSkeleton() {
       <div className="space-y-4">
         <Skeleton className="h-6 w-32" />
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="p-4 bg-card border rounded-lg space-y-3">
+          <div className="space-y-3 rounded-lg border bg-card p-4">
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-32 w-full" />
           </div>
-          <div className="p-4 bg-card border rounded-lg space-y-3">
+          <div className="space-y-3 rounded-lg border bg-card p-4">
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-32 w-full" />
           </div>
@@ -119,33 +119,39 @@ export function DashboardSkeleton() {
  * TABLE SKELETON
  * For data table loading states
  */
-export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; columns?: number }) {
+export function TableSkeleton({
+  rows = 5,
+  columns = 4,
+}: {
+  rows?: number;
+  columns?: number;
+}) {
   return (
-    <div className="border rounded-lg overflow-hidden">
+    <div className="overflow-hidden rounded-lg border">
       {/* Header */}
-      <div className="bg-muted/50 px-4 py-3 flex gap-4">
+      <div className="flex gap-4 bg-muted/50 px-4 py-3">
         {Array.from({ length: columns }).map((_, i) => (
-          <Skeleton key={i} className="h-4 flex-1" />
+          <Skeleton className="h-4 flex-1" key={i} />
         ))}
       </div>
 
       {/* Rows */}
       {Array.from({ length: rows }).map((_, rowIndex) => (
         <div
-          key={rowIndex}
           className={cn(
-            "px-4 py-3 flex gap-4 items-center",
+            "flex items-center gap-4 px-4 py-3",
             rowIndex !== rows - 1 && "border-b"
           )}
+          key={rowIndex}
         >
           {Array.from({ length: columns }).map((_, colIndex) => (
             <Skeleton
-              key={colIndex}
               className={cn(
                 "h-4 flex-1",
                 colIndex === 0 && "max-w-[150px]", // Name column narrower
                 colIndex === columns - 1 && "max-w-[80px]" // Action column narrower
               )}
+              key={colIndex}
             />
           ))}
         </div>
@@ -163,8 +169,8 @@ export function ProfileSkeleton() {
     <div className="space-y-6 p-4">
       {/* Header with avatar */}
       <div className="flex items-start gap-4">
-        <Skeleton className="h-20 w-20 rounded-full shrink-0" />
-        <div className="space-y-2 flex-1">
+        <Skeleton className="h-20 w-20 shrink-0 rounded-full" />
+        <div className="flex-1 space-y-2">
           <Skeleton className="h-7 w-48" />
           <Skeleton className="h-4 w-32" />
           <div className="flex gap-2">
@@ -185,7 +191,7 @@ export function ProfileSkeleton() {
       <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="space-y-2">
+            <div className="space-y-2" key={i}>
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-10 w-full" />
             </div>
@@ -209,7 +215,7 @@ export function FormSkeleton({ fields = 4 }: { fields?: number }) {
       {/* Form fields */}
       <div className="space-y-4">
         {Array.from({ length: fields }).map((_, i) => (
-          <div key={i} className="space-y-2">
+          <div className="space-y-2" key={i}>
             <Skeleton className="h-4 w-24" />
             <Skeleton className="h-11 w-full" /> {/* Touch-optimized height */}
           </div>
@@ -227,7 +233,7 @@ export function FormSkeleton({ fields = 4 }: { fields?: number }) {
  */
 export function AnnouncementSkeleton() {
   return (
-    <div className="p-4 bg-card border rounded-lg space-y-3">
+    <div className="space-y-3 rounded-lg border bg-card p-4">
       <div className="flex items-center justify-between">
         <Skeleton className="h-5 w-32" />
         <Skeleton className="h-4 w-20" />
@@ -260,7 +266,10 @@ export function ContentSkeleton() {
  * ANIMATED SKELETON VARIANT
  * With shimmer effect for more visual feedback
  */
-export function ShimmerSkeleton({ className, ...props }: React.ComponentProps<typeof Skeleton>) {
+export function ShimmerSkeleton({
+  className,
+  ...props
+}: React.ComponentProps<typeof Skeleton>) {
   return (
     <Skeleton
       className={cn(

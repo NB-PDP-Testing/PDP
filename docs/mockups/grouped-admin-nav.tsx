@@ -10,31 +10,29 @@
 "use client";
 
 import {
-  Home,
-  Users,
-  Shield,
-  GraduationCap,
-  UsersRound,
-  UserCheck,
-  Upload,
   BarChart3,
-  LineChart,
-  Megaphone,
-  Key,
-  Settings,
-  Wrench,
   ChevronDown,
   ChevronRight,
-  Menu,
-  X,
   Clipboard,
+  GraduationCap,
+  Home,
+  Key,
+  LineChart,
+  Megaphone,
+  Menu,
+  Settings,
+  Shield,
   ShieldAlert,
+  Upload,
+  UserCheck,
+  Users,
+  UsersRound,
+  Wrench,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -43,6 +41,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 interface NavItem {
   href: string;
@@ -65,11 +64,31 @@ const getNavGroups = (orgId: string): NavGroup[] => [
     label: "People",
     icon: Users,
     items: [
-      { href: `/orgs/${orgId}/admin/players`, label: "Players", icon: Clipboard },
-      { href: `/orgs/${orgId}/admin/coaches`, label: "Coaches", icon: GraduationCap },
-      { href: `/orgs/${orgId}/admin/guardians`, label: "Guardians", icon: UsersRound },
-      { href: `/orgs/${orgId}/admin/users`, label: "Manage Users", icon: Users },
-      { href: `/orgs/${orgId}/admin/users/approvals`, label: "Approvals", icon: UserCheck },
+      {
+        href: `/orgs/${orgId}/admin/players`,
+        label: "Players",
+        icon: Clipboard,
+      },
+      {
+        href: `/orgs/${orgId}/admin/coaches`,
+        label: "Coaches",
+        icon: GraduationCap,
+      },
+      {
+        href: `/orgs/${orgId}/admin/guardians`,
+        label: "Guardians",
+        icon: UsersRound,
+      },
+      {
+        href: `/orgs/${orgId}/admin/users`,
+        label: "Manage Users",
+        icon: Users,
+      },
+      {
+        href: `/orgs/${orgId}/admin/users/approvals`,
+        label: "Approvals",
+        icon: UserCheck,
+      },
     ],
   },
   {
@@ -77,27 +96,63 @@ const getNavGroups = (orgId: string): NavGroup[] => [
     icon: Shield,
     items: [
       { href: `/orgs/${orgId}/admin/teams`, label: "Teams", icon: Shield },
-      { href: `/orgs/${orgId}/admin/overrides`, label: "Overrides", icon: ShieldAlert },
-      { href: `/orgs/${orgId}/admin/player-access`, label: "Player Access", icon: Key },
+      {
+        href: `/orgs/${orgId}/admin/overrides`,
+        label: "Overrides",
+        icon: ShieldAlert,
+      },
+      {
+        href: `/orgs/${orgId}/admin/player-access`,
+        label: "Player Access",
+        icon: Key,
+      },
     ],
   },
   {
     label: "Data & Analytics",
     icon: BarChart3,
     items: [
-      { href: `/orgs/${orgId}/admin/benchmarks`, label: "Benchmarks", icon: BarChart3 },
-      { href: `/orgs/${orgId}/admin/analytics`, label: "Analytics", icon: LineChart },
-      { href: `/orgs/${orgId}/admin/player-import`, label: "Import Players", icon: Upload },
-      { href: `/orgs/${orgId}/admin/gaa-import`, label: "GAA Players", icon: Upload },
+      {
+        href: `/orgs/${orgId}/admin/benchmarks`,
+        label: "Benchmarks",
+        icon: BarChart3,
+      },
+      {
+        href: `/orgs/${orgId}/admin/analytics`,
+        label: "Analytics",
+        icon: LineChart,
+      },
+      {
+        href: `/orgs/${orgId}/admin/player-import`,
+        label: "Import Players",
+        icon: Upload,
+      },
+      {
+        href: `/orgs/${orgId}/admin/gaa-import`,
+        label: "GAA Players",
+        icon: Upload,
+      },
     ],
   },
   {
     label: "Settings",
     icon: Settings,
     items: [
-      { href: `/orgs/${orgId}/admin/announcements`, label: "Announcements", icon: Megaphone },
-      { href: `/orgs/${orgId}/admin/settings`, label: "Settings", icon: Settings },
-      { href: `/orgs/${orgId}/admin/dev-tools`, label: "Dev Tools", icon: Wrench },
+      {
+        href: `/orgs/${orgId}/admin/announcements`,
+        label: "Announcements",
+        icon: Megaphone,
+      },
+      {
+        href: `/orgs/${orgId}/admin/settings`,
+        label: "Settings",
+        icon: Settings,
+      },
+      {
+        href: `/orgs/${orgId}/admin/dev-tools`,
+        label: "Dev Tools",
+        icon: Wrench,
+      },
     ],
   },
 ];
@@ -120,21 +175,24 @@ function MobileAdminNav({ orgId }: { orgId: string }) {
   const effectiveExpandedGroup = expandedGroup ?? currentGroup?.label ?? null;
 
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+    <Sheet onOpenChange={setIsOpen} open={isOpen}>
       <SheetTrigger asChild>
         <Button
-          variant="ghost"
-          size="icon-touch" // 44px touch target
           className="md:hidden"
+          size="icon-touch" // 44px touch target
+          variant="ghost"
         >
           <Menu className="h-6 w-6" />
           <span className="sr-only">Open navigation</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-80 p-0">
+      <SheetContent className="w-80 p-0" side="left">
         <SheetHeader className="border-b px-4 py-4">
           <SheetTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" style={{ color: "var(--org-primary)" }} />
+            <Settings
+              className="h-5 w-5"
+              style={{ color: "var(--org-primary)" }}
+            />
             Admin Panel
           </SheetTitle>
         </SheetHeader>
@@ -142,15 +200,16 @@ function MobileAdminNav({ orgId }: { orgId: string }) {
         <nav className="flex flex-col py-2">
           {/* Overview link (always visible) */}
           <Link
-            href={`/orgs/${orgId}/admin`}
-            onClick={() => setIsOpen(false)}
             className={cn(
-              "flex items-center gap-3 px-4 py-3 text-sm font-medium",
+              "flex items-center gap-3 px-4 py-3 font-medium text-sm",
               "transition-colors hover:bg-accent",
               // Touch target compliance
               "min-h-[48px]",
-              pathname === `/orgs/${orgId}/admin` && "bg-accent text-accent-foreground"
+              pathname === `/orgs/${orgId}/admin` &&
+                "bg-accent text-accent-foreground"
             )}
+            href={`/orgs/${orgId}/admin`}
+            onClick={() => setIsOpen(false)}
           >
             <Home className="h-5 w-5" />
             Overview
@@ -166,15 +225,15 @@ function MobileAdminNav({ orgId }: { orgId: string }) {
               <div key={group.label}>
                 {/* Group header (collapsible) */}
                 <button
-                  onClick={() =>
-                    setExpandedGroup(isExpanded ? null : group.label)
-                  }
                   className={cn(
                     "flex w-full items-center justify-between px-4 py-3",
-                    "text-sm font-medium transition-colors hover:bg-accent",
+                    "font-medium text-sm transition-colors hover:bg-accent",
                     "min-h-[48px]",
                     isActiveGroup && "text-primary"
                   )}
+                  onClick={() =>
+                    setExpandedGroup(isExpanded ? null : group.label)
+                  }
                 >
                   <div className="flex items-center gap-3">
                     <GroupIcon className="h-5 w-5" />
@@ -196,17 +255,17 @@ function MobileAdminNav({ orgId }: { orgId: string }) {
 
                       return (
                         <Link
-                          key={item.href}
-                          href={item.href as Route}
-                          onClick={() => setIsOpen(false)}
                           className={cn(
-                            "flex items-center gap-3 py-3 pl-12 pr-4",
+                            "flex items-center gap-3 py-3 pr-4 pl-12",
                             "text-sm transition-colors hover:bg-accent",
                             "min-h-[44px]",
                             isActive
-                              ? "bg-accent text-accent-foreground font-medium"
+                              ? "bg-accent font-medium text-accent-foreground"
                               : "text-muted-foreground"
                           )}
+                          href={item.href as Route}
+                          key={item.href}
+                          onClick={() => setIsOpen(false)}
                         >
                           <ItemIcon className="h-4 w-4" />
                           {item.label}
@@ -221,9 +280,9 @@ function MobileAdminNav({ orgId }: { orgId: string }) {
         </nav>
 
         {/* Back to app button */}
-        <div className="border-t p-4 mt-auto">
+        <div className="mt-auto border-t p-4">
           <Link href="/orgs">
-            <Button variant="outline" className="w-full" size="touch">
+            <Button className="w-full" size="touch" variant="outline">
               Back to App
             </Button>
           </Link>
@@ -262,13 +321,13 @@ function DesktopAdminNav({ orgId }: { orgId: string }) {
     expandedGroups.has(label) || currentGroup?.label === label;
 
   return (
-    <nav className="hidden md:flex flex-wrap items-center gap-1 border-b bg-background px-4 py-2">
+    <nav className="hidden flex-wrap items-center gap-1 border-b bg-background px-4 py-2 md:flex">
       {/* Overview */}
       <Link href={`/orgs/${orgId}/admin`}>
         <Button
-          variant={pathname === `/orgs/${orgId}/admin` ? "secondary" : "ghost"}
-          size="sm"
           className="gap-2"
+          size="sm"
+          variant={pathname === `/orgs/${orgId}/admin` ? "secondary" : "ghost"}
         >
           <Home className="h-4 w-4" />
           Overview
@@ -281,11 +340,11 @@ function DesktopAdminNav({ orgId }: { orgId: string }) {
         const GroupIcon = group.icon;
 
         return (
-          <div key={group.label} className="relative group">
+          <div className="group relative" key={group.label}>
             <Button
-              variant={isActive ? "secondary" : "ghost"}
-              size="sm"
               className="gap-2"
+              size="sm"
+              variant={isActive ? "secondary" : "ghost"}
             >
               <GroupIcon className="h-4 w-4" />
               {group.label}
@@ -293,20 +352,20 @@ function DesktopAdminNav({ orgId }: { orgId: string }) {
             </Button>
 
             {/* Dropdown menu */}
-            <div className="absolute left-0 top-full z-50 hidden min-w-[200px] rounded-md border bg-popover p-1 shadow-md group-hover:block">
+            <div className="absolute top-full left-0 z-50 hidden min-w-[200px] rounded-md border bg-popover p-1 shadow-md group-hover:block">
               {group.items.map((item) => {
                 const isItemActive = pathname === item.href;
                 const ItemIcon = item.icon;
 
                 return (
                   <Link
-                    key={item.href}
-                    href={item.href as Route}
                     className={cn(
                       "flex items-center gap-2 rounded-sm px-3 py-2 text-sm",
                       "transition-colors hover:bg-accent",
                       isItemActive && "bg-accent font-medium"
                     )}
+                    href={item.href as Route}
+                    key={item.href}
                   >
                     <ItemIcon className="h-4 w-4" />
                     {item.label}

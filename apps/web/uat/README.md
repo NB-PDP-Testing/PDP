@@ -72,6 +72,36 @@ npm run test:debug
 npm run test:list
 ```
 
+### Running with Dev Server Already Running
+
+If you already have the dev server running (`npm run dev`), use `npx playwright test` directly with the `--project` flag:
+
+| Project | Command | Tests |
+|---------|---------|-------|
+| `initial-onboarding` | `npx playwright test --project=initial-onboarding` | onboarding.spec.ts (25+ tests) |
+| `auth-tests` | `npx playwright test --project=auth-tests` | auth.spec.ts (7 tests) |
+| `admin-tests` | `npx playwright test --project=admin-tests` | admin.spec.ts (7 tests) |
+| `coach-tests` | `npx playwright test --project=coach-tests` | coach.spec.ts (5 tests) |
+| `continuous` | `npx playwright test --project=continuous` | All except onboarding.spec.ts |
+| `all-desktop` | `npx playwright test --project=all-desktop` | All tests |
+| `mobile` | `npx playwright test --project=mobile` | All tests (mobile viewport) |
+
+**Example:**
+```bash
+# Dev server already running in another terminal
+# Run just the onboarding tests
+npx playwright test --project=initial-onboarding
+
+# Run a specific test file
+npx playwright test onboarding.spec.ts
+
+# Run tests with visible browser
+npx playwright test --project=auth-tests --headed
+
+# Run tests in debug mode
+npx playwright test --project=coach-tests --debug
+```
+
 ## Test Groups
 
 Tests are organized into two groups for different use cases:

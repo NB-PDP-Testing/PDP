@@ -37,8 +37,8 @@ setup('create platform staff account', async ({ page }) => {
     await confirmPassword.fill(TEST_USERS.admin.password);
   }
   
-  // Submit signup
-  await page.getByRole('button', { name: /sign up|create account|register/i }).click();
+  // Submit signup - use exact match to avoid SSO buttons
+  await page.getByRole('button', { name: 'Create Account' }).click();
   
   // Wait for successful signup (may redirect to different pages)
   await page.waitForURL(/\/(orgs|dashboard|verify|onboarding)/);
@@ -65,8 +65,8 @@ setup('create owner account', async ({ page }) => {
     await confirmPassword.fill(TEST_USERS.owner.password);
   }
   
-  // Submit signup
-  await page.getByRole('button', { name: /sign up|create account|register/i }).click();
+  // Submit signup - use exact match to avoid SSO buttons
+  await page.getByRole('button', { name: 'Create Account' }).click();
   
   // Wait for successful signup
   await page.waitForURL(/\/(orgs|dashboard|verify|onboarding)/, { timeout: 15000 });

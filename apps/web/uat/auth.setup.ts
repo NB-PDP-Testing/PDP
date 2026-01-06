@@ -15,7 +15,7 @@ setup('authenticate as admin', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel(/email/i).fill(TEST_USERS.admin.email);
   await page.getByLabel(/password/i).fill(TEST_USERS.admin.password);
-  await page.getByRole('button', { name: /sign in|log in|login/i }).click();
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click();
   
   // Wait for successful login
   await page.waitForURL(/\/orgs/);
@@ -30,7 +30,7 @@ setup('authenticate as coach', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel(/email/i).fill(TEST_USERS.coach.email);
   await page.getByLabel(/password/i).fill(TEST_USERS.coach.password);
-  await page.getByRole('button', { name: /sign in|log in|login/i }).click();
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click();
   
   await page.waitForURL(/\/orgs/);
   await page.context().storageState({ path: AUTH_STATES.coach });
@@ -41,7 +41,7 @@ setup('authenticate as parent', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel(/email/i).fill(TEST_USERS.parent.email);
   await page.getByLabel(/password/i).fill(TEST_USERS.parent.password);
-  await page.getByRole('button', { name: /sign in|log in|login/i }).click();
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click();
   
   await page.waitForURL(/\/orgs/);
   await page.context().storageState({ path: AUTH_STATES.parent });
@@ -52,7 +52,7 @@ setup('authenticate as owner', async ({ page }) => {
   await page.goto('/login');
   await page.getByLabel(/email/i).fill(TEST_USERS.owner.email);
   await page.getByLabel(/password/i).fill(TEST_USERS.owner.password);
-  await page.getByRole('button', { name: /sign in|log in|login/i }).click();
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click();
   
   await page.waitForURL(/\/orgs/);
   await page.context().storageState({ path: AUTH_STATES.owner });

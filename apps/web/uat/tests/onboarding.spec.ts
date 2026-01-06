@@ -1499,27 +1499,30 @@ test.describe.serial('Initial Onboarding Flow', () => {
         // After creating a player, we may be redirected to the player detail page
         // Navigate back to the players list to add the next player
         if (i < playersToCreate.length - 1) {
+          // Wait a moment for any redirects to complete
+          await page.waitForTimeout(2000);
+          
           // Check if we're still on the players list (URL contains /admin/players but NOT /admin/players/[id])
           const currentUrl = page.url();
-          const isOnPlayerDetail = currentUrl.match(/\/admin\/players\/[^\/]+$/);
+          const isOnPlayersList = currentUrl.match(/\/admin\/players\/?$/) || currentUrl.includes('/admin/players?');
           
-          if (isOnPlayerDetail) {
-            console.log('  On player detail page, navigating back to players list...');
+          if (!isOnPlayersList) {
+            console.log('  Not on players list, navigating back...');
+            console.log('  Current URL:', currentUrl);
             
-            // Click the Back button on the player detail page
-            const backButton = page.getByRole('button', { name: /back/i }).first();
-            if (await backButton.isVisible({ timeout: 3000 }).catch(() => false)) {
-              await backButton.click();
+            // Use sidebar navigation to go back to players list (most reliable)
+            const playersNavLink = page.getByRole('link', { name: /manage players|players/i }).first();
+            if (await playersNavLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+              await playersNavLink.click();
+              await helper.waitForPageLoad();
+              await page.waitForTimeout(3000);
+              console.log('  ✓ Navigated back to players list via sidebar');
+            } else {
+              // Fallback: click browser back or navigate directly
+              console.log('  Sidebar link not visible, trying browser back...');
+              await page.goBack();
               await helper.waitForPageLoad();
               await page.waitForTimeout(2000);
-            } else {
-              // Fallback: navigate directly via sidebar link
-              const playersNavLink = page.getByRole('link', { name: /manage players|players/i }).first();
-              if (await playersNavLink.isVisible({ timeout: 3000 }).catch(() => false)) {
-                await playersNavLink.click();
-                await helper.waitForPageLoad();
-                await page.waitForTimeout(2000);
-              }
             }
           }
         }

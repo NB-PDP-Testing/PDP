@@ -127,6 +127,10 @@ export default function ManagePlayersPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [playerToDelete, setPlayerToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Bulk delete state
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Mutations
   const createPlayerIdentity = useMutation(
@@ -346,6 +350,55 @@ export default function ManagePlayersPage() {
     }
   };
 
+  // Handle bulk delete
+  const handleBulkDeleteClick = () => {
+    if (selectedPlayers.size === 0) return;
+    setShowBulkDeleteDialog(true);
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedPlayers.size === 0) return;
+    
+    setIsBulkDeleting(true);
+    try {
+      // Get enrollment IDs for selected players
+      const selectedPlayersList = sortedPlayers.filter((p: any) => 
+        selectedPlayers.has(p._id)
+      );
+      
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const player of selectedPlayersList) {
+        try {
+          await unenrollPlayer({
+            enrollmentId: player.enrollmentId as any,
+          });
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to remove ${player.name}:`, error);
+          failCount++;
+        }
+      }
+      
+      if (successCount > 0) {
+        toast.success(`Removed ${successCount} player${successCount !== 1 ? 's' : ''}`, {
+          description: failCount > 0 
+            ? `${failCount} player${failCount !== 1 ? 's' : ''} failed to remove`
+            : undefined,
+        });
+      }
+      
+      setSelectedPlayers(new Set());
+      setShowBulkDeleteDialog(false);
+    } catch (error) {
+      console.error("Error during bulk delete:", error);
+      toast.error("Failed to remove players");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
   // Get unique values for filters
   const uniqueAgeGroups = [
     ...new Set(players?.map((p: any) => p.ageGroup).filter(Boolean)),
@@ -488,6 +541,15 @@ export default function ManagePlayersPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {selectedPlayers.size > 0 && (
+            <Button
+              onClick={handleBulkDeleteClick}
+              variant="destructive"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Selected ({selectedPlayers.size})
+            </Button>
+          )}
           <Button
             onClick={() => setShowAddPlayerDialog(true)}
             variant="default"
@@ -1170,6 +1232,55 @@ export default function ManagePlayersPage() {
                 </>
               ) : (
                 "Create Anyway"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog onOpenChange={setShowBulkDeleteDialog} open={showBulkDeleteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Remove {selectedPlayers.size} Player{selectedPlayers.size !== 1 ? 's' : ''}
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Are you sure you want to remove {selectedPlayers.size} selected player{selectedPlayers.size !== 1 ? 's' : ''} from
+              this organization?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-muted-foreground text-sm">
+              This will remove the selected players from your organization. Their player
+              identities will remain in the system and can be re-enrolled later.
+            </p>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button
+              onClick={() => setShowBulkDeleteDialog(false)}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isBulkDeleting}
+              onClick={handleBulkDeleteConfirm}
+              variant="destructive"
+            >
+              {isBulkDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Remove {selectedPlayers.size} Player{selectedPlayers.size !== 1 ? 's' : ''}
+                </>
               )}
             </Button>
           </DialogFooter>

@@ -1432,24 +1432,45 @@ test.describe.serial('Initial Onboarding Flow', () => {
         }
         
         // Age Group - second combobox - select based on player.ageGroup
-        const ageGroupTrigger = dialog.getByRole('combobox').nth(1);
-        if (await ageGroupTrigger.isVisible({ timeout: 3000 }).catch(() => false)) {
+        const allComboboxes = dialog.getByRole('combobox');
+        const comboboxCount = await allComboboxes.count();
+        console.log(`  Found ${comboboxCount} comboboxes in dialog`);
+        
+        if (comboboxCount >= 2) {
+          const ageGroupTrigger = allComboboxes.nth(1);
+          console.log(`  Clicking age group combobox (2nd of ${comboboxCount})...`);
           await ageGroupTrigger.click();
-          await page.waitForTimeout(500);
+          await page.waitForTimeout(1000);
+          
+          // List all visible options for debugging
+          const allOptions = page.getByRole('option');
+          const optionsCount = await allOptions.count();
+          console.log(`  Found ${optionsCount} options in age group dropdown`);
+          
           // Select the player's age group from the data (e.g., "U10")
           const ageGroupOption = page.getByRole('option', { name: player.ageGroup, exact: true });
           if (await ageGroupOption.isVisible({ timeout: 3000 }).catch(() => false)) {
             await ageGroupOption.click();
-            console.log(`  Selected age group: ${player.ageGroup}`);
+            console.log(`  ✓ Selected age group: ${player.ageGroup}`);
           } else {
             // Fallback - try partial match
+            console.log(`  Exact match for "${player.ageGroup}" not found, trying partial match...`);
             const fallbackOption = page.getByRole('option', { name: new RegExp(player.ageGroup, 'i') });
             if (await fallbackOption.isVisible({ timeout: 2000 }).catch(() => false)) {
               await fallbackOption.click();
-              console.log(`  Selected age group (fallback): ${player.ageGroup}`);
+              console.log(`  ✓ Selected age group (fallback): ${player.ageGroup}`);
+            } else {
+              console.log(`  ✗ Could not find age group option for: ${player.ageGroup}`);
+              // Log available options
+              for (let j = 0; j < Math.min(optionsCount, 10); j++) {
+                const optText = await allOptions.nth(j).textContent();
+                console.log(`    Available option ${j}: "${optText}"`);
+              }
             }
           }
           await page.waitForTimeout(500);
+        } else {
+          console.log(`  ✗ Not enough comboboxes found (need 2, found ${comboboxCount})`);
         }
         
         // NOTE: No team assignment dropdown in player creation dialog

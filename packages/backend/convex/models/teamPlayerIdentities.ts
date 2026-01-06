@@ -304,15 +304,27 @@ export const addPlayerToTeam = mutation({
         )
         .first();
 
+      // FIX: If no sport passport exists, create one automatically
+      let playerSport = teamSport;
       if (!playerPassport) {
-        return {
-          success: false,
-          error: `Player does not have active enrollment in ${teamSport}. Please enroll player in this sport first.`,
-        };
+        // Auto-create sport passport for this player
+        const now = Date.now();
+        await ctx.db.insert("sportPassports", {
+          playerIdentityId: args.playerIdentityId,
+          organizationId: args.organizationId,
+          sportCode: teamSport,
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+          assessmentCount: 0,
+        });
+        console.log(
+          `[addPlayerToTeam] Auto-created sport passport for player ${args.playerIdentityId} in sport ${teamSport}`
+        );
+      } else {
+        // Sport is valid - use sportCode from passport for subsequent validations
+        playerSport = playerPassport.sportCode;
       }
-
-      // Sport is valid - use sportCode from passport for subsequent validations
-      const playerSport = playerPassport.sportCode;
 
       // Get team enforcement settings
       const enforcementSettings = await ctx.db
@@ -1347,11 +1359,10 @@ export const getEligibleTeamsForPlayer = query({
       .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
 
-    if (sportPassports.length === 0) {
-      return []; // No active sports
-    }
-
+    // FIX: Don't return empty array if no sport passports
+    // Instead, show all teams but mark them as needing sport enrollment
     const playerSportCodes = sportPassports.map((p) => p.sportCode);
+    const hasNoSportPassports = sportPassports.length === 0;
 
     // 2. Get all teams in org from Better Auth
     const teamsResult = await ctx.runQuery(
@@ -1458,6 +1469,37 @@ export const getEligibleTeamsForPlayer = query({
       if (overrideTeamIds.has(team._id)) {
         eligibilityStatus = "hasOverride";
         reason = "Admin override active";
+      }
+      // FIX: If player has no sport passports, use age-based eligibility only
+      // This allows teams to show up and player can be added (sport passport created on demand)
+      else if (hasNoSportPassports) {
+        // No sport passports - determine eligibility by age group only
+        const playerRank = DEFAULT_AGE_GROUP_ORDER.indexOf(
+          playerAgeGroup.toLowerCase()
+        );
+        const teamRank = DEFAULT_AGE_GROUP_ORDER.indexOf(
+          teamAgeGroup.toLowerCase()
+        );
+
+        // Mark as core team if age group matches (sport passport will be created on assignment)
+        const isAgeGroupMatch =
+          teamAgeGroup.toLowerCase() === playerAgeGroup.toLowerCase();
+
+        if (isAgeGroupMatch) {
+          eligibilityStatus = "eligible";
+          reason = "Age group matches - sport passport will be created on assignment";
+        } else if (playerRank !== -1 && teamRank !== -1 && teamRank >= playerRank) {
+          // Can play at same level or higher
+          eligibilityStatus = "eligible";
+          reason = "Meets age requirements - sport passport will be created on assignment";
+        } else if (playerRank !== -1 && teamRank !== -1) {
+          // Playing down requires override
+          eligibilityStatus = "requiresOverride";
+          reason = "Playing in younger age group requires admin approval";
+        } else {
+          eligibilityStatus = "ineligible";
+          reason = "Age group not recognized";
+        }
       }
       // Core team is always eligible
       else if (isCoreTeam) {

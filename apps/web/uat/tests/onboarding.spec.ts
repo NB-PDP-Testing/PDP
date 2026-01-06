@@ -1466,6 +1466,23 @@ test.describe.serial('Initial Onboarding Flow', () => {
           await page.waitForTimeout(1000);
         }
         
+        // After creating a player, we may be redirected to the player detail page
+        // Navigate back to the players list to add the next player
+        if (i < playersToCreate.length - 1) {
+          // Check if we're still on the players list
+          const onPlayersList = page.url().includes('/admin/players') && !page.url().includes('/admin/players/');
+          if (!onPlayersList) {
+            console.log('  Navigating back to players list...');
+            // Click on Players link in sidebar to go back to the list
+            const playersNavLink = page.getByRole('link', { name: /manage players|players/i }).first();
+            if (await playersNavLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+              await playersNavLink.click();
+              await helper.waitForPageLoad();
+              await page.waitForTimeout(2000);
+            }
+          }
+        }
+        
         // Wait a bit before creating next player
         await page.waitForTimeout(1000);
       }

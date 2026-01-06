@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useConvex } from "convex/react";
 import {
+  AlertTriangle,
   CheckSquare,
   ChevronDown,
   ChevronUp,
@@ -13,6 +14,7 @@ import {
   Plus,
   Search,
   Square,
+  Trash2,
   Upload,
   UserCircle,
   UserPlus,
@@ -121,12 +123,20 @@ export default function ManagePlayersPage() {
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
   const convex = useConvex();
 
+  // Delete player state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [playerToDelete, setPlayerToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Mutations
   const createPlayerIdentity = useMutation(
     api.models.playerIdentities.createPlayerIdentity
   );
   const enrollPlayer = useMutation(
     api.models.orgPlayerEnrollments.enrollPlayer
+  );
+  const unenrollPlayer = useMutation(
+    api.models.orgPlayerEnrollments.unenrollPlayer
   );
 
   // Get data from new identity system
@@ -300,6 +310,40 @@ export default function ManagePlayersPage() {
   const handleDuplicateConfirm = async () => {
     setShowDuplicateWarning(false);
     await createPlayer();
+  };
+
+  // Handle delete player
+  const handleDeleteClick = (player: any) => {
+    setPlayerToDelete({ id: player.enrollmentId, name: player.name });
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!playerToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await unenrollPlayer({
+        enrollmentId: playerToDelete.id as any,
+      });
+      
+      toast.success("Player removed", {
+        description: `${playerToDelete.name} has been removed from the organization.`,
+      });
+      
+      setShowDeleteDialog(false);
+      setPlayerToDelete(null);
+    } catch (error) {
+      console.error("Error removing player:", error);
+      toast.error("Failed to remove player", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Get unique values for filters
@@ -798,6 +842,15 @@ export default function ManagePlayersPage() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
+                          <Button
+                            onClick={() => handleDeleteClick(player)}
+                            size="icon"
+                            title="Remove Player"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -1016,6 +1069,59 @@ export default function ManagePlayersPage() {
                 <>
                   <UserPlus className="mr-2 h-4 w-4" />
                   Add Player
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog onOpenChange={setShowDeleteDialog} open={showDeleteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Remove Player
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Are you sure you want to remove{" "}
+              <span className="font-semibold">{playerToDelete?.name}</span> from
+              this organization?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-muted-foreground text-sm">
+              This will remove the player from your organization. Their player
+              identity will remain in the system and can be re-enrolled later.
+            </p>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setPlayerToDelete(null);
+              }}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isDeleting}
+              onClick={handleDeleteConfirm}
+              variant="destructive"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Remove Player
                 </>
               )}
             </Button>

@@ -1394,36 +1394,49 @@ test.describe.serial('Initial Onboarding Flow', () => {
         const dialog = page.getByRole('dialog').first();
         await expect(dialog).toBeVisible({ timeout: 10000 });
         
-        // Fill in player details
-        const firstNameField = page.getByRole('textbox', { name: /first.*name/i }).first();
-        const lastNameField = page.getByRole('textbox', { name: /last.*name/i }).first();
+        // Fill in player details - using placeholders as the form doesn't use labels
+        const firstNameField = page.getByPlaceholder(/enter first name/i);
+        const lastNameField = page.getByPlaceholder(/enter last name/i);
         
-        if (await firstNameField.isVisible({ timeout: 5000 }).catch(() => false)) {
-          await firstNameField.fill(player.firstName);
-        }
-        if (await lastNameField.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await lastNameField.fill(player.lastName);
-        }
+        await expect(firstNameField).toBeVisible({ timeout: 5000 });
+        await firstNameField.fill(player.firstName);
         
-        // Date of Birth - look for date input or separate fields
-        const dobField = page.getByLabel(/date.*of.*birth|dob|birth.*date/i).first();
+        await expect(lastNameField).toBeVisible({ timeout: 3000 });
+        await lastNameField.fill(player.lastName);
+        
+        // Date of Birth - it's a date input type
+        const dobField = page.locator('input[type="date"]').first();
         if (await dobField.isVisible({ timeout: 3000 }).catch(() => false)) {
           await dobField.fill(player.dateOfBirth);
         }
         
-        // Gender - combobox or radio
-        const genderCombobox = page.getByRole('combobox').filter({ hasText: /select.*gender|gender/i }).first();
-        if (await genderCombobox.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await genderCombobox.click();
+        // Gender - combobox with "Select gender" trigger text
+        const genderTrigger = dialog.getByRole('combobox').first();
+        if (await genderTrigger.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await genderTrigger.click();
           await page.waitForTimeout(500);
           await page.getByRole('option', { name: new RegExp(player.gender, 'i') }).click();
+          await page.waitForTimeout(500);
+        }
+        
+        // Age Group - second combobox
+        const ageGroupTrigger = dialog.getByRole('combobox').nth(1);
+        if (await ageGroupTrigger.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await ageGroupTrigger.click();
+          await page.waitForTimeout(500);
+          // Select appropriate age group based on player DOB
+          const ageGroupOption = page.getByRole('option').first();
+          if (await ageGroupOption.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await ageGroupOption.click();
+          }
         }
         
         // NOTE: No team assignment dropdown in player creation dialog
         // Team is assigned later via player edit or team page
         
-        // Submit
-        const createButton = page.getByRole('button', { name: /create|add|save/i }).filter({ hasText: /create|add|save/i }).first();
+        // Submit - button says "Add Player" in the dialog
+        const createButton = dialog.getByRole('button', { name: /add player/i });
+        await expect(createButton).toBeVisible({ timeout: 3000 });
         await createButton.click();
         await page.waitForTimeout(2000);
         

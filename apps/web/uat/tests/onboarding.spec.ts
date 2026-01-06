@@ -1431,16 +1431,25 @@ test.describe.serial('Initial Onboarding Flow', () => {
           await page.waitForTimeout(500);
         }
         
-        // Age Group - second combobox
+        // Age Group - second combobox - select based on player.ageGroup
         const ageGroupTrigger = dialog.getByRole('combobox').nth(1);
         if (await ageGroupTrigger.isVisible({ timeout: 3000 }).catch(() => false)) {
           await ageGroupTrigger.click();
           await page.waitForTimeout(500);
-          // Select appropriate age group based on player DOB
-          const ageGroupOption = page.getByRole('option').first();
+          // Select the player's age group from the data (e.g., "U10")
+          const ageGroupOption = page.getByRole('option', { name: player.ageGroup, exact: true });
           if (await ageGroupOption.isVisible({ timeout: 3000 }).catch(() => false)) {
             await ageGroupOption.click();
+            console.log(`  Selected age group: ${player.ageGroup}`);
+          } else {
+            // Fallback - try partial match
+            const fallbackOption = page.getByRole('option', { name: new RegExp(player.ageGroup, 'i') });
+            if (await fallbackOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+              await fallbackOption.click();
+              console.log(`  Selected age group (fallback): ${player.ageGroup}`);
+            }
           }
+          await page.waitForTimeout(500);
         }
         
         // NOTE: No team assignment dropdown in player creation dialog

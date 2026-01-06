@@ -7,8 +7,6 @@
     "build": "next build",
     "start": "next start",
     "check-types": "tsc --noEmit",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build",
     "shadcn-update-all": "npx shadcn@latest add -o -a -y",
     "test": "playwright test --project=all-desktop",
     "test:setup": "playwright test --project=initial-setup",
@@ -85,15 +83,9 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
-    "@storybook/addon-essentials": "^8.4.0",
-    "@storybook/addon-interactions": "^8.4.0",
-    "@storybook/nextjs": "^8.4.0",
-    "@storybook/react": "^8.4.0",
-    "@storybook/test": "^8.4.0",
     "@types/node": "^20",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
-    "storybook": "^8.4.0",
     "typescript": "^5"
   }
 }

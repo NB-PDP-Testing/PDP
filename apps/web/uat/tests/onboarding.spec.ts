@@ -2,36 +2,36 @@ import { test, expect, TEST_USERS, TEST_ORG, TEST_TEAMS, TEST_INVITATIONS, TEST_
 import path from 'path';
 
 /**
- * First-Time Setup & Onboarding Tests
+ * First-Time Onboarding Tests
  * 
  * These tests run on a FRESH environment with NO existing users.
  * They test the complete onboarding flow from first signup to full org setup.
  * 
  * All test data is loaded from test-data.json via test-utils.ts
  * 
- * TEST-SETUP-001: First User Signup - Automatic Platform Staff
+ * TEST-ONBOARDING-001: First User Signup - Automatic Platform Staff
  *   - First user signs up
  *   - Automatically granted platform staff privileges (no bootstrap required)
  *   - Immediately prompted to create first organization via wizard
  * 
- * TEST-SETUP-002: Non-Platform Staff Cannot Create Organizations
- * TEST-SETUP-003: Owner First Login Experience
- * TEST-SETUP-004: Owner Creates First Team
- * TEST-SETUP-005: Owner Invites First Admin
- * TEST-SETUP-006: First Admin Accepts Invitation
- * TEST-SETUP-007: Owner Invites First Coach
- * TEST-SETUP-008: First Coach Accepts and Gets Team Assignment
- * TEST-SETUP-009: Admin Creates First Players
- * TEST-SETUP-010: Owner Invites First Parent
- * TEST-SETUP-011: Platform Admin Edits Organisation
+ * TEST-ONBOARDING-002: Non-Platform Staff Cannot Create Organizations
+ * TEST-ONBOARDING-003: Owner First Login Experience
+ * TEST-ONBOARDING-004: Owner Creates First Team
+ * TEST-ONBOARDING-005: Owner Invites First Admin
+ * TEST-ONBOARDING-006: First Admin Accepts Invitation
+ * TEST-ONBOARDING-007: Owner Invites First Coach
+ * TEST-ONBOARDING-008: First Coach Accepts and Gets Team Assignment
+ * TEST-ONBOARDING-009: Admin Creates First Players
+ * TEST-ONBOARDING-010: Owner Invites First Parent
+ * TEST-ONBOARDING-011: Platform Admin Edits Organisation
  */
 
 // Store auth states created during tests
-const SETUP_AUTH_STATES = {
-  platformStaff: path.join(__dirname, '../.auth/setup-platform-staff.json'),
-  owner: path.join(__dirname, '../.auth/setup-owner.json'),
-  admin: path.join(__dirname, '../.auth/setup-admin.json'),
-  coach: path.join(__dirname, '../.auth/setup-coach.json'),
+const ONBOARDING_AUTH_STATES = {
+  platformStaff: path.join(__dirname, '../.auth/onboarding-platform-staff.json'),
+  owner: path.join(__dirname, '../.auth/onboarding-owner.json'),
+  admin: path.join(__dirname, '../.auth/onboarding-admin.json'),
+  coach: path.join(__dirname, '../.auth/onboarding-coach.json'),
 };
 
 // Store created org ID
@@ -40,12 +40,12 @@ let createdOrgId = '';
 // Get the first team from config
 const TEST_TEAM = TEST_TEAMS[0];
 
-test.describe.serial('Initial Setup Flow', () => {
+test.describe.serial('Initial Onboarding Flow', () => {
   
   // ============================================================
-  // TEST-SETUP-001: First User Signup - Automatic Platform Staff
+  // TEST-ONBOARDING-001: First User Signup - Automatic Platform Staff
   // ============================================================
-  test.describe('TEST-SETUP-001: First User Signup - Automatic Platform Staff', () => {
+  test.describe('TEST-ONBOARDING-001: First User Signup - Automatic Platform Staff', () => {
     
     test('should signup as first user and be automatically granted platform staff', async ({ page, helper }) => {
       // First, check if user already exists by trying to login
@@ -120,8 +120,8 @@ test.describe.serial('Initial Setup Flow', () => {
       }
       
       // Save auth state
-      await page.context().storageState({ path: SETUP_AUTH_STATES.platformStaff });
-      await page.context().storageState({ path: SETUP_AUTH_STATES.owner });
+      await page.context().storageState({ path: ONBOARDING_AUTH_STATES.platformStaff });
+      await page.context().storageState({ path: ONBOARDING_AUTH_STATES.owner });
       
       // First user is AUTOMATICALLY made platform staff - no bootstrap script needed
       console.log('First user signup complete - automatically granted platform staff privileges');
@@ -275,9 +275,9 @@ test.describe.serial('Initial Setup Flow', () => {
   });
 
   // ============================================================
-  // TEST-SETUP-002: Non-Platform Staff Cannot Create Organizations  
+  // TEST-ONBOARDING-002: Non-Platform Staff Cannot Create Organizations  
   // ============================================================
-  test.describe('TEST-SETUP-002: Non-Platform Staff Cannot Create Organizations', () => {
+  test.describe('TEST-ONBOARDING-002: Non-Platform Staff Cannot Create Organizations', () => {
     
     test('should create a second user account', async ({ page, helper }) => {
       // First check if user already exists
@@ -363,9 +363,9 @@ test.describe.serial('Initial Setup Flow', () => {
   });
 
   // ============================================================
-  // TEST-SETUP-003: Owner First Login Experience
+  // TEST-ONBOARDING-003: Owner First Login Experience
   // ============================================================
-  test.describe('TEST-SETUP-003: Owner First Login Experience', () => {
+  test.describe('TEST-ONBOARDING-003: Owner First Login Experience', () => {
     
     test('should login as owner and see organization dashboard', async ({ page, helper }) => {
       // Login as owner
@@ -392,7 +392,7 @@ test.describe.serial('Initial Setup Flow', () => {
       expect(hasHeading || hasWelcome || hasContent || onOrgsPage).toBeTruthy();
       
       // Save auth state
-      await page.context().storageState({ path: SETUP_AUTH_STATES.owner });
+      await page.context().storageState({ path: ONBOARDING_AUTH_STATES.owner });
     });
 
     test('should click Admin button and view admin dashboard', async ({ page, helper }) => {
@@ -610,9 +610,9 @@ test.describe.serial('Initial Setup Flow', () => {
   });
 
   // ============================================================
-  // TEST-SETUP-004: Owner Creates First Team
+  // TEST-ONBOARDING-004: Owner Creates First Team
   // ============================================================
-  test.describe('TEST-SETUP-004: Owner Creates First Team', () => {
+  test.describe('TEST-ONBOARDING-004: Owner Creates First Team', () => {
     
     test('should navigate to team management', async ({ page, helper }) => {
       // Login as owner - use direct login instead of helper for better error handling
@@ -790,9 +790,9 @@ test.describe.serial('Initial Setup Flow', () => {
   });
 
   // ============================================================
-  // TEST-SETUP-005: Owner Invites First Admin
+  // TEST-ONBOARDING-005: Owner Invites First Admin
   // ============================================================
-  test.describe('TEST-SETUP-005: Owner Invites First Admin', () => {
+  test.describe('TEST-ONBOARDING-005: Owner Invites First Admin', () => {
     
     test('should have invite member functionality', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
@@ -871,9 +871,9 @@ test.describe.serial('Initial Setup Flow', () => {
   });
 
   // ============================================================
-  // TEST-SETUP-006: First Admin Accepts Invitation
+  // TEST-ONBOARDING-006: First Admin Accepts Invitation
   // ============================================================
-  test.describe('TEST-SETUP-006: First Admin Accepts Invitation', () => {
+  test.describe('TEST-ONBOARDING-006: First Admin Accepts Invitation', () => {
     
     test('should signup as admin user', async ({ page, helper }) => {
       // First, check if admin user already exists by trying to login
@@ -938,7 +938,7 @@ test.describe.serial('Initial Setup Flow', () => {
       }
       
       // Save admin auth state
-      await page.context().storageState({ path: SETUP_AUTH_STATES.admin });
+      await page.context().storageState({ path: ONBOARDING_AUTH_STATES.admin });
       
       expect(true).toBeTruthy();
     });
@@ -1035,14 +1035,14 @@ test.describe.serial('Initial Setup Flow', () => {
       }
       
       // Save updated admin auth state
-      await page.context().storageState({ path: SETUP_AUTH_STATES.admin });
+      await page.context().storageState({ path: ONBOARDING_AUTH_STATES.admin });
     });
   });
 
   // ============================================================
-  // TEST-SETUP-007: Owner Invites First Coach
+  // TEST-ONBOARDING-007: Owner Invites First Coach
   // ============================================================
-  test.describe('TEST-SETUP-007: Owner Invites First Coach', () => {
+  test.describe('TEST-ONBOARDING-007: Owner Invites First Coach', () => {
     
     test('should be able to invite with coach role', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
@@ -1081,9 +1081,9 @@ test.describe.serial('Initial Setup Flow', () => {
   });
 
   // ============================================================
-  // TEST-SETUP-008: First Coach Gets Team Assignment
+  // TEST-ONBOARDING-008: First Coach Gets Team Assignment
   // ============================================================
-  test.describe('TEST-SETUP-008: First Coach Accepts and Gets Team Assignment', () => {
+  test.describe('TEST-ONBOARDING-008: First Coach Accepts and Gets Team Assignment', () => {
     
     test('should signup as coach user', async ({ page, helper }) => {
       // First, check if coach user already exists by trying to login
@@ -1148,7 +1148,7 @@ test.describe.serial('Initial Setup Flow', () => {
       }
       
       // Save coach auth state
-      await page.context().storageState({ path: SETUP_AUTH_STATES.coach });
+      await page.context().storageState({ path: ONBOARDING_AUTH_STATES.coach });
       
       expect(true).toBeTruthy();
     });
@@ -1239,7 +1239,7 @@ test.describe.serial('Initial Setup Flow', () => {
       expect(hasCoachContent || hasTeamContent || true).toBeTruthy();
       
       // Save updated coach auth state
-      await page.context().storageState({ path: SETUP_AUTH_STATES.coach });
+      await page.context().storageState({ path: ONBOARDING_AUTH_STATES.coach });
     });
 
     test('should verify coach can see assigned team', async ({ page, helper }) => {
@@ -1296,9 +1296,9 @@ test.describe.serial('Initial Setup Flow', () => {
   });
 
   // ============================================================
-  // TEST-SETUP-009: Admin Creates First Players
+  // TEST-ONBOARDING-009: Admin Creates First Players
   // ============================================================
-  test.describe('TEST-SETUP-009: Admin Creates First Players', () => {
+  test.describe('TEST-ONBOARDING-009: Admin Creates First Players', () => {
     
     test('should have player management section', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
@@ -1724,9 +1724,9 @@ test.describe.serial('Initial Setup Flow', () => {
   });
 
   // ============================================================
-  // TEST-SETUP-010: Owner Invites First Parent (with Liam Murphy linked)
+  // TEST-ONBOARDING-010: Owner Invites First Parent (with Liam Murphy linked)
   // ============================================================
-  test.describe('TEST-SETUP-010: Owner Invites First Parent', () => {
+  test.describe('TEST-ONBOARDING-010: Owner Invites First Parent', () => {
     
     // Step 1: Owner invites parent with Parent role AND Liam Murphy as linked player
     test('should invite parent with Liam Murphy as linked player', async ({ page, helper }) => {
@@ -2000,9 +2000,9 @@ test.describe.serial('Initial Setup Flow', () => {
   });
 
   // ============================================================
-  // TEST-SETUP-011: Platform Admin Edits Organisation
+  // TEST-ONBOARDING-011: Platform Admin Edits Organisation
   // ============================================================
-  test.describe('TEST-SETUP-011: Platform Admin Edits Organisation', () => {
+  test.describe('TEST-ONBOARDING-011: Platform Admin Edits Organisation', () => {
     
     test('should navigate to organization settings', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);

@@ -1958,132 +1958,44 @@ test.describe.serial('Initial Setup Flow', () => {
       expect(hasLiamMurphy || true).toBeTruthy();
     });
 
-    // Step 5: Parent adds Noah O'Brien as additional linked child
-    test('should add Noah O\'Brien as additional linked child', async ({ page, helper }) => {
-      await helper.login(TEST_USERS.parent.email, TEST_USERS.parent.password);
-      await helper.waitForPageLoad();
-      await page.waitForTimeout(3000);
-      
-      // Navigate to parent dashboard or "My Children" section
-      const myChildrenLink = page.getByRole('link', { name: /my.*child|children|linked.*player/i }).first();
-      const parentDashboard = page.getByRole('link', { name: /parent.*dashboard|dashboard/i }).first();
-      
-      if (await myChildrenLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await myChildrenLink.click();
-        await helper.waitForPageLoad();
-        await page.waitForTimeout(2000);
-      } else if (await parentDashboard.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await parentDashboard.click();
-        await helper.waitForPageLoad();
-        await page.waitForTimeout(2000);
-      }
-      
-      // Look for "Add Child" or "Link Player" button
-      const addChildButton = page.getByRole('button', { name: /add.*child|link.*player|add.*player|request.*link/i }).first();
-      
-      if (await addChildButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await addChildButton.click();
-        await page.waitForTimeout(2000);
-        console.log('Clicked Add Child button');
-        
-        // Wait for dialog or search UI
-        const dialog = page.getByRole('dialog').first();
-        const hasDialog = await dialog.isVisible({ timeout: 5000 }).catch(() => false);
-        
-        if (hasDialog) {
-          // Search for Noah O'Brien
-          const searchField = dialog.getByRole('textbox', { name: /search|player|name/i }).first();
-          const playerCombobox = dialog.getByRole('combobox').first();
-          
-          if (await searchField.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await searchField.fill("Noah O'Brien");
-            await page.waitForTimeout(1000);
-            
-            // Click on Noah in search results
-            const noahResult = page.getByText(/Noah.*O'Brien|O'Brien.*Noah/i).first();
-            if (await noahResult.isVisible({ timeout: 3000 }).catch(() => false)) {
-              await noahResult.click();
-              console.log("Selected Noah O'Brien from search");
-            }
-          } else if (await playerCombobox.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await playerCombobox.click();
-            await page.waitForTimeout(500);
-            
-            const noahOption = page.getByRole('option', { name: /Noah.*O'Brien/i });
-            if (await noahOption.isVisible({ timeout: 3000 }).catch(() => false)) {
-              await noahOption.click();
-              console.log("Selected Noah O'Brien from dropdown");
-            }
-          }
-          
-          // Click save/add/request button
-          const saveButton = dialog.getByRole('button', { name: /add|save|link|request|confirm/i }).first();
-          if (await saveButton.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await saveButton.click();
-            await page.waitForTimeout(3000);
-            console.log("Clicked save to add Noah O'Brien");
-          }
-        }
-      } else {
-        console.log('Add Child button not found - checking if parent can search for players');
-        
-        // Alternative: Look for player search on the page
-        const playerSearch = page.getByRole('textbox', { name: /search.*player|find.*child/i }).first();
-        if (await playerSearch.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await playerSearch.fill("Noah O'Brien");
-          await page.waitForTimeout(1000);
-          
-          // Click on Noah in results
-          const noahResult = page.getByText(/Noah.*O'Brien/i).first();
-          if (await noahResult.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await noahResult.click();
-            console.log("Found Noah O'Brien in search");
-            
-            // Look for link/add button
-            const linkButton = page.getByRole('button', { name: /link|add|request/i }).first();
-            if (await linkButton.isVisible({ timeout: 3000 }).catch(() => false)) {
-              await linkButton.click();
-              console.log("Clicked link button for Noah O'Brien");
-            }
-          }
-        }
-      }
-      
-      expect(true).toBeTruthy();
-    });
+    // NOTE: Test for "Parent adds Noah O'Brien as additional child" has been REMOVED
+    // The "Add Child" functionality does not exist in the application.
+    // Parents cannot add children themselves - additional children must be linked by an administrator
+    // via the Invite Member dialog or Admin > Users page.
 
-    // Step 6: Verify both children are now linked to parent
-    test('should verify both Liam Murphy and Noah O\'Brien are linked', async ({ page, helper }) => {
+    // Step 5: Verify parent dashboard shows linked children and features
+    test('should verify parent dashboard shows linked children', async ({ page, helper }) => {
       await helper.login(TEST_USERS.parent.email, TEST_USERS.parent.password);
       await helper.waitForPageLoad();
       await page.waitForTimeout(3000);
       
-      // Navigate to parent dashboard or "My Children" section
-      const myChildrenLink = page.getByRole('link', { name: /my.*child|children|linked.*player/i }).first();
+      // Navigate to parent dashboard
       const parentDashboard = page.getByRole('link', { name: /parent.*dashboard|dashboard/i }).first();
       
-      if (await myChildrenLink.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await myChildrenLink.click();
-        await helper.waitForPageLoad();
-        await page.waitForTimeout(2000);
-      } else if (await parentDashboard.isVisible({ timeout: 5000 }).catch(() => false)) {
+      if (await parentDashboard.isVisible({ timeout: 5000 }).catch(() => false)) {
         await parentDashboard.click();
         await helper.waitForPageLoad();
         await page.waitForTimeout(2000);
       }
       
-      // Check for both children
+      // Check for Liam Murphy (linked during invitation)
       const hasLiamMurphy = await page.getByText(/Liam.*Murphy|Murphy.*Liam/i).isVisible({ timeout: 10000 }).catch(() => false);
-      const hasNoahOBrien = await page.getByText(/Noah.*O'Brien|O'Brien.*Noah/i).isVisible({ timeout: 5000 }).catch(() => false);
       
-      console.log('Parent linked children:', { 
+      // Check for parent dashboard features
+      const hasChildrenTracked = await page.getByText(/Children Tracked/i).isVisible({ timeout: 5000 }).catch(() => false);
+      const hasYourChildren = await page.getByText(/Your Children/i).isVisible({ timeout: 5000 }).catch(() => false);
+      const hasFamilyJourney = await page.getByText(/Family.*Journey/i).isVisible({ timeout: 5000 }).catch(() => false);
+      
+      console.log('Parent dashboard verification:', { 
         hasLiamMurphy, 
-        hasNoahOBrien, 
+        hasChildrenTracked,
+        hasYourChildren,
+        hasFamilyJourney,
         url: page.url() 
       });
       
-      // At least one child should be linked, ideally both
-      expect(hasLiamMurphy || hasNoahOBrien || true).toBeTruthy();
+      // Parent should see their linked child and dashboard features
+      expect(hasLiamMurphy || hasChildrenTracked || hasYourChildren || hasFamilyJourney).toBeTruthy();
     });
   });
 

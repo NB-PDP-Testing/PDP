@@ -1842,12 +1842,7 @@ export const syncFunctionalRolesFromInvitation = mutation({
         );
       }
 
-      if (!guardian) {
-        console.error(
-          "[syncFunctionalRolesFromInvitation] Failed to create guardian identity for:",
-          normalizedEmail
-        );
-      } else {
+      if (guardian) {
         // 3b. Link specific players from invitation metadata using new identity system
         if (suggestedPlayerLinks.length > 0) {
           console.log(
@@ -1874,7 +1869,10 @@ export const syncFunctionalRolesFromInvitation = mutation({
                 .query("orgPlayerEnrollments")
                 .withIndex("by_player_and_org", (q) =>
                   q
-                    .eq("playerIdentityId", playerIdentityId as Id<"playerIdentities">)
+                    .eq(
+                      "playerIdentityId",
+                      playerIdentityId as Id<"playerIdentities">
+                    )
                     .eq("organizationId", args.organizationId)
                 )
                 .first();
@@ -1895,7 +1893,10 @@ export const syncFunctionalRolesFromInvitation = mutation({
                 .withIndex("by_guardian_and_player", (q) =>
                   q
                     .eq("guardianIdentityId", guardian!._id)
-                    .eq("playerIdentityId", playerIdentityId as Id<"playerIdentities">)
+                    .eq(
+                      "playerIdentityId",
+                      playerIdentityId as Id<"playerIdentities">
+                    )
                 )
                 .first();
 
@@ -1949,7 +1950,8 @@ export const syncFunctionalRolesFromInvitation = mutation({
         // 3c. Also run auto-link to catch any additional matches by email
         try {
           const autoLinkResult = await ctx.runMutation(
-            internal.models.guardianPlayerLinks.autoLinkGuardianToPlayersInternal,
+            internal.models.guardianPlayerLinks
+              .autoLinkGuardianToPlayersInternal,
             {
               guardianEmail: normalizedEmail,
               organizationId: args.organizationId,
@@ -1970,6 +1972,11 @@ export const syncFunctionalRolesFromInvitation = mutation({
             error
           );
         }
+      } else {
+        console.error(
+          "[syncFunctionalRolesFromInvitation] Failed to create guardian identity for:",
+          normalizedEmail
+        );
       }
     }
 

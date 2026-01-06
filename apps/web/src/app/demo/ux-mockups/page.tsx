@@ -2,6 +2,7 @@
 
 import {
   AlertCircle,
+  ArrowUpDown,
   BarChart3,
   CalendarDays,
   Check,
@@ -9,20 +10,26 @@ import {
   ChevronRight,
   ClipboardList,
   Clock,
+  Columns,
   Edit,
   Eye,
   Filter,
   Home,
+  Keyboard,
   Menu,
   Mic,
+  Monitor,
   MoreHorizontal,
+  Mouse,
   Plus,
   RefreshCw,
   Search,
   Settings,
   Shield,
+  Smartphone,
   Star,
   Target,
+  Trash2,
   TrendingUp,
   User,
   Users,
@@ -154,6 +161,34 @@ export default function UXMockupsPage() {
 
         {/* Mockup 12: Team Management */}
         <TeamManagementMockup />
+
+        {/* Divider - Desktop Experience */}
+        <div className="border-t pt-8">
+          <div className="flex items-center gap-3">
+            <Monitor className="h-6 w-6 text-primary" />
+            <div>
+              <h2 className="font-bold text-2xl">Desktop Experience</h2>
+              <p className="text-muted-foreground">
+                See how these patterns adapt for keyboard and mouse users
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Mockup 13: Mobile vs Desktop Comparison */}
+        <MobileVsDesktopSection />
+
+        {/* Mockup 14: Desktop Data Table */}
+        <DesktopDataTableMockup />
+
+        {/* Mockup 15: Command Palette (Cmd+K) */}
+        <CommandPaletteMockup />
+
+        {/* Mockup 16: Information Density Options */}
+        <InformationDensityMockup />
+
+        {/* Mockup 17: Desktop Sidebar Navigation */}
+        <DesktopSidebarMockup />
       </div>
     </div>
   );
@@ -2402,6 +2437,890 @@ function TeamManagementMockup() {
       <PreferenceVoting
         mockupId="team-management"
         mockupName="Team Management Cards"
+      />
+    </section>
+  );
+}
+
+// ============================================
+// DESKTOP MOCKUP WRAPPER
+// ============================================
+
+function DesktopMockup({
+  title,
+  children,
+  highlighted = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  highlighted?: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <h3 className="font-medium">{title}</h3>
+        {highlighted && (
+          <Badge className="bg-green-500" variant="default">
+            Recommended
+          </Badge>
+        )}
+      </div>
+      <div
+        className={cn(
+          "overflow-hidden rounded-lg border-2 border-gray-300 bg-gray-100 shadow-xl",
+          highlighted && "ring-2 ring-green-500 ring-offset-2"
+        )}
+      >
+        {/* Browser chrome */}
+        <div className="flex items-center gap-2 border-b bg-gray-200 px-3 py-2">
+          <div className="flex gap-1.5">
+            <div className="h-3 w-3 rounded-full bg-red-400" />
+            <div className="h-3 w-3 rounded-full bg-yellow-400" />
+            <div className="h-3 w-3 rounded-full bg-green-400" />
+          </div>
+          <div className="flex-1 rounded bg-white px-3 py-1 text-center text-muted-foreground text-xs">
+            playerarc.com
+          </div>
+        </div>
+        {/* Content */}
+        <div className="h-[400px] overflow-hidden bg-background">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// MOCKUP 13: MOBILE VS DESKTOP COMPARISON
+// ============================================
+
+function MobileVsDesktopSection() {
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">
+          13. Responsive Design: Mobile vs Desktop
+        </h2>
+        <p className="mt-1 text-muted-foreground">
+          Same data, optimized for each platform. Cards on mobile, tables on
+          desktop.
+        </p>
+        <p className="mt-1 text-muted-foreground text-xs">
+          Source: Responsive Design Best Practices
+        </p>
+      </div>
+
+      <div className="flex items-center justify-center gap-2 rounded-lg bg-muted/50 p-3">
+        <Smartphone className="h-5 w-5 text-muted-foreground" />
+        <span className="text-sm">Cards + Swipe</span>
+        <span className="mx-2 text-muted-foreground">→</span>
+        <Monitor className="h-5 w-5 text-muted-foreground" />
+        <span className="text-sm">Tables + Hover</span>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-2">
+        <PhoneMockup title="Mobile: Card View">
+          <div className="flex h-full flex-col">
+            <div className="border-b px-4 py-3 font-semibold">Players</div>
+            <div className="flex-1 space-y-2 overflow-y-auto p-3">
+              {samplePlayers.slice(0, 3).map((p) => (
+                <div className="rounded-lg border bg-card p-3" key={p.id}>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback>{p.initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">{p.name}</div>
+                      <div className="flex gap-1.5">
+                        <Badge
+                          className="px-1.5 py-0 text-[10px]"
+                          variant="secondary"
+                        >
+                          {p.ageGroup}
+                        </Badge>
+                        <Badge
+                          className="px-1.5 py-0 text-[10px]"
+                          variant="outline"
+                        >
+                          {p.team}
+                        </Badge>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-3 text-center text-green-600 text-xs">
+              Touch-optimized cards with swipe actions
+            </div>
+          </div>
+        </PhoneMockup>
+
+        <DesktopMockup highlighted title="Desktop: Data Table">
+          <div className="flex h-full flex-col">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between border-b px-4 py-2">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-1.5">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground text-sm">
+                    Search players...
+                  </span>
+                  <kbd className="ml-8 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                    ⌘K
+                  </kbd>
+                </div>
+                <Button size="sm" variant="outline">
+                  <Filter className="mr-1.5 h-3.5 w-3.5" />
+                  Filter
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline">
+                  <Columns className="mr-1.5 h-3.5 w-3.5" />
+                  Columns
+                </Button>
+                <Button size="sm">
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  Add Player
+                </Button>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="flex-1 overflow-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted">
+                  <tr>
+                    <th className="w-8 p-2">
+                      <input className="h-4 w-4" type="checkbox" />
+                    </th>
+                    <th className="p-2 text-left font-medium">
+                      <div className="flex items-center gap-1">
+                        Name
+                        <ArrowUpDown className="h-3 w-3" />
+                      </div>
+                    </th>
+                    <th className="p-2 text-left font-medium">Age Group</th>
+                    <th className="p-2 text-left font-medium">Team</th>
+                    <th className="p-2 text-left font-medium">Last Review</th>
+                    <th className="p-2 text-left font-medium">Status</th>
+                    <th className="w-16 p-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {samplePlayers.map((p, i) => (
+                    <tr
+                      className={cn(
+                        "group border-b transition-colors hover:bg-accent",
+                        i === 1 && "bg-accent"
+                      )}
+                      key={p.id}
+                    >
+                      <td className="p-2">
+                        <input className="h-4 w-4" type="checkbox" />
+                      </td>
+                      <td className="p-2">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-7 w-7">
+                            <AvatarFallback className="text-xs">
+                              {p.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">{p.name}</span>
+                        </div>
+                      </td>
+                      <td className="p-2">{p.ageGroup}</td>
+                      <td className="p-2">{p.team}</td>
+                      <td className="p-2 text-muted-foreground">
+                        {p.lastReview}
+                      </td>
+                      <td className="p-2">
+                        <ReviewStatusBadge status={p.reviewStatus} />
+                      </td>
+                      <td className="p-2">
+                        <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          <Button
+                            className="h-7 w-7"
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            className="h-7 w-7"
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between border-t px-4 py-2 text-muted-foreground text-xs">
+              <span>4 of 24 players selected</span>
+              <div className="flex items-center gap-2">
+                <span>Rows per page: 10</span>
+                <span>1-10 of 24</span>
+              </div>
+            </div>
+          </div>
+        </DesktopMockup>
+      </div>
+
+      <PreferenceVoting
+        mockupId="mobile-vs-desktop"
+        mockupName="Responsive Data Display (Cards vs Tables)"
+      />
+    </section>
+  );
+}
+
+// ============================================
+// MOCKUP 14: DESKTOP DATA TABLE FEATURES
+// ============================================
+
+function DesktopDataTableMockup() {
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">14. Desktop Table Features</h2>
+        <p className="mt-1 text-muted-foreground">
+          Power user features: hover actions, column visibility, inline editing,
+          keyboard navigation.
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mouse className="h-5 w-5" />
+            Desktop Interaction Patterns
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-3">
+            {/* Hover Actions */}
+            <div className="space-y-3">
+              <h4 className="flex items-center gap-2 font-medium">
+                <Eye className="h-4 w-4 text-primary" />
+                Hover to Reveal Actions
+              </h4>
+              <div className="rounded-lg border">
+                {samplePlayers.slice(0, 2).map((p) => (
+                  <div
+                    className={cn(
+                      "flex items-center justify-between border-b p-3 transition-colors last:border-0",
+                      hoveredRow === p.id && "bg-accent"
+                    )}
+                    key={p.id}
+                    onMouseEnter={() => setHoveredRow(p.id)}
+                    onMouseLeave={() => setHoveredRow(null)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="text-xs">
+                          {p.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm">{p.name}</span>
+                    </div>
+                    <div
+                      className={cn(
+                        "flex gap-1 transition-opacity",
+                        hoveredRow === p.id ? "opacity-100" : "opacity-0"
+                      )}
+                    >
+                      <Button className="h-7 w-7" size="icon" variant="ghost">
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button className="h-7 w-7" size="icon" variant="ghost">
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button className="h-7 w-7" size="icon" variant="ghost">
+                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Hover over rows to see action buttons
+              </p>
+            </div>
+
+            {/* Column Visibility */}
+            <div className="space-y-3">
+              <h4 className="flex items-center gap-2 font-medium">
+                <Columns className="h-4 w-4 text-primary" />
+                Column Visibility
+              </h4>
+              <div className="relative">
+                <Button
+                  className="w-full justify-between"
+                  onClick={() => setShowColumnMenu(!showColumnMenu)}
+                  variant="outline"
+                >
+                  <span>Toggle Columns</span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+                {showColumnMenu && (
+                  <div className="absolute top-full z-10 mt-1 w-full rounded-lg border bg-background p-2 shadow-lg">
+                    {["Name", "Age Group", "Team", "Status", "Last Review"].map(
+                      (col, i) => (
+                        <label
+                          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+                          key={col}
+                        >
+                          <input
+                            className="h-4 w-4"
+                            defaultChecked={i < 4}
+                            type="checkbox"
+                          />
+                          {col}
+                        </label>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Show/hide columns based on preference
+              </p>
+            </div>
+
+            {/* Keyboard Navigation */}
+            <div className="space-y-3">
+              <h4 className="flex items-center gap-2 font-medium">
+                <Keyboard className="h-4 w-4 text-primary" />
+                Keyboard Shortcuts
+              </h4>
+              <div className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Quick search</span>
+                  <kbd className="rounded bg-muted px-2 py-1 font-mono text-xs">
+                    ⌘K
+                  </kbd>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>New player</span>
+                  <kbd className="rounded bg-muted px-2 py-1 font-mono text-xs">
+                    ⌘N
+                  </kbd>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Navigate rows</span>
+                  <kbd className="rounded bg-muted px-2 py-1 font-mono text-xs">
+                    ↑↓
+                  </kbd>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span>Select row</span>
+                  <kbd className="rounded bg-muted px-2 py-1 font-mono text-xs">
+                    Space
+                  </kbd>
+                </div>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Power users love keyboard shortcuts
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <PreferenceVoting
+        mockupId="desktop-table-features"
+        mockupName="Desktop Table Features"
+      />
+    </section>
+  );
+}
+
+// ============================================
+// MOCKUP 15: COMMAND PALETTE (CMD+K)
+// ============================================
+
+function CommandPaletteMockup() {
+  const [open, setOpen] = useState(false);
+
+  const commands = [
+    { icon: Users, label: "Go to Players", shortcut: "P" },
+    { icon: Plus, label: "Add New Player", shortcut: "N" },
+    { icon: BarChart3, label: "View Analytics", shortcut: "A" },
+    { icon: Settings, label: "Open Settings", shortcut: "," },
+    { icon: User, label: "Search: Cian Murphy", type: "player" },
+    { icon: Users, label: "Search: U12 Red", type: "team" },
+  ];
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">15. Command Palette (⌘K)</h2>
+        <p className="mt-1 text-muted-foreground">
+          Quick access to everything. Type to search, navigate with arrows,
+          press Enter to select.
+        </p>
+        <p className="mt-1 text-muted-foreground text-xs">
+          Source: Linear, Notion, VS Code
+        </p>
+      </div>
+
+      <div className="grid gap-8 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Try It</CardTitle>
+            <CardDescription>
+              Click the button to open the command palette
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              className="w-full justify-between"
+              onClick={() => setOpen(!open)}
+              variant="outline"
+            >
+              <span className="text-muted-foreground">Search commands...</span>
+              <kbd className="rounded bg-muted px-2 py-1 font-mono text-xs">
+                ⌘K
+              </kbd>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <div className="relative">
+          {/* Command Palette Demo */}
+          <div
+            className={cn(
+              "rounded-lg border bg-background shadow-2xl transition-all",
+              open ? "opacity-100" : "pointer-events-none opacity-50"
+            )}
+          >
+            {/* Search input */}
+            <div className="flex items-center gap-2 border-b px-4 py-3">
+              <Search className="h-5 w-5 text-muted-foreground" />
+              <input
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                placeholder="Type a command or search..."
+              />
+              <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                ESC
+              </kbd>
+            </div>
+
+            {/* Results */}
+            <div className="max-h-[300px] overflow-y-auto p-2">
+              <div className="mb-2 px-2 font-medium text-muted-foreground text-xs">
+                Quick Actions
+              </div>
+              {commands.slice(0, 4).map((cmd, i) => (
+                <button
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors",
+                    i === 0 ? "bg-accent" : "hover:bg-accent"
+                  )}
+                  key={cmd.label}
+                >
+                  <div className="flex items-center gap-3">
+                    <cmd.icon className="h-4 w-4 text-muted-foreground" />
+                    <span>{cmd.label}</span>
+                  </div>
+                  {cmd.shortcut && (
+                    <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                      ⌘{cmd.shortcut}
+                    </kbd>
+                  )}
+                </button>
+              ))}
+
+              <div className="mt-4 mb-2 px-2 font-medium text-muted-foreground text-xs">
+                Recent
+              </div>
+              {commands.slice(4).map((cmd) => (
+                <button
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
+                  key={cmd.label}
+                >
+                  <cmd.icon className="h-4 w-4 text-muted-foreground" />
+                  <span>{cmd.label}</span>
+                  {cmd.type && (
+                    <Badge
+                      className="ml-auto px-1.5 py-0 text-[10px]"
+                      variant="secondary"
+                    >
+                      {cmd.type}
+                    </Badge>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center gap-4 border-t px-4 py-2 text-muted-foreground text-xs">
+              <div className="flex items-center gap-1">
+                <kbd className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+                  ↑↓
+                </kbd>
+                <span>Navigate</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <kbd className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+                  ↵
+                </kbd>
+                <span>Select</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <kbd className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
+                  esc
+                </kbd>
+                <span>Close</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <PreferenceVoting
+        mockupId="command-palette"
+        mockupName="Command Palette (⌘K)"
+      />
+    </section>
+  );
+}
+
+// ============================================
+// MOCKUP 16: INFORMATION DENSITY OPTIONS
+// ============================================
+
+function InformationDensityMockup() {
+  const [density, setDensity] = useState<
+    "compact" | "comfortable" | "spacious"
+  >("comfortable");
+
+  const densityConfig = {
+    compact: { padding: "py-1.5 px-2", text: "text-xs", avatar: "h-6 w-6" },
+    comfortable: { padding: "py-2.5 px-3", text: "text-sm", avatar: "h-8 w-8" },
+    spacious: { padding: "py-4 px-4", text: "text-base", avatar: "h-10 w-10" },
+  };
+
+  const config = densityConfig[density];
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">16. Information Density</h2>
+        <p className="mt-1 text-muted-foreground">
+          Let users choose how much information they see at once. Power users
+          often prefer compact views.
+        </p>
+      </div>
+
+      <div className="flex items-center justify-center gap-2">
+        {(["compact", "comfortable", "spacious"] as const).map((d) => (
+          <Button
+            key={d}
+            onClick={() => setDensity(d)}
+            variant={density === d ? "default" : "outline"}
+          >
+            {d.charAt(0).toUpperCase() + d.slice(1)}
+          </Button>
+        ))}
+      </div>
+
+      <div className="grid gap-8 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Preview: {density}</CardTitle>
+            <CardDescription>
+              {density === "compact" &&
+                "Maximum data, minimum space - for power users"}
+              {density === "comfortable" &&
+                "Balanced view - good for most users"}
+              {density === "spacious" &&
+                "Easy scanning - good for occasional use"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border">
+              <div className="border-b bg-muted px-3 py-2 font-medium text-sm">
+                Players
+              </div>
+              {samplePlayers.map((p, i) => (
+                <div
+                  className={cn(
+                    "flex items-center justify-between border-b transition-all last:border-0",
+                    config.padding
+                  )}
+                  key={p.id}
+                >
+                  <div className="flex items-center gap-2">
+                    <Avatar className={config.avatar}>
+                      <AvatarFallback className={config.text}>
+                        {p.initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <span className={cn("font-medium", config.text)}>
+                        {p.name}
+                      </span>
+                      {density !== "compact" && (
+                        <div className="text-muted-foreground text-xs">
+                          {p.team}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {density === "compact" && (
+                      <span className="text-muted-foreground text-xs">
+                        {p.ageGroup}
+                      </span>
+                    )}
+                    <ReviewStatusBadge status={p.reviewStatus} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Why This Matters</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100">
+                <Users className="h-4 w-4 text-blue-600" />
+              </div>
+              <div>
+                <div className="font-medium text-sm">Power Users</div>
+                <div className="text-muted-foreground text-xs">
+                  Admins managing 100+ players prefer compact view to see more
+                  at once
+                </div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100">
+                <User className="h-4 w-4 text-green-600" />
+              </div>
+              <div>
+                <div className="font-medium text-sm">Casual Users</div>
+                <div className="text-muted-foreground text-xs">
+                  Parents checking once a week prefer spacious, easy-to-scan
+                  views
+                </div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-100">
+                <Settings className="h-4 w-4 text-purple-600" />
+              </div>
+              <div>
+                <div className="font-medium text-sm">User Choice</div>
+                <div className="text-muted-foreground text-xs">
+                  Saving preference per user respects individual workflows
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <MultiOptionVoting
+        comparisonId="information-density"
+        comparisonName="Information Density Preference"
+        options={[
+          {
+            id: "compact",
+            label: "Compact",
+            description: "See more rows, less detail per row",
+          },
+          {
+            id: "comfortable",
+            label: "Comfortable (Recommended)",
+            description: "Balanced - good for most users",
+          },
+          {
+            id: "spacious",
+            label: "Spacious",
+            description: "Larger text and spacing, easier to scan",
+          },
+        ]}
+      />
+    </section>
+  );
+}
+
+// ============================================
+// MOCKUP 17: DESKTOP SIDEBAR NAVIGATION
+// ============================================
+
+function DesktopSidebarMockup() {
+  const [collapsed, setCollapsed] = useState(false);
+  const [activeItem, setActiveItem] = useState("players");
+
+  const navGroups = [
+    {
+      label: "Main",
+      items: [
+        { id: "overview", icon: Home, label: "Overview" },
+        { id: "players", icon: Users, label: "Players", badge: "24" },
+        { id: "teams", icon: Shield, label: "Teams" },
+      ],
+    },
+    {
+      label: "Manage",
+      items: [
+        { id: "coaches", icon: User, label: "Coaches" },
+        { id: "analytics", icon: BarChart3, label: "Analytics" },
+        { id: "settings", icon: Settings, label: "Settings" },
+      ],
+    },
+  ];
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">
+          17. Desktop Sidebar Navigation
+        </h2>
+        <p className="mt-1 text-muted-foreground">
+          Collapsible sidebar for desktop. Expands on hover or click. Persists
+          user preference.
+        </p>
+      </div>
+
+      <div className="flex items-center justify-center gap-2">
+        <Button
+          onClick={() => setCollapsed(false)}
+          variant={collapsed ? "outline" : "default"}
+        >
+          Expanded
+        </Button>
+        <Button
+          onClick={() => setCollapsed(true)}
+          variant={collapsed ? "default" : "outline"}
+        >
+          Collapsed
+        </Button>
+      </div>
+
+      <DesktopMockup highlighted title="Desktop Sidebar">
+        <div className="flex h-full">
+          {/* Sidebar */}
+          <div
+            className={cn(
+              "flex h-full flex-col border-r bg-muted/30 transition-all duration-200",
+              collapsed ? "w-16" : "w-56"
+            )}
+          >
+            {/* Logo */}
+            <div className="flex h-14 items-center gap-3 border-b px-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
+                P
+              </div>
+              {!collapsed && <span className="font-semibold">PlayerARC</span>}
+            </div>
+
+            {/* Nav items */}
+            <div className="flex-1 overflow-y-auto p-2">
+              {navGroups.map((group) => (
+                <div className="mb-4" key={group.label}>
+                  {!collapsed && (
+                    <div className="mb-2 px-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                      {group.label}
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    {group.items.map((item) => (
+                      <button
+                        className={cn(
+                          "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                          activeItem === item.id
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-accent",
+                          collapsed && "justify-center"
+                        )}
+                        key={item.id}
+                        onClick={() => setActiveItem(item.id)}
+                        title={collapsed ? item.label : undefined}
+                      >
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        {!collapsed && (
+                          <>
+                            <span className="flex-1 text-left">
+                              {item.label}
+                            </span>
+                            {item.badge && (
+                              <Badge
+                                className="px-1.5 py-0 text-[10px]"
+                                variant={
+                                  activeItem === item.id
+                                    ? "secondary"
+                                    : "outline"
+                                }
+                              >
+                                {item.badge}
+                              </Badge>
+                            )}
+                          </>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Collapse toggle */}
+            <div className="border-t p-2">
+              <button
+                className="flex w-full items-center justify-center gap-2 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => setCollapsed(!collapsed)}
+              >
+                <ChevronRight
+                  className={cn(
+                    "h-4 w-4 transition-transform",
+                    !collapsed && "rotate-180"
+                  )}
+                />
+                {!collapsed && <span className="text-sm">Collapse</span>}
+              </button>
+            </div>
+          </div>
+
+          {/* Main content */}
+          <div className="flex-1 p-4">
+            <div className="mb-4">
+              <h1 className="font-semibold text-lg">
+                {navGroups
+                  .flatMap((g) => g.items)
+                  .find((i) => i.id === activeItem)?.label || "Overview"}
+              </h1>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-8 text-center text-muted-foreground">
+              Content area
+            </div>
+          </div>
+        </div>
+      </DesktopMockup>
+
+      <PreferenceVoting
+        mockupId="desktop-sidebar"
+        mockupName="Desktop Sidebar Navigation"
       />
     </section>
   );

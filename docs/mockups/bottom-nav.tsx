@@ -10,7 +10,7 @@
 
 "use client";
 
-import { Home, Users, Plus, BarChart3, User } from "lucide-react";
+import { BarChart3, Home, Plus, User, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -44,13 +44,21 @@ const coachNavItems: NavItem[] = [
  */
 const parentNavItems: NavItem[] = [
   { icon: Home, label: "Home", href: "/orgs/[orgId]/parents" },
-  { icon: BarChart3, label: "Progress", href: "/orgs/[orgId]/parents/progress" },
+  {
+    icon: BarChart3,
+    label: "Progress",
+    href: "/orgs/[orgId]/parents/progress",
+  },
   { icon: Plus, label: "Message", href: "#", isAction: true },
   { icon: Users, label: "Team", href: "/orgs/[orgId]/parents/team" },
   { icon: User, label: "Profile", href: "/profile" },
 ];
 
-export function BottomNav({ items = coachNavItems, orgId, onActionClick }: BottomNavProps) {
+export function BottomNav({
+  items = coachNavItems,
+  orgId,
+  onActionClick,
+}: BottomNavProps) {
   const pathname = usePathname();
 
   const resolveHref = (href: string) => {
@@ -64,11 +72,11 @@ export function BottomNav({ items = coachNavItems, orgId, onActionClick }: Botto
     <nav
       className={cn(
         // Fixed to bottom, full width
-        "fixed bottom-0 left-0 right-0 z-50",
+        "fixed right-0 bottom-0 left-0 z-50",
         // Background with blur effect (glassmorphism)
         "bg-background/95 backdrop-blur-lg",
         // Border and shadow
-        "border-t border-border shadow-lg",
+        "border-border border-t shadow-lg",
         // Safe area padding for notched phones
         "pb-safe"
       )}
@@ -76,20 +84,21 @@ export function BottomNav({ items = coachNavItems, orgId, onActionClick }: Botto
       <div className="flex items-center justify-around px-2 py-1">
         {items.map((item) => {
           const href = resolveHref(item.href);
-          const isActive = pathname === href || pathname?.startsWith(href + "/");
+          const isActive =
+            pathname === href || pathname?.startsWith(href + "/");
           const Icon = item.icon;
 
           // Special handling for center action button
           if (item.isAction) {
             return (
               <button
-                key={item.label}
-                onClick={onActionClick}
                 className={cn(
                   // Elevated FAB style
                   "flex flex-col items-center justify-center",
-                  "relative -mt-6", // Lift above nav bar
+                  "-mt-6 relative" // Lift above nav bar
                 )}
+                key={item.label}
+                onClick={onActionClick}
               >
                 <div
                   className={cn(
@@ -103,7 +112,7 @@ export function BottomNav({ items = coachNavItems, orgId, onActionClick }: Botto
                 >
                   <Icon className="h-6 w-6" />
                 </div>
-                <span className="mt-1 text-xs font-medium text-muted-foreground">
+                <span className="mt-1 font-medium text-muted-foreground text-xs">
                   {item.label}
                 </span>
               </button>
@@ -112,8 +121,6 @@ export function BottomNav({ items = coachNavItems, orgId, onActionClick }: Botto
 
           return (
             <Link
-              key={item.label}
-              href={href}
               className={cn(
                 // Touch target: 44px minimum (h-11 w-16)
                 "flex h-14 w-16 flex-col items-center justify-center",
@@ -124,16 +131,13 @@ export function BottomNav({ items = coachNavItems, orgId, onActionClick }: Botto
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
               )}
+              href={href}
+              key={item.label}
             >
-              <Icon
-                className={cn(
-                  "h-6 w-6",
-                  isActive && "text-primary"
-                )}
-              />
+              <Icon className={cn("h-6 w-6", isActive && "text-primary")} />
               <span
                 className={cn(
-                  "mt-1 text-xs font-medium",
+                  "mt-1 font-medium text-xs",
                   isActive ? "text-primary" : "text-muted-foreground"
                 )}
               >

@@ -1385,14 +1385,25 @@ test.describe.serial('Initial Onboarding Flow', () => {
         const player = playersToCreate[i];
         console.log(`Creating player ${i + 1}/${playersToCreate.length}: ${player.firstName} ${player.lastName}`);
         
-        // Click add player button
-        const addButton = page.getByRole('button', { name: /add player|create player|new player/i }).first();
-        await addButton.click();
-        await page.waitForTimeout(2000);
+        // Wait for any loading to complete
+        await page.waitForTimeout(1000);
         
-        // Wait for dialog
+        // Click add player button - wait for it to be visible and clickable
+        const addButton = page.getByRole('button', { name: /add player/i }).first();
+        await expect(addButton).toBeVisible({ timeout: 10000 });
+        await addButton.click();
+        
+        // Wait for dialog with retry logic
         const dialog = page.getByRole('dialog').first();
-        await expect(dialog).toBeVisible({ timeout: 10000 });
+        try {
+          await expect(dialog).toBeVisible({ timeout: 10000 });
+        } catch {
+          // Dialog may not have opened - retry clicking
+          console.log('  Dialog did not open, retrying...');
+          await page.waitForTimeout(1000);
+          await addButton.click();
+          await expect(dialog).toBeVisible({ timeout: 10000 });
+        }
         
         // Fill in player details - using placeholders as the form doesn't use labels
         const firstNameField = page.getByPlaceholder(/enter first name/i);
@@ -1415,7 +1426,8 @@ test.describe.serial('Initial Onboarding Flow', () => {
         if (await genderTrigger.isVisible({ timeout: 3000 }).catch(() => false)) {
           await genderTrigger.click();
           await page.waitForTimeout(500);
-          await page.getByRole('option', { name: new RegExp(player.gender, 'i') }).click();
+          // Use exact match to avoid "Male" matching "Female"
+          await page.getByRole('option', { name: player.gender, exact: true }).click();
           await page.waitForTimeout(500);
         }
         

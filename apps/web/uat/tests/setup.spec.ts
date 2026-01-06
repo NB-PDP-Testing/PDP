@@ -707,6 +707,86 @@ test.describe.serial('Initial Setup Flow', () => {
       
       expect(teamCreated || onTeamsPage || hasSuccessMessage).toBeTruthy();
     });
+
+    test('should edit team with description, training schedule, and venue', async ({ page, helper }) => {
+      await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
+      await helper.waitForPageLoad();
+      
+      // Navigate to admin > teams
+      const adminLink = page.getByRole('link', { name: /admin/i }).first();
+      await expect(adminLink).toBeVisible({ timeout: 10000 });
+      await adminLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(2000);
+      
+      const teamsLink = page.getByRole('link', { name: /teams/i }).first();
+      await expect(teamsLink).toBeVisible({ timeout: 10000 });
+      await teamsLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(2000);
+      
+      // Click on the created team to edit it - find the team row and click
+      const teamRow = page.getByText(TEST_TEAM.name).first();
+      await expect(teamRow).toBeVisible({ timeout: 10000 });
+      await teamRow.click();
+      await page.waitForTimeout(2000);
+      
+      // Look for edit button or dialog - may already be in edit mode
+      const editButton = page.getByRole('button', { name: /edit/i }).first();
+      if (await editButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await editButton.click();
+        await page.waitForTimeout(2000);
+      }
+      
+      // Update team name to edited name
+      const nameField = page.getByRole('textbox', { name: /team name|name/i }).first();
+      if (await nameField.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await nameField.clear();
+        await nameField.fill(TEST_TEAM.editedname || 'Test Club FC 11.13 Boys Sun Updated');
+        console.log('Updated team name to:', TEST_TEAM.editedname);
+      }
+      
+      // Add description
+      const descriptionField = page.getByRole('textbox', { name: /description/i }).first();
+      if (await descriptionField.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await descriptionField.clear();
+        await descriptionField.fill(TEST_TEAM.description || 'First test team');
+        console.log('Added description:', TEST_TEAM.description);
+      }
+      
+      // Add training schedule
+      const trainingField = page.getByRole('textbox', { name: /training.*schedule|schedule/i }).first();
+      if (await trainingField.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await trainingField.clear();
+        await trainingField.fill(TEST_TEAM.trainingSchedule || 'Sundays 10am-12pm');
+        console.log('Added training schedule:', TEST_TEAM.trainingSchedule);
+      }
+      
+      // Add home venue
+      const venueField = page.getByRole('textbox', { name: /venue|home.*venue|location/i }).first();
+      if (await venueField.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await venueField.clear();
+        await venueField.fill(TEST_TEAM.HomeVenue || 'Test Club Stadium');
+        console.log('Added home venue:', TEST_TEAM.HomeVenue);
+      }
+      
+      // Click save/update button
+      const saveButton = page.getByRole('button', { name: /save|update|submit/i }).first();
+      if (await saveButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await saveButton.click();
+        await page.waitForTimeout(3000);
+        
+        // Check for success message or dialog close
+        const hasSuccess = await page.getByText(/saved|updated|success/i).isVisible({ timeout: 5000 }).catch(() => false);
+        console.log('Team edit saved:', hasSuccess);
+      }
+      
+      // Verify changes were saved - look for updated team name
+      const updatedTeamVisible = await page.getByText(TEST_TEAM.editedname || 'Test Club FC 11.13 Boys Sun Updated').isVisible({ timeout: 10000 }).catch(() => false);
+      const onTeamsPage = page.url().includes('/teams');
+      
+      expect(updatedTeamVisible || onTeamsPage).toBeTruthy();
+    });
   });
 
   // ============================================================

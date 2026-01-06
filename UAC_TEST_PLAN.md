@@ -116,13 +116,13 @@ This document provides comprehensive step-by-step testing procedures for end-use
 
 ---
 
-## 4. First-Time Setup & Onboarding Testing
+## 4. First-Time Onboarding Testing
 
-This section covers the critical first-time setup scenarios when an organization is being established for the first time.
+This section covers the critical first-time onboarding scenarios when an organization is being established for the first time.
 
 ### 4.0 Platform Staff - Organization Creation
 
-#### TEST-SETUP-001: Platform Staff Creates First Organization
+#### TEST-ONBOARDING-001: Platform Staff Creates First Organization
 
 | Field               | Value                                                                                                                                                                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -132,7 +132,7 @@ This section covers the critical first-time setup scenarios when an organization
 | **Expected Result** | - Organization creation form accessible only to platform staff<br>- All required fields validated<br>- Organization created successfully<br>- Platform staff becomes organization owner<br>- Redirect to new organization dashboard         |
 | **Pass/Fail**       | ☐                                                                                                                                                                                                                                               |
 
-#### TEST-SETUP-002: Non-Platform Staff Cannot Create Organizations
+#### TEST-ONBOARDING-002: Non-Platform Staff Cannot Create Organizations
 
 | Field               | Value                                                                                                   |
 | ------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -142,9 +142,9 @@ This section covers the critical first-time setup scenarios when an organization
 | **Expected Result** | - Access denied or redirected<br>- Cannot see organization creation form<br>- Error message displayed   |
 | **Pass/Fail**       | ☐                                                                                                       |
 
-### 4.0.1 Owner First-Time Setup
+### 4.0.1 Owner First-Time Onboarding
 
-#### TEST-SETUP-003: Owner First Login Experience
+#### TEST-ONBOARDING-003: Owner First Login Experience
 
 | Field               | Value                                                                                                                                                                                                                                |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -154,7 +154,7 @@ This section covers the critical first-time setup scenarios when an organization
 | **Expected Result** | - Dashboard loads with empty state messaging<br>- Onboarding checklist or setup wizard displayed<br>- Clear guidance on next steps (create team, invite admin)<br>- Stats show 0 players, 0 teams, 0 coaches                       |
 | **Pass/Fail**       | ☐                                                                                                                                                                                                                                    |
 
-#### TEST-SETUP-004: Owner Creates First Team
+#### TEST-ONBOARDING-004: Owner Creates First Team
 
 | Field               | Value                                                                                                                                                                                                                  |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -164,7 +164,7 @@ This section covers the critical first-time setup scenarios when an organization
 | **Expected Result** | - Empty state shows "No teams yet" message<br>- Clear CTA to create first team<br>- Team creation form works<br>- Team created successfully<br>- Appears in team list<br>- Onboarding progress updates (if applicable) |
 | **Pass/Fail**       | ☐                                                                                                                                                                                                                      |
 
-#### TEST-SETUP-005: Owner Invites First Admin
+#### TEST-ONBOARDING-005: Owner Invites First Admin
 
 | Field               | Value                                                                                                                                                                                                                                             |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -174,7 +174,7 @@ This section covers the critical first-time setup scenarios when an organization
 | **Expected Result** | - Member list shows owner only initially<br>- Can send invitation email<br>- Pending invitation appears in list<br>- Invitation email sent to recipient<br>- Success toast displayed                                                               |
 | **Pass/Fail**       | ☐                                                                                                                                                                                                                                                 |
 
-#### TEST-SETUP-006: First Admin Accepts Invitation
+#### TEST-ONBOARDING-006: First Admin Accepts Invitation
 
 | Field               | Value                                                                                                                                                                                                                               |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -184,7 +184,7 @@ This section covers the critical first-time setup scenarios when an organization
 | **Expected Result** | - Invitation link works correctly<br>- Can register new account or sign in existing<br>- Invitation accepted successfully<br>- User added to organization with admin role<br>- Redirect to organization dashboard with admin access |
 | **Pass/Fail**       | ☐                                                                                                                                                                                                                                   |
 
-#### TEST-SETUP-007: Owner Invites First Coach
+#### TEST-ONBOARDING-007: Owner Invites First Coach
 
 | Field               | Value                                                                                                                                                                                                                                                |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -194,7 +194,7 @@ This section covers the critical first-time setup scenarios when an organization
 | **Expected Result** | - Can invite with coach role<br>- Team pre-assignment option available (or configured after acceptance)<br>- Invitation sent successfully<br>- Pending invitation visible                                                                            |
 | **Pass/Fail**       | ☐                                                                                                                                                                                                                                                    |
 
-#### TEST-SETUP-008: First Coach Accepts and Gets Team Assignment
+#### TEST-ONBOARDING-008: First Coach Accepts and Gets Team Assignment
 
 | Field               | Value                                                                                                                                                                                                                    |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -204,7 +204,7 @@ This section covers the critical first-time setup scenarios when an organization
 | **Expected Result** | - Coach added to organization<br>- Teams assigned by admin<br>- Coach dashboard accessible<br>- Assigned teams visible<br>- Empty player state shown (no players yet)                                                    |
 | **Pass/Fail**       | ☐                                                                                                                                                                                                                        |
 
-#### TEST-SETUP-009: Admin Creates First Players
+#### TEST-ONBOARDING-009: Admin Creates First Players
 
 | Field               | Value                                                                                                                                                                                                                                        |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -214,7 +214,7 @@ This section covers the critical first-time setup scenarios when an organization
 | **Expected Result** | - Empty state messaging shown initially<br>- Can add individual players<br>- Can bulk import via GAA wizard<br>- Player created and assigned to team<br>- Appears in player list<br>- Coach can now see player in their dashboard            |
 | **Pass/Fail**       | ☐                                                                                                                                                                                                                                            |
 
-#### TEST-SETUP-010: Owner Invites First Parent
+#### TEST-ONBOARDING-010: Owner Invites First Parent
 
 | Field               | Value                                                                                                                                                                                                                             |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -2180,7 +2180,7 @@ The Flow System passes UAT when:
 
 | Test Area | Total Tests | Passed | Failed | Blocked | Not Run |
 |-----------|-------------|--------|--------|---------|---------|
-| Setup & Onboarding | 10 | | | | |
+| Onboarding | 10 | | | | |
 | Authentication | 12 | | | | |
 | Admin Testing | 25 | | | | |
 | Coach Testing | 15 | | | | |
@@ -2204,4 +2204,3 @@ The Flow System passes UAT when:
 
 **UAT Plan Version:** 2.0 (Updated for Flow System)
 **Last Updated:** January 5, 2026
-

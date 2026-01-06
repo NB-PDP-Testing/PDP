@@ -1810,17 +1810,26 @@ export const syncFunctionalRolesFromInvitation = mutation({
         .first();
 
       if (!guardian) {
-        // Create guardian identity - get user info if available
-        const user = await ctx.db
-          .query("user")
-          .filter((q) => q.eq(q.field("email"), normalizedEmail))
-          .first();
+        // Create guardian identity - get user info if available via Better Auth
+        const userResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [
+              {
+                field: "email",
+                value: normalizedEmail,
+                operator: "eq",
+              },
+            ],
+          }
+        );
 
         const guardianId = await ctx.db.insert("guardianIdentities", {
-          firstName: user?.name?.split(" ")[0] || "",
-          lastName: user?.name?.split(" ").slice(1).join(" ") || "",
+          firstName: userResult?.name?.split(" ")[0] || "",
+          lastName: userResult?.name?.split(" ").slice(1).join(" ") || "",
           email: normalizedEmail,
-          phone: user?.phone || undefined,
+          phone: undefined, // Phone not reliably available from Better Auth user
           verificationStatus: "email_verified", // Email verified because they accepted invitation
           createdAt: Date.now(),
           updatedAt: Date.now(),

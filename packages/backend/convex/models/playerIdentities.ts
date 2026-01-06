@@ -459,6 +459,71 @@ export function determineAgeGroup(dateOfBirth: string): string {
   return "u6";
 }
 
+/**
+ * Check for potential duplicate players
+ * Returns players that match on name + DOB + gender (exact match)
+ * or name + DOB (partial match - might be same person, different gender)
+ */
+export const checkForDuplicatePlayer = query({
+  args: {
+    firstName: v.string(),
+    lastName: v.string(),
+    dateOfBirth: v.string(),
+    gender: v.optional(genderValidator),
+    organizationId: v.optional(v.string()),
+  },
+  returns: v.object({
+    exactMatch: v.union(playerIdentityValidator, v.null()),
+    partialMatches: v.array(playerIdentityValidator),
+    isDuplicate: v.boolean(),
+    message: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const normalizedFirstName = args.firstName.trim();
+    const normalizedLastName = args.lastName.trim();
+    
+    // Find all players with same name + DOB
+    const nameAndDobMatches = await ctx.db
+      .query("playerIdentities")
+      .withIndex("by_name_dob", (q) =>
+        q
+          .eq("firstName", normalizedFirstName)
+          .eq("lastName", normalizedLastName)
+          .eq("dateOfBirth", args.dateOfBirth)
+      )
+      .collect();
+    
+    // Check for exact match (name + DOB + gender)
+    let exactMatch = null;
+    if (args.gender) {
+      exactMatch = nameAndDobMatches.find(p => p.gender === args.gender) || null;
+    }
+    
+    // Partial matches are name + DOB but different gender
+    const partialMatches = exactMatch 
+      ? nameAndDobMatches.filter(p => p._id !== exactMatch!._id)
+      : nameAndDobMatches;
+    
+    // Determine if this is a duplicate situation
+    const isDuplicate = exactMatch !== null;
+    
+    // Generate helpful message
+    let message: string | undefined;
+    if (exactMatch) {
+      message = `A player named "${normalizedFirstName} ${normalizedLastName}" with the same date of birth and gender already exists. Would you like to continue anyway?`;
+    } else if (partialMatches.length > 0) {
+      message = `Found ${partialMatches.length} player(s) named "${normalizedFirstName} ${normalizedLastName}" with the same date of birth but different gender. This may be a different person.`;
+    }
+    
+    return {
+      exactMatch,
+      partialMatches,
+      isDuplicate,
+      message,
+    };
+  },
+});
+
 // Query to calculate age (for use in queries)
 export const getPlayerAge = query({
   args: { playerIdentityId: v.id("playerIdentities") },

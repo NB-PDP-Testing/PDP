@@ -1,7 +1,8 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { useConvex } from "convex/react";
 import {
   CheckSquare,
   ChevronDown,
@@ -113,6 +114,12 @@ export default function ManagePlayersPage() {
   const [formErrors, setFormErrors] = useState<
     Partial<Record<keyof AddPlayerFormData, string>>
   >({});
+  
+  // Duplicate warning state
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [duplicateMessage, setDuplicateMessage] = useState("");
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+  const convex = useConvex();
 
   // Mutations
   const createPlayerIdentity = useMutation(
@@ -196,15 +203,44 @@ export default function ManagePlayersPage() {
     return Object.keys(errors).length === 0;
   };
 
-  // Handle add player submit
-  const handleAddPlayer = async () => {
-    if (!validateForm()) {
-      return;
+  // Check for duplicates and show warning if found
+  const checkForDuplicates = async (): Promise<boolean> => {
+    if (!addPlayerForm.dateOfBirth) return true; // Can't check without DOB
+    
+    setIsCheckingDuplicate(true);
+    try {
+      const result = await convex.query(
+        api.models.playerIdentities.checkForDuplicatePlayer,
+        {
+          firstName: addPlayerForm.firstName.trim(),
+          lastName: addPlayerForm.lastName.trim(),
+          dateOfBirth: addPlayerForm.dateOfBirth,
+          gender: addPlayerForm.gender,
+        }
+      );
+      
+      if (result.isDuplicate && result.message) {
+        // Exact match found - show warning
+        setDuplicateMessage(result.message);
+        setShowDuplicateWarning(true);
+        return false; // Don't proceed - wait for user confirmation
+      }
+      
+      // No exact duplicate - proceed
+      return true;
+    } catch (error) {
+      console.error("Error checking for duplicates:", error);
+      // On error, allow creation to proceed
+      return true;
+    } finally {
+      setIsCheckingDuplicate(false);
     }
+  };
 
+  // Create the player (called after validation and optional duplicate confirmation)
+  const createPlayer = async () => {
     setIsAddingPlayer(true);
     try {
-      // Step 1: Create player identity
       const playerIdentityId = await createPlayerIdentity({
         firstName: addPlayerForm.firstName.trim(),
         lastName: addPlayerForm.lastName.trim(),
@@ -225,10 +261,11 @@ export default function ManagePlayersPage() {
         description: `${addPlayerForm.firstName} ${addPlayerForm.lastName} has been added to the organization.`,
       });
 
-      // Reset form and close dialog
+      // Reset form and close dialogs
       setAddPlayerForm(emptyFormData);
       setFormErrors({});
       setShowAddPlayerDialog(false);
+      setShowDuplicateWarning(false);
 
       // Navigate to the new player
       router.push(`/orgs/${orgId}/players/${playerIdentityId}`);
@@ -243,6 +280,26 @@ export default function ManagePlayersPage() {
     } finally {
       setIsAddingPlayer(false);
     }
+  };
+
+  // Handle add player submit - first check for duplicates
+  const handleAddPlayer = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    // Check for duplicates first
+    const canProceed = await checkForDuplicates();
+    if (canProceed) {
+      await createPlayer();
+    }
+    // If not, the duplicate warning dialog will be shown
+  };
+
+  // Handle duplicate warning confirmation - proceed anyway
+  const handleDuplicateConfirm = async () => {
+    setShowDuplicateWarning(false);
+    await createPlayer();
   };
 
   // Get unique values for filters
@@ -960,6 +1017,53 @@ export default function ManagePlayersPage() {
                   <UserPlus className="mr-2 h-4 w-4" />
                   Add Player
                 </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate Warning Dialog */}
+      <Dialog
+        onOpenChange={setShowDuplicateWarning}
+        open={showDuplicateWarning}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              ⚠️ Potential Duplicate
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              {duplicateMessage}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-muted-foreground text-sm">
+              The system allows players with the same name if they have different dates of birth or gender.
+              An exact match (same name, date of birth, AND gender) has been detected.
+            </p>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button
+              onClick={() => setShowDuplicateWarning(false)}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isAddingPlayer}
+              onClick={handleDuplicateConfirm}
+              variant="default"
+            >
+              {isAddingPlayer ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Anyway"
               )}
             </Button>
           </DialogFooter>

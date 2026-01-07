@@ -9,6 +9,12 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_touch_targets_44px: Use 44px minimum touch targets
  * - ux_admin_nav_style: Which admin navigation style to use
  * - ux_skeleton_loaders: Use skeleton loading states
+ * - ux_responsive_forms: Use mobile-optimized form components (Phase 3)
+ *
+ * ACCESS CONTROL:
+ * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
+ * - When enabled, features are visible to ALL users (not restricted to staff)
+ * - PostHog dashboard access is required to toggle feature flags
  */
 
 export type AdminNavStyle = "current" | "sidebar" | "bottomsheet" | "tabs";
@@ -24,12 +30,18 @@ export interface UXFeatureFlags {
   adminNavStyle: AdminNavStyle;
   /** Use skeleton loading states */
   useSkeletonLoaders: boolean;
+  /** Use responsive form components with mobile optimizations (Phase 3) */
+  useResponsiveForms: boolean;
 }
 
 /**
  * Hook to access UX feature flags
  * All flags default to false/current to maintain existing behavior
  * until explicitly enabled in PostHog
+ *
+ * ACCESS CONTROL:
+ * - Only Platform Staff (with PostHog access) can enable/disable features
+ * - When enabled, features apply to ALL users
  */
 export function useUXFeatureFlags(): UXFeatureFlags {
   const { isFeatureEnabled } = useAnalytics();
@@ -40,6 +52,7 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     useTouchTargets44: isFeatureEnabled("ux_touch_targets_44px"),
     adminNavStyle: getAdminNavStyle(isFeatureEnabled),
     useSkeletonLoaders: isFeatureEnabled("ux_skeleton_loaders"),
+    useResponsiveForms: isFeatureEnabled("ux_responsive_forms"),
   };
 }
 
@@ -69,4 +82,6 @@ export const UXAnalyticsEvents = {
   BOTTOM_NAV_USED: "ux_bottom_nav_used",
   SWIPE_ACTION_USED: "ux_swipe_action_used",
   PULL_TO_REFRESH_USED: "ux_pull_to_refresh_used",
+  FORM_SHORTCUT_USED: "ux_form_shortcut_used",
+  STICKY_SUBMIT_USED: "ux_sticky_submit_used",
 } as const;

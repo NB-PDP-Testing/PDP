@@ -1,30 +1,20 @@
 "use client";
 
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
-import {
-  BarChart3,
-  Clipboard,
-  GraduationCap,
-  Home,
-  Key,
-  LineChart,
-  Megaphone,
-  Settings,
-  Shield,
-  ShieldAlert,
-  Upload,
-  UserCheck,
-  Users,
-  UsersRound,
-  Wrench,
-} from "lucide-react";
+import { ClipboardList, Home, Menu, Settings, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  AdminMobileNav,
+  AdminSidebar,
+} from "@/components/layout/admin-sidebar";
+import { BottomNav, BottomNavSpacer, type BottomNavItem } from "@/components/layout/bottom-nav";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
+import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
 import type { OrgMemberRole } from "@/lib/types";
 
@@ -34,7 +24,6 @@ export default function OrgAdminLayout({
   children: React.ReactNode;
 }) {
   const params = useParams();
-  const pathname = usePathname();
   const router = useRouter();
   const orgId = params.orgId as string;
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
@@ -80,88 +69,17 @@ export default function OrgAdminLayout({
 
   // Apply organization theme
   const { theme } = useOrgTheme();
+  
+  // Get UX feature flags for conditional rendering
+  const { adminNavStyle, useBottomNav } = useUXFeatureFlags();
+  const useNewNav = adminNavStyle === "sidebar";
 
-  const navItems = [
-    {
-      href: `/orgs/${orgId}/admin`,
-      label: "Overview",
-      icon: Home,
-    },
-    {
-      href: `/orgs/${orgId}/admin/players` as Route,
-      label: "Players",
-      icon: Clipboard,
-    },
-    {
-      href: `/orgs/${orgId}/admin/teams`,
-      label: "Teams",
-      icon: Shield,
-    },
-    {
-      href: `/orgs/${orgId}/admin/overrides` as Route,
-      label: "Overrides",
-      icon: ShieldAlert,
-    },
-    {
-      href: `/orgs/${orgId}/admin/coaches` as Route,
-      label: "Coaches",
-      icon: GraduationCap,
-    },
-    {
-      href: `/orgs/${orgId}/admin/guardians` as Route,
-      label: "Guardians",
-      icon: UsersRound,
-    },
-    {
-      href: `/orgs/${orgId}/admin/users`,
-      label: "Manage Users",
-      icon: Users,
-    },
-    {
-      href: `/orgs/${orgId}/admin/users/approvals`,
-      label: "Approvals",
-      icon: UserCheck,
-    },
-    {
-      href: `/orgs/${orgId}/admin/player-import` as Route,
-      label: "Import Players",
-      icon: Upload,
-    },
-    {
-      href: `/orgs/${orgId}/admin/gaa-import` as Route,
-      label: "GAA Players",
-      icon: Upload,
-    },
-    {
-      href: `/orgs/${orgId}/admin/benchmarks` as Route,
-      label: "Benchmarks",
-      icon: BarChart3,
-    },
-    {
-      href: `/orgs/${orgId}/admin/analytics` as Route,
-      label: "Analytics",
-      icon: LineChart,
-    },
-    {
-      href: `/orgs/${orgId}/admin/announcements` as Route,
-      label: "Announcements",
-      icon: Megaphone,
-    },
-    {
-      href: `/orgs/${orgId}/admin/player-access` as Route,
-      label: "Player Access",
-      icon: Key,
-    },
-    {
-      href: `/orgs/${orgId}/admin/settings` as Route,
-      label: "Settings",
-      icon: Settings,
-    },
-    {
-      href: `/orgs/${orgId}/admin/dev-tools` as Route,
-      label: "Dev Tools",
-      icon: Wrench,
-    },
+  // Admin bottom nav items (only shown when useBottomNav flag is enabled)
+  const adminBottomNavItems: BottomNavItem[] = [
+    { id: "overview", icon: Home, label: "Overview", href: `/orgs/${orgId}/admin` },
+    { id: "players", icon: Users, label: "Players", href: `/orgs/${orgId}/admin/players` },
+    { id: "teams", icon: ClipboardList, label: "Teams", href: `/orgs/${orgId}/admin/teams` },
+    { id: "settings", icon: Settings, label: "Settings", href: `/orgs/${orgId}/admin/settings` },
   ];
 
   // Show loading while checking access
@@ -180,7 +98,7 @@ export default function OrgAdminLayout({
         <div className="space-y-4 text-center">
           <h1 className="font-bold text-2xl">Access Denied</h1>
           <p className="text-muted-foreground">
-            You don't have permission to access the admin panel.
+            You don&apos;t have permission to access the admin panel.
           </p>
           <Loader />
         </div>
@@ -191,57 +109,41 @@ export default function OrgAdminLayout({
   return (
     <>
       <Authenticated>
+        {/* Bottom navigation for mobile - OUTSIDE main flex container for proper fixed positioning */}
+        {useBottomNav && <BottomNav items={adminBottomNavItems} />}
+        
         <div className="flex min-h-screen flex-col">
           {/* Header */}
           <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-            <div className="flex h-16 items-center justify-between px-4 sm:px-6">
-              <div className="flex items-center gap-6">
+            <div className="flex h-14 items-center justify-between px-4">
+              <div className="flex items-center gap-3">
+                {/* Mobile menu trigger */}
+                <AdminMobileNav
+                  orgId={orgId}
+                  primaryColor={theme.primary}
+                  trigger={
+                    <Button variant="ghost" size="icon" className="lg:hidden">
+                      <Menu className="h-5 w-5" />
+                      <span className="sr-only">Open menu</span>
+                    </Button>
+                  }
+                />
+                
+                {/* Logo/Title */}
                 <Link
                   className="flex items-center gap-2"
-                  href={`/orgs/${orgId}/admin`}
+                  href={`/orgs/${orgId}/admin` as Route}
                 >
                   <Settings
-                    className="h-6 w-6"
+                    className="h-5 w-5"
                     style={{ color: theme.primary }}
                   />
-                  <span className="hidden font-semibold text-lg sm:inline">
-                    Admin Panel
-                  </span>
+                  <span className="font-semibold">Admin Panel</span>
                 </Link>
-                <nav className="hidden items-center gap-1 md:flex">
-                  {navItems.map((item) => {
-                    const isActive =
-                      pathname === item.href ||
-                      (item.href !== `/orgs/${orgId}/admin` &&
-                        pathname.startsWith(item.href));
-                    return (
-                      <Link href={item.href as Route} key={item.href}>
-                        <Button
-                          className="gap-2"
-                          size="sm"
-                          style={
-                            isActive
-                              ? {
-                                  backgroundColor:
-                                    "rgb(var(--org-primary-rgb) / 0.1)",
-                                  color: theme.primary,
-                                  borderColor: theme.primary,
-                                  borderWidth: "1px",
-                                }
-                              : undefined
-                          }
-                          variant={isActive ? "secondary" : "ghost"}
-                        >
-                          <item.icon className="h-4 w-4" />
-                          {item.label}
-                        </Button>
-                      </Link>
-                    );
-                  })}
-                </nav>
               </div>
-              <div className="flex items-center gap-4">
-                <Link href="/orgs">
+              
+              <div className="flex items-center gap-2">
+                <Link href={`/orgs/${orgId}` as Route}>
                   <Button size="sm" variant="outline">
                     Back to App
                   </Button>
@@ -250,32 +152,30 @@ export default function OrgAdminLayout({
             </div>
           </header>
 
-          {/* Mobile Navigation */}
-          <nav className="overflow-x-auto border-b bg-background px-4 py-2 md:hidden">
-            <div className="flex gap-1">
-              {navItems.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== `/orgs/${orgId}/admin` &&
-                    pathname.startsWith(item.href));
-                return (
-                  <Link href={item.href as Route} key={item.href}>
-                    <Button
-                      className="gap-2 whitespace-nowrap"
-                      size="sm"
-                      variant={isActive ? "secondary" : "ghost"}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
-                    </Button>
-                  </Link>
-                );
-              })}
-            </div>
-          </nav>
+          {/* Main layout with sidebar - conditionally shown based on feature flag */}
+          {useNewNav ? (
+            <>
+              <div className="flex flex-1">
+                {/* Desktop Sidebar */}
+                <AdminSidebar orgId={orgId} primaryColor={theme.primary} />
 
-          {/* Main Content */}
-          <main className="flex-1 p-4 sm:p-6">{children}</main>
+                {/* Main Content */}
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+                  {children}
+                </main>
+              </div>
+
+              <BottomNavSpacer className="lg:hidden" />
+            </>
+          ) : (
+            /* Current/Legacy navigation - horizontal scrolling tabs */
+            <>
+              <LegacyNavigation orgId={orgId} theme={theme}>
+                {children}
+              </LegacyNavigation>
+              {useBottomNav && <BottomNavSpacer />}
+            </>
+          )}
         </div>
       </Authenticated>
       <Unauthenticated>
@@ -296,6 +196,80 @@ export default function OrgAdminLayout({
           <Loader />
         </div>
       </AuthLoading>
+    </>
+  );
+}
+
+/**
+ * Legacy navigation component - horizontal scrolling tabs
+ * Shown when ux_admin_nav_sidebar feature flag is disabled
+ */
+function LegacyNavigation({
+  orgId,
+  theme,
+  children,
+}: {
+  orgId: string;
+  theme: { primary: string };
+  children: React.ReactNode;
+}) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { usePathname } = require("next/navigation");
+  const pathname = usePathname();
+
+  const navItems = [
+    { href: `/orgs/${orgId}/admin`, label: "Overview" },
+    { href: `/orgs/${orgId}/admin/players`, label: "Players" },
+    { href: `/orgs/${orgId}/admin/teams`, label: "Teams" },
+    { href: `/orgs/${orgId}/admin/overrides`, label: "Overrides" },
+    { href: `/orgs/${orgId}/admin/coaches`, label: "Coaches" },
+    { href: `/orgs/${orgId}/admin/guardians`, label: "Guardians" },
+    { href: `/orgs/${orgId}/admin/users`, label: "Users" },
+    { href: `/orgs/${orgId}/admin/users/approvals`, label: "Approvals" },
+    { href: `/orgs/${orgId}/admin/player-import`, label: "Import" },
+    { href: `/orgs/${orgId}/admin/gaa-import`, label: "GAA" },
+    { href: `/orgs/${orgId}/admin/benchmarks`, label: "Benchmarks" },
+    { href: `/orgs/${orgId}/admin/analytics`, label: "Analytics" },
+    { href: `/orgs/${orgId}/admin/announcements`, label: "Announcements" },
+    { href: `/orgs/${orgId}/admin/player-access`, label: "Player Access" },
+    { href: `/orgs/${orgId}/admin/settings`, label: "Settings" },
+    { href: `/orgs/${orgId}/admin/dev-tools`, label: "Dev Tools" },
+  ];
+
+  const isActive = (href: string) => {
+    if (href === `/orgs/${orgId}/admin`) return pathname === href;
+    return pathname.startsWith(href);
+  };
+
+  return (
+    <>
+      {/* Horizontal scrolling navigation */}
+      <nav className="overflow-x-auto border-b bg-background px-4 py-2">
+        <div className="flex gap-1">
+          {navItems.map((item) => (
+            <Link href={item.href as any} key={item.href}>
+              <Button
+                className="whitespace-nowrap"
+                size="sm"
+                variant={isActive(item.href) ? "secondary" : "ghost"}
+                style={
+                  isActive(item.href)
+                    ? {
+                        backgroundColor: `${theme.primary}15`,
+                        color: theme.primary,
+                      }
+                    : undefined
+                }
+              >
+                {item.label}
+              </Button>
+            </Link>
+          ))}
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="flex-1 p-4 sm:p-6">{children}</main>
     </>
   );
 }

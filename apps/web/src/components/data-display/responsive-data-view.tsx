@@ -228,77 +228,120 @@ export function ResponsiveDataView<T>({
             );
           }
 
-          // Default mobile card
+          // Default mobile card - improved design with avatar and better layout
           const mobileColumns = columns.filter(
             (col) => col.mobileVisible !== false
           ).slice(0, 4);
+          
+          // First column is typically the name/primary identifier
+          const primaryColumn = mobileColumns[0];
+          const secondaryColumns = mobileColumns.slice(1);
 
           return (
             <div
               key={key}
               className={cn(
-                "rounded-lg border bg-card p-4 transition-colors",
-                onRowClick && "cursor-pointer hover:bg-accent/50",
-                isSelected && "ring-2 ring-primary"
+                "rounded-xl border bg-card p-4 transition-all duration-200 active:scale-[0.98]",
+                onRowClick && "cursor-pointer hover:bg-accent/50 hover:shadow-md",
+                isSelected && "ring-2 ring-primary bg-primary/5"
               )}
               onClick={() => onRowClick?.(item)}
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 space-y-2">
-                  {selectable && (
-                    <div className="mb-2" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => handleSelect(key)}
-                      />
+              <div className="flex items-start gap-3">
+                {/* Selection checkbox */}
+                {selectable && (
+                  <div 
+                    className="pt-1 flex-shrink-0" 
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => handleSelect(key)}
+                      className="h-5 w-5"
+                    />
+                  </div>
+                )}
+                
+                {/* Avatar - generated from first column content */}
+                <div className="flex-shrink-0">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
+                    {/* Extract initials from primary column if it's text */}
+                    {(() => {
+                      const content = primaryColumn?.accessor(item);
+                      if (typeof content === 'string') {
+                        return content
+                          .split(' ')
+                          .map(word => word[0])
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase();
+                      }
+                      // If it's JSX, try to render just initials
+                      return '??';
+                    })()}
+                  </div>
+                </div>
+                
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  {/* Primary content (name) */}
+                  {primaryColumn && (
+                    <div className="font-semibold text-base truncate">
+                      {primaryColumn.accessor(item)}
                     </div>
                   )}
-                  {mobileColumns.map((col, idx) => (
-                    <div key={col.key}>
-                      {idx === 0 ? (
-                        <div className="font-medium">{col.accessor(item)}</div>
-                      ) : (
-                        <div className="text-sm text-muted-foreground">
-                          <span className="font-medium">{col.header}:</span>{" "}
-                          {col.accessor(item)}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {actions && actions.length > 0 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(e) => e.stopPropagation()}
+                  
+                  {/* Secondary metadata */}
+                  <div className="mt-1 space-y-0.5">
+                    {secondaryColumns.map((col) => (
+                      <div 
+                        key={col.key} 
+                        className="text-sm text-muted-foreground flex items-center gap-1"
                       >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {actions.map((action) => (
-                        <DropdownMenuItem
-                          key={action.label}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            action.onClick(item);
-                          }}
-                          disabled={action.disabled?.(item)}
-                          className={cn(
-                            action.destructive && "text-destructive"
-                          )}
+                        <span className="text-xs font-medium text-muted-foreground/70">
+                          {col.header}:
+                        </span>
+                        <span className="truncate">
+                          {col.accessor(item)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Actions menu */}
+                {actions && actions.length > 0 && (
+                  <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-10 w-10 rounded-full hover:bg-accent"
                         >
-                          {action.icon && (
-                            <span className="mr-2">{action.icon}</span>
-                          )}
-                          {action.label}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                          <MoreHorizontal className="h-5 w-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        {actions.map((action) => (
+                          <DropdownMenuItem
+                            key={action.label}
+                            onClick={() => action.onClick(item)}
+                            disabled={action.disabled?.(item)}
+                            className={cn(
+                              "py-3",
+                              action.destructive && "text-destructive focus:text-destructive"
+                            )}
+                          >
+                            {action.icon && (
+                              <span className="mr-3">{action.icon}</span>
+                            )}
+                            {action.label}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 )}
               </div>
             </div>

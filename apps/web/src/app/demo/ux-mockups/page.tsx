@@ -2,8 +2,11 @@
 
 import {
   AlertCircle,
+  ArrowLeftRight,
   ArrowUpDown,
   BarChart3,
+  Bell,
+  Building2,
   CalendarDays,
   Check,
   ChevronDown,
@@ -16,6 +19,7 @@ import {
   Filter,
   Home,
   Keyboard,
+  LogOut,
   Menu,
   Mic,
   Monitor,
@@ -28,10 +32,12 @@ import {
   Shield,
   Smartphone,
   Star,
+  SwitchCamera,
   Target,
   Trash2,
   TrendingUp,
   User,
+  UserCircle,
   Users,
   X,
 } from "lucide-react";
@@ -189,6 +195,36 @@ export default function UXMockupsPage() {
 
         {/* Mockup 17: Desktop Sidebar Navigation */}
         <DesktopSidebarMockup />
+
+        {/* Divider - Organization & Role Switching */}
+        <div className="border-t pt-8">
+          <div className="flex items-center gap-3">
+            <Building2 className="h-6 w-6 text-primary" />
+            <div>
+              <h2 className="font-bold text-2xl">
+                Organization & Role Switching
+              </h2>
+              <p className="text-muted-foreground">
+                Multi-org, multi-role UX patterns for complex user contexts
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Mockup 18: Current Org/Role Switcher Analysis */}
+        <CurrentSwitcherAnalysisMockup />
+
+        {/* Mockup 19: Org/Role Switcher Options */}
+        <OrgRoleSwitcherOptionsMockup />
+
+        {/* Mockup 20: User Account Menu Options */}
+        <UserAccountMenuMockup />
+
+        {/* Mockup 21: Combined Header Patterns */}
+        <CombinedHeaderPatternsMockup />
+
+        {/* Mockup 22: Mobile Org/Role Switching */}
+        <MobileOrgRoleSwitchingMockup />
       </div>
     </div>
   );
@@ -3321,6 +3357,1147 @@ function DesktopSidebarMockup() {
       <PreferenceVoting
         mockupId="desktop-sidebar"
         mockupName="Desktop Sidebar Navigation"
+      />
+    </section>
+  );
+}
+
+// ============================================
+// MOCKUP 18: CURRENT SWITCHER ANALYSIS
+// ============================================
+
+const sampleOrgs = [
+  {
+    id: "1",
+    name: "Grange GAA",
+    logo: null,
+    roles: ["admin", "coach"] as const,
+    activeRole: "admin" as const,
+  },
+  {
+    id: "2",
+    name: "St. Mary's FC",
+    logo: null,
+    roles: ["coach"] as const,
+    activeRole: "coach" as const,
+  },
+  {
+    id: "3",
+    name: "Dublin Athletics",
+    logo: null,
+    roles: ["parent"] as const,
+    activeRole: "parent" as const,
+  },
+];
+
+function CurrentSwitcherAnalysisMockup() {
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">
+          18. Current Org/Role Switcher
+        </h2>
+        <p className="mt-1 text-muted-foreground">
+          Analysis of the existing implementation. Users can belong to multiple
+          orgs with multiple roles per org.
+        </p>
+        <p className="mt-1 text-muted-foreground text-xs">
+          Source: Current PlayerARC implementation
+        </p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Current User Context</CardTitle>
+          <CardDescription>
+            Example: User "Sean Murphy" belongs to 3 organizations with
+            different roles
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {sampleOrgs.map((org) => (
+              <div
+                className="flex items-center justify-between rounded-lg border p-3"
+                key={org.id}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="font-medium">{org.name}</div>
+                    <div className="flex gap-1">
+                      {org.roles.map((role) => (
+                        <Badge
+                          className={cn(
+                            "text-[10px]",
+                            role === org.activeRole &&
+                              "bg-green-100 text-green-700"
+                          )}
+                          key={role}
+                          variant={
+                            role === org.activeRole ? "default" : "outline"
+                          }
+                        >
+                          {role === "admin" && (
+                            <Shield className="mr-1 h-3 w-3" />
+                          )}
+                          {role === "coach" && (
+                            <Users className="mr-1 h-3 w-3" />
+                          )}
+                          {role === "parent" && (
+                            <UserCircle className="mr-1 h-3 w-3" />
+                          )}
+                          {role}
+                          {role === org.activeRole && " (active)"}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-600">
+              <Check className="h-5 w-5" />
+              Current Strengths
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex items-start gap-2">
+              <Check className="mt-0.5 h-4 w-4 text-green-500" />
+              <span>Shows org logo and name clearly</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <Check className="mt-0.5 h-4 w-4 text-green-500" />
+              <span>Groups roles under each org</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <Check className="mt-0.5 h-4 w-4 text-green-500" />
+              <span>Shows pending role requests</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <Check className="mt-0.5 h-4 w-4 text-green-500" />
+              <span>Allows role requesting from dropdown</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-orange-600">
+              <AlertCircle className="h-5 w-5" />
+              Opportunities to Improve
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 text-orange-500" />
+              <span>220px fixed width may truncate long names</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 text-orange-500" />
+              <span>No keyboard shortcut to open (like Cmd+Shift+O)</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 text-orange-500" />
+              <span>Mobile: Popover may be hard to use</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-4 w-4 text-orange-500" />
+              <span>User menu separate from org switcher</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
+// ============================================
+// MOCKUP 19: ORG/ROLE SWITCHER OPTIONS
+// ============================================
+
+function OrgRoleSwitcherOptionsMockup() {
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [expandedOrg, setExpandedOrg] = useState<string | null>("1");
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">
+          19. Org/Role Switcher Design Options
+        </h2>
+        <p className="mt-1 text-muted-foreground">
+          Four innovative approaches to org/role switching. Vote for your
+          favorite!
+        </p>
+        <p className="mt-1 text-muted-foreground text-xs">
+          Source: Slack, Notion, Linear, Figma patterns
+        </p>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Option A: Current Enhanced */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "enhanced" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("enhanced")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Option A: Enhanced Popover</span>
+              <Badge variant="outline">Current + Improvements</Badge>
+            </CardTitle>
+            <CardDescription>
+              Keep familiar pattern, add search and keyboard shortcuts
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border bg-background shadow-lg">
+              {/* Search */}
+              <div className="flex items-center gap-2 border-b px-3 py-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <span className="flex-1 text-muted-foreground text-sm">
+                  Search orgs & roles...
+                </span>
+                <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                  ⌘⇧O
+                </kbd>
+              </div>
+              {/* Org list */}
+              <div className="max-h-[200px] overflow-y-auto p-1">
+                {sampleOrgs.map((org) => (
+                  <div key={org.id}>
+                    <button
+                      className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left hover:bg-accent"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedOrg(expandedOrg === org.id ? null : org.id);
+                      }}
+                    >
+                      <div className="flex items-center gap-2 text-sm">
+                        <Building2 className="h-4 w-4" />
+                        <span>{org.name}</span>
+                      </div>
+                      <ChevronRight
+                        className={cn(
+                          "h-4 w-4 transition-transform",
+                          expandedOrg === org.id && "rotate-90"
+                        )}
+                      />
+                    </button>
+                    {expandedOrg === org.id && (
+                      <div className="ml-6 space-y-1 py-1">
+                        {org.roles.map((role) => (
+                          <button
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm",
+                              role === org.activeRole
+                                ? "bg-green-100 text-green-700"
+                                : "hover:bg-accent"
+                            )}
+                            key={role}
+                          >
+                            {role === "admin" && <Shield className="h-3 w-3" />}
+                            {role === "coach" && <Users className="h-3 w-3" />}
+                            {role === "parent" && (
+                              <UserCircle className="h-3 w-3" />
+                            )}
+                            {role.charAt(0).toUpperCase() + role.slice(1)}
+                            {role === org.activeRole && (
+                              <Check className="ml-auto h-3 w-3" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 text-center text-muted-foreground text-xs">
+              Familiar pattern with search + keyboard shortcuts
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Option B: Two-Panel Split */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "split" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("split")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Option B: Two-Panel Split</span>
+              <Badge variant="outline">Linear Style</Badge>
+            </CardTitle>
+            <CardDescription>
+              Orgs on left, roles on right. Clear visual hierarchy.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex overflow-hidden rounded-lg border bg-background shadow-lg">
+              {/* Orgs panel */}
+              <div className="w-1/2 border-r bg-muted/30">
+                <div className="border-b p-2 font-medium text-muted-foreground text-xs uppercase">
+                  Organizations
+                </div>
+                <div className="p-1">
+                  {sampleOrgs.map((org, i) => (
+                    <button
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm",
+                        i === 0
+                          ? "bg-primary text-primary-foreground"
+                          : "hover:bg-accent"
+                      )}
+                      key={org.id}
+                    >
+                      <Building2 className="h-4 w-4" />
+                      <span className="truncate">{org.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Roles panel */}
+              <div className="w-1/2">
+                <div className="border-b p-2 font-medium text-muted-foreground text-xs uppercase">
+                  Your Roles
+                </div>
+                <div className="p-1">
+                  {sampleOrgs[0].roles.map((role) => (
+                    <button
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm",
+                        role === sampleOrgs[0].activeRole
+                          ? "bg-green-100 text-green-700"
+                          : "hover:bg-accent"
+                      )}
+                      key={role}
+                    >
+                      {role === "admin" && <Shield className="h-4 w-4" />}
+                      {role === "coach" && <Users className="h-4 w-4" />}
+                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                      {role === sampleOrgs[0].activeRole && (
+                        <Check className="ml-auto h-4 w-4" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 text-center text-muted-foreground text-xs">
+              Two-panel layout for clear org → role selection
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Option C: Sidebar Dock (Slack style) */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "dock" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("dock")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Option C: Sidebar Dock</span>
+              <Badge variant="outline">Slack Style</Badge>
+            </CardTitle>
+            <CardDescription>
+              Persistent org icons on left edge, always visible
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex overflow-hidden rounded-lg border bg-background shadow-lg">
+              {/* Org dock */}
+              <div className="flex w-14 flex-col items-center gap-2 border-r bg-muted/50 py-3">
+                {sampleOrgs.map((org, i) => (
+                  <div className="relative" key={org.id}>
+                    <button
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-lg transition-colors",
+                        i === 0
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-background hover:bg-accent"
+                      )}
+                    >
+                      <span className="font-semibold text-sm">
+                        {org.name.charAt(0)}
+                      </span>
+                    </button>
+                    {i === 0 && (
+                      <div className="-left-1 -translate-y-1/2 absolute top-1/2 h-5 w-1 rounded-full bg-primary" />
+                    )}
+                  </div>
+                ))}
+                <div className="my-1 h-px w-8 bg-border" />
+                <button className="flex h-10 w-10 items-center justify-center rounded-lg bg-background hover:bg-accent">
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              {/* Content preview */}
+              <div className="flex-1 p-3">
+                <div className="mb-2 font-medium text-sm">Grange GAA</div>
+                <div className="flex gap-2">
+                  <Badge className="bg-purple-100 text-purple-700">
+                    <Shield className="mr-1 h-3 w-3" />
+                    Admin
+                  </Badge>
+                  <Badge variant="outline">
+                    <Users className="mr-1 h-3 w-3" />
+                    Coach
+                  </Badge>
+                </div>
+                <div className="mt-3 text-muted-foreground text-xs">
+                  Click badge to switch role
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 text-center text-muted-foreground text-xs">
+              Always-visible org dock like Slack workspaces
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Option D: Context Strip */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "strip" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("strip")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Option D: Context Strip</span>
+              <Badge variant="outline">All-in-One</Badge>
+            </CardTitle>
+            <CardDescription>
+              Unified header strip showing org + role + user together
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border bg-background shadow-lg">
+              <div className="flex items-center justify-between border-b bg-muted/30 px-3 py-2">
+                {/* Org selector */}
+                <button className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-accent">
+                  <Building2 className="h-4 w-4" />
+                  <span className="font-medium text-sm">Grange GAA</span>
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+                {/* Role selector */}
+                <button className="flex items-center gap-2 rounded-lg bg-purple-100 px-2 py-1 text-purple-700 hover:bg-purple-200">
+                  <Shield className="h-4 w-4" />
+                  <span className="font-medium text-sm">Admin</span>
+                  <ArrowLeftRight className="h-3 w-3" />
+                </button>
+                {/* User */}
+                <button className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-accent">
+                  <Avatar className="h-6 w-6">
+                    <AvatarFallback className="text-xs">SM</AvatarFallback>
+                  </Avatar>
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="p-3 text-center text-muted-foreground text-sm">
+                All context controls in one unified strip
+              </div>
+            </div>
+            <div className="mt-3 text-center text-muted-foreground text-xs">
+              Separate buttons for org, role, and user - clear but takes space
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <MultiOptionVoting
+        comparisonId="org-role-switcher-design"
+        comparisonName="Org/Role Switcher Design"
+        options={[
+          {
+            id: "enhanced",
+            label: "Option A: Enhanced Popover",
+            description: "Current pattern with search + keyboard shortcuts",
+          },
+          {
+            id: "split",
+            label: "Option B: Two-Panel Split",
+            description: "Orgs left, roles right - clear hierarchy",
+          },
+          {
+            id: "dock",
+            label: "Option C: Sidebar Dock",
+            description: "Slack-style always-visible org icons",
+          },
+          {
+            id: "strip",
+            label: "Option D: Context Strip",
+            description: "Unified header with separate controls",
+          },
+        ]}
+      />
+    </section>
+  );
+}
+
+// ============================================
+// MOCKUP 20: USER ACCOUNT MENU OPTIONS
+// ============================================
+
+function UserAccountMenuMockup() {
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">
+          20. User Account Menu Options
+        </h2>
+        <p className="mt-1 text-muted-foreground">
+          Different approaches to the user profile/settings dropdown
+        </p>
+        <p className="mt-1 text-muted-foreground text-xs">
+          Source: Figma, Notion, Gmail patterns
+        </p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-3">
+        {/* Option A: Simple Avatar Dropdown */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "simple" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("simple")}
+        >
+          <CardHeader>
+            <CardTitle>Option A: Simple Dropdown</CardTitle>
+            <CardDescription>Minimal avatar with clean menu</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end">
+              <div className="rounded-lg border bg-background shadow-lg">
+                <div className="flex items-center gap-3 border-b p-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback>SM</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="font-medium text-sm">Sean Murphy</div>
+                    <div className="text-muted-foreground text-xs">
+                      sean@example.com
+                    </div>
+                  </div>
+                </div>
+                <div className="p-1">
+                  <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                    <User className="h-4 w-4" />
+                    Profile
+                  </button>
+                  <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                    <Settings className="h-4 w-4" />
+                    Settings
+                  </button>
+                  <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                    <Bell className="h-4 w-4" />
+                    Notifications
+                  </button>
+                  <div className="my-1 h-px bg-border" />
+                  <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-red-600 text-sm hover:bg-red-50">
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Option B: Rich Profile Card */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "rich" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("rich")}
+        >
+          <CardHeader>
+            <CardTitle>Option B: Rich Profile Card</CardTitle>
+            <CardDescription>
+              Shows current context + quick actions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end">
+              <div className="w-72 rounded-lg border bg-background shadow-lg">
+                <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-14 w-14 ring-2 ring-background">
+                      <AvatarFallback className="text-lg">SM</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="font-semibold">Sean Murphy</div>
+                      <div className="text-muted-foreground text-sm">
+                        sean@example.com
+                      </div>
+                      <div className="mt-1 flex gap-1">
+                        <Badge
+                          className="px-1.5 py-0 text-[10px]"
+                          variant="secondary"
+                        >
+                          <Building2 className="mr-1 h-3 w-3" />
+                          Grange GAA
+                        </Badge>
+                        <Badge className="bg-purple-100 px-1.5 py-0 text-[10px] text-purple-700">
+                          <Shield className="mr-1 h-3 w-3" />
+                          Admin
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-1 p-2">
+                  <button className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent">
+                    <User className="h-5 w-5" />
+                    <span className="text-xs">Profile</span>
+                  </button>
+                  <button className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent">
+                    <Settings className="h-5 w-5" />
+                    <span className="text-xs">Settings</span>
+                  </button>
+                  <button className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent">
+                    <SwitchCamera className="h-5 w-5" />
+                    <span className="text-xs">Switch</span>
+                  </button>
+                </div>
+                <div className="border-t p-2">
+                  <button className="flex w-full items-center justify-center gap-2 rounded py-2 text-red-600 text-sm hover:bg-red-50">
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Option C: Combined with Org Switcher */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "combined" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("combined")}
+        >
+          <CardHeader>
+            <CardTitle>Option C: Combined Menu</CardTitle>
+            <CardDescription>
+              Org switching + user menu in one place
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end">
+              <div className="w-64 rounded-lg border bg-background shadow-lg">
+                <div className="flex items-center gap-2 border-b p-3">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-xs">SM</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="font-medium text-sm">Sean Murphy</div>
+                  </div>
+                  <Button size="sm" variant="ghost">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="p-2 font-medium text-muted-foreground text-xs uppercase">
+                  Your Organizations
+                </div>
+                <div className="max-h-[150px] overflow-y-auto px-1 pb-2">
+                  {sampleOrgs.map((org, i) => (
+                    <button
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm",
+                        i === 0 ? "bg-accent" : "hover:bg-accent"
+                      )}
+                      key={org.id}
+                    >
+                      <Building2 className="h-4 w-4" />
+                      <span className="flex-1 truncate">{org.name}</span>
+                      {i === 0 && <Check className="h-4 w-4 text-green-600" />}
+                    </button>
+                  ))}
+                </div>
+                <div className="border-t p-2">
+                  <button className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-red-600 text-sm hover:bg-red-50">
+                    <LogOut className="h-4 w-4" />
+                    Sign out
+                  </button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <MultiOptionVoting
+        comparisonId="user-account-menu"
+        comparisonName="User Account Menu"
+        options={[
+          {
+            id: "simple",
+            label: "Option A: Simple Dropdown",
+            description: "Clean, minimal menu",
+          },
+          {
+            id: "rich",
+            label: "Option B: Rich Profile Card",
+            description: "Shows context + quick actions",
+          },
+          {
+            id: "combined",
+            label: "Option C: Combined Menu",
+            description: "Org switching + user in one place",
+          },
+        ]}
+      />
+    </section>
+  );
+}
+
+// ============================================
+// MOCKUP 21: COMBINED HEADER PATTERNS
+// ============================================
+
+function CombinedHeaderPatternsMockup() {
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">21. Combined Header Patterns</h2>
+        <p className="mt-1 text-muted-foreground">
+          How org switcher, role switcher, and user menu work together in the
+          header
+        </p>
+      </div>
+
+      <div className="space-y-6">
+        {/* Pattern A: Current Layout */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Pattern A: Current Layout
+              <Badge variant="outline">Existing</Badge>
+            </CardTitle>
+            <CardDescription>
+              Org/Role combined dropdown + separate user avatar
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border bg-muted/30">
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
+                    P
+                  </div>
+                  <span className="font-semibold">PlayerARC</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Combined Org/Role */}
+                  <Button className="gap-2" variant="outline">
+                    <Building2 className="h-4 w-4" />
+                    <span>Grange GAA</span>
+                    <span className="text-muted-foreground">•</span>
+                    <Shield className="h-4 w-4 text-purple-600" />
+                    <span>Admin</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                  {/* User */}
+                  <Button size="icon" variant="ghost">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>SM</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Pattern B: Separate Controls */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Pattern B: Separate Controls
+              <Badge className="bg-green-500">Recommended</Badge>
+            </CardTitle>
+            <CardDescription>
+              Separate buttons for org, role, and user - clearer intent
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border bg-muted/30">
+              <div className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
+                    P
+                  </div>
+                  <span className="font-semibold">PlayerARC</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {/* Org Selector */}
+                  <Button className="gap-2" size="sm" variant="outline">
+                    <Building2 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Grange GAA</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                  {/* Role Selector */}
+                  <Button
+                    className="gap-2 bg-purple-100 text-purple-700 hover:bg-purple-200"
+                    size="sm"
+                    variant="ghost"
+                  >
+                    <Shield className="h-4 w-4" />
+                    <span className="hidden sm:inline">Admin</span>
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                  {/* Notifications */}
+                  <Button className="relative" size="icon" variant="ghost">
+                    <Bell className="h-4 w-4" />
+                    <span className="-top-1 -right-1 absolute flex h-4 w-4 items-center justify-center rounded-full bg-red-500 font-medium text-[10px] text-white">
+                      3
+                    </span>
+                  </Button>
+                  {/* User */}
+                  <Button size="icon" variant="ghost">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>SM</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-center gap-4 text-muted-foreground text-xs">
+              <span className="flex items-center gap-1">
+                <kbd className="rounded bg-muted px-1 py-0.5 font-mono">
+                  ⌘⇧O
+                </kbd>
+                Switch org
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="rounded bg-muted px-1 py-0.5 font-mono">
+                  ⌘⇧R
+                </kbd>
+                Switch role
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Pattern C: Minimal with Sidebar */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Pattern C: Minimal Header + Sidebar
+              <Badge variant="outline">Alternative</Badge>
+            </CardTitle>
+            <CardDescription>
+              Move org to sidebar, keep role and user in header
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex overflow-hidden rounded-lg border">
+              {/* Sidebar with org */}
+              <div className="flex w-14 flex-col items-center border-r bg-muted/30 py-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground text-sm">
+                  G
+                </div>
+                <div className="my-2 h-px w-8 bg-border" />
+                <button className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-accent">
+                  <span className="text-xs">S</span>
+                </button>
+                <button className="flex h-8 w-8 items-center justify-center rounded text-muted-foreground hover:bg-accent">
+                  <span className="text-xs">D</span>
+                </button>
+              </div>
+              {/* Header */}
+              <div className="flex-1">
+                <div className="flex items-center justify-between border-b px-4 py-3">
+                  <span className="font-semibold">Grange GAA</span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      className="gap-2 bg-purple-100 text-purple-700 hover:bg-purple-200"
+                      size="sm"
+                      variant="ghost"
+                    >
+                      <Shield className="h-4 w-4" />
+                      Admin
+                    </Button>
+                    <Button size="icon" variant="ghost">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>SM</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </div>
+                </div>
+                <div className="p-4 text-center text-muted-foreground text-sm">
+                  Content area
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <PreferenceVoting
+        mockupId="combined-header-patterns"
+        mockupName="Header Layout Pattern"
+      />
+    </section>
+  );
+}
+
+// ============================================
+// MOCKUP 22: MOBILE ORG/ROLE SWITCHING
+// ============================================
+
+function MobileOrgRoleSwitchingMockup() {
+  const [activeTab, setActiveTab] = useState<"orgs" | "roles">("orgs");
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">
+          22. Mobile Org/Role Switching
+        </h2>
+        <p className="mt-1 text-muted-foreground">
+          Touch-optimized patterns for switching context on mobile devices
+        </p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Option A: Full-Screen Sheet */}
+        <PhoneMockup highlighted title="Option A: Full-Screen Sheet">
+          <div className="flex h-full flex-col">
+            {/* Sheet header */}
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <h2 className="font-semibold">Switch Context</h2>
+              <button className="rounded-full p-1 hover:bg-accent">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b">
+              <button
+                className={cn(
+                  "flex-1 py-3 font-medium text-sm",
+                  activeTab === "orgs"
+                    ? "border-primary border-b-2 text-primary"
+                    : "text-muted-foreground"
+                )}
+                onClick={() => setActiveTab("orgs")}
+              >
+                Organizations
+              </button>
+              <button
+                className={cn(
+                  "flex-1 py-3 font-medium text-sm",
+                  activeTab === "roles"
+                    ? "border-primary border-b-2 text-primary"
+                    : "text-muted-foreground"
+                )}
+                onClick={() => setActiveTab("roles")}
+              >
+                Roles
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-3">
+              {activeTab === "orgs" ? (
+                <div className="space-y-2">
+                  {sampleOrgs.map((org, i) => (
+                    <button
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors",
+                        i === 0
+                          ? "border-primary bg-primary/5"
+                          : "hover:bg-accent"
+                      )}
+                      key={org.id}
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
+                        <Building2 className="h-6 w-6" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium">{org.name}</div>
+                        <div className="text-muted-foreground text-sm">
+                          {org.roles.length} role
+                          {org.roles.length > 1 ? "s" : ""}
+                        </div>
+                      </div>
+                      {i === 0 && <Check className="h-5 w-5 text-primary" />}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {sampleOrgs[0].roles.map((role) => (
+                    <button
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-lg border p-4 text-left transition-colors",
+                        role === sampleOrgs[0].activeRole
+                          ? "border-green-500 bg-green-50"
+                          : "hover:bg-accent"
+                      )}
+                      key={role}
+                    >
+                      <div
+                        className={cn(
+                          "flex h-12 w-12 items-center justify-center rounded-lg",
+                          role === "admin" && "bg-purple-100",
+                          role === "coach" && "bg-green-100",
+                          role === "parent" && "bg-blue-100"
+                        )}
+                      >
+                        {role === "admin" && (
+                          <Shield className="h-6 w-6 text-purple-600" />
+                        )}
+                        {role === "coach" && (
+                          <Users className="h-6 w-6 text-green-600" />
+                        )}
+                        {role === "parent" && (
+                          <UserCircle className="h-6 w-6 text-blue-600" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium">
+                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                        </div>
+                        <div className="text-muted-foreground text-xs">
+                          {role === "admin" && "Full club administration"}
+                          {role === "coach" && "Team & player management"}
+                          {role === "parent" && "View children's progress"}
+                        </div>
+                      </div>
+                      {role === sampleOrgs[0].activeRole && (
+                        <Check className="h-5 w-5 text-green-600" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </PhoneMockup>
+
+        {/* Option B: Quick Switch in Header */}
+        <PhoneMockup title="Option B: Compact Header Switch">
+          <div className="flex h-full flex-col">
+            {/* Compact header with switcher */}
+            <div className="border-b bg-muted/30 px-3 py-2">
+              <div className="flex items-center justify-between">
+                <button className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-accent">
+                  <div className="flex h-8 w-8 items-center justify-center rounded bg-primary font-bold text-primary-foreground text-xs">
+                    G
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-sm leading-tight">
+                      Grange GAA
+                    </div>
+                    <div className="flex items-center gap-1 text-[10px] text-purple-600">
+                      <Shield className="h-3 w-3" />
+                      Admin
+                    </div>
+                  </div>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="text-xs">SM</AvatarFallback>
+                </Avatar>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 p-4">
+              <h1 className="mb-4 font-semibold text-lg">Dashboard</h1>
+              <div className="space-y-3">
+                <div className="h-20 rounded-lg bg-muted/50" />
+                <div className="h-20 rounded-lg bg-muted/50" />
+                <div className="h-20 rounded-lg bg-muted/50" />
+              </div>
+            </div>
+
+            {/* Bottom nav */}
+            <div className="flex items-center justify-around border-t bg-background py-2">
+              <button className="flex flex-col items-center gap-1 p-2 text-primary">
+                <Home className="h-5 w-5" />
+                <span className="text-[10px]">Home</span>
+              </button>
+              <button className="flex flex-col items-center gap-1 p-2 text-muted-foreground">
+                <Users className="h-5 w-5" />
+              </button>
+              <button className="flex flex-col items-center gap-1 p-2 text-muted-foreground">
+                <Plus className="h-5 w-5" />
+              </button>
+              <button className="flex flex-col items-center gap-1 p-2 text-muted-foreground">
+                <Bell className="h-5 w-5" />
+              </button>
+              <button className="flex flex-col items-center gap-1 p-2 text-muted-foreground">
+                <Menu className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </PhoneMockup>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Keyboard className="h-5 w-5" />
+            Keyboard Shortcuts (Desktop)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <span className="text-sm">Switch Organization</span>
+              <kbd className="rounded bg-muted px-2 py-1 font-mono text-xs">
+                ⌘⇧O
+              </kbd>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <span className="text-sm">Switch Role</span>
+              <kbd className="rounded bg-muted px-2 py-1 font-mono text-xs">
+                ⌘⇧R
+              </kbd>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <span className="text-sm">User Menu</span>
+              <kbd className="rounded bg-muted px-2 py-1 font-mono text-xs">
+                ⌘⇧U
+              </kbd>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <PreferenceVoting
+        mockupId="mobile-org-role-switching"
+        mockupName="Mobile Context Switching"
       />
     </section>
   );

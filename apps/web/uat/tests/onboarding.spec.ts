@@ -2193,8 +2193,33 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      // Navigate to settings
-      const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+      // Navigate to settings - handle both old (horizontal tabs) and new (grouped sidebar) navigation
+      // In new grouped sidebar, Settings is under "Settings" group which needs to be expanded
+      
+      // First try: Direct settings link (old navigation or already expanded group)
+      let settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      let settingsVisible = await settingsLink.isVisible({ timeout: 3000 }).catch(() => false);
+      
+      if (!settingsVisible) {
+        // New grouped sidebar: Need to expand "Settings" group first
+        const settingsGroupButton = page.getByRole('button', { name: /settings/i }).first();
+        if (await settingsGroupButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await settingsGroupButton.click();
+          await page.waitForTimeout(500);
+          console.log('Expanded Settings group in sidebar');
+          
+          // Now find the Settings link within the expanded group
+          settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+          settingsVisible = await settingsLink.isVisible({ timeout: 3000 }).catch(() => false);
+        }
+      }
+      
+      if (!settingsVisible) {
+        // Try finding by button text within the sidebar
+        settingsLink = page.locator('a, button').filter({ hasText: /^Settings$/ }).first();
+        settingsVisible = await settingsLink.isVisible({ timeout: 3000 }).catch(() => false);
+      }
+      
       await expect(settingsLink).toBeVisible({ timeout: 10000 });
       await settingsLink.click();
       await helper.waitForPageLoad();
@@ -2217,7 +2242,16 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+      // Handle both old horizontal tabs and new grouped sidebar navigation
+      let settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      if (!(await settingsLink.isVisible({ timeout: 3000 }).catch(() => false))) {
+        const settingsGroupButton = page.getByRole('button', { name: /settings/i }).first();
+        if (await settingsGroupButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await settingsGroupButton.click();
+          await page.waitForTimeout(500);
+        }
+        settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      }
       await settingsLink.click();
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
@@ -2269,7 +2303,16 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+      // Handle both old horizontal tabs and new grouped sidebar navigation
+      let settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      if (!(await settingsLink.isVisible({ timeout: 3000 }).catch(() => false))) {
+        const settingsGroupButton = page.getByRole('button', { name: /settings/i }).first();
+        if (await settingsGroupButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await settingsGroupButton.click();
+          await page.waitForTimeout(500);
+        }
+        settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      }
       await settingsLink.click();
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
@@ -2346,7 +2389,16 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+      // Handle both old horizontal tabs and new grouped sidebar navigation
+      let settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      if (!(await settingsLink.isVisible({ timeout: 3000 }).catch(() => false))) {
+        const settingsGroupButton = page.getByRole('button', { name: /settings/i }).first();
+        if (await settingsGroupButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await settingsGroupButton.click();
+          await page.waitForTimeout(500);
+        }
+        settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      }
       await settingsLink.click();
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
@@ -2403,7 +2455,16 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+      // Handle both old horizontal tabs and new grouped sidebar navigation
+      let settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      if (!(await settingsLink.isVisible({ timeout: 3000 }).catch(() => false))) {
+        const settingsGroupButton = page.getByRole('button', { name: /settings/i }).first();
+        if (await settingsGroupButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await settingsGroupButton.click();
+          await page.waitForTimeout(500);
+        }
+        settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      }
       await settingsLink.click();
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
@@ -2478,7 +2539,16 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+      // Handle both old horizontal tabs and new grouped sidebar navigation
+      let settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      if (!(await settingsLink.isVisible({ timeout: 3000 }).catch(() => false))) {
+        const settingsGroupButton = page.getByRole('button', { name: /settings/i }).first();
+        if (await settingsGroupButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await settingsGroupButton.click();
+          await page.waitForTimeout(500);
+        }
+        settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      }
       await settingsLink.click();
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
@@ -2547,8 +2617,16 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      // Navigate to settings
-      const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+      // Handle both old horizontal tabs and new grouped sidebar navigation
+      let settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      if (!(await settingsLink.isVisible({ timeout: 3000 }).catch(() => false))) {
+        const settingsGroupButton = page.getByRole('button', { name: /settings/i }).first();
+        if (await settingsGroupButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await settingsGroupButton.click();
+          await page.waitForTimeout(500);
+        }
+        settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      }
       await expect(settingsLink).toBeVisible({ timeout: 10000 });
       await settingsLink.click();
       await helper.waitForPageLoad();
@@ -2580,7 +2658,16 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+      // Handle both old horizontal tabs and new grouped sidebar navigation
+      let settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      if (!(await settingsLink.isVisible({ timeout: 3000 }).catch(() => false))) {
+        const settingsGroupButton = page.getByRole('button', { name: /settings/i }).first();
+        if (await settingsGroupButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await settingsGroupButton.click();
+          await page.waitForTimeout(500);
+        }
+        settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+      }
       await settingsLink.click();
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
@@ -2722,7 +2809,16 @@ test.describe.serial('Initial Onboarding Flow', () => {
         await helper.waitForPageLoad();
         await page.waitForTimeout(2000);
         
-        const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+        // Handle both old horizontal tabs and new grouped sidebar navigation
+        let settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+        if (!(await settingsLink.isVisible({ timeout: 3000 }).catch(() => false))) {
+          const settingsGroupButton = page.getByRole('button', { name: /settings/i }).first();
+          if (await settingsGroupButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await settingsGroupButton.click();
+            await page.waitForTimeout(500);
+          }
+          settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+        }
         if (await settingsLink.isVisible({ timeout: 5000 }).catch(() => false)) {
           await settingsLink.click();
           await helper.waitForPageLoad();
@@ -2771,7 +2867,16 @@ test.describe.serial('Initial Onboarding Flow', () => {
         await helper.waitForPageLoad();
         await page.waitForTimeout(2000);
         
-        const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+        // Handle both old horizontal tabs and new grouped sidebar navigation
+        let settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+        if (!(await settingsLink.isVisible({ timeout: 3000 }).catch(() => false))) {
+          const settingsGroupButton = page.getByRole('button', { name: /settings/i }).first();
+          if (await settingsGroupButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await settingsGroupButton.click();
+            await page.waitForTimeout(500);
+          }
+          settingsLink = page.getByRole('link', { name: /^settings$/i }).first();
+        }
         if (await settingsLink.isVisible({ timeout: 5000 }).catch(() => false)) {
           await settingsLink.click();
           await helper.waitForPageLoad();

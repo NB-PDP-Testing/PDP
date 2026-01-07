@@ -36,6 +36,13 @@ export default defineConfig({
       testMatch: /onboarding\.spec\.ts/,
     },
     {
+      name: "first-login-dashboard",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /first-login-dashboard\.spec\.ts/,
+      // No auth dependencies - tests do their own login
+      // MUST be run after onboarding.spec.ts has created the users
+    },
+    {
       name: "continuous",
       use: { ...devices["Desktop Chrome"] },
       testMatch: /^(auth|admin|coach)\.spec\.ts$/,

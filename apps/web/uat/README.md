@@ -239,7 +239,9 @@ uat/
 
 ### Test Execution Order
 
-**IMPORTANT:** You MUST use `--project=` flags to avoid auth setup dependencies running first!
+**IMPORTANT:** 
+1. You MUST use `--project=` flags to avoid auth setup dependencies running first!
+2. Run commands from the **project root** (`c:\code\PDP`), NOT from `apps/web`
 
 Tests should be run in this order for a fresh environment:
 

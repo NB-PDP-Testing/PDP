@@ -276,6 +276,86 @@ Navigate to `/platform/staff` to see all platform staff members.
 
 ---
 
+## Verifying Phase 0, 1 & 2 Changes
+
+### Phase 0 & 1: Navigation & Touch Targets
+
+#### Verify Grouped Sidebar Navigation
+1. Enable `ux_admin_nav_sidebar` in PostHog (100% rollout)
+2. Log in to any organization
+3. Navigate to **Admin Panel**
+4. **Expected**: 4 collapsible groups instead of 16 horizontal tabs:
+   - People (Players, Coaches, Guardians, Users)
+   - Teams & Data (Teams, Overrides, Import)
+   - Insights (Dashboard Analytics)
+   - Settings (Settings, Danger Zone)
+
+#### Verify Bottom Navigation (Mobile)
+1. Enable `ux_bottom_nav` in PostHog
+2. Open app in Chrome DevTools mobile view (F12 → Ctrl+Shift+M)
+3. Select iPhone or any device < 768px width
+4. Refresh the page
+5. **Expected**: Bottom navigation bar appears with role-specific icons
+
+#### Verify 44px Touch Targets
+1. Enable `ux_touch_targets_44px` in PostHog
+2. View any page in mobile viewport
+3. Inspect button elements
+4. **Expected**: Buttons have `min-h-[44px]` on mobile
+
+### Phase 2: Data Display Components
+
+#### Verify ResponsiveDataView
+1. Enable `ux_mobile_cards` in PostHog
+2. Navigate to Admin → Players (or any list page using ResponsiveDataView)
+3. **Desktop view**: Should show data table with sortable columns
+4. **Mobile view**: Should show card-based layout
+
+#### Test Mobile Cards
+1. Open DevTools mobile view (< 768px)
+2. View any data list
+3. **Expected on mobile**:
+   - Card layout with key info
+   - Dropdown menu for actions (⋮ button)
+   - Loading shows card skeletons
+
+#### Test Desktop Table
+1. View same page in desktop width (> 768px)
+2. **Expected on desktop**:
+   - Full table with all columns
+   - Sortable column headers (click to sort)
+   - Row hover reveals action button
+   - Checkbox selection (if enabled)
+
+### Quick Verification Checklist
+
+| Feature | PostHog Flag | How to Test | Expected Result |
+|---------|--------------|-------------|-----------------|
+| Grouped Sidebar | `ux_admin_nav_sidebar` | Admin Panel | 4 collapsible groups |
+| Bottom Nav | `ux_bottom_nav` | Mobile viewport | Nav bar at bottom |
+| 44px Touch | `ux_touch_targets_44px` | Inspect buttons on mobile | min-h-[44px] |
+| Mobile Cards | `ux_mobile_cards` | Data list on mobile | Card layout |
+| Skeleton Loaders | `ux_skeleton_loaders` | Slow network (DevTools) | Skeleton animation |
+
+### Browser DevTools Quick Reference
+
+1. **Open DevTools**: `F12` or `Ctrl+Shift+I`
+2. **Toggle Mobile View**: `Ctrl+Shift+M`
+3. **Select Device**: Use dropdown to pick iPhone, Pixel, etc.
+4. **Simulate Slow Network**: Network tab → Throttle → Slow 3G
+5. **Clear Cache**: Network tab → Right-click → "Clear browser cache"
+
+### Verify Feature Flag Status in Code
+
+```javascript
+// Open browser console and run:
+posthog.getFeatureFlag('ux_admin_nav_sidebar')  // true or false
+posthog.getFeatureFlag('ux_mobile_cards')       // true or false
+posthog.getFeatureFlag('ux_bottom_nav')         // true or false
+```
+
+---
+
 ## Support
 
 For issues with feature flags:

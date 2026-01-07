@@ -90,6 +90,14 @@ Once you're Platform Staff, you need PostHog credentials:
 | `ux_command_menu` | Command palette (Cmd+K) | Global search and navigation via keyboard shortcut |
 | `ux_responsive_dialogs` | Responsive dialogs | Bottom sheet on mobile, centered modal on desktop |
 
+#### Phase 5: Polish & Platform Features
+
+| Flag Name | Description | Effect |
+|-----------|-------------|--------|
+| `ux_keyboard_shortcuts_overlay` | Keyboard shortcuts help | Press ? to show all keyboard shortcuts (desktop only) |
+| `ux_density_toggle` | Density toggle | Compact/comfortable/spacious density options (⌘D to cycle) |
+| `ux_offline_indicator` | Offline indicator | Shows banner when offline, "reconnected" when back online |
+
 #### Quick Reference: All Flags
 
 | Phase | Flag Name | Default |
@@ -104,6 +112,9 @@ Once you're Platform Staff, you need PostHog credentials:
 | 3 | `ux_responsive_forms` | OFF |
 | 4 | `ux_command_menu` | OFF |
 | 4 | `ux_responsive_dialogs` | OFF |
+| 5 | `ux_keyboard_shortcuts_overlay` | OFF |
+| 5 | `ux_density_toggle` | OFF |
+| 5 | `ux_offline_indicator` | OFF |
 
 ---
 
@@ -382,6 +393,115 @@ useGlobalShortcuts({
 });
 ```
 
+### Phase 5 Polish Components
+
+Located in `apps/web/src/components/polish/`:
+
+| Component | Description | Usage |
+|-----------|-------------|-------|
+| `KeyboardShortcutsOverlay` | Shows all keyboard shortcuts when ? is pressed | Add to root layout |
+| `DensityProvider` | Context provider for density settings | Wrap app root |
+| `DensityToggle` | Toggle button/dropdown for density | Add to header/toolbar |
+| `OfflineIndicator` | Banner when offline/reconnected | Add to root layout |
+| `OfflineBadge` | Small offline badge for headers | Compact offline indicator |
+| `OfflineWrapper` | Wrapper that disables content when offline | Wrap network-dependent content |
+| `OfflineContent` | Default "you're offline" placeholder | Show when content unavailable |
+
+| Hook | Description | Usage |
+|------|-------------|-------|
+| `useDensity` | Access current density and setter | Density-aware components |
+| `useDensityClasses` | Get density-specific CSS classes | Styling |
+| `useOnlineStatus` | Track online/offline status | Custom offline handling |
+| `useKeyboardShortcutsOverlay` | Control overlay programmatically | Custom trigger |
+
+#### Keyboard Shortcuts Overlay Usage
+
+```tsx
+import { KeyboardShortcutsOverlay } from "@/components/polish";
+
+// In your root layout - automatically listens for ? key
+<KeyboardShortcutsOverlay />
+
+// With custom shortcuts
+<KeyboardShortcutsOverlay
+  shortcuts={[
+    {
+      name: "Navigation",
+      shortcuts: [
+        { keys: ["⌘", "K"], description: "Open command palette" },
+        { keys: ["G", "P"], description: "Go to Players" },
+      ],
+    },
+    // ... more categories
+  ]}
+/>
+```
+
+#### Density Toggle Usage
+
+```tsx
+import { DensityProvider, DensityToggle, useDensityClasses } from "@/components/polish";
+
+// In your root layout - wrap the app
+<DensityProvider defaultDensity="comfortable" persist={true}>
+  <App />
+</DensityProvider>
+
+// In your header/toolbar - add the toggle
+<DensityToggle variant="dropdown" /> {/* or variant="cycle" */}
+
+// In components - use density-aware classes
+function MyList() {
+  const { spacing, rowHeight, cardPadding } = useDensityClasses();
+  
+  return (
+    <div className={spacing}>
+      {items.map(item => (
+        <div className={cn("flex items-center", rowHeight)}>
+          {item.name}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+#### Offline Indicator Usage
+
+```tsx
+import { 
+  OfflineIndicator, 
+  OfflineBadge, 
+  OfflineWrapper, 
+  OfflineContent,
+  useOnlineStatus 
+} from "@/components/polish";
+
+// In root layout - shows banner when offline
+<OfflineIndicator position="top" />
+
+// In header - shows small badge when offline
+<OfflineBadge />
+
+// Wrap content that needs network
+<OfflineWrapper
+  offlineContent={<OfflineContent title="Can't load players" />}
+>
+  <PlayerList />
+</OfflineWrapper>
+
+// Custom offline handling
+function MyComponent() {
+  const { isOnline, wasOffline } = useOnlineStatus();
+  
+  if (!isOnline) {
+    return <OfflineContent />;
+  }
+  
+  return <div>Online content here</div>;
+}
+```
+
 #### Phase 3 Form Example
 
 ```tsx
@@ -595,6 +715,42 @@ Navigate to `/platform/staff` to see all platform staff members.
    - Standard button sizes
    - Keyboard accessible (Esc to close)
 
+### Phase 5: Polish & Platform Features
+
+#### Verify Keyboard Shortcuts Overlay
+1. Enable `ux_keyboard_shortcuts_overlay` in PostHog (100% rollout)
+2. Navigate to any page in the application
+3. **Desktop only**: Press `?` key (without Shift)
+4. **Expected**:
+   - Modal overlay opens showing all keyboard shortcuts
+   - Grouped by category: Navigation, Actions, Data & Selection, View
+   - Press `Esc` to close
+5. **Note**: This feature is desktop-only, hidden on mobile
+
+#### Verify Density Toggle
+1. Enable `ux_density_toggle` in PostHog (100% rollout)
+2. Add `<DensityProvider>` wrapper to your app (see code reference)
+3. Add `<DensityToggle />` component in your header/toolbar
+4. **Test**:
+   - Click toggle to see dropdown with 3 options
+   - Or press `Cmd+D` (Mac) / `Ctrl+D` (Windows) to cycle
+5. **Expected per density**:
+   - **Compact**: Tight spacing, smaller fonts, 32px rows
+   - **Comfortable**: Balanced spacing, 40px rows (default)
+   - **Spacious**: More breathing room, larger fonts, 48px rows
+6. **Persistence**: Preference saved in localStorage
+
+#### Verify Offline Indicator
+1. Enable `ux_offline_indicator` in PostHog (100% rollout)
+2. Add `<OfflineIndicator />` to your root layout
+3. **Test offline**:
+   - Open DevTools → Network tab
+   - Select "Offline" from throttle dropdown
+   - **Expected**: Yellow banner appears "You're offline"
+4. **Test reconnect**:
+   - Disable "Offline" in DevTools
+   - **Expected**: Green banner appears "You're back online!" (disappears after 3s)
+
 ### Quick Verification Checklist
 
 | Feature | PostHog Flag | How to Test | Expected Result |
@@ -607,6 +763,9 @@ Navigate to `/platform/staff` to see all platform staff members.
 | Responsive Forms | `ux_responsive_forms` | Any form on mobile | 48px inputs, sticky submit |
 | Command Menu | `ux_command_menu` | Press Cmd+K | Command palette opens |
 | Responsive Dialogs | `ux_responsive_dialogs` | Trigger delete confirmation | Sheet on mobile, modal on desktop |
+| Keyboard Shortcuts | `ux_keyboard_shortcuts_overlay` | Press ? on desktop | Shortcuts overlay opens |
+| Density Toggle | `ux_density_toggle` | Press Cmd+D | Cycles compact/comfortable/spacious |
+| Offline Indicator | `ux_offline_indicator` | Go offline in DevTools | Yellow "offline" banner |
 
 ### Browser DevTools Quick Reference
 

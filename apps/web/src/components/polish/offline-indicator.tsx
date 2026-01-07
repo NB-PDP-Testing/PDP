@@ -1,0 +1,207 @@
+"use client";
+
+import * as React from "react";
+import { useEffect, useState } from "react";
+import { WifiOff, Wifi, RefreshCw } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+
+/**
+ * Hook to track online/offline status
+ */
+export function useOnlineStatus() {
+  const [isOnline, setIsOnline] = useState(true);
+  const [wasOffline, setWasOffline] = useState(false);
+
+  useEffect(() => {
+    // Initialize with actual status
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      setWasOffline(true);
+      // Clear "was offline" after a few seconds
+      setTimeout(() => setWasOffline(false), 5000);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  return { isOnline, wasOffline };
+}
+
+/**
+ * Props for OfflineIndicator
+ */
+export interface OfflineIndicatorProps {
+  /** Position of the indicator */
+  position?: "top" | "bottom";
+  /** Additional class name */
+  className?: string;
+  /** Whether to show reconnected message */
+  showReconnected?: boolean;
+  /** Custom offline message */
+  offlineMessage?: string;
+  /** Custom reconnected message */
+  reconnectedMessage?: string;
+}
+
+/**
+ * OfflineIndicator - Shows when the user is offline
+ * 
+ * Displays a banner when the connection is lost
+ * Shows "reconnected" briefly when connection is restored
+ */
+export function OfflineIndicator({
+  position = "top",
+  className,
+  showReconnected = true,
+  offlineMessage = "You're offline. Some features may not be available.",
+  reconnectedMessage = "You're back online!",
+}: OfflineIndicatorProps) {
+  const { isOnline, wasOffline } = useOnlineStatus();
+  const [showBanner, setShowBanner] = useState(false);
+
+  // Show banner when offline
+  useEffect(() => {
+    if (!isOnline) {
+      setShowBanner(true);
+    } else if (showReconnected && wasOffline) {
+      // Keep showing for reconnected message
+      setShowBanner(true);
+      const timer = setTimeout(() => setShowBanner(false), 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowBanner(false);
+    }
+  }, [isOnline, wasOffline, showReconnected]);
+
+  if (!showBanner) return null;
+
+  return (
+    <div
+      className={cn(
+        "fixed left-0 right-0 z-50 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-300",
+        position === "top" ? "top-0" : "bottom-0",
+        isOnline
+          ? "bg-green-500 text-white"
+          : "bg-yellow-500 text-yellow-950",
+        className
+      )}
+      role="status"
+      aria-live="polite"
+    >
+      {isOnline ? (
+        <>
+          <Wifi className="h-4 w-4" />
+          <span>{reconnectedMessage}</span>
+        </>
+      ) : (
+        <>
+          <WifiOff className="h-4 w-4" />
+          <span>{offlineMessage}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-2 h-7 px-2 hover:bg-yellow-600/20"
+            onClick={() => window.location.reload()}
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Retry
+          </Button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * OfflineBadge - Small indicator for headers/nav
+ */
+export function OfflineBadge({ className }: { className?: string }) {
+  const { isOnline } = useOnlineStatus();
+
+  if (isOnline) return null;
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium",
+        className
+      )}
+      title="You're offline"
+    >
+      <WifiOff className="h-3 w-3" />
+      <span className="hidden sm:inline">Offline</span>
+    </div>
+  );
+}
+
+/**
+ * OfflineWrapper - Wrapper that shows offline state for specific content
+ */
+export function OfflineWrapper({
+  children,
+  offlineContent,
+  className,
+}: {
+  children: React.ReactNode;
+  offlineContent?: React.ReactNode;
+  className?: string;
+}) {
+  const { isOnline } = useOnlineStatus();
+
+  if (!isOnline && offlineContent) {
+    return <>{offlineContent}</>;
+  }
+
+  return (
+    <div className={cn(className, !isOnline && "opacity-50 pointer-events-none")}>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Default offline content component
+ */
+export function OfflineContent({
+  title = "You're offline",
+  description = "Please check your internet connection and try again.",
+  showRetry = true,
+  onRetry,
+}: {
+  title?: string;
+  description?: string;
+  showRetry?: boolean;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+      <div className="rounded-full bg-yellow-100 p-4 mb-4">
+        <WifiOff className="h-8 w-8 text-yellow-600" />
+      </div>
+      <h3 className="text-lg font-semibold mb-2">{title}</h3>
+      <p className="text-sm text-muted-foreground mb-4 max-w-sm">{description}</p>
+      {showRetry && (
+        <Button
+          variant="outline"
+          onClick={onRetry ?? (() => window.location.reload())}
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Try Again
+        </Button>
+      )}
+    </div>
+  );
+}

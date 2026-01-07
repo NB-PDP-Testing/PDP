@@ -1,0 +1,201 @@
+"use client";
+
+import * as React from "react";
+import { useEffect, useState, useCallback } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+
+/**
+ * Keyboard shortcut category
+ */
+export interface ShortcutCategory {
+  name: string;
+  shortcuts: {
+    keys: string[];
+    description: string;
+  }[];
+}
+
+/**
+ * Default keyboard shortcuts
+ */
+export const DEFAULT_SHORTCUTS: ShortcutCategory[] = [
+  {
+    name: "Navigation",
+    shortcuts: [
+      { keys: ["⌘", "K"], description: "Open command palette" },
+      { keys: ["⌘", "H"], description: "Go to Home" },
+      { keys: ["⌘", "Shift", "O"], description: "Switch organization/role" },
+      { keys: ["G", "P"], description: "Go to Players" },
+      { keys: ["G", "T"], description: "Go to Teams" },
+      { keys: ["G", "S"], description: "Go to Settings" },
+    ],
+  },
+  {
+    name: "Actions",
+    shortcuts: [
+      { keys: ["⌘", "N"], description: "New item (context-aware)" },
+      { keys: ["⌘", "S"], description: "Save changes" },
+      { keys: ["Esc"], description: "Cancel / Close" },
+      { keys: ["⌘", "Z"], description: "Undo" },
+      { keys: ["⌘", "Shift", "Z"], description: "Redo" },
+    ],
+  },
+  {
+    name: "Data & Selection",
+    shortcuts: [
+      { keys: ["↑", "↓"], description: "Navigate rows" },
+      { keys: ["Enter"], description: "Select / Open" },
+      { keys: ["Space"], description: "Toggle checkbox" },
+      { keys: ["⌘", "A"], description: "Select all" },
+      { keys: ["Shift", "Click"], description: "Select range" },
+      { keys: ["⌘", "Click"], description: "Multi-select" },
+    ],
+  },
+  {
+    name: "View",
+    shortcuts: [
+      { keys: ["?"], description: "Show this help" },
+      { keys: ["⌘", ","], description: "Open settings" },
+      { keys: ["⌘", "\\"], description: "Toggle sidebar" },
+      { keys: ["⌘", "D"], description: "Toggle density" },
+    ],
+  },
+];
+
+/**
+ * Props for KeyboardShortcutsOverlay
+ */
+export interface KeyboardShortcutsOverlayProps {
+  /** Custom shortcuts to display */
+  shortcuts?: ShortcutCategory[];
+  /** Whether to show by default */
+  defaultOpen?: boolean;
+  /** Callback when overlay opens */
+  onOpen?: () => void;
+  /** Callback when overlay closes */
+  onClose?: () => void;
+}
+
+/**
+ * KeyboardShortcutsOverlay - Shows all keyboard shortcuts
+ * 
+ * Opens with `?` key press
+ * Desktop only (hidden on mobile)
+ */
+export function KeyboardShortcutsOverlay({
+  shortcuts = DEFAULT_SHORTCUTS,
+  defaultOpen = false,
+  onOpen,
+  onClose,
+}: KeyboardShortcutsOverlayProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  const isMobile = useIsMobile();
+
+  // Listen for ? key to open
+  useEffect(() => {
+    if (isMobile) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only trigger on ? key when not in input
+      if (
+        e.key === "?" &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA"
+      ) {
+        e.preventDefault();
+        setOpen((prev) => !prev);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isMobile]);
+
+  // Callbacks
+  useEffect(() => {
+    if (open) {
+      onOpen?.();
+    } else {
+      onClose?.();
+    }
+  }, [open, onOpen, onClose]);
+
+  // Don't render on mobile
+  if (isMobile) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            Keyboard Shortcuts
+            <kbd className="ml-2 px-2 py-0.5 bg-muted rounded text-xs">?</kbd>
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+          {shortcuts.map((category) => (
+            <div key={category.name}>
+              <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+                {category.name}
+              </h3>
+              <div className="space-y-2">
+                {category.shortcuts.map((shortcut, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between py-1.5"
+                  >
+                    <span className="text-sm">{shortcut.description}</span>
+                    <div className="flex items-center gap-1">
+                      {shortcut.keys.map((key, keyIndex) => (
+                        <React.Fragment key={keyIndex}>
+                          <kbd
+                            className={cn(
+                              "px-2 py-0.5 bg-muted rounded text-xs font-mono",
+                              key.length === 1 && "min-w-[24px] text-center"
+                            )}
+                          >
+                            {key}
+                          </kbd>
+                          {keyIndex < shortcut.keys.length - 1 && (
+                            <span className="text-muted-foreground text-xs">+</span>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 pt-4 border-t text-center text-xs text-muted-foreground">
+          Press <kbd className="px-1.5 py-0.5 bg-muted rounded">Esc</kbd> to close
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Hook to manually control keyboard shortcuts overlay
+ */
+export function useKeyboardShortcutsOverlay() {
+  const [open, setOpen] = useState(false);
+
+  const show = useCallback(() => setOpen(true), []);
+  const hide = useCallback(() => setOpen(false), []);
+  const toggle = useCallback(() => setOpen((prev) => !prev), []);
+
+  return { open, setOpen, show, hide, toggle };
+}

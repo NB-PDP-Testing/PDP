@@ -218,6 +218,21 @@ Enable:
 
 ## Code Reference
 
+### Phase 2 Data Display Components
+
+Located in `apps/web/src/components/data-display/`:
+
+| Component | Description | Usage |
+|-----------|-------------|-------|
+| `ResponsiveDataView` | Shows cards on mobile, table on desktop | Main data display component |
+| `SwipeableCard` | Card with swipe-to-reveal actions | Mobile list items |
+
+Located in `apps/web/src/hooks/`:
+
+| Hook | Description | Usage |
+|------|-------------|-------|
+| `usePullToRefresh` | Pull-to-refresh gesture handling | Mobile list refresh |
+
 ### Feature Flag Hook Location
 ```
 apps/web/src/hooks/use-ux-feature-flags.ts

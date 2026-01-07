@@ -382,6 +382,18 @@ When the user asks to implement a feature "like in the MVP" or "based on the MVP
 
 ---
 
+## GitHub Issue Updates
+
+When updating GitHub issues with bug fix details or analysis:
+
+1. **ALWAYS create an MD file first** in `docs/archive/bug-fixes/` (e.g., `BUG_FIX_123_DESCRIPTION.md`)
+2. **Use `--body-file` flag** to submit: `gh issue comment <number> --repo NB-PDP-Testing/PDP --body-file <path-to-md-file>`
+3. **NEVER use inline `--body "..."`** - content gets truncated with long messages
+
+This ensures full documentation is preserved both in the repository and on GitHub.
+
+---
+
 ## Getting Help
 
 - Check existing `.md` files for feature documentation

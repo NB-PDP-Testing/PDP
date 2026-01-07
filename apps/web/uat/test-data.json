@@ -44,16 +44,19 @@
   
   "organization": {
     "name": "Test Club FC",
+    "editedname": "Test Club FC Updated",
     "slug": "test-club-fc",
     "sports": ["Soccer"],
+    "editedSports": ["Soccer", "Rugby"],
     "colors": {
       "primary": "#2563EB",
-      "secondary": "#059669"
+      "secondary": "#059669",
+      "editedPrimary": "#1a5f2a",
+      "editedSecondary": "#f5f5dc"
     },
     "description": "Test organization for UAT",
     "editedname": "Test Club FC Updated",
     "editedslug": "test-club-fc-updated",
-    "sports": ["Soccer", "Rugby"],
     "Website": "https://www.testclubfc.com",
     "FaceBook": "https://www.facebook.com/testclubfc",
     "Twitter": "https://www.twitter.com/testclubfc",

@@ -235,17 +235,39 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await page.waitForTimeout(500);
       
       // Supported Sports: Select sports from config
+      // The form uses labels with checkbox inputs, checkbox id is sport-{code} (lowercase)
       for (const sport of TEST_ORG.sports) {
-        const sportCheckbox = page.locator('input[type="checkbox"]').filter({ has: page.locator('..').filter({ hasText: new RegExp(sport, 'i') }) });
-        if (await sportCheckbox.count() > 0) {
-          await sportCheckbox.first().check();
-        } else {
-          // Try by label text
-          const sportLabel = page.locator('label').filter({ hasText: new RegExp(sport, 'i') });
-          if (await sportLabel.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await sportLabel.click();
-          }
+        console.log(`Selecting sport: ${sport}`);
+        
+        // Method 1: Try clicking the label containing the sport name (most reliable)
+        const sportLabel = page.locator('label').filter({ hasText: new RegExp(`^${sport}$`, 'i') });
+        if (await sportLabel.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await sportLabel.click();
+          console.log(`✓ Selected ${sport} via label click`);
+          await page.waitForTimeout(500);
+          continue;
         }
+        
+        // Method 2: Try by checkbox id (sport code is lowercase)
+        const sportCode = sport.toLowerCase();
+        const checkboxById = page.locator(`#sport-${sportCode}`);
+        if (await checkboxById.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await checkboxById.check();
+          console.log(`✓ Selected ${sport} via checkbox id`);
+          await page.waitForTimeout(500);
+          continue;
+        }
+        
+        // Method 3: Try finding label with partial match and clicking
+        const partialLabel = page.locator('label').filter({ hasText: new RegExp(sport, 'i') }).first();
+        if (await partialLabel.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await partialLabel.click();
+          console.log(`✓ Selected ${sport} via partial label match`);
+          await page.waitForTimeout(500);
+          continue;
+        }
+        
+        console.log(`✗ Could not find sport: ${sport}`);
       }
       
       // Colors: Primary and Secondary from config
@@ -2185,7 +2207,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
       expect(onSettingsPage || hasSettingsContent).toBeTruthy();
     });
 
-    test('should edit organization slug', async ({ page, helper }) => {
+    test('should edit and save organization name', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
       await helper.waitForPageLoad();
       
@@ -2200,18 +2222,44 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      // Look for slug field and update it
-      const slugField = page.getByLabel(/slug/i).first();
-      if (await slugField.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await slugField.clear();
-        await slugField.fill(TEST_ORG.editedslug || 'test-club-fc-updated');
-        console.log('Updated slug to:', TEST_ORG.editedslug || 'test-club-fc-updated');
+      // Look for organization name field (in General Information section)
+      // The field has id="settings-org-name" based on the component
+      const nameField = page.locator('#settings-org-name');
+      let nameFieldFound = await nameField.isVisible({ timeout: 5000 }).catch(() => false);
+      
+      if (!nameFieldFound) {
+        // Fallback: try by label
+        const nameFieldByLabel = page.getByLabel(/organization name/i).first();
+        nameFieldFound = await nameFieldByLabel.isVisible({ timeout: 3000 }).catch(() => false);
+        if (nameFieldFound) {
+          await nameFieldByLabel.clear();
+          await nameFieldByLabel.fill(TEST_ORG.editedname || 'Test Club FC Updated');
+          console.log('Updated organization name via label to:', TEST_ORG.editedname || 'Test Club FC Updated');
+        }
+      } else {
+        await nameField.clear();
+        await nameField.fill(TEST_ORG.editedname || 'Test Club FC Updated');
+        console.log('Updated organization name via id to:', TEST_ORG.editedname || 'Test Club FC Updated');
       }
       
-      expect(true).toBeTruthy();
+      // Click "Save Changes" button for General Information section
+      const saveChangesButton = page.getByRole('button', { name: /save changes/i }).first();
+      if (await saveChangesButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await saveChangesButton.click();
+        await page.waitForTimeout(2000);
+        
+        // Check for success message
+        const hasNameSuccess = await page.getByText(/organization.*updated|changes.*saved|success/i).isVisible({ timeout: 5000 }).catch(() => false);
+        console.log('Organization name saved:', hasNameSuccess);
+        expect(hasNameSuccess).toBeTruthy();
+      } else {
+        console.log('Save Changes button not found for General Information');
+        // Fail the test if we can't find the save button
+        expect(false).toBeTruthy();
+      }
     });
 
-    test('should edit organization sports', async ({ page, helper }) => {
+    test('should edit and save organization colors', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
       await helper.waitForPageLoad();
       
@@ -2226,24 +2274,69 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      // Add Rugby to sports (Soccer is already selected)
-      const rugbyCheckbox = page.locator('input[type="checkbox"]').filter({ has: page.locator('..').filter({ hasText: /rugby/i }) });
-      if (await rugbyCheckbox.count() > 0) {
-        await rugbyCheckbox.first().check();
-        console.log('Added Rugby to sports');
+      // Scroll down to Theme & Brand Colors section
+      await page.evaluate(() => window.scrollBy(0, 500));
+      await page.waitForTimeout(1000);
+      
+      // The color inputs are in order: Primary, Secondary, Tertiary
+      // Each row has: color picker (type="color") + text input with placeholder
+      // Find the text inputs by their placeholder (default colors)
+      // Primary default: #16a34a, Secondary default: #0ea5e9
+      
+      // Find all text inputs in the colors section - they have font-mono class and placeholder
+      const colorTextInputs = page.locator('input.font-mono[type="text"]');
+      const colorInputsCount = await colorTextInputs.count();
+      console.log(`Found ${colorInputsCount} color text inputs`);
+      
+      const editedPrimaryColor = TEST_ORG.colors?.editedPrimary || '#1a5f2a';
+      const editedSecondaryColor = TEST_ORG.colors?.editedSecondary || '#f5f5dc';
+      
+      if (colorInputsCount >= 2) {
+        // First input is primary color
+        const primaryInput = colorTextInputs.nth(0);
+        await primaryInput.clear();
+        await primaryInput.fill(editedPrimaryColor);
+        console.log('Updated primary color to:', editedPrimaryColor);
+        
+        // Second input is secondary color
+        const secondaryInput = colorTextInputs.nth(1);
+        await secondaryInput.clear();
+        await secondaryInput.fill(editedSecondaryColor);
+        console.log('Updated secondary color to:', editedSecondaryColor);
       } else {
-        // Try by label text
-        const rugbyLabel = page.locator('label').filter({ hasText: /rugby/i });
-        if (await rugbyLabel.isVisible({ timeout: 3000 }).catch(() => false)) {
-          await rugbyLabel.click();
-          console.log('Clicked Rugby label');
+        // Fallback: try finding by placeholder
+        const primaryByPlaceholder = page.getByPlaceholder('#16a34a');
+        if (await primaryByPlaceholder.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await primaryByPlaceholder.clear();
+          await primaryByPlaceholder.fill(editedPrimaryColor);
+          console.log('Updated primary color via placeholder');
+        }
+        
+        const secondaryByPlaceholder = page.getByPlaceholder('#0ea5e9');
+        if (await secondaryByPlaceholder.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await secondaryByPlaceholder.clear();
+          await secondaryByPlaceholder.fill(editedSecondaryColor);
+          console.log('Updated secondary color via placeholder');
         }
       }
       
-      expect(true).toBeTruthy();
+      // Click "Save Colors" button
+      const saveColorsButton = page.getByRole('button', { name: /save colors/i });
+      if (await saveColorsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await saveColorsButton.click();
+        await page.waitForTimeout(2000);
+        
+        // Check for success message - exact message is "Colors updated successfully! Theme applied."
+        const hasColorsSuccess = await page.getByText(/colors updated successfully/i).isVisible({ timeout: 5000 }).catch(() => false);
+        console.log('Colors saved:', hasColorsSuccess);
+        expect(hasColorsSuccess).toBeTruthy();
+      } else {
+        console.log('Save Colors button not found');
+        expect(false).toBeTruthy();
+      }
     });
 
-    test('should edit organization social media links', async ({ page, helper }) => {
+    test('should edit and save organization sports', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
       await helper.waitForPageLoad();
       
@@ -2257,13 +2350,74 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await settingsLink.click();
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
+      
+      // Scroll to Supported Sports section
+      await page.evaluate(() => window.scrollBy(0, 800));
+      await page.waitForTimeout(1000);
+      
+      // Find and check Rugby sport checkbox
+      // The checkbox id format is: settings-sport-{code} (lowercase)
+      const rugbyCheckbox = page.locator('#settings-sport-rugby');
+      if (await rugbyCheckbox.isVisible({ timeout: 3000 }).catch(() => false)) {
+        const isChecked = await rugbyCheckbox.isChecked();
+        if (!isChecked) {
+          await rugbyCheckbox.check();
+          console.log('Checked Rugby checkbox');
+        } else {
+          console.log('Rugby already selected');
+        }
+      } else {
+        // Try finding by label text
+        const rugbyLabel = page.locator('label').filter({ hasText: /^Rugby$/i });
+        if (await rugbyLabel.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await rugbyLabel.click();
+          console.log('Clicked Rugby label');
+        } else {
+          console.log('Rugby sport option not found');
+        }
+      }
+      
+      // Click "Save Supported Sports" button
+      const saveSportsButton = page.getByRole('button', { name: /save supported sports/i });
+      if (await saveSportsButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await saveSportsButton.click();
+        await page.waitForTimeout(2000);
+        
+        // Check for success message
+        const hasSportsSuccess = await page.getByText(/supported sports updated|success/i).isVisible({ timeout: 5000 }).catch(() => false);
+        console.log('Supported sports saved:', hasSportsSuccess);
+        expect(hasSportsSuccess).toBeTruthy();
+      } else {
+        console.log('Save Supported Sports button not found');
+        expect(false).toBeTruthy();
+      }
+    });
+
+    test('should edit and save organization social media links', async ({ page, helper }) => {
+      await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
+      await helper.waitForPageLoad();
+      
+      // Navigate to admin > settings
+      const adminLink = page.getByRole('link', { name: /admin panel|admin/i }).first();
+      await adminLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(2000);
+      
+      const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+      await settingsLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(2000);
+      
+      // Scroll to Website & Social Media section
+      await page.evaluate(() => window.scrollBy(0, 1200));
+      await page.waitForTimeout(1000);
       
       // Fill in website
       const websiteField = page.getByLabel(/website/i);
       if (await websiteField.isVisible({ timeout: 3000 }).catch(() => false)) {
         await websiteField.clear();
         await websiteField.fill(TEST_ORG.Website || 'https://www.testclubfc.com');
-        console.log('Updated website');
+        console.log('Filled website field');
       }
       
       // Fill in Facebook
@@ -2271,15 +2425,15 @@ test.describe.serial('Initial Onboarding Flow', () => {
       if (await facebookField.isVisible({ timeout: 3000 }).catch(() => false)) {
         await facebookField.clear();
         await facebookField.fill(TEST_ORG.FaceBook || 'https://www.facebook.com/testclubfc');
-        console.log('Updated Facebook');
+        console.log('Filled Facebook field');
       }
       
       // Fill in Twitter
-      const twitterField = page.getByLabel(/twitter|x\.com/i);
+      const twitterField = page.getByLabel(/twitter/i);
       if (await twitterField.isVisible({ timeout: 3000 }).catch(() => false)) {
         await twitterField.clear();
         await twitterField.fill(TEST_ORG.Twitter || 'https://www.twitter.com/testclubfc');
-        console.log('Updated Twitter');
+        console.log('Filled Twitter field');
       }
       
       // Fill in Instagram
@@ -2287,7 +2441,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
       if (await instagramField.isVisible({ timeout: 3000 }).catch(() => false)) {
         await instagramField.clear();
         await instagramField.fill(TEST_ORG.Instagram || 'https://www.instagram.com/testclubfc');
-        console.log('Updated Instagram');
+        console.log('Filled Instagram field');
       }
       
       // Fill in LinkedIn
@@ -2295,13 +2449,26 @@ test.describe.serial('Initial Onboarding Flow', () => {
       if (await linkedinField.isVisible({ timeout: 3000 }).catch(() => false)) {
         await linkedinField.clear();
         await linkedinField.fill(TEST_ORG.Linkedin || 'https://www.linkedin.com/company/testclubfc');
-        console.log('Updated LinkedIn');
+        console.log('Filled LinkedIn field');
       }
       
-      expect(true).toBeTruthy();
+      // Click "Save Social Links" button
+      const saveSocialButton = page.getByRole('button', { name: /save social links/i });
+      if (await saveSocialButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await saveSocialButton.click();
+        await page.waitForTimeout(2000);
+        
+        // Check for success message
+        const hasSocialSuccess = await page.getByText(/social links updated|success/i).isVisible({ timeout: 5000 }).catch(() => false);
+        console.log('Social links saved:', hasSocialSuccess);
+        expect(hasSocialSuccess).toBeTruthy();
+      } else {
+        console.log('Save Social Links button not found');
+        expect(false).toBeTruthy();
+      }
     });
 
-    test('should save organization settings', async ({ page, helper }) => {
+    test('should verify all organization settings were saved', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
       await helper.waitForPageLoad();
       
@@ -2316,67 +2483,323 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await helper.waitForPageLoad();
       await page.waitForTimeout(2000);
       
-      // Fill all fields before saving
-      // Slug
-      const slugField = page.getByLabel(/slug/i).first();
-      if (await slugField.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await slugField.clear();
-        await slugField.fill(TEST_ORG.editedslug || 'test-club-fc-updated');
+      // Verify organization name was saved
+      const nameField = page.locator('#settings-org-name');
+      if (await nameField.isVisible({ timeout: 5000 }).catch(() => false)) {
+        const currentName = await nameField.inputValue();
+        const expectedName = TEST_ORG.editedname || 'Test Club FC Updated';
+        console.log('Current org name:', currentName, '| Expected:', expectedName);
+        expect(currentName).toBe(expectedName);
       }
       
-      // Website
+      // Verify primary color was saved
+      const primaryColorInput = page.locator('#settings-primary-color');
+      if (await primaryColorInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+        const currentPrimary = await primaryColorInput.inputValue();
+        const expectedPrimary = TEST_ORG.colors?.editedPrimary || '#1a5f2a';
+        console.log('Current primary color:', currentPrimary, '| Expected:', expectedPrimary);
+        // Color comparison should be case-insensitive
+        expect(currentPrimary.toLowerCase()).toBe(expectedPrimary.toLowerCase());
+      }
+      
+      // Scroll to check sports
+      await page.evaluate(() => window.scrollBy(0, 800));
+      await page.waitForTimeout(500);
+      
+      // Verify Rugby is checked
+      const rugbyCheckbox = page.locator('#settings-sport-rugby');
+      if (await rugbyCheckbox.isVisible({ timeout: 3000 }).catch(() => false)) {
+        const isRugbyChecked = await rugbyCheckbox.isChecked();
+        console.log('Rugby checked:', isRugbyChecked);
+        expect(isRugbyChecked).toBeTruthy();
+      }
+      
+      // Scroll to check social links
+      await page.evaluate(() => window.scrollBy(0, 400));
+      await page.waitForTimeout(500);
+      
+      // Verify website was saved
       const websiteField = page.getByLabel(/website/i);
       if (await websiteField.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await websiteField.clear();
-        await websiteField.fill(TEST_ORG.Website || 'https://www.testclubfc.com');
+        const currentWebsite = await websiteField.inputValue();
+        const expectedWebsite = TEST_ORG.Website || 'https://www.testclubfc.com';
+        console.log('Current website:', currentWebsite, '| Expected:', expectedWebsite);
+        expect(currentWebsite).toBe(expectedWebsite);
       }
       
-      // Facebook
-      const facebookField = page.getByLabel(/facebook/i);
-      if (await facebookField.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await facebookField.clear();
-        await facebookField.fill(TEST_ORG.FaceBook || 'https://www.facebook.com/testclubfc');
+      console.log('All organization settings verified successfully');
+    });
+  });
+
+  // ============================================================
+  // TEST-ONBOARDING-012: Owner Transfers Ownership to Admin
+  // ============================================================
+  test.describe('TEST-ONBOARDING-012: Owner Transfers Ownership to Admin', () => {
+    
+    test('should navigate to organization settings and find transfer ownership', async ({ page, helper }) => {
+      await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
+      await helper.waitForPageLoad();
+      
+      // Navigate to admin panel
+      const adminLink = page.getByRole('link', { name: /admin panel|admin/i }).first();
+      await expect(adminLink).toBeVisible({ timeout: 10000 });
+      await adminLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(2000);
+      
+      // Navigate to settings
+      const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+      await expect(settingsLink).toBeVisible({ timeout: 10000 });
+      await settingsLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(2000);
+      
+      // Scroll down to find Danger Zone / Transfer Ownership section
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(1000);
+      
+      // Look for Transfer Ownership section or button
+      const transferOwnershipHeading = page.getByText(/transfer ownership|danger zone/i).first();
+      const transferButton = page.getByRole('button', { name: /transfer ownership/i }).first();
+      
+      const hasTransferSection = await transferOwnershipHeading.isVisible({ timeout: 5000 }).catch(() => false);
+      const hasTransferButton = await transferButton.isVisible({ timeout: 5000 }).catch(() => false);
+      
+      console.log('Transfer ownership section found:', { hasTransferSection, hasTransferButton });
+      
+      expect(hasTransferSection || hasTransferButton).toBeTruthy();
+    });
+
+    test('should transfer ownership from owner to admin', async ({ page, helper }) => {
+      await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
+      await helper.waitForPageLoad();
+      
+      // Navigate to admin > settings
+      const adminLink = page.getByRole('link', { name: /admin panel|admin/i }).first();
+      await adminLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(2000);
+      
+      const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+      await settingsLink.click();
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(2000);
+      
+      // Scroll down to find Danger Zone / Transfer Ownership section
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      await page.waitForTimeout(1000);
+      
+      // Click Transfer button to open dialog (button text is "Transfer", not "Transfer Ownership")
+      // First look for the button with exact text "Transfer" or containing Shield icon
+      const transferButton = page.getByRole('button', { name: /^transfer$/i }).first();
+      const transferOwnershipButton = page.getByRole('button', { name: /transfer ownership/i }).first();
+      
+      // Try "Transfer" button first (in Owner Management section)
+      let buttonToClick = transferButton;
+      if (!(await transferButton.isVisible({ timeout: 3000 }).catch(() => false))) {
+        buttonToClick = transferOwnershipButton;
       }
       
-      // Twitter
-      const twitterField = page.getByLabel(/twitter|x\.com/i);
-      if (await twitterField.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await twitterField.clear();
-        await twitterField.fill(TEST_ORG.Twitter || 'https://www.twitter.com/testclubfc');
-      }
-      
-      // Instagram
-      const instagramField = page.getByLabel(/instagram/i);
-      if (await instagramField.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await instagramField.clear();
-        await instagramField.fill(TEST_ORG.Instagram || 'https://www.instagram.com/testclubfc');
-      }
-      
-      // LinkedIn
-      const linkedinField = page.getByLabel(/linkedin/i);
-      if (await linkedinField.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await linkedinField.clear();
-        await linkedinField.fill(TEST_ORG.Linkedin || 'https://www.linkedin.com/company/testclubfc');
-      }
-      
-      // Add Rugby sport
-      const rugbyCheckbox = page.locator('input[type="checkbox"]').filter({ has: page.locator('..').filter({ hasText: /rugby/i }) });
-      if (await rugbyCheckbox.count() > 0) {
-        await rugbyCheckbox.first().check();
-      }
-      
-      // Click save button
-      const saveButton = page.getByRole('button', { name: /save|update|submit/i }).first();
-      if (await saveButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-        await saveButton.click();
-        await page.waitForTimeout(3000);
+      if (await buttonToClick.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await buttonToClick.click();
+        await page.waitForTimeout(2000);
+        console.log('Clicked Transfer Ownership button');
         
-        // Check for success message
-        const hasSuccess = await page.getByText(/saved|updated|success/i).isVisible({ timeout: 5000 }).catch(() => false);
-        console.log('Settings saved:', hasSuccess);
+        // Wait for dialog to appear
+        const dialog = page.getByRole('dialog').first();
+        const hasDialog = await dialog.isVisible({ timeout: 5000 }).catch(() => false);
+        
+        if (hasDialog) {
+          console.log('Transfer ownership dialog opened');
+          
+          // The dialog shows member buttons - click on the admin user's button to select them
+          // Members are rendered as buttons with user info including email
+          const adminMemberButton = dialog.locator('button').filter({ hasText: new RegExp(TEST_USERS.admin.email, 'i') }).first();
+          const adminMemberByName = dialog.locator('button').filter({ hasText: new RegExp(TEST_USERS.admin.name, 'i') }).first();
+          
+          let memberSelected = false;
+          
+          if (await adminMemberButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+            await adminMemberButton.click();
+            console.log(`Selected admin member by email: ${TEST_USERS.admin.email}`);
+            memberSelected = true;
+          } else if (await adminMemberByName.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await adminMemberByName.click();
+            console.log(`Selected admin member by name: ${TEST_USERS.admin.name}`);
+            memberSelected = true;
+          } else {
+            // List all buttons in dialog for debugging
+            const allButtons = dialog.locator('button');
+            const buttonCount = await allButtons.count();
+            console.log(`Found ${buttonCount} buttons in dialog`);
+            for (let i = 0; i < Math.min(buttonCount, 10); i++) {
+              const btnText = await allButtons.nth(i).textContent();
+              console.log(`  Button ${i}: "${btnText?.substring(0, 50)}..."`);
+            }
+            // Click the first member button (not close/cancel/transfer buttons)
+            for (let i = 0; i < buttonCount; i++) {
+              const btn = allButtons.nth(i);
+              const btnText = await btn.textContent();
+              if (btnText && !btnText.match(/close|cancel|transfer ownership/i) && btnText.includes('@')) {
+                await btn.click();
+                console.log(`Selected member button ${i}: "${btnText?.substring(0, 30)}..."`);
+                memberSelected = true;
+                break;
+              }
+            }
+          }
+          
+          await page.waitForTimeout(1000);
+          
+          if (memberSelected) {
+            // After selecting member, confirmation input should appear
+            // The input has placeholder="TRANSFER"
+            const confirmationInput = dialog.getByPlaceholder('TRANSFER');
+            
+            if (await confirmationInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+              await confirmationInput.fill('TRANSFER');
+              console.log('Entered confirmation text: TRANSFER');
+              await page.waitForTimeout(500);
+              
+              // Now the Transfer Ownership button in dialog should be enabled
+              // It's a button with Crown icon and text "Transfer Ownership"
+              const transferConfirmButton = dialog.getByRole('button', { name: /transfer ownership/i });
+              
+              if (await transferConfirmButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+                // Check if button is enabled
+                const isDisabled = await transferConfirmButton.isDisabled();
+                console.log('Transfer button disabled:', isDisabled);
+                
+                if (!isDisabled) {
+                  await transferConfirmButton.click();
+                  console.log('Clicked Transfer Ownership confirm button');
+                  await page.waitForTimeout(3000);
+                  
+                  // Check for success message
+                  const hasSuccess = await page.getByText(/ownership transferred|transferred.*successfully/i).isVisible({ timeout: 10000 }).catch(() => false);
+                  console.log('Transfer success message:', hasSuccess);
+                  
+                  expect(hasSuccess).toBeTruthy();
+                } else {
+                  console.log('Transfer button is still disabled - checking state...');
+                  const inputValue = await confirmationInput.inputValue();
+                  console.log('Confirmation input value:', inputValue);
+                  expect(false).toBeTruthy();
+                }
+              } else {
+                console.log('Transfer confirm button not found in dialog');
+                expect(false).toBeTruthy();
+              }
+            } else {
+              console.log('Confirmation input not visible after selecting member');
+              expect(false).toBeTruthy();
+            }
+          } else {
+            console.log('Could not select any member');
+            expect(false).toBeTruthy();
+          }
+        } else {
+          console.log('Transfer ownership dialog did not open');
+          expect(false).toBeTruthy();
+        }
+      } else {
+        console.log('Transfer Ownership button not found - feature may not be available');
+        expect(false).toBeTruthy();
       }
+    });
+
+    test('should verify admin is now the owner', async ({ page, helper }) => {
+      // Login as the admin (new owner)
+      await helper.login(TEST_USERS.admin.email, TEST_USERS.admin.password);
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(3000);
       
-      expect(true).toBeTruthy();
+      // Navigate to admin > settings
+      const adminLink = page.getByRole('link', { name: /admin panel|admin/i }).first();
+      
+      if (await adminLink.isVisible({ timeout: 10000 }).catch(() => false)) {
+        await adminLink.click();
+        await helper.waitForPageLoad();
+        await page.waitForTimeout(2000);
+        
+        const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+        if (await settingsLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+          await settingsLink.click();
+          await helper.waitForPageLoad();
+          await page.waitForTimeout(2000);
+          
+          // Scroll to Owner Management section
+          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+          await page.waitForTimeout(1000);
+          
+          // New owner (admin) should now see the Owner Management section
+          // Look for "Owner Management" heading or "Transfer" button
+          const ownerManagementHeading = page.getByText(/owner management/i).first();
+          const transferButton = page.getByRole('button', { name: /^transfer$/i }).first();
+          const dangerZoneHeading = page.getByText(/danger zone/i).first();
+          
+          const hasOwnerManagement = await ownerManagementHeading.isVisible({ timeout: 5000 }).catch(() => false);
+          const hasTransferButton = await transferButton.isVisible({ timeout: 3000 }).catch(() => false);
+          const hasDangerZone = await dangerZoneHeading.isVisible({ timeout: 3000 }).catch(() => false);
+          
+          console.log('New owner verification:', { hasOwnerManagement, hasTransferButton, hasDangerZone });
+          
+          // Verify admin has owner privileges - should see Owner Management section
+          // or Danger Zone (both only visible to owners)
+          expect(hasOwnerManagement || hasTransferButton || hasDangerZone).toBeTruthy();
+        } else {
+          console.log('Settings link not visible for new owner');
+          expect(false).toBeTruthy();
+        }
+      } else {
+        console.log('Admin panel not visible for new owner');
+        expect(false).toBeTruthy();
+      }
+    });
+
+    test('should verify previous owner no longer has owner privileges', async ({ page, helper }) => {
+      // Login as the previous owner
+      await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
+      await helper.waitForPageLoad();
+      await page.waitForTimeout(3000);
+      
+      // Navigate to admin > settings
+      const adminLink = page.getByRole('link', { name: /admin panel|admin/i }).first();
+      
+      if (await adminLink.isVisible({ timeout: 10000 }).catch(() => false)) {
+        await adminLink.click();
+        await helper.waitForPageLoad();
+        await page.waitForTimeout(2000);
+        
+        const settingsLink = page.getByRole('link', { name: /settings/i }).first();
+        if (await settingsLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+          await settingsLink.click();
+          await helper.waitForPageLoad();
+          await page.waitForTimeout(2000);
+          
+          // Scroll to danger zone
+          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+          await page.waitForTimeout(1000);
+          
+          // Previous owner should NOT see the Transfer Ownership button anymore
+          const transferButton = page.getByRole('button', { name: /transfer ownership/i }).first();
+          const hasTransferButton = await transferButton.isVisible({ timeout: 3000 }).catch(() => false);
+          
+          console.log('Previous owner can see Transfer Ownership button:', hasTransferButton);
+          
+          // Previous owner should no longer see the transfer ownership button
+          // (they may still have admin access but not owner privileges)
+          expect(hasTransferButton).toBeFalsy();
+        } else {
+          // Previous owner may have lost access to settings
+          console.log('Previous owner cannot access settings - expected after ownership transfer');
+          expect(true).toBeTruthy();
+        }
+      } else {
+        // Previous owner may have lost admin access
+        console.log('Previous owner cannot access admin panel - may be expected');
+        expect(true).toBeTruthy();
+      }
     });
   });
 });

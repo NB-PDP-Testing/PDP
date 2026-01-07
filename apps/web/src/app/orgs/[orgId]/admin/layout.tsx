@@ -112,7 +112,7 @@ export default function OrgAdminLayout({
         {/* Bottom navigation for mobile - OUTSIDE main flex container for proper fixed positioning */}
         {useBottomNav && <BottomNav items={adminBottomNavItems} />}
         
-        <div className="flex min-h-screen flex-col">
+        <div className="flex flex-col h-full">
           {/* Header */}
           <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
             <div className="flex h-14 items-center justify-between px-4">
@@ -160,7 +160,7 @@ export default function OrgAdminLayout({
                 <AdminSidebar orgId={orgId} primaryColor={theme.primary} />
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+                <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 md:p-6 [&>*]:h-auto">
                   {children}
                 </main>
               </div>
@@ -269,7 +269,7 @@ function LegacyNavigation({
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 sm:p-6">{children}</main>
+      <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 md:p-6">{children}</main>
     </>
   );
 }

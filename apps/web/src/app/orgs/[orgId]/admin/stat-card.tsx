@@ -29,19 +29,19 @@ export function StatCard({
   };
 
   const content = (
-    <Card className="transition-all hover:shadow-md">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="font-medium text-muted-foreground text-sm">
+    <Card className="transition-all hover:shadow-md min-w-0 overflow-hidden !py-0 !gap-0 h-auto max-h-fit">
+      <CardHeader className="flex flex-row items-center justify-between !px-2 !py-2 sm:!px-3 sm:!py-2 md:!px-4 md:!py-3">
+        <CardTitle className="font-medium text-muted-foreground text-[10px] sm:text-xs md:text-sm truncate min-w-0 flex-1 mr-2">
           {title}
         </CardTitle>
-        <div className={`rounded-lg p-2 ${variantStyles[variant]}`}>
-          <Icon className="h-4 w-4" />
+        <div className={`rounded-lg p-1 sm:p-1.5 md:p-2 flex-shrink-0 ${variantStyles[variant]}`}>
+          <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="font-bold text-2xl">{value}</div>
+      <CardContent className="!px-2 !pb-2 sm:!px-3 sm:!pb-3 md:!px-4 md:!pb-4">
+        <div className="font-bold text-lg sm:text-xl md:text-2xl truncate">{value}</div>
         {description && (
-          <p className="mt-1 text-muted-foreground text-xs">{description}</p>
+          <p className="mt-0.5 sm:mt-1 text-muted-foreground text-[9px] sm:text-[10px] md:text-xs line-clamp-1 sm:line-clamp-2">{description}</p>
         )}
       </CardContent>
     </Card>

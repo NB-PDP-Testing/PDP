@@ -49,7 +49,7 @@ export default function RootLayout({
           </Suspense>
           <PostHogAuthTracker />
           <FlowInterceptor>
-            <div className="grid h-svh grid-rows-[auto_1fr]">{children}</div>
+            <div className="flex flex-col min-h-svh">{children}</div>
           </FlowInterceptor>
         </Providers>
       </body>

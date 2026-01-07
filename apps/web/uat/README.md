@@ -228,13 +228,41 @@ uat/
 
 ## Test Files Mapped to Test Cases
 
-| Test File | Test Cases Covered | Tests |
-|-----------|-------------------|-------|
-| `onboarding.spec.ts` | TEST-ONBOARDING-001 to TEST-ONBOARDING-011 | 25+ |
-| `auth.spec.ts` | TEST-AUTH-001 to TEST-AUTH-004 | 7 |
-| `admin.spec.ts` | TEST-ADMIN-001 to TEST-ADMIN-004 | 7 |
-| `coach.spec.ts` | TEST-COACH-001 to TEST-COACH-004 | 5 |
-| **Total** | **23 Test Cases** | **44+ Tests** |
+| Test File | Test Cases Covered | Tests | Prerequisites |
+|-----------|-------------------|-------|---------------|
+| `onboarding.spec.ts` | TEST-ONBOARDING-001 to TEST-ONBOARDING-012 | 40+ | Fresh environment |
+| `first-login-dashboard.spec.ts` | TEST-FIRST-LOGIN-001 to TEST-FIRST-LOGIN-005 | 10 | onboarding.spec.ts |
+| `auth.spec.ts` | TEST-AUTH-001 to TEST-AUTH-004 | 7 | Users exist |
+| `admin.spec.ts` | TEST-ADMIN-001 to TEST-ADMIN-004 | 7 | Users exist |
+| `coach.spec.ts` | TEST-COACH-001 to TEST-COACH-004 | 5 | Users exist |
+| **Total** | **28+ Test Cases** | **69+ Tests** | |
+
+### Test Execution Order
+
+**IMPORTANT:** You MUST use `--project=` flags to avoid auth setup dependencies running first!
+
+Tests should be run in this order for a fresh environment:
+
+```bash
+# Step 1: Run onboarding tests FIRST (creates users, org, invitations)
+# Uses --project flag to avoid auth-setup dependency
+npx playwright test --project=initial-onboarding
+
+# Step 2: Run first login dashboard tests (verifies correct dashboard redirects)
+npx playwright test --project=first-login-dashboard
+
+# Step 3: Run remaining tests (these have auth-setup dependency which is OK now)
+npx playwright test --project=continuous
+```
+
+**Why use `--project=` flags?**
+
+Running `npx playwright test onboarding.spec.ts` without a project flag matches ALL projects that include that test file, including `all-desktop` which has `auth-setup` as a dependency. This causes auth tests to run first, which fail on a fresh environment.
+
+| Command | What Happens |
+|---------|-------------|
+| `npx playwright test onboarding.spec.ts` | ❌ Matches `all-desktop` project → runs `auth-setup` first → FAILS |
+| `npx playwright test --project=initial-onboarding` | ✅ Runs onboarding tests only, no dependencies |
 
 ## CI/CD Integration
 

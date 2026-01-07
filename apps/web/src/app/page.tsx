@@ -31,7 +31,8 @@ export default function Home() {
 }
 
 function RedirectToOrgs() {
-  const { data: activeOrganization } = authClient.useActiveOrganization();
+  const { data: activeOrganization, isPending: activeOrgPending } = authClient.useActiveOrganization();
+  const { data: userOrganizations, isPending: orgsListPending } = authClient.useListOrganizations();
   const user = useCurrentUser();
   const router = useRouter();
 
@@ -52,17 +53,49 @@ function RedirectToOrgs() {
       return;
     }
 
-    if (activeOrganization) {
-      router.push(`/orgs/${activeOrganization.id}/coach` as Route);
-    } else {
-      // Platform staff go to /orgs, regular users go to /orgs/join
-      if (user?.isPlatformStaff) {
-        router.push("/orgs" as Route);
-      } else {
-        router.push("/orgs/join" as Route);
-      }
+    // Wait for data to load before making routing decisions
+    if (activeOrgPending || orgsListPending || user === undefined) {
+      return;
     }
-  }, [router, activeOrganization, user]);
+
+    // If user has an active organization, redirect to org root
+    // The org-level router will determine the correct dashboard based on functional role
+    if (activeOrganization) {
+      console.log("[Home] Active organization found:", activeOrganization.id);
+      router.push(`/orgs/${activeOrganization.id}` as Route);
+      return;
+    }
+
+    // If user has organization memberships but no active organization,
+    // set the first one as active and redirect there
+    if (userOrganizations && userOrganizations.length > 0) {
+      const firstOrg = userOrganizations[0];
+      console.log("[Home] User has org memberships, setting first as active:", firstOrg.id);
+      
+      // Set as active organization and redirect
+      authClient.organization.setActive({ organizationId: firstOrg.id })
+        .then(() => {
+          router.push(`/orgs/${firstOrg.id}` as Route);
+        })
+        .catch((error) => {
+          console.error("[Home] Error setting active organization:", error);
+          // Fallback: redirect to org anyway
+          router.push(`/orgs/${firstOrg.id}` as Route);
+        });
+      return;
+    }
+
+    // No organization memberships - route based on user type
+    if (user?.isPlatformStaff) {
+      // Platform staff go to /orgs to manage all organizations
+      console.log("[Home] Platform staff with no orgs, going to /orgs");
+      router.push("/orgs" as Route);
+    } else {
+      // Regular users go to /orgs/join to find and join an organization
+      console.log("[Home] Regular user with no orgs, going to /orgs/join");
+      router.push("/orgs/join" as Route);
+    }
+  }, [router, activeOrganization, activeOrgPending, userOrganizations, orgsListPending, user]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

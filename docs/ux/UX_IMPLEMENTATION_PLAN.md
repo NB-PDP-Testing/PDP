@@ -667,28 +667,333 @@ apps/web/src/
 
 ---
 
-## Next Steps
+## Next Implementation Phases
 
-### Immediate (High Priority)
-1. ⬜ Complete Phase 2: Data Display Components
-   - Create `ResponsiveDataView` component
-   - Add swipe actions for mobile cards
-   - Enhance desktop table features
+Based on the UX Review, here are the remaining phases with detailed implementation plans:
 
-### Short-term (Medium Priority)
-2. ⬜ Complete Phase 1: Navigation
-   - Update `button.tsx` with responsive sizes
-   - Create full `AppShell` component
-   - Add touch target compliance
+---
 
-### Long-term (Lower Priority)
-3. ⬜ Complete Phase 5: Polish
-   - PWA features (push notifications, add to homescreen)
-   - Resizable sidebar
-   - Accessibility audit
-   - Performance optimization
+### Phase 6: Skeleton Loaders & Loading States 🔴 NOT STARTED
 
-### Testing
-4. ⬜ Share `/demo/ux-mockups` with test users
-5. ⬜ Collect feedback on implemented features
-6. ⬜ Run Playwright tests at multiple breakpoints
+**Priority:** HIGH - Directly impacts perceived performance
+
+**Objective:** Replace spinner-based loading with content-shaped skeletons for better UX.
+
+#### 6.1 Components to Create
+
+| Component | Description | Feature Flag |
+|-----------|-------------|--------------|
+| `TableSkeleton` | Skeleton rows matching table structure | `ux_skeleton_loaders` |
+| `CardSkeleton` | Skeleton matching card layout | `ux_skeleton_loaders` |
+| `ListSkeleton` | Skeleton for list items | `ux_skeleton_loaders` |
+| `FormSkeleton` | Skeleton for form fields | `ux_skeleton_loaders` |
+| `StatCardSkeleton` | Already exists, needs enhancement | - |
+
+#### 6.2 Implementation Tasks
+
+- [ ] Create `apps/web/src/components/loading/table-skeleton.tsx`
+- [ ] Create `apps/web/src/components/loading/card-skeleton.tsx`
+- [ ] Create `apps/web/src/components/loading/list-skeleton.tsx`
+- [ ] Create `apps/web/src/components/loading/page-skeleton.tsx`
+- [ ] Add `loading.tsx` files to all route segments:
+  - [ ] `/orgs/[orgId]/admin/players/loading.tsx`
+  - [ ] `/orgs/[orgId]/admin/teams/loading.tsx`
+  - [ ] `/orgs/[orgId]/admin/users/loading.tsx`
+  - [ ] `/orgs/[orgId]/coach/loading.tsx`
+  - [ ] `/orgs/[orgId]/parents/loading.tsx`
+- [ ] Add skeleton-to-content fade transition
+
+#### 6.3 Acceptance Criteria
+
+- All data-fetching pages show content-shaped skeletons
+- Skeletons match final layout to prevent layout shift
+- Smooth fade transition when data loads
+- Feature flag allows fallback to spinner
+
+**Estimated Effort:** 2-3 days
+
+---
+
+### Phase 7: Table Migration & Data Display 🔴 NOT STARTED
+
+**Priority:** HIGH - Admin tables are primary use case
+
+**Objective:** Convert all admin tables to use ResponsiveDataView with mobile card views.
+
+#### 7.1 Pages to Migrate
+
+| Page | Current | Target Mobile | Target Desktop |
+|------|---------|---------------|----------------|
+| Admin Players | Table overflow | Swipeable cards | Enhanced table |
+| Admin Teams | Table overflow | Cards with actions | Table + hover actions |
+| Admin Users | Table overflow | List with actions | Table + bulk select |
+| Admin Coaches | Table overflow | Cards | Table |
+| Admin Guardians | Table overflow | Cards | Table |
+| Coach Player List | Basic table | Cards with swipe | Table + inline edit |
+
+#### 7.2 Implementation Tasks
+
+- [ ] Complete `ResponsiveDataView` component with all features
+- [ ] Create reusable mobile card templates:
+  - [ ] `PlayerMobileCard` - Avatar, name, team, actions
+  - [ ] `TeamMobileCard` - Logo, name, player count, actions
+  - [ ] `UserMobileCard` - Avatar, name, roles, status
+- [ ] Add swipe actions (edit/delete) to cards
+- [ ] Add bulk selection to desktop tables
+- [ ] Add column visibility controls
+- [ ] Add export functionality (CSV)
+- [ ] Migrate each page one by one with feature flag
+
+#### 7.3 Feature Flags
+
+```typescript
+ux_responsive_table_players: boolean;
+ux_responsive_table_teams: boolean;
+ux_responsive_table_users: boolean;
+```
+
+**Estimated Effort:** 5-7 days
+
+---
+
+### Phase 8: Touch Target & Base Component Updates 🔴 NOT STARTED
+
+**Priority:** MEDIUM - Foundation for all future mobile work
+
+**Objective:** Update base shadcn/ui components to have responsive sizes.
+
+#### 8.1 Components to Modify
+
+| Component | Current | Mobile Target | Desktop Target |
+|-----------|---------|---------------|----------------|
+| Button | `h-9` (36px) | `h-11` (44px) | `h-9` (36px) |
+| Input | `h-9` (36px) | `h-12` (48px) | `h-10` (40px) |
+| Select trigger | `h-9` | `h-12` | `h-10` |
+| Checkbox | `16px` | `20px` | `16px` |
+| Radio | `16px` | `20px` | `16px` |
+| Switch | Small | Larger | Standard |
+
+#### 8.2 Implementation Tasks
+
+- [ ] Update `apps/web/src/components/ui/button.tsx`:
+  ```tsx
+  size: {
+    default: "h-11 sm:h-10 md:h-9 px-4",
+    sm: "h-10 sm:h-9 md:h-8 px-3",
+    lg: "h-12 sm:h-11 md:h-10 px-6",
+    touch: "h-11 px-5",  // Always 44px
+    compact: "h-8 px-3", // Always 32px
+  }
+  ```
+- [ ] Update `apps/web/src/components/ui/input.tsx`
+- [ ] Update `apps/web/src/components/ui/select.tsx`
+- [ ] Update `apps/web/src/components/ui/checkbox.tsx`
+- [ ] Update `apps/web/src/components/ui/radio-group.tsx`
+- [ ] Update `apps/web/src/components/ui/switch.tsx`
+- [ ] Add `touch` and `compact` size variants to all interactive components
+- [ ] Test all forms across breakpoints
+
+**Estimated Effort:** 2-3 days
+
+---
+
+### Phase 9: AppShell & Unified Navigation 🔴 NOT STARTED
+
+**Priority:** MEDIUM - Consistency across all authenticated pages
+
+**Objective:** Create a unified responsive shell for all authenticated pages.
+
+#### 9.1 Components to Create
+
+| Component | Description |
+|-----------|-------------|
+| `AppShell` | Main wrapper with responsive nav switching |
+| `ResponsiveHeader` | Header that adapts content per breakpoint |
+| `MobileDrawer` | Full navigation drawer for mobile |
+| `DesktopSidebar` | Collapsible desktop sidebar |
+
+#### 9.2 Implementation Tasks
+
+- [ ] Create `apps/web/src/components/layout/app-shell.tsx`
+- [ ] Create `apps/web/src/components/layout/responsive-header.tsx`
+- [ ] Create `apps/web/src/components/layout/mobile-drawer.tsx`
+- [ ] Update admin layout to use AppShell
+- [ ] Update coach layout to use AppShell
+- [ ] Update parent layout to use AppShell
+- [ ] Add consistent breadcrumbs across all pages
+- [ ] Add back button pattern to all nested pages
+
+#### 9.3 Feature Flag
+
+```typescript
+ux_app_shell: boolean;
+```
+
+**Estimated Effort:** 4-5 days
+
+---
+
+### Phase 10: Context Menu & Advanced Interactions 🔴 NOT STARTED
+
+**Priority:** MEDIUM - Power user efficiency
+
+**Objective:** Add context menus and advanced interaction patterns.
+
+#### 10.1 Components to Create
+
+| Component | Mobile | Desktop |
+|-----------|--------|---------|
+| `ContextMenu` | Long-press sheet | Right-click menu |
+| `ActionSheet` | Full-screen action list | Dropdown menu |
+| `InlineEdit` | Tap to modal | Double-click to edit |
+
+#### 10.2 Implementation Tasks
+
+- [ ] Create `apps/web/src/components/interactions/context-menu.tsx`
+- [ ] Create `apps/web/src/components/interactions/action-sheet.tsx`
+- [ ] Create `apps/web/src/components/interactions/inline-edit.tsx`
+- [ ] Add long-press detection hook
+- [ ] Add right-click context menu to table rows
+- [ ] Add inline editing to table cells (desktop)
+- [ ] Add swipe-to-reveal actions on cards (mobile)
+
+**Estimated Effort:** 3-4 days
+
+---
+
+### Phase 11: PWA & Offline Features 🔴 NOT STARTED
+
+**Priority:** LOW - Nice to have for mobile users
+
+**Objective:** Make the app installable and partially functional offline.
+
+#### 11.1 Features to Implement
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Manifest | PWA manifest for installation | High |
+| Add to Homescreen | Prompt to install | High |
+| Service Worker | Cache static assets | Medium |
+| Offline Data | Cache critical data | Low |
+| Push Notifications | Notify of updates | Low |
+
+#### 11.2 Implementation Tasks
+
+- [ ] Create `apps/web/public/manifest.json`
+- [ ] Add PWA meta tags to root layout
+- [ ] Create service worker for static caching
+- [ ] Add "Add to Homescreen" prompt component
+- [ ] Enhance offline indicator with "cached" state
+- [ ] Cache organization data for offline viewing
+- [ ] Setup push notification infrastructure
+
+**Estimated Effort:** 3-5 days
+
+---
+
+### Phase 12: Accessibility Audit 🔴 NOT STARTED
+
+**Priority:** HIGH for compliance, but can run parallel
+
+**Objective:** Achieve WCAG AA compliance across the application.
+
+#### 12.1 Audit Areas
+
+| Area | Current State | Target |
+|------|---------------|--------|
+| Color Contrast | Unknown | 4.5:1 minimum |
+| Focus States | Basic | Visible, consistent |
+| Screen Reader | Untested | Full compatibility |
+| Keyboard Nav | Partial | Complete |
+| ARIA Labels | Inconsistent | Complete |
+| Skip Links | Missing | Implemented |
+
+#### 12.2 Implementation Tasks
+
+- [ ] Run automated audit (axe-core, Lighthouse)
+- [ ] Fix color contrast issues
+- [ ] Add visible focus states to all interactive elements
+- [ ] Add skip links to main content
+- [ ] Add ARIA labels to all interactive elements
+- [ ] Test with screen reader (VoiceOver, NVDA)
+- [ ] Add keyboard navigation to all components
+- [ ] Test and fix form error announcements
+- [ ] Add reduced motion support
+
+**Estimated Effort:** 3-5 days
+
+---
+
+### Phase 13: Performance Optimization 🔴 NOT STARTED
+
+**Priority:** MEDIUM - Important for mobile users on slow connections
+
+**Objective:** Achieve Lighthouse performance score >90 on mobile.
+
+#### 13.1 Optimization Areas
+
+| Area | Actions |
+|------|---------|
+| Bundle Size | Analyze and reduce |
+| Code Splitting | Lazy load routes |
+| Images | Optimize, use next/image |
+| Fonts | Subset, preload |
+| Third-party | Defer non-critical |
+| Caching | Leverage browser cache |
+
+#### 13.2 Implementation Tasks
+
+- [ ] Run bundle analyzer
+- [ ] Implement route-based code splitting
+- [ ] Lazy load heavy components (charts, editors)
+- [ ] Optimize all images with next/image
+- [ ] Add font subsetting
+- [ ] Defer analytics scripts
+- [ ] Add resource hints (prefetch, preconnect)
+- [ ] Implement stale-while-revalidate patterns
+
+**Estimated Effort:** 3-4 days
+
+---
+
+## Implementation Priority Matrix
+
+| Phase | Name | Priority | Effort | Impact | Order |
+|-------|------|----------|--------|--------|-------|
+| 6 | Skeleton Loaders | 🔴 High | 2-3 days | High | 1 |
+| 7 | Table Migration | 🔴 High | 5-7 days | High | 2 |
+| 8 | Touch Targets | 🟡 Medium | 2-3 days | High | 3 |
+| 12 | Accessibility | 🔴 High | 3-5 days | Medium | 4 |
+| 9 | AppShell | 🟡 Medium | 4-5 days | Medium | 5 |
+| 10 | Context Menus | 🟡 Medium | 3-4 days | Low | 6 |
+| 13 | Performance | 🟡 Medium | 3-4 days | Medium | 7 |
+| 11 | PWA | 🟢 Low | 3-5 days | Low | 8 |
+
+**Total Estimated Effort:** 24-36 days
+
+---
+
+## Quick Wins (Can be done anytime)
+
+These can be implemented independently without blocking other work:
+
+1. **Back Buttons** - Add consistent back navigation (1 day)
+2. **Empty State Audit** - Add actionable CTAs to empty states (1 day)
+3. **Toast Consistency** - Standardize success/error messages (0.5 days)
+4. **Hover States** - Add hover effects to cards and rows (1 day)
+5. **Focus Indicators** - Improve keyboard focus visibility (1 day)
+
+---
+
+## Testing Checklist
+
+Before each phase is considered complete:
+
+- [ ] Tested on iPhone SE (375px)
+- [ ] Tested on iPad (768px)
+- [ ] Tested on Desktop (1280px+)
+- [ ] Keyboard navigation works
+- [ ] Screen reader compatible
+- [ ] Lighthouse performance >80
+- [ ] Feature flag works correctly
+- [ ] No regressions in existing features

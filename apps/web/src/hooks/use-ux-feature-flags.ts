@@ -9,6 +9,11 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_touch_targets_44px: Use 44px minimum touch targets
  * - ux_admin_nav_style: Which admin navigation style to use
  * - ux_skeleton_loaders: Use skeleton loading states
+ *
+ * ACCESS CONTROL:
+ * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
+ * - When enabled, features are visible to ALL users (not restricted to staff)
+ * - PostHog dashboard access is required to toggle feature flags
  */
 
 export type AdminNavStyle = "current" | "sidebar" | "bottomsheet" | "tabs";
@@ -30,6 +35,10 @@ export interface UXFeatureFlags {
  * Hook to access UX feature flags
  * All flags default to false/current to maintain existing behavior
  * until explicitly enabled in PostHog
+ *
+ * ACCESS CONTROL:
+ * - Only Platform Staff (with PostHog access) can enable/disable features
+ * - When enabled, features apply to ALL users
  */
 export function useUXFeatureFlags(): UXFeatureFlags {
   const { isFeatureEnabled } = useAnalytics();

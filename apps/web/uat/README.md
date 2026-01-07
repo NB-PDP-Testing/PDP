@@ -131,7 +131,7 @@ Tests are organized into two groups for different use cases:
 - TEST-ONBOARDING-008: First Coach Accepts and Gets Team Assignment
 - TEST-ONBOARDING-009: Admin Creates First Players
 - TEST-ONBOARDING-010: Owner Invites First Parent
-- TEST-ONBOARDING-011: Platform Admin Edits Organisation
+- TEST-ONBOARDING-011: Platform Admin Edits Organisation (name, sports, social links)
 
 ### Group 2: Continuous Tests (`npm run test:continuous`)
 

@@ -1,3 +1,5 @@
+
+
 # User Acceptance Testing (UAT) Plan
 
 ## PDP (Player Development Platform) / PlayerARC
@@ -223,6 +225,26 @@ This section covers the critical first-time onboarding scenarios when an organiz
 | **Steps**           | 1. Navigate to player record<br>2. Find parent email field or invitation option<br>3. Enter parent email<br>4. Send invitation<br>5. Parent accepts invitation<br>6. Verify child linking                                         |
 | **Expected Result** | - Can invite parent via player record or user management<br>- Parent receives invitation<br>- Upon acceptance, parent linked to child<br>- Parent dashboard shows linked child<br>- Smart matching suggestions work if applicable |
 | **Pass/Fail**       | ☐                                                                                                                                                                                                                                 |
+
+#### TEST-ONBOARDING-011: Platform Admin Edits Organisation
+
+| Field               | Value                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify platform admin can edit all organization settings                                                                                                                                                                                                                                                                                                                                                   |
+| **Preconditions**   | Organization exists, owner logged in                                                                                                                                                                                                                                                                                                                                                                       |
+| **Steps**           | 1. Navigate to Admin Panel > Settings<br>2. Edit organization name and click "Save Changes"<br>3. Edit primary and secondary colors and click "Save Colors"<br>4. Add Rugby to supported sports and click "Save Supported Sports"<br>5. Fill in social media links (Website, Facebook, Twitter, Instagram, LinkedIn) and click "Save Social Links"<br>6. Verify all settings were saved by refreshing page |
+| **Expected Result** | - Each section has its own save button<br>- Organization name updated successfully<br>- Theme colors updated successfully<br>- Supported sports updated successfully<br>- Social links updated successfully<br>- All changes persist after page refresh<br>- Success toast messages appear for each save action                                                                                            |
+| **Pass/Fail**       | ☐                                                                                                                                                                                                                                                                                                                                                                                                         |
+
+#### TEST-ONBOARDING-012: Owner Transfers Ownership to Admin
+
+| Field               | Value                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Objective**       | Verify organization owner can transfer ownership to another admin                                                                                                                                                                                                                                                                                          |
+| **Preconditions**   | Organization exists with owner and at least one admin member                                                                                                                                                                                                                                                                                               |
+| **Steps**           | 1. Login as owner<br>2. Navigate to Admin Panel > Settings<br>3. Scroll to Danger Zone / Transfer Ownership section<br>4. Click "Transfer Ownership" button<br>5. Select admin user from dropdown/search<br>6. Enter confirmation text if required<br>7. Click Confirm/Transfer button<br>8. Login as new owner and verify Transfer Ownership button visible<br>9. Login as previous owner and verify Transfer Ownership button NOT visible |
+| **Expected Result** | - Transfer Ownership section visible only to owner<br>- Can select organization members as new owner<br>- Transfer completes successfully<br>- New owner has full owner privileges (sees Transfer Ownership button)<br>- Previous owner no longer has owner privileges (no Transfer Ownership button)<br>- Previous owner may retain admin access       |
+| **Pass/Fail**       | ☐                                                                                                                                                                                                                                                                                                                                                         |
 
 ---
 
@@ -510,6 +532,14 @@ This section covers the critical first-time onboarding scenarios when an organiz
 
 ### 4.6 Organization Settings
 
+**Note:** The Organization Settings page has **separate save buttons** for each section:
+- "Save Changes" - General Information (name, logo)
+- "Save Colors" - Theme & Brand Colors  
+- "Save Social Links" - Website & Social Media
+- "Save Supported Sports" - Sports checkboxes
+
+Each section must be saved individually. The URL slug is **read-only** and cannot be changed after organization creation.
+
 #### TEST-ADMIN-SETTINGS-001: View Organization Settings
 
 | Field               | Value                                                                                    |
@@ -517,7 +547,7 @@ This section covers the critical first-time onboarding scenarios when an organiz
 | **Objective**       | Verify admin can access org settings                                                     |
 | **Preconditions**   | Admin logged in                                                                          |
 | **Steps**           | 1. Navigate to `/admin/settings`<br>2. Review available settings                         |
-| **Expected Result** | - Settings page loads<br>- Organization info displayed<br>- Theme/color settings visible |
+| **Expected Result** | - Settings page loads<br>- Organization info displayed<br>- Theme/color settings visible<br>- Website & Social Links section visible<br>- Supported Sports section visible |
 | **Pass/Fail**       | ☐                                                                                        |
 
 #### TEST-ADMIN-SETTINGS-002: Update Organization Theme Colors
@@ -526,8 +556,28 @@ This section covers the critical first-time onboarding scenarios when an organiz
 | ------------------- | ------------------------------------------------------------------------------------------------ |
 | **Objective**       | Verify theme colors can be changed                                                               |
 | **Preconditions**   | Admin or owner logged in                                                                         |
-| **Steps**           | 1. Navigate to `/admin/settings`<br>2. Find color settings<br>3. Change primary color<br>4. Save |
-| **Expected Result** | - Color picker works<br>- Changes apply to UI<br>- Persists after refresh                        |
+| **Steps**           | 1. Navigate to `/admin/settings`<br>2. Find color settings<br>3. Change primary color<br>4. Click "Save Colors" button (not a generic save) |
+| **Expected Result** | - Color picker works<br>- Changes apply to UI<br>- "Colors updated successfully" toast appears<br>- Persists after refresh                        |
+| **Pass/Fail**       | ☐                                                                                                |
+
+#### TEST-ADMIN-SETTINGS-003: Update Social Links
+
+| Field               | Value                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| **Objective**       | Verify social media links can be saved                                                           |
+| **Preconditions**   | Admin or owner logged in                                                                         |
+| **Steps**           | 1. Navigate to `/admin/settings`<br>2. Fill in Website URL<br>3. Fill in Facebook, Twitter, Instagram, LinkedIn URLs<br>4. Click "Save Social Links" button |
+| **Expected Result** | - All URL fields accept valid URLs<br>- "Social links updated successfully" toast appears<br>- Links persist after refresh<br>- Preview links section shows saved links |
+| **Pass/Fail**       | ☐                                                                                                |
+
+#### TEST-ADMIN-SETTINGS-004: Update Supported Sports
+
+| Field               | Value                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| **Objective**       | Verify supported sports can be configured                                                        |
+| **Preconditions**   | Admin or owner logged in                                                                         |
+| **Steps**           | 1. Navigate to `/admin/settings`<br>2. Find Supported Sports section<br>3. Check/uncheck sport checkboxes<br>4. Click "Save Supported Sports" button |
+| **Expected Result** | - Sport checkboxes toggle correctly<br>- "Supported sports updated successfully" toast appears<br>- Selected sports shown in summary<br>- Persists after refresh |
 | **Pass/Fail**       | ☐                                                                                                |
 
 ---

@@ -33,6 +33,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  ResponsiveDataView,
+  type DataColumn,
+  type DataAction,
+} from "@/components/data-display";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -691,7 +696,7 @@ export default function ManagePlayersPage() {
         </div>
       </div>
 
-      {/* Player Table */}
+      {/* Player Table - Using ResponsiveDataView for mobile-friendly display */}
       <Card>
         <CardHeader>
           <CardTitle>Players ({sortedPlayers.length})</CardTitle>
@@ -717,213 +722,132 @@ export default function ManagePlayersPage() {
               ))}
             </div>
           ) : sortedPlayers.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b bg-muted/50">
-                  <tr>
-                    <th className="px-4 py-3 text-left">
-                      <button
-                        className="rounded p-1 hover:bg-accent"
-                        onClick={toggleSelectAll}
+            <ResponsiveDataView
+              data={sortedPlayers}
+              getKey={(player: any) => player._id}
+              columns={[
+                {
+                  key: "name",
+                  header: "Name",
+                  sortable: true,
+                  accessor: (player: any) => (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <span className="font-medium text-primary text-xs">
+                          {(player.name || "U")
+                            .split(" ")
+                            .map((n: string) => n[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium">{player.name || "Unnamed"}</p>
+                      </div>
+                    </div>
+                  ),
+                },
+                {
+                  key: "team",
+                  header: "Team(s)",
+                  sortable: true,
+                  accessor: (player: any) => getPlayerTeams(player).join(", "),
+                },
+                {
+                  key: "ageGroup",
+                  header: "Age Group",
+                  sortable: true,
+                  mobileVisible: false,
+                  accessor: (player: any) => player.ageGroup || "—",
+                },
+                {
+                  key: "lastReviewDate",
+                  header: "Last Review",
+                  sortable: true,
+                  mobileVisible: false,
+                  accessor: (player: any) =>
+                    player.lastReviewDate ? (
+                      <Badge
+                        className={(() => {
+                          const days = Math.floor(
+                            (Date.now() - new Date(player.lastReviewDate).getTime()) /
+                              (1000 * 60 * 60 * 24)
+                          );
+                          if (days <= 60) return "bg-green-500/10 text-green-600";
+                          if (days <= 90) return "bg-orange-500/10 text-orange-600";
+                          return "bg-red-500/10 text-red-600";
+                        })()}
+                        variant="outline"
                       >
-                        {selectedPlayers.size === sortedPlayers.length ? (
-                          <CheckSquare className="h-[18px] w-[18px] text-primary" />
-                        ) : (
-                          <Square className="h-[18px] w-[18px] text-muted-foreground" />
-                        )}
-                      </button>
-                    </th>
-                    <th
-                      className="cursor-pointer px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider hover:bg-muted/80"
-                      onClick={() => handleSort("name")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Name
-                        {sortColumn === "name" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th
-                      className="cursor-pointer px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider hover:bg-muted/80"
-                      onClick={() => handleSort("team")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Team(s)
-                        {sortColumn === "team" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th
-                      className="hidden cursor-pointer px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider hover:bg-muted/80 md:table-cell"
-                      onClick={() => handleSort("ageGroup")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Age Group
-                        {sortColumn === "ageGroup" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th
-                      className="hidden cursor-pointer px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider hover:bg-muted/80 lg:table-cell"
-                      onClick={() => handleSort("lastReview")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Last Review
-                        {sortColumn === "lastReview" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-xs uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {sortedPlayers.map((player: any) => (
-                    <tr
-                      className="cursor-pointer transition-colors hover:bg-accent/50"
-                      key={player._id}
-                      onClick={() =>
-                        router.push(
-                          `/orgs/${orgId}/admin/players/${player._id}/edit`
-                        )
-                      }
-                    >
-                      <td
-                        className="px-4 py-3"
-                        onClick={(e) => e.stopPropagation()}
+                        {new Date(player.lastReviewDate).toLocaleDateString()}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-xs">Not reviewed</span>
+                    ),
+                },
+              ]}
+              actions={[
+                {
+                  label: "View",
+                  icon: <Eye className="h-4 w-4" />,
+                  onClick: (player: any) => router.push(`/orgs/${orgId}/players/${player._id}`),
+                },
+                {
+                  label: "Edit",
+                  icon: <Edit className="h-4 w-4" />,
+                  onClick: (player: any) =>
+                    router.push(`/orgs/${orgId}/admin/players/${player._id}/edit` as any),
+                },
+                {
+                  label: "Delete",
+                  icon: <Trash2 className="h-4 w-4" />,
+                  destructive: true,
+                  onClick: (player: any) => handleDeleteClick(player),
+                },
+              ]}
+              onRowClick={(player: any) =>
+                router.push(`/orgs/${orgId}/admin/players/${player._id}/edit`)
+              }
+              selectable
+              selectedKeys={selectedPlayers}
+              onSelectionChange={setSelectedPlayers}
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
+              onSortChange={handleSort as any}
+              emptyState={
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <UserCircle className="mb-4 h-12 w-12 text-muted-foreground" />
+                  <h3 className="font-semibold text-lg">No Players Found</h3>
+                  <p className="mt-1 text-muted-foreground">
+                    {searchTerm ||
+                    sportFilter !== "all" ||
+                    ageGroupFilter !== "all" ||
+                    genderFilter !== "all" ||
+                    teamFilter !== "all" ||
+                    reviewStatusFilter !== "all"
+                      ? "No players match your search criteria"
+                      : "Import your first players to get started"}
+                  </p>
+                  {!searchTerm &&
+                    sportFilter === "all" &&
+                    ageGroupFilter === "all" &&
+                    genderFilter === "all" &&
+                    teamFilter === "all" &&
+                    reviewStatusFilter === "all" && (
+                      <Button
+                        className="mt-4"
+                        onClick={() =>
+                          router.push(`/orgs/${orgId}/admin/player-import`)
+                        }
                       >
-                        <button
-                          className="rounded p-1 hover:bg-accent"
-                          onClick={() => togglePlayerSelection(player._id)}
-                        >
-                          {selectedPlayers.has(player._id) ? (
-                            <CheckSquare className="h-[18px] w-[18px] text-primary" />
-                          ) : (
-                            <Square className="h-[18px] w-[18px] text-muted-foreground" />
-                          )}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
-                            <span className="font-medium text-primary text-xs">
-                              {(player.name || "U")
-                                .split(" ")
-                                .map((n: string) => n[0])
-                                .join("")
-                                .slice(0, 2)
-                                .toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-medium">
-                              {player.name || "Unnamed"}
-                            </p>
-                            <p className="text-muted-foreground text-xs md:hidden">
-                              {player.ageGroup}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {getPlayerTeams(player).join(", ")}
-                      </td>
-                      <td className="hidden px-4 py-3 text-sm md:table-cell">
-                        {player.ageGroup}
-                      </td>
-                      <td className="hidden px-4 py-3 text-sm lg:table-cell">
-                        {player.lastReviewDate ? (
-                          <Badge
-                            className={(() => {
-                              const days = Math.floor(
-                                (Date.now() -
-                                  new Date(player.lastReviewDate).getTime()) /
-                                  (1000 * 60 * 60 * 24)
-                              );
-                              if (days <= 60)
-                                return "bg-green-500/10 text-green-600";
-                              if (days <= 90)
-                                return "bg-orange-500/10 text-orange-600";
-                              return "bg-red-500/10 text-red-600";
-                            })()}
-                            variant="outline"
-                          >
-                            {new Date(
-                              player.lastReviewDate
-                            ).toLocaleDateString()}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">
-                            Not reviewed
-                          </span>
-                        )}
-                      </td>
-                      <td
-                        className="px-4 py-3 text-right"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            onClick={() =>
-                              router.push(
-                                `/orgs/${orgId}/players/${player._id}`
-                              )
-                            }
-                            size="icon"
-                            title="View Passport"
-                            variant="ghost"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            onClick={() =>
-                              router.push(
-                                `/orgs/${orgId}/admin/players/${player._id}/edit` as any
-                              )
-                            }
-                            size="icon"
-                            title="Edit Player"
-                            variant="ghost"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            onClick={() => handleDeleteClick(player)}
-                            size="icon"
-                            title="Remove Player"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="border-t bg-muted/50 px-4 py-3 text-muted-foreground text-sm">
-                {sortedPlayers.length} player
-                {sortedPlayers.length !== 1 ? "s" : ""}
-              </div>
-            </div>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Import Players
+                      </Button>
+                    )}
+                </div>
+              }
+            />
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <UserCircle className="mb-4 h-12 w-12 text-muted-foreground" />
@@ -958,6 +882,7 @@ export default function ManagePlayersPage() {
           )}
         </CardContent>
       </Card>
+
       {/* Add Player Dialog */}
       <Dialog
         onOpenChange={(open) => {

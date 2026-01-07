@@ -82,6 +82,7 @@ export default defineConfig({
     // Run once when setting up a fresh environment
     // NO dependencies - tests handle their own signup/login
     // Command: npm run test:onboarding
+    // OR: npx playwright test --project=initial-onboarding
     // ========================================
     {
       name: "initial-onboarding",
@@ -89,6 +90,21 @@ export default defineConfig({
       testDir: "./uat/tests",
       testMatch: /onboarding\.spec\.ts/,
       // No dependencies - tests do their own signup/login for fresh environment
+    },
+
+    // ========================================
+    // FIRST LOGIN DASHBOARD TESTS
+    // Run AFTER onboarding tests to verify dashboard redirects
+    // NO auth dependencies - tests login themselves
+    // Command: npx playwright test --project=first-login-dashboard
+    // ========================================
+    {
+      name: "first-login-dashboard",
+      use: { ...devices["Desktop Chrome"] },
+      testDir: "./uat/tests",
+      testMatch: /first-login-dashboard\.spec\.ts/,
+      // No auth dependencies - tests do their own login
+      // MUST be run after onboarding.spec.ts has created the users
     },
 
     // ========================================

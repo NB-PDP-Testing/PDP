@@ -958,18 +958,60 @@ ux_app_shell: boolean;
 
 ## Implementation Priority Matrix
 
+### Completed Phases ✅
+
+| Phase | Name | Status | Completion |
+|-------|------|--------|------------|
+| 0 | Testing Infrastructure | ✅ Complete | 100% |
+| 3 | Forms & Inputs | ✅ Complete | 100% |
+| 4 | Interactions & Feedback | ✅ Complete | 100% |
+
+### Partially Complete Phases 🟡
+
+| Phase | Name | Status | Remaining Items | Effort |
+|-------|------|--------|-----------------|--------|
+| 1 | Navigation Foundation | 🟡 60% | AppShell, Touch targets in button.tsx, Desktop hover states | 2-3 days |
+| 2 | Data Display Components | 🟡 40% | Complete ResponsiveDataView, data-table-enhanced, data-card-list | 3-4 days |
+| 5 | Polish & Platform | 🟡 50% | PWA prompt, Push notifications, Resizable sidebar, Pinned favorites, Recent items, Dark mode polish | 4-5 days |
+
+### Not Started Phases 🔴
+
 | Phase | Name | Priority | Effort | Impact | Order |
 |-------|------|----------|--------|--------|-------|
 | 6 | Skeleton Loaders | 🔴 High | 2-3 days | High | 1 |
 | 7 | Table Migration | 🔴 High | 5-7 days | High | 2 |
-| 8 | Touch Targets | 🟡 Medium | 2-3 days | High | 3 |
-| 12 | Accessibility | 🔴 High | 3-5 days | Medium | 4 |
-| 9 | AppShell | 🟡 Medium | 4-5 days | Medium | 5 |
+| 8 | Touch Targets (Base UI) | 🟡 Medium | 2-3 days | High | 3 |
+| 12 | Accessibility Audit | 🔴 High | 3-5 days | Medium | 4 |
+| 9 | AppShell & Unified Nav | 🟡 Medium | 4-5 days | Medium | 5 |
 | 10 | Context Menus | 🟡 Medium | 3-4 days | Low | 6 |
 | 13 | Performance | 🟡 Medium | 3-4 days | Medium | 7 |
-| 11 | PWA | 🟢 Low | 3-5 days | Low | 8 |
+| 11 | PWA & Offline | 🟢 Low | 3-5 days | Low | 8 |
 
-**Total Estimated Effort:** 24-36 days
+### Remaining Items from Phases 0-5
+
+#### Phase 1 Remaining (Navigation Foundation)
+- [ ] Create full `AppShell` component for responsive nav switching
+- [ ] Update `button.tsx` with responsive sizes (h-11 mobile → h-9 desktop)
+- [ ] Add desktop hover states to cards and table rows
+- [ ] Complete desktop sidebar keyboard shortcuts
+
+#### Phase 2 Remaining (Data Display)
+- [ ] Complete `ResponsiveDataView` with all features (column visibility, bulk select)
+- [ ] Create `data-table-enhanced.tsx` with hover actions
+- [ ] Create `data-card-list.tsx` with virtualization
+- [ ] Add pull-to-refresh component integration
+
+#### Phase 5 Remaining (Polish & Platform)
+- [ ] Add to homescreen PWA prompt
+- [ ] Push notification infrastructure
+- [ ] Resizable sidebar with persistence
+- [ ] Pinned favorites system
+- [ ] Recent items history
+- [ ] Multi-tab support
+- [ ] Dark mode polish
+- [ ] Print stylesheets
+
+**Total Estimated Remaining Effort:** 33-47 days (including partial phases)
 
 ---
 

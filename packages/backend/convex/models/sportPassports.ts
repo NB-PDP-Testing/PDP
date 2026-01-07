@@ -712,8 +712,8 @@ export const getFullPlayerPassportView = query({
       // Teams - get from new identity system
       teams: teamAssignments,
       teamCount: teamAssignments.length,
-      // Notes
-      coachNotes: primaryPassport?.coachNotes,
+      // Notes - coachNotes from enrollment (primary), other notes from passport
+      coachNotes: enrollment?.coachNotes ?? primaryPassport?.coachNotes,
       parentNotes: primaryPassport?.parentNotes,
       playerNotes: primaryPassport?.playerNotes,
       // Goals (convert to legacy format)

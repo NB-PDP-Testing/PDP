@@ -58,16 +58,43 @@ Once you're Platform Staff, you need PostHog credentials:
 2. Select your PDP project
 3. Navigate to **Feature Flags** in the left sidebar
 
-### Available Feature Flags
+### Available Feature Flags by Phase
+
+#### Phase 0 & 1: Navigation & Touch Targets
 
 | Flag Name | Description | Effect |
 |-----------|-------------|--------|
 | `ux_admin_nav_sidebar` | Grouped sidebar navigation | Replaces 16 horizontal tabs with 4 collapsible groups in Admin Panel |
+| `ux_admin_nav_bottomsheet` | Bottom sheet admin nav (mobile) | Opens admin sections in a bottom sheet on mobile |
+| `ux_admin_nav_tabs` | Scrollable tabs for admin nav | Uses horizontally scrollable tabs for admin navigation |
 | `ux_bottom_nav` | Mobile bottom navigation | Adds persistent bottom navigation bar on mobile |
-| `ux_mobile_cards` | Card-based mobile display | Uses cards instead of tables for data on mobile |
 | `ux_touch_targets_44px` | 44px touch targets | Enforces minimum 44px touch targets (Apple/Google standard) |
+
+#### Phase 2: Data Display Components
+
+| Flag Name | Description | Effect |
+|-----------|-------------|--------|
+| `ux_mobile_cards` | Card-based mobile display | Uses cards instead of tables for data on mobile |
 | `ux_skeleton_loaders` | Skeleton loading states | Shows skeleton UI while content loads |
-| `ux_responsive_forms` | Responsive form components (Phase 3) | Mobile-optimized forms with larger inputs, sticky submit, keyboard shortcuts |
+
+#### Phase 3: Forms & Inputs
+
+| Flag Name | Description | Effect |
+|-----------|-------------|--------|
+| `ux_responsive_forms` | Responsive form components | Mobile-optimized forms with 48px inputs, sticky submit, keyboard shortcuts (⌘S, Esc) |
+
+#### Quick Reference: All Flags
+
+| Phase | Flag Name | Default |
+|-------|-----------|---------|
+| 1 | `ux_admin_nav_sidebar` | OFF |
+| 1 | `ux_admin_nav_bottomsheet` | OFF |
+| 1 | `ux_admin_nav_tabs` | OFF |
+| 1 | `ux_bottom_nav` | OFF |
+| 1 | `ux_touch_targets_44px` | OFF |
+| 2 | `ux_mobile_cards` | OFF |
+| 2 | `ux_skeleton_loaders` | OFF |
+| 3 | `ux_responsive_forms` | OFF |
 
 ---
 

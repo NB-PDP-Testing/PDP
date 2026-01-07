@@ -28,7 +28,7 @@ export default defineConfig({
     {
       name: "auth-setup",
       testDir: "./apps/web/uat",
-      testMatch: /auth\.setup\.ts/,
+      testMatch: /(?<![a-z-])auth\.setup\.ts$/,
     },
     {
       name: "initial-onboarding",
@@ -45,7 +45,7 @@ export default defineConfig({
     {
       name: "continuous",
       use: { ...devices["Desktop Chrome"] },
-      testMatch: /^(auth|admin|coach)\.spec\.ts$/,
+      testMatch: /(auth|admin|coach|first-login-dashboard)\.spec\.ts$/,
       dependencies: ["auth-setup"],
     },
     {

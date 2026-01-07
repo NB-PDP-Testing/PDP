@@ -74,7 +74,7 @@ export default defineConfig({
     {
       name: "auth-setup",
       testDir: "./uat",
-      testMatch: /auth\.setup\.ts/,
+      testMatch: /(?<![a-z-])auth\.setup\.ts$/,
     },
 
     // ========================================
@@ -117,7 +117,7 @@ export default defineConfig({
       name: "continuous",
       use: { ...devices["Desktop Chrome"] },
       testDir: "./uat/tests",
-      testMatch: /^(auth|admin|coach)\.spec\.ts$/,
+      testMatch: /(auth|admin|coach|first-login-dashboard)\.spec\.ts$/,
       dependencies: ["auth-setup"],
     },
 

@@ -306,7 +306,10 @@ export const addPlayerToTeam = mutation({
 
       // FIX: If no sport passport exists, create one automatically
       let playerSport = teamSport;
-      if (!playerPassport) {
+      if (playerPassport) {
+        // Sport is valid - use sportCode from passport for subsequent validations
+        playerSport = playerPassport.sportCode;
+      } else {
         // Auto-create sport passport for this player
         const now = Date.now();
         await ctx.db.insert("sportPassports", {
@@ -321,9 +324,6 @@ export const addPlayerToTeam = mutation({
         console.log(
           `[addPlayerToTeam] Auto-created sport passport for player ${args.playerIdentityId} in sport ${teamSport}`
         );
-      } else {
-        // Sport is valid - use sportCode from passport for subsequent validations
-        playerSport = playerPassport.sportCode;
       }
 
       // Get team enforcement settings
@@ -1487,11 +1487,17 @@ export const getEligibleTeamsForPlayer = query({
 
         if (isAgeGroupMatch) {
           eligibilityStatus = "eligible";
-          reason = "Age group matches - sport passport will be created on assignment";
-        } else if (playerRank !== -1 && teamRank !== -1 && teamRank >= playerRank) {
+          reason =
+            "Age group matches - sport passport will be created on assignment";
+        } else if (
+          playerRank !== -1 &&
+          teamRank !== -1 &&
+          teamRank >= playerRank
+        ) {
           // Can play at same level or higher
           eligibilityStatus = "eligible";
-          reason = "Meets age requirements - sport passport will be created on assignment";
+          reason =
+            "Meets age requirements - sport passport will be created on assignment";
         } else if (playerRank !== -1 && teamRank !== -1) {
           // Playing down requires override
           eligibilityStatus = "requiresOverride";

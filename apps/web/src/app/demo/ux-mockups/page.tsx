@@ -3536,13 +3536,57 @@ function OrgRoleSwitcherOptionsMockup() {
           19. Org/Role Switcher Design Options
         </h2>
         <p className="mt-1 text-muted-foreground">
-          Four innovative approaches to org/role switching. Vote for your
-          favorite!
+          Four approaches to org/role switching. Each option shows what the user
+          experiences on mobile AND desktop.
         </p>
         <p className="mt-1 text-muted-foreground text-xs">
-          Source: Slack, Notion, Linear, Figma patterns
+          Inspiration: Slack, Notion, Linear, Figma + MVP single-click pattern
         </p>
       </div>
+
+      {/* User Experience Summary */}
+      <Card className="border-blue-200 bg-blue-50/50">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base text-blue-800">
+            <Monitor className="h-4 w-4" />
+            Quick Comparison: Clicks to Switch
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 text-sm md:grid-cols-4">
+            <div>
+              <div className="font-medium">Option A: Enhanced</div>
+              <div className="text-muted-foreground">
+                <span className="text-blue-600">Desktop:</span> 2-3 clicks |{" "}
+                <span className="text-green-600">Mobile:</span> 2-3 taps
+              </div>
+            </div>
+            <div>
+              <div className="font-medium">Option B: Two-Panel</div>
+              <div className="text-muted-foreground">
+                <span className="text-blue-600">Desktop:</span> 2 clicks |{" "}
+                <span className="text-green-600">Mobile:</span> 3 taps (step
+                wizard)
+              </div>
+            </div>
+            <div>
+              <div className="font-medium">Option C: Sidebar Dock</div>
+              <div className="text-muted-foreground">
+                <span className="text-blue-600">Desktop:</span> 1 click (org) +
+                1 click (role) | <span className="text-green-600">Mobile:</span>{" "}
+                N/A (desktop only)
+              </div>
+            </div>
+            <div>
+              <div className="font-medium">Option D: Context Strip</div>
+              <div className="text-muted-foreground">
+                <span className="text-blue-600">Desktop:</span> 1 click each |{" "}
+                <span className="text-green-600">Mobile:</span> 1 tap each
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Option A: Current Enhanced */}
@@ -3625,8 +3669,33 @@ function OrgRoleSwitcherOptionsMockup() {
                 ))}
               </div>
             </div>
-            <div className="mt-3 text-center text-muted-foreground text-xs">
-              Familiar pattern with search + keyboard shortcuts
+            {/* UX Experience */}
+            <div className="mt-4 space-y-2 rounded-lg border bg-muted/30 p-3 text-xs">
+              <div className="font-medium">User Experience:</div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <div className="flex items-center gap-1 font-medium text-blue-600">
+                    <Monitor className="h-3 w-3" />
+                    Desktop (2-3 clicks)
+                  </div>
+                  <ol className="mt-1 list-inside list-decimal space-y-0.5 text-muted-foreground">
+                    <li>Click switcher (or ⌘⇧O)</li>
+                    <li>Click org to expand</li>
+                    <li>Click role → switched!</li>
+                  </ol>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 font-medium text-green-600">
+                    <Smartphone className="h-3 w-3" />
+                    Mobile (2-3 taps)
+                  </div>
+                  <ol className="mt-1 list-inside list-decimal space-y-0.5 text-muted-foreground">
+                    <li>Tap → full-screen sheet</li>
+                    <li>Tap org to expand</li>
+                    <li>Tap role → switched!</li>
+                  </ol>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -3699,8 +3768,33 @@ function OrgRoleSwitcherOptionsMockup() {
                 </div>
               </div>
             </div>
-            <div className="mt-3 text-center text-muted-foreground text-xs">
-              Two-panel layout for clear org → role selection
+            {/* UX Experience */}
+            <div className="mt-4 space-y-2 rounded-lg border bg-muted/30 p-3 text-xs">
+              <div className="font-medium">User Experience:</div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <div className="flex items-center gap-1 font-medium text-blue-600">
+                    <Monitor className="h-3 w-3" />
+                    Desktop (2 clicks)
+                  </div>
+                  <ol className="mt-1 list-inside list-decimal space-y-0.5 text-muted-foreground">
+                    <li>Click switcher → see both panels</li>
+                    <li>Click org (left) + click role (right)</li>
+                    <li>Panel auto-closes → switched!</li>
+                  </ol>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 font-medium text-green-600">
+                    <Smartphone className="h-3 w-3" />
+                    Mobile (3 taps - step wizard)
+                  </div>
+                  <ol className="mt-1 list-inside list-decimal space-y-0.5 text-muted-foreground">
+                    <li>Tap → "Select Organization" screen</li>
+                    <li>Tap org → "Select Role" screen</li>
+                    <li>Tap role → switched!</li>
+                  </ol>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -3768,8 +3862,32 @@ function OrgRoleSwitcherOptionsMockup() {
                 </div>
               </div>
             </div>
-            <div className="mt-3 text-center text-muted-foreground text-xs">
-              Always-visible org dock like Slack workspaces
+            {/* UX Experience */}
+            <div className="mt-4 space-y-2 rounded-lg border bg-muted/30 p-3 text-xs">
+              <div className="font-medium">User Experience:</div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <div className="flex items-center gap-1 font-medium text-blue-600">
+                    <Monitor className="h-3 w-3" />
+                    Desktop (1-2 clicks)
+                  </div>
+                  <ol className="mt-1 list-inside list-decimal space-y-0.5 text-muted-foreground">
+                    <li>Orgs always visible in sidebar</li>
+                    <li>Click org icon → instant switch</li>
+                    <li>Click role badge → switch role</li>
+                  </ol>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 font-medium text-orange-600">
+                    <Smartphone className="h-3 w-3" />
+                    Mobile: Not Recommended
+                  </div>
+                  <p className="mt-1 text-muted-foreground">
+                    Sidebar dock takes too much space on mobile. Use Option A or
+                    D for mobile instead.
+                  </p>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -3818,12 +3936,61 @@ function OrgRoleSwitcherOptionsMockup() {
                 All context controls in one unified strip
               </div>
             </div>
-            <div className="mt-3 text-center text-muted-foreground text-xs">
-              Separate buttons for org, role, and user - clear but takes space
+            {/* UX Experience */}
+            <div className="mt-4 space-y-2 rounded-lg border bg-muted/30 p-3 text-xs">
+              <div className="font-medium">User Experience:</div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <div className="flex items-center gap-1 font-medium text-blue-600">
+                    <Monitor className="h-3 w-3" />
+                    Desktop (1 click each)
+                  </div>
+                  <ol className="mt-1 list-inside list-decimal space-y-0.5 text-muted-foreground">
+                    <li>Current org/role always visible</li>
+                    <li>Click org button → dropdown</li>
+                    <li>Click role button → dropdown</li>
+                    <li>Each action is independent</li>
+                  </ol>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 font-medium text-green-600">
+                    <Smartphone className="h-3 w-3" />
+                    Mobile (1 tap each)
+                  </div>
+                  <ol className="mt-1 list-inside list-decimal space-y-0.5 text-muted-foreground">
+                    <li>Compact strip in header</li>
+                    <li>Tap org → org list sheet</li>
+                    <li>Tap role → role list sheet</li>
+                    <li>MVP-style single-tap switching</li>
+                  </ol>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* MVP Pattern Note */}
+      <Card className="border-green-200 bg-green-50/50">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base text-green-800">
+            <Check className="h-4 w-4" />
+            Good Pattern from MVP
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-green-900 text-sm">
+          <p>
+            The MVP app uses <strong>single-click role switching</strong> - tap
+            a role, immediately switch. No confirmation dialogs. Visual feedback
+            shows "Switching..." then updates. This is the fastest pattern and
+            users expect it.
+          </p>
+          <p className="mt-2 text-green-700">
+            Recommendation: Whichever option you choose, keep the final switch
+            action to <strong>1 click/tap</strong>.
+          </p>
+        </CardContent>
+      </Card>
 
       <MultiOptionVoting
         comparisonId="org-role-switcher-design"
@@ -4088,10 +4255,28 @@ function CombinedHeaderPatternsMockup() {
       <div>
         <h2 className="font-semibold text-2xl">21. Combined Header Patterns</h2>
         <p className="mt-1 text-muted-foreground">
-          How org switcher, role switcher, and user menu work together in the
-          header
+          How org switcher, role switcher, and user menu work together. Each
+          pattern shows what it looks like and how users interact with it.
         </p>
       </div>
+
+      {/* Platform Note */}
+      <Card className="border-blue-200 bg-blue-50/50">
+        <CardContent className="pt-4 text-sm">
+          <div className="flex items-start gap-2">
+            <Monitor className="mt-0.5 h-4 w-4 text-blue-600" />
+            <div>
+              <span className="font-medium text-blue-800">
+                These patterns are for DESKTOP.
+              </span>{" "}
+              <span className="text-blue-700">
+                On mobile, the header collapses to just logo + compact
+                org/role/user (see Mockup 22 for mobile patterns).
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="space-y-6">
         {/* Pattern A: Current Layout */}
@@ -4132,6 +4317,19 @@ function CombinedHeaderPatternsMockup() {
                   </Button>
                 </div>
               </div>
+            </div>
+            {/* UX Description */}
+            <div className="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
+              <div className="font-medium">How it works:</div>
+              <ul className="mt-1 list-inside list-disc space-y-0.5 text-muted-foreground">
+                <li>1 click → opens combined org + role picker</li>
+                <li>
+                  Org and role are shown together (users may not realize they
+                  can change separately)
+                </li>
+                <li>User menu is separate - 1 additional click</li>
+                <li>Total: 2-3 clicks to switch context</li>
+              </ul>
             </div>
           </CardContent>
         </Card>
@@ -4189,7 +4387,20 @@ function CombinedHeaderPatternsMockup() {
                 </div>
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-center gap-4 text-muted-foreground text-xs">
+            {/* UX Description */}
+            <div className="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
+              <div className="font-medium">How it works:</div>
+              <ul className="mt-1 list-inside list-disc space-y-0.5 text-muted-foreground">
+                <li>
+                  Org, Role, and User are <strong>visually separate</strong>
+                </li>
+                <li>Click org button → org list (1 click to switch)</li>
+                <li>Click role button → role list (1 click to switch)</li>
+                <li>Keyboard shortcuts for power users</li>
+                <li>Total: 2 clicks to switch context (faster than A)</li>
+              </ul>
+            </div>
+            <div className="mt-2 flex items-center justify-center gap-4 text-muted-foreground text-xs">
               <span className="flex items-center gap-1">
                 <kbd className="rounded bg-muted px-1 py-0.5 font-mono">
                   ⌘⇧O
@@ -4256,6 +4467,22 @@ function CombinedHeaderPatternsMockup() {
                   Content area
                 </div>
               </div>
+            </div>
+            {/* UX Description */}
+            <div className="mt-3 rounded-lg border bg-muted/30 p-3 text-xs">
+              <div className="font-medium">How it works:</div>
+              <ul className="mt-1 list-inside list-disc space-y-0.5 text-muted-foreground">
+                <li>
+                  Orgs shown as icons in always-visible sidebar (Slack-style)
+                </li>
+                <li>1 click on org icon → instant org switch</li>
+                <li>Role shown in header - 1 click to change</li>
+                <li>Best for users with many orgs (3+)</li>
+                <li>
+                  <strong>Desktop only</strong> - sidebar takes too much space
+                  on mobile
+                </li>
+              </ul>
             </div>
           </CardContent>
         </Card>

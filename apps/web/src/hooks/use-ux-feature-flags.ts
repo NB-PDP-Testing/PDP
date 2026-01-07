@@ -10,6 +10,8 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_admin_nav_style: Which admin navigation style to use
  * - ux_skeleton_loaders: Use skeleton loading states
  * - ux_responsive_forms: Use mobile-optimized form components (Phase 3)
+ * - ux_command_menu: Enable Cmd+K command palette (Phase 4)
+ * - ux_responsive_dialogs: Use responsive dialogs (sheet on mobile, modal on desktop) (Phase 4)
  *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
@@ -32,6 +34,10 @@ export interface UXFeatureFlags {
   useSkeletonLoaders: boolean;
   /** Use responsive form components with mobile optimizations (Phase 3) */
   useResponsiveForms: boolean;
+  /** Enable Cmd+K command palette (Phase 4) */
+  useCommandMenu: boolean;
+  /** Use responsive dialogs - sheet on mobile, modal on desktop (Phase 4) */
+  useResponsiveDialogs: boolean;
 }
 
 /**
@@ -53,6 +59,8 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     adminNavStyle: getAdminNavStyle(isFeatureEnabled),
     useSkeletonLoaders: isFeatureEnabled("ux_skeleton_loaders"),
     useResponsiveForms: isFeatureEnabled("ux_responsive_forms"),
+    useCommandMenu: isFeatureEnabled("ux_command_menu"),
+    useResponsiveDialogs: isFeatureEnabled("ux_responsive_dialogs"),
   };
 }
 
@@ -84,4 +92,7 @@ export const UXAnalyticsEvents = {
   PULL_TO_REFRESH_USED: "ux_pull_to_refresh_used",
   FORM_SHORTCUT_USED: "ux_form_shortcut_used",
   STICKY_SUBMIT_USED: "ux_sticky_submit_used",
+  COMMAND_MENU_OPENED: "ux_command_menu_opened",
+  COMMAND_MENU_ACTION: "ux_command_menu_action",
+  KEYBOARD_SHORTCUT_USED: "ux_keyboard_shortcut_used",
 } as const;

@@ -83,6 +83,13 @@ Once you're Platform Staff, you need PostHog credentials:
 |-----------|-------------|--------|
 | `ux_responsive_forms` | Responsive form components | Mobile-optimized forms with 48px inputs, sticky submit, keyboard shortcuts (⌘S, Esc) |
 
+#### Phase 4: Interactions & Feedback
+
+| Flag Name | Description | Effect |
+|-----------|-------------|--------|
+| `ux_command_menu` | Command palette (Cmd+K) | Global search and navigation via keyboard shortcut |
+| `ux_responsive_dialogs` | Responsive dialogs | Bottom sheet on mobile, centered modal on desktop |
+
 #### Quick Reference: All Flags
 
 | Phase | Flag Name | Default |
@@ -95,6 +102,8 @@ Once you're Platform Staff, you need PostHog credentials:
 | 2 | `ux_mobile_cards` | OFF |
 | 2 | `ux_skeleton_loaders` | OFF |
 | 3 | `ux_responsive_forms` | OFF |
+| 4 | `ux_command_menu` | OFF |
+| 4 | `ux_responsive_dialogs` | OFF |
 
 ---
 
@@ -284,6 +293,105 @@ import {
   ResponsiveInput,
   ResponsiveTextarea,
 } from "@/components/forms";
+```
+
+### Phase 4 Interaction Components
+
+Located in `apps/web/src/components/interactions/`:
+
+| Component | Description | Usage |
+|-----------|-------------|-------|
+| `CommandMenu` | Global command palette (Cmd+K) | Search, navigation, actions |
+| `ResponsiveDialog` | Sheet on mobile, modal on desktop | Confirmations, forms |
+| `ConfirmationDialog` | Pre-built confirm/cancel dialog | Delete actions, warnings |
+| `ResponsiveDialogClose` | Close button for responsive dialogs | Inside dialog footer |
+
+| Hook | Description | Usage |
+|------|-------------|-------|
+| `useGlobalShortcuts` | Register global keyboard shortcuts | Custom shortcuts |
+
+#### Command Menu Usage
+
+```tsx
+import { CommandMenu } from "@/components/interactions";
+
+// In your layout or header component
+<CommandMenu
+  orgId={orgId}
+  showDefaultItems={true}
+  items={[
+    {
+      id: "custom-action",
+      label: "My Custom Action",
+      icon: <Star className="mr-2 h-4 w-4" />,
+      shortcut: "⌘M",
+      onSelect: () => doSomething(),
+      group: "Actions",
+    },
+  ]}
+/>
+```
+
+#### Responsive Dialog Usage
+
+```tsx
+import { ResponsiveDialog, ConfirmationDialog } from "@/components/interactions";
+import { Button } from "@/components/ui/button";
+
+// Simple responsive dialog
+<ResponsiveDialog
+  trigger={<Button>Open Dialog</Button>}
+  title="Edit Player"
+  description="Update player information"
+  footer={
+    <Button onClick={handleSave}>Save Changes</Button>
+  }
+>
+  <form>
+    {/* Form content */}
+  </form>
+</ResponsiveDialog>
+
+// Confirmation dialog (delete, etc.)
+const [showConfirm, setShowConfirm] = useState(false);
+
+<ConfirmationDialog
+  open={showConfirm}
+  onOpenChange={setShowConfirm}
+  title="Delete Player"
+  description="Are you sure you want to delete this player? This action cannot be undone."
+  confirmText="Delete"
+  cancelText="Cancel"
+  destructive={true}
+  onConfirm={async () => {
+    await deletePlayer(playerId);
+  }}
+/>
+```
+
+#### Global Keyboard Shortcuts
+
+```tsx
+import { useGlobalShortcuts } from "@/components/interactions";
+
+// Register custom shortcuts
+useGlobalShortcuts({
+  "cmd+n": () => router.push("/new"),
+  "cmd+s": () => handleSave(),
+  "?": () => setShowHelp(true),
+});
+```
+
+#### Phase 3 Form Example
+
+```tsx
+import {
+  ResponsiveForm,
+  ResponsiveFormSection,
+  ResponsiveFormRow,
+  ResponsiveInput,
+  ResponsiveTextarea,
+} from "@/components/forms";
 
 <ResponsiveForm
   onSubmit={handleSubmit}
@@ -452,6 +560,41 @@ Navigate to `/platform/staff` to see all platform staff members.
    - Keyboard shortcut hints shown below form
    - First field auto-focused on page load
 
+### Phase 4: Interactions & Feedback
+
+#### Verify Command Menu (Cmd+K)
+1. Enable `ux_command_menu` in PostHog (100% rollout)
+2. Navigate to any page in the application
+3. **Desktop**: Press `Cmd+K` (Mac) or `Ctrl+K` (Windows)
+4. **Expected**:
+   - Command palette opens with search input
+   - Shows navigation options (Home, Players, Settings, etc.)
+   - Shows actions (Add Player, Toggle Theme)
+   - Keyboard shortcuts displayed next to items
+   - Press Enter or click to navigate
+
+#### Test Command Menu on Mobile
+1. Open DevTools mobile view (< 768px)
+2. Tap the search button in the header
+3. **Expected on mobile**:
+   - Full-screen search experience
+   - Larger touch targets for items
+   - No keyboard shortcut hints (mobile-appropriate)
+
+#### Verify Responsive Dialogs
+1. Enable `ux_responsive_dialogs` in PostHog (100% rollout)
+2. Trigger any confirmation dialog (e.g., delete action)
+3. **Mobile view** (< 768px):
+   - Dialog appears as bottom sheet
+   - Drag handle at top
+   - Full-width buttons (48px tall)
+   - Easy to dismiss by swiping down
+4. **Desktop view** (> 768px):
+   - Dialog appears as centered modal
+   - Close button in corner
+   - Standard button sizes
+   - Keyboard accessible (Esc to close)
+
 ### Quick Verification Checklist
 
 | Feature | PostHog Flag | How to Test | Expected Result |
@@ -462,6 +605,8 @@ Navigate to `/platform/staff` to see all platform staff members.
 | Mobile Cards | `ux_mobile_cards` | Data list on mobile | Card layout |
 | Skeleton Loaders | `ux_skeleton_loaders` | Slow network (DevTools) | Skeleton animation |
 | Responsive Forms | `ux_responsive_forms` | Any form on mobile | 48px inputs, sticky submit |
+| Command Menu | `ux_command_menu` | Press Cmd+K | Command palette opens |
+| Responsive Dialogs | `ux_responsive_dialogs` | Trigger delete confirmation | Sheet on mobile, modal on desktop |
 
 ### Browser DevTools Quick Reference
 

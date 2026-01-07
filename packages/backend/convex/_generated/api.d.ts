@@ -65,6 +65,7 @@ import type * as scripts_cleanupEnrollmentSport from "../scripts/cleanupEnrollme
 import type * as scripts_clearDevData from "../scripts/clearDevData.js";
 import type * as scripts_clearPlayerDataKeepUsers from "../scripts/clearPlayerDataKeepUsers.js";
 import type * as scripts_debugPlayerData from "../scripts/debugPlayerData.js";
+import type * as scripts_deleteAllPlayers from "../scripts/deleteAllPlayers.js";
 import type * as scripts_deleteUser from "../scripts/deleteUser.js";
 import type * as scripts_findPlayerByName from "../scripts/findPlayerByName.js";
 import type * as scripts_fixGAATeamSportCodes from "../scripts/fixGAATeamSportCodes.js";
@@ -142,6 +143,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/clearDevData": typeof scripts_clearDevData;
   "scripts/clearPlayerDataKeepUsers": typeof scripts_clearPlayerDataKeepUsers;
   "scripts/debugPlayerData": typeof scripts_debugPlayerData;
+  "scripts/deleteAllPlayers": typeof scripts_deleteAllPlayers;
   "scripts/deleteUser": typeof scripts_deleteUser;
   "scripts/findPlayerByName": typeof scripts_findPlayerByName;
   "scripts/fixGAATeamSportCodes": typeof scripts_fixGAATeamSportCodes;

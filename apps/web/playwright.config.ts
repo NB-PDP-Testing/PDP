@@ -6,11 +6,11 @@ import { defineConfig, devices } from "@playwright/test";
  *
  * TEST GROUPS:
  *
- * 1. Initial Setup Tests (Group 1):
+ * 1. Initial Onboarding Tests (Group 1):
  *    - Run once when setting up a fresh environment
  *    - Uses initial-auth.setup.ts (creates accounts via SIGNUP)
- *    - Tests: setup.spec.ts
- *    - Command: npm run test:setup
+ *    - Tests: onboarding.spec.ts
+ *    - Command: npm run test:onboarding
  *
  * 2. Continuous Tests (Group 2):
  *    - Run regularly after code changes
@@ -78,16 +78,16 @@ export default defineConfig({
     },
 
     // ========================================
-    // GROUP 1: INITIAL SETUP TESTS
+    // GROUP 1: INITIAL ONBOARDING TESTS
     // Run once when setting up a fresh environment
     // NO dependencies - tests handle their own signup/login
-    // Command: npm run test:setup
+    // Command: npm run test:onboarding
     // ========================================
     {
-      name: "initial-setup",
+      name: "initial-onboarding",
       use: { ...devices["Desktop Chrome"] },
       testDir: "./uat/tests",
-      testMatch: /setup\.spec\.ts/,
+      testMatch: /onboarding\.spec\.ts/,
       // No dependencies - tests do their own signup/login for fresh environment
     },
 
@@ -101,8 +101,7 @@ export default defineConfig({
       name: "continuous",
       use: { ...devices["Desktop Chrome"] },
       testDir: "./uat/tests",
-      testMatch: /^(?!setup\.spec\.ts$).*\.spec\.ts$/,
-      testIgnore: /setup\.spec\.ts/,
+      testMatch: /^(auth|admin|coach)\.spec\.ts$/,
       dependencies: ["auth-setup"],
     },
 
@@ -163,7 +162,7 @@ export default defineConfig({
       use: { ...devices["Pixel 5"] },
       testDir: "./uat/tests",
       testMatch: /.*\.spec\.ts/,
-      testIgnore: /setup\.spec\.ts/, // Setup tests are desktop-focused
+      testIgnore: /onboarding\.spec\.ts/, // Onboarding tests are desktop-focused
       dependencies: ["auth-setup"],
     },
   ],

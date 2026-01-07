@@ -1,8 +1,10 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import { useConvex } from "convex/react";
 import {
+  AlertTriangle,
   CheckSquare,
   ChevronDown,
   ChevronUp,
@@ -12,6 +14,7 @@ import {
   Plus,
   Search,
   Square,
+  Trash2,
   Upload,
   UserCircle,
   UserPlus,
@@ -113,6 +116,21 @@ export default function ManagePlayersPage() {
   const [formErrors, setFormErrors] = useState<
     Partial<Record<keyof AddPlayerFormData, string>>
   >({});
+  
+  // Duplicate warning state
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [duplicateMessage, setDuplicateMessage] = useState("");
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
+  const convex = useConvex();
+
+  // Delete player state
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [playerToDelete, setPlayerToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Bulk delete state
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Mutations
   const createPlayerIdentity = useMutation(
@@ -120,6 +138,9 @@ export default function ManagePlayersPage() {
   );
   const enrollPlayer = useMutation(
     api.models.orgPlayerEnrollments.enrollPlayer
+  );
+  const unenrollPlayer = useMutation(
+    api.models.orgPlayerEnrollments.unenrollPlayer
   );
 
   // Get data from new identity system
@@ -196,15 +217,44 @@ export default function ManagePlayersPage() {
     return Object.keys(errors).length === 0;
   };
 
-  // Handle add player submit
-  const handleAddPlayer = async () => {
-    if (!validateForm()) {
-      return;
+  // Check for duplicates and show warning if found
+  const checkForDuplicates = async (): Promise<boolean> => {
+    if (!addPlayerForm.dateOfBirth) return true; // Can't check without DOB
+    
+    setIsCheckingDuplicate(true);
+    try {
+      const result = await convex.query(
+        api.models.playerIdentities.checkForDuplicatePlayer,
+        {
+          firstName: addPlayerForm.firstName.trim(),
+          lastName: addPlayerForm.lastName.trim(),
+          dateOfBirth: addPlayerForm.dateOfBirth,
+          gender: addPlayerForm.gender,
+        }
+      );
+      
+      if (result.isDuplicate && result.message) {
+        // Exact match found - show warning
+        setDuplicateMessage(result.message);
+        setShowDuplicateWarning(true);
+        return false; // Don't proceed - wait for user confirmation
+      }
+      
+      // No exact duplicate - proceed
+      return true;
+    } catch (error) {
+      console.error("Error checking for duplicates:", error);
+      // On error, allow creation to proceed
+      return true;
+    } finally {
+      setIsCheckingDuplicate(false);
     }
+  };
 
+  // Create the player (called after validation and optional duplicate confirmation)
+  const createPlayer = async () => {
     setIsAddingPlayer(true);
     try {
-      // Step 1: Create player identity
       const playerIdentityId = await createPlayerIdentity({
         firstName: addPlayerForm.firstName.trim(),
         lastName: addPlayerForm.lastName.trim(),
@@ -225,10 +275,11 @@ export default function ManagePlayersPage() {
         description: `${addPlayerForm.firstName} ${addPlayerForm.lastName} has been added to the organization.`,
       });
 
-      // Reset form and close dialog
+      // Reset form and close dialogs
       setAddPlayerForm(emptyFormData);
       setFormErrors({});
       setShowAddPlayerDialog(false);
+      setShowDuplicateWarning(false);
 
       // Navigate to the new player
       router.push(`/orgs/${orgId}/players/${playerIdentityId}`);
@@ -242,6 +293,109 @@ export default function ManagePlayersPage() {
       });
     } finally {
       setIsAddingPlayer(false);
+    }
+  };
+
+  // Handle add player submit - first check for duplicates
+  const handleAddPlayer = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    // Check for duplicates first
+    const canProceed = await checkForDuplicates();
+    if (canProceed) {
+      await createPlayer();
+    }
+    // If not, the duplicate warning dialog will be shown
+  };
+
+  // Handle duplicate warning confirmation - proceed anyway
+  const handleDuplicateConfirm = async () => {
+    setShowDuplicateWarning(false);
+    await createPlayer();
+  };
+
+  // Handle delete player
+  const handleDeleteClick = (player: any) => {
+    setPlayerToDelete({ id: player.enrollmentId, name: player.name });
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!playerToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await unenrollPlayer({
+        enrollmentId: playerToDelete.id as any,
+      });
+      
+      toast.success("Player removed", {
+        description: `${playerToDelete.name} has been removed from the organization.`,
+      });
+      
+      setShowDeleteDialog(false);
+      setPlayerToDelete(null);
+    } catch (error) {
+      console.error("Error removing player:", error);
+      toast.error("Failed to remove player", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Handle bulk delete
+  const handleBulkDeleteClick = () => {
+    if (selectedPlayers.size === 0) return;
+    setShowBulkDeleteDialog(true);
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedPlayers.size === 0) return;
+    
+    setIsBulkDeleting(true);
+    try {
+      // Get enrollment IDs for selected players
+      const selectedPlayersList = sortedPlayers.filter((p: any) => 
+        selectedPlayers.has(p._id)
+      );
+      
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const player of selectedPlayersList) {
+        try {
+          await unenrollPlayer({
+            enrollmentId: player.enrollmentId as any,
+          });
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to remove ${player.name}:`, error);
+          failCount++;
+        }
+      }
+      
+      if (successCount > 0) {
+        toast.success(`Removed ${successCount} player${successCount !== 1 ? 's' : ''}`, {
+          description: failCount > 0 
+            ? `${failCount} player${failCount !== 1 ? 's' : ''} failed to remove`
+            : undefined,
+        });
+      }
+      
+      setSelectedPlayers(new Set());
+      setShowBulkDeleteDialog(false);
+    } catch (error) {
+      console.error("Error during bulk delete:", error);
+      toast.error("Failed to remove players");
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -387,6 +541,15 @@ export default function ManagePlayersPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {selectedPlayers.size > 0 && (
+            <Button
+              onClick={handleBulkDeleteClick}
+              variant="destructive"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Selected ({selectedPlayers.size})
+            </Button>
+          )}
           <Button
             onClick={() => setShowAddPlayerDialog(true)}
             variant="default"
@@ -741,6 +904,15 @@ export default function ManagePlayersPage() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
+                          <Button
+                            onClick={() => handleDeleteClick(player)}
+                            size="icon"
+                            title="Remove Player"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -959,6 +1131,155 @@ export default function ManagePlayersPage() {
                 <>
                   <UserPlus className="mr-2 h-4 w-4" />
                   Add Player
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog onOpenChange={setShowDeleteDialog} open={showDeleteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Remove Player
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Are you sure you want to remove{" "}
+              <span className="font-semibold">{playerToDelete?.name}</span> from
+              this organization?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-muted-foreground text-sm">
+              This will remove the player from your organization. Their player
+              identity will remain in the system and can be re-enrolled later.
+            </p>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setPlayerToDelete(null);
+              }}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isDeleting}
+              onClick={handleDeleteConfirm}
+              variant="destructive"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Remove Player
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate Warning Dialog */}
+      <Dialog
+        onOpenChange={setShowDuplicateWarning}
+        open={showDuplicateWarning}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              ⚠️ Potential Duplicate
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              {duplicateMessage}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-muted-foreground text-sm">
+              The system allows players with the same name if they have different dates of birth or gender.
+              An exact match (same name, date of birth, AND gender) has been detected.
+            </p>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button
+              onClick={() => setShowDuplicateWarning(false)}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isAddingPlayer}
+              onClick={handleDuplicateConfirm}
+              variant="default"
+            >
+              {isAddingPlayer ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Anyway"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog onOpenChange={setShowBulkDeleteDialog} open={showBulkDeleteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Remove {selectedPlayers.size} Player{selectedPlayers.size !== 1 ? 's' : ''}
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Are you sure you want to remove {selectedPlayers.size} selected player{selectedPlayers.size !== 1 ? 's' : ''} from
+              this organization?
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <p className="text-muted-foreground text-sm">
+              This will remove the selected players from your organization. Their player
+              identities will remain in the system and can be re-enrolled later.
+            </p>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button
+              onClick={() => setShowBulkDeleteDialog(false)}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isBulkDeleting}
+              onClick={handleBulkDeleteConfirm}
+              variant="destructive"
+            >
+              {isBulkDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Remove {selectedPlayers.size} Player{selectedPlayers.size !== 1 ? 's' : ''}
                 </>
               )}
             </Button>

@@ -12,6 +12,9 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_responsive_forms: Use mobile-optimized form components (Phase 3)
  * - ux_command_menu: Enable Cmd+K command palette (Phase 4)
  * - ux_responsive_dialogs: Use responsive dialogs (sheet on mobile, modal on desktop) (Phase 4)
+ * - ux_keyboard_shortcuts_overlay: Show keyboard shortcuts help (? key) (Phase 5)
+ * - ux_density_toggle: Enable density toggle (compact/comfortable/spacious) (Phase 5)
+ * - ux_offline_indicator: Show offline status indicator (Phase 5)
  *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
@@ -38,6 +41,12 @@ export interface UXFeatureFlags {
   useCommandMenu: boolean;
   /** Use responsive dialogs - sheet on mobile, modal on desktop (Phase 4) */
   useResponsiveDialogs: boolean;
+  /** Show keyboard shortcuts help overlay (? key) (Phase 5) */
+  useKeyboardShortcutsOverlay: boolean;
+  /** Enable density toggle (compact/comfortable/spacious) (Phase 5) */
+  useDensityToggle: boolean;
+  /** Show offline status indicator (Phase 5) */
+  useOfflineIndicator: boolean;
 }
 
 /**
@@ -61,6 +70,9 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     useResponsiveForms: isFeatureEnabled("ux_responsive_forms"),
     useCommandMenu: isFeatureEnabled("ux_command_menu"),
     useResponsiveDialogs: isFeatureEnabled("ux_responsive_dialogs"),
+    useKeyboardShortcutsOverlay: isFeatureEnabled("ux_keyboard_shortcuts_overlay"),
+    useDensityToggle: isFeatureEnabled("ux_density_toggle"),
+    useOfflineIndicator: isFeatureEnabled("ux_offline_indicator"),
   };
 }
 
@@ -95,4 +107,7 @@ export const UXAnalyticsEvents = {
   COMMAND_MENU_OPENED: "ux_command_menu_opened",
   COMMAND_MENU_ACTION: "ux_command_menu_action",
   KEYBOARD_SHORTCUT_USED: "ux_keyboard_shortcut_used",
+  SHORTCUTS_OVERLAY_OPENED: "ux_shortcuts_overlay_opened",
+  DENSITY_CHANGED: "ux_density_changed",
+  OFFLINE_STATUS_CHANGED: "ux_offline_status_changed",
 } as const;

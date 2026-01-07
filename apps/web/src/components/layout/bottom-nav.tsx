@@ -4,6 +4,8 @@ import type { LucideIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
 export interface BottomNavItem {
@@ -41,6 +43,12 @@ interface BottomNavProps {
  */
 export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  // Wait for client-side mount to use portal
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Determine which item is active based on pathname
   const getIsActive = (item: BottomNavItem) => {
@@ -48,7 +56,7 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
     return pathname.startsWith(item.href);
   };
 
-  return (
+  const navContent = (
     <nav
       className={cn(
         "fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 md:hidden",
@@ -110,6 +118,13 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
       </div>
     </nav>
   );
+
+  // Use portal to render at body level, ensuring fixed positioning works
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(navContent, document.body);
 }
 
 /**

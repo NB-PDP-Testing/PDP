@@ -1,7 +1,7 @@
 "use client";
 
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
-import { Menu, Settings } from "lucide-react";
+import { ClipboardList, Home, Menu, Settings, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -10,7 +10,7 @@ import {
   AdminMobileNav,
   AdminSidebar,
 } from "@/components/layout/admin-sidebar";
-import { BottomNavSpacer } from "@/components/layout/bottom-nav";
+import { BottomNav, BottomNavSpacer, type BottomNavItem } from "@/components/layout/bottom-nav";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
@@ -71,8 +71,16 @@ export default function OrgAdminLayout({
   const { theme } = useOrgTheme();
   
   // Get UX feature flags for conditional rendering
-  const { adminNavStyle } = useUXFeatureFlags();
+  const { adminNavStyle, useBottomNav } = useUXFeatureFlags();
   const useNewNav = adminNavStyle === "sidebar";
+
+  // Admin bottom nav items (only shown when useBottomNav flag is enabled)
+  const adminBottomNavItems: BottomNavItem[] = [
+    { id: "overview", icon: Home, label: "Overview", href: `/orgs/${orgId}/admin` },
+    { id: "players", icon: Users, label: "Players", href: `/orgs/${orgId}/admin/players` },
+    { id: "teams", icon: ClipboardList, label: "Teams", href: `/orgs/${orgId}/admin/teams` },
+    { id: "settings", icon: Settings, label: "Settings", href: `/orgs/${orgId}/admin/settings` },
+  ];
 
   // Show loading while checking access
   if (hasAccess === null) {
@@ -101,6 +109,9 @@ export default function OrgAdminLayout({
   return (
     <>
       <Authenticated>
+        {/* Bottom navigation for mobile - OUTSIDE main flex container for proper fixed positioning */}
+        {useBottomNav && <BottomNav items={adminBottomNavItems} />}
+        
         <div className="flex min-h-screen flex-col">
           {/* Header */}
           <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
@@ -154,14 +165,16 @@ export default function OrgAdminLayout({
                 </main>
               </div>
 
-              {/* Bottom spacer for mobile */}
               <BottomNavSpacer className="lg:hidden" />
             </>
           ) : (
             /* Current/Legacy navigation - horizontal scrolling tabs */
-            <LegacyNavigation orgId={orgId} theme={theme}>
-              {children}
-            </LegacyNavigation>
+            <>
+              <LegacyNavigation orgId={orgId} theme={theme}>
+                {children}
+              </LegacyNavigation>
+              {useBottomNav && <BottomNavSpacer />}
+            </>
           )}
         </div>
       </Authenticated>

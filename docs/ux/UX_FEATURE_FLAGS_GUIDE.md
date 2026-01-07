@@ -67,6 +67,7 @@ Once you're Platform Staff, you need PostHog credentials:
 | `ux_mobile_cards` | Card-based mobile display | Uses cards instead of tables for data on mobile |
 | `ux_touch_targets_44px` | 44px touch targets | Enforces minimum 44px touch targets (Apple/Google standard) |
 | `ux_skeleton_loaders` | Skeleton loading states | Shows skeleton UI while content loads |
+| `ux_responsive_forms` | Responsive form components (Phase 3) | Mobile-optimized forms with larger inputs, sticky submit, keyboard shortcuts |
 
 ---
 
@@ -233,6 +234,70 @@ Located in `apps/web/src/hooks/`:
 |------|-------------|-------|
 | `usePullToRefresh` | Pull-to-refresh gesture handling | Mobile list refresh |
 
+### Phase 3 Form Components
+
+Located in `apps/web/src/components/forms/`:
+
+| Component | Description | Usage |
+|-----------|-------------|-------|
+| `ResponsiveForm` | Form wrapper with sticky submit (mobile) and keyboard shortcuts (desktop) | Wrap form fields |
+| `ResponsiveFormSection` | Section with title/description | Group related fields |
+| `ResponsiveFormRow` | Side-by-side fields on desktop | Layout 2-4 fields in a row |
+| `ResponsiveInput` | 48px height on mobile, 40px on desktop, inline validation | Text inputs |
+| `ResponsiveTextarea` | Larger on mobile, auto-grow option | Multi-line text |
+| `ResponsiveSelect` | Wrapper for Select with responsive sizing | Dropdowns |
+
+#### Usage Example
+
+```tsx
+import {
+  ResponsiveForm,
+  ResponsiveFormSection,
+  ResponsiveFormRow,
+  ResponsiveInput,
+  ResponsiveTextarea,
+} from "@/components/forms";
+
+<ResponsiveForm
+  onSubmit={handleSubmit}
+  isLoading={isSaving}
+  submitText="Save Player"
+  onCancel={() => router.back()}
+  enableShortcuts  // Enables Cmd+S and Esc
+>
+  <ResponsiveFormSection title="Personal Info">
+    <ResponsiveFormRow columns={2}>
+      <ResponsiveInput
+        label="First Name"
+        required
+        error={errors.firstName}
+        value={form.firstName}
+        onChange={handleChange}
+      />
+      <ResponsiveInput
+        label="Last Name"
+        required
+        error={errors.lastName}
+        value={form.lastName}
+        onChange={handleChange}
+      />
+    </ResponsiveFormRow>
+    
+    <ResponsiveInput
+      type="email"
+      label="Email"
+      helpText="Optional contact email"
+    />
+    
+    <ResponsiveTextarea
+      label="Notes"
+      autoGrow
+      placeholder="Additional notes..."
+    />
+  </ResponsiveFormSection>
+</ResponsiveForm>
+```
+
 ### Feature Flag Hook Location
 ```
 apps/web/src/hooks/use-ux-feature-flags.ts
@@ -327,6 +392,39 @@ Navigate to `/platform/staff` to see all platform staff members.
    - Row hover reveals action button
    - Checkbox selection (if enabled)
 
+### Phase 3: Responsive Forms
+
+#### Verify Responsive Form Components
+1. Enable `ux_responsive_forms` in PostHog (100% rollout)
+2. Navigate to any form page (e.g., Add Player, Edit Player)
+3. **Mobile view** (< 768px):
+   - Input fields should be 48px tall
+   - Labels should be larger (text-base)
+   - Spacing between fields should be larger
+   - Submit button should be sticky at bottom of screen
+4. **Desktop view** (> 768px):
+   - Input fields should be 40px tall
+   - Should see keyboard shortcut hints (⌘S to save, Esc to cancel)
+   - Press `Cmd+S` (Mac) or `Ctrl+S` (Windows) to submit form
+   - Press `Esc` to cancel/close form
+
+#### Test Mobile Form Features
+1. Open DevTools mobile view (< 768px)
+2. Navigate to a form
+3. **Expected on mobile**:
+   - 48px tall inputs (easy touch targets)
+   - Sticky save button at bottom (fixed position)
+   - Full-width buttons
+   - Larger label text
+
+#### Test Desktop Form Features
+1. View same form in desktop width (> 768px)
+2. **Expected on desktop**:
+   - 40px tall inputs (standard size)
+   - Side-by-side fields where applicable
+   - Keyboard shortcut hints shown below form
+   - First field auto-focused on page load
+
 ### Quick Verification Checklist
 
 | Feature | PostHog Flag | How to Test | Expected Result |
@@ -336,6 +434,7 @@ Navigate to `/platform/staff` to see all platform staff members.
 | 44px Touch | `ux_touch_targets_44px` | Inspect buttons on mobile | min-h-[44px] |
 | Mobile Cards | `ux_mobile_cards` | Data list on mobile | Card layout |
 | Skeleton Loaders | `ux_skeleton_loaders` | Slow network (DevTools) | Skeleton animation |
+| Responsive Forms | `ux_responsive_forms` | Any form on mobile | 48px inputs, sticky submit |
 
 ### Browser DevTools Quick Reference
 

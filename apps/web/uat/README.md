@@ -48,8 +48,8 @@ export const TEST_USERS = {
 # Run all tests (all groups)
 npm run test
 
-# Run Initial Setup tests only (Group 1 - for fresh environment)
-npm run test:setup
+# Run Initial Onboarding tests only (Group 1 - for fresh environment)
+npm run test:onboarding
 
 # Run Continuous tests only (Group 2 - after code changes)
 npm run test:continuous
@@ -59,7 +59,7 @@ npm run test:mobile
 
 # Run in UI mode (interactive)
 npm run test:ui
-npm run test:ui:setup      # UI mode for setup tests only
+npm run test:ui:onboarding # UI mode for onboarding tests only
 npm run test:ui:continuous # UI mode for continuous tests only
 
 # Run with browser visible
@@ -72,29 +72,66 @@ npm run test:debug
 npm run test:list
 ```
 
+### Running with Dev Server Already Running
+
+If you already have the dev server running (`npm run dev`), use `npx playwright test` directly. **Important:** Run from the `apps/web` directory:
+
+```bash
+cd apps/web
+```
+
+| Project | Command | Tests |
+|---------|---------|-------|
+| `initial-onboarding` | `npx playwright test --project=initial-onboarding` | onboarding.spec.ts (46 tests) |
+| `auth-tests` | `npx playwright test --project=auth-tests` | auth.spec.ts (7 tests) |
+| `admin-tests` | `npx playwright test --project=admin-tests` | admin.spec.ts (7 tests) |
+| `coach-tests` | `npx playwright test --project=coach-tests` | coach.spec.ts (5 tests) |
+| `continuous` | `npx playwright test --project=continuous` | auth, admin, coach tests |
+| `all-desktop` | `npx playwright test --project=all-desktop` | All tests |
+| `mobile` | `npx playwright test --project=mobile` | All tests (mobile viewport) |
+
+**Example:**
+```bash
+# IMPORTANT: Must be in apps/web directory
+cd apps/web
+
+# Run just the onboarding tests
+npx playwright test --project=initial-onboarding
+
+# Run a specific test file directly
+npx playwright test onboarding.spec.ts
+
+# Run tests with visible browser
+npx playwright test --project=auth-tests --headed
+
+# Run tests in debug mode
+npx playwright test --project=coach-tests --debug
+```
+
 ## Test Groups
 
 Tests are organized into two groups for different use cases:
 
-### Group 1: Initial Setup Tests (`npm run test:setup`)
+### Group 1: Initial Onboarding Tests (`npm run test:onboarding`)
 
 **When to run:** Once when setting up a fresh environment (after database reset)
 
 | Test File | Purpose |
 |-----------|---------|
-| `setup.spec.ts` | First-time organization setup, user onboarding, team creation |
+| `onboarding.spec.ts` | First-time organization setup, user onboarding, team creation |
 
 **Test Cases:**
-- TEST-SETUP-001: Platform Staff Creates First Organization
-- TEST-SETUP-002: Non-Platform Staff Cannot Create Organizations
-- TEST-SETUP-003: Owner First Login Experience
-- TEST-SETUP-004: Owner Creates First Team
-- TEST-SETUP-005: Owner Invites First Admin
-- TEST-SETUP-006: First Admin Accepts Invitation
-- TEST-SETUP-007: Owner Invites First Coach
-- TEST-SETUP-008: First Coach Accepts and Gets Team Assignment
-- TEST-SETUP-009: Admin Creates First Players
-- TEST-SETUP-010: Owner Invites First Parent
+- TEST-ONBOARDING-001: First User Signup - Automatic Platform Staff
+- TEST-ONBOARDING-002: Non-Platform Staff Cannot Create Organizations
+- TEST-ONBOARDING-003: Owner First Login Experience
+- TEST-ONBOARDING-004: Owner Creates First Team
+- TEST-ONBOARDING-005: Owner Invites First Admin
+- TEST-ONBOARDING-006: First Admin Accepts Invitation
+- TEST-ONBOARDING-007: Owner Invites First Coach
+- TEST-ONBOARDING-008: First Coach Accepts and Gets Team Assignment
+- TEST-ONBOARDING-009: Admin Creates First Players
+- TEST-ONBOARDING-010: Owner Invites First Parent
+- TEST-ONBOARDING-011: Platform Admin Edits Organisation (name, sports, social links)
 
 ### Group 2: Continuous Tests (`npm run test:continuous`)
 
@@ -119,24 +156,16 @@ cd packages/backend
 npx convex run scripts/fullReset:fullReset '{"confirmNuclearDelete": true}'
 npx convex run models/referenceData:seedAllReferenceData
 
-# 2. Run Initial Setup tests - creates first user via signup
+# 2. Run Initial Onboarding tests - creates first user via signup
+#    (First user is automatically granted platform staff privileges)
 cd apps/web
-npm run test:setup
+npm run test:onboarding
 
-# 3. IMPORTANT: Bootstrap the first platform staff user
-# The first user does NOT automatically become platform staff.
-# After the first user signs up, run this command to grant platform staff privileges:
-cd packages/backend
-npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff '{"email": "owner_pdp@outlook.com"}'
-
-# 4. To check who has platform staff privileges:
-npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
-
-# 5. After any code changes, run Continuous tests
+# 3. After any code changes, run Continuous tests
 cd apps/web
 npm run test:continuous
 
-# 6. Before release, run all tests
+# 4. Before release, run all tests
 npm run test
 ```
 
@@ -187,7 +216,7 @@ uat/
 ├── fixtures/
 │   └── test-utils.ts    # Shared utilities, test users, helper functions
 ├── tests/
-│   ├── setup.spec.ts    # GROUP 1: Initial setup tests
+│   ├── onboarding.spec.ts # GROUP 1: Initial onboarding tests
 │   ├── auth.spec.ts     # GROUP 2: Authentication tests
 │   ├── admin.spec.ts    # GROUP 2: Admin dashboard tests
 │   ├── coach.spec.ts    # GROUP 2: Coach dashboard tests
@@ -201,11 +230,11 @@ uat/
 
 | Test File | Test Cases Covered | Tests |
 |-----------|-------------------|-------|
-| `setup.spec.ts` | TEST-SETUP-001 to TEST-SETUP-010 | 21 |
+| `onboarding.spec.ts` | TEST-ONBOARDING-001 to TEST-ONBOARDING-011 | 25+ |
 | `auth.spec.ts` | TEST-AUTH-001 to TEST-AUTH-004 | 7 |
 | `admin.spec.ts` | TEST-ADMIN-001 to TEST-ADMIN-004 | 7 |
 | `coach.spec.ts` | TEST-COACH-001 to TEST-COACH-004 | 5 |
-| **Total** | **22 Test Cases** | **40 Tests** |
+| **Total** | **23 Test Cases** | **44+ Tests** |
 
 ## CI/CD Integration
 

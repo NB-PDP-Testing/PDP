@@ -22,6 +22,14 @@ export const TEST_ORG = {
   sports: testData.organization.sports,
   colors: testData.organization.colors,
   id: process.env.TEST_ORG_ID || '', // Populated at runtime
+  // Organization edit fields for TEST-SETUP-011
+  editedname: testData.organization.editedname,
+  editedslug: testData.organization.editedslug,
+  Website: testData.organization.Website,
+  FaceBook: testData.organization.FaceBook,
+  Twitter: testData.organization.Twitter,
+  Instagram: testData.organization.Instagram,
+  Linkedin: testData.organization.Linkedin,
 };
 
 /**
@@ -33,6 +41,11 @@ export const TEST_TEAMS = testData.teams;
  * Test invitations - loaded from test-data.json
  */
 export const TEST_INVITATIONS = testData.invitations;
+
+/**
+ * Test players - loaded from test-data.json
+ */
+export const TEST_PLAYERS = testData.players || [];
 
 /**
  * Storage state paths for authenticated sessions

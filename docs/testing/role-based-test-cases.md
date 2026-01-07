@@ -1,3 +1,5 @@
+
+
 # Player Development Platform
 ## Role-Based Behaviours & Use Cases
 
@@ -101,7 +103,7 @@ Stored in `member.functionalRoles` array. Users can have multiple:
 | Revoke roles | ✅ | Via functional role update |
 | Approve/reject join requests | ✅ | orgJoinRequests table |
 | Approve/reject role requests | ✅ | pendingFunctionalRoleRequests on member |
-| Transfer organization ownership | ✅ | transferOwnership mutation |
+| Transfer organization ownership | ✅ | transferOwnership mutation - Owner only, via Admin > Settings > Danger Zone |
 | Prevent unauthorized role escalation | ✅ | Role-based checks on mutations |
 
 ### Player Lifecycle

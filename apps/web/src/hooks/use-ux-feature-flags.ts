@@ -46,6 +46,12 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_offline_support: Enable offline support features
  * - ux_pwa_update_prompt: Show update available prompt
  *
+ * PHASE 12 - Accessibility:
+ * - ux_skip_links: Enable skip to main content links
+ * - ux_focus_visible: Enhanced visible focus indicators
+ * - ux_reduced_motion: Respect reduced motion preferences
+ * - ux_announcer: Enable screen reader announcements
+ *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
  * - When enabled, features are visible to ALL users (not restricted to staff)
@@ -122,6 +128,16 @@ export interface UXFeatureFlags {
   useOfflineSupport: boolean;
   /** Show update available prompt */
   usePWAUpdatePrompt: boolean;
+
+  // Phase 12 - Accessibility
+  /** Enable skip to main content links */
+  useSkipLinks: boolean;
+  /** Enhanced visible focus indicators */
+  useFocusVisible: boolean;
+  /** Respect reduced motion preferences */
+  useReducedMotion: boolean;
+  /** Enable screen reader announcements */
+  useAnnouncer: boolean;
 }
 
 /**
@@ -177,6 +193,12 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     useServiceWorker: isFeatureEnabled("ux_service_worker"),
     useOfflineSupport: isFeatureEnabled("ux_offline_support"),
     usePWAUpdatePrompt: isFeatureEnabled("ux_pwa_update_prompt"),
+
+    // Phase 12 - Accessibility
+    useSkipLinks: isFeatureEnabled("ux_skip_links"),
+    useFocusVisible: isFeatureEnabled("ux_focus_visible"),
+    useReducedMotion: isFeatureEnabled("ux_reduced_motion"),
+    useAnnouncer: isFeatureEnabled("ux_announcer"),
   };
 }
 
@@ -248,4 +270,11 @@ export const UXAnalyticsEvents = {
   OFFLINE_PAGE_VIEWED: "ux_offline_page_viewed",
   CACHE_HIT: "ux_cache_hit",
   CACHE_MISS: "ux_cache_miss",
+
+  // Phase 12 - Accessibility events
+  SKIP_LINK_USED: "ux_skip_link_used",
+  KEYBOARD_NAVIGATION_DETECTED: "ux_keyboard_navigation_detected",
+  REDUCED_MOTION_DETECTED: "ux_reduced_motion_detected",
+  SCREEN_READER_ANNOUNCEMENT: "ux_screen_reader_announcement",
+  FOCUS_TRAP_ACTIVATED: "ux_focus_trap_activated",
 } as const;

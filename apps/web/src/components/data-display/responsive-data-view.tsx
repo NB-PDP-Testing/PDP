@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SwipeableCard } from "./swipeable-card";
 
 /**
  * Column definition for ResponsiveDataView
@@ -32,6 +33,8 @@ export interface DataColumn<T> {
   header: string;
   /** Accessor function to get cell value */
   accessor: (item: T) => React.ReactNode;
+  /** Export accessor - returns plain string for CSV export (optional, defaults to accessor result) */
+  exportAccessor?: (item: T) => string | number | null | undefined;
   /** Whether column is sortable */
   sortable?: boolean;
   /** Whether to show on mobile card (default: first 3 columns) */
@@ -59,6 +62,22 @@ export interface DataAction<T> {
 }
 
 /**
+ * Swipe action definition for mobile cards
+ */
+export interface SwipeActionDef<T> {
+  /** Action label */
+  label: string;
+  /** Action icon */
+  icon?: React.ReactNode;
+  /** Background color class */
+  bgColor?: string;
+  /** Text color class */
+  textColor?: string;
+  /** Action handler */
+  onClick: (item: T) => void;
+}
+
+/**
  * Props for ResponsiveDataView
  */
 export interface ResponsiveDataViewProps<T> {
@@ -68,6 +87,10 @@ export interface ResponsiveDataViewProps<T> {
   columns: DataColumn<T>[];
   /** Row actions */
   actions?: DataAction<T>[];
+  /** Left swipe actions (revealed when swiping left on mobile) */
+  leftSwipeActions?: SwipeActionDef<T>[];
+  /** Right swipe actions (revealed when swiping right on mobile) */
+  rightSwipeActions?: SwipeActionDef<T>[];
   /** Get unique key for each item */
   getKey: (item: T) => string;
   /** Custom mobile card renderer (optional) */
@@ -104,6 +127,8 @@ export function ResponsiveDataView<T>({
   data,
   columns,
   actions,
+  leftSwipeActions,
+  rightSwipeActions,
   getKey,
   renderMobileCard,
   selectable = false,
@@ -118,10 +143,14 @@ export function ResponsiveDataView<T>({
   className,
 }: ResponsiveDataViewProps<T>) {
   const isMobile = useIsMobile();
-  const { useMobileCards } = useUXFeatureFlags();
+  const { useMobileCards, useSwipeCards } = useUXFeatureFlags();
   
   // Use mobile cards if: on mobile AND feature flag enabled (or custom renderer provided)
   const showMobileView = isMobile && (useMobileCards || renderMobileCard);
+  
+  // Enable swipe if: swipe actions provided AND (feature flag enabled OR always on mobile with swipe actions)
+  const hasSwipeActions = (leftSwipeActions && leftSwipeActions.length > 0) || (rightSwipeActions && rightSwipeActions.length > 0);
+  const enableSwipe = hasSwipeActions && (useSwipeCards || true); // Enable by default when swipe actions are provided
 
   // Handle select all
   const handleSelectAll = () => {
@@ -237,11 +266,12 @@ export function ResponsiveDataView<T>({
           const primaryColumn = mobileColumns[0];
           const secondaryColumns = mobileColumns.slice(1);
 
-          return (
+          // Card content (used in both swipeable and non-swipeable)
+          const cardContent = (
             <div
-              key={key}
               className={cn(
-                "rounded-xl border bg-card p-4 transition-all duration-200 active:scale-[0.98]",
+                "rounded-xl border bg-card p-4 transition-all duration-200",
+                !enableSwipe && "active:scale-[0.98]",
                 onRowClick && "cursor-pointer hover:bg-accent/50 hover:shadow-md",
                 isSelected && "ring-2 ring-primary bg-primary/5"
               )}
@@ -309,8 +339,8 @@ export function ResponsiveDataView<T>({
                   </div>
                 </div>
                 
-                {/* Actions menu */}
-                {actions && actions.length > 0 && (
+                {/* Actions menu - only show if no swipe actions or on desktop */}
+                {actions && actions.length > 0 && !enableSwipe && (
                   <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -346,6 +376,33 @@ export function ResponsiveDataView<T>({
               </div>
             </div>
           );
+
+          // Wrap with SwipeableCard if swipe actions are enabled
+          if (enableSwipe) {
+            return (
+              <SwipeableCard
+                key={key}
+                leftActions={leftSwipeActions?.map((action) => ({
+                  label: action.label,
+                  icon: action.icon,
+                  bgColor: action.bgColor,
+                  textColor: action.textColor,
+                  onClick: () => action.onClick(item),
+                }))}
+                rightActions={rightSwipeActions?.map((action) => ({
+                  label: action.label,
+                  icon: action.icon,
+                  bgColor: action.bgColor,
+                  textColor: action.textColor,
+                  onClick: () => action.onClick(item),
+                }))}
+              >
+                {cardContent}
+              </SwipeableCard>
+            );
+          }
+
+          return <div key={key}>{cardContent}</div>;
         })}
       </div>
     );

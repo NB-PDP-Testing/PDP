@@ -1,7 +1,14 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
+import { useTheme } from "next-themes";
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
+import {
+  adjustForDarkMode,
+  getContrastColor,
+  hexToRgb as hexToRgbObject,
+} from "@/lib/color-utils";
+import { useUXFeatureFlags } from "./use-ux-feature-flags";
 
 export type OrgTheme = {
   primary: string;
@@ -10,6 +17,18 @@ export type OrgTheme = {
   primaryRgb: string;
   secondaryRgb: string;
   tertiaryRgb: string;
+  /** Contrast color (black or white) for primary background - WCAG compliant */
+  primaryContrast: string;
+  /** Contrast color (black or white) for secondary background - WCAG compliant */
+  secondaryContrast: string;
+  /** Contrast color (black or white) for tertiary background - WCAG compliant */
+  tertiaryContrast: string;
+  /** Adaptive primary color for dark mode (lightened if too dark) */
+  primaryAdaptive: string;
+  /** Adaptive secondary color for dark mode */
+  secondaryAdaptive: string;
+  /** Adaptive tertiary color for dark mode */
+  tertiaryAdaptive: string;
 };
 
 const DEFAULT_COLORS = {
@@ -42,11 +61,22 @@ type UseOrgThemeOptions = {
 /**
  * Hook to get and apply organization theme colors
  * Uses Convex reactive query for real-time updates when colors change
+ *
+ * Enhanced with Phase 14 features (ux_theme_contrast_colors, ux_theme_dark_variants):
+ * - Auto-contrast text colors (black/white) based on background luminance
+ * - Dark mode adaptive colors (lightens dark colors for visibility)
  */
 export function useOrgTheme(options: UseOrgThemeOptions = {}) {
   const { skip = false } = options;
   const params = useParams();
   const orgId = params?.orgId as string | undefined;
+
+  // Get current theme for dark mode detection
+  const { resolvedTheme } = useTheme();
+  const isDarkMode = resolvedTheme === "dark";
+
+  // Get feature flags for enhanced theming
+  const { useThemeContrastColors, useThemeDarkVariants } = useUXFeatureFlags();
 
   // Use Convex reactive query - automatically updates when org data changes
   // Skip query if explicitly told to skip (e.g., on join pages where user isn't a member)
@@ -64,6 +94,33 @@ export function useOrgTheme(options: UseOrgThemeOptions = {}) {
   const secondaryColor = org?.colors?.[1]?.trim() || DEFAULT_COLORS.secondary;
   const tertiaryColor = org?.colors?.[2]?.trim() || DEFAULT_COLORS.tertiary;
 
+  // Calculate contrast colors (black or white) for each org color
+  // This ensures text is always readable on org-colored backgrounds
+  const primaryContrast = useThemeContrastColors
+    ? getContrastColor(primaryColor)
+    : "#ffffff"; // Default to white for backwards compatibility
+  const secondaryContrast = useThemeContrastColors
+    ? getContrastColor(secondaryColor)
+    : "#ffffff";
+  const tertiaryContrast = useThemeContrastColors
+    ? getContrastColor(tertiaryColor)
+    : "#ffffff";
+
+  // Calculate adaptive colors for dark mode
+  // Lightens dark colors so they're visible on dark backgrounds
+  const primaryAdaptive =
+    useThemeDarkVariants && isDarkMode
+      ? adjustForDarkMode(primaryColor)
+      : primaryColor;
+  const secondaryAdaptive =
+    useThemeDarkVariants && isDarkMode
+      ? adjustForDarkMode(secondaryColor)
+      : secondaryColor;
+  const tertiaryAdaptive =
+    useThemeDarkVariants && isDarkMode
+      ? adjustForDarkMode(tertiaryColor)
+      : tertiaryColor;
+
   const theme: OrgTheme = {
     primary: primaryColor,
     secondary: secondaryColor,
@@ -71,6 +128,14 @@ export function useOrgTheme(options: UseOrgThemeOptions = {}) {
     primaryRgb: hexToRgb(primaryColor),
     secondaryRgb: hexToRgb(secondaryColor),
     tertiaryRgb: hexToRgb(tertiaryColor),
+    // Contrast colors for accessible text
+    primaryContrast,
+    secondaryContrast,
+    tertiaryContrast,
+    // Adaptive colors for dark mode
+    primaryAdaptive,
+    secondaryAdaptive,
+    tertiaryAdaptive,
   };
 
   // Apply CSS variables to the document root
@@ -80,13 +145,20 @@ export function useOrgTheme(options: UseOrgThemeOptions = {}) {
       // Remove custom properties when not in org context or skipping
       document.documentElement.style.removeProperty("--org-primary");
       document.documentElement.style.removeProperty("--org-primary-rgb");
+      document.documentElement.style.removeProperty("--org-primary-contrast");
+      document.documentElement.style.removeProperty("--org-primary-adaptive");
       document.documentElement.style.removeProperty("--org-secondary");
       document.documentElement.style.removeProperty("--org-secondary-rgb");
+      document.documentElement.style.removeProperty("--org-secondary-contrast");
+      document.documentElement.style.removeProperty("--org-secondary-adaptive");
       document.documentElement.style.removeProperty("--org-tertiary");
       document.documentElement.style.removeProperty("--org-tertiary-rgb");
+      document.documentElement.style.removeProperty("--org-tertiary-contrast");
+      document.documentElement.style.removeProperty("--org-tertiary-adaptive");
       return;
     }
 
+    // Base colors
     document.documentElement.style.setProperty("--org-primary", theme.primary);
     document.documentElement.style.setProperty(
       "--org-primary-rgb",
@@ -108,6 +180,34 @@ export function useOrgTheme(options: UseOrgThemeOptions = {}) {
       "--org-tertiary-rgb",
       theme.tertiaryRgb
     );
+
+    // Contrast colors (black or white for text on org-colored backgrounds)
+    document.documentElement.style.setProperty(
+      "--org-primary-contrast",
+      theme.primaryContrast
+    );
+    document.documentElement.style.setProperty(
+      "--org-secondary-contrast",
+      theme.secondaryContrast
+    );
+    document.documentElement.style.setProperty(
+      "--org-tertiary-contrast",
+      theme.tertiaryContrast
+    );
+
+    // Adaptive colors (for dark mode visibility)
+    document.documentElement.style.setProperty(
+      "--org-primary-adaptive",
+      theme.primaryAdaptive
+    );
+    document.documentElement.style.setProperty(
+      "--org-secondary-adaptive",
+      theme.secondaryAdaptive
+    );
+    document.documentElement.style.setProperty(
+      "--org-tertiary-adaptive",
+      theme.tertiaryAdaptive
+    );
   }, [
     skip,
     orgId,
@@ -117,6 +217,12 @@ export function useOrgTheme(options: UseOrgThemeOptions = {}) {
     theme.primaryRgb,
     theme.secondaryRgb,
     theme.tertiaryRgb,
+    theme.primaryContrast,
+    theme.secondaryContrast,
+    theme.tertiaryContrast,
+    theme.primaryAdaptive,
+    theme.secondaryAdaptive,
+    theme.tertiaryAdaptive,
   ]);
 
   return {
@@ -132,21 +238,53 @@ export function useOrgTheme(options: UseOrgThemeOptions = {}) {
       : null,
     loading,
     hasTheme: !!orgId && !!org?.colors?.length,
+    isDarkMode,
   };
 }
 
 /**
  * Utility to get inline styles for org-themed elements
+ *
+ * When ux_theme_contrast_colors flag is enabled, uses auto-contrast text color.
+ * Otherwise defaults to white text for backwards compatibility.
+ *
+ * @param type - Which org color to use (primary, secondary, tertiary)
+ * @param useContrastColor - Whether to use auto-contrast color (set from feature flag)
  */
 export function getOrgThemeStyles(
-  type: "primary" | "secondary" | "tertiary" = "primary"
+  type: "primary" | "secondary" | "tertiary" = "primary",
+  useContrastColor = false
 ) {
   const varName = `--org-${type}`;
   const rgbVarName = `--org-${type}-rgb`;
+  const contrastVarName = `--org-${type}-contrast`;
 
   return {
     backgroundColor: `var(${varName})`,
-    color: "white",
+    // Use contrast color (auto black/white) when enabled, otherwise default white
+    color: useContrastColor ? `var(${contrastVarName})` : "white",
+    "--tw-shadow-color": `rgb(var(${rgbVarName}) / 0.5)`,
+  } as React.CSSProperties;
+}
+
+/**
+ * Utility to get inline styles for org-themed elements with adaptive colors
+ * Uses colors that are adjusted for dark mode visibility
+ *
+ * @param type - Which org color to use (primary, secondary, tertiary)
+ * @param useContrastColor - Whether to use auto-contrast color
+ */
+export function getOrgThemeStylesAdaptive(
+  type: "primary" | "secondary" | "tertiary" = "primary",
+  useContrastColor = false
+) {
+  const adaptiveVarName = `--org-${type}-adaptive`;
+  const rgbVarName = `--org-${type}-rgb`;
+  const contrastVarName = `--org-${type}-contrast`;
+
+  return {
+    backgroundColor: `var(${adaptiveVarName})`,
+    color: useContrastColor ? `var(${contrastVarName})` : "white",
     "--tw-shadow-color": `rgb(var(${rgbVarName}) / 0.5)`,
   } as React.CSSProperties;
 }

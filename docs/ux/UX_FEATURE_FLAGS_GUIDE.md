@@ -144,7 +144,15 @@ Once you're Platform Staff, you need PostHog credentials:
 | `ux_deferred_render` | Deferred rendering | Defer non-critical content to idle time |
 | `ux_resource_hints` | Resource hints | Preconnect, DNS prefetch, prefetch hints |
 
-#### Quick Reference: All Flags (36 Total)
+#### Phase 14: Theme & Org Colors
+
+| Flag Name | Description | Effect |
+|-----------|-------------|--------|
+| `ux_theme_enhanced` | Enhanced theme toggle | Theme toggle with checkmark indicator, ARIA attributes, icons |
+| `ux_theme_contrast_colors` | Auto-contrast text colors | Automatically picks black/white text based on org background luminance (WCAG) |
+| `ux_theme_dark_variants` | Dark mode color adaptation | Lightens dark org colors in dark mode for better visibility |
+
+#### Quick Reference: All Flags (39 Total)
 
 | Phase | Flag Name | Default | Description |
 |-------|-----------|---------|-------------|
@@ -185,6 +193,9 @@ Once you're Platform Staff, you need PostHog credentials:
 | 13 | `ux_web_vitals` | OFF | Web Vitals monitoring |
 | 13 | `ux_deferred_render` | OFF | Deferred rendering |
 | 13 | `ux_resource_hints` | OFF | Resource hints |
+| 14 | `ux_theme_enhanced` | OFF | Enhanced theme toggle |
+| 14 | `ux_theme_contrast_colors` | OFF | Auto-contrast text colors |
+| 14 | `ux_theme_dark_variants` | OFF | Dark mode color adaptation |
 
 ---
 

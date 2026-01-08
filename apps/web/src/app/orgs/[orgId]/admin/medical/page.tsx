@@ -25,6 +25,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -837,17 +838,11 @@ export default function MedicalProfilesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div
-        className="rounded-lg p-6 text-white shadow-lg"
-        style={{
-          background:
-            "linear-gradient(to right, var(--org-primary), var(--org-primary))",
-        }}
-      >
+      <OrgThemedGradient className="rounded-lg p-6 shadow-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
-              className="border-white/20 bg-white/10 text-white hover:bg-white/20"
+              className="border-current/20 bg-current/10 hover:bg-current/20"
               onClick={() => router.back()}
               size="sm"
               variant="outline"
@@ -857,17 +852,17 @@ export default function MedicalProfilesPage() {
             </Button>
             <div>
               <h1 className="font-bold text-2xl">Medical Profiles</h1>
-              <p className="text-sm text-white/80">
+              <p className="text-sm opacity-80">
                 Manage player medical information and emergency contacts
               </p>
             </div>
           </div>
-          <Badge className="bg-white/20 text-white">
+          <Badge className="bg-current/20">
             <Shield className="mr-2 h-4 w-4" />
             Sensitive Data
           </Badge>
         </div>
-      </div>
+      </OrgThemedGradient>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">

@@ -62,6 +62,7 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_theme_enhanced: Enhanced theme toggle with checkmark, ARIA, smooth transitions
  * - ux_theme_contrast_colors: Auto-contrast text colors on org backgrounds
  * - ux_theme_dark_variants: Adaptive org colors for dark mode
+ * - ux_theme_smooth_transitions: Smooth 200ms transitions when changing themes
  *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
@@ -167,6 +168,8 @@ export interface UXFeatureFlags {
   useThemeContrastColors: boolean;
   /** Adaptive org colors for dark mode (lightened variants) */
   useThemeDarkVariants: boolean;
+  /** Smooth 200ms transitions when changing themes (respects prefers-reduced-motion) */
+  useThemeSmoothTransitions: boolean;
 }
 
 /**
@@ -246,6 +249,7 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     useEnhancedThemeToggle: isFeatureEnabled("ux_theme_enhanced"),
     useThemeContrastColors: isFeatureEnabled("ux_theme_contrast_colors"),
     useThemeDarkVariants: isFeatureEnabled("ux_theme_dark_variants"),
+    useThemeSmoothTransitions: isFeatureEnabled("ux_theme_smooth_transitions"),
   };
 }
 

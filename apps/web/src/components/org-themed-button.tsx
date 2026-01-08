@@ -1,4 +1,7 @@
+"use client";
+
 import type { ButtonHTMLAttributes, Ref } from "react";
+import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { cn } from "@/lib/utils";
 
 export interface OrgThemedButtonProps
@@ -12,6 +15,10 @@ export interface OrgThemedButtonProps
  * Organization-themed button component
  * Automatically uses the org's CSS custom properties for colors
  * Following React 19 best practices - ref as prop instead of forwardRef
+ *
+ * When ux_theme_contrast_colors flag is enabled:
+ * - Uses auto-contrast text colors (black/white based on background luminance)
+ * - Ensures WCAG AA compliance for text readability
  */
 export function OrgThemedButton({
   className,
@@ -21,6 +28,8 @@ export function OrgThemedButton({
   ref,
   ...props
 }: OrgThemedButtonProps) {
+  const { useThemeContrastColors } = useUXFeatureFlags();
+
   const baseStyles =
     "inline-flex items-center justify-center gap-2 rounded-md font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
 
@@ -30,15 +39,31 @@ export function OrgThemedButton({
     lg: "h-11 px-8 text-lg",
   };
 
-  const variantStyles = {
-    primary:
-      "text-white shadow-sm hover:opacity-90 focus:ring-[var(--org-primary)]",
-    secondary:
-      "text-white shadow-sm hover:opacity-90 focus:ring-[var(--org-secondary)]",
-    tertiary:
-      "text-white shadow-sm hover:opacity-90 focus:ring-[var(--org-tertiary)]",
-    outline: "border-2 bg-transparent hover:bg-opacity-10",
+  // When contrast colors enabled, don't use hardcoded text-white
+  const getVariantStyles = () => {
+    if (useThemeContrastColors) {
+      return {
+        primary: "shadow-sm hover:opacity-90 focus:ring-[var(--org-primary)]",
+        secondary:
+          "shadow-sm hover:opacity-90 focus:ring-[var(--org-secondary)]",
+        tertiary:
+          "shadow-sm hover:opacity-90 focus:ring-[var(--org-tertiary)]",
+        outline: "border-2 bg-transparent hover:bg-opacity-10",
+      };
+    }
+    // Legacy behavior - always white text
+    return {
+      primary:
+        "text-white shadow-sm hover:opacity-90 focus:ring-[var(--org-primary)]",
+      secondary:
+        "text-white shadow-sm hover:opacity-90 focus:ring-[var(--org-secondary)]",
+      tertiary:
+        "text-white shadow-sm hover:opacity-90 focus:ring-[var(--org-tertiary)]",
+      outline: "border-2 bg-transparent hover:bg-opacity-10",
+    };
   };
+
+  const variantStyles = getVariantStyles();
 
   const getStyle = (): React.CSSProperties => {
     if (variant === "outline") {
@@ -55,8 +80,30 @@ export function OrgThemedButton({
       tertiary: "--org-tertiary",
     };
 
+    const contrastVarMap: Record<
+      "primary" | "secondary" | "tertiary",
+      string
+    > = {
+      primary: "--org-primary-contrast",
+      secondary: "--org-secondary-contrast",
+      tertiary: "--org-tertiary-contrast",
+    };
+
+    const colorVar = colorVarMap[variant as "primary" | "secondary" | "tertiary"];
+
+    if (useThemeContrastColors) {
+      // Use auto-contrast text color for WCAG compliance
+      const contrastVar =
+        contrastVarMap[variant as "primary" | "secondary" | "tertiary"];
+      return {
+        backgroundColor: `var(${colorVar})`,
+        color: `var(${contrastVar})`,
+      };
+    }
+
+    // Legacy behavior - white text
     return {
-      backgroundColor: `var(${colorVarMap[variant as "primary" | "secondary" | "tertiary"]})`,
+      backgroundColor: `var(${colorVar})`,
     };
   };
 

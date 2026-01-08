@@ -1,9 +1,9 @@
 "use client";
 
+import { Download, Plus, Share, X } from "lucide-react";
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { X, Download, Share, Plus } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -27,7 +27,7 @@ interface PWAInstallPromptProps {
 
 /**
  * PWAInstallPrompt - Prompt users to install the app on their device
- * 
+ *
  * Features:
  * - Detects when PWA installation is available
  * - Shows platform-specific instructions (iOS vs Android/Desktop)
@@ -40,7 +40,8 @@ export function PWAInstallPrompt({
   onInstall,
   forceShow = false,
 }: PWAInstallPromptProps) {
-  const [deferredPrompt, setDeferredPrompt] = React.useState<BeforeInstallPromptEvent | null>(null);
+  const [deferredPrompt, setDeferredPrompt] =
+    React.useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = React.useState(false);
   const [isIOS, setIsIOS] = React.useState(false);
   const [isStandalone, setIsStandalone] = React.useState(false);
@@ -68,21 +69,21 @@ export function PWAInstallPrompt({
 
     // Check if user has dismissed before
     const dismissed = localStorage.getItem("pwa-install-dismissed");
-    const dismissedTime = dismissed ? parseInt(dismissed) : 0;
-    const daysSinceDismissed = (Date.now() - dismissedTime) / (1000 * 60 * 60 * 24);
+    const dismissedTime = dismissed ? Number.parseInt(dismissed) : 0;
+    const daysSinceDismissed =
+      (Date.now() - dismissedTime) / (1000 * 60 * 60 * 24);
 
     // Don't show if dismissed in last 7 days
     if (daysSinceDismissed < 7) return;
 
     // Track visits
-    const visits = parseInt(localStorage.getItem("pwa-visits") || "0") + 1;
+    const visits =
+      Number.parseInt(localStorage.getItem("pwa-visits") || "0") + 1;
     localStorage.setItem("pwa-visits", visits.toString());
 
     // Show prompt after 3+ visits
-    if (visits >= 3) {
-      if (iOS) {
-        setShowPrompt(true);
-      }
+    if (visits >= 3 && iOS) {
+      setShowPrompt(true);
     }
 
     // Listen for beforeinstallprompt event (Chrome, Edge, etc.)
@@ -97,7 +98,10 @@ export function PWAInstallPrompt({
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
     return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt
+      );
     };
   }, [forceShow]);
 
@@ -121,19 +125,23 @@ export function PWAInstallPrompt({
     }
 
     // No native prompt available - show manual instructions
-    const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+    const isChrome =
+      /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
     const isEdge = /Edg/.test(navigator.userAgent);
     const isFirefox = /Firefox/.test(navigator.userAgent);
-    
+
     let instructions = "";
     if (isChrome || isEdge) {
-      instructions = "To install:\n\n1. Click the install icon (⊕) in the address bar\n   OR\n2. Click ⋮ menu → 'Install PlayerARC'\n\nThe install icon appears on the right side of the address bar.";
+      instructions =
+        "To install:\n\n1. Click the install icon (⊕) in the address bar\n   OR\n2. Click ⋮ menu → 'Install PlayerARC'\n\nThe install icon appears on the right side of the address bar.";
     } else if (isFirefox) {
-      instructions = "Firefox doesn't support PWA installation.\n\nTry using Chrome or Edge for the best experience.";
+      instructions =
+        "Firefox doesn't support PWA installation.\n\nTry using Chrome or Edge for the best experience.";
     } else {
-      instructions = "To install:\n\n1. Look for an install icon in the address bar\n2. Or check your browser's menu for 'Install' option";
+      instructions =
+        "To install:\n\n1. Look for an install icon in the address bar\n2. Or check your browser's menu for 'Install' option";
     }
-    
+
     alert(instructions);
   };
 
@@ -144,13 +152,13 @@ export function PWAInstallPrompt({
   };
 
   // Don't render if already standalone or no prompt to show (unless forceShow)
-  if (isStandalone || (!showPrompt && !forceShow)) return null;
+  if (isStandalone || !(showPrompt || forceShow)) return null;
 
   return (
     <div
       className={cn(
-        "fixed bottom-20 left-4 right-4 z-50 md:bottom-4 md:left-auto md:right-4 md:w-[360px]",
-        "animate-in slide-in-from-bottom-4 fade-in duration-300",
+        "fixed right-4 bottom-20 left-4 z-50 md:right-4 md:bottom-4 md:left-auto md:w-[360px]",
+        "slide-in-from-bottom-4 fade-in animate-in duration-300",
         className
       )}
     >
@@ -162,9 +170,9 @@ export function PWAInstallPrompt({
           </div>
 
           {/* Content */}
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-sm">Install PlayerARC</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="mt-0.5 text-muted-foreground text-xs">
               {isIOS
                 ? "Add to your home screen for quick access"
                 : "Install for a better experience"}
@@ -172,21 +180,21 @@ export function PWAInstallPrompt({
 
             {isIOS ? (
               <div className="mt-3 space-y-2">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs">
                   <Share className="h-4 w-4" />
                   <span>Tap Share</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 text-muted-foreground text-xs">
                   <Plus className="h-4 w-4" />
                   <span>Add to Home Screen</span>
                 </div>
               </div>
             ) : (
               <div className="mt-3 flex gap-2">
-                <Button size="sm" onClick={handleInstall}>
+                <Button onClick={handleInstall} size="sm">
                   Install
                 </Button>
-                <Button size="sm" variant="ghost" onClick={handleDismiss}>
+                <Button onClick={handleDismiss} size="sm" variant="ghost">
                   Not now
                 </Button>
               </div>
@@ -195,10 +203,10 @@ export function PWAInstallPrompt({
 
           {/* Close button */}
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 -mr-1 -mt-1 flex-shrink-0"
+            className="-mr-1 -mt-1 h-6 w-6 flex-shrink-0"
             onClick={handleDismiss}
+            size="icon"
+            variant="ghost"
           >
             <X className="h-4 w-4" />
           </Button>

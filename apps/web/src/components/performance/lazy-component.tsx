@@ -24,7 +24,7 @@ export interface LazyComponentProps {
 
 /**
  * LazyComponent - Render children only when visible in viewport
- * 
+ *
  * Features:
  * - Uses Intersection Observer for efficient detection
  * - Shows placeholder while loading
@@ -42,7 +42,11 @@ export function LazyComponent({
   const ref = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (!ref.current || hasBeenVisible || typeof IntersectionObserver === "undefined") {
+    if (
+      !ref.current ||
+      hasBeenVisible ||
+      typeof IntersectionObserver === "undefined"
+    ) {
       return;
     }
 
@@ -65,17 +69,17 @@ export function LazyComponent({
 
   const defaultPlaceholder = (
     <div style={{ minHeight: minHeight || 100 }}>
-      <Skeleton className="w-full h-full min-h-[100px]" />
+      <Skeleton className="h-full min-h-[100px] w-full" />
     </div>
   );
 
   return (
     <div
-      ref={ref}
       className={className}
+      ref={ref}
       style={{ minHeight: hasBeenVisible ? undefined : minHeight }}
     >
-      {hasBeenVisible ? children : (placeholder || defaultPlaceholder)}
+      {hasBeenVisible ? children : placeholder || defaultPlaceholder}
     </div>
   );
 }
@@ -83,7 +87,8 @@ export function LazyComponent({
 /**
  * Props for LazyImage
  */
-export interface LazyImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
+export interface LazyImageProps
+  extends React.ImgHTMLAttributes<HTMLImageElement> {
   /** Placeholder to show while loading */
   placeholder?: React.ReactNode;
   /** Root margin for preloading */
@@ -106,7 +111,11 @@ export function LazyImage({
   const ref = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (!ref.current || hasBeenVisible || typeof IntersectionObserver === "undefined") {
+    if (
+      !ref.current ||
+      hasBeenVisible ||
+      typeof IntersectionObserver === "undefined"
+    ) {
       return;
     }
 
@@ -126,19 +135,19 @@ export function LazyImage({
   }, [hasBeenVisible, rootMargin]);
 
   const defaultPlaceholder = (
-    <Skeleton className={cn("w-full h-full", className)} />
+    <Skeleton className={cn("h-full w-full", className)} />
   );
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative" ref={ref}>
       {hasBeenVisible ? (
         <>
           {!isLoaded && (placeholder || defaultPlaceholder)}
           <img
-            src={src}
             alt={alt}
-            className={cn(className, !isLoaded && "opacity-0 absolute")}
+            className={cn(className, !isLoaded && "absolute opacity-0")}
             onLoad={() => setIsLoaded(true)}
+            src={src}
             {...props}
           />
         </>
@@ -163,7 +172,7 @@ export interface DeferredRenderProps {
 
 /**
  * DeferredRender - Defer rendering to prevent blocking
- * 
+ *
  * Useful for non-critical UI elements
  */
 export function DeferredRender({
@@ -213,7 +222,10 @@ export function IdleRender({
       typeof window !== "undefined" && "requestIdleCallback" in window
         ? window.requestIdleCallback
         : (cb: IdleRequestCallback) =>
-            setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 50 }), 1);
+            setTimeout(
+              () => cb({ didTimeout: false, timeRemaining: () => 50 }),
+              1
+            );
 
     const cancelCallback =
       typeof window !== "undefined" && "cancelIdleCallback" in window

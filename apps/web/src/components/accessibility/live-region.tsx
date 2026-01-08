@@ -23,7 +23,7 @@ export interface LiveRegionProps {
 
 /**
  * LiveRegion - ARIA live region for dynamic announcements
- * 
+ *
  * Use this to announce changes to screen readers:
  * - Form validation errors
  * - Loading states
@@ -40,16 +40,16 @@ export function LiveRegion({
 }: LiveRegionProps) {
   return (
     <div
-      role={role}
-      aria-live={ariaLive}
       aria-atomic={ariaAtomic}
+      aria-live={ariaLive}
       aria-relevant={ariaRelevant}
       className={cn(
-        "absolute h-px w-px p-0 -m-px overflow-hidden",
+        "-m-px absolute h-px w-px overflow-hidden p-0",
         "whitespace-nowrap border-0",
         "[clip:rect(0,0,0,0)]",
         className
       )}
+      role={role}
     >
       {children}
     </div>
@@ -70,7 +70,9 @@ interface AnnounceOptions {
   clearAfter?: number;
 }
 
-const AnnouncerContext = React.createContext<AnnouncerContextValue | null>(null);
+const AnnouncerContext = React.createContext<AnnouncerContextValue | null>(
+  null
+);
 
 /**
  * Hook to access the announcer
@@ -92,14 +94,14 @@ export interface AnnouncerProviderProps {
 
 /**
  * AnnouncerProvider - Provides programmatic screen reader announcements
- * 
+ *
  * Usage:
  * ```tsx
  * const { announce } = useAnnouncer();
- * 
+ *
  * // Polite announcement (default)
  * announce("Your changes have been saved");
- * 
+ *
  * // Assertive announcement (interrupts)
  * announce("Error: Please fix the form", { politeness: "assertive" });
  * ```
@@ -108,29 +110,38 @@ export function AnnouncerProvider({ children }: AnnouncerProviderProps) {
   const [politeMessage, setPoliteMessage] = React.useState("");
   const [assertiveMessage, setAssertiveMessage] = React.useState("");
 
-  const announce = React.useCallback((message: string, options: AnnounceOptions = {}) => {
-    const { politeness = "polite", clearAfter = 1000 } = options;
+  const announce = React.useCallback(
+    (message: string, options: AnnounceOptions = {}) => {
+      const { politeness = "polite", clearAfter = 1000 } = options;
 
-    if (politeness === "assertive") {
-      setAssertiveMessage(message);
-      if (clearAfter > 0) {
-        setTimeout(() => setAssertiveMessage(""), clearAfter);
+      if (politeness === "assertive") {
+        setAssertiveMessage(message);
+        if (clearAfter > 0) {
+          setTimeout(() => setAssertiveMessage(""), clearAfter);
+        }
+      } else {
+        setPoliteMessage(message);
+        if (clearAfter > 0) {
+          setTimeout(() => setPoliteMessage(""), clearAfter);
+        }
       }
-    } else {
-      setPoliteMessage(message);
-      if (clearAfter > 0) {
-        setTimeout(() => setPoliteMessage(""), clearAfter);
-      }
-    }
-  }, []);
+    },
+    []
+  );
 
-  const announcePolite = React.useCallback((message: string) => {
-    announce(message, { politeness: "polite" });
-  }, [announce]);
+  const announcePolite = React.useCallback(
+    (message: string) => {
+      announce(message, { politeness: "polite" });
+    },
+    [announce]
+  );
 
-  const announceAssertive = React.useCallback((message: string) => {
-    announce(message, { politeness: "assertive" });
-  }, [announce]);
+  const announceAssertive = React.useCallback(
+    (message: string) => {
+      announce(message, { politeness: "assertive" });
+    },
+    [announce]
+  );
 
   const value = React.useMemo(
     () => ({ announce, announcePolite, announceAssertive }),

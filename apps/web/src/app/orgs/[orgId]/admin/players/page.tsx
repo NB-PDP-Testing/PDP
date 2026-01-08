@@ -1,19 +1,14 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useAction, useMutation, useQuery } from "convex/react";
-import { useConvex } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
-  CheckSquare,
-  ChevronDown,
-  ChevronUp,
   Edit,
   Eye,
   Loader2,
   Plus,
   Search,
-  Square,
   Trash2,
   Upload,
   UserCircle,
@@ -23,6 +18,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { SmartDataView } from "@/components/data-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,13 +28,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  SmartDataView,
-  type DataColumn,
-  type DataAction,
-  type BulkAction,
-  type SwipeActionDef,
-} from "@/components/data-display";
 import {
   Dialog,
   DialogContent,
@@ -123,7 +112,7 @@ export default function ManagePlayersPage() {
   const [formErrors, setFormErrors] = useState<
     Partial<Record<keyof AddPlayerFormData, string>>
   >({});
-  
+
   // Duplicate warning state
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const [duplicateMessage, setDuplicateMessage] = useState("");
@@ -132,9 +121,12 @@ export default function ManagePlayersPage() {
 
   // Delete player state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [playerToDelete, setPlayerToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [playerToDelete, setPlayerToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // Bulk delete state
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -227,7 +219,7 @@ export default function ManagePlayersPage() {
   // Check for duplicates and show warning if found
   const checkForDuplicates = async (): Promise<boolean> => {
     if (!addPlayerForm.dateOfBirth) return true; // Can't check without DOB
-    
+
     setIsCheckingDuplicate(true);
     try {
       const result = await convex.query(
@@ -239,14 +231,14 @@ export default function ManagePlayersPage() {
           gender: addPlayerForm.gender,
         }
       );
-      
+
       if (result.isDuplicate && result.message) {
         // Exact match found - show warning
         setDuplicateMessage(result.message);
         setShowDuplicateWarning(true);
         return false; // Don't proceed - wait for user confirmation
       }
-      
+
       // No exact duplicate - proceed
       return true;
     } catch (error) {
@@ -331,17 +323,17 @@ export default function ManagePlayersPage() {
 
   const handleDeleteConfirm = async () => {
     if (!playerToDelete) return;
-    
+
     setIsDeleting(true);
     try {
       await unenrollPlayer({
         enrollmentId: playerToDelete.id as any,
       });
-      
+
       toast.success("Player removed", {
         description: `${playerToDelete.name} has been removed from the organization.`,
       });
-      
+
       setShowDeleteDialog(false);
       setPlayerToDelete(null);
     } catch (error) {
@@ -365,17 +357,17 @@ export default function ManagePlayersPage() {
 
   const handleBulkDeleteConfirm = async () => {
     if (selectedPlayers.size === 0) return;
-    
+
     setIsBulkDeleting(true);
     try {
       // Get enrollment IDs for selected players
-      const selectedPlayersList = sortedPlayers.filter((p: any) => 
+      const selectedPlayersList = sortedPlayers.filter((p: any) =>
         selectedPlayers.has(p._id)
       );
-      
+
       let successCount = 0;
       let failCount = 0;
-      
+
       for (const player of selectedPlayersList) {
         try {
           await unenrollPlayer({
@@ -387,15 +379,19 @@ export default function ManagePlayersPage() {
           failCount++;
         }
       }
-      
+
       if (successCount > 0) {
-        toast.success(`Removed ${successCount} player${successCount !== 1 ? 's' : ''}`, {
-          description: failCount > 0 
-            ? `${failCount} player${failCount !== 1 ? 's' : ''} failed to remove`
-            : undefined,
-        });
+        toast.success(
+          `Removed ${successCount} player${successCount !== 1 ? "s" : ""}`,
+          {
+            description:
+              failCount > 0
+                ? `${failCount} player${failCount !== 1 ? "s" : ""} failed to remove`
+                : undefined,
+          }
+        );
       }
-      
+
       setSelectedPlayers(new Set());
       setShowBulkDeleteDialog(false);
     } catch (error) {
@@ -549,10 +545,7 @@ export default function ManagePlayersPage() {
         </div>
         <div className="flex gap-2">
           {selectedPlayers.size > 0 && (
-            <Button
-              onClick={handleBulkDeleteClick}
-              variant="destructive"
-            >
+            <Button onClick={handleBulkDeleteClick} variant="destructive">
               <Trash2 className="mr-2 h-4 w-4" />
               Delete Selected ({selectedPlayers.size})
             </Button>
@@ -725,15 +718,28 @@ export default function ManagePlayersPage() {
             </div>
           ) : sortedPlayers.length > 0 ? (
             <SmartDataView
-              data={sortedPlayers}
-              exportable
-              exportFilename={`players-${orgId}`}
-              getKey={(player: any) => player._id}
-              onRefresh={async () => {
-                // Convex queries auto-refresh, so we just add a small delay
-                // to give visual feedback that the refresh happened
-                await new Promise(resolve => setTimeout(resolve, 300));
-              }}
+              actions={[
+                {
+                  label: "View",
+                  icon: <Eye className="h-4 w-4" />,
+                  onClick: (player: any) =>
+                    router.push(`/orgs/${orgId}/players/${player._id}`),
+                },
+                {
+                  label: "Edit",
+                  icon: <Edit className="h-4 w-4" />,
+                  onClick: (player: any) =>
+                    router.push(
+                      `/orgs/${orgId}/admin/players/${player._id}/edit` as any
+                    ),
+                },
+                {
+                  label: "Delete",
+                  icon: <Trash2 className="h-4 w-4" />,
+                  destructive: true,
+                  onClick: (player: any) => handleDeleteClick(player),
+                },
+              ]}
               columns={[
                 {
                   key: "name",
@@ -752,7 +758,9 @@ export default function ManagePlayersPage() {
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium">{player.name || "Unnamed"}</p>
+                        <p className="font-medium">
+                          {player.name || "Unnamed"}
+                        </p>
                       </div>
                     </div>
                   ),
@@ -763,7 +771,8 @@ export default function ManagePlayersPage() {
                   header: "Team(s)",
                   sortable: true,
                   accessor: (player: any) => getPlayerTeams(player).join(", "),
-                  exportAccessor: (player: any) => getPlayerTeams(player).join(", "),
+                  exportAccessor: (player: any) =>
+                    getPlayerTeams(player).join(", "),
                 },
                 {
                   key: "ageGroup",
@@ -786,7 +795,10 @@ export default function ManagePlayersPage() {
                   header: "Date of Birth",
                   sortable: true,
                   mobileVisible: false,
-                  accessor: (player: any) => player.dateOfBirth ? new Date(player.dateOfBirth).toLocaleDateString() : "—",
+                  accessor: (player: any) =>
+                    player.dateOfBirth
+                      ? new Date(player.dateOfBirth).toLocaleDateString()
+                      : "—",
                   exportAccessor: (player: any) => player.dateOfBirth || "",
                 },
                 {
@@ -807,11 +819,14 @@ export default function ManagePlayersPage() {
                       <Badge
                         className={(() => {
                           const days = Math.floor(
-                            (Date.now() - new Date(player.lastReviewDate).getTime()) /
+                            (Date.now() -
+                              new Date(player.lastReviewDate).getTime()) /
                               (1000 * 60 * 60 * 24)
                           );
-                          if (days <= 60) return "bg-green-500/10 text-green-600";
-                          if (days <= 90) return "bg-orange-500/10 text-orange-600";
+                          if (days <= 60)
+                            return "bg-green-500/10 text-green-600";
+                          if (days <= 90)
+                            return "bg-orange-500/10 text-orange-600";
                           return "bg-red-500/10 text-red-600";
                         })()}
                         variant="outline"
@@ -819,65 +834,17 @@ export default function ManagePlayersPage() {
                         {new Date(player.lastReviewDate).toLocaleDateString()}
                       </Badge>
                     ) : (
-                      <span className="text-muted-foreground text-xs">Not reviewed</span>
+                      <span className="text-muted-foreground text-xs">
+                        Not reviewed
+                      </span>
                     ),
-                  exportAccessor: (player: any) => player.lastReviewDate ? new Date(player.lastReviewDate).toLocaleDateString() : "",
+                  exportAccessor: (player: any) =>
+                    player.lastReviewDate
+                      ? new Date(player.lastReviewDate).toLocaleDateString()
+                      : "",
                 },
               ]}
-              actions={[
-                {
-                  label: "View",
-                  icon: <Eye className="h-4 w-4" />,
-                  onClick: (player: any) => router.push(`/orgs/${orgId}/players/${player._id}`),
-                },
-                {
-                  label: "Edit",
-                  icon: <Edit className="h-4 w-4" />,
-                  onClick: (player: any) =>
-                    router.push(`/orgs/${orgId}/admin/players/${player._id}/edit` as any),
-                },
-                {
-                  label: "Delete",
-                  icon: <Trash2 className="h-4 w-4" />,
-                  destructive: true,
-                  onClick: (player: any) => handleDeleteClick(player),
-                },
-              ]}
-              leftSwipeActions={[
-                {
-                  label: "Delete",
-                  icon: <Trash2 className="h-5 w-5" />,
-                  bgColor: "bg-destructive",
-                  textColor: "text-destructive-foreground",
-                  onClick: (player: any) => handleDeleteClick(player),
-                },
-              ]}
-              rightSwipeActions={[
-                {
-                  label: "View",
-                  icon: <Eye className="h-5 w-5" />,
-                  bgColor: "bg-primary",
-                  textColor: "text-primary-foreground",
-                  onClick: (player: any) => router.push(`/orgs/${orgId}/players/${player._id}`),
-                },
-                {
-                  label: "Edit",
-                  icon: <Edit className="h-5 w-5" />,
-                  bgColor: "bg-blue-500",
-                  textColor: "text-white",
-                  onClick: (player: any) =>
-                    router.push(`/orgs/${orgId}/admin/players/${player._id}/edit` as any),
-                },
-              ]}
-              onRowClick={(player: any) =>
-                router.push(`/orgs/${orgId}/admin/players/${player._id}/edit`)
-              }
-              selectable
-              selectedKeys={selectedPlayers}
-              onSelectionChange={setSelectedPlayers}
-              sortColumn={sortColumn}
-              sortDirection={sortDirection}
-              onSortChange={handleSort as any}
+              data={sortedPlayers}
               emptyState={
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <UserCircle className="mb-4 h-12 w-12 text-muted-foreground" />
@@ -910,6 +877,52 @@ export default function ManagePlayersPage() {
                     )}
                 </div>
               }
+              exportable
+              exportFilename={`players-${orgId}`}
+              getKey={(player: any) => player._id}
+              leftSwipeActions={[
+                {
+                  label: "Delete",
+                  icon: <Trash2 className="h-5 w-5" />,
+                  bgColor: "bg-destructive",
+                  textColor: "text-destructive-foreground",
+                  onClick: (player: any) => handleDeleteClick(player),
+                },
+              ]}
+              onRefresh={async () => {
+                // Convex queries auto-refresh, so we just add a small delay
+                // to give visual feedback that the refresh happened
+                await new Promise((resolve) => setTimeout(resolve, 300));
+              }}
+              onRowClick={(player: any) =>
+                router.push(`/orgs/${orgId}/admin/players/${player._id}/edit`)
+              }
+              onSelectionChange={setSelectedPlayers}
+              onSortChange={handleSort as any}
+              rightSwipeActions={[
+                {
+                  label: "View",
+                  icon: <Eye className="h-5 w-5" />,
+                  bgColor: "bg-primary",
+                  textColor: "text-primary-foreground",
+                  onClick: (player: any) =>
+                    router.push(`/orgs/${orgId}/players/${player._id}`),
+                },
+                {
+                  label: "Edit",
+                  icon: <Edit className="h-5 w-5" />,
+                  bgColor: "bg-blue-500",
+                  textColor: "text-white",
+                  onClick: (player: any) =>
+                    router.push(
+                      `/orgs/${orgId}/admin/players/${player._id}/edit` as any
+                    ),
+                },
+              ]}
+              selectable
+              selectedKeys={selectedPlayers}
+              sortColumn={sortColumn}
+              sortDirection={sortDirection}
             />
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -1196,8 +1209,9 @@ export default function ManagePlayersPage() {
 
           <div className="py-4">
             <p className="text-muted-foreground text-sm">
-              The system allows players with the same name if they have different dates of birth or gender.
-              An exact match (same name, date of birth, AND gender) has been detected.
+              The system allows players with the same name if they have
+              different dates of birth or gender. An exact match (same name,
+              date of birth, AND gender) has been detected.
             </p>
           </div>
 
@@ -1227,23 +1241,29 @@ export default function ManagePlayersPage() {
       </Dialog>
 
       {/* Bulk Delete Confirmation Dialog */}
-      <Dialog onOpenChange={setShowBulkDeleteDialog} open={showBulkDeleteDialog}>
+      <Dialog
+        onOpenChange={setShowBulkDeleteDialog}
+        open={showBulkDeleteDialog}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
-              Remove {selectedPlayers.size} Player{selectedPlayers.size !== 1 ? 's' : ''}
+              Remove {selectedPlayers.size} Player
+              {selectedPlayers.size !== 1 ? "s" : ""}
             </DialogTitle>
             <DialogDescription className="pt-2">
-              Are you sure you want to remove {selectedPlayers.size} selected player{selectedPlayers.size !== 1 ? 's' : ''} from
-              this organization?
+              Are you sure you want to remove {selectedPlayers.size} selected
+              player{selectedPlayers.size !== 1 ? "s" : ""} from this
+              organization?
             </DialogDescription>
           </DialogHeader>
 
           <div className="py-4">
             <p className="text-muted-foreground text-sm">
-              This will remove the selected players from your organization. Their player
-              identities will remain in the system and can be re-enrolled later.
+              This will remove the selected players from your organization.
+              Their player identities will remain in the system and can be
+              re-enrolled later.
             </p>
           </div>
 
@@ -1267,7 +1287,8 @@ export default function ManagePlayersPage() {
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Remove {selectedPlayers.size} Player{selectedPlayers.size !== 1 ? 's' : ''}
+                  Remove {selectedPlayers.size} Player
+                  {selectedPlayers.size !== 1 ? "s" : ""}
                 </>
               )}
             </Button>

@@ -1,8 +1,7 @@
 "use client";
 
-import * as React from "react";
-import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface CardSkeletonProps {
   /** Show avatar/image placeholder */
@@ -23,7 +22,7 @@ interface CardSkeletonProps {
 
 /**
  * CardSkeleton - Loading placeholder for card components
- * 
+ *
  * Features:
  * - Multiple variants (default, horizontal, compact)
  * - Optional avatar/image
@@ -54,7 +53,12 @@ export function CardSkeleton({
         )}
       >
         {showAvatar && (
-          <Skeleton className={cn("rounded-full flex-shrink-0", avatarSizes[avatarSize])} />
+          <Skeleton
+            className={cn(
+              "flex-shrink-0 rounded-full",
+              avatarSizes[avatarSize]
+            )}
+          />
         )}
         <div className="flex-1 space-y-2">
           <Skeleton className="h-4 w-3/4 rounded" />
@@ -72,14 +76,9 @@ export function CardSkeleton({
 
   if (variant === "compact") {
     return (
-      <div
-        className={cn(
-          "flex items-center gap-3 rounded-md p-2",
-          className
-        )}
-      >
+      <div className={cn("flex items-center gap-3 rounded-md p-2", className)}>
         {showAvatar && (
-          <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
+          <Skeleton className="h-8 w-8 flex-shrink-0 rounded-full" />
         )}
         <div className="flex-1">
           <Skeleton className="h-4 w-2/3 rounded" />
@@ -91,16 +90,16 @@ export function CardSkeleton({
 
   // Default vertical card
   return (
-    <div
-      className={cn(
-        "rounded-lg border bg-card p-4 space-y-4",
-        className
-      )}
-    >
+    <div className={cn("space-y-4 rounded-lg border bg-card p-4", className)}>
       {/* Header with avatar */}
       <div className="flex items-start gap-3">
         {showAvatar && (
-          <Skeleton className={cn("rounded-full flex-shrink-0", avatarSizes[avatarSize])} />
+          <Skeleton
+            className={cn(
+              "flex-shrink-0 rounded-full",
+              avatarSizes[avatarSize]
+            )}
+          />
         )}
         <div className="flex-1 space-y-2">
           <Skeleton className="h-5 w-3/4 rounded" />
@@ -114,8 +113,8 @@ export function CardSkeleton({
         <div className="space-y-2">
           {Array.from({ length: Math.min(lines, 4) }).map((_, i) => (
             <Skeleton
-              key={i}
               className="h-3 rounded"
+              key={i}
               style={{ width: `${100 - i * 15}%` }}
             />
           ))}
@@ -168,7 +167,7 @@ export function CardGridSkeleton({
  */
 export function StatCardSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("rounded-lg border bg-card p-4 space-y-2", className)}>
+    <div className={cn("space-y-2 rounded-lg border bg-card p-4", className)}>
       <Skeleton className="h-4 w-1/2 rounded" />
       <Skeleton className="h-8 w-1/3 rounded" />
       <Skeleton className="h-3 w-2/3 rounded" />

@@ -35,60 +35,60 @@ export function ModeToggle() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
+            aria-haspopup="menu"
+            aria-label={`Theme: ${resolvedTheme === "dark" ? "Dark" : "Light"} mode. Click to change.`}
             size="icon"
             variant="outline"
-            aria-label={`Theme: ${resolvedTheme === "dark" ? "Dark" : "Light"} mode. Click to change.`}
-            aria-haspopup="menu"
           >
             <Sun
-              className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0"
               aria-hidden="true"
+              className="dark:-rotate-90 h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:scale-0"
             />
             <Moon
-              className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"
               aria-hidden="true"
+              className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100"
             />
             <span className="sr-only">Toggle theme</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" role="menu" aria-label="Theme options">
+        <DropdownMenuContent align="end" aria-label="Theme options" role="menu">
           <DropdownMenuItem
-            onClick={() => setTheme("light")}
-            role="menuitemradio"
             aria-checked={theme === "light"}
             className="flex items-center gap-2"
+            onClick={() => setTheme("light")}
+            role="menuitemradio"
           >
-            <Sun className="h-4 w-4" aria-hidden="true" />
+            <Sun aria-hidden="true" className="h-4 w-4" />
             <span className="flex-1">Light</span>
             <Check
-              className={cn("h-4 w-4", theme !== "light" && "invisible")}
               aria-hidden="true"
+              className={cn("h-4 w-4", theme !== "light" && "invisible")}
             />
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => setTheme("dark")}
-            role="menuitemradio"
             aria-checked={theme === "dark"}
             className="flex items-center gap-2"
+            onClick={() => setTheme("dark")}
+            role="menuitemradio"
           >
-            <Moon className="h-4 w-4" aria-hidden="true" />
+            <Moon aria-hidden="true" className="h-4 w-4" />
             <span className="flex-1">Dark</span>
             <Check
-              className={cn("h-4 w-4", theme !== "dark" && "invisible")}
               aria-hidden="true"
+              className={cn("h-4 w-4", theme !== "dark" && "invisible")}
             />
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => setTheme("system")}
-            role="menuitemradio"
             aria-checked={theme === "system"}
             className="flex items-center gap-2"
+            onClick={() => setTheme("system")}
+            role="menuitemradio"
           >
-            <Monitor className="h-4 w-4" aria-hidden="true" />
+            <Monitor aria-hidden="true" className="h-4 w-4" />
             <span className="flex-1">System</span>
             <Check
-              className={cn("h-4 w-4", theme !== "system" && "invisible")}
               aria-hidden="true"
+              className={cn("h-4 w-4", theme !== "system" && "invisible")}
             />
           </DropdownMenuItem>
         </DropdownMenuContent>

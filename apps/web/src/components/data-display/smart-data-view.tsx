@@ -3,8 +3,18 @@
 import * as React from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
-import { ResponsiveDataView, type DataColumn, type DataAction, type SwipeActionDef } from "./responsive-data-view";
-import { DataTableEnhanced, type EnhancedColumn, type RowAction, type BulkAction } from "./data-table-enhanced";
+import {
+  type BulkAction,
+  DataTableEnhanced,
+  type EnhancedColumn,
+  type RowAction,
+} from "./data-table-enhanced";
+import {
+  type DataAction,
+  type DataColumn,
+  ResponsiveDataView,
+  type SwipeActionDef,
+} from "./responsive-data-view";
 
 /**
  * SmartDataView Props - Unified interface for both components
@@ -62,12 +72,12 @@ export interface SmartDataViewProps<T> {
 
 /**
  * SmartDataView - Automatically selects between ResponsiveDataView and DataTableEnhanced
- * 
+ *
  * Behavior:
  * - Mobile: Always uses ResponsiveDataView (card-based)
  * - Desktop + ux_enhanced_tables=false: Uses ResponsiveDataView (table mode)
  * - Desktop + ux_enhanced_tables=true: Uses DataTableEnhanced (with extra features)
- * 
+ *
  * Extra features when enhanced (desktop only):
  * - Column visibility toggle
  * - CSV export
@@ -122,7 +132,7 @@ export function SmartDataView<T>({
 
   // Convert actions to row actions format
   const rowActions: RowAction<T>[] | undefined = React.useMemo(() => {
-    if (!actions) return undefined;
+    if (!actions) return;
     return actions.map((action) => ({
       label: action.label,
       icon: action.icon,
@@ -136,28 +146,28 @@ export function SmartDataView<T>({
   if (shouldUseEnhanced) {
     return (
       <DataTableEnhanced
-        data={data}
-        columns={enhancedColumns}
-        getRowKey={getKey}
-        rowActions={rowActions}
         bulkActions={bulkActions}
-        selectable={selectable}
-        selectedKeys={selectedKeys}
+        className={className}
+        columns={enhancedColumns}
+        data={data}
+        emptyState={emptyState}
+        exportable={exportable}
+        exportFilename={exportFilename}
+        getRowKey={getKey}
+        loading={loading}
+        onRowClick={onRowClick}
+        onSearch={onSearch}
         onSelectionChange={onSelectionChange}
+        onSortChange={onSortChange}
+        rowActions={rowActions}
         searchable={searchable}
         searchPlaceholder={searchPlaceholder}
         searchValue={searchValue}
-        onSearch={onSearch}
-        exportable={exportable}
-        exportFilename={exportFilename}
+        selectable={selectable}
+        selectedKeys={selectedKeys}
         sortColumn={sortColumn}
         sortDirection={sortDirection}
-        onSortChange={onSortChange}
-        onRowClick={onRowClick}
-        loading={loading}
-        emptyState={emptyState}
         stickyHeader
-        className={className}
       />
     );
   }
@@ -165,29 +175,33 @@ export function SmartDataView<T>({
   // Default: Use ResponsiveDataView
   return (
     <ResponsiveDataView
-      data={data}
-      getKey={getKey}
-      columns={columns}
       actions={actions}
+      className={className}
+      columns={columns}
+      data={data}
+      emptyState={emptyState}
+      getKey={getKey}
       leftSwipeActions={leftSwipeActions}
+      loading={loading}
+      onRefresh={onRefresh}
+      onRowClick={onRowClick}
+      onSelectionChange={onSelectionChange}
+      onSortChange={onSortChange as any}
       rightSwipeActions={rightSwipeActions}
       selectable={selectable}
       selectedKeys={selectedKeys}
-      onSelectionChange={onSelectionChange}
-      onRowClick={onRowClick}
       sortColumn={sortColumn}
       sortDirection={sortDirection}
-      onSortChange={onSortChange as any}
-      onRefresh={onRefresh}
-      loading={loading}
-      emptyState={emptyState}
-      className={className}
     />
   );
 }
 
+export type { BulkAction } from "./data-table-enhanced";
 /**
  * Re-export types for convenience
  */
-export type { DataColumn, DataAction, SwipeActionDef } from "./responsive-data-view";
-export type { BulkAction } from "./data-table-enhanced";
+export type {
+  DataAction,
+  DataColumn,
+  SwipeActionDef,
+} from "./responsive-data-view";

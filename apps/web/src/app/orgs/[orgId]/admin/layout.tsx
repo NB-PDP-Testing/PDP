@@ -6,12 +6,16 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { CommandMenu } from "@/components/interactions/command-menu";
 import {
   AdminMobileNav,
   AdminSidebar,
 } from "@/components/layout/admin-sidebar";
-import { BottomNav, BottomNavSpacer, type BottomNavItem } from "@/components/layout/bottom-nav";
-import { CommandMenu } from "@/components/interactions/command-menu";
+import {
+  BottomNav,
+  type BottomNavItem,
+  BottomNavSpacer,
+} from "@/components/layout/bottom-nav";
 import Loader from "@/components/loader";
 import { ModeToggle } from "@/components/mode-toggle";
 import { ResizableSidebar } from "@/components/polish/resizable-sidebar";
@@ -72,20 +76,45 @@ export default function OrgAdminLayout({
 
   // Apply organization theme
   const { theme } = useOrgTheme();
-  
+
   // Get UX feature flags for conditional rendering
-  const { adminNavStyle, useBottomNav, useResizableSidebar } = useUXFeatureFlags();
+  const { adminNavStyle, useBottomNav, useResizableSidebar } =
+    useUXFeatureFlags();
   const useNewNav = adminNavStyle === "sidebar";
 
   // Debug: Log feature flag values
-  console.log("[Admin Layout] Feature flags:", { adminNavStyle, useBottomNav, useNewNav });
+  console.log("[Admin Layout] Feature flags:", {
+    adminNavStyle,
+    useBottomNav,
+    useNewNav,
+  });
 
   // Admin bottom nav items (only shown when useBottomNav flag is enabled)
   const adminBottomNavItems: BottomNavItem[] = [
-    { id: "overview", icon: Home, label: "Overview", href: `/orgs/${orgId}/admin` },
-    { id: "players", icon: Users, label: "Players", href: `/orgs/${orgId}/admin/players` },
-    { id: "teams", icon: ClipboardList, label: "Teams", href: `/orgs/${orgId}/admin/teams` },
-    { id: "settings", icon: Settings, label: "Settings", href: `/orgs/${orgId}/admin/settings` },
+    {
+      id: "overview",
+      icon: Home,
+      label: "Overview",
+      href: `/orgs/${orgId}/admin`,
+    },
+    {
+      id: "players",
+      icon: Users,
+      label: "Players",
+      href: `/orgs/${orgId}/admin/players`,
+    },
+    {
+      id: "teams",
+      icon: ClipboardList,
+      label: "Teams",
+      href: `/orgs/${orgId}/admin/teams`,
+    },
+    {
+      id: "settings",
+      icon: Settings,
+      label: "Settings",
+      href: `/orgs/${orgId}/admin/settings`,
+    },
   ];
 
   // Show loading while checking access
@@ -117,8 +146,8 @@ export default function OrgAdminLayout({
       <Authenticated>
         {/* Bottom navigation for mobile - OUTSIDE main flex container for proper fixed positioning */}
         {useBottomNav && <BottomNav items={adminBottomNavItems} />}
-        
-        <div className="flex flex-col h-full">
+
+        <div className="flex h-full flex-col">
           {/* Header */}
           <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
             <div className="flex h-14 items-center justify-between px-4">
@@ -128,13 +157,13 @@ export default function OrgAdminLayout({
                   orgId={orgId}
                   primaryColor={theme.primary}
                   trigger={
-                    <Button variant="ghost" size="icon" className="lg:hidden">
+                    <Button className="lg:hidden" size="icon" variant="ghost">
                       <Menu className="h-5 w-5" />
                       <span className="sr-only">Open menu</span>
                     </Button>
                   }
                 />
-                
+
                 {/* Logo/Title */}
                 <Link
                   className="flex items-center gap-2"
@@ -147,7 +176,7 @@ export default function OrgAdminLayout({
                   <span className="font-semibold">Admin Panel</span>
                 </Link>
               </div>
-              
+
               <div className="flex items-center gap-2">
                 {/* Command menu search trigger */}
                 <CommandMenu orgId={orgId} />
@@ -172,19 +201,23 @@ export default function OrgAdminLayout({
                 {useResizableSidebar ? (
                   <ResizableSidebar
                     className="hidden lg:block"
-                    storageKey={`admin-sidebar-${orgId}`}
                     defaultWidth={260}
-                    minWidth={200}
                     maxWidth={400}
+                    minWidth={200}
+                    storageKey={`admin-sidebar-${orgId}`}
                   >
-                    <AdminSidebar orgId={orgId} primaryColor={theme.primary} isResizable />
+                    <AdminSidebar
+                      isResizable
+                      orgId={orgId}
+                      primaryColor={theme.primary}
+                    />
                   </ResizableSidebar>
                 ) : (
                   <AdminSidebar orgId={orgId} primaryColor={theme.primary} />
                 )}
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 md:p-6 [&>*]:h-auto">
+                <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6 [&>*]:h-auto">
                   {children}
                 </main>
               </div>
@@ -220,7 +253,6 @@ export default function OrgAdminLayout({
           <Loader />
         </div>
       </AuthLoading>
-      
     </>
   );
 }
@@ -262,7 +294,9 @@ function LegacyNavigation({
   ];
 
   const isActive = (href: string) => {
-    if (href === `/orgs/${orgId}/admin`) return pathname === href;
+    if (href === `/orgs/${orgId}/admin`) {
+      return pathname === href;
+    }
     return pathname.startsWith(href);
   };
 
@@ -276,7 +310,6 @@ function LegacyNavigation({
               <Button
                 className="whitespace-nowrap"
                 size="sm"
-                variant={isActive(item.href) ? "secondary" : "ghost"}
                 style={
                   isActive(item.href)
                     ? {
@@ -285,6 +318,7 @@ function LegacyNavigation({
                       }
                     : undefined
                 }
+                variant={isActive(item.href) ? "secondary" : "ghost"}
               >
                 {item.label}
               </Button>
@@ -294,7 +328,9 @@ function LegacyNavigation({
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 md:p-6">{children}</main>
+      <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
+        {children}
+      </main>
     </>
   );
 }

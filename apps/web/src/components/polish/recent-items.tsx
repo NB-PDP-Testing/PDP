@@ -1,17 +1,12 @@
 "use client";
 
-import * as React from "react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Clock, X, ChevronRight } from "lucide-react";
+import { ChevronRight, Clock, X } from "lucide-react";
 import Link, { type LinkProps } from "next/link";
 import { usePathname } from "next/navigation";
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 export interface RecentItem {
   id: string;
@@ -39,7 +34,7 @@ interface RecentItemsProps {
 
 /**
  * RecentItems - Shows recently visited pages/items
- * 
+ *
  * Features:
  * - Automatically tracks navigation
  * - Persists to localStorage
@@ -116,8 +111,13 @@ export function RecentItems({
 
   if (items.length === 0) {
     return (
-      <div className={cn("py-4 text-center text-sm text-muted-foreground", className)}>
-        <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+      <div
+        className={cn(
+          "py-4 text-center text-muted-foreground text-sm",
+          className
+        )}
+      >
+        <Clock className="mx-auto mb-2 h-8 w-8 opacity-50" />
         <p>No recent items</p>
       </div>
     );
@@ -128,15 +128,15 @@ export function RecentItems({
       <div className={cn("space-y-2", className)}>
         {/* Header with clear button */}
         <div className="flex items-center justify-between px-2">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <span className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
             Recent
           </span>
           {showClearButton && items.length > 0 && (
             <Button
-              variant="ghost"
-              size="sm"
               className="h-6 px-2 text-xs"
               onClick={clearAll}
+              size="sm"
+              variant="ghost"
             >
               Clear all
             </Button>
@@ -146,16 +146,16 @@ export function RecentItems({
         {/* Items list */}
         {groupByType ? (
           Object.entries(groupedItems).map(([type, typeItems]) => (
-            <div key={type} className="space-y-1">
-              <span className="text-xs text-muted-foreground capitalize px-2">
+            <div className="space-y-1" key={type}>
+              <span className="px-2 text-muted-foreground text-xs capitalize">
                 {type}
               </span>
               {typeItems.map((item) => (
                 <RecentItemRow
-                  key={item.id}
-                  item={item}
-                  isActive={pathname === item.href}
                   formatTime={formatRelativeTime}
+                  isActive={pathname === item.href}
+                  item={item}
+                  key={item.id}
                   onRemove={() => removeItem(item.id)}
                 />
               ))}
@@ -165,10 +165,10 @@ export function RecentItems({
           <div className="space-y-0.5">
             {items.map((item) => (
               <RecentItemRow
-                key={item.id}
-                item={item}
-                isActive={pathname === item.href}
                 formatTime={formatRelativeTime}
+                isActive={pathname === item.href}
+                item={item}
+                key={item.id}
                 onRemove={() => removeItem(item.id)}
               />
             ))}
@@ -186,24 +186,31 @@ interface RecentItemRowProps {
   onRemove: () => void;
 }
 
-function RecentItemRow({ item, isActive, formatTime, onRemove }: RecentItemRowProps) {
+function RecentItemRow({
+  item,
+  isActive,
+  formatTime,
+  onRemove,
+}: RecentItemRowProps) {
   return (
     <div className="group relative">
       <Link
-        href={item.href as LinkProps<string>["href"]}
         className={cn(
-          "flex items-center gap-2 px-2 py-1.5 rounded-md text-sm",
-          "hover:bg-accent transition-colors",
+          "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm",
+          "transition-colors hover:bg-accent",
           isActive && "bg-accent"
         )}
+        href={item.href as LinkProps<string>["href"]}
       >
         {item.icon ? (
-          <span className="flex-shrink-0 text-muted-foreground">{item.icon}</span>
+          <span className="flex-shrink-0 text-muted-foreground">
+            {item.icon}
+          </span>
         ) : (
           <Clock className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
         )}
         <span className="flex-1 truncate">{item.label}</span>
-        <span className="text-xs text-muted-foreground">
+        <span className="text-muted-foreground text-xs">
           {formatTime(item.timestamp)}
         </span>
         <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
@@ -211,16 +218,16 @@ function RecentItemRow({ item, isActive, formatTime, onRemove }: RecentItemRowPr
 
       {/* Remove button */}
       <Button
-        variant="ghost"
-        size="icon"
         className={cn(
-          "absolute right-8 top-1/2 -translate-y-1/2 h-5 w-5",
-          "opacity-0 group-hover:opacity-100 transition-opacity"
+          "-translate-y-1/2 absolute top-1/2 right-8 h-5 w-5",
+          "opacity-0 transition-opacity group-hover:opacity-100"
         )}
         onClick={(e) => {
           e.preventDefault();
           onRemove();
         }}
+        size="icon"
+        variant="ghost"
       >
         <X className="h-3 w-3" />
       </Button>

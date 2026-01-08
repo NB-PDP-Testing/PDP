@@ -1,5 +1,6 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import {
   Award,
   ChevronDown,
@@ -12,7 +13,6 @@ import {
   User,
   Users,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -132,9 +132,7 @@ export function CoachSidebar({ orgId, primaryColor }: CoachSidebarProps) {
 
   const toggleGroup = (label: string) => {
     setExpandedGroups((prev) =>
-      prev.includes(label)
-        ? prev.filter((g) => g !== label)
-        : [...prev, label]
+      prev.includes(label) ? prev.filter((g) => g !== label) : [...prev, label]
     );
   };
 
@@ -151,17 +149,19 @@ export function CoachSidebar({ orgId, primaryColor }: CoachSidebarProps) {
         <nav className="flex-1 space-y-1 px-3">
           {navGroups.map((group) => {
             const isExpanded = expandedGroups.includes(group.label);
-            const hasActiveItem = group.items.some((item) => isActive(item.href));
+            const hasActiveItem = group.items.some((item) =>
+              isActive(item.href)
+            );
             const GroupIcon = group.icon;
 
             return (
               <div key={group.label}>
                 <button
-                  onClick={() => toggleGroup(group.label)}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
+                    "flex w-full items-center justify-between rounded-lg px-3 py-2 font-medium text-sm transition-colors hover:bg-accent",
                     hasActiveItem && "text-primary"
                   )}
+                  onClick={() => toggleGroup(group.label)}
                 >
                   <div className="flex items-center gap-2">
                     <GroupIcon className="h-4 w-4" />
@@ -176,7 +176,7 @@ export function CoachSidebar({ orgId, primaryColor }: CoachSidebarProps) {
                 </button>
 
                 {isExpanded && (
-                  <div className="ml-4 mt-1 space-y-1 border-l pl-3">
+                  <div className="mt-1 ml-4 space-y-1 border-l pl-3">
                     {group.items.map((item) => {
                       const ItemIcon = item.icon;
                       const active = isActive(item.href);
@@ -184,9 +184,8 @@ export function CoachSidebar({ orgId, primaryColor }: CoachSidebarProps) {
                       return (
                         <Link href={item.href as Route} key={item.href}>
                           <Button
-                            variant={active ? "secondary" : "ghost"}
-                            size="sm"
                             className="w-full justify-start gap-2"
+                            size="sm"
                             style={
                               active && primaryColor
                                 ? {
@@ -197,6 +196,7 @@ export function CoachSidebar({ orgId, primaryColor }: CoachSidebarProps) {
                                   }
                                 : undefined
                             }
+                            variant={active ? "secondary" : "ghost"}
                           >
                             <ItemIcon className="h-4 w-4" />
                             {item.label}
@@ -224,7 +224,11 @@ interface CoachMobileNavProps {
 /**
  * Mobile navigation drawer for coach panel
  */
-export function CoachMobileNav({ orgId, primaryColor, trigger }: CoachMobileNavProps) {
+export function CoachMobileNav({
+  orgId,
+  primaryColor,
+  trigger,
+}: CoachMobileNavProps) {
   const pathname = usePathname();
   const navGroups = getCoachNavGroups(orgId);
   const [open, setOpen] = useState(false);
@@ -241,9 +245,7 @@ export function CoachMobileNav({ orgId, primaryColor, trigger }: CoachMobileNavP
 
   const toggleGroup = (label: string) => {
     setExpandedGroups((prev) =>
-      prev.includes(label)
-        ? prev.filter((g) => g !== label)
-        : [...prev, label]
+      prev.includes(label) ? prev.filter((g) => g !== label) : [...prev, label]
     );
   };
 
@@ -254,18 +256,21 @@ export function CoachMobileNav({ orgId, primaryColor, trigger }: CoachMobileNavP
   };
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet onOpenChange={setOpen} open={open}>
       <SheetTrigger asChild>
         {trigger || (
-          <Button variant="ghost" size="icon" className="lg:hidden">
+          <Button className="lg:hidden" size="icon" variant="ghost">
             <Menu className="h-5 w-5" />
           </Button>
         )}
       </SheetTrigger>
-      <SheetContent side="left" className="w-80 p-0">
+      <SheetContent className="w-80 p-0" side="left">
         <SheetHeader className="border-b px-4 py-3">
           <SheetTitle className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5" style={{ color: primaryColor }} />
+            <ClipboardList
+              className="h-5 w-5"
+              style={{ color: primaryColor }}
+            />
             Coach Dashboard
           </SheetTitle>
         </SheetHeader>
@@ -275,17 +280,19 @@ export function CoachMobileNav({ orgId, primaryColor, trigger }: CoachMobileNavP
           <nav className="flex-1 space-y-1 px-3">
             {navGroups.map((group) => {
               const isExpanded = expandedGroups.includes(group.label);
-              const hasActiveItem = group.items.some((item) => isActive(item.href));
+              const hasActiveItem = group.items.some((item) =>
+                isActive(item.href)
+              );
               const GroupIcon = group.icon;
 
               return (
                 <div key={group.label}>
                   <button
-                    onClick={() => toggleGroup(group.label)}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-accent",
+                      "flex w-full items-center justify-between rounded-lg px-3 py-3 font-medium text-sm transition-colors hover:bg-accent",
                       hasActiveItem && "text-primary"
                     )}
+                    onClick={() => toggleGroup(group.label)}
                   >
                     <div className="flex items-center gap-3">
                       <GroupIcon className="h-5 w-5" />
@@ -300,7 +307,7 @@ export function CoachMobileNav({ orgId, primaryColor, trigger }: CoachMobileNavP
                   </button>
 
                   {isExpanded && (
-                    <div className="ml-5 mt-1 space-y-1 border-l pl-4">
+                    <div className="mt-1 ml-5 space-y-1 border-l pl-4">
                       {group.items.map((item) => {
                         const ItemIcon = item.icon;
                         const active = isActive(item.href);
@@ -312,8 +319,7 @@ export function CoachMobileNav({ orgId, primaryColor, trigger }: CoachMobileNavP
                             onClick={() => setOpen(false)}
                           >
                             <Button
-                              variant={active ? "secondary" : "ghost"}
-                              className="w-full justify-start gap-2 h-11"
+                              className="h-11 w-full justify-start gap-2"
                               style={
                                 active && primaryColor
                                   ? {
@@ -322,6 +328,7 @@ export function CoachMobileNav({ orgId, primaryColor, trigger }: CoachMobileNavP
                                     }
                                   : undefined
                               }
+                              variant={active ? "secondary" : "ghost"}
                             >
                               <ItemIcon className="h-4 w-4" />
                               {item.label}

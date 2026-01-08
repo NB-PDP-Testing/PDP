@@ -1,14 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useState, useCallback } from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useCallback, useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 /**
@@ -85,7 +85,7 @@ export interface KeyboardShortcutsOverlayProps {
 
 /**
  * KeyboardShortcutsOverlay - Shows all keyboard shortcuts
- * 
+ *
  * Opens with `?` key press
  * Desktop only (hidden on mobile)
  */
@@ -133,26 +133,26 @@ export function KeyboardShortcutsOverlay({
   if (isMobile) return null;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+    <Dialog onOpenChange={setOpen} open={open}>
+      <DialogContent className="max-h-[80vh] max-w-2xl overflow-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Keyboard Shortcuts
-            <kbd className="ml-2 px-2 py-0.5 bg-muted rounded text-xs">?</kbd>
+            <kbd className="ml-2 rounded bg-muted px-2 py-0.5 text-xs">?</kbd>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+        <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
           {shortcuts.map((category) => (
             <div key={category.name}>
-              <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+              <h3 className="mb-3 font-semibold text-muted-foreground text-sm">
                 {category.name}
               </h3>
               <div className="space-y-2">
                 {category.shortcuts.map((shortcut, index) => (
                   <div
-                    key={index}
                     className="flex items-center justify-between py-1.5"
+                    key={index}
                   >
                     <span className="text-sm">{shortcut.description}</span>
                     <div className="flex items-center gap-1">
@@ -160,14 +160,16 @@ export function KeyboardShortcutsOverlay({
                         <React.Fragment key={keyIndex}>
                           <kbd
                             className={cn(
-                              "px-2 py-0.5 bg-muted rounded text-xs font-mono",
+                              "rounded bg-muted px-2 py-0.5 font-mono text-xs",
                               key.length === 1 && "min-w-[24px] text-center"
                             )}
                           >
                             {key}
                           </kbd>
                           {keyIndex < shortcut.keys.length - 1 && (
-                            <span className="text-muted-foreground text-xs">+</span>
+                            <span className="text-muted-foreground text-xs">
+                              +
+                            </span>
                           )}
                         </React.Fragment>
                       ))}
@@ -179,8 +181,9 @@ export function KeyboardShortcutsOverlay({
           ))}
         </div>
 
-        <div className="mt-6 pt-4 border-t text-center text-xs text-muted-foreground">
-          Press <kbd className="px-1.5 py-0.5 bg-muted rounded">Esc</kbd> to close
+        <div className="mt-6 border-t pt-4 text-center text-muted-foreground text-xs">
+          Press <kbd className="rounded bg-muted px-1.5 py-0.5">Esc</kbd> to
+          close
         </div>
       </DialogContent>
     </Dialog>

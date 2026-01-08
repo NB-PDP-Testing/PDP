@@ -481,7 +481,7 @@ export const checkForDuplicatePlayer = query({
   handler: async (ctx, args) => {
     const normalizedFirstName = args.firstName.trim();
     const normalizedLastName = args.lastName.trim();
-    
+
     // Find all players with same name + DOB
     const nameAndDobMatches = await ctx.db
       .query("playerIdentities")
@@ -492,21 +492,22 @@ export const checkForDuplicatePlayer = query({
           .eq("dateOfBirth", args.dateOfBirth)
       )
       .collect();
-    
+
     // Check for exact match (name + DOB + gender)
     let exactMatch = null;
     if (args.gender) {
-      exactMatch = nameAndDobMatches.find(p => p.gender === args.gender) || null;
+      exactMatch =
+        nameAndDobMatches.find((p) => p.gender === args.gender) || null;
     }
-    
+
     // Partial matches are name + DOB but different gender
-    const partialMatches = exactMatch 
-      ? nameAndDobMatches.filter(p => p._id !== exactMatch!._id)
+    const partialMatches = exactMatch
+      ? nameAndDobMatches.filter((p) => p._id !== exactMatch!._id)
       : nameAndDobMatches;
-    
+
     // Determine if this is a duplicate situation
     const isDuplicate = exactMatch !== null;
-    
+
     // Generate helpful message
     let message: string | undefined;
     if (exactMatch) {
@@ -514,7 +515,7 @@ export const checkForDuplicatePlayer = query({
     } else if (partialMatches.length > 0) {
       message = `Found ${partialMatches.length} player(s) named "${normalizedFirstName} ${normalizedLastName}" with the same date of birth but different gender. This may be a different person.`;
     }
-    
+
     return {
       exactMatch,
       partialMatches,

@@ -22,10 +22,12 @@ export interface WebVitals {
 
 /**
  * Hook to monitor Web Vitals
- * 
+ *
  * Uses PerformanceObserver to track Core Web Vitals in real-time
  */
-export function useWebVitals(onReport?: (vitals: Partial<WebVitals>) => void): WebVitals {
+export function useWebVitals(
+  onReport?: (vitals: Partial<WebVitals>) => void
+): WebVitals {
   const [vitals, setVitals] = React.useState<WebVitals>({
     fcp: null,
     lcp: null,
@@ -36,7 +38,10 @@ export function useWebVitals(onReport?: (vitals: Partial<WebVitals>) => void): W
   });
 
   React.useEffect(() => {
-    if (typeof window === "undefined" || typeof PerformanceObserver === "undefined") {
+    if (
+      typeof window === "undefined" ||
+      typeof PerformanceObserver === "undefined"
+    ) {
       return;
     }
 
@@ -51,7 +56,9 @@ export function useWebVitals(onReport?: (vitals: Partial<WebVitals>) => void): W
 
     // Get TTFB
     const navigationEntries = performance.getEntriesByType("navigation");
-    const navigationEntry = navigationEntries[0] as PerformanceNavigationTiming | undefined;
+    const navigationEntry = navigationEntries[0] as
+      | PerformanceNavigationTiming
+      | undefined;
     if (navigationEntry) {
       setVitals((prev) => ({ ...prev, ttfb: navigationEntry.responseStart }));
     }
@@ -97,7 +104,10 @@ export function useWebVitals(onReport?: (vitals: Partial<WebVitals>) => void): W
       let clsValue = 0;
       const clsObserver = new PerformanceObserver((entryList) => {
         for (const entry of entryList.getEntries()) {
-          const layoutShift = entry as PerformanceEntry & { hadRecentInput?: boolean; value?: number };
+          const layoutShift = entry as PerformanceEntry & {
+            hadRecentInput?: boolean;
+            value?: number;
+          };
           if (!layoutShift.hadRecentInput && layoutShift.value) {
             clsValue += layoutShift.value;
             setVitals((prev) => ({ ...prev, cls: clsValue }));
@@ -182,19 +192,20 @@ export function useLazyVisible(
   const ref = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (!ref.current || hasBeenVisible || typeof IntersectionObserver === "undefined") {
+    if (
+      !ref.current ||
+      hasBeenVisible ||
+      typeof IntersectionObserver === "undefined"
+    ) {
       return;
     }
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setHasBeenVisible(true);
-          observer.disconnect();
-        }
-      },
-      options
-    );
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setHasBeenVisible(true);
+        observer.disconnect();
+      }
+    }, options);
 
     observer.observe(ref.current);
 
@@ -210,7 +221,7 @@ export function useLazyVisible(
 export function useDeferredEffect(
   effect: () => void | (() => void),
   deps: React.DependencyList,
-  delay: number = 0
+  delay = 0
 ) {
   React.useEffect(() => {
     const timeoutId = setTimeout(effect, delay);
@@ -225,7 +236,7 @@ export function useDeferredEffect(
 export function useIdleEffect(
   effect: () => void | (() => void),
   deps: React.DependencyList,
-  timeout: number = 2000
+  timeout = 2000
 ) {
   React.useEffect(() => {
     let cleanup: void | (() => void);
@@ -233,7 +244,11 @@ export function useIdleEffect(
     const idleCallback =
       typeof window !== "undefined" && "requestIdleCallback" in window
         ? window.requestIdleCallback
-        : (cb: IdleRequestCallback) => setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 50 }), 1);
+        : (cb: IdleRequestCallback) =>
+            setTimeout(
+              () => cb({ didTimeout: false, timeRemaining: () => 50 }),
+              1
+            );
 
     const cancelCallback =
       typeof window !== "undefined" && "cancelIdleCallback" in window
@@ -260,7 +275,7 @@ export function useIdleEffect(
 /**
  * Hook to track long tasks
  */
-export function useLongTaskMonitor(threshold: number = 50) {
+export function useLongTaskMonitor(threshold = 50) {
   const [longTasks, setLongTasks] = React.useState<number[]>([]);
 
   React.useEffect(() => {

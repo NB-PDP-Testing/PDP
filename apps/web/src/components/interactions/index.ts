@@ -14,55 +14,52 @@
  * - Inline edit (modal on mobile, in-place on desktop)
  */
 
+export {
+  type ActionGroup,
+  type ActionItem,
+  ActionSheet,
+  type ActionSheetProps,
+  useActionSheet,
+} from "./action-sheet";
 // Phase 4 Components
 export {
-  CommandMenu,
-  useGlobalShortcuts,
-  type CommandMenuProps,
   type CommandItemDef,
+  CommandMenu,
+  type CommandMenuProps,
+  useGlobalShortcuts,
 } from "./command-menu";
-
-export {
-  ResponsiveDialog,
-  ResponsiveDialogClose,
-  ConfirmationDialog,
-  type ResponsiveDialogProps,
-  type ConfirmationDialogProps,
-} from "./responsive-dialog";
 
 // Phase 10 Components
 export {
-  ResponsiveContextMenu,
-  ContextMenuRoot,
-  ContextMenuTrigger,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuLabel,
   ContextMenuCheckboxItem,
+  ContextMenuContent,
+  type ContextMenuGroupDef,
+  ContextMenuItem,
+  type ContextMenuItemDef,
+  ContextMenuLabel,
   ContextMenuRadioGroup,
   ContextMenuRadioItem,
-  ContextMenuSub,
-  ContextMenuSubTrigger,
-  ContextMenuSubContent,
+  ContextMenuRoot,
+  ContextMenuSeparator,
   ContextMenuShortcut,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+  ResponsiveContextMenu,
   type ResponsiveContextMenuProps,
-  type ContextMenuItemDef,
-  type ContextMenuGroupDef,
 } from "./context-menu";
-
 export {
-  ActionSheet,
-  useActionSheet,
-  type ActionSheetProps,
-  type ActionItem,
-  type ActionGroup,
-} from "./action-sheet";
-
-export {
-  InlineEdit,
   ControlledInlineEdit,
-  useInlineEdit,
-  type InlineEditProps,
   type ControlledInlineEditProps,
+  InlineEdit,
+  type InlineEditProps,
+  useInlineEdit,
 } from "./inline-edit";
+export {
+  ConfirmationDialog,
+  type ConfirmationDialogProps,
+  ResponsiveDialog,
+  ResponsiveDialogClose,
+  type ResponsiveDialogProps,
+} from "./responsive-dialog";

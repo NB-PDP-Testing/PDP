@@ -1,8 +1,8 @@
 "use client";
 
-import { WifiOff, RefreshCw, Home } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Home, RefreshCw, WifiOff } from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 /**
  * Offline page - shown when user is offline and page is not cached
@@ -16,7 +16,7 @@ export default function OfflinePage() {
       </div>
 
       {/* Heading */}
-      <h1 className="mb-2 text-2xl font-bold tracking-tight">
+      <h1 className="mb-2 font-bold text-2xl tracking-tight">
         You&apos;re offline
       </h1>
 
@@ -28,14 +28,11 @@ export default function OfflinePage() {
 
       {/* Actions */}
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button
-          onClick={() => window.location.reload()}
-          className="gap-2"
-        >
+        <Button className="gap-2" onClick={() => window.location.reload()}>
           <RefreshCw className="h-4 w-4" />
           Try Again
         </Button>
-        <Button variant="outline" asChild className="gap-2">
+        <Button asChild className="gap-2" variant="outline">
           <Link href="/">
             <Home className="h-4 w-4" />
             Go Home
@@ -45,8 +42,10 @@ export default function OfflinePage() {
 
       {/* Tips */}
       <div className="mt-12 max-w-md rounded-lg border bg-muted/50 p-4 text-left">
-        <h2 className="mb-2 font-semibold">While you&apos;re offline, you can:</h2>
-        <ul className="space-y-1 text-sm text-muted-foreground">
+        <h2 className="mb-2 font-semibold">
+          While you&apos;re offline, you can:
+        </h2>
+        <ul className="space-y-1 text-muted-foreground text-sm">
           <li className="flex items-start gap-2">
             <span className="text-primary">•</span>
             View previously loaded pages from cache
@@ -63,7 +62,7 @@ export default function OfflinePage() {
       </div>
 
       {/* Status indicator */}
-      <div className="mt-8 text-xs text-muted-foreground">
+      <div className="mt-8 text-muted-foreground text-xs">
         Waiting for connection...
         <span className="ml-2 inline-flex gap-1">
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />

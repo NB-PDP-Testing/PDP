@@ -64,7 +64,7 @@ export default function OrgAdminOverviewPage() {
     memberCounts === undefined;
 
   return (
-    <div className="space-y-6 sm:space-y-8 w-full max-w-full overflow-hidden">
+    <div className="w-full max-w-full space-y-6 overflow-hidden sm:space-y-8">
       {/* Header */}
       <div>
         <h1 className="font-bold text-3xl tracking-tight">Admin Dashboard</h1>
@@ -74,7 +74,7 @@ export default function OrgAdminOverviewPage() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 auto-rows-min gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4 lg:gap-4">
+      <div className="grid auto-rows-min grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4 lg:gap-4">
         {isLoading ? (
           <>
             <StatCardSkeleton />

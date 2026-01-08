@@ -31,7 +31,7 @@ interface PageContainerProps {
 
 /**
  * Consistent page container with title, description, breadcrumbs, and actions
- * 
+ *
  * Provides:
  * - Consistent page header pattern
  * - Breadcrumb navigation for wayfinding
@@ -54,21 +54,21 @@ export function PageContainer({
         {/* Breadcrumbs - hidden on mobile for cleaner look */}
         {breadcrumbs && breadcrumbs.length > 0 && (
           <nav
-            className="hidden items-center gap-1 text-sm text-muted-foreground sm:flex"
             aria-label="Breadcrumb"
+            className="hidden items-center gap-1 text-muted-foreground text-sm sm:flex"
           >
             {breadcrumbs.map((crumb, index) => (
-              <div key={crumb.label} className="flex items-center gap-1">
+              <div className="flex items-center gap-1" key={crumb.label}>
                 {index > 0 && <ChevronRight className="h-4 w-4" />}
                 {crumb.href ? (
                   <Link
+                    className="transition-colors hover:text-foreground"
                     href={crumb.href as Route}
-                    className="hover:text-foreground transition-colors"
                   >
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span className="text-foreground font-medium">
+                  <span className="font-medium text-foreground">
                     {crumb.label}
                   </span>
                 )}
@@ -80,7 +80,7 @@ export function PageContainer({
         {/* Title and Actions */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+            <h1 className="font-semibold text-2xl tracking-tight">{title}</h1>
             {description && (
               <p className="mt-1 text-muted-foreground">{description}</p>
             )}
@@ -119,10 +119,10 @@ export function PageSection({
         <div className="flex items-center justify-between">
           <div>
             {title && (
-              <h2 className="text-lg font-medium tracking-tight">{title}</h2>
+              <h2 className="font-medium text-lg tracking-tight">{title}</h2>
             )}
             {description && (
-              <p className="text-sm text-muted-foreground">{description}</p>
+              <p className="text-muted-foreground text-sm">{description}</p>
             )}
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}

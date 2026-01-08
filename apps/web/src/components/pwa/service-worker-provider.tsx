@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useServiceWorker } from "@/hooks/use-service-worker";
-import type { ServiceWorkerState } from "@/hooks/use-service-worker";
 import { toast } from "sonner";
+import type { ServiceWorkerState } from "@/hooks/use-service-worker";
+import { useServiceWorker } from "@/hooks/use-service-worker";
 
 /**
  * Service Worker Context
@@ -15,7 +15,8 @@ interface ServiceWorkerContextValue extends ServiceWorkerState {
   skipWaiting: () => void;
 }
 
-const ServiceWorkerContext = React.createContext<ServiceWorkerContextValue | null>(null);
+const ServiceWorkerContext =
+  React.createContext<ServiceWorkerContextValue | null>(null);
 
 /**
  * Hook to access service worker context
@@ -41,7 +42,7 @@ export interface ServiceWorkerProviderProps {
 
 /**
  * ServiceWorkerProvider - Manages service worker lifecycle
- * 
+ *
  * Features:
  * - Auto-registers service worker
  * - Shows toast when update is available

@@ -1,14 +1,14 @@
 /**
  * Performance Components
- * 
+ *
  * Phase 13 UX improvements: Performance optimization
- * 
+ *
  * Components:
  * - LazyComponent: Render children only when visible
  * - LazyImage: Load images only when visible
  * - DeferredRender: Defer rendering to prevent blocking
  * - IdleRender: Render during browser idle time
- * 
+ *
  * Hooks (from @/hooks/use-performance):
  * - useWebVitals: Monitor Core Web Vitals
  * - useRenderPerformance: Track component render times
@@ -17,7 +17,7 @@
  * - useDeferredEffect: Defer non-critical effects
  * - useIdleEffect: Run effects during idle time
  * - useLongTaskMonitor: Track long tasks
- * 
+ *
  * Utilities (from @/lib/performance):
  * - lazyLoad: Lazy load components with Next.js dynamic
  * - lazyLoadClientOnly: Client-only lazy loading
@@ -28,42 +28,40 @@
  * - requestIdleCallback: Idle callback with fallback
  */
 
-// Components
-export {
-  LazyComponent,
-  LazyImage,
-  DeferredRender,
-  IdleRender,
-  type LazyComponentProps,
-  type LazyImageProps,
-  type DeferredRenderProps,
-  type IdleRenderProps,
-} from "./lazy-component";
-
 // Re-export hooks
 export {
-  useWebVitals,
-  useRenderPerformance,
-  useIntersectionObserver,
-  useLazyVisible,
   useDeferredEffect,
   useIdleEffect,
+  useIntersectionObserver,
+  useLazyVisible,
   useLongTaskMonitor,
+  useRenderPerformance,
+  useWebVitals,
   type WebVitals,
 } from "@/hooks/use-performance";
-
 // Re-export utilities
 export {
+  cancelIdleCallback,
+  debounce,
+  deferToIdle,
+  type LazyLoadConfig,
   lazyLoad,
   lazyLoadClientOnly,
+  PerformanceMonitor,
   preloadComponent,
   preloadComponents,
   ResourcePreloader,
-  PerformanceMonitor,
-  debounce,
-  throttle,
   requestIdleCallback,
-  cancelIdleCallback,
-  deferToIdle,
-  type LazyLoadConfig,
+  throttle,
 } from "@/lib/performance";
+// Components
+export {
+  DeferredRender,
+  type DeferredRenderProps,
+  IdleRender,
+  type IdleRenderProps,
+  LazyComponent,
+  type LazyComponentProps,
+  LazyImage,
+  type LazyImageProps,
+} from "./lazy-component";

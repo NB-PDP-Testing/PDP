@@ -1,13 +1,9 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { useTheme } from "next-themes";
 import { useParams } from "next/navigation";
+import { useTheme } from "next-themes";
 import { useEffect } from "react";
-import {
-  adjustForDarkMode,
-  getContrastColor,
-  hexToRgb as hexToRgbObject,
-} from "@/lib/color-utils";
+import { adjustForDarkMode, getContrastColor } from "@/lib/color-utils";
 import { useUXFeatureFlags } from "./use-ux-feature-flags";
 
 export type OrgTheme = {

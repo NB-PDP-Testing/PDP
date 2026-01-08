@@ -1,8 +1,8 @@
 /**
  * Layout Components
- * 
+ *
  * Phase 1 & 9 UX improvements for navigation and page structure
- * 
+ *
  * Components:
  * - AppShell: Responsive layout wrapper (mobile bottom nav / desktop sidebar)
  * - BottomNav: Mobile bottom navigation (72% user preference over hamburger menus)
@@ -12,18 +12,34 @@
  * - ParentSidebar: Grouped sidebar navigation for parent portal (Phase 9)
  */
 
-export { BottomNav, BottomNavSpacer, type BottomNavItem } from "./bottom-nav";
-export { PageContainer, PageSection, type BreadcrumbItem } from "./page-container";
-export { AdminSidebar, AdminMobileNav, getAdminNavGroups } from "./admin-sidebar";
-export { CoachSidebar, CoachMobileNav, getCoachNavGroups } from "./coach-sidebar";
-export { ParentSidebar, ParentMobileNav, getParentNavGroups } from "./parent-sidebar";
+export {
+  AdminMobileNav,
+  AdminSidebar,
+  getAdminNavGroups,
+} from "./admin-sidebar";
 export {
   AppShell,
-  AppShellSidebar,
   AppShellNavGroup,
-  AppShellNavItem,
-  type AppShellProps,
-  type AppShellSidebarProps,
   type AppShellNavGroupProps,
+  AppShellNavItem,
   type AppShellNavItemProps,
+  type AppShellProps,
+  AppShellSidebar,
+  type AppShellSidebarProps,
 } from "./app-shell";
+export { BottomNav, type BottomNavItem, BottomNavSpacer } from "./bottom-nav";
+export {
+  CoachMobileNav,
+  CoachSidebar,
+  getCoachNavGroups,
+} from "./coach-sidebar";
+export {
+  type BreadcrumbItem,
+  PageContainer,
+  PageSection,
+} from "./page-container";
+export {
+  getParentNavGroups,
+  ParentMobileNav,
+  ParentSidebar,
+} from "./parent-sidebar";

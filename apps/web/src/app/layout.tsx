@@ -56,7 +56,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} overflow-x-hidden antialiased`}
       >
         <Providers>
           <Suspense fallback={null}>
@@ -66,7 +66,7 @@ export default function RootLayout({
           <FlowInterceptor>
             <OfflineIndicator position="top" />
             <PWAInstallPrompt />
-            <div className="flex flex-col min-h-svh">{children}</div>
+            <div className="flex min-h-svh flex-col">{children}</div>
           </FlowInterceptor>
         </Providers>
       </body>

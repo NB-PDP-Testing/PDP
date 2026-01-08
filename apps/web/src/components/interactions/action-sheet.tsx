@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,11 +13,11 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
 } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 /**
@@ -144,45 +144,47 @@ export function ActionSheet({
   // Mobile: Bottom sheet
   if (isMobile) {
     return (
-      <Sheet open={open} onOpenChange={handleOpenChange}>
+      <Sheet onOpenChange={handleOpenChange} open={open}>
         <div onClick={() => handleOpenChange(true)}>{trigger}</div>
         <SheetContent
-          side="bottom"
           className={cn(
-            "pb-safe max-h-[85vh] overflow-y-auto",
+            "max-h-[85vh] overflow-y-auto pb-safe",
             contentClassName
           )}
+          side="bottom"
         >
           {(title || description) && (
             <SheetHeader className="mb-4 text-left">
               {title && <SheetTitle>{title}</SheetTitle>}
-              {description && <SheetDescription>{description}</SheetDescription>}
+              {description && (
+                <SheetDescription>{description}</SheetDescription>
+              )}
             </SheetHeader>
           )}
           <div className="space-y-1">
             {groups
               ? groups.map((group, groupIndex) => (
                   <MobileActionGroup
-                    key={group.label || groupIndex}
                     group={group}
-                    onSelect={handleSelect}
                     isLast={groupIndex === groups.length - 1}
+                    key={group.label || groupIndex}
+                    onSelect={handleSelect}
                   />
                 ))
               : items?.map((item) => (
                   <MobileActionItem
-                    key={item.key}
                     item={item}
+                    key={item.key}
                     onSelect={handleSelect}
                   />
                 ))}
           </div>
           {showCancel && (
-            <div className="mt-4 pt-4 border-t border-border">
+            <div className="mt-4 border-border border-t pt-4">
               <Button
-                variant="outline"
-                className="w-full h-12"
+                className="h-12 w-full"
                 onClick={() => handleOpenChange(false)}
+                variant="outline"
               >
                 {cancelText}
               </Button>
@@ -195,28 +197,28 @@ export function ActionSheet({
 
   // Desktop: Dropdown menu
   return (
-    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
+    <DropdownMenu onOpenChange={handleOpenChange} open={open}>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent
-        side={side}
         align={align}
         className={cn("w-56", contentClassName)}
+        side={side}
       >
         {title && <DropdownMenuLabel>{title}</DropdownMenuLabel>}
         {title && <DropdownMenuSeparator />}
         {groups
           ? groups.map((group, groupIndex) => (
               <DesktopActionGroup
-                key={group.label || groupIndex}
                 group={group}
-                onSelect={handleSelect}
                 isLast={groupIndex === groups.length - 1}
+                key={group.label || groupIndex}
+                onSelect={handleSelect}
               />
             ))
           : items?.map((item) => (
               <DesktopActionItem
-                key={item.key}
                 item={item}
+                key={item.key}
                 onSelect={handleSelect}
               />
             ))}
@@ -237,15 +239,15 @@ function MobileActionItem({
 }) {
   return (
     <button
-      type="button"
-      disabled={item.disabled}
-      onClick={() => onSelect(item)}
       className={cn(
         "flex w-full items-center gap-4 rounded-lg px-4 py-3.5 text-left",
         "transition-colors active:bg-accent",
-        item.disabled && "opacity-50 pointer-events-none",
+        item.disabled && "pointer-events-none opacity-50",
         item.destructive && "text-destructive"
       )}
+      disabled={item.disabled}
+      onClick={() => onSelect(item)}
+      type="button"
     >
       {item.icon && (
         <span
@@ -257,10 +259,10 @@ function MobileActionItem({
           {item.icon}
         </span>
       )}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="font-medium">{item.label}</div>
         {item.description && (
-          <div className="text-sm text-muted-foreground truncate">
+          <div className="truncate text-muted-foreground text-sm">
             {item.description}
           </div>
         )}
@@ -282,14 +284,14 @@ function MobileActionGroup({
   isLast: boolean;
 }) {
   return (
-    <div className={cn(!isLast && "border-b border-border pb-2 mb-2")}>
+    <div className={cn(!isLast && "mb-2 border-border border-b pb-2")}>
       {group.label && (
-        <div className="px-4 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        <div className="px-4 py-1.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
           {group.label}
         </div>
       )}
       {group.items.map((item) => (
-        <MobileActionItem key={item.key} item={item} onSelect={onSelect} />
+        <MobileActionItem item={item} key={item.key} onSelect={onSelect} />
       ))}
     </div>
   );
@@ -307,9 +309,11 @@ function DesktopActionItem({
 }) {
   return (
     <DropdownMenuItem
+      className={cn(
+        item.destructive && "text-destructive focus:text-destructive"
+      )}
       disabled={item.disabled}
       onSelect={() => onSelect(item)}
-      className={cn(item.destructive && "text-destructive focus:text-destructive")}
     >
       {item.icon && <span className="mr-2">{item.icon}</span>}
       {item.label}
@@ -333,7 +337,7 @@ function DesktopActionGroup({
     <>
       {group.label && <DropdownMenuLabel>{group.label}</DropdownMenuLabel>}
       {group.items.map((item) => (
-        <DesktopActionItem key={item.key} item={item} onSelect={onSelect} />
+        <DesktopActionItem item={item} key={item.key} onSelect={onSelect} />
       ))}
       {!isLast && <DropdownMenuSeparator />}
     </>

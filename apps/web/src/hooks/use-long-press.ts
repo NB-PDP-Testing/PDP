@@ -93,11 +93,12 @@ export function useLongPress(
   }, [clear, onCancel]);
 
   // Cleanup on unmount
-  React.useEffect(() => {
-    return () => {
+  React.useEffect(
+    () => () => {
       clear();
-    };
-  }, [clear]);
+    },
+    [clear]
+  );
 
   // Mouse handlers
   const onMouseDown = React.useCallback(
@@ -218,11 +219,12 @@ export function useLongPressWithMove(
     startPositionRef.current = null;
   }, [clear, onCancel]);
 
-  React.useEffect(() => {
-    return () => {
+  React.useEffect(
+    () => () => {
       clear();
-    };
-  }, [clear]);
+    },
+    [clear]
+  );
 
   const onMouseDown = React.useCallback(
     (e: React.MouseEvent) => {

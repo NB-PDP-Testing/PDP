@@ -1,16 +1,16 @@
 "use client";
 
+import { MoreHorizontal, RefreshCw } from "lucide-react";
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MoreHorizontal, RefreshCw } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { SwipeableCard } from "./swipeable-card";
 
 /**
@@ -80,7 +80,7 @@ interface DataCardListProps<T> {
 
 /**
  * DataCardList - Mobile-optimized card list with swipe actions and virtualization
- * 
+ *
  * Features:
  * - Swipe-to-reveal actions
  * - Pull-to-refresh
@@ -145,7 +145,7 @@ export function DataCardList<T>({
 
   // Pull-to-refresh handlers
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (!pullToRefresh || !containerRef.current || isRefreshing) return;
+    if (!(pullToRefresh && containerRef.current) || isRefreshing) return;
     if (containerRef.current.scrollTop === 0) {
       startYRef.current = e.touches[0].clientY;
       isPullingRef.current = true;
@@ -180,7 +180,7 @@ export function DataCardList<T>({
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (!onLoadMore || !hasMore || loadingMore) return;
+    if (!(onLoadMore && hasMore) || loadingMore) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -201,11 +201,18 @@ export function DataCardList<T>({
   // Loading skeleton
   if (loading) {
     return (
-      <div className={cn("grid", gapClasses[gap], columnClasses[columns], className)}>
+      <div
+        className={cn(
+          "grid",
+          gapClasses[gap],
+          columnClasses[columns],
+          className
+        )}
+      >
         {Array.from({ length: 6 }).map((_, i) => (
           <div
+            className="animate-pulse space-y-3 rounded-xl border bg-muted/30 p-4"
             key={i}
-            className="animate-pulse rounded-xl border bg-muted/30 p-4 space-y-3"
           >
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-full bg-muted/50" />
@@ -233,16 +240,16 @@ export function DataCardList<T>({
 
   return (
     <div
-      ref={containerRef}
       className={cn("relative", className)}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchMove}
+      onTouchStart={handleTouchStart}
+      ref={containerRef}
     >
       {/* Pull-to-refresh indicator */}
       {pullToRefresh && (pullDistance > 0 || isRefreshing) && (
         <div
-          className="absolute left-0 right-0 top-0 flex items-center justify-center transition-transform"
+          className="absolute top-0 right-0 left-0 flex items-center justify-center transition-transform"
           style={{
             height: `${Math.max(pullDistance, isRefreshing ? 50 : 0)}px`,
             transform: `translateY(${isRefreshing ? 0 : pullDistance - 50}px)`,
@@ -264,7 +271,8 @@ export function DataCardList<T>({
       <div
         className={cn("grid", gapClasses[gap], columnClasses[columns])}
         style={{
-          transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
+          transform:
+            pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
         }}
       >
         {data.map((item) => {
@@ -279,7 +287,7 @@ export function DataCardList<T>({
               className={cn(
                 "rounded-xl border bg-card p-4 transition-all duration-200",
                 onCardClick && "cursor-pointer active:scale-[0.98]",
-                isSelected && "ring-2 ring-primary bg-primary/5"
+                isSelected && "bg-primary/5 ring-2 ring-primary"
               )}
               onClick={() => onCardClick?.(item)}
             >
@@ -287,19 +295,19 @@ export function DataCardList<T>({
                 {/* Selection checkbox */}
                 {selectable && (
                   <div
-                    className="pt-1 flex-shrink-0"
+                    className="flex-shrink-0 pt-1"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <Checkbox
                       checked={isSelected}
-                      onCheckedChange={() => handleSelect(key)}
                       className="h-5 w-5"
+                      onCheckedChange={() => handleSelect(key)}
                     />
                   </div>
                 )}
 
                 {/* Card content */}
-                <div className="flex-1 min-w-0">{renderCard(item)}</div>
+                <div className="min-w-0 flex-1">{renderCard(item)}</div>
 
                 {/* Actions menu */}
                 {actions && actions.length > 0 && (
@@ -310,9 +318,9 @@ export function DataCardList<T>({
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
-                          variant="ghost"
-                          size="icon"
                           className="h-9 w-9 rounded-full"
+                          size="icon"
+                          variant="ghost"
                         >
                           <MoreHorizontal className="h-5 w-5" />
                         </Button>
@@ -320,14 +328,14 @@ export function DataCardList<T>({
                       <DropdownMenuContent align="end" className="w-48">
                         {actions.map((action) => (
                           <DropdownMenuItem
-                            key={action.label}
-                            onClick={() => action.onClick(item)}
-                            disabled={action.disabled?.(item)}
                             className={cn(
                               "py-3",
                               action.destructive &&
                                 "text-destructive focus:text-destructive"
                             )}
+                            disabled={action.disabled?.(item)}
+                            key={action.label}
+                            onClick={() => action.onClick(item)}
                           >
                             {action.icon && (
                               <span className="mr-3">{action.icon}</span>
@@ -374,14 +382,14 @@ export function DataCardList<T>({
 
       {/* Load more trigger */}
       {hasMore && (
-        <div ref={loadMoreRef} className="py-4 text-center">
+        <div className="py-4 text-center" ref={loadMoreRef}>
           {loadingMore ? (
             <div className="flex items-center justify-center gap-2 text-muted-foreground">
               <RefreshCw className="h-4 w-4 animate-spin" />
               <span className="text-sm">Loading more...</span>
             </div>
           ) : (
-            <Button variant="ghost" size="sm" onClick={onLoadMore}>
+            <Button onClick={onLoadMore} size="sm" variant="ghost">
               Load more
             </Button>
           )}
@@ -411,23 +419,25 @@ export function SimpleCard({ data }: { data: SimpleCardData }) {
       {data.avatar && <div className="flex-shrink-0">{data.avatar}</div>}
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <h3 className="font-semibold truncate">{data.title}</h3>
+          <h3 className="truncate font-semibold">{data.title}</h3>
           {data.badge}
         </div>
         {data.subtitle && (
-          <p className="text-sm text-muted-foreground truncate">{data.subtitle}</p>
+          <p className="truncate text-muted-foreground text-sm">
+            {data.subtitle}
+          </p>
         )}
         {data.description && (
-          <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+          <p className="mt-1 line-clamp-2 text-muted-foreground text-sm">
             {data.description}
           </p>
         )}
         {data.metadata && data.metadata.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
             {data.metadata.map((item) => (
-              <div key={item.label} className="text-xs text-muted-foreground">
+              <div className="text-muted-foreground text-xs" key={item.label}>
                 <span className="font-medium">{item.label}:</span>{" "}
                 <span>{item.value}</span>
               </div>

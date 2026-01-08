@@ -1,7 +1,8 @@
 "use client";
 
+import { GripVertical, Plus, Star, X } from "lucide-react";
+import Link, { type LinkProps } from "next/link";
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -9,8 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Star, X, Plus, GripVertical } from "lucide-react";
-import Link, { type LinkProps } from "next/link";
+import { cn } from "@/lib/utils";
 
 export interface FavoriteItem {
   id: string;
@@ -39,7 +39,7 @@ interface PinnedFavoritesProps {
 
 /**
  * PinnedFavorites - Quick access to user's pinned pages/items
- * 
+ *
  * Features:
  * - Drag to reorder favorites
  * - Click star on any page to add
@@ -123,29 +123,29 @@ export function PinnedFavorites({
       >
         {favorites.map((favorite, index) => (
           <div
-            key={favorite.id}
-            draggable={isEditing}
-            onDragStart={(e) => handleDragStart(e, index)}
-            onDragOver={(e) => handleDragOver(e, index)}
-            onDragEnd={handleDragEnd}
             className={cn(
               "group relative",
               draggedIndex === index && "opacity-50"
             )}
+            draggable={isEditing}
+            key={favorite.id}
+            onDragEnd={handleDragEnd}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDragStart={(e) => handleDragStart(e, index)}
           >
             <Tooltip>
               <TooltipTrigger asChild>
                 <Link
-                  href={favorite.href as LinkProps<string>["href"]}
                   className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-md text-sm",
-                    "hover:bg-accent transition-colors",
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
+                    "transition-colors hover:bg-accent",
                     currentPath === favorite.href && "bg-accent",
                     orientation === "horizontal" && "px-2"
                   )}
+                  href={favorite.href as LinkProps<string>["href"]}
                 >
                   {isEditing && (
-                    <GripVertical className="h-3 w-3 text-muted-foreground cursor-grab" />
+                    <GripVertical className="h-3 w-3 cursor-grab text-muted-foreground" />
                   )}
                   {favorite.icon ? (
                     <span
@@ -165,28 +165,30 @@ export function PinnedFavorites({
                   )}
                 </Link>
               </TooltipTrigger>
-              <TooltipContent side={orientation === "vertical" ? "right" : "bottom"}>
+              <TooltipContent
+                side={orientation === "vertical" ? "right" : "bottom"}
+              >
                 {favorite.label}
               </TooltipContent>
             </Tooltip>
 
             {/* Remove button (visible on hover or in edit mode) */}
-            {(isEditing || true) && (
+            {
               <Button
-                variant="ghost"
-                size="icon"
                 className={cn(
-                  "absolute -right-1 -top-1 h-4 w-4 rounded-full bg-background border shadow-sm",
-                  "opacity-0 group-hover:opacity-100 transition-opacity"
+                  "-right-1 -top-1 absolute h-4 w-4 rounded-full border bg-background shadow-sm",
+                  "opacity-0 transition-opacity group-hover:opacity-100"
                 )}
                 onClick={(e) => {
                   e.preventDefault();
                   removeFavorite(favorite.id);
                 }}
+                size="icon"
+                variant="ghost"
               >
                 <X className="h-2 w-2" />
               </Button>
-            )}
+            }
           </div>
         ))}
 
@@ -195,13 +197,13 @@ export function PinnedFavorites({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="ghost"
-                size="sm"
                 className={cn(
                   "justify-start gap-2",
                   orientation === "horizontal" && "px-2"
                 )}
                 onClick={() => setIsEditing(!isEditing)}
+                size="sm"
+                variant="ghost"
               >
                 {isEditing ? (
                   <>
@@ -216,7 +218,9 @@ export function PinnedFavorites({
                 )}
               </Button>
             </TooltipTrigger>
-            <TooltipContent side={orientation === "vertical" ? "right" : "bottom"}>
+            <TooltipContent
+              side={orientation === "vertical" ? "right" : "bottom"}
+            >
               {isEditing ? "Done editing" : "Add favorite"}
             </TooltipContent>
           </Tooltip>
@@ -264,7 +268,9 @@ export function FavoriteToggleButton({
     setIsFavorite(!isFavorite);
 
     // Dispatch event for other components to listen
-    window.dispatchEvent(new CustomEvent("favorites-changed", { detail: favorites }));
+    window.dispatchEvent(
+      new CustomEvent("favorites-changed", { detail: favorites })
+    );
   };
 
   return (
@@ -272,15 +278,17 @@ export function FavoriteToggleButton({
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            variant="ghost"
-            size="icon"
             className={cn("h-8 w-8", className)}
             onClick={toggleFavorite}
+            size="icon"
+            variant="ghost"
           >
             <Star
               className={cn(
                 "h-4 w-4 transition-colors",
-                isFavorite ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
+                isFavorite
+                  ? "fill-yellow-400 text-yellow-400"
+                  : "text-muted-foreground"
               )}
             />
           </Button>
@@ -316,7 +324,10 @@ export function useFavorites(storageKey = "pinned-favorites") {
 
     window.addEventListener("favorites-changed", handleChange as EventListener);
     return () => {
-      window.removeEventListener("favorites-changed", handleChange as EventListener);
+      window.removeEventListener(
+        "favorites-changed",
+        handleChange as EventListener
+      );
     };
   }, [storageKey]);
 
@@ -324,14 +335,18 @@ export function useFavorites(storageKey = "pinned-favorites") {
     const newFavorites = [...favorites, item];
     localStorage.setItem(storageKey, JSON.stringify(newFavorites));
     setFavorites(newFavorites);
-    window.dispatchEvent(new CustomEvent("favorites-changed", { detail: newFavorites }));
+    window.dispatchEvent(
+      new CustomEvent("favorites-changed", { detail: newFavorites })
+    );
   };
 
   const removeFavorite = (id: string) => {
     const newFavorites = favorites.filter((f) => f.id !== id);
     localStorage.setItem(storageKey, JSON.stringify(newFavorites));
     setFavorites(newFavorites);
-    window.dispatchEvent(new CustomEvent("favorites-changed", { detail: newFavorites }));
+    window.dispatchEvent(
+      new CustomEvent("favorites-changed", { detail: newFavorites })
+    );
   };
 
   const isFavorite = (id: string) => favorites.some((f) => f.id === id);

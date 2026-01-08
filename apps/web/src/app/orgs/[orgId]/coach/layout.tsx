@@ -4,8 +4,15 @@ import { ClipboardList, Home, Menu, TrendingUp, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { BottomNav, BottomNavSpacer, type BottomNavItem } from "@/components/layout/bottom-nav";
-import { CoachMobileNav, CoachSidebar } from "@/components/layout/coach-sidebar";
+import {
+  BottomNav,
+  type BottomNavItem,
+  BottomNavSpacer,
+} from "@/components/layout/bottom-nav";
+import {
+  CoachMobileNav,
+  CoachSidebar,
+} from "@/components/layout/coach-sidebar";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
@@ -27,12 +34,26 @@ export default function CoachLayout({
   const useNewNav = adminNavStyle === "sidebar";
 
   // Debug: Log feature flag values
-  console.log("[Coach Layout] Feature flags:", { adminNavStyle, useBottomNav, useNewNav });
+  console.log("[Coach Layout] Feature flags:", {
+    adminNavStyle,
+    useBottomNav,
+    useNewNav,
+  });
 
   // Coach bottom nav items
   const coachBottomNavItems: BottomNavItem[] = [
-    { id: "overview", icon: Home, label: "Overview", href: `/orgs/${orgId}/coach` },
-    { id: "players", icon: Users, label: "Players", href: `/orgs/${orgId}/coach/players` },
+    {
+      id: "overview",
+      icon: Home,
+      label: "Overview",
+      href: `/orgs/${orgId}/coach`,
+    },
+    {
+      id: "players",
+      icon: Users,
+      label: "Players",
+      href: `/orgs/${orgId}/coach/players`,
+    },
     {
       id: "assess",
       icon: ClipboardList,
@@ -40,7 +61,12 @@ export default function CoachLayout({
       href: `/orgs/${orgId}/coach/assessments/new`,
       isAction: true,
     },
-    { id: "reports", icon: TrendingUp, label: "Reports", href: `/orgs/${orgId}/coach/reports` },
+    {
+      id: "reports",
+      icon: TrendingUp,
+      label: "Reports",
+      href: `/orgs/${orgId}/coach/reports`,
+    },
   ];
 
   return (
@@ -48,7 +74,7 @@ export default function CoachLayout({
       {/* Bottom navigation for mobile */}
       {useBottomNav && <BottomNav items={coachBottomNavItems} />}
 
-      <div className="flex flex-col h-full">
+      <div className="flex h-full flex-col">
         {/* Header */}
         <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
           <div className="flex h-14 items-center justify-between px-4">
@@ -59,7 +85,7 @@ export default function CoachLayout({
                   orgId={orgId}
                   primaryColor={theme.primary}
                   trigger={
-                    <Button variant="ghost" size="icon" className="lg:hidden">
+                    <Button className="lg:hidden" size="icon" variant="ghost">
                       <Menu className="h-5 w-5" />
                       <span className="sr-only">Open menu</span>
                     </Button>
@@ -99,7 +125,7 @@ export default function CoachLayout({
               <CoachSidebar orgId={orgId} primaryColor={theme.primary} />
 
               {/* Main Content */}
-              <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 md:p-6">
+              <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
                 {children}
               </main>
             </div>
@@ -109,7 +135,7 @@ export default function CoachLayout({
         ) : (
           /* Legacy layout - simple container */
           <>
-            <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 md:p-6">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
               {children}
             </main>
             {useBottomNav && <BottomNavSpacer />}

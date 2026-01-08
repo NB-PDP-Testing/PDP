@@ -31,8 +31,10 @@ export default function Home() {
 }
 
 function RedirectToOrgs() {
-  const { data: activeOrganization, isPending: activeOrgPending } = authClient.useActiveOrganization();
-  const { data: userOrganizations, isPending: orgsListPending } = authClient.useListOrganizations();
+  const { data: activeOrganization, isPending: activeOrgPending } =
+    authClient.useActiveOrganization();
+  const { data: userOrganizations, isPending: orgsListPending } =
+    authClient.useListOrganizations();
   const user = useCurrentUser();
   const router = useRouter();
 
@@ -70,10 +72,14 @@ function RedirectToOrgs() {
     // set the first one as active and redirect there
     if (userOrganizations && userOrganizations.length > 0) {
       const firstOrg = userOrganizations[0];
-      console.log("[Home] User has org memberships, setting first as active:", firstOrg.id);
-      
+      console.log(
+        "[Home] User has org memberships, setting first as active:",
+        firstOrg.id
+      );
+
       // Set as active organization and redirect
-      authClient.organization.setActive({ organizationId: firstOrg.id })
+      authClient.organization
+        .setActive({ organizationId: firstOrg.id })
         .then(() => {
           router.push(`/orgs/${firstOrg.id}` as Route);
         })
@@ -95,7 +101,14 @@ function RedirectToOrgs() {
       console.log("[Home] Regular user with no orgs, going to /orgs/join");
       router.push("/orgs/join" as Route);
     }
-  }, [router, activeOrganization, activeOrgPending, userOrganizations, orgsListPending, user]);
+  }, [
+    router,
+    activeOrganization,
+    activeOrgPending,
+    userOrganizations,
+    orgsListPending,
+    user,
+  ]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

@@ -1,6 +1,6 @@
 /**
  * Responsive Form Components
- * 
+ *
  * Phase 3 UX improvements: Mobile-optimized forms with:
  * - Larger inputs on mobile (48px)
  * - Sticky submit buttons
@@ -11,18 +11,18 @@
 
 export {
   ResponsiveForm,
-  ResponsiveFormSection,
-  ResponsiveFormRow,
   type ResponsiveFormProps,
-  type ResponsiveFormSectionProps,
+  ResponsiveFormRow,
   type ResponsiveFormRowProps,
+  ResponsiveFormSection,
+  type ResponsiveFormSectionProps,
 } from "./responsive-form";
 
 export {
   ResponsiveInput,
-  ResponsiveTextarea,
-  ResponsiveSelect,
   type ResponsiveInputProps,
-  type ResponsiveTextareaProps,
+  ResponsiveSelect,
   type ResponsiveSelectProps,
+  ResponsiveTextarea,
+  type ResponsiveTextareaProps,
 } from "./responsive-input";

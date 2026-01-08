@@ -1,8 +1,7 @@
 "use client";
 
-import * as React from "react";
-import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface ListSkeletonProps {
   /** Number of items to show */
@@ -21,7 +20,7 @@ interface ListSkeletonProps {
 
 /**
  * ListSkeleton - Loading placeholder for list items
- * 
+ *
  * Features:
  * - Configurable item count
  * - Optional icon/avatar
@@ -46,24 +45,22 @@ export function ListSkeleton({
     <div className={cn("space-y-0", className)}>
       {Array.from({ length: items }).map((_, i) => (
         <div
-          key={i}
           className={cn(
-            "flex items-center gap-3 py-3 px-2",
+            "flex items-center gap-3 px-2 py-3",
             itemClass[variant]
           )}
+          key={i}
           style={{ animationDelay: `${i * 50}ms` }}
         >
           {showIcon && (
-            <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+            <Skeleton className="h-10 w-10 flex-shrink-0 rounded-full" />
           )}
           <div className="flex-1 space-y-1.5">
             <Skeleton className="h-4 w-3/4 rounded" />
-            {showSecondary && (
-              <Skeleton className="h-3 w-1/2 rounded" />
-            )}
+            {showSecondary && <Skeleton className="h-3 w-1/2 rounded" />}
           </div>
           {showChevron && (
-            <Skeleton className="h-4 w-4 rounded flex-shrink-0" />
+            <Skeleton className="h-4 w-4 flex-shrink-0 rounded" />
           )}
         </div>
       ))}
@@ -85,8 +82,8 @@ export function TextListSkeleton({
     <div className={cn("space-y-3", className)}>
       {Array.from({ length: items }).map((_, i) => (
         <Skeleton
-          key={i}
           className="h-4 rounded"
+          key={i}
           style={{ width: `${85 - i * 5}%` }}
         />
       ))}
@@ -109,13 +106,10 @@ export function NavListSkeleton({
   return (
     <div className={cn("space-y-1", className)}>
       {Array.from({ length: items }).map((_, i) => (
-        <div
-          key={i}
-          className="flex items-center gap-3 px-3 py-2 rounded-md"
-        >
+        <div className="flex items-center gap-3 rounded-md px-3 py-2" key={i}>
           {showIcons && <Skeleton className="h-4 w-4 rounded" />}
           <Skeleton
-            className="h-4 rounded flex-1"
+            className="h-4 flex-1 rounded"
             style={{ maxWidth: `${120 + Math.random() * 60}px` }}
           />
         </div>
@@ -137,16 +131,14 @@ export function TimelineSkeletion({
   return (
     <div className={cn("space-y-4", className)}>
       {Array.from({ length: items }).map((_, i) => (
-        <div key={i} className="flex gap-4">
+        <div className="flex gap-4" key={i}>
           {/* Timeline dot and line */}
           <div className="flex flex-col items-center">
             <Skeleton className="h-3 w-3 rounded-full" />
-            {i < items - 1 && (
-              <Skeleton className="w-0.5 flex-1 mt-1" />
-            )}
+            {i < items - 1 && <Skeleton className="mt-1 w-0.5 flex-1" />}
           </div>
           {/* Content */}
-          <div className="flex-1 pb-4 space-y-2">
+          <div className="flex-1 space-y-2 pb-4">
             <Skeleton className="h-4 w-1/3 rounded" />
             <Skeleton className="h-3 w-2/3 rounded" />
             <Skeleton className="h-3 w-1/2 rounded" />

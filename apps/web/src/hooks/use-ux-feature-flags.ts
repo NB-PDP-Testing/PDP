@@ -186,9 +186,16 @@ export function useUXFeatureFlags(): UXFeatureFlags {
 
   // Debug: Log raw PostHog flag values
   if (typeof window !== "undefined") {
-    const ph = (window as unknown as { posthog?: { getAllFlags?: () => Record<string, boolean> } }).posthog;
+    const ph = (
+      window as unknown as {
+        posthog?: { getAllFlags?: () => Record<string, boolean> };
+      }
+    ).posthog;
     console.log("[UX Flags] PostHog getAllFlags:", ph?.getAllFlags?.());
-    console.log("[UX Flags] ux_admin_nav_sidebar raw:", ph?.getAllFlags?.()?.["ux_admin_nav_sidebar"]);
+    console.log(
+      "[UX Flags] ux_admin_nav_sidebar raw:",
+      ph?.getAllFlags?.()?.ux_admin_nav_sidebar
+    );
   }
 
   return {
@@ -215,7 +222,9 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     useResponsiveDialogs: isFeatureEnabled("ux_responsive_dialogs"),
 
     // Phase 5 - Polish
-    useKeyboardShortcutsOverlay: isFeatureEnabled("ux_keyboard_shortcuts_overlay"),
+    useKeyboardShortcutsOverlay: isFeatureEnabled(
+      "ux_keyboard_shortcuts_overlay"
+    ),
     useDensityToggle: isFeatureEnabled("ux_density_toggle"),
     useOfflineIndicator: isFeatureEnabled("ux_offline_indicator"),
     usePWAInstallPrompt: isFeatureEnabled("ux_pwa_install_prompt"),
@@ -260,9 +269,15 @@ export function useUXFeatureFlags(): UXFeatureFlags {
 function getAdminNavStyle(
   isFeatureEnabled: (flag: string) => boolean
 ): AdminNavStyle {
-  if (isFeatureEnabled("ux_admin_nav_sidebar")) return "sidebar";
-  if (isFeatureEnabled("ux_admin_nav_bottomsheet")) return "bottomsheet";
-  if (isFeatureEnabled("ux_admin_nav_tabs")) return "tabs";
+  if (isFeatureEnabled("ux_admin_nav_sidebar")) {
+    return "sidebar";
+  }
+  if (isFeatureEnabled("ux_admin_nav_bottomsheet")) {
+    return "bottomsheet";
+  }
+  if (isFeatureEnabled("ux_admin_nav_tabs")) {
+    return "tabs";
+  }
   return "current";
 }
 

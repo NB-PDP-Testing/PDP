@@ -21,7 +21,7 @@ export interface FocusRingProps {
 
 /**
  * FocusRing - Visible focus indicator wrapper
- * 
+ *
  * Wraps content with a visible focus ring for keyboard navigation.
  * Use when the default :focus-visible styles are not sufficient.
  */
@@ -52,7 +52,8 @@ export function FocusRing({
 /**
  * Props for FocusableItem
  */
-export interface FocusableItemProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface FocusableItemProps
+  extends React.HTMLAttributes<HTMLDivElement> {
   /** Whether this item is focusable */
   focusable?: boolean;
   /** Callback when item receives focus */
@@ -63,35 +64,43 @@ export interface FocusableItemProps extends React.HTMLAttributes<HTMLDivElement>
 
 /**
  * FocusableItem - Make any content focusable
- * 
+ *
  * Adds tabIndex and focus handling to non-interactive elements
  */
-export const FocusableItem = React.forwardRef<HTMLDivElement, FocusableItemProps>(
+export const FocusableItem = React.forwardRef<
+  HTMLDivElement,
+  FocusableItemProps
+>(
   (
-    { children, focusable = true, onFocusCapture, preventScroll, className, ...props },
+    {
+      children,
+      focusable = true,
+      onFocusCapture,
+      preventScroll,
+      className,
+      ...props
+    },
     ref
-  ) => {
-    return (
-      <div
-        ref={ref}
-        tabIndex={focusable ? 0 : -1}
-        className={cn(
-          "outline-none",
-          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-          className
-        )}
-        onFocus={(e) => {
-          onFocusCapture?.();
-          if (preventScroll) {
-            e.currentTarget.scrollIntoView({ block: "nearest" });
-          }
-        }}
-        {...props}
-      >
-        {children}
-      </div>
-    );
-  }
+  ) => (
+    <div
+      className={cn(
+        "outline-none",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        className
+      )}
+      onFocus={(e) => {
+        onFocusCapture?.();
+        if (preventScroll) {
+          e.currentTarget.scrollIntoView({ block: "nearest" });
+        }
+      }}
+      ref={ref}
+      tabIndex={focusable ? 0 : -1}
+      {...props}
+    >
+      {children}
+    </div>
+  )
 );
 FocusableItem.displayName = "FocusableItem";
 
@@ -172,11 +181,11 @@ export function getFocusableElements(container: HTMLElement): HTMLElement[] {
 /**
  * Hook to trap focus within a container
  */
-export function useFocusTrap(enabled: boolean = true) {
+export function useFocusTrap(enabled = true) {
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (!enabled || !containerRef.current) return;
+    if (!(enabled && containerRef.current)) return;
 
     const container = containerRef.current;
     const focusableElements = getFocusableElements(container);
@@ -191,11 +200,9 @@ export function useFocusTrap(enabled: boolean = true) {
           e.preventDefault();
           lastFocusable?.focus();
         }
-      } else {
-        if (document.activeElement === lastFocusable) {
-          e.preventDefault();
-          firstFocusable?.focus();
-        }
+      } else if (document.activeElement === lastFocusable) {
+        e.preventDefault();
+        firstFocusable?.focus();
       }
     };
 

@@ -1,8 +1,8 @@
 /**
  * Performance Utilities
- * 
+ *
  * Phase 13 UX improvements: Performance optimization
- * 
+ *
  * Features:
  * - Lazy loading utilities
  * - Image optimization helpers
@@ -10,9 +10,9 @@
  * - Performance monitoring
  */
 
+import type { DynamicOptionsLoadingProps } from "next/dynamic";
 import dynamic from "next/dynamic";
 import type { ComponentType, ReactNode } from "react";
-import type { DynamicOptionsLoadingProps } from "next/dynamic";
 
 /**
  * Configuration for lazy loading
@@ -26,7 +26,7 @@ export interface LazyLoadConfig {
 
 /**
  * Lazy load a component with optional loading state
- * 
+ *
  * Usage:
  * ```tsx
  * const HeavyChart = lazyLoad(() => import("@/components/charts/heavy-chart"));
@@ -44,7 +44,7 @@ export function lazyLoad<T extends ComponentType<unknown>>(
 
 /**
  * Lazy load a component with no SSR (client-only)
- * 
+ *
  * Useful for components that use browser-only APIs
  */
 export function lazyLoadClientOnly<T extends ComponentType<unknown>>(
@@ -56,11 +56,11 @@ export function lazyLoadClientOnly<T extends ComponentType<unknown>>(
 
 /**
  * Preload a component before it's needed
- * 
+ *
  * Usage:
  * ```tsx
  * // Preload on hover
- * <button 
+ * <button
  *   onMouseEnter={() => preloadComponent(() => import("./HeavyModal"))}
  *   onClick={() => setShowModal(true)}
  * >
@@ -196,7 +196,9 @@ export const PerformanceMonitor = {
     );
 
     const navigationEntries = performance.getEntriesByType("navigation");
-    const navigationEntry = navigationEntries[0] as PerformanceNavigationTiming | undefined;
+    const navigationEntry = navigationEntries[0] as
+      | PerformanceNavigationTiming
+      | undefined;
 
     return {
       fcp: fcpEntry?.startTime ?? null,
@@ -213,7 +215,9 @@ export const PerformanceMonitor = {
   logRenderTime(componentName: string, startTime: number): void {
     const duration = performance.now() - startTime;
     if (process.env.NODE_ENV === "development") {
-      console.log(`[Performance] ${componentName} rendered in ${duration.toFixed(2)}ms`);
+      console.log(
+        `[Performance] ${componentName} rendered in ${duration.toFixed(2)}ms`
+      );
     }
   },
 };
@@ -285,10 +289,7 @@ export function cancelIdleCallback(handle: number): void {
 /**
  * Defer non-critical work to idle time
  */
-export function deferToIdle<T>(
-  work: () => T,
-  timeout: number = 2000
-): Promise<T> {
+export function deferToIdle<T>(work: () => T, timeout = 2000): Promise<T> {
   return new Promise((resolve) => {
     requestIdleCallback(
       () => {

@@ -10,6 +10,9 @@
  * @see https://m3.material.io/styles/color/system/how-the-system-works
  */
 
+// Regex for stripping # from hex colors (top-level for performance)
+const HEX_PREFIX_REGEX = /^#/;
+
 /**
  * Convert hex color to RGB values
  * @param hex - Hex color string (e.g., "#16a34a" or "16a34a")
@@ -17,12 +20,15 @@
  */
 export function hexToRgb(hex: string): { r: number; g: number; b: number } {
   // Remove # if present
-  const cleanHex = hex.replace(/^#/, "");
+  const cleanHex = hex.replace(HEX_PREFIX_REGEX, "");
 
-  // Parse hex values
-  const bigint = parseInt(cleanHex, 16);
+  // Parse hex values using standard bitwise operations for color conversion
+  const bigint = Number.parseInt(cleanHex, 16);
+  // biome-ignore lint/suspicious/noBitwiseOperators: Intentional bitwise for extracting RGB from hex
   const r = (bigint >> 16) & 255;
+  // biome-ignore lint/suspicious/noBitwiseOperators: Intentional bitwise for extracting RGB from hex
   const g = (bigint >> 8) & 255;
+  // biome-ignore lint/suspicious/noBitwiseOperators: Intentional bitwise for extracting RGB from hex
   const b = bigint & 255;
 
   return { r, g, b };
@@ -38,7 +44,7 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } {
 export function rgbToHex(r: number, g: number, b: number): string {
   const toHex = (n: number) => {
     const hex = Math.round(Math.max(0, Math.min(255, n))).toString(16);
-    return hex.length === 1 ? "0" + hex : hex;
+    return hex.length === 1 ? `0${hex}` : hex;
   };
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
@@ -57,7 +63,7 @@ export function getLuminance(hex: string): number {
   // Convert RGB to sRGB
   const toSrgb = (c: number) => {
     const srgb = c / 255;
-    return srgb <= 0.03928 ? srgb / 12.92 : Math.pow((srgb + 0.055) / 1.055, 2.4);
+    return srgb <= 0.039_28 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
   };
 
   const rSrgb = toSrgb(r);
@@ -81,7 +87,10 @@ export function getLuminance(hex: string): number {
  * @param background - Background color (hex)
  * @returns Contrast ratio (1:1 to 21:1)
  */
-export function getContrastRatio(foreground: string, background: string): number {
+export function getContrastRatio(
+  foreground: string,
+  background: string
+): number {
   const fgLum = getLuminance(foreground);
   const bgLum = getLuminance(background);
 
@@ -235,9 +244,9 @@ export function getWCAGCompliance(
 
   if (ratio >= 7) {
     return { level: "AAA", ratio, ratioText };
-  } else if (ratio >= 4.5) {
-    return { level: "AA", ratio, ratioText };
-  } else {
-    return { level: "Fail", ratio, ratioText };
   }
+  if (ratio >= 4.5) {
+    return { level: "AA", ratio, ratioText };
+  }
+  return { level: "Fail", ratio, ratioText };
 }

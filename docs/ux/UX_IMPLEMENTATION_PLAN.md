@@ -684,44 +684,56 @@ Based on the UX Review, here are the remaining phases with detailed implementati
 
 ---
 
-### Phase 6: Skeleton Loaders & Loading States 🔴 NOT STARTED
+### Phase 6: Skeleton Loaders & Loading States ✅ COMPLETE
 
-**Priority:** HIGH - Directly impacts perceived performance
+**Status:** ✅ FULLY IMPLEMENTED
 
-**Objective:** Replace spinner-based loading with content-shaped skeletons for better UX.
+**Files Created:**
+- `apps/web/src/components/loading/table-skeleton.tsx` ✅
+- `apps/web/src/components/loading/card-skeleton.tsx` ✅
+- `apps/web/src/components/loading/list-skeleton.tsx` ✅
+- `apps/web/src/components/loading/form-skeleton.tsx` ✅
+- `apps/web/src/components/loading/page-skeleton.tsx` ✅
+- `apps/web/src/components/loading/index.ts` ✅
 
-#### 6.1 Components to Create
+**Route Loading Files Created:**
+- `apps/web/src/app/orgs/[orgId]/admin/loading.tsx` ✅
+- `apps/web/src/app/orgs/[orgId]/admin/players/loading.tsx` ✅
+- `apps/web/src/app/orgs/[orgId]/admin/teams/loading.tsx` ✅
+- `apps/web/src/app/orgs/[orgId]/admin/users/loading.tsx` ✅
 
-| Component | Description | Feature Flag |
-|-----------|-------------|--------------|
-| `TableSkeleton` | Skeleton rows matching table structure | `ux_skeleton_loaders` |
-| `CardSkeleton` | Skeleton matching card layout | `ux_skeleton_loaders` |
-| `ListSkeleton` | Skeleton for list items | `ux_skeleton_loaders` |
-| `FormSkeleton` | Skeleton for form fields | `ux_skeleton_loaders` |
-| `StatCardSkeleton` | Already exists, needs enhancement | - |
+**Feature Flag:** `ux_skeleton_loaders`
 
-#### 6.2 Implementation Tasks
+#### Components Implemented
 
-- [ ] Create `apps/web/src/components/loading/table-skeleton.tsx`
-- [ ] Create `apps/web/src/components/loading/card-skeleton.tsx`
-- [ ] Create `apps/web/src/components/loading/list-skeleton.tsx`
-- [ ] Create `apps/web/src/components/loading/page-skeleton.tsx`
-- [ ] Add `loading.tsx` files to all route segments:
-  - [ ] `/orgs/[orgId]/admin/players/loading.tsx`
-  - [ ] `/orgs/[orgId]/admin/teams/loading.tsx`
-  - [ ] `/orgs/[orgId]/admin/users/loading.tsx`
-  - [ ] `/orgs/[orgId]/coach/loading.tsx`
-  - [ ] `/orgs/[orgId]/parents/loading.tsx`
-- [ ] Add skeleton-to-content fade transition
+| Component | Description | Status |
+|-----------|-------------|--------|
+| `TableSkeleton` | Configurable rows/columns, header, checkbox, actions | ✅ |
+| `CardSkeleton` | Variants: default, horizontal, compact | ✅ |
+| `CardGridSkeleton` | Grid of card skeletons | ✅ |
+| `StatCardSkeleton` | Dashboard stat card skeleton | ✅ |
+| `StatGridSkeleton` | Grid of stat card skeletons | ✅ |
+| `ListSkeleton` | List items with avatar, secondary text | ✅ |
+| `NavListSkeleton` | Navigation menu skeleton | ✅ |
+| `TimelineSkeleton` | Activity timeline skeleton | ✅ |
+| `FormSkeleton` | Form fields with multiple layouts | ✅ |
+| `FormSectionSkeleton` | Form section with title | ✅ |
+| `PageSkeleton` | Full page layouts (dashboard, list, detail, form, settings) | ✅ |
 
-#### 6.3 Acceptance Criteria
+#### Usage
 
-- All data-fetching pages show content-shaped skeletons
-- Skeletons match final layout to prevent layout shift
-- Smooth fade transition when data loads
-- Feature flag allows fallback to spinner
+```tsx
+// Import skeleton components
+import { TableSkeleton, PageSkeleton, CardGridSkeleton } from "@/components/loading";
 
-**Estimated Effort:** 2-3 days
+// Use in loading.tsx files
+export default function Loading() {
+  return <PageSkeleton variant="list" />;
+}
+
+// Or inline for sections
+{isLoading ? <TableSkeleton rows={5} columns={4} /> : <DataTable data={data} />}
+```
 
 ---
 

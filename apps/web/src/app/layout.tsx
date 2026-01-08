@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import "../index.css";
 import { FlowInterceptor } from "@/components/flow-interceptor";
 import { OfflineIndicator } from "@/components/polish/offline-indicator";
+import { PWAInstallPrompt } from "@/components/polish/pwa-install-prompt";
 import Providers from "@/components/providers";
 import { PostHogAuthTracker } from "@/providers/posthog-auth-tracker";
 import { PostHogPageView } from "@/providers/posthog-pageview";
@@ -64,6 +65,7 @@ export default function RootLayout({
           <PostHogAuthTracker />
           <FlowInterceptor>
             <OfflineIndicator position="top" />
+            <PWAInstallPrompt />
             <div className="flex flex-col min-h-svh">{children}</div>
           </FlowInterceptor>
         </Providers>

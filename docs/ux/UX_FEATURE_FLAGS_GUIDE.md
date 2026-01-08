@@ -188,7 +188,72 @@ Once you're Platform Staff, you need PostHog credentials:
 
 ---
 
-## Step 3: Create a Feature Flag in PostHog
+## Automated Setup: Create All Flags with Script
+
+Instead of creating flags manually, use the provided script to create all 36 UX feature flags at once.
+
+### Prerequisites
+
+1. **Get your PostHog Personal API Key**:
+   - Go to PostHog → Settings → Personal API Keys
+   - Create a new key with "Feature Flags" write permission
+   - Copy the key (starts with `phx_`)
+
+2. **Get your Project ID**:
+   - Go to PostHog → Settings → Project Settings
+   - The Project ID is in the URL: `https://eu.posthog.com/project/{PROJECT_ID}/...`
+
+### Run the Script
+
+```bash
+# Dry run first (no changes made)
+POSTHOG_API_KEY=phx_xxx POSTHOG_PROJECT_ID=12345 node scripts/create-posthog-feature-flags.mjs --dry-run
+
+# Create all flags (disabled by default)
+POSTHOG_API_KEY=phx_xxx POSTHOG_PROJECT_ID=12345 node scripts/create-posthog-feature-flags.mjs
+
+# Create and enable all flags at 100% rollout
+POSTHOG_API_KEY=phx_xxx POSTHOG_PROJECT_ID=12345 node scripts/create-posthog-feature-flags.mjs --enable-all
+```
+
+### Script Options
+
+| Option | Description |
+|--------|-------------|
+| `--dry-run` | Show what would be created without making API calls |
+| `--enable-all` | Enable all flags at 100% rollout (default: disabled) |
+| `--host <url>` | PostHog host URL (default: https://eu.posthog.com) |
+| `--project-id <id>` | PostHog project ID (alternative to env var) |
+
+### Expected Output
+
+```
+═══════════════════════════════════════════════════════════════
+  PostHog UX Feature Flags Setup
+═══════════════════════════════════════════════════════════════
+
+  Host:        https://eu.posthog.com
+  Project ID:  12345
+  Enable All:  No (0% rollout)
+  Total Flags: 37
+
+Phase 1 (8 flags)
+──────────────────────────────────────────────────────
+  ✅ ux_admin_nav_sidebar - created (ID: 123)
+  ✅ ux_bottom_nav - created (ID: 124)
+  ...
+
+═══════════════════════════════════════════════════════════════
+  Summary
+═══════════════════════════════════════════════════════════════
+  Created:  37
+  Skipped:  0 (already exist)
+  Errors:   0
+```
+
+---
+
+## Step 3: Create a Feature Flag in PostHog (Manual)
 
 ### 3.1 Create New Flag
 

@@ -705,10 +705,11 @@ Different users prefer different density:
 - [x] Update all forms with new patterns - ResponsiveForm
 - [ ] Add gesture support (swipe back) - Not started
 
-### Sprint 3: Data Display 🟡 IN PROGRESS
+### Sprint 3: Data Display ✅ COMPLETE
 - [x] Create `<ResponsiveDataView>` component
 - [x] Create `<SwipeableCard>` component
-- [ ] Migrate admin tables to responsive - Not started
+- [x] Migrate admin tables to responsive - Players page using ResponsiveDataView
+- [x] Teams/Users pages already use card-based layouts (inherently mobile-friendly)
 - [x] Add pull-to-refresh - Hook implemented
 
 ### Sprint 4: Forms & Feedback ✅ COMPLETE

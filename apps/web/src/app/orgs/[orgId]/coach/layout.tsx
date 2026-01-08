@@ -25,6 +25,9 @@ export default function CoachLayout({
   const { adminNavStyle, useBottomNav } = useUXFeatureFlags();
   const useNewNav = adminNavStyle === "sidebar";
 
+  // Debug: Log feature flag values
+  console.log("[Coach Layout] Feature flags:", { adminNavStyle, useBottomNav, useNewNav });
+
   // Coach bottom nav items
   const coachBottomNavItems: BottomNavItem[] = [
     { id: "overview", icon: Home, label: "Overview", href: `/orgs/${orgId}/coach` },

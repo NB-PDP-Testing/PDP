@@ -63,6 +63,7 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_theme_contrast_colors: Auto-contrast text colors on org backgrounds
  * - ux_theme_dark_variants: Adaptive org colors for dark mode
  * - ux_theme_smooth_transitions: Smooth 200ms transitions when changing themes
+ * - ux_header_nav_minimal: Hide header nav links (Home, Platform, Coach, Parent, Admin)
  *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
@@ -170,6 +171,10 @@ export interface UXFeatureFlags {
   useThemeDarkVariants: boolean;
   /** Smooth 200ms transitions when changing themes (respects prefers-reduced-motion) */
   useThemeSmoothTransitions: boolean;
+
+  // Phase 14 - Header Navigation
+  /** Hide header nav links (Home, Platform, Coach, Parent, Admin) - users should use the switcher */
+  useMinimalHeaderNav: boolean;
 }
 
 /**
@@ -259,6 +264,9 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     useThemeContrastColors: isFeatureEnabled("ux_theme_contrast_colors"),
     useThemeDarkVariants: isFeatureEnabled("ux_theme_dark_variants"),
     useThemeSmoothTransitions: isFeatureEnabled("ux_theme_smooth_transitions"),
+
+    // Phase 14 - Header Navigation
+    useMinimalHeaderNav: isFeatureEnabled("ux_header_nav_minimal"),
   };
 }
 

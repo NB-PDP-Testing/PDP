@@ -66,9 +66,16 @@ export default function OrganizationsPage() {
   // Use Convex query to get user with custom fields
   const user = useCurrentUser();
 
+  // Debug logging for platform staff check
+  useEffect(() => {
+    console.log("[/orgs] User data:", user);
+    console.log("[/orgs] isPlatformStaff:", user?.isPlatformStaff);
+  }, [user]);
+
   // Redirect if not platform staff
   useEffect(() => {
     if (user !== undefined && !user?.isPlatformStaff) {
+      console.log("[/orgs] Redirecting non-platform-staff to home");
       toast.error("Only platform staff can access this page");
       router.push("/");
     }

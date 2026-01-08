@@ -13,7 +13,6 @@ import {
   CoachMobileNav,
   CoachSidebar,
 } from "@/components/layout/coach-sidebar";
-import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
@@ -107,7 +106,6 @@ export default function CoachLayout({
             </div>
 
             <div className="flex items-center gap-2">
-              <ModeToggle />
               <Link href={`/orgs/${orgId}` as Route}>
                 <Button size="sm" variant="outline">
                   Back to App

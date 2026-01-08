@@ -163,31 +163,53 @@ export function StatsCardSkeleton() {
 
 ## How to Test Skeletons
 
-### Method 1: Network Throttling
+> **⚠️ IMPORTANT**: Convex uses WebSockets for real-time data, which are NOT affected by Chrome's network throttling. Network throttling only affects HTTP requests, not WebSocket connections. This is why skeletons may appear briefly or not at all when using "Slow 3G" throttling.
 
-1. Open browser DevTools (`F12` or `Ctrl+Shift+I`)
-2. Go to **Network** tab
-3. Find throttling dropdown (usually says "No throttling")
-4. Select **Slow 3G** or **Fast 3G**
-5. Navigate to the page you're testing
-6. You should see skeleton loaders while data loads
+### Method 1: Hard Page Refresh (Best for Convex)
 
-### Method 2: Block API Requests
+The skeletons appear during **initial page load** before the WebSocket connection is established:
 
-1. Open browser DevTools
-2. Go to **Network** tab
-3. Right-click on a Convex request
-4. Select "Block request URL"
-5. Refresh the page
-6. Skeletons should remain visible (since data never loads)
+1. Navigate to the page you want to test
+2. Do a **hard refresh**: `Ctrl+Shift+R` (Windows) or `Cmd+Shift+R` (Mac)
+3. Watch carefully - skeletons appear for ~100-500ms on first load
+4. For a longer view, try clearing site data first
 
-### Method 3: Add Artificial Delay
+**To see skeletons longer:**
+1. Open DevTools → Application tab
+2. Click "Clear site data" under Storage
+3. Navigate to the page - you'll see skeletons while Convex reconnects
 
-In dev tools console, you can run:
-```js
-// This won't work in production, but useful for debugging
-window.DEBUG_LOADING_DELAY = 5000; // 5 second delay
-```
+### Method 2: Disconnect WebSocket (Forces Skeletons)
+
+1. Open DevTools → Network tab
+2. Filter by "WS" (WebSocket)
+3. Find the Convex connection (shows as `wss://...convex.cloud`)
+4. Right-click and select "Close connection"
+5. The page will show skeletons while reconnecting
+
+### Method 3: Block Convex Domain
+
+1. Open DevTools → Network tab → Request blocking
+2. Enable request blocking
+3. Add pattern: `*.convex.cloud`
+4. Refresh the page
+5. Skeletons will stay visible indefinitely (until you unblock)
+
+### Method 4: Inspect Loading State in React DevTools
+
+1. Install React DevTools browser extension
+2. Open DevTools → Components tab
+3. Find the page component (e.g., `OrgAdminOverviewPage`)
+4. Look for `isLoading` state - when `true`, skeletons should show
+5. You can manually set state in React DevTools to force loading
+
+### Method 5: Use Record & Slow Playback
+
+1. Open DevTools → Performance tab
+2. Click Record, then refresh the page
+3. Stop recording after page loads
+4. Scrub through the timeline slowly
+5. You'll see the skeleton state captured in the recording
 
 ## Pass/Fail Criteria
 

@@ -102,22 +102,39 @@ export function PWAInstallPrompt({
   }, [forceShow]);
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
+    // If we have the deferred prompt, use native install
+    if (deferredPrompt) {
+      try {
+        await deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
 
-    try {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-
-      if (outcome === "accepted") {
-        onInstall?.();
-        setShowPrompt(false);
-        localStorage.setItem("pwa-installed", "true");
+        if (outcome === "accepted") {
+          onInstall?.();
+          setShowPrompt(false);
+          localStorage.setItem("pwa-installed", "true");
+        }
+      } catch (error) {
+        console.error("PWA install error:", error);
       }
-    } catch (error) {
-      console.error("PWA install error:", error);
+      setDeferredPrompt(null);
+      return;
     }
 
-    setDeferredPrompt(null);
+    // No native prompt available - show manual instructions
+    const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+    const isEdge = /Edg/.test(navigator.userAgent);
+    const isFirefox = /Firefox/.test(navigator.userAgent);
+    
+    let instructions = "";
+    if (isChrome || isEdge) {
+      instructions = "To install:\n\n1. Click the install icon (⊕) in the address bar\n   OR\n2. Click ⋮ menu → 'Install PlayerARC'\n\nThe install icon appears on the right side of the address bar.";
+    } else if (isFirefox) {
+      instructions = "Firefox doesn't support PWA installation.\n\nTry using Chrome or Edge for the best experience.";
+    } else {
+      instructions = "To install:\n\n1. Look for an install icon in the address bar\n2. Or check your browser's menu for 'Install' option";
+    }
+    
+    alert(instructions);
   };
 
   const handleDismiss = () => {

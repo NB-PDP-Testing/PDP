@@ -21,6 +21,8 @@ interface PWAInstallPromptProps {
   onDismiss?: () => void;
   /** Called when user installs the app */
   onInstall?: () => void;
+  /** Force show the prompt (for testing/debugging) */
+  forceShow?: boolean;
 }
 
 /**
@@ -36,6 +38,7 @@ export function PWAInstallPrompt({
   className,
   onDismiss,
   onInstall,
+  forceShow = false,
 }: PWAInstallPromptProps) {
   const [deferredPrompt, setDeferredPrompt] = React.useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = React.useState(false);
@@ -43,15 +46,25 @@ export function PWAInstallPrompt({
   const [isStandalone, setIsStandalone] = React.useState(false);
 
   React.useEffect(() => {
+    // Check for debug param in URL: ?pwa-debug=true
+    const urlParams = new URLSearchParams(window.location.search);
+    const debugMode = urlParams.get("pwa-debug") === "true" || forceShow;
+
     // Check if already installed/standalone
     const standalone = window.matchMedia("(display-mode: standalone)").matches;
     setIsStandalone(standalone);
 
-    if (standalone) return;
+    if (standalone && !debugMode) return;
 
     // Check if iOS
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     setIsIOS(iOS);
+
+    // Force show immediately in debug mode
+    if (debugMode) {
+      setShowPrompt(true);
+      return;
+    }
 
     // Check if user has dismissed before
     const dismissed = localStorage.getItem("pwa-install-dismissed");
@@ -86,7 +99,7 @@ export function PWAInstallPrompt({
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     };
-  }, []);
+  }, [forceShow]);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -113,8 +126,8 @@ export function PWAInstallPrompt({
     onDismiss?.();
   };
 
-  // Don't render if already standalone or no prompt to show
-  if (isStandalone || !showPrompt) return null;
+  // Don't render if already standalone or no prompt to show (unless forceShow)
+  if (isStandalone || (!showPrompt && !forceShow)) return null;
 
   return (
     <div

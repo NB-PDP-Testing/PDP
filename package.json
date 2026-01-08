@@ -18,7 +18,7 @@
     "dev:setup": "turbo -F @pdp/backend dev:setup"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.7",
+    "@biomejs/biome": "2.3.11",
     "convex": "^1.25.4",
     "turbo": "^2.5.4",
     "ultracite": "6.3.6"

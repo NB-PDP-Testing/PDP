@@ -52,6 +52,13 @@ export type AnalyticsProperties = Record<string, string | number | boolean>;
 export function useAnalytics() {
   const posthog = usePostHog();
 
+  // Debug: Log PostHog instance state
+  console.log("[Analytics] PostHog instance:", posthog ? "exists" : "null");
+  if (posthog) {
+    console.log("[Analytics] Feature flags loaded:", posthog.getFeatureFlag?.("ux_admin_nav_sidebar"));
+    console.log("[Analytics] All flags:", JSON.stringify(posthog.getAllFlags?.()));
+  }
+
   return {
     /**
      * Track a custom event

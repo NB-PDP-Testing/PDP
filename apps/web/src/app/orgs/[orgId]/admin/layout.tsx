@@ -76,6 +76,9 @@ export default function OrgAdminLayout({
   const { adminNavStyle, useBottomNav, useResizableSidebar } = useUXFeatureFlags();
   const useNewNav = adminNavStyle === "sidebar";
 
+  // Debug: Log feature flag values
+  console.log("[Admin Layout] Feature flags:", { adminNavStyle, useBottomNav, useNewNav });
+
   // Admin bottom nav items (only shown when useBottomNav flag is enabled)
   const adminBottomNavItems: BottomNavItem[] = [
     { id: "overview", icon: Home, label: "Overview", href: `/orgs/${orgId}/admin` },

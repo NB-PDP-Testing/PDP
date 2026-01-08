@@ -20,14 +20,25 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
         bootstrap: {
           featureFlags: {}, // Start with empty, will be fetched
         },
-        loaded: (posthog) => {
-          // Reload feature flags when PostHog is loaded
-          posthog.reloadFeatureFlags();
+        loaded: (ph) => {
           // Debug logging in development
           if (process.env.NODE_ENV === "development") {
             console.log("[PostHog] Initialized with host:", host);
-            console.log("[PostHog] Feature flags loading...");
+            console.log("[PostHog] Reloading feature flags...");
           }
+
+          // Set up callback for when flags load
+          posthog.onFeatureFlags((flags, variants) => {
+            if (process.env.NODE_ENV === "development") {
+              console.log("[PostHog] Feature flags LOADED!");
+              console.log("[PostHog] Flags:", flags);
+              console.log("[PostHog] Variants:", variants);
+              console.log("[PostHog] isFeatureEnabled('ux_admin_nav_sidebar'):", posthog.isFeatureEnabled("ux_admin_nav_sidebar"));
+            }
+          });
+
+          // Now reload feature flags
+          ph.reloadFeatureFlags();
         },
         session_recording: {
           maskAllInputs: true, // Privacy: mask all form inputs by default

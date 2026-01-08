@@ -31,6 +31,10 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_keyboard_shortcuts_overlay: Show keyboard shortcuts help (? key)
  * - ux_density_toggle: Enable density toggle (compact/comfortable/spacious)
  * - ux_offline_indicator: Show offline status indicator
+ * - ux_pwa_install_prompt: Show PWA install prompt after multiple visits
+ * - ux_resizable_sidebar: Enable resizable sidebar with drag handle
+ * - ux_pinned_favorites: Enable pinned favorites in sidebar
+ * - ux_recent_items: Enable recent items history
  *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
@@ -84,6 +88,14 @@ export interface UXFeatureFlags {
   useDensityToggle: boolean;
   /** Show offline status indicator */
   useOfflineIndicator: boolean;
+  /** Show PWA install prompt after multiple visits */
+  usePWAInstallPrompt: boolean;
+  /** Enable resizable sidebar with drag handle */
+  useResizableSidebar: boolean;
+  /** Enable pinned favorites in sidebar */
+  usePinnedFavorites: boolean;
+  /** Enable recent items history */
+  useRecentItems: boolean;
 }
 
 /**
@@ -125,6 +137,10 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     useKeyboardShortcutsOverlay: isFeatureEnabled("ux_keyboard_shortcuts_overlay"),
     useDensityToggle: isFeatureEnabled("ux_density_toggle"),
     useOfflineIndicator: isFeatureEnabled("ux_offline_indicator"),
+    usePWAInstallPrompt: isFeatureEnabled("ux_pwa_install_prompt"),
+    useResizableSidebar: isFeatureEnabled("ux_resizable_sidebar"),
+    usePinnedFavorites: isFeatureEnabled("ux_pinned_favorites"),
+    useRecentItems: isFeatureEnabled("ux_recent_items"),
   };
 }
 
@@ -173,4 +189,10 @@ export const UXAnalyticsEvents = {
   SHORTCUTS_OVERLAY_OPENED: "ux_shortcuts_overlay_opened",
   DENSITY_CHANGED: "ux_density_changed",
   OFFLINE_STATUS_CHANGED: "ux_offline_status_changed",
+  PWA_INSTALL_PROMPTED: "ux_pwa_install_prompted",
+  PWA_INSTALLED: "ux_pwa_installed",
+  SIDEBAR_RESIZED: "ux_sidebar_resized",
+  FAVORITE_ADDED: "ux_favorite_added",
+  FAVORITE_REMOVED: "ux_favorite_removed",
+  RECENT_ITEM_CLICKED: "ux_recent_item_clicked",
 } as const;

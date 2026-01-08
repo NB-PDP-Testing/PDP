@@ -52,6 +52,12 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_reduced_motion: Respect reduced motion preferences
  * - ux_announcer: Enable screen reader announcements
  *
+ * PHASE 13 - Performance:
+ * - ux_lazy_components: Enable lazy loading components
+ * - ux_web_vitals: Enable Web Vitals monitoring
+ * - ux_deferred_render: Enable deferred rendering
+ * - ux_resource_hints: Enable resource hints (preconnect, prefetch)
+ *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
  * - When enabled, features are visible to ALL users (not restricted to staff)
@@ -138,6 +144,16 @@ export interface UXFeatureFlags {
   useReducedMotion: boolean;
   /** Enable screen reader announcements */
   useAnnouncer: boolean;
+
+  // Phase 13 - Performance
+  /** Enable lazy loading components */
+  useLazyComponents: boolean;
+  /** Enable Web Vitals monitoring */
+  useWebVitalsMonitoring: boolean;
+  /** Enable deferred rendering */
+  useDeferredRender: boolean;
+  /** Enable resource hints (preconnect, prefetch) */
+  useResourceHints: boolean;
 }
 
 /**
@@ -199,6 +215,12 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     useFocusVisible: isFeatureEnabled("ux_focus_visible"),
     useReducedMotion: isFeatureEnabled("ux_reduced_motion"),
     useAnnouncer: isFeatureEnabled("ux_announcer"),
+
+    // Phase 13 - Performance
+    useLazyComponents: isFeatureEnabled("ux_lazy_components"),
+    useWebVitalsMonitoring: isFeatureEnabled("ux_web_vitals"),
+    useDeferredRender: isFeatureEnabled("ux_deferred_render"),
+    useResourceHints: isFeatureEnabled("ux_resource_hints"),
   };
 }
 
@@ -277,4 +299,11 @@ export const UXAnalyticsEvents = {
   REDUCED_MOTION_DETECTED: "ux_reduced_motion_detected",
   SCREEN_READER_ANNOUNCEMENT: "ux_screen_reader_announcement",
   FOCUS_TRAP_ACTIVATED: "ux_focus_trap_activated",
+
+  // Phase 13 - Performance events
+  WEB_VITALS_REPORTED: "ux_web_vitals_reported",
+  LAZY_COMPONENT_LOADED: "ux_lazy_component_loaded",
+  LONG_TASK_DETECTED: "ux_long_task_detected",
+  RESOURCE_PRELOADED: "ux_resource_preloaded",
+  PERFORMANCE_MARK: "ux_performance_mark",
 } as const;

@@ -30,8 +30,12 @@
 | App Shell | `components/layout/app-shell.tsx` | ✅ Complete | `ux_app_shell` |
 | **UI Components** ||||
 | Hover Actions | `components/ui/hover-actions.tsx` | ✅ Complete | `ux_hover_actions` |
-| Input (Responsive) | `components/ui/input.tsx` | ✅ Complete | `ux_responsive_inputs` |
-| Select (Responsive) | `components/ui/select.tsx` | ✅ Complete | `ux_responsive_inputs` |
+| Input (Responsive) | `components/ui/input.tsx` | ✅ Complete | - |
+| Select (Responsive) | `components/ui/select.tsx` | ✅ Complete | - |
+| Button (Responsive) | `components/ui/button.tsx` | ✅ Complete | - |
+| Checkbox (Responsive) | `components/ui/checkbox.tsx` | ✅ Complete | - |
+| Radio Group (Responsive) | `components/ui/radio-group.tsx` | ✅ Complete | - |
+| Switch (Responsive) | `components/ui/switch.tsx` | ✅ Complete | - |
 | **Forms** ||||
 | Responsive Form | `components/forms/responsive-form.tsx` | ✅ Complete | `ux_responsive_forms` |
 | Responsive Input | `components/forms/responsive-input.tsx` | ✅ Complete | `ux_responsive_forms` |

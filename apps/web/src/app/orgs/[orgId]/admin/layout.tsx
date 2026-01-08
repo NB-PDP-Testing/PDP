@@ -12,6 +12,7 @@ import {
 } from "@/components/layout/admin-sidebar";
 import { BottomNav, BottomNavSpacer, type BottomNavItem } from "@/components/layout/bottom-nav";
 import { CommandMenu } from "@/components/interactions/command-menu";
+import { ResizableSidebar } from "@/components/polish/resizable-sidebar";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
@@ -72,7 +73,7 @@ export default function OrgAdminLayout({
   const { theme } = useOrgTheme();
   
   // Get UX feature flags for conditional rendering
-  const { adminNavStyle, useBottomNav } = useUXFeatureFlags();
+  const { adminNavStyle, useBottomNav, useResizableSidebar } = useUXFeatureFlags();
   const useNewNav = adminNavStyle === "sidebar";
 
   // Admin bottom nav items (only shown when useBottomNav flag is enabled)
@@ -160,8 +161,20 @@ export default function OrgAdminLayout({
           {useNewNav ? (
             <>
               <div className="flex flex-1">
-                {/* Desktop Sidebar */}
-                <AdminSidebar orgId={orgId} primaryColor={theme.primary} />
+                {/* Desktop Sidebar - with optional resize */}
+                {useResizableSidebar ? (
+                  <ResizableSidebar
+                    className="hidden lg:block"
+                    storageKey={`admin-sidebar-${orgId}`}
+                    defaultWidth={260}
+                    minWidth={200}
+                    maxWidth={400}
+                  >
+                    <AdminSidebar orgId={orgId} primaryColor={theme.primary} />
+                  </ResizableSidebar>
+                ) : (
+                  <AdminSidebar orgId={orgId} primaryColor={theme.primary} />
+                )}
 
                 {/* Main Content */}
                 <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 md:p-6 [&>*]:h-auto">

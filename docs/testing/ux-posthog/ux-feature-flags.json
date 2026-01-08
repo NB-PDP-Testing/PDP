@@ -1,0 +1,243 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "description": "UX Feature Flags for PlayerARC/PDP Platform",
+    "lastUpdated": "2026-01-08"
+  },
+  "phases": {
+    "1": "Navigation Foundation",
+    "2": "Data Display",
+    "3": "Forms",
+    "4": "Interactions",
+    "5": "Polish",
+    "7": "Table Migration",
+    "10": "Context Menu & Advanced",
+    "11": "PWA & Offline",
+    "12": "Accessibility",
+    "13": "Performance"
+  },
+  "flags": [
+    {
+      "key": "ux_bottom_nav",
+      "name": "Mobile bottom navigation",
+      "phase": 1,
+      "description": "Adds persistent bottom navigation bar on mobile devices"
+    },
+    {
+      "key": "ux_admin_nav_sidebar",
+      "name": "Grouped admin sidebar",
+      "phase": 1,
+      "description": "Replaces 16 horizontal tabs with 4 collapsible groups in Admin Panel"
+    },
+    {
+      "key": "ux_admin_nav_bottomsheet",
+      "name": "Bottom sheet admin nav",
+      "phase": 1,
+      "description": "Opens admin sections in a bottom sheet on mobile"
+    },
+    {
+      "key": "ux_admin_nav_tabs",
+      "name": "Tabs admin nav",
+      "phase": 1,
+      "description": "Uses horizontally scrollable tabs for admin navigation"
+    },
+    {
+      "key": "ux_touch_targets_44px",
+      "name": "44px touch targets",
+      "phase": 1,
+      "description": "Enforces minimum 44px touch targets (Apple/Google standard)"
+    },
+    {
+      "key": "ux_app_shell",
+      "name": "AppShell responsive layout",
+      "phase": 1,
+      "description": "Uses new AppShell wrapper for responsive authenticated pages"
+    },
+    {
+      "key": "ux_hover_actions",
+      "name": "Desktop hover-reveal actions",
+      "phase": 1,
+      "description": "Shows action buttons on row/card hover (desktop only)"
+    },
+    {
+      "key": "ux_responsive_inputs",
+      "name": "Responsive input/select sizing",
+      "phase": 1,
+      "description": "48px inputs on mobile, 40px on desktop"
+    },
+    {
+      "key": "ux_mobile_cards",
+      "name": "Card-based mobile display",
+      "phase": 2,
+      "description": "Uses cards instead of tables for data on mobile"
+    },
+    {
+      "key": "ux_skeleton_loaders",
+      "name": "Skeleton loading states",
+      "phase": 2,
+      "description": "Shows skeleton UI while content loads"
+    },
+    {
+      "key": "ux_responsive_forms",
+      "name": "Mobile-optimized forms",
+      "phase": 3,
+      "description": "Forms with 48px inputs, sticky submit, keyboard shortcuts"
+    },
+    {
+      "key": "ux_command_menu",
+      "name": "Command palette (Cmd+K)",
+      "phase": 4,
+      "description": "Global search and navigation via keyboard shortcut"
+    },
+    {
+      "key": "ux_responsive_dialogs",
+      "name": "Responsive dialogs",
+      "phase": 4,
+      "description": "Bottom sheet on mobile, centered modal on desktop"
+    },
+    {
+      "key": "ux_keyboard_shortcuts_overlay",
+      "name": "Keyboard shortcuts help",
+      "phase": 5,
+      "description": "Press ? to show all keyboard shortcuts (desktop only)"
+    },
+    {
+      "key": "ux_density_toggle",
+      "name": "Density toggle",
+      "phase": 5,
+      "description": "Compact/comfortable/spacious density options"
+    },
+    {
+      "key": "ux_offline_indicator",
+      "name": "Offline status indicator",
+      "phase": 5,
+      "description": "Shows banner when offline, reconnected when back online"
+    },
+    {
+      "key": "ux_pwa_install_prompt",
+      "name": "PWA install prompt",
+      "phase": 5,
+      "description": "Shows install prompt after multiple visits"
+    },
+    {
+      "key": "ux_resizable_sidebar",
+      "name": "Resizable sidebar",
+      "phase": 5,
+      "description": "Sidebar with drag handle to resize"
+    },
+    {
+      "key": "ux_pinned_favorites",
+      "name": "Pinned favorites",
+      "phase": 5,
+      "description": "Pin frequently used items to sidebar"
+    },
+    {
+      "key": "ux_recent_items",
+      "name": "Recent items history",
+      "phase": 5,
+      "description": "Shows recently accessed items"
+    },
+    {
+      "key": "ux_enhanced_tables",
+      "name": "Enhanced table features",
+      "phase": 7,
+      "description": "Column visibility, bulk actions, export functionality"
+    },
+    {
+      "key": "ux_swipe_cards",
+      "name": "Swipe actions on cards",
+      "phase": 7,
+      "description": "Swipe to reveal edit/delete actions on mobile"
+    },
+    {
+      "key": "ux_pull_to_refresh",
+      "name": "Pull to refresh on lists",
+      "phase": 7,
+      "description": "Pull down to refresh data lists"
+    },
+    {
+      "key": "ux_context_menu",
+      "name": "Context menus",
+      "phase": 10,
+      "description": "Long-press on mobile, right-click on desktop"
+    },
+    {
+      "key": "ux_action_sheet",
+      "name": "Action sheets",
+      "phase": 10,
+      "description": "Bottom sheet on mobile, dropdown on desktop"
+    },
+    {
+      "key": "ux_inline_edit",
+      "name": "Inline editing",
+      "phase": 10,
+      "description": "Modal on mobile, in-place editing on desktop"
+    },
+    {
+      "key": "ux_service_worker",
+      "name": "Service worker registration",
+      "phase": 11,
+      "description": "Enables PWA capabilities and caching"
+    },
+    {
+      "key": "ux_offline_support",
+      "name": "Offline support features",
+      "phase": 11,
+      "description": "Queue actions when offline, sync when back"
+    },
+    {
+      "key": "ux_pwa_update_prompt",
+      "name": "PWA update prompt",
+      "phase": 11,
+      "description": "Shows prompt when new version available"
+    },
+    {
+      "key": "ux_skip_links",
+      "name": "Skip to main content links",
+      "phase": 12,
+      "description": "Accessibility skip links for keyboard users"
+    },
+    {
+      "key": "ux_focus_visible",
+      "name": "Enhanced focus indicators",
+      "phase": 12,
+      "description": "Clear visible focus states for keyboard navigation"
+    },
+    {
+      "key": "ux_reduced_motion",
+      "name": "Reduced motion support",
+      "phase": 12,
+      "description": "Respects prefers-reduced-motion preference"
+    },
+    {
+      "key": "ux_announcer",
+      "name": "Screen reader announcements",
+      "phase": 12,
+      "description": "Live region announcements for dynamic content"
+    },
+    {
+      "key": "ux_lazy_components",
+      "name": "Lazy loading components",
+      "phase": 13,
+      "description": "Load components on demand to improve performance"
+    },
+    {
+      "key": "ux_web_vitals",
+      "name": "Web Vitals monitoring",
+      "phase": 13,
+      "description": "Track Core Web Vitals metrics"
+    },
+    {
+      "key": "ux_deferred_render",
+      "name": "Deferred rendering",
+      "phase": 13,
+      "description": "Defer non-critical rendering for faster initial load"
+    },
+    {
+      "key": "ux_resource_hints",
+      "name": "Resource hints (preconnect)",
+      "phase": 13,
+      "description": "Preconnect and prefetch for faster navigation"
+    }
+  ]
+}

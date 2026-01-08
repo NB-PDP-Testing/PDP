@@ -1,5 +1,6 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   ChevronDown,
@@ -18,7 +19,6 @@ import {
   UsersRound,
   Wrench,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -165,10 +165,14 @@ interface AdminSidebarProps {
  * Grouped sidebar navigation for admin panel (desktop)
  * Collapsible groups reduce cognitive load from 16 items to 4 groups
  */
-export function AdminSidebar({ orgId, primaryColor, isResizable = false }: AdminSidebarProps) {
+export function AdminSidebar({
+  orgId,
+  primaryColor,
+  isResizable = false,
+}: AdminSidebarProps) {
   const pathname = usePathname();
   const navGroups = getAdminNavGroups(orgId);
-  
+
   // Track which groups are expanded - auto-expand group containing current page
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     // Find which group contains the current page
@@ -184,9 +188,7 @@ export function AdminSidebar({ orgId, primaryColor, isResizable = false }: Admin
 
   const toggleGroup = (label: string) => {
     setExpandedGroups((prev) =>
-      prev.includes(label)
-        ? prev.filter((g) => g !== label)
-        : [...prev, label]
+      prev.includes(label) ? prev.filter((g) => g !== label) : [...prev, label]
     );
   };
 
@@ -197,17 +199,18 @@ export function AdminSidebar({ orgId, primaryColor, isResizable = false }: Admin
   };
 
   return (
-    <aside className={cn(
-      "hidden lg:flex lg:flex-col lg:bg-muted/30",
-      // Only apply fixed width and border when NOT in resizable mode
-      !isResizable && "lg:w-64 lg:border-r"
-    )}>
+    <aside
+      className={cn(
+        "hidden lg:flex lg:flex-col lg:bg-muted/30",
+        // Only apply fixed width and border when NOT in resizable mode
+        !isResizable && "lg:w-64 lg:border-r"
+      )}
+    >
       <div className="flex h-full flex-col overflow-y-auto py-4">
         {/* Overview link */}
-        <div className="px-3 mb-2">
+        <div className="mb-2 px-3">
           <Link href={`/orgs/${orgId}/admin` as Route}>
             <Button
-              variant={pathname === `/orgs/${orgId}/admin` ? "secondary" : "ghost"}
               className="w-full justify-start gap-2"
               style={
                 pathname === `/orgs/${orgId}/admin` && primaryColor
@@ -218,6 +221,9 @@ export function AdminSidebar({ orgId, primaryColor, isResizable = false }: Admin
                       borderWidth: "1px",
                     }
                   : undefined
+              }
+              variant={
+                pathname === `/orgs/${orgId}/admin` ? "secondary" : "ghost"
               }
             >
               <Home className="h-4 w-4" />
@@ -230,17 +236,19 @@ export function AdminSidebar({ orgId, primaryColor, isResizable = false }: Admin
         <nav className="flex-1 space-y-1 px-3">
           {navGroups.map((group) => {
             const isExpanded = expandedGroups.includes(group.label);
-            const hasActiveItem = group.items.some((item) => isActive(item.href));
+            const hasActiveItem = group.items.some((item) =>
+              isActive(item.href)
+            );
             const GroupIcon = group.icon;
 
             return (
               <div key={group.label}>
                 <button
-                  onClick={() => toggleGroup(group.label)}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
+                    "flex w-full items-center justify-between rounded-lg px-3 py-2 font-medium text-sm transition-colors hover:bg-accent",
                     hasActiveItem && "text-primary"
                   )}
+                  onClick={() => toggleGroup(group.label)}
                 >
                   <div className="flex items-center gap-2">
                     <GroupIcon className="h-4 w-4" />
@@ -255,7 +263,7 @@ export function AdminSidebar({ orgId, primaryColor, isResizable = false }: Admin
                 </button>
 
                 {isExpanded && (
-                  <div className="ml-4 mt-1 space-y-1 border-l pl-3">
+                  <div className="mt-1 ml-4 space-y-1 border-l pl-3">
                     {group.items.map((item) => {
                       const ItemIcon = item.icon;
                       const active = isActive(item.href);
@@ -263,9 +271,8 @@ export function AdminSidebar({ orgId, primaryColor, isResizable = false }: Admin
                       return (
                         <Link href={item.href as Route} key={item.href}>
                           <Button
-                            variant={active ? "secondary" : "ghost"}
-                            size="sm"
                             className="w-full justify-start gap-2"
+                            size="sm"
                             style={
                               active && primaryColor
                                 ? {
@@ -276,6 +283,7 @@ export function AdminSidebar({ orgId, primaryColor, isResizable = false }: Admin
                                   }
                                 : undefined
                             }
+                            variant={active ? "secondary" : "ghost"}
                           >
                             <ItemIcon className="h-4 w-4" />
                             {item.label}
@@ -304,7 +312,11 @@ interface AdminMobileNavProps {
  * Mobile navigation drawer for admin panel
  * Full-height sheet with grouped navigation
  */
-export function AdminMobileNav({ orgId, primaryColor, trigger }: AdminMobileNavProps) {
+export function AdminMobileNav({
+  orgId,
+  primaryColor,
+  trigger,
+}: AdminMobileNavProps) {
   const pathname = usePathname();
   const navGroups = getAdminNavGroups(orgId);
   const [open, setOpen] = useState(false);
@@ -321,9 +333,7 @@ export function AdminMobileNav({ orgId, primaryColor, trigger }: AdminMobileNavP
 
   const toggleGroup = (label: string) => {
     setExpandedGroups((prev) =>
-      prev.includes(label)
-        ? prev.filter((g) => g !== label)
-        : [...prev, label]
+      prev.includes(label) ? prev.filter((g) => g !== label) : [...prev, label]
     );
   };
 
@@ -334,15 +344,15 @@ export function AdminMobileNav({ orgId, primaryColor, trigger }: AdminMobileNavP
   };
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet onOpenChange={setOpen} open={open}>
       <SheetTrigger asChild>
         {trigger || (
-          <Button variant="ghost" size="icon" className="lg:hidden">
+          <Button className="lg:hidden" size="icon" variant="ghost">
             <Settings className="h-5 w-5" />
           </Button>
         )}
       </SheetTrigger>
-      <SheetContent side="left" className="w-80 p-0">
+      <SheetContent className="w-80 p-0" side="left">
         <SheetHeader className="border-b px-4 py-3">
           <SheetTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" style={{ color: primaryColor }} />
@@ -352,13 +362,12 @@ export function AdminMobileNav({ orgId, primaryColor, trigger }: AdminMobileNavP
 
         <div className="flex flex-col overflow-y-auto py-4">
           {/* Overview link */}
-          <div className="px-3 mb-2">
+          <div className="mb-2 px-3">
             <Link
               href={`/orgs/${orgId}/admin` as Route}
               onClick={() => setOpen(false)}
             >
               <Button
-                variant={pathname === `/orgs/${orgId}/admin` ? "secondary" : "ghost"}
                 className="w-full justify-start gap-2"
                 style={
                   pathname === `/orgs/${orgId}/admin` && primaryColor
@@ -367,6 +376,9 @@ export function AdminMobileNav({ orgId, primaryColor, trigger }: AdminMobileNavP
                         color: primaryColor,
                       }
                     : undefined
+                }
+                variant={
+                  pathname === `/orgs/${orgId}/admin` ? "secondary" : "ghost"
                 }
               >
                 <Home className="h-4 w-4" />
@@ -379,17 +391,19 @@ export function AdminMobileNav({ orgId, primaryColor, trigger }: AdminMobileNavP
           <nav className="flex-1 space-y-1 px-3">
             {navGroups.map((group) => {
               const isExpanded = expandedGroups.includes(group.label);
-              const hasActiveItem = group.items.some((item) => isActive(item.href));
+              const hasActiveItem = group.items.some((item) =>
+                isActive(item.href)
+              );
               const GroupIcon = group.icon;
 
               return (
                 <div key={group.label}>
                   <button
-                    onClick={() => toggleGroup(group.label)}
                     className={cn(
-                      "flex w-full items-center justify-between rounded-lg px-3 py-3 text-sm font-medium transition-colors hover:bg-accent",
+                      "flex w-full items-center justify-between rounded-lg px-3 py-3 font-medium text-sm transition-colors hover:bg-accent",
                       hasActiveItem && "text-primary"
                     )}
+                    onClick={() => toggleGroup(group.label)}
                   >
                     <div className="flex items-center gap-3">
                       <GroupIcon className="h-5 w-5" />
@@ -404,7 +418,7 @@ export function AdminMobileNav({ orgId, primaryColor, trigger }: AdminMobileNavP
                   </button>
 
                   {isExpanded && (
-                    <div className="ml-5 mt-1 space-y-1 border-l pl-4">
+                    <div className="mt-1 ml-5 space-y-1 border-l pl-4">
                       {group.items.map((item) => {
                         const ItemIcon = item.icon;
                         const active = isActive(item.href);
@@ -416,8 +430,7 @@ export function AdminMobileNav({ orgId, primaryColor, trigger }: AdminMobileNavP
                             onClick={() => setOpen(false)}
                           >
                             <Button
-                              variant={active ? "secondary" : "ghost"}
-                              className="w-full justify-start gap-2 h-11"
+                              className="h-11 w-full justify-start gap-2"
                               style={
                                 active && primaryColor
                                   ? {
@@ -426,6 +439,7 @@ export function AdminMobileNav({ orgId, primaryColor, trigger }: AdminMobileNavP
                                     }
                                   : undefined
                               }
+                              variant={active ? "secondary" : "ghost"}
                             >
                               <ItemIcon className="h-4 w-4" />
                               {item.label}

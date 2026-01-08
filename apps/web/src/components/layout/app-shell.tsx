@@ -1,24 +1,23 @@
 "use client";
 
-import * as React from "react";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { BottomNav, BottomNavSpacer, type BottomNavItem } from "./bottom-nav";
 import {
-  Home,
-  Users,
-  UserCog,
-  Shield,
-  Settings,
-  ClipboardList,
   Award,
-  Plus,
-  Menu,
   ChevronLeft,
+  ClipboardList,
+  Home,
+  Menu,
+  Plus,
   Search,
+  Settings,
+  Shield,
+  UserCog,
+  Users,
 } from "lucide-react";
+import { usePathname } from "next/navigation";
+import * as React from "react";
+import { CommandMenu } from "@/components/interactions/command-menu";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -26,21 +25,22 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Input } from "@/components/ui/input";
-import { CommandMenu } from "@/components/interactions/command-menu";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+import { BottomNav, type BottomNavItem, BottomNavSpacer } from "./bottom-nav";
 
 /**
  * AppShell - Responsive layout wrapper
- * 
+ *
  * Provides:
  * - Mobile: Bottom nav + minimal header
  * - Tablet: Collapsible sidebar + header
  * - Desktop: Full sidebar + breadcrumb header
- * 
+ *
  * Usage:
  * ```tsx
- * <AppShell 
- *   role="admin" 
+ * <AppShell
+ *   role="admin"
  *   orgId="123"
  *   sidebar={<CustomSidebar />}
  * >
@@ -97,7 +97,12 @@ const getDefaultBottomNavItems = (
     case "admin":
       return [
         ...baseItems,
-        { id: "players", icon: Users, label: "Players", href: `/orgs/${orgId}/admin/players` },
+        {
+          id: "players",
+          icon: Users,
+          label: "Players",
+          href: `/orgs/${orgId}/admin/players`,
+        },
         {
           id: "add",
           icon: Plus,
@@ -105,7 +110,12 @@ const getDefaultBottomNavItems = (
           href: `/orgs/${orgId}/admin/players/new`,
           isAction: true,
         },
-        { id: "teams", icon: Shield, label: "Teams", href: `/orgs/${orgId}/admin/teams` },
+        {
+          id: "teams",
+          icon: Shield,
+          label: "Teams",
+          href: `/orgs/${orgId}/admin/teams`,
+        },
         {
           id: "settings",
           icon: Settings,
@@ -116,7 +126,12 @@ const getDefaultBottomNavItems = (
     case "coach":
       return [
         ...baseItems,
-        { id: "players", icon: Users, label: "Players", href: `/orgs/${orgId}/coach/players` },
+        {
+          id: "players",
+          icon: Users,
+          label: "Players",
+          href: `/orgs/${orgId}/coach/players`,
+        },
         {
           id: "assess",
           icon: ClipboardList,
@@ -201,23 +216,23 @@ export function AppShell({
     <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b bg-background px-4">
       {showBack ? (
         <Button
-          variant="ghost"
-          size="icon"
-          onClick={onBack || (() => window.history.back())}
           className="shrink-0"
+          onClick={onBack || (() => window.history.back())}
+          size="icon"
+          variant="ghost"
         >
           <ChevronLeft className="size-5" />
           <span className="sr-only">Go back</span>
         </Button>
       ) : sidebar ? (
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <Sheet onOpenChange={setSidebarOpen} open={sidebarOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="shrink-0">
+            <Button className="shrink-0" size="icon" variant="ghost">
               <Menu className="size-5" />
               <span className="sr-only">Open menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-80 p-0">
+          <SheetContent className="w-80 p-0" side="left">
             <SheetHeader className="border-b px-4 py-3">
               <SheetTitle>Menu</SheetTitle>
             </SheetHeader>
@@ -227,19 +242,19 @@ export function AppShell({
       ) : null}
 
       {title && (
-        <h1 className="flex-1 truncate text-lg font-semibold">{title}</h1>
+        <h1 className="flex-1 truncate font-semibold text-lg">{title}</h1>
       )}
 
       {showSearch && (
         <div className="flex-1">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="-translate-y-1/2 absolute top-1/2 left-3 size-4 text-muted-foreground" />
             <Input
-              type="search"
-              placeholder={searchPlaceholder}
-              value={searchQuery}
-              onChange={handleSearch}
               className="h-10 pl-9"
+              onChange={handleSearch}
+              placeholder={searchPlaceholder}
+              type="search"
+              value={searchQuery}
             />
           </div>
         </div>
@@ -254,30 +269,30 @@ export function AppShell({
     <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-background px-6">
       {showBack && (
         <Button
-          variant="ghost"
-          size="sm"
-          onClick={onBack || (() => window.history.back())}
           className="gap-1"
+          onClick={onBack || (() => window.history.back())}
+          size="sm"
+          variant="ghost"
         >
           <ChevronLeft className="size-4" />
           Back
         </Button>
       )}
 
-      {title && <h1 className="text-lg font-semibold">{title}</h1>}
+      {title && <h1 className="font-semibold text-lg">{title}</h1>}
 
       <div className="flex-1" />
 
       {showSearch && (
         <div className="w-64">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="-translate-y-1/2 absolute top-1/2 left-3 size-4 text-muted-foreground" />
             <Input
-              type="search"
-              placeholder={searchPlaceholder}
-              value={searchQuery}
-              onChange={handleSearch}
               className="pl-9"
+              onChange={handleSearch}
+              placeholder={searchPlaceholder}
+              type="search"
+              value={searchQuery}
             />
           </div>
         </div>
@@ -294,9 +309,7 @@ export function AppShell({
         <MobileHeader />
         <main className={cn("flex-1", className)}>{children}</main>
         {!hideBottomNav && <BottomNavSpacer />}
-        {!hideBottomNav && (
-          <BottomNav items={navItems} />
-        )}
+        {!hideBottomNav && <BottomNav items={navItems} />}
         {/* Global command menu - Cmd+K to open */}
         <CommandMenu orgId={orgId} />
       </div>
@@ -343,13 +356,9 @@ export function AppShellSidebar({
 }: AppShellSidebarProps) {
   return (
     <div className={cn("flex h-full flex-col", className)}>
-      {header && (
-        <div className="shrink-0 border-b px-4 py-3">{header}</div>
-      )}
+      {header && <div className="shrink-0 border-b px-4 py-3">{header}</div>}
       <div className="flex-1 overflow-auto p-2">{children}</div>
-      {footer && (
-        <div className="shrink-0 border-t px-4 py-3">{footer}</div>
-      )}
+      {footer && <div className="shrink-0 border-t px-4 py-3">{footer}</div>}
     </div>
   );
 }
@@ -373,8 +382,8 @@ export function AppShellNavGroup({
   return (
     <div className="py-2">
       <button
+        className="flex w-full items-center justify-between px-3 py-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wider hover:text-foreground"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
       >
         {title}
         <ChevronLeft
@@ -414,18 +423,18 @@ export function AppShellNavItem({
 
   return (
     <a
-      href={href}
-      onClick={onClick}
       className={cn(
         "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
         "hover:bg-accent hover:text-accent-foreground",
-        active && "bg-accent text-accent-foreground font-medium"
+        active && "bg-accent font-medium text-accent-foreground"
       )}
+      href={href}
+      onClick={onClick}
     >
       {Icon && <Icon className="size-4 shrink-0" />}
       <span className="flex-1 truncate">{label}</span>
       {badge !== undefined && (
-        <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+        <span className="rounded-full bg-primary px-2 py-0.5 font-medium text-primary-foreground text-xs">
           {badge}
         </span>
       )}

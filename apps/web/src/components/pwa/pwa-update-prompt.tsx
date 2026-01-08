@@ -1,8 +1,8 @@
 "use client";
 
+import { Download, RefreshCw, X } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { X, RefreshCw, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSW } from "./service-worker-provider";
 
@@ -18,7 +18,7 @@ export interface PWAUpdatePromptProps {
 
 /**
  * PWAUpdatePrompt - Shows when a new version is available
- * 
+ *
  * Features:
  * - Shows banner when update is available
  * - Click to refresh and activate new version
@@ -36,8 +36,8 @@ export function PWAUpdatePrompt({
   return (
     <div
       className={cn(
-        "fixed left-4 right-4 z-50 md:left-auto md:right-4 md:w-[360px]",
-        "animate-in slide-in-from-bottom-4 fade-in duration-300",
+        "fixed right-4 left-4 z-50 md:right-4 md:left-auto md:w-[360px]",
+        "slide-in-from-bottom-4 fade-in animate-in duration-300",
         position === "top" ? "top-4" : "bottom-20 md:bottom-4",
         className
       )}
@@ -50,21 +50,22 @@ export function PWAUpdatePrompt({
           </div>
 
           {/* Content */}
-          <div className="flex-1 min-w-0">
+          <div className="min-w-0 flex-1">
             <h3 className="font-semibold text-sm">Update Available</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              A new version of PlayerARC is available. Refresh to get the latest features.
+            <p className="mt-0.5 text-muted-foreground text-xs">
+              A new version of PlayerARC is available. Refresh to get the latest
+              features.
             </p>
 
             <div className="mt-3 flex gap-2">
-              <Button size="sm" onClick={skipWaiting} className="gap-1.5">
+              <Button className="gap-1.5" onClick={skipWaiting} size="sm">
                 <RefreshCw className="h-3.5 w-3.5" />
                 Refresh Now
               </Button>
               <Button
+                onClick={() => setDismissed(true)}
                 size="sm"
                 variant="ghost"
-                onClick={() => setDismissed(true)}
               >
                 Later
               </Button>
@@ -73,10 +74,10 @@ export function PWAUpdatePrompt({
 
           {/* Close button */}
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 -mr-1 -mt-1 flex-shrink-0"
+            className="-mr-1 -mt-1 h-6 w-6 flex-shrink-0"
             onClick={() => setDismissed(true)}
+            size="icon"
+            variant="ghost"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -89,11 +90,7 @@ export function PWAUpdatePrompt({
 /**
  * PWAOfflineReadyPrompt - Shows when app is ready for offline use
  */
-export function PWAOfflineReadyPrompt({
-  className,
-}: {
-  className?: string;
-}) {
+export function PWAOfflineReadyPrompt({ className }: { className?: string }) {
   const { isOfflineReady } = useSW();
   const [show, setShow] = React.useState(false);
   const [dismissed, setDismissed] = React.useState(false);
@@ -111,8 +108,8 @@ export function PWAOfflineReadyPrompt({
   return (
     <div
       className={cn(
-        "fixed bottom-20 left-4 right-4 z-50 md:bottom-4 md:left-auto md:right-4 md:w-[300px]",
-        "animate-in slide-in-from-bottom-4 fade-in duration-300",
+        "fixed right-4 bottom-20 left-4 z-50 md:right-4 md:bottom-4 md:left-auto md:w-[300px]",
+        "slide-in-from-bottom-4 fade-in animate-in duration-300",
         className
       )}
     >
@@ -122,31 +119,31 @@ export function PWAOfflineReadyPrompt({
             <svg
               className="h-4 w-4 text-green-600 dark:text-green-400"
               fill="none"
-              viewBox="0 0 24 24"
               stroke="currentColor"
+              viewBox="0 0 24 24"
             >
               <path
+                d="M5 13l4 4L19 7"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M5 13l4 4L19 7"
               />
             </svg>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium">Ready for offline use</p>
-            <p className="text-xs text-muted-foreground">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-sm">Ready for offline use</p>
+            <p className="text-muted-foreground text-xs">
               Content cached for offline access
             </p>
           </div>
           <Button
-            variant="ghost"
-            size="icon"
             className="h-6 w-6 flex-shrink-0"
             onClick={() => {
               setShow(false);
               setDismissed(true);
             }}
+            size="icon"
+            variant="ghost"
           >
             <X className="h-4 w-4" />
           </Button>

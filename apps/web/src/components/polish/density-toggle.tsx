@@ -1,7 +1,14 @@
 "use client";
 
-import * as React from "react";
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { Check, Columns3, LayoutGrid, LayoutList } from "lucide-react";
+import type * as React from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,7 +16,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Check, Columns3, LayoutGrid, LayoutList } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -77,7 +83,7 @@ interface DensityContextValue {
   density: DensityLevel;
   setDensity: (density: DensityLevel) => void;
   cycleDensity: () => void;
-  config: typeof DENSITY_CONFIG[DensityLevel];
+  config: (typeof DENSITY_CONFIG)[DensityLevel];
 }
 
 const DensityContext = createContext<DensityContextValue | null>(null);
@@ -128,7 +134,12 @@ export function DensityProvider({
     setMounted(true);
     if (persist && typeof window !== "undefined") {
       const stored = localStorage.getItem(DENSITY_STORAGE_KEY);
-      if (stored && (stored === "compact" || stored === "comfortable" || stored === "spacious")) {
+      if (
+        stored &&
+        (stored === "compact" ||
+          stored === "comfortable" ||
+          stored === "spacious")
+      ) {
         setDensityState(stored as DensityLevel);
       }
     }
@@ -156,13 +167,18 @@ export function DensityProvider({
   // Set CSS custom properties based on density
   useEffect(() => {
     if (!mounted) return;
-    
+
     const config = DENSITY_CONFIG[density];
     document.documentElement.setAttribute("data-density", density);
-    
+
     // Optional: Set CSS variables for use in styles
-    document.documentElement.style.setProperty("--density-spacing", 
-      density === "compact" ? "0.25rem" : density === "comfortable" ? "0.5rem" : "1rem"
+    document.documentElement.style.setProperty(
+      "--density-spacing",
+      density === "compact"
+        ? "0.25rem"
+        : density === "comfortable"
+          ? "0.5rem"
+          : "1rem"
     );
   }, [density, mounted]);
 
@@ -174,7 +190,9 @@ export function DensityProvider({
   }
 
   return (
-    <DensityContext.Provider value={{ density, setDensity, cycleDensity, config }}>
+    <DensityContext.Provider
+      value={{ density, setDensity, cycleDensity, config }}
+    >
       {children}
     </DensityContext.Provider>
   );
@@ -224,11 +242,11 @@ export function DensityToggle({
   if (variant === "cycle") {
     return (
       <Button
-        variant="ghost"
-        size={size === "sm" ? "sm" : size === "lg" ? "lg" : "default"}
-        onClick={cycleDensity}
         className={cn("gap-2", className)}
+        onClick={cycleDensity}
+        size={size === "sm" ? "sm" : size === "lg" ? "lg" : "default"}
         title={`Density: ${config.label} (⌘D to toggle)`}
+        variant="ghost"
       >
         {config.icon}
         <span className="hidden sm:inline">{config.label}</span>
@@ -240,10 +258,10 @@ export function DensityToggle({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="ghost"
-          size={size === "sm" ? "sm" : size === "lg" ? "lg" : "default"}
           className={cn("gap-2", className)}
+          size={size === "sm" ? "sm" : size === "lg" ? "lg" : "default"}
           title="Change density (⌘D)"
+          variant="ghost"
         >
           {config.icon}
           <span className="hidden sm:inline">{config.label}</span>
@@ -254,14 +272,14 @@ export function DensityToggle({
           const levelConfig = DENSITY_CONFIG[level];
           return (
             <DropdownMenuItem
+              className="flex items-center gap-3"
               key={level}
               onClick={() => setDensity(level)}
-              className="flex items-center gap-3"
             >
               {levelConfig.icon}
               <div className="flex-1">
                 <div className="font-medium">{levelConfig.label}</div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-muted-foreground text-xs">
                   {levelConfig.description}
                 </div>
               </div>
@@ -279,7 +297,7 @@ export function DensityToggle({
  */
 export function useDensityClasses() {
   const context = useDensityOptional();
-  
+
   // Default to comfortable if no provider
   const config = context?.config ?? DENSITY_CONFIG.comfortable;
 

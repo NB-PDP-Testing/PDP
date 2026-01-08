@@ -33,7 +33,10 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
               console.log("[PostHog] Feature flags LOADED!");
               console.log("[PostHog] Flags:", flags);
               console.log("[PostHog] Variants:", variants);
-              console.log("[PostHog] isFeatureEnabled('ux_admin_nav_sidebar'):", posthog.isFeatureEnabled("ux_admin_nav_sidebar"));
+              console.log(
+                "[PostHog] isFeatureEnabled('ux_admin_nav_sidebar'):",
+                posthog.isFeatureEnabled("ux_admin_nav_sidebar")
+              );
             }
           });
 
@@ -45,10 +48,10 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
           maskTextSelector: ".sensitive", // Mask elements with 'sensitive' class
         },
       });
-    } else {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("[PostHog] Not initialized - missing NEXT_PUBLIC_POSTHOG_KEY or NEXT_PUBLIC_POSTHOG_HOST");
-      }
+    } else if (process.env.NODE_ENV === "development") {
+      console.warn(
+        "[PostHog] Not initialized - missing NEXT_PUBLIC_POSTHOG_KEY or NEXT_PUBLIC_POSTHOG_HOST"
+      );
     }
   }, []);
 

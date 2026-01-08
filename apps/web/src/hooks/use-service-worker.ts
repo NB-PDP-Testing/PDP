@@ -84,11 +84,13 @@ export function useServiceWorker(
       const error = new Error("Service workers are not supported");
       setState((prev) => ({ ...prev, error }));
       onError?.(error);
-      return undefined;
+      return;
     }
 
     try {
-      const registration = await navigator.serviceWorker.register(path, { scope });
+      const registration = await navigator.serviceWorker.register(path, {
+        scope,
+      });
       registrationRef.current = registration;
 
       setState((prev) => ({
@@ -127,10 +129,11 @@ export function useServiceWorker(
 
       return registration;
     } catch (err) {
-      const error = err instanceof Error ? err : new Error("Registration failed");
+      const error =
+        err instanceof Error ? err : new Error("Registration failed");
       setState((prev) => ({ ...prev, error }));
       onError?.(error);
-      return undefined;
+      return;
     }
   }, [path, scope, onRegistered, onUpdateFound, onOfflineReady, onError]);
 
@@ -195,10 +198,16 @@ export function useServiceWorker(
       window.location.reload();
     };
 
-    navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      handleControllerChange
+    );
 
     return () => {
-      navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+      navigator.serviceWorker.removeEventListener(
+        "controllerchange",
+        handleControllerChange
+      );
     };
   }, []);
 
@@ -253,7 +262,10 @@ export function useCanInstallPWA(): {
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
 
     return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt
+      );
     };
   }, []);
 

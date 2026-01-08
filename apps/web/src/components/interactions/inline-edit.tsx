@@ -1,26 +1,19 @@
 "use client";
 
+import { CheckIcon, PencilIcon, XIcon } from "lucide-react";
 import * as React from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   Drawer,
   DrawerContent,
+  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-  DrawerFooter,
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { CheckIcon, XIcon, PencilIcon } from "lucide-react";
 
 /**
  * Props for InlineEdit component
@@ -139,7 +132,7 @@ export function InlineEdit({
     const trimmedValue = editValue.trim();
 
     // Validate empty
-    if (!allowEmpty && !trimmedValue) {
+    if (!(allowEmpty || trimmedValue)) {
       setError("This field cannot be empty");
       return;
     }
@@ -207,19 +200,22 @@ export function InlineEdit({
     return (
       <>
         <button
-          type="button"
-          onClick={startEditing}
-          disabled={disabled}
           className={cn(
-            "text-left w-full rounded-md px-2 py-1.5 -mx-2 -my-1.5",
+            "-mx-2 -my-1.5 w-full rounded-md px-2 py-1.5 text-left",
             "transition-colors active:bg-accent",
-            disabled && "opacity-50 cursor-not-allowed",
+            disabled && "cursor-not-allowed opacity-50",
             className
           )}
+          disabled={disabled}
+          onClick={startEditing}
+          type="button"
         >
           {displayContent}
         </button>
-        <Drawer open={isEditing} onOpenChange={(open) => !open && cancelEditing()}>
+        <Drawer
+          onOpenChange={(open) => !open && cancelEditing()}
+          open={isEditing}
+        >
           <DrawerContent>
             <DrawerHeader>
               <DrawerTitle>{label || "Edit"}</DrawerTitle>
@@ -227,58 +223,58 @@ export function InlineEdit({
             <div className="px-4 pb-4">
               {type === "textarea" ? (
                 <Textarea
-                  ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-                  value={editValue}
-                  onChange={(e) => {
-                    setEditValue(e.target.value);
-                    setError(null);
-                  }}
-                  onKeyDown={handleKeyDown}
-                  placeholder={placeholder}
-                  disabled={isSaving}
-                  rows={minRows}
                   className={cn(
                     "resize-none",
                     error && "border-destructive",
                     inputClassName
                   )}
-                />
-              ) : (
-                <Input
-                  ref={inputRef as React.RefObject<HTMLInputElement>}
-                  type={type}
-                  value={editValue}
+                  disabled={isSaving}
                   onChange={(e) => {
                     setEditValue(e.target.value);
                     setError(null);
                   }}
                   onKeyDown={handleKeyDown}
                   placeholder={placeholder}
-                  disabled={isSaving}
+                  ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+                  rows={minRows}
+                  value={editValue}
+                />
+              ) : (
+                <Input
                   className={cn(
                     "h-12",
                     error && "border-destructive",
                     inputClassName
                   )}
+                  disabled={isSaving}
+                  onChange={(e) => {
+                    setEditValue(e.target.value);
+                    setError(null);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  placeholder={placeholder}
+                  ref={inputRef as React.RefObject<HTMLInputElement>}
+                  type={type}
+                  value={editValue}
                 />
               )}
               {error && (
-                <p className="text-sm text-destructive mt-2">{error}</p>
+                <p className="mt-2 text-destructive text-sm">{error}</p>
               )}
             </div>
             <DrawerFooter className="flex-row gap-3">
               <Button
-                variant="outline"
-                className="flex-1 h-12"
-                onClick={cancelEditing}
+                className="h-12 flex-1"
                 disabled={isSaving}
+                onClick={cancelEditing}
+                variant="outline"
               >
                 {cancelText}
               </Button>
               <Button
-                className="flex-1 h-12"
-                onClick={handleSave}
+                className="h-12 flex-1"
                 disabled={isSaving}
+                onClick={handleSave}
               >
                 {isSaving ? "Saving..." : saveText}
               </Button>
@@ -292,16 +288,15 @@ export function InlineEdit({
   // Desktop: Inline editing
   if (isEditing) {
     return (
-      <div className={cn("relative group", className)}>
+      <div className={cn("group relative", className)}>
         {type === "textarea" ? (
           <Textarea
-            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-            value={editValue}
-            onChange={(e) => {
-              setEditValue(e.target.value);
-              setError(null);
-            }}
-            onKeyDown={handleKeyDown}
+            className={cn(
+              "resize-none pr-20",
+              error && "border-destructive",
+              inputClassName
+            )}
+            disabled={isSaving}
             onBlur={() => {
               // Delay to allow button clicks
               setTimeout(() => {
@@ -311,25 +306,24 @@ export function InlineEdit({
                 cancelEditing();
               }, 150);
             }}
-            placeholder={placeholder}
-            disabled={isSaving}
-            rows={minRows}
-            className={cn(
-              "resize-none pr-20",
-              error && "border-destructive",
-              inputClassName
-            )}
-          />
-        ) : (
-          <Input
-            ref={inputRef as React.RefObject<HTMLInputElement>}
-            type={type}
-            value={editValue}
             onChange={(e) => {
               setEditValue(e.target.value);
               setError(null);
             }}
             onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+            rows={minRows}
+            value={editValue}
+          />
+        ) : (
+          <Input
+            className={cn(
+              "pr-20",
+              error && "border-destructive",
+              inputClassName
+            )}
+            disabled={isSaving}
             onBlur={() => {
               setTimeout(() => {
                 if (document.activeElement?.closest(".inline-edit-actions")) {
@@ -338,41 +332,43 @@ export function InlineEdit({
                 cancelEditing();
               }, 150);
             }}
+            onChange={(e) => {
+              setEditValue(e.target.value);
+              setError(null);
+            }}
+            onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            disabled={isSaving}
-            className={cn(
-              "pr-20",
-              error && "border-destructive",
-              inputClassName
-            )}
+            ref={inputRef as React.RefObject<HTMLInputElement>}
+            type={type}
+            value={editValue}
           />
         )}
-        <div className="inline-edit-actions absolute right-1 top-1/2 -translate-y-1/2 flex gap-1">
+        <div className="inline-edit-actions -translate-y-1/2 absolute top-1/2 right-1 flex gap-1">
           <Button
+            className="h-7 w-7"
+            disabled={isSaving}
+            onClick={cancelEditing}
+            size="icon"
             type="button"
             variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={cancelEditing}
-            disabled={isSaving}
           >
             <XIcon className="h-4 w-4" />
             <span className="sr-only">{cancelText}</span>
           </Button>
           <Button
+            className="h-7 w-7"
+            disabled={isSaving}
+            onClick={handleSave}
+            size="icon"
             type="button"
             variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={handleSave}
-            disabled={isSaving}
           >
             <CheckIcon className="h-4 w-4" />
             <span className="sr-only">{saveText}</span>
           </Button>
         </div>
         {error && (
-          <p className="absolute left-0 top-full text-sm text-destructive mt-1">
+          <p className="absolute top-full left-0 mt-1 text-destructive text-sm">
             {error}
           </p>
         )}
@@ -384,32 +380,32 @@ export function InlineEdit({
   return (
     <div
       className={cn(
-        "relative group cursor-pointer rounded-md px-2 py-1 -mx-2 -my-1",
-        "hover:bg-accent/50 transition-colors",
-        disabled && "opacity-50 cursor-not-allowed hover:bg-transparent",
+        "group -mx-2 -my-1 relative cursor-pointer rounded-md px-2 py-1",
+        "transition-colors hover:bg-accent/50",
+        disabled && "cursor-not-allowed opacity-50 hover:bg-transparent",
         className
       )}
       onDoubleClick={startEditing}
-      role="button"
-      tabIndex={disabled ? -1 : 0}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           startEditing();
         }
       }}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
     >
       {displayContent}
       {showEditIcon && !disabled && (
         <button
-          type="button"
-          onClick={startEditing}
-          className={cn(
-            "absolute right-1 top-1/2 -translate-y-1/2",
-            "opacity-0 group-hover:opacity-100 transition-opacity",
-            "p-1 rounded hover:bg-accent"
-          )}
           aria-label={editLabel}
+          className={cn(
+            "-translate-y-1/2 absolute top-1/2 right-1",
+            "opacity-0 transition-opacity group-hover:opacity-100",
+            "rounded p-1 hover:bg-accent"
+          )}
+          onClick={startEditing}
+          type="button"
         >
           <PencilIcon className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
@@ -443,12 +439,12 @@ export function ControlledInlineEdit({
   return (
     <InlineEdit
       {...props}
-      value={value}
+      onCancel={onBlur}
       onSave={(newValue) => {
         onChange(newValue);
         onBlur?.();
       }}
-      onCancel={onBlur}
+      value={value}
     />
   );
 }

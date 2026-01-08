@@ -1,12 +1,12 @@
 "use client";
 
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * Props for ResponsiveInput
@@ -31,7 +31,7 @@ export interface ResponsiveInputProps
 
 /**
  * ResponsiveInput - Input with mobile-optimized sizing
- * 
+ *
  * Mobile: 48px height, larger text, larger touch targets
  * Desktop: 40px height, standard text
  */
@@ -64,18 +64,18 @@ export const ResponsiveInput = React.forwardRef<
       if (type === "tel") return "tel";
       if (type === "url") return "url";
       if (type === "number") return "numeric";
-      return undefined;
+      return;
     }, [type]);
 
     return (
       <div className="space-y-2">
         {label && (
           <Label
-            htmlFor={inputId}
             className={cn(
               // Larger label on mobile
               isMobile ? "text-base" : "text-sm"
             )}
+            htmlFor={inputId}
           >
             {label}
             {required && <span className="ml-1 text-destructive">*</span>}
@@ -84,16 +84,20 @@ export const ResponsiveInput = React.forwardRef<
 
         <div className="relative">
           {leftAddon && (
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
               {leftAddon}
             </div>
           )}
 
           <Input
-            ref={ref}
-            id={inputId}
-            type={type}
-            inputMode={inputMode}
+            aria-describedby={
+              error
+                ? `${inputId}-error`
+                : helpText
+                  ? `${inputId}-help`
+                  : undefined
+            }
+            aria-invalid={error ? "true" : undefined}
             className={cn(
               // Responsive heights: 48px mobile, 40px desktop
               isMobile ? "h-12 text-base" : "h-10 text-sm",
@@ -105,26 +109,22 @@ export const ResponsiveInput = React.forwardRef<
               success && "border-green-500 focus-visible:ring-green-500",
               className
             )}
-            aria-invalid={error ? "true" : undefined}
-            aria-describedby={
-              error
-                ? `${inputId}-error`
-                : helpText
-                  ? `${inputId}-help`
-                  : undefined
-            }
+            id={inputId}
+            inputMode={inputMode}
+            ref={ref}
+            type={type}
             {...props}
           />
 
           {rightAddon && (
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground">
               {rightAddon}
             </div>
           )}
 
           {/* Validation icons */}
           {!rightAddon && (error || success) && (
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
               {error && <AlertCircle className="h-5 w-5 text-destructive" />}
               {success && !error && (
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
@@ -136,8 +136,8 @@ export const ResponsiveInput = React.forwardRef<
         {/* Error message */}
         {error && (
           <p
+            className="flex items-center gap-1 text-destructive text-sm"
             id={`${inputId}-error`}
-            className="text-sm text-destructive flex items-center gap-1"
           >
             {error}
           </p>
@@ -145,17 +145,14 @@ export const ResponsiveInput = React.forwardRef<
 
         {/* Success message */}
         {success && !error && (
-          <p className="text-sm text-green-600 flex items-center gap-1">
+          <p className="flex items-center gap-1 text-green-600 text-sm">
             {success}
           </p>
         )}
 
         {/* Help text */}
         {helpText && !error && !success && (
-          <p
-            id={`${inputId}-help`}
-            className="text-sm text-muted-foreground"
-          >
+          <p className="text-muted-foreground text-sm" id={`${inputId}-help`}>
             {helpText}
           </p>
         )}
@@ -190,16 +187,7 @@ export const ResponsiveTextarea = React.forwardRef<
   ResponsiveTextareaProps
 >(
   (
-    {
-      className,
-      label,
-      error,
-      helpText,
-      required,
-      autoGrow,
-      id,
-      ...props
-    },
+    { className, label, error, helpText, required, autoGrow, id, ...props },
     ref
   ) => {
     const isMobile = useIsMobile();
@@ -222,8 +210,8 @@ export const ResponsiveTextarea = React.forwardRef<
       <div className="space-y-2">
         {label && (
           <Label
-            htmlFor={inputId}
             className={cn(isMobile ? "text-base" : "text-sm")}
+            htmlFor={inputId}
           >
             {label}
             {required && <span className="ml-1 text-destructive">*</span>}
@@ -231,20 +219,6 @@ export const ResponsiveTextarea = React.forwardRef<
         )}
 
         <Textarea
-          ref={textareaRef}
-          id={inputId}
-          onInput={handleInput}
-          style={autoGrow && height ? { height } : undefined}
-          className={cn(
-            // Larger on mobile
-            isMobile ? "min-h-[120px] text-base p-4" : "min-h-[80px] text-sm p-3",
-            // Error state
-            error && "border-destructive focus-visible:ring-destructive",
-            // Auto-grow styles
-            autoGrow && "resize-none overflow-hidden",
-            className
-          )}
-          aria-invalid={error ? "true" : undefined}
           aria-describedby={
             error
               ? `${inputId}-error`
@@ -252,23 +226,33 @@ export const ResponsiveTextarea = React.forwardRef<
                 ? `${inputId}-help`
                 : undefined
           }
+          aria-invalid={error ? "true" : undefined}
+          className={cn(
+            // Larger on mobile
+            isMobile
+              ? "min-h-[120px] p-4 text-base"
+              : "min-h-[80px] p-3 text-sm",
+            // Error state
+            error && "border-destructive focus-visible:ring-destructive",
+            // Auto-grow styles
+            autoGrow && "resize-none overflow-hidden",
+            className
+          )}
+          id={inputId}
+          onInput={handleInput}
+          ref={textareaRef}
+          style={autoGrow && height ? { height } : undefined}
           {...props}
         />
 
         {error && (
-          <p
-            id={`${inputId}-error`}
-            className="text-sm text-destructive"
-          >
+          <p className="text-destructive text-sm" id={`${inputId}-error`}>
             {error}
           </p>
         )}
 
         {helpText && !error && (
-          <p
-            id={`${inputId}-help`}
-            className="text-sm text-muted-foreground"
-          >
+          <p className="text-muted-foreground text-sm" id={`${inputId}-help`}>
             {helpText}
           </p>
         )}
@@ -314,8 +298,8 @@ export function ResponsiveSelect({
     <div className={cn("space-y-2", className)}>
       {label && (
         <Label
-          htmlFor={selectId}
           className={cn(isMobile ? "text-base" : "text-sm")}
+          htmlFor={selectId}
         >
           {label}
           {required && <span className="ml-1 text-destructive">*</span>}
@@ -334,12 +318,10 @@ export function ResponsiveSelect({
         {children}
       </div>
 
-      {error && (
-        <p className="text-sm text-destructive">{error}</p>
-      )}
+      {error && <p className="text-destructive text-sm">{error}</p>}
 
       {helpText && !error && (
-        <p className="text-sm text-muted-foreground">{helpText}</p>
+        <p className="text-muted-foreground text-sm">{helpText}</p>
       )}
     </div>
   );

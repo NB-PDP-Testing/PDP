@@ -1,8 +1,21 @@
 "use client";
 
+import {
+  BarChart3,
+  ClipboardList,
+  Home,
+  Keyboard,
+  Moon,
+  Search,
+  Settings,
+  Sun,
+  UserPlus,
+  Users,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import * as React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   CommandDialog,
   CommandEmpty,
@@ -13,20 +26,6 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { useIsMobile } from "@/hooks/use-mobile";
-import {
-  Search,
-  Users,
-  UserPlus,
-  Settings,
-  Home,
-  ClipboardList,
-  BarChart3,
-  LogOut,
-  Moon,
-  Sun,
-  Keyboard,
-} from "lucide-react";
-import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
 /**
@@ -60,7 +59,7 @@ export interface CommandMenuProps {
 
 /**
  * CommandMenu - Global search and command palette (Cmd+K)
- * 
+ *
  * Mobile: Full-screen search experience
  * Desktop: Floating command palette with keyboard shortcuts
  */
@@ -132,7 +131,8 @@ export function CommandMenu({
                 label: "Add New Player",
                 icon: <UserPlus className="mr-2 h-4 w-4" />,
                 shortcut: "⌘N",
-                onSelect: () => router.push(`/orgs/${orgId}/admin/player-import`),
+                onSelect: () =>
+                  router.push(`/orgs/${orgId}/admin/player-import`),
                 group: "Actions",
                 keywords: ["add", "new", "player", "import"],
               },
@@ -148,7 +148,10 @@ export function CommandMenu({
                 id: "analytics",
                 label: "View Analytics",
                 icon: <BarChart3 className="mr-2 h-4 w-4" />,
-                onSelect: () => router.push(`/orgs/${orgId}/admin/dashboard-analytics` as any),
+                onSelect: () =>
+                  router.push(
+                    `/orgs/${orgId}/admin/dashboard-analytics` as any
+                  ),
                 group: "Navigation",
                 keywords: ["analytics", "stats", "dashboard", "reports"],
               },
@@ -165,8 +168,14 @@ export function CommandMenu({
           : []),
         {
           id: "toggle-theme",
-          label: theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode",
-          icon: theme === "dark" ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />,
+          label:
+            theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode",
+          icon:
+            theme === "dark" ? (
+              <Sun className="mr-2 h-4 w-4" />
+            ) : (
+              <Moon className="mr-2 h-4 w-4" />
+            ),
           onSelect: () => setTheme(theme === "dark" ? "light" : "dark"),
           group: "Settings",
           keywords: ["theme", "dark", "light", "mode"],
@@ -206,44 +215,44 @@ export function CommandMenu({
     <>
       {/* Search trigger button - shown in header */}
       <button
-        onClick={() => setOpen(true)}
         className={cn(
-          "inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+          "inline-flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-muted-foreground text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
           isMobile ? "h-10" : "h-9"
         )}
+        onClick={() => setOpen(true)}
       >
         <Search className="h-4 w-4" />
         <span className="hidden sm:inline">Search...</span>
         {!isMobile && (
-          <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+          <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-medium font-mono text-[10px] opacity-100 sm:flex">
             <span className="text-xs">⌘</span>K
           </kbd>
         )}
       </button>
 
       {/* Command dialog */}
-      <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput 
-          placeholder="Type a command or search..." 
+      <CommandDialog onOpenChange={setOpen} open={open}>
+        <CommandInput
           className={cn(isMobile && "h-12 text-base")}
+          placeholder="Type a command or search..."
         />
         <CommandList className={cn(isMobile && "max-h-[60vh]")}>
           <CommandEmpty>No results found.</CommandEmpty>
-          
+
           {Object.entries(groupedItems).map(([group, groupItems], index) => (
             <React.Fragment key={group}>
               {index > 0 && <CommandSeparator />}
               <CommandGroup heading={group}>
                 {groupItems.map((item) => (
                   <CommandItem
+                    className={cn(isMobile && "py-3")}
                     key={item.id}
                     onSelect={() => handleSelect(item.onSelect)}
-                    className={cn(isMobile && "py-3")}
                   >
                     {item.icon}
                     <span>{item.label}</span>
                     {!isMobile && item.shortcut && (
-                      <kbd className="ml-auto pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+                      <kbd className="pointer-events-none ml-auto hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-medium font-mono text-[10px] opacity-100 sm:flex">
                         {item.shortcut}
                       </kbd>
                     )}
@@ -268,23 +277,21 @@ export function useGlobalShortcuts(shortcuts: Record<string, () => void>) {
       if (e.metaKey || e.ctrlKey) {
         const key = e.key.toLowerCase();
         const combo = `cmd+${key}`;
-        
+
         if (shortcuts[combo]) {
           e.preventDefault();
           shortcuts[combo]();
         }
       }
-      
+
       // Check for simple key shortcuts (like "?")
-      if (!e.metaKey && !e.ctrlKey && !e.altKey) {
-        if (shortcuts[e.key]) {
-          // Don't trigger if user is typing in an input
-          if (
-            document.activeElement?.tagName !== "INPUT" &&
-            document.activeElement?.tagName !== "TEXTAREA"
-          ) {
-            shortcuts[e.key]();
-          }
+      if (!(e.metaKey || e.ctrlKey || e.altKey) && shortcuts[e.key]) {
+        // Don't trigger if user is typing in an input
+        if (
+          document.activeElement?.tagName !== "INPUT" &&
+          document.activeElement?.tagName !== "TEXTAREA"
+        ) {
+          shortcuts[e.key]();
         }
       }
     };

@@ -34,11 +34,11 @@ interface BottomNavProps {
 
 /**
  * Mobile bottom navigation component
- * 
+ *
  * Industry standard: 72% of users prefer bottom navigation over hamburger menus
  * Touch targets: 44px+ minimum for accessibility
  * Labels: Shown on active item only for cleaner look
- * 
+ *
  * @see https://blog.appmysite.com/bottom-navigation-bar-in-mobile-apps-heres-all-you-need-to-know/
  */
 export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
@@ -58,14 +58,14 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
 
   const navContent = (
     <nav
+      aria-label="Main navigation"
       className={cn(
         "fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 md:hidden",
         className
       )}
       role="navigation"
-      aria-label="Main navigation"
     >
-      <div className="flex h-16 items-center justify-around px-2 safe-area-pb">
+      <div className="safe-area-pb flex h-16 items-center justify-around px-2">
         {items.map((item) => {
           const isActive = getIsActive(item);
           const Icon = item.icon;
@@ -74,10 +74,10 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
           if (item.isAction) {
             return (
               <button
+                aria-label={item.label}
+                className="-mt-4 relative flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 active:scale-95"
                 key={item.id}
                 onClick={() => onActionClick?.(item)}
-                className="relative -mt-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 active:scale-95"
-                aria-label={item.label}
               >
                 <Icon className="h-6 w-6" />
               </button>
@@ -87,28 +87,28 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
           // Regular nav item
           return (
             <Link
-              key={item.id}
-              href={item.href as Route}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "relative flex h-14 w-14 flex-col items-center justify-center rounded-lg transition-colors",
                 isActive
                   ? "text-primary"
                   : "text-muted-foreground hover:text-foreground"
               )}
-              aria-current={isActive ? "page" : undefined}
+              href={item.href as Route}
+              key={item.id}
             >
               <div className="relative">
                 <Icon className="h-6 w-6" />
                 {/* Badge */}
                 {item.badge && item.badge > 0 && (
-                  <span className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-destructive-foreground">
+                  <span className="-right-2 -top-1 absolute flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 font-medium text-[10px] text-destructive-foreground">
                     {item.badge > 99 ? "99+" : item.badge}
                   </span>
                 )}
               </div>
               {/* Active-only label for cleaner look */}
               {isActive && (
-                <span className="mt-0.5 text-[10px] font-medium">
+                <span className="mt-0.5 font-medium text-[10px]">
                   {item.label}
                 </span>
               )}

@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,7 +17,7 @@ export interface VisuallyHiddenProps {
 
 /**
  * VisuallyHidden - Hide content visually but keep it accessible
- * 
+ *
  * This component hides content from visual users while keeping it
  * accessible to screen readers. Useful for:
  * - Icon-only buttons that need text labels
@@ -33,7 +33,7 @@ export function VisuallyHidden({
   return (
     <Component
       className={cn(
-        "absolute h-px w-px p-0 -m-px overflow-hidden",
+        "-m-px absolute h-px w-px overflow-hidden p-0",
         "whitespace-nowrap border-0",
         "[clip:rect(0,0,0,0)]",
         className

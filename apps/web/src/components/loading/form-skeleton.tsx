@@ -1,8 +1,7 @@
 "use client";
 
-import * as React from "react";
-import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface FormFieldSkeletonProps {
   /** Show label */
@@ -64,7 +63,7 @@ interface FormSkeletonProps {
 
 /**
  * FormSkeleton - Loading placeholder for forms
- * 
+ *
  * Features:
  * - Configurable field count and types
  * - Multiple layouts (stacked, two-column, inline)
@@ -79,9 +78,11 @@ export function FormSkeleton({
   className,
 }: FormSkeletonProps) {
   // Generate field types if not provided
-  const types = fieldTypes || Array(fields).fill("input").map((_, i) => 
-    i === fields - 1 ? "textarea" : "input"
-  );
+  const types =
+    fieldTypes ||
+    Array(fields)
+      .fill("input")
+      .map((_, i) => (i === fields - 1 ? "textarea" : "input"));
 
   const containerClass = {
     stacked: "space-y-4",
@@ -103,9 +104,9 @@ export function FormSkeleton({
       <div className={containerClass[layout]}>
         {types.slice(0, fields).map((type, i) => (
           <FormFieldSkeleton
+            className={layout === "inline" ? "min-w-[200px] flex-1" : undefined}
             key={i}
             type={type as "input" | "textarea" | "select"}
-            className={layout === "inline" ? "flex-1 min-w-[200px]" : undefined}
           />
         ))}
       </div>
@@ -162,10 +163,10 @@ export function MultiSectionFormSkeleton({
   return (
     <div className={cn("space-y-8", className)}>
       {Array.from({ length: sections }).map((_, i) => (
-        <FormSectionSkeleton key={i} fields={fieldsPerSection} />
+        <FormSectionSkeleton fields={fieldsPerSection} key={i} />
       ))}
       {showSubmit && (
-        <div className="flex justify-end gap-3 pt-4 border-t">
+        <div className="flex justify-end gap-3 border-t pt-4">
           <Skeleton className="h-10 w-20 rounded" />
           <Skeleton className="h-10 w-28 rounded" />
         </div>

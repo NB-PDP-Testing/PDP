@@ -1,6 +1,6 @@
 /**
  * Polish Components
- * 
+ *
  * Phase 5 UX improvements: Polish & Platform Features
  * - Keyboard shortcuts overlay (? to show)
  * - Density toggle (compact/comfortable/spacious)
@@ -11,62 +11,57 @@
  * - Recent items
  */
 
-// Keyboard shortcuts
-export {
-  KeyboardShortcutsOverlay,
-  useKeyboardShortcutsOverlay,
-  DEFAULT_SHORTCUTS,
-  type KeyboardShortcutsOverlayProps,
-  type ShortcutCategory,
-} from "./keyboard-shortcuts-overlay";
-
 // Density controls
 export {
-  DensityProvider,
-  DensityToggle,
-  useDensity,
-  useDensityOptional,
-  useDensityClasses,
   DENSITY_CONFIG,
   type DensityLevel,
+  DensityProvider,
   type DensityProviderProps,
+  DensityToggle,
   type DensityToggleProps,
+  useDensity,
+  useDensityClasses,
+  useDensityOptional,
 } from "./density-toggle";
+// Keyboard shortcuts
+export {
+  DEFAULT_SHORTCUTS,
+  KeyboardShortcutsOverlay,
+  type KeyboardShortcutsOverlayProps,
+  type ShortcutCategory,
+  useKeyboardShortcutsOverlay,
+} from "./keyboard-shortcuts-overlay";
 
 // Offline support
 export {
-  OfflineIndicator,
   OfflineBadge,
-  OfflineWrapper,
   OfflineContent,
-  useOnlineStatus,
+  OfflineIndicator,
   type OfflineIndicatorProps,
+  OfflineWrapper,
+  useOnlineStatus,
 } from "./offline-indicator";
-
+// Pinned favorites
+export {
+  type FavoriteItem,
+  FavoriteToggleButton,
+  PinnedFavorites,
+  useFavorites,
+} from "./pinned-favorites";
 // PWA install prompt
 export {
   PWAInstallPrompt,
   useIsPWAInstalled,
 } from "./pwa-install-prompt";
-
+// Recent items history
+export {
+  PageTracker,
+  type RecentItem,
+  RecentItems,
+  useRecentItems,
+} from "./recent-items";
 // Resizable sidebar
 export {
   ResizableSidebar,
   useSidebarState,
 } from "./resizable-sidebar";
-
-// Pinned favorites
-export {
-  PinnedFavorites,
-  FavoriteToggleButton,
-  useFavorites,
-  type FavoriteItem,
-} from "./pinned-favorites";
-
-// Recent items history
-export {
-  RecentItems,
-  PageTracker,
-  useRecentItems,
-  type RecentItem,
-} from "./recent-items";

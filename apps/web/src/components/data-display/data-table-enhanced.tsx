@@ -1,15 +1,16 @@
 "use client";
 
-import * as React from "react";
-import { cn } from "@/lib/utils";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronUp,
+  Columns,
+  Download,
+  MoreHorizontal,
+  Search,
+  X,
+} from "lucide-react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -23,22 +24,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
-  Columns,
-  Download,
-  Filter,
-  MoreHorizontal,
-  Search,
-  Trash2,
-  X,
-} from "lucide-react";
-import {
-  HoverActionsContainer,
-  HoverActions,
-  HoverActionButton,
-} from "@/components/ui/hover-actions";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 /**
  * Enhanced column definition with visibility and width controls
@@ -63,7 +56,10 @@ export interface EnhancedColumn<T> {
   /** Enable inline editing for this column */
   editable?: boolean;
   /** Cell editor component */
-  editor?: (value: unknown, onChange: (value: unknown) => void) => React.ReactNode;
+  editor?: (
+    value: unknown,
+    onChange: (value: unknown) => void
+  ) => React.ReactNode;
 }
 
 /**
@@ -149,7 +145,7 @@ interface DataTableEnhancedProps<T> {
 
 /**
  * DataTableEnhanced - Desktop-optimized data table with power features
- * 
+ *
  * Features:
  * - Column visibility toggle
  * - Bulk selection and actions
@@ -186,21 +182,26 @@ export function DataTableEnhanced<T>({
   className,
 }: DataTableEnhancedProps<T>) {
   // Column visibility state
-  const [visibleColumns, setVisibleColumns] = React.useState<Set<string>>(() => {
-    return new Set(
-      columns.filter((col) => col.visible !== false).map((col) => col.id)
-    );
-  });
+  const [visibleColumns, setVisibleColumns] = React.useState<Set<string>>(
+    () =>
+      new Set(
+        columns.filter((col) => col.visible !== false).map((col) => col.id)
+      )
+  );
 
   // Selection state - use controlled if provided, otherwise internal
-  const [internalSelectedKeys, setInternalSelectedKeys] = React.useState<Set<string>>(new Set());
-  
+  const [internalSelectedKeys, setInternalSelectedKeys] = React.useState<
+    Set<string>
+  >(new Set());
+
   // Use controlled selection if provided, otherwise use internal state
   const isControlled = controlledSelectedKeys !== undefined;
-  const selectedKeys = isControlled ? controlledSelectedKeys : internalSelectedKeys;
-  const setSelectedKeys = isControlled 
+  const selectedKeys = isControlled
+    ? controlledSelectedKeys
+    : internalSelectedKeys;
+  const setSelectedKeys = isControlled
     ? (keys: Set<string> | ((prev: Set<string>) => Set<string>)) => {
-        const newKeys = typeof keys === 'function' ? keys(selectedKeys) : keys;
+        const newKeys = typeof keys === "function" ? keys(selectedKeys) : keys;
         onSelectionChange?.(newKeys);
       }
     : setInternalSelectedKeys;
@@ -213,9 +214,10 @@ export function DataTableEnhanced<T>({
   const displayColumns = columns.filter((col) => visibleColumns.has(col.id));
 
   // Get selected items
-  const selectedItems = React.useMemo(() => {
-    return data.filter((item) => selectedKeys.has(getRowKey(item)));
-  }, [data, selectedKeys, getRowKey]);
+  const selectedItems = React.useMemo(
+    () => data.filter((item) => selectedKeys.has(getRowKey(item))),
+    [data, selectedKeys, getRowKey]
+  );
 
   // Handle column visibility toggle
   const toggleColumnVisibility = (columnId: string) => {
@@ -281,7 +283,7 @@ export function DataTableEnhanced<T>({
   const handleExport = () => {
     // Determine which data to export: selected items if any, otherwise all data
     const dataToExport = selectedKeys.size > 0 ? selectedItems : data;
-    
+
     // Export ALL columns (not just visible) for complete data
     const headers = columns.map((col) => col.header);
     const rows = dataToExport.map((item) =>
@@ -291,7 +293,7 @@ export function DataTableEnhanced<T>({
           const value = col.exportAccessor(item);
           return value != null ? String(value) : "";
         }
-        
+
         const value = col.accessor(item);
         // Convert React nodes to string
         if (typeof value === "string" || typeof value === "number") {
@@ -302,14 +304,16 @@ export function DataTableEnhanced<T>({
     );
 
     const csv = [headers, ...rows]
-      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      )
       .join("\n");
 
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${exportFilename}${selectedKeys.size > 0 ? `-selected-${selectedKeys.size}` : ''}.csv`;
+    a.download = `${exportFilename}${selectedKeys.size > 0 ? `-selected-${selectedKeys.size}` : ""}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -326,9 +330,9 @@ export function DataTableEnhanced<T>({
         <div className="animate-pulse">
           <div className="h-12 border-b bg-muted/30" />
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex h-14 items-center gap-4 border-b px-4">
+            <div className="flex h-14 items-center gap-4 border-b px-4" key={i}>
               {displayColumns.map((col) => (
-                <div key={col.id} className="h-4 flex-1 rounded bg-muted/50" />
+                <div className="h-4 flex-1 rounded bg-muted/50" key={col.id} />
               ))}
             </div>
           ))}
@@ -345,19 +349,19 @@ export function DataTableEnhanced<T>({
         <div className="flex items-center gap-4">
           {searchable && (
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
               <Input
+                className="w-[250px] pl-9"
+                onChange={(e) => handleSearch(e.target.value)}
                 placeholder={searchPlaceholder}
                 value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="w-[250px] pl-9"
               />
               {searchQuery && (
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2"
+                  className="-translate-y-1/2 absolute top-1/2 right-1 h-6 w-6"
                   onClick={() => handleSearch("")}
+                  size="icon"
+                  variant="ghost"
                 >
                   <X className="h-3 w-3" />
                 </Button>
@@ -368,19 +372,19 @@ export function DataTableEnhanced<T>({
           {/* Selection info and bulk actions */}
           {selectable && selectedKeys.size > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-muted-foreground text-sm">
                 {selectedKeys.size} selected
               </span>
-              <Button variant="ghost" size="sm" onClick={clearSelection}>
+              <Button onClick={clearSelection} size="sm" variant="ghost">
                 Clear
               </Button>
               {bulkActions?.map((action) => (
                 <Button
-                  key={action.label}
-                  variant={action.destructive ? "destructive" : "outline"}
-                  size="sm"
-                  onClick={() => action.onClick(selectedItems)}
                   disabled={action.disabled}
+                  key={action.label}
+                  onClick={() => action.onClick(selectedItems)}
+                  size="sm"
+                  variant={action.destructive ? "destructive" : "outline"}
                 >
                   {action.icon && <span className="mr-2">{action.icon}</span>}
                   {action.label}
@@ -395,7 +399,7 @@ export function DataTableEnhanced<T>({
           {/* Column visibility dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button size="sm" variant="outline">
                 <Columns className="mr-2 h-4 w-4" />
                 Columns
               </Button>
@@ -407,8 +411,8 @@ export function DataTableEnhanced<T>({
                 .filter((col) => col.hideable !== false)
                 .map((column) => (
                   <DropdownMenuCheckboxItem
-                    key={column.id}
                     checked={visibleColumns.has(column.id)}
+                    key={column.id}
                     onCheckedChange={() => toggleColumnVisibility(column.id)}
                   >
                     {column.header}
@@ -419,7 +423,7 @@ export function DataTableEnhanced<T>({
 
           {/* Export button */}
           {exportable && (
-            <Button variant="outline" size="sm" onClick={handleExport}>
+            <Button onClick={handleExport} size="sm" variant="outline">
               <Download className="mr-2 h-4 w-4" />
               Export
             </Button>
@@ -430,23 +434,28 @@ export function DataTableEnhanced<T>({
       {/* Table */}
       <div className="rounded-lg border">
         <Table>
-          <TableHeader className={stickyHeader ? "sticky top-0 z-10 bg-background" : ""}>
+          <TableHeader
+            className={stickyHeader ? "sticky top-0 z-10 bg-background" : ""}
+          >
             <TableRow className="hover:bg-transparent">
               {selectable && (
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={data.length > 0 && selectedKeys.size === data.length}
+                    checked={
+                      data.length > 0 && selectedKeys.size === data.length
+                    }
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
               )}
               {displayColumns.map((column) => (
                 <TableHead
-                  key={column.id}
                   className={cn(
                     column.width,
-                    column.sortable && "cursor-pointer select-none hover:bg-muted/50"
+                    column.sortable &&
+                      "cursor-pointer select-none hover:bg-muted/50"
                   )}
+                  key={column.id}
                   onClick={() => column.sortable && handleSort(column.id)}
                 >
                   <div className="flex items-center gap-1">
@@ -476,11 +485,17 @@ export function DataTableEnhanced<T>({
             {data.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={displayColumns.length + (selectable ? 1 : 0) + (rowActions ? 1 : 0)}
                   className="h-32 text-center"
+                  colSpan={
+                    displayColumns.length +
+                    (selectable ? 1 : 0) +
+                    (rowActions ? 1 : 0)
+                  }
                 >
                   {emptyState || (
-                    <span className="text-muted-foreground">No results found</span>
+                    <span className="text-muted-foreground">
+                      No results found
+                    </span>
                   )}
                 </TableCell>
               </TableRow>
@@ -491,12 +506,12 @@ export function DataTableEnhanced<T>({
 
                 return (
                   <TableRow
-                    key={key}
                     className={cn(
                       "group transition-colors",
                       onRowClick && "cursor-pointer",
                       isSelected && "bg-primary/5"
                     )}
+                    key={key}
                     onClick={() => onRowClick?.(item)}
                     onDoubleClick={() => onRowDoubleClick?.(item)}
                   >
@@ -509,7 +524,7 @@ export function DataTableEnhanced<T>({
                       </TableCell>
                     )}
                     {displayColumns.map((column) => (
-                      <TableCell key={column.id} className={column.width}>
+                      <TableCell className={column.width} key={column.id}>
                         {column.accessor(item)}
                       </TableCell>
                     ))}
@@ -518,13 +533,13 @@ export function DataTableEnhanced<T>({
                         <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                           {rowActions.slice(0, 2).map((action) => (
                             <Button
-                              key={action.label}
-                              variant="ghost"
-                              size="icon"
                               className="h-8 w-8"
-                              onClick={() => action.onClick(item)}
                               disabled={action.disabled?.(item)}
+                              key={action.label}
+                              onClick={() => action.onClick(item)}
+                              size="icon"
                               title={action.label}
+                              variant="ghost"
                             >
                               {action.icon}
                             </Button>
@@ -532,22 +547,28 @@ export function DataTableEnhanced<T>({
                           {rowActions.length > 2 && (
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Button
+                                  className="h-8 w-8"
+                                  size="icon"
+                                  variant="ghost"
+                                >
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 {rowActions.slice(2).map((action) => (
                                   <DropdownMenuItem
-                                    key={action.label}
-                                    onClick={() => action.onClick(item)}
-                                    disabled={action.disabled?.(item)}
                                     className={cn(
                                       action.destructive && "text-destructive"
                                     )}
+                                    disabled={action.disabled?.(item)}
+                                    key={action.label}
+                                    onClick={() => action.onClick(item)}
                                   >
                                     {action.icon && (
-                                      <span className="mr-2">{action.icon}</span>
+                                      <span className="mr-2">
+                                        {action.icon}
+                                      </span>
                                     )}
                                     {action.label}
                                   </DropdownMenuItem>

@@ -1,11 +1,11 @@
 "use client";
 
-import * as React from "react";
+import { Loader2 } from "lucide-react";
+import type * as React from "react";
 import { useCallback, useEffect, useRef } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * Props for ResponsiveForm
@@ -40,12 +40,12 @@ export interface ResponsiveFormProps
 
 /**
  * ResponsiveForm - Form wrapper with mobile and desktop optimizations
- * 
+ *
  * Mobile Features:
  * - Sticky submit button at bottom
  * - Larger spacing for thumb zones
  * - Full-width buttons
- * 
+ *
  * Desktop Features:
  * - Keyboard shortcuts (Cmd+S, Esc)
  * - Inline buttons
@@ -127,19 +127,19 @@ export function ResponsiveForm({
     >
       {onCancel && (
         <Button
+          className={cn(isMobile && "w-full")}
+          disabled={isLoading}
+          onClick={onCancel}
           type="button"
           variant="outline"
-          onClick={onCancel}
-          disabled={isLoading}
-          className={cn(isMobile && "w-full")}
         >
           {cancelText}
         </Button>
       )}
       <Button
-        type="submit"
-        disabled={isLoading}
         className={cn(isMobile && "w-full")}
+        disabled={isLoading}
+        type="submit"
       >
         {isLoading ? (
           <>
@@ -155,14 +155,14 @@ export function ResponsiveForm({
 
   return (
     <form
-      ref={formRef}
-      onSubmit={handleSubmit}
       className={cn(
         "relative",
         // Add padding bottom on mobile for sticky footer
         isMobile && stickySubmit && "pb-24",
         className
       )}
+      onSubmit={handleSubmit}
+      ref={formRef}
       {...props}
     >
       {/* Form content with responsive spacing */}
@@ -179,7 +179,7 @@ export function ResponsiveForm({
       {/* Footer / Submit buttons */}
       {isMobile && stickySubmit ? (
         // Sticky footer on mobile
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-background p-4 safe-area-pb">
+        <div className="safe-area-pb fixed inset-x-0 bottom-0 z-40 border-t bg-background p-4">
           {footer}
         </div>
       ) : (
@@ -189,7 +189,7 @@ export function ResponsiveForm({
 
       {/* Keyboard shortcut hints (desktop only) */}
       {enableShortcuts && !isMobile && (
-        <div className="mt-3 text-xs text-muted-foreground">
+        <div className="mt-3 text-muted-foreground text-xs">
           <span className="inline-flex items-center gap-1">
             <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
               ⌘S
@@ -244,11 +244,9 @@ export function ResponsiveFormSection({
     >
       {(title || description) && (
         <div className="mb-4">
-          {title && (
-            <h3 className="font-semibold text-lg">{title}</h3>
-          )}
+          {title && <h3 className="font-semibold text-lg">{title}</h3>}
           {description && (
-            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            <p className="mt-1 text-muted-foreground text-sm">{description}</p>
           )}
         </div>
       )}

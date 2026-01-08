@@ -33,7 +33,7 @@ interface SwipeableCardProps {
 
 /**
  * SwipeableCard - Mobile card with swipe-to-reveal actions
- * 
+ *
  * Phase 2 UX improvement: Enables native-feeling swipe gestures
  * on mobile for quick actions like edit/delete.
  */
@@ -121,16 +121,16 @@ export function SwipeableCard({
     <div className={cn("relative overflow-hidden rounded-lg", className)}>
       {/* Right actions (revealed on swipe right) */}
       {rightActions.length > 0 && (
-        <div className="absolute left-0 top-0 bottom-0 flex">
+        <div className="absolute top-0 bottom-0 left-0 flex">
           {rightActions.map((action, idx) => (
             <button
-              key={idx}
-              onClick={() => handleActionClick(action)}
               className={cn(
-                "flex h-full w-20 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
+                "flex h-full w-20 flex-col items-center justify-center gap-1 font-medium text-xs transition-colors",
                 action.bgColor || "bg-primary",
                 action.textColor || "text-primary-foreground"
               )}
+              key={idx}
+              onClick={() => handleActionClick(action)}
             >
               {action.icon}
               <span>{action.label}</span>
@@ -141,16 +141,16 @@ export function SwipeableCard({
 
       {/* Left actions (revealed on swipe left) */}
       {leftActions.length > 0 && (
-        <div className="absolute right-0 top-0 bottom-0 flex">
+        <div className="absolute top-0 right-0 bottom-0 flex">
           {leftActions.map((action, idx) => (
             <button
-              key={idx}
-              onClick={() => handleActionClick(action)}
               className={cn(
-                "flex h-full w-20 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
+                "flex h-full w-20 flex-col items-center justify-center gap-1 font-medium text-xs transition-colors",
                 action.bgColor || "bg-destructive",
                 action.textColor || "text-destructive-foreground"
               )}
+              key={idx}
+              onClick={() => handleActionClick(action)}
             >
               {action.icon}
               <span>{action.label}</span>
@@ -161,16 +161,16 @@ export function SwipeableCard({
 
       {/* Main card content */}
       <div
-        ref={cardRef}
         className={cn(
-          "relative bg-card border rounded-lg transition-transform",
+          "relative rounded-lg border bg-card transition-transform",
           isDragging ? "transition-none" : "duration-200 ease-out"
         )}
-        style={{ transform: `translateX(${translateX}px)` }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         onClick={handleCardClick}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
+        onTouchStart={handleTouchStart}
+        ref={cardRef}
+        style={{ transform: `translateX(${translateX}px)` }}
       >
         {children}
       </div>

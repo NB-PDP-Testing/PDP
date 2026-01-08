@@ -4,16 +4,16 @@ import * as React from "react";
 
 /**
  * Hook to detect user's reduced motion preference
- * 
+ *
  * Features:
  * - Detects `prefers-reduced-motion: reduce` media query
  * - Updates in real-time if user changes preference
  * - Returns true if user prefers reduced motion
- * 
+ *
  * Usage:
  * ```tsx
  * const prefersReducedMotion = useReducedMotion();
- * 
+ *
  * return (
  *   <div className={prefersReducedMotion ? "animate-none" : "animate-bounce"}>
  *     Content
@@ -50,7 +50,7 @@ export function useReducedMotion(): boolean {
 
 /**
  * Hook to get animation duration based on reduced motion preference
- * 
+ *
  * Returns 0 if user prefers reduced motion, otherwise returns the specified duration
  */
 export function useAnimationDuration(normalDuration: number): number {
@@ -60,7 +60,7 @@ export function useAnimationDuration(normalDuration: number): number {
 
 /**
  * Hook to get animation class based on reduced motion preference
- * 
+ *
  * Returns the animation class if user allows motion, empty string otherwise
  */
 export function useAnimationClass(animationClass: string): string {
@@ -74,13 +74,13 @@ export function useAnimationClass(animationClass: string): string {
  */
 export function getReducedMotionClass(
   animationClass: string,
-  fallbackClass: string = ""
+  fallbackClass = ""
 ): string {
   if (typeof window === "undefined") return animationClass;
-  
+
   const prefersReducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)"
   ).matches;
-  
+
   return prefersReducedMotion ? fallbackClass : animationClass;
 }

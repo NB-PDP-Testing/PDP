@@ -1,10 +1,10 @@
 "use client";
 
-import * as React from "react";
+import { RefreshCw, Wifi, WifiOff } from "lucide-react";
+import type * as React from "react";
 import { useEffect, useState } from "react";
-import { WifiOff, Wifi, RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * Hook to track online/offline status
@@ -58,7 +58,7 @@ export interface OfflineIndicatorProps {
 
 /**
  * OfflineIndicator - Shows when the user is offline
- * 
+ *
  * Displays a banner when the connection is lost
  * Shows "reconnected" briefly when connection is restored
  */
@@ -90,16 +90,14 @@ export function OfflineIndicator({
 
   return (
     <div
+      aria-live="polite"
       className={cn(
-        "fixed left-0 right-0 z-50 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition-all duration-300",
+        "fixed right-0 left-0 z-50 flex items-center justify-center gap-2 px-4 py-2 font-medium text-sm transition-all duration-300",
         position === "top" ? "top-0" : "bottom-0",
-        isOnline
-          ? "bg-green-500 text-white"
-          : "bg-yellow-500 text-yellow-950",
+        isOnline ? "bg-green-500 text-white" : "bg-yellow-500 text-yellow-950",
         className
       )}
       role="status"
-      aria-live="polite"
     >
       {isOnline ? (
         <>
@@ -111,12 +109,12 @@ export function OfflineIndicator({
           <WifiOff className="h-4 w-4" />
           <span>{offlineMessage}</span>
           <Button
-            variant="ghost"
-            size="sm"
             className="ml-2 h-7 px-2 hover:bg-yellow-600/20"
             onClick={() => window.location.reload()}
+            size="sm"
+            variant="ghost"
           >
-            <RefreshCw className="h-3 w-3 mr-1" />
+            <RefreshCw className="mr-1 h-3 w-3" />
             Retry
           </Button>
         </>
@@ -136,7 +134,7 @@ export function OfflineBadge({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium",
+        "flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 font-medium text-xs text-yellow-800",
         className
       )}
       title="You're offline"
@@ -166,7 +164,9 @@ export function OfflineWrapper({
   }
 
   return (
-    <div className={cn(className, !isOnline && "opacity-50 pointer-events-none")}>
+    <div
+      className={cn(className, !isOnline && "pointer-events-none opacity-50")}
+    >
       {children}
     </div>
   );
@@ -187,18 +187,20 @@ export function OfflineContent({
   onRetry?: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-      <div className="rounded-full bg-yellow-100 p-4 mb-4">
+    <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+      <div className="mb-4 rounded-full bg-yellow-100 p-4">
         <WifiOff className="h-8 w-8 text-yellow-600" />
       </div>
-      <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-sm text-muted-foreground mb-4 max-w-sm">{description}</p>
+      <h3 className="mb-2 font-semibold text-lg">{title}</h3>
+      <p className="mb-4 max-w-sm text-muted-foreground text-sm">
+        {description}
+      </p>
       {showRetry && (
         <Button
-          variant="outline"
           onClick={onRetry ?? (() => window.location.reload())}
+          variant="outline"
         >
-          <RefreshCw className="h-4 w-4 mr-2" />
+          <RefreshCw className="mr-2 h-4 w-4" />
           Try Again
         </Button>
       )}

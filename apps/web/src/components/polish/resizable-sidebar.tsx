@@ -1,9 +1,9 @@
 "use client";
 
+import { ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import * as React from "react";
-import { cn } from "@/lib/utils";
-import { GripVertical, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 400;
@@ -35,7 +35,7 @@ interface ResizableSidebarProps {
 
 /**
  * ResizableSidebar - Desktop sidebar with drag-to-resize and collapse
- * 
+ *
  * Features:
  * - Drag handle to resize width
  * - Collapse/expand button
@@ -91,7 +91,10 @@ export function ResizableSidebar({
 
     const handleMouseMove = (e: MouseEvent) => {
       const delta = side === "left" ? e.clientX - startX : startX - e.clientX;
-      const newWidth = Math.min(maxWidth, Math.max(minWidth, startWidth + delta));
+      const newWidth = Math.min(
+        maxWidth,
+        Math.max(minWidth, startWidth + delta)
+      );
       setWidth(newWidth);
       onWidthChange?.(newWidth);
     };
@@ -143,20 +146,20 @@ export function ResizableSidebar({
 
   return (
     <aside
-      ref={sidebarRef}
       className={cn(
         "relative flex-shrink-0 border-r bg-card transition-[width] duration-200",
-        side === "right" && "order-last border-l border-r-0",
+        side === "right" && "order-last border-r-0 border-l",
         isResizing && "transition-none",
         className
       )}
+      ref={sidebarRef}
       style={{ width: currentWidth }}
     >
       {/* Content */}
       <div
         className={cn(
           "h-full overflow-hidden",
-          isCollapsed && "opacity-0 pointer-events-none"
+          isCollapsed && "pointer-events-none opacity-0"
         )}
       >
         {children}
@@ -166,10 +169,10 @@ export function ResizableSidebar({
       {isCollapsed && (
         <div className="absolute inset-0 flex items-center justify-center">
           <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleCollapsed}
             className="h-10 w-10"
+            onClick={toggleCollapsed}
+            size="icon"
+            variant="ghost"
           >
             {side === "left" ? (
               <ChevronRight className="h-5 w-5" />
@@ -183,28 +186,28 @@ export function ResizableSidebar({
       {/* Resize handle */}
       {!isCollapsed && (
         <div
+          aria-label="Resize sidebar"
+          aria-orientation="vertical"
+          aria-valuemax={maxWidth}
+          aria-valuemin={minWidth}
+          aria-valuenow={width}
           className={cn(
-            "absolute top-0 bottom-0 w-1 cursor-col-resize group",
+            "group absolute top-0 bottom-0 w-1 cursor-col-resize",
             "hover:bg-primary/20 active:bg-primary/30",
             "transition-colors",
             side === "left" ? "-right-0.5" : "-left-0.5"
           )}
-          onMouseDown={handleMouseDown}
           onDoubleClick={handleDoubleClick}
           onKeyDown={handleKeyDown}
-          tabIndex={0}
+          onMouseDown={handleMouseDown}
           role="separator"
-          aria-orientation="vertical"
-          aria-valuenow={width}
-          aria-valuemin={minWidth}
-          aria-valuemax={maxWidth}
-          aria-label="Resize sidebar"
+          tabIndex={0}
         >
           {/* Visual grip indicator */}
           <div
             className={cn(
-              "absolute top-1/2 -translate-y-1/2 flex items-center justify-center",
-              "w-4 h-8 rounded bg-muted/50 opacity-0 group-hover:opacity-100",
+              "-translate-y-1/2 absolute top-1/2 flex items-center justify-center",
+              "h-8 w-4 rounded bg-muted/50 opacity-0 group-hover:opacity-100",
               "transition-opacity",
               side === "left" ? "-right-1.5" : "-left-1.5"
             )}
@@ -217,13 +220,13 @@ export function ResizableSidebar({
       {/* Collapse button */}
       {!isCollapsed && (
         <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleCollapsed}
           className={cn(
             "absolute top-4 h-6 w-6 rounded-full border bg-background shadow-sm",
             side === "left" ? "-right-3" : "-left-3"
           )}
+          onClick={toggleCollapsed}
+          size="icon"
+          variant="ghost"
         >
           {side === "left" ? (
             <ChevronLeft className="h-3 w-3" />

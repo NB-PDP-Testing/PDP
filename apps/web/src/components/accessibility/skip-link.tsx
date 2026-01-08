@@ -1,6 +1,6 @@
 "use client";
 
-import * as React from "react";
+import type * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,7 +17,7 @@ export interface SkipLinkProps {
 
 /**
  * SkipLink - Accessibility skip link for keyboard users
- * 
+ *
  * Features:
  * - Hidden by default, visible on focus
  * - Allows keyboard users to skip navigation
@@ -39,22 +39,22 @@ export function SkipLink({
 
   return (
     <a
-      href={`#${targetId}`}
-      onClick={handleClick}
       className={cn(
         // Position offscreen by default
-        "absolute left-0 top-0 z-[9999]",
+        "absolute top-0 left-0 z-[9999]",
         // Skip link styling
-        "bg-background px-4 py-2 text-sm font-medium",
-        "border border-border rounded-md shadow-lg",
+        "bg-background px-4 py-2 font-medium text-sm",
+        "rounded-md border border-border shadow-lg",
         "text-foreground focus:outline-none",
         // Focus ring
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         // Visible on focus, hidden otherwise
-        "-translate-y-full focus:translate-y-4 focus:left-4",
+        "-translate-y-full focus:left-4 focus:translate-y-4",
         "transition-transform duration-200",
         className
       )}
+      href={`#${targetId}`}
+      onClick={handleClick}
     >
       {children}
     </a>

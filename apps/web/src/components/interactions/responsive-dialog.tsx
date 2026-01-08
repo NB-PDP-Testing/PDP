@@ -1,27 +1,27 @@
 "use client";
 
 import * as React from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
   DrawerDescription,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-  DrawerClose,
 } from "@/components/ui/drawer";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 /**
@@ -56,7 +56,7 @@ export interface ResponsiveDialogProps {
 
 /**
  * ResponsiveDialog - Sheet on mobile, modal on desktop
- * 
+ *
  * Mobile: Bottom sheet with drag handle
  * Desktop: Centered modal dialog
  */
@@ -80,7 +80,7 @@ export function ResponsiveDialog({
   // Mobile: Use Drawer (bottom sheet)
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
+      <Drawer onOpenChange={onOpenChange} open={open}>
         {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
         <DrawerContent className={cn("max-h-[90vh]", contentClassName)}>
           {(title || description) && (
@@ -94,11 +94,7 @@ export function ResponsiveDialog({
           <div className={cn("overflow-auto px-4 pb-4", className)}>
             {children}
           </div>
-          {footer && (
-            <DrawerFooter className="pt-2">
-              {footer}
-            </DrawerFooter>
-          )}
+          {footer && <DrawerFooter className="pt-2">{footer}</DrawerFooter>}
         </DrawerContent>
       </Drawer>
     );
@@ -106,7 +102,7 @@ export function ResponsiveDialog({
 
   // Desktop: Use Dialog (modal)
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog onOpenChange={onOpenChange} open={open}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent
         className={cn("sm:max-w-[425px]", contentClassName)}
@@ -158,7 +154,7 @@ export function ResponsiveDialogClose({
 
 /**
  * ConfirmationDialog - Pre-built confirmation dialog
- * 
+ *
  * Mobile: Bottom sheet with large touch targets
  * Desktop: Modal with keyboard support
  */
@@ -213,42 +209,44 @@ export function ConfirmationDialog({
   const loading = isLoading || isPending;
 
   const footer = (
-    <div className={cn(
-      "flex gap-3",
-      isMobile ? "flex-col-reverse" : "flex-row justify-end"
-    )}>
+    <div
+      className={cn(
+        "flex gap-3",
+        isMobile ? "flex-col-reverse" : "flex-row justify-end"
+      )}
+    >
       <ResponsiveDialogClose>
         <button
-          disabled={loading}
           className={cn(
             "inline-flex items-center justify-center rounded-md border px-4 font-medium transition-colors",
             "hover:bg-accent hover:text-accent-foreground",
-            "disabled:opacity-50 disabled:pointer-events-none",
+            "disabled:pointer-events-none disabled:opacity-50",
             isMobile ? "h-12 w-full" : "h-10"
           )}
+          disabled={loading}
         >
           {cancelText}
         </button>
       </ResponsiveDialogClose>
       <button
-        onClick={handleConfirm}
-        disabled={loading}
         className={cn(
           "inline-flex items-center justify-center rounded-md px-4 font-medium transition-colors",
-          "disabled:opacity-50 disabled:pointer-events-none",
+          "disabled:pointer-events-none disabled:opacity-50",
           destructive
             ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
             : "bg-primary text-primary-foreground hover:bg-primary/90",
           isMobile ? "h-12 w-full" : "h-10"
         )}
+        disabled={loading}
+        onClick={handleConfirm}
       >
         {loading ? (
           <span className="flex items-center gap-2">
             <svg
               className="h-4 w-4 animate-spin"
-              xmlns="http://www.w3.org/2000/svg"
               fill="none"
               viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
             >
               <circle
                 className="opacity-25"
@@ -260,8 +258,8 @@ export function ConfirmationDialog({
               />
               <path
                 className="opacity-75"
-                fill="currentColor"
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                fill="currentColor"
               />
             </svg>
             Processing...
@@ -282,15 +280,15 @@ export function ConfirmationDialog({
 
   return (
     <ResponsiveDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={icon ? undefined : title}
       description={description}
       footer={footer}
+      onOpenChange={onOpenChange}
+      open={open}
+      title={icon ? undefined : title}
     >
       {/* Show title with icon inline if icon provided */}
       {titleContent && (
-        <div className="mb-2 font-semibold text-lg flex items-center gap-2">
+        <div className="mb-2 flex items-center gap-2 font-semibold text-lg">
           {icon}
           {title}
         </div>

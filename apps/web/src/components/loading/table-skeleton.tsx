@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface TableSkeletonProps {
   /** Number of rows to show */
@@ -23,7 +23,7 @@ interface TableSkeletonProps {
 
 /**
  * TableSkeleton - Loading placeholder for data tables
- * 
+ *
  * Features:
  * - Configurable rows and columns
  * - Optional header row
@@ -56,44 +56,38 @@ export function TableSkeleton({
         {/* Header row */}
         {showHeader && (
           <div className="flex items-center gap-4 border-b bg-muted/50 px-4 py-3">
-            {showCheckbox && (
-              <Skeleton className="h-4 w-4 rounded" />
-            )}
+            {showCheckbox && <Skeleton className="h-4 w-4 rounded" />}
             {defaultWidths.map((width, i) => (
               <Skeleton
-                key={`header-${i}`}
                 className="h-4 rounded"
+                key={`header-${i}`}
                 style={{ width: `${width}%` }}
               />
             ))}
-            {showActions && (
-              <Skeleton className="h-4 w-16 rounded" />
-            )}
+            {showActions && <Skeleton className="h-4 w-16 rounded" />}
           </div>
         )}
 
         {/* Data rows */}
         {Array.from({ length: rows }).map((_, rowIndex) => (
           <div
-            key={`row-${rowIndex}`}
             className={cn(
               "flex items-center gap-4 px-4 py-3",
               rowIndex < rows - 1 && "border-b"
             )}
+            key={`row-${rowIndex}`}
             style={{
               animationDelay: `${rowIndex * 50}ms`,
             }}
           >
-            {showCheckbox && (
-              <Skeleton className="h-4 w-4 rounded" />
-            )}
+            {showCheckbox && <Skeleton className="h-4 w-4 rounded" />}
             {defaultWidths.map((width, colIndex) => (
               <Skeleton
-                key={`cell-${rowIndex}-${colIndex}`}
                 className={cn(
                   "h-4 rounded",
                   colIndex === 0 && "h-5" // First column taller (name)
                 )}
+                key={`cell-${rowIndex}-${colIndex}`}
                 style={{ width: `${width}%` }}
               />
             ))}
@@ -127,8 +121,8 @@ export function TableRowSkeleton({
       {showCheckbox && <Skeleton className="h-4 w-4 rounded" />}
       {Array.from({ length: columns }).map((_, i) => (
         <Skeleton
-          key={i}
           className="h-4 flex-1 rounded"
+          key={i}
           style={{ maxWidth: i === 0 ? "200px" : "120px" }}
         />
       ))}

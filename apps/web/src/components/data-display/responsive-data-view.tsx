@@ -1,8 +1,21 @@
 "use client";
 
+import {
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronUp,
+  MoreHorizontal,
+  RefreshCw,
+} from "lucide-react";
 import * as React from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Table,
   TableBody,
@@ -11,16 +24,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronUp, ChevronsUpDown, MoreHorizontal, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
 import { SwipeableCard } from "./swipeable-card";
 
 /**
@@ -121,7 +127,7 @@ export interface ResponsiveDataViewProps<T> {
 
 /**
  * ResponsiveDataView - Shows cards on mobile, table on desktop
- * 
+ *
  * Phase 2 UX improvement: Automatically switches between mobile-optimized
  * card view and desktop-optimized table view based on screen size.
  */
@@ -146,14 +152,17 @@ export function ResponsiveDataView<T>({
   className,
 }: ResponsiveDataViewProps<T>) {
   const isMobile = useIsMobile();
-  const { useMobileCards, useSwipeCards, usePullToRefresh } = useUXFeatureFlags();
-  
+  const { useMobileCards, useSwipeCards, usePullToRefresh } =
+    useUXFeatureFlags();
+
   // Use mobile cards if: on mobile AND feature flag enabled (or custom renderer provided)
   const showMobileView = isMobile && (useMobileCards || renderMobileCard);
-  
+
   // Enable swipe if: swipe actions provided AND (feature flag enabled OR always on mobile with swipe actions)
-  const hasSwipeActions = (leftSwipeActions && leftSwipeActions.length > 0) || (rightSwipeActions && rightSwipeActions.length > 0);
-  const enableSwipe = hasSwipeActions && (useSwipeCards || true); // Enable by default when swipe actions are provided
+  const hasSwipeActions =
+    (leftSwipeActions && leftSwipeActions.length > 0) ||
+    (rightSwipeActions && rightSwipeActions.length > 0);
+  const enableSwipe = hasSwipeActions; // Enable by default when swipe actions are provided
 
   // Pull-to-refresh state
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -286,8 +295,8 @@ export function ResponsiveDataView<T>({
           // Mobile loading skeletons
           Array.from({ length: 3 }).map((_, i) => (
             <div
+              className="animate-pulse space-y-3 rounded-lg border bg-muted/50 p-4"
               key={i}
-              className="animate-pulse rounded-lg border bg-muted/50 p-4 space-y-3"
             >
               <div className="h-5 w-1/3 rounded bg-muted" />
               <div className="h-4 w-2/3 rounded bg-muted" />
@@ -299,7 +308,10 @@ export function ResponsiveDataView<T>({
           <div className="animate-pulse rounded-lg border">
             <div className="h-12 border-b bg-muted/50" />
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex h-14 items-center gap-4 border-b px-4">
+              <div
+                className="flex h-14 items-center gap-4 border-b px-4"
+                key={i}
+              >
                 <div className="h-4 w-1/4 rounded bg-muted" />
                 <div className="h-4 w-1/4 rounded bg-muted" />
                 <div className="h-4 w-1/4 rounded bg-muted" />
@@ -327,16 +339,16 @@ export function ResponsiveDataView<T>({
   if (showMobileView) {
     return (
       <div
-        ref={containerRef}
         className={cn("relative", className)}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
+        onTouchStart={handleTouchStart}
+        ref={containerRef}
       >
         {/* Pull-to-refresh indicator */}
         {enablePullToRefresh && (pullDistance > 0 || isRefreshing) && (
           <div
-            className="absolute left-0 right-0 top-0 flex items-center justify-center transition-transform z-10"
+            className="absolute top-0 right-0 left-0 z-10 flex items-center justify-center transition-transform"
             style={{
               height: `${Math.max(pullDistance, isRefreshing ? 50 : 0)}px`,
               transform: `translateY(${isRefreshing ? 0 : pullDistance - 50}px)`,
@@ -348,7 +360,9 @@ export function ResponsiveDataView<T>({
                 isRefreshing && "animate-spin"
               )}
               style={{
-                transform: !isRefreshing ? `rotate(${pullDistance * 2}deg)` : undefined,
+                transform: isRefreshing
+                  ? undefined
+                  : `rotate(${pullDistance * 2}deg)`,
               }}
             />
           </div>
@@ -358,178 +372,185 @@ export function ResponsiveDataView<T>({
         <div
           className="space-y-3"
           style={{
-            transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
-            transition: pullDistance === 0 && !isRefreshing ? 'transform 0.2s' : undefined,
+            transform:
+              pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
+            transition:
+              pullDistance === 0 && !isRefreshing
+                ? "transform 0.2s"
+                : undefined,
           }}
         >
-        {data.map((item) => {
-          const key = getKey(item);
-          const isSelected = selectedKeys.has(key);
+          {data.map((item) => {
+            const key = getKey(item);
+            const isSelected = selectedKeys.has(key);
 
-          // Use custom card renderer if provided
-          if (renderMobileCard) {
-            return (
-              <div key={key} className="relative">
-                {selectable && (
-                  <div className="absolute left-3 top-3 z-10">
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => handleSelect(key)}
-                    />
-                  </div>
-                )}
-                {renderMobileCard(item, actions)}
-              </div>
-            );
-          }
-
-          // Default mobile card - improved design with avatar and better layout
-          const mobileColumns = columns.filter(
-            (col) => col.mobileVisible !== false
-          ).slice(0, 4);
-          
-          // First column is typically the name/primary identifier
-          const primaryColumn = mobileColumns[0];
-          const secondaryColumns = mobileColumns.slice(1);
-
-          // Card content (used in both swipeable and non-swipeable)
-          const cardContent = (
-            <div
-              className={cn(
-                "rounded-xl border bg-card p-4 transition-all duration-200",
-                !enableSwipe && "active:scale-[0.98]",
-                onRowClick && "cursor-pointer hover:bg-accent/50 hover:shadow-md",
-                isSelected && "ring-2 ring-primary bg-primary/5"
-              )}
-              onClick={() => onRowClick?.(item)}
-            >
-              <div className="flex items-start gap-3">
-                {/* Selection checkbox */}
-                {selectable && (
-                  <div 
-                    className="pt-1 flex-shrink-0" 
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => handleSelect(key)}
-                      className="h-5 w-5"
-                    />
-                  </div>
-                )}
-                
-                {/* Avatar - generated from first column content */}
-                <div className="flex-shrink-0">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
-                    {/* Extract initials from primary column if it's text */}
-                    {(() => {
-                      const content = primaryColumn?.accessor(item);
-                      if (typeof content === 'string') {
-                        return content
-                          .split(' ')
-                          .map(word => word[0])
-                          .join('')
-                          .slice(0, 2)
-                          .toUpperCase();
-                      }
-                      // If it's JSX, try to render just initials
-                      return '??';
-                    })()}
-                  </div>
-                </div>
-                
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  {/* Primary content (name) */}
-                  {primaryColumn && (
-                    <div className="font-semibold text-base truncate">
-                      {primaryColumn.accessor(item)}
+            // Use custom card renderer if provided
+            if (renderMobileCard) {
+              return (
+                <div className="relative" key={key}>
+                  {selectable && (
+                    <div className="absolute top-3 left-3 z-10">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => handleSelect(key)}
+                      />
                     </div>
                   )}
-                  
-                  {/* Secondary metadata */}
-                  <div className="mt-1 space-y-0.5">
-                    {secondaryColumns.map((col) => (
-                      <div 
-                        key={col.key} 
-                        className="text-sm text-muted-foreground flex items-center gap-1"
-                      >
-                        <span className="text-xs font-medium text-muted-foreground/70">
-                          {col.header}:
-                        </span>
-                        <span className="truncate">
-                          {col.accessor(item)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  {renderMobileCard(item, actions)}
                 </div>
-                
-                {/* Actions menu - only show if no swipe actions or on desktop */}
-                {actions && actions.length > 0 && !enableSwipe && (
-                  <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-10 w-10 rounded-full hover:bg-accent"
-                        >
-                          <MoreHorizontal className="h-5 w-5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        {actions.map((action) => (
-                          <DropdownMenuItem
-                            key={action.label}
-                            onClick={() => action.onClick(item)}
-                            disabled={action.disabled?.(item)}
-                            className={cn(
-                              "py-3",
-                              action.destructive && "text-destructive focus:text-destructive"
-                            )}
-                          >
-                            {action.icon && (
-                              <span className="mr-3">{action.icon}</span>
-                            )}
-                            {action.label}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+              );
+            }
+
+            // Default mobile card - improved design with avatar and better layout
+            const mobileColumns = columns
+              .filter((col) => col.mobileVisible !== false)
+              .slice(0, 4);
+
+            // First column is typically the name/primary identifier
+            const primaryColumn = mobileColumns[0];
+            const secondaryColumns = mobileColumns.slice(1);
+
+            // Card content (used in both swipeable and non-swipeable)
+            const cardContent = (
+              <div
+                className={cn(
+                  "rounded-xl border bg-card p-4 transition-all duration-200",
+                  !enableSwipe && "active:scale-[0.98]",
+                  onRowClick &&
+                    "cursor-pointer hover:bg-accent/50 hover:shadow-md",
+                  isSelected && "bg-primary/5 ring-2 ring-primary"
                 )}
-              </div>
-            </div>
-          );
-
-          // Wrap with SwipeableCard if swipe actions are enabled
-          if (enableSwipe) {
-            return (
-              <SwipeableCard
-                key={key}
-                leftActions={leftSwipeActions?.map((action) => ({
-                  label: action.label,
-                  icon: action.icon,
-                  bgColor: action.bgColor,
-                  textColor: action.textColor,
-                  onClick: () => action.onClick(item),
-                }))}
-                rightActions={rightSwipeActions?.map((action) => ({
-                  label: action.label,
-                  icon: action.icon,
-                  bgColor: action.bgColor,
-                  textColor: action.textColor,
-                  onClick: () => action.onClick(item),
-                }))}
+                onClick={() => onRowClick?.(item)}
               >
-                {cardContent}
-              </SwipeableCard>
-            );
-          }
+                <div className="flex items-start gap-3">
+                  {/* Selection checkbox */}
+                  {selectable && (
+                    <div
+                      className="flex-shrink-0 pt-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        className="h-5 w-5"
+                        onCheckedChange={() => handleSelect(key)}
+                      />
+                    </div>
+                  )}
 
-          return <div key={key}>{cardContent}</div>;
-        })}
+                  {/* Avatar - generated from first column content */}
+                  <div className="flex-shrink-0">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
+                      {/* Extract initials from primary column if it's text */}
+                      {(() => {
+                        const content = primaryColumn?.accessor(item);
+                        if (typeof content === "string") {
+                          return content
+                            .split(" ")
+                            .map((word) => word[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase();
+                        }
+                        // If it's JSX, try to render just initials
+                        return "??";
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="min-w-0 flex-1">
+                    {/* Primary content (name) */}
+                    {primaryColumn && (
+                      <div className="truncate font-semibold text-base">
+                        {primaryColumn.accessor(item)}
+                      </div>
+                    )}
+
+                    {/* Secondary metadata */}
+                    <div className="mt-1 space-y-0.5">
+                      {secondaryColumns.map((col) => (
+                        <div
+                          className="flex items-center gap-1 text-muted-foreground text-sm"
+                          key={col.key}
+                        >
+                          <span className="font-medium text-muted-foreground/70 text-xs">
+                            {col.header}:
+                          </span>
+                          <span className="truncate">{col.accessor(item)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Actions menu - only show if no swipe actions or on desktop */}
+                  {actions && actions.length > 0 && !enableSwipe && (
+                    <div
+                      className="flex-shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            className="h-10 w-10 rounded-full hover:bg-accent"
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <MoreHorizontal className="h-5 w-5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          {actions.map((action) => (
+                            <DropdownMenuItem
+                              className={cn(
+                                "py-3",
+                                action.destructive &&
+                                  "text-destructive focus:text-destructive"
+                              )}
+                              disabled={action.disabled?.(item)}
+                              key={action.label}
+                              onClick={() => action.onClick(item)}
+                            >
+                              {action.icon && (
+                                <span className="mr-3">{action.icon}</span>
+                              )}
+                              {action.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+
+            // Wrap with SwipeableCard if swipe actions are enabled
+            if (enableSwipe) {
+              return (
+                <SwipeableCard
+                  key={key}
+                  leftActions={leftSwipeActions?.map((action) => ({
+                    label: action.label,
+                    icon: action.icon,
+                    bgColor: action.bgColor,
+                    textColor: action.textColor,
+                    onClick: () => action.onClick(item),
+                  }))}
+                  rightActions={rightSwipeActions?.map((action) => ({
+                    label: action.label,
+                    icon: action.icon,
+                    bgColor: action.bgColor,
+                    textColor: action.textColor,
+                    onClick: () => action.onClick(item),
+                  }))}
+                >
+                  {cardContent}
+                </SwipeableCard>
+              );
+            }
+
+            return <div key={key}>{cardContent}</div>;
+          })}
         </div>
       </div>
     );
@@ -538,20 +559,20 @@ export function ResponsiveDataView<T>({
   // Desktop table view
   return (
     <div
-      ref={containerRef}
       className={cn("relative rounded-lg border", className)}
       onMouseDown={handleMouseDown}
+      onMouseLeave={handleMouseLeave}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseLeave}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchMove}
+      onTouchStart={handleTouchStart}
+      ref={containerRef}
     >
       {/* Pull-to-refresh indicator for desktop */}
       {enablePullToRefresh && (pullDistance > 0 || isRefreshing) && (
         <div
-          className="absolute left-0 right-0 top-0 flex items-center justify-center transition-transform z-10 bg-background/80"
+          className="absolute top-0 right-0 left-0 z-10 flex items-center justify-center bg-background/80 transition-transform"
           style={{
             height: `${Math.max(pullDistance, isRefreshing ? 50 : 0)}px`,
           }}
@@ -562,31 +583,38 @@ export function ResponsiveDataView<T>({
               isRefreshing && "animate-spin"
             )}
             style={{
-              transform: !isRefreshing ? `rotate(${pullDistance * 2}deg)` : undefined,
+              transform: isRefreshing
+                ? undefined
+                : `rotate(${pullDistance * 2}deg)`,
             }}
           />
         </div>
       )}
-      <Table style={{ marginTop: pullDistance > 0 || isRefreshing ? `${Math.max(pullDistance, isRefreshing ? 50 : 0)}px` : undefined }}>
+      <Table
+        style={{
+          marginTop:
+            pullDistance > 0 || isRefreshing
+              ? `${Math.max(pullDistance, isRefreshing ? 50 : 0)}px`
+              : undefined,
+        }}
+      >
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             {selectable && (
               <TableHead className="w-12">
                 <Checkbox
-                  checked={
-                    data.length > 0 && selectedKeys.size === data.length
-                  }
+                  checked={data.length > 0 && selectedKeys.size === data.length}
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
             )}
             {columns.map((column) => (
               <TableHead
-                key={column.key}
                 className={cn(
                   column.width,
                   column.sortable && "cursor-pointer select-none"
                 )}
+                key={column.key}
                 onClick={() => column.sortable && handleSort(column.key)}
               >
                 <div className="flex items-center gap-1">
@@ -607,9 +635,7 @@ export function ResponsiveDataView<T>({
                 </div>
               </TableHead>
             ))}
-            {actions && actions.length > 0 && (
-              <TableHead className="w-12" />
-            )}
+            {actions && actions.length > 0 && <TableHead className="w-12" />}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -619,12 +645,12 @@ export function ResponsiveDataView<T>({
 
             return (
               <TableRow
-                key={key}
                 className={cn(
                   "group",
                   onRowClick && "cursor-pointer",
                   isSelected && "bg-primary/5"
                 )}
+                key={key}
                 onClick={() => onRowClick?.(item)}
               >
                 {selectable && (
@@ -636,7 +662,7 @@ export function ResponsiveDataView<T>({
                   </TableCell>
                 )}
                 {columns.map((column) => (
-                  <TableCell key={column.key} className={column.width}>
+                  <TableCell className={column.width} key={column.key}>
                     {column.accessor(item)}
                   </TableCell>
                 ))}
@@ -645,9 +671,9 @@ export function ResponsiveDataView<T>({
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
-                          variant="ghost"
+                          className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
                           size="icon"
-                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                          variant="ghost"
                         >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
@@ -655,12 +681,12 @@ export function ResponsiveDataView<T>({
                       <DropdownMenuContent align="end">
                         {actions.map((action) => (
                           <DropdownMenuItem
-                            key={action.label}
-                            onClick={() => action.onClick(item)}
-                            disabled={action.disabled?.(item)}
                             className={cn(
                               action.destructive && "text-destructive"
                             )}
+                            disabled={action.disabled?.(item)}
+                            key={action.label}
+                            onClick={() => action.onClick(item)}
                           >
                             {action.icon && (
                               <span className="mr-2">{action.icon}</span>

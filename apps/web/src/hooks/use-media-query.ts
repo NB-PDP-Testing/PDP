@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * Hook to detect if a media query matches
- * 
+ *
  * @param query - CSS media query string (e.g., "(min-width: 1024px)")
  * @returns boolean indicating if the query matches
- * 
+ *
  * @example
  * const isDesktop = useMediaQuery("(min-width: 1024px)");
  * const isMobile = useMediaQuery("(max-width: 767px)");
@@ -19,7 +19,7 @@ export function useMediaQuery(query: string): boolean {
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(query);
-    
+
     // Set initial value
     setMatches(mediaQuery.matches);
 

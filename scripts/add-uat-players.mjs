@@ -2,32 +2,98 @@
 
 /**
  * Script to add UAT test players to the database via Convex
- * 
+ *
  * Run this from the project root:
  *   npx convex run models/players:createPlayer --args '{"name":"Liam Murphy", ...}'
- * 
+ *
  * Or use the Convex dashboard to run the bulkImportPlayers mutation
  */
 
 // Test data players from apps/web/uat/test-data.json
 const players = [
-  { firstName: "Liam", lastName: "Murphy", dateOfBirth: "2017-01-01", gender: "Male", ageGroup: "U10" },
-  { firstName: "Noah", lastName: "O'Brien", dateOfBirth: "2017-01-01", gender: "Male", ageGroup: "U10" },
-  { firstName: "Jack", lastName: "Kelly", dateOfBirth: "2017-01-01", gender: "Male", ageGroup: "U10" },
-  { firstName: "James", lastName: "Ryan", dateOfBirth: "2017-01-01", gender: "Male", ageGroup: "U10" },
-  { firstName: "Conor", lastName: "Walsh", dateOfBirth: "2017-01-01", gender: "Male", ageGroup: "U10" },
-  { firstName: "Sean", lastName: "McCarthy", dateOfBirth: "2017-01-01", gender: "Male", ageGroup: "U10" },
-  { firstName: "Daniel", lastName: "Byrne", dateOfBirth: "2017-01-01", gender: "Male", ageGroup: "U10" },
-  { firstName: "Adam", lastName: "Doyle", dateOfBirth: "2017-01-01", gender: "Male", ageGroup: "U10" },
-  { firstName: "Cian", lastName: "O'Sullivan", dateOfBirth: "2017-01-01", gender: "Male", ageGroup: "U10" },
-  { firstName: "Finn", lastName: "Brennan", dateOfBirth: "2017-01-01", gender: "Male", ageGroup: "U10" },
-  { firstName: "Oisin", lastName: "Dunne", dateOfBirth: "2017-01-01", gender: "Male", ageGroup: "U10" },
+  {
+    firstName: "Liam",
+    lastName: "Murphy",
+    dateOfBirth: "2017-01-01",
+    gender: "Male",
+    ageGroup: "U10",
+  },
+  {
+    firstName: "Noah",
+    lastName: "O'Brien",
+    dateOfBirth: "2017-01-01",
+    gender: "Male",
+    ageGroup: "U10",
+  },
+  {
+    firstName: "Jack",
+    lastName: "Kelly",
+    dateOfBirth: "2017-01-01",
+    gender: "Male",
+    ageGroup: "U10",
+  },
+  {
+    firstName: "James",
+    lastName: "Ryan",
+    dateOfBirth: "2017-01-01",
+    gender: "Male",
+    ageGroup: "U10",
+  },
+  {
+    firstName: "Conor",
+    lastName: "Walsh",
+    dateOfBirth: "2017-01-01",
+    gender: "Male",
+    ageGroup: "U10",
+  },
+  {
+    firstName: "Sean",
+    lastName: "McCarthy",
+    dateOfBirth: "2017-01-01",
+    gender: "Male",
+    ageGroup: "U10",
+  },
+  {
+    firstName: "Daniel",
+    lastName: "Byrne",
+    dateOfBirth: "2017-01-01",
+    gender: "Male",
+    ageGroup: "U10",
+  },
+  {
+    firstName: "Adam",
+    lastName: "Doyle",
+    dateOfBirth: "2017-01-01",
+    gender: "Male",
+    ageGroup: "U10",
+  },
+  {
+    firstName: "Cian",
+    lastName: "O'Sullivan",
+    dateOfBirth: "2017-01-01",
+    gender: "Male",
+    ageGroup: "U10",
+  },
+  {
+    firstName: "Finn",
+    lastName: "Brennan",
+    dateOfBirth: "2017-01-01",
+    gender: "Male",
+    ageGroup: "U10",
+  },
+  {
+    firstName: "Oisin",
+    lastName: "Dunne",
+    dateOfBirth: "2017-01-01",
+    gender: "Male",
+    ageGroup: "U10",
+  },
 ];
 
 // Configuration - UPDATE THESE VALUES
 const config = {
   organizationId: "REPLACE_WITH_ORG_ID", // Get from Convex dashboard
-  teamId: "REPLACE_WITH_TEAM_ID",         // Get from Convex dashboard
+  teamId: "REPLACE_WITH_TEAM_ID", // Get from Convex dashboard
   sport: "Soccer",
   season: "2025/2026",
 };
@@ -48,7 +114,7 @@ console.log("5. Copy and paste the JSON below into the 'players' argument");
 console.log("");
 
 // Generate bulk import data
-const bulkData = players.map(p => ({
+const bulkData = players.map((p) => ({
   name: `${p.firstName} ${p.lastName}`,
   ageGroup: p.ageGroup,
   sport: config.sport,
@@ -69,7 +135,7 @@ console.log("");
 console.log("OPTION 2: Using npx convex run (one at a time)");
 console.log("-".repeat(40));
 
-players.forEach(p => {
+players.forEach((p) => {
   const args = {
     name: `${p.firstName} ${p.lastName}`,
     ageGroup: p.ageGroup,
@@ -79,7 +145,9 @@ players.forEach(p => {
     season: config.season,
     dateOfBirth: p.dateOfBirth,
   };
-  console.log(`npx convex run models/players:createPlayer --args '${JSON.stringify(args)}'`);
+  console.log(
+    `npx convex run models/players:createPlayer --args '${JSON.stringify(args)}'`
+  );
 });
 
 console.log("");

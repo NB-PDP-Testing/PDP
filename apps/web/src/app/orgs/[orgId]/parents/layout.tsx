@@ -4,8 +4,15 @@ import { Award, Heart, Home, Menu, TrendingUp, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { BottomNav, BottomNavSpacer, type BottomNavItem } from "@/components/layout/bottom-nav";
-import { ParentMobileNav, ParentSidebar } from "@/components/layout/parent-sidebar";
+import {
+  BottomNav,
+  type BottomNavItem,
+  BottomNavSpacer,
+} from "@/components/layout/bottom-nav";
+import {
+  ParentMobileNav,
+  ParentSidebar,
+} from "@/components/layout/parent-sidebar";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
@@ -28,8 +35,18 @@ export default function ParentsLayout({
 
   // Parent bottom nav items
   const parentBottomNavItems: BottomNavItem[] = [
-    { id: "overview", icon: Home, label: "Overview", href: `/orgs/${orgId}/parents` },
-    { id: "children", icon: Users, label: "Children", href: `/orgs/${orgId}/parents/children` },
+    {
+      id: "overview",
+      icon: Home,
+      label: "Overview",
+      href: `/orgs/${orgId}/parents`,
+    },
+    {
+      id: "children",
+      icon: Users,
+      label: "Children",
+      href: `/orgs/${orgId}/parents/children`,
+    },
     {
       id: "progress",
       icon: TrendingUp,
@@ -37,7 +54,12 @@ export default function ParentsLayout({
       href: `/orgs/${orgId}/parents/progress`,
       isAction: true,
     },
-    { id: "achievements", icon: Award, label: "Achievements", href: `/orgs/${orgId}/parents/achievements` },
+    {
+      id: "achievements",
+      icon: Award,
+      label: "Achievements",
+      href: `/orgs/${orgId}/parents/achievements`,
+    },
   ];
 
   return (
@@ -45,7 +67,7 @@ export default function ParentsLayout({
       {/* Bottom navigation for mobile */}
       {useBottomNav && <BottomNav items={parentBottomNavItems} />}
 
-      <div className="flex flex-col h-full">
+      <div className="flex h-full flex-col">
         {/* Header */}
         <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
           <div className="flex h-14 items-center justify-between px-4">
@@ -56,7 +78,7 @@ export default function ParentsLayout({
                   orgId={orgId}
                   primaryColor={theme.primary}
                   trigger={
-                    <Button variant="ghost" size="icon" className="lg:hidden">
+                    <Button className="lg:hidden" size="icon" variant="ghost">
                       <Menu className="h-5 w-5" />
                       <span className="sr-only">Open menu</span>
                     </Button>
@@ -69,10 +91,7 @@ export default function ParentsLayout({
                 className="flex items-center gap-2"
                 href={`/orgs/${orgId}/parents` as Route}
               >
-                <Heart
-                  className="h-5 w-5"
-                  style={{ color: theme.primary }}
-                />
+                <Heart className="h-5 w-5" style={{ color: theme.primary }} />
                 <span className="font-semibold">Parent Portal</span>
               </Link>
             </div>
@@ -96,7 +115,7 @@ export default function ParentsLayout({
               <ParentSidebar orgId={orgId} primaryColor={theme.primary} />
 
               {/* Main Content */}
-              <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 md:p-6">
+              <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
                 {children}
               </main>
             </div>
@@ -106,7 +125,7 @@ export default function ParentsLayout({
         ) : (
           /* Legacy layout - simple container */
           <>
-            <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 md:p-6">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
               {children}
             </main>
             {useBottomNav && <BottomNavSpacer />}

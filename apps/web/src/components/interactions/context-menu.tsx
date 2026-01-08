@@ -1,22 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useLongPress } from "@/hooks/use-long-press";
 import {
-  ContextMenu as ContextMenuPrimitive,
-  ContextMenuTrigger,
+  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
-  ContextMenuSeparator,
   ContextMenuLabel,
-  ContextMenuCheckboxItem,
+  ContextMenu as ContextMenuPrimitive,
   ContextMenuRadioGroup,
   ContextMenuRadioItem,
-  ContextMenuSub,
-  ContextMenuSubTrigger,
-  ContextMenuSubContent,
+  ContextMenuSeparator,
   ContextMenuShortcut,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
   Sheet,
@@ -24,6 +22,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useLongPress } from "@/hooks/use-long-press";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 
 /**
@@ -145,7 +145,7 @@ export function ResponsiveContextMenu({
   if (isMobile) {
     const childProps = children.props as Record<string, unknown>;
     const childStyle = childProps.style as React.CSSProperties | undefined;
-    
+
     return (
       <>
         {React.cloneElement(children, {
@@ -157,8 +157,8 @@ export function ResponsiveContextMenu({
             WebkitTouchCallout: "none",
           } as React.CSSProperties,
         } as React.HTMLAttributes<HTMLElement>)}
-        <Sheet open={open} onOpenChange={handleOpenChange}>
-          <SheetContent side="bottom" className={cn("pb-8", contentClassName)}>
+        <Sheet onOpenChange={handleOpenChange} open={open}>
+          <SheetContent className={cn("pb-8", contentClassName)} side="bottom">
             {title && (
               <SheetHeader className="mb-4">
                 <SheetTitle>{title}</SheetTitle>
@@ -169,16 +169,16 @@ export function ResponsiveContextMenu({
                 (groups
                   ? groups.map((group, groupIndex) => (
                       <MobileMenuGroup
-                        key={group.label || groupIndex}
                         group={group}
-                        onClose={() => handleOpenChange(false)}
                         isLast={groupIndex === groups.length - 1}
+                        key={group.label || groupIndex}
+                        onClose={() => handleOpenChange(false)}
                       />
                     ))
                   : items?.map((item) => (
                       <MobileMenuItem
-                        key={item.key}
                         item={item}
+                        key={item.key}
                         onClose={() => handleOpenChange(false)}
                       />
                     )))}
@@ -192,7 +192,7 @@ export function ResponsiveContextMenu({
   // Desktop: Native context menu with right-click trigger
   return (
     <ContextMenuPrimitive onOpenChange={handleOpenChange}>
-      <ContextMenuTrigger disabled={disabled} asChild>
+      <ContextMenuTrigger asChild disabled={disabled}>
         {children}
       </ContextMenuTrigger>
       <ContextMenuContent className={cn("w-56", contentClassName)}>
@@ -200,12 +200,14 @@ export function ResponsiveContextMenu({
           (groups
             ? groups.map((group, groupIndex) => (
                 <DesktopMenuGroup
-                  key={group.label || groupIndex}
                   group={group}
                   isLast={groupIndex === groups.length - 1}
+                  key={group.label || groupIndex}
                 />
               ))
-            : items?.map((item) => <DesktopMenuItem key={item.key} item={item} />))}
+            : items?.map((item) => (
+                <DesktopMenuItem item={item} key={item.key} />
+              )))}
       </ContextMenuContent>
     </ContextMenuPrimitive>
   );
@@ -229,17 +231,19 @@ function MobileMenuItem({
     return (
       <div>
         <button
-          type="button"
-          disabled={item.disabled}
-          onClick={() => setShowSubmenu(!showSubmenu)}
           className={cn(
             "flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left",
             "transition-colors active:bg-accent",
-            item.disabled && "opacity-50 pointer-events-none",
+            item.disabled && "pointer-events-none opacity-50",
             inSubmenu && "pl-8"
           )}
+          disabled={item.disabled}
+          onClick={() => setShowSubmenu(!showSubmenu)}
+          type="button"
         >
-          {item.icon && <span className="text-muted-foreground">{item.icon}</span>}
+          {item.icon && (
+            <span className="text-muted-foreground">{item.icon}</span>
+          )}
           <span className="flex-1 font-medium">{item.label}</span>
           <svg
             className={cn(
@@ -247,25 +251,25 @@ function MobileMenuItem({
               showSubmenu && "rotate-90"
             )}
             fill="none"
-            viewBox="0 0 24 24"
             stroke="currentColor"
+            viewBox="0 0 24 24"
           >
             <path
+              d="M9 5l7 7-7 7"
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M9 5l7 7-7 7"
             />
           </svg>
         </button>
         {showSubmenu && (
-          <div className="ml-4 border-l-2 border-border">
+          <div className="ml-4 border-border border-l-2">
             {item.subItems.map((subItem) => (
               <MobileMenuItem
-                key={subItem.key}
-                item={subItem}
-                onClose={onClose}
                 inSubmenu
+                item={subItem}
+                key={subItem.key}
+                onClose={onClose}
               />
             ))}
           </div>
@@ -276,22 +280,27 @@ function MobileMenuItem({
 
   return (
     <button
-      type="button"
+      className={cn(
+        "flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left",
+        "transition-colors active:bg-accent",
+        item.disabled && "pointer-events-none opacity-50",
+        item.destructive && "text-destructive",
+        inSubmenu && "pl-8"
+      )}
       disabled={item.disabled}
       onClick={() => {
         item.onSelect?.();
         onClose();
       }}
-      className={cn(
-        "flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left",
-        "transition-colors active:bg-accent",
-        item.disabled && "opacity-50 pointer-events-none",
-        item.destructive && "text-destructive",
-        inSubmenu && "pl-8"
-      )}
+      type="button"
     >
       {item.icon && (
-        <span className={cn("text-muted-foreground", item.destructive && "text-destructive")}>
+        <span
+          className={cn(
+            "text-muted-foreground",
+            item.destructive && "text-destructive"
+          )}
+        >
           {item.icon}
         </span>
       )}
@@ -313,14 +322,14 @@ function MobileMenuGroup({
   isLast: boolean;
 }) {
   return (
-    <div className={cn(!isLast && "border-b border-border pb-2 mb-2")}>
+    <div className={cn(!isLast && "mb-2 border-border border-b pb-2")}>
       {group.label && (
-        <div className="px-4 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        <div className="px-4 py-1.5 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
           {group.label}
         </div>
       )}
       {group.items.map((item) => (
-        <MobileMenuItem key={item.key} item={item} onClose={onClose} />
+        <MobileMenuItem item={item} key={item.key} onClose={onClose} />
       ))}
     </div>
   );
@@ -339,7 +348,7 @@ function DesktopMenuItem({ item }: { item: ContextMenuItemDef }) {
         </ContextMenuSubTrigger>
         <ContextMenuSubContent className="w-48">
           {item.subItems.map((subItem) => (
-            <DesktopMenuItem key={subItem.key} item={subItem} />
+            <DesktopMenuItem item={subItem} key={subItem.key} />
           ))}
         </ContextMenuSubContent>
       </ContextMenuSub>
@@ -349,12 +358,14 @@ function DesktopMenuItem({ item }: { item: ContextMenuItemDef }) {
   return (
     <ContextMenuItem
       disabled={item.disabled}
-      variant={item.destructive ? "destructive" : "default"}
       onSelect={item.onSelect}
+      variant={item.destructive ? "destructive" : "default"}
     >
       {item.icon && <span className="mr-2">{item.icon}</span>}
       {item.label}
-      {item.shortcut && <ContextMenuShortcut>{item.shortcut}</ContextMenuShortcut>}
+      {item.shortcut && (
+        <ContextMenuShortcut>{item.shortcut}</ContextMenuShortcut>
+      )}
     </ContextMenuItem>
   );
 }
@@ -373,7 +384,7 @@ function DesktopMenuGroup({
     <>
       {group.label && <ContextMenuLabel>{group.label}</ContextMenuLabel>}
       {group.items.map((item) => (
-        <DesktopMenuItem key={item.key} item={item} />
+        <DesktopMenuItem item={item} key={item.key} />
       ))}
       {!isLast && <ContextMenuSeparator />}
     </>

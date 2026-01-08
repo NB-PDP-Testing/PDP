@@ -56,6 +56,8 @@ export interface SmartDataViewProps<T> {
   emptyState?: React.ReactNode;
   /** Container class name */
   className?: string;
+  /** Pull-to-refresh handler (mobile only, requires ux_pull_to_refresh flag) */
+  onRefresh?: () => Promise<void>;
 }
 
 /**
@@ -96,6 +98,7 @@ export function SmartDataView<T>({
   loading = false,
   emptyState,
   className,
+  onRefresh,
 }: SmartDataViewProps<T>) {
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const { useEnhancedTables } = useUXFeatureFlags();
@@ -175,6 +178,7 @@ export function SmartDataView<T>({
       sortColumn={sortColumn}
       sortDirection={sortDirection}
       onSortChange={onSortChange as any}
+      onRefresh={onRefresh}
       loading={loading}
       emptyState={emptyState}
       className={className}

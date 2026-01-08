@@ -60,6 +60,14 @@ function RedirectToOrgs() {
       return;
     }
 
+    // Platform staff should ALWAYS go to /orgs (platform management page)
+    // This takes priority over active organization redirect
+    if (user?.isPlatformStaff) {
+      console.log("[Home] Platform staff detected, redirecting to /orgs");
+      router.push("/orgs" as Route);
+      return;
+    }
+
     // If user has an active organization, redirect to org root
     // The org-level router will determine the correct dashboard based on functional role
     if (activeOrganization) {
@@ -91,16 +99,10 @@ function RedirectToOrgs() {
       return;
     }
 
-    // No organization memberships - route based on user type
-    if (user?.isPlatformStaff) {
-      // Platform staff go to /orgs to manage all organizations
-      console.log("[Home] Platform staff with no orgs, going to /orgs");
-      router.push("/orgs" as Route);
-    } else {
-      // Regular users go to /orgs/join to find and join an organization
-      console.log("[Home] Regular user with no orgs, going to /orgs/join");
-      router.push("/orgs/join" as Route);
-    }
+    // No organization memberships - regular users go to join page
+    // (Platform staff are already handled above and won't reach here)
+    console.log("[Home] Regular user with no orgs, going to /orgs/join");
+    router.push("/orgs/join" as Route);
   }, [
     router,
     activeOrganization,

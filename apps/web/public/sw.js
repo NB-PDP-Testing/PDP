@@ -7,9 +7,9 @@
  * - HTML pages: Network-first with cache fallback
  */
 
-const CACHE_NAME = "playerarc-v1";
-const STATIC_CACHE = "playerarc-static-v1";
-const DYNAMIC_CACHE = "playerarc-dynamic-v1";
+const CACHE_NAME = "playerarc-v3";
+const STATIC_CACHE = "playerarc-static-v3";
+const DYNAMIC_CACHE = "playerarc-dynamic-v3";
 
 // Static assets to pre-cache
 const STATIC_ASSETS = [
@@ -286,4 +286,4 @@ async function syncData() {
 }
 
 // Log service worker version
-console.log("[SW] Service Worker v1 loaded");
+console.log("[SW] Service Worker v3 loaded");

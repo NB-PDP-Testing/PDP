@@ -32,3 +32,10 @@ export {
   type SwipeAction,
   type SimpleCardData,
 } from "./data-card-list";
+
+// SmartDataView - Automatically selects between ResponsiveDataView and DataTableEnhanced
+// based on device type and ux_enhanced_tables feature flag
+export {
+  SmartDataView,
+  type SmartDataViewProps,
+} from "./smart-data-view";

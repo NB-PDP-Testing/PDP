@@ -33,9 +33,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  ResponsiveDataView,
+  SmartDataView,
   type DataColumn,
   type DataAction,
+  type BulkAction,
 } from "@/components/data-display";
 import {
   Dialog,
@@ -722,8 +723,10 @@ export default function ManagePlayersPage() {
               ))}
             </div>
           ) : sortedPlayers.length > 0 ? (
-            <ResponsiveDataView
+            <SmartDataView
               data={sortedPlayers}
+              exportable
+              exportFilename={`players-${orgId}`}
               getKey={(player: any) => player._id}
               columns={[
                 {

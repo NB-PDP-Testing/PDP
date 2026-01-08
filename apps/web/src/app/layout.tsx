@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import "../index.css";
 import { FlowInterceptor } from "@/components/flow-interceptor";
+import { OfflineIndicator } from "@/components/polish/offline-indicator";
 import Providers from "@/components/providers";
 import { PostHogAuthTracker } from "@/providers/posthog-auth-tracker";
 import { PostHogPageView } from "@/providers/posthog-pageview";
@@ -62,6 +63,7 @@ export default function RootLayout({
           </Suspense>
           <PostHogAuthTracker />
           <FlowInterceptor>
+            <OfflineIndicator position="top" />
             <div className="flex flex-col min-h-svh">{children}</div>
           </FlowInterceptor>
         </Providers>

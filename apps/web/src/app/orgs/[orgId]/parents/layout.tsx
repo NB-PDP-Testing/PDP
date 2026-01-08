@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { BottomNav, BottomNavSpacer, type BottomNavItem } from "@/components/layout/bottom-nav";
 import { ParentMobileNav, ParentSidebar } from "@/components/layout/parent-sidebar";
-import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
@@ -78,7 +77,6 @@ export default function ParentsLayout({
             </div>
 
             <div className="flex items-center gap-2">
-              <ModeToggle />
               <Link href={`/orgs/${orgId}` as Route}>
                 <Button size="sm" variant="outline">
                   Back to App

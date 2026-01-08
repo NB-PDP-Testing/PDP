@@ -13,7 +13,6 @@ import {
 import { BottomNav, BottomNavSpacer, type BottomNavItem } from "@/components/layout/bottom-nav";
 import { CommandMenu } from "@/components/interactions/command-menu";
 import Loader from "@/components/loader";
-import { ModeToggle } from "@/components/mode-toggle";
 import { ResizableSidebar } from "@/components/polish/resizable-sidebar";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
@@ -151,9 +150,6 @@ export default function OrgAdminLayout({
               <div className="flex items-center gap-2">
                 {/* Command menu search trigger */}
                 <CommandMenu orgId={orgId} />
-
-                {/* Theme toggle */}
-                <ModeToggle />
 
                 <Link href={`/orgs/${orgId}` as Route}>
                   <Button size="sm" variant="outline">

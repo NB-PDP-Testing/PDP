@@ -16,6 +16,9 @@ import { useAnalytics } from "@/lib/analytics";
  * PHASE 2 - Data Display:
  * - ux_mobile_cards: Use card-based mobile data display
  * - ux_skeleton_loaders: Use skeleton loading states
+ * - ux_enhanced_tables: Use DataTableEnhanced with column visibility, bulk actions, export
+ * - ux_swipe_cards: Enable swipe actions on mobile cards
+ * - ux_pull_to_refresh: Enable pull-to-refresh on card lists
  *
  * PHASE 3 - Forms:
  * - ux_responsive_forms: Use mobile-optimized form components
@@ -57,6 +60,12 @@ export interface UXFeatureFlags {
   useMobileCards: boolean;
   /** Use skeleton loading states */
   useSkeletonLoaders: boolean;
+  /** Use DataTableEnhanced with column visibility, bulk actions, export */
+  useEnhancedTables: boolean;
+  /** Enable swipe actions on mobile cards */
+  useSwipeCards: boolean;
+  /** Enable pull-to-refresh on card lists */
+  usePullToRefresh: boolean;
 
   // Phase 3 - Forms
   /** Use responsive form components with mobile optimizations */
@@ -101,6 +110,9 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     // Phase 2 - Data Display
     useMobileCards: isFeatureEnabled("ux_mobile_cards"),
     useSkeletonLoaders: isFeatureEnabled("ux_skeleton_loaders"),
+    useEnhancedTables: isFeatureEnabled("ux_enhanced_tables"),
+    useSwipeCards: isFeatureEnabled("ux_swipe_cards"),
+    usePullToRefresh: isFeatureEnabled("ux_pull_to_refresh"),
 
     // Phase 3 - Forms
     useResponsiveForms: isFeatureEnabled("ux_responsive_forms"),

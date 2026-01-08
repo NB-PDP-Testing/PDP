@@ -170,7 +170,7 @@ export default function OrgAdminLayout({
                     minWidth={200}
                     maxWidth={400}
                   >
-                    <AdminSidebar orgId={orgId} primaryColor={theme.primary} />
+                    <AdminSidebar orgId={orgId} primaryColor={theme.primary} isResizable />
                   </ResizableSidebar>
                 ) : (
                   <AdminSidebar orgId={orgId} primaryColor={theme.primary} />

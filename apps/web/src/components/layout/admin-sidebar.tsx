@@ -157,13 +157,15 @@ interface AdminSidebarProps {
   orgId: string;
   /** Primary color for active states */
   primaryColor?: string;
+  /** When true, removes fixed width (for use inside ResizableSidebar) */
+  isResizable?: boolean;
 }
 
 /**
  * Grouped sidebar navigation for admin panel (desktop)
  * Collapsible groups reduce cognitive load from 16 items to 4 groups
  */
-export function AdminSidebar({ orgId, primaryColor }: AdminSidebarProps) {
+export function AdminSidebar({ orgId, primaryColor, isResizable = false }: AdminSidebarProps) {
   const pathname = usePathname();
   const navGroups = getAdminNavGroups(orgId);
   
@@ -195,7 +197,11 @@ export function AdminSidebar({ orgId, primaryColor }: AdminSidebarProps) {
   };
 
   return (
-    <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-muted/30">
+    <aside className={cn(
+      "hidden lg:flex lg:flex-col lg:bg-muted/30",
+      // Only apply fixed width and border when NOT in resizable mode
+      !isResizable && "lg:w-64 lg:border-r"
+    )}>
       <div className="flex h-full flex-col overflow-y-auto py-4">
         {/* Overview link */}
         <div className="px-3 mb-2">

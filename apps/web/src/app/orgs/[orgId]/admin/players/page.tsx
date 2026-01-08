@@ -729,6 +729,11 @@ export default function ManagePlayersPage() {
               exportable
               exportFilename={`players-${orgId}`}
               getKey={(player: any) => player._id}
+              onRefresh={async () => {
+                // Convex queries auto-refresh, so we just add a small delay
+                // to give visual feedback that the refresh happened
+                await new Promise(resolve => setTimeout(resolve, 300));
+              }}
               columns={[
                 {
                   key: "name",

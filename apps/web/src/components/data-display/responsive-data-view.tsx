@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronUp, ChevronsUpDown, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, MoreHorizontal, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -113,6 +113,8 @@ export interface ResponsiveDataViewProps<T> {
   onSortChange?: (column: string, direction: "asc" | "desc") => void;
   /** Click handler for row */
   onRowClick?: (item: T) => void;
+  /** Pull-to-refresh handler (mobile only, requires ux_pull_to_refresh flag) */
+  onRefresh?: () => Promise<void>;
   /** Class name for container */
   className?: string;
 }
@@ -140,10 +142,11 @@ export function ResponsiveDataView<T>({
   sortDirection,
   onSortChange,
   onRowClick,
+  onRefresh,
   className,
 }: ResponsiveDataViewProps<T>) {
   const isMobile = useIsMobile();
-  const { useMobileCards, useSwipeCards } = useUXFeatureFlags();
+  const { useMobileCards, useSwipeCards, usePullToRefresh } = useUXFeatureFlags();
   
   // Use mobile cards if: on mobile AND feature flag enabled (or custom renderer provided)
   const showMobileView = isMobile && (useMobileCards || renderMobileCard);
@@ -151,6 +154,94 @@ export function ResponsiveDataView<T>({
   // Enable swipe if: swipe actions provided AND (feature flag enabled OR always on mobile with swipe actions)
   const hasSwipeActions = (leftSwipeActions && leftSwipeActions.length > 0) || (rightSwipeActions && rightSwipeActions.length > 0);
   const enableSwipe = hasSwipeActions && (useSwipeCards || true); // Enable by default when swipe actions are provided
+
+  // Pull-to-refresh state
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [pullDistance, setPullDistance] = React.useState(0);
+  const startYRef = React.useRef(0);
+  const isPullingRef = React.useRef(false);
+
+  // Enable pull-to-refresh if: handler provided (works in both mobile and desktop for testing)
+  // Note: enabled by default when onRefresh is provided
+  const enablePullToRefresh = !!onRefresh;
+
+  // Pull-to-refresh handlers (touch events)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!enablePullToRefresh || isRefreshing) return;
+    // Check if at top of scroll (window or container)
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    if (scrollTop <= 0) {
+      startYRef.current = e.touches[0].clientY;
+      isPullingRef.current = true;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isPullingRef.current || isRefreshing) return;
+    const diff = e.touches[0].clientY - startYRef.current;
+    if (diff > 0) {
+      // Apply resistance (0.5x drag distance)
+      setPullDistance(Math.min(diff * 0.5, 100));
+      // Prevent default scroll when pulling
+      e.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (!isPullingRef.current) return;
+    isPullingRef.current = false;
+
+    if (pullDistance > 60 && onRefresh) {
+      setIsRefreshing(true);
+      try {
+        await onRefresh();
+      } finally {
+        setIsRefreshing(false);
+      }
+    }
+    setPullDistance(0);
+  };
+
+  // Mouse event handlers for desktop/Chrome DevTools testing
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!enablePullToRefresh || isRefreshing) return;
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    if (scrollTop <= 0) {
+      startYRef.current = e.clientY;
+      isPullingRef.current = true;
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isPullingRef.current || isRefreshing) return;
+    const diff = e.clientY - startYRef.current;
+    if (diff > 0) {
+      setPullDistance(Math.min(diff * 0.5, 100));
+    }
+  };
+
+  const handleMouseUp = async () => {
+    if (!isPullingRef.current) return;
+    isPullingRef.current = false;
+
+    if (pullDistance > 60 && onRefresh) {
+      setIsRefreshing(true);
+      try {
+        await onRefresh();
+      } finally {
+        setIsRefreshing(false);
+      }
+    }
+    setPullDistance(0);
+  };
+
+  const handleMouseLeave = () => {
+    if (isPullingRef.current) {
+      isPullingRef.current = false;
+      setPullDistance(0);
+    }
+  };
 
   // Handle select all
   const handleSelectAll = () => {
@@ -235,7 +326,42 @@ export function ResponsiveDataView<T>({
   // Mobile card view
   if (showMobileView) {
     return (
-      <div className={cn("space-y-3", className)}>
+      <div
+        ref={containerRef}
+        className={cn("relative", className)}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Pull-to-refresh indicator */}
+        {enablePullToRefresh && (pullDistance > 0 || isRefreshing) && (
+          <div
+            className="absolute left-0 right-0 top-0 flex items-center justify-center transition-transform z-10"
+            style={{
+              height: `${Math.max(pullDistance, isRefreshing ? 50 : 0)}px`,
+              transform: `translateY(${isRefreshing ? 0 : pullDistance - 50}px)`,
+            }}
+          >
+            <RefreshCw
+              className={cn(
+                "h-5 w-5 text-muted-foreground transition-transform",
+                isRefreshing && "animate-spin"
+              )}
+              style={{
+                transform: !isRefreshing ? `rotate(${pullDistance * 2}deg)` : undefined,
+              }}
+            />
+          </div>
+        )}
+
+        {/* Card grid */}
+        <div
+          className="space-y-3"
+          style={{
+            transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
+            transition: pullDistance === 0 && !isRefreshing ? 'transform 0.2s' : undefined,
+          }}
+        >
         {data.map((item) => {
           const key = getKey(item);
           const isSelected = selectedKeys.has(key);
@@ -404,14 +530,44 @@ export function ResponsiveDataView<T>({
 
           return <div key={key}>{cardContent}</div>;
         })}
+        </div>
       </div>
     );
   }
 
   // Desktop table view
   return (
-    <div className={cn("rounded-lg border", className)}>
-      <Table>
+    <div
+      ref={containerRef}
+      className={cn("relative rounded-lg border", className)}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh indicator for desktop */}
+      {enablePullToRefresh && (pullDistance > 0 || isRefreshing) && (
+        <div
+          className="absolute left-0 right-0 top-0 flex items-center justify-center transition-transform z-10 bg-background/80"
+          style={{
+            height: `${Math.max(pullDistance, isRefreshing ? 50 : 0)}px`,
+          }}
+        >
+          <RefreshCw
+            className={cn(
+              "h-5 w-5 text-muted-foreground transition-transform",
+              isRefreshing && "animate-spin"
+            )}
+            style={{
+              transform: !isRefreshing ? `rotate(${pullDistance * 2}deg)` : undefined,
+            }}
+          />
+        </div>
+      )}
+      <Table style={{ marginTop: pullDistance > 0 || isRefreshing ? `${Math.max(pullDistance, isRefreshing ? 50 : 0)}px` : undefined }}>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             {selectable && (

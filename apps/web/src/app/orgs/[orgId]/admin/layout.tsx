@@ -11,6 +11,7 @@ import {
   AdminSidebar,
 } from "@/components/layout/admin-sidebar";
 import { BottomNav, BottomNavSpacer, type BottomNavItem } from "@/components/layout/bottom-nav";
+import { CommandMenu } from "@/components/interactions/command-menu";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
@@ -196,6 +197,9 @@ export default function OrgAdminLayout({
           <Loader />
         </div>
       </AuthLoading>
+      
+      {/* Global command menu - Cmd+K to open */}
+      <CommandMenu orgId={orgId} />
     </>
   );
 }

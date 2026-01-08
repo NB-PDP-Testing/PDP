@@ -27,6 +27,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
+import { CommandMenu } from "@/components/interactions/command-menu";
 
 /**
  * AppShell - Responsive layout wrapper
@@ -296,6 +297,8 @@ export function AppShell({
         {!hideBottomNav && (
           <BottomNav items={navItems} />
         )}
+        {/* Global command menu - Cmd+K to open */}
+        <CommandMenu orgId={orgId} />
       </div>
     );
   }
@@ -315,6 +318,9 @@ export function AppShell({
         <DesktopHeader />
         <main className={cn("flex-1 p-6", className)}>{children}</main>
       </div>
+
+      {/* Global command menu - Cmd+K to open */}
+      <CommandMenu orgId={orgId} />
     </div>
   );
 }

@@ -14,7 +14,8 @@
     "10": "Context Menu & Advanced",
     "11": "PWA & Offline",
     "12": "Accessibility",
-    "13": "Performance"
+    "13": "Performance",
+    "14": "Theme & Org Colors"
   },
   "flags": [
     {
@@ -238,6 +239,24 @@
       "name": "Resource hints (preconnect)",
       "phase": 13,
       "description": "Preconnect and prefetch for faster navigation"
+    },
+    {
+      "key": "ux_theme_enhanced",
+      "name": "Enhanced theme toggle",
+      "phase": 14,
+      "description": "Theme toggle with checkmark indicator, ARIA attributes, icons"
+    },
+    {
+      "key": "ux_theme_contrast_colors",
+      "name": "Auto-contrast text colors",
+      "phase": 14,
+      "description": "Automatically picks black or white text based on org background color luminance (WCAG compliant)"
+    },
+    {
+      "key": "ux_theme_dark_variants",
+      "name": "Dark mode color adaptation",
+      "phase": 14,
+      "description": "Lightens dark org colors in dark mode for better visibility"
     }
   ]
 }

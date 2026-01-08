@@ -58,6 +58,11 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_deferred_render: Enable deferred rendering
  * - ux_resource_hints: Enable resource hints (preconnect, prefetch)
  *
+ * PHASE 14 - Theme & Accessibility:
+ * - ux_theme_enhanced: Enhanced theme toggle with checkmark, ARIA, smooth transitions
+ * - ux_theme_contrast_colors: Auto-contrast text colors on org backgrounds
+ * - ux_theme_dark_variants: Adaptive org colors for dark mode
+ *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
  * - When enabled, features are visible to ALL users (not restricted to staff)
@@ -154,6 +159,14 @@ export interface UXFeatureFlags {
   useDeferredRender: boolean;
   /** Enable resource hints (preconnect, prefetch) */
   useResourceHints: boolean;
+
+  // Phase 14 - Theme & Accessibility
+  /** Enhanced theme toggle with checkmark indicator, ARIA attributes, smooth transitions */
+  useEnhancedThemeToggle: boolean;
+  /** Auto-contrast text colors on org-colored backgrounds (black/white based on luminance) */
+  useThemeContrastColors: boolean;
+  /** Adaptive org colors for dark mode (lightened variants) */
+  useThemeDarkVariants: boolean;
 }
 
 /**
@@ -228,6 +241,11 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     useWebVitalsMonitoring: isFeatureEnabled("ux_web_vitals"),
     useDeferredRender: isFeatureEnabled("ux_deferred_render"),
     useResourceHints: isFeatureEnabled("ux_resource_hints"),
+
+    // Phase 14 - Theme & Accessibility
+    useEnhancedThemeToggle: isFeatureEnabled("ux_theme_enhanced"),
+    useThemeContrastColors: isFeatureEnabled("ux_theme_contrast_colors"),
+    useThemeDarkVariants: isFeatureEnabled("ux_theme_dark_variants"),
   };
 }
 
@@ -313,4 +331,8 @@ export const UXAnalyticsEvents = {
   LONG_TASK_DETECTED: "ux_long_task_detected",
   RESOURCE_PRELOADED: "ux_resource_preloaded",
   PERFORMANCE_MARK: "ux_performance_mark",
+
+  // Phase 14 - Theme events
+  THEME_CHANGED: "ux_theme_changed",
+  THEME_TOGGLE_OPENED: "ux_theme_toggle_opened",
 } as const;

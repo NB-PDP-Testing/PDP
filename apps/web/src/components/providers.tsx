@@ -5,6 +5,7 @@ import { ConvexReactClient } from "convex/react";
 import { authClient } from "@/lib/auth-client";
 import { PHProvider } from "@/providers/posthog-provider";
 import { PendingInvitationsModal } from "./pending-invitations-modal";
+import { ServiceWorkerProvider } from "./pwa/service-worker-provider";
 import { ThemeProvider } from "./theme-provider";
 import { Toaster } from "./ui/sonner";
 
@@ -19,10 +20,12 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         disableTransitionOnChange
         enableSystem
       >
-        <ConvexBetterAuthProvider authClient={authClient} client={convex}>
-          {children}
-          <PendingInvitationsModal />
-        </ConvexBetterAuthProvider>
+        <ServiceWorkerProvider>
+          <ConvexBetterAuthProvider authClient={authClient} client={convex}>
+            {children}
+            <PendingInvitationsModal />
+          </ConvexBetterAuthProvider>
+        </ServiceWorkerProvider>
         <Toaster richColors />
       </ThemeProvider>
     </PHProvider>

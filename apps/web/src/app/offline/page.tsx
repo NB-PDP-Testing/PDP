@@ -1,11 +1,8 @@
+"use client";
+
 import { WifiOff, RefreshCw, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-
-export const metadata = {
-  title: "Offline - PlayerARC",
-  description: "You are currently offline",
-};
 
 /**
  * Offline page - shown when user is offline and page is not cached

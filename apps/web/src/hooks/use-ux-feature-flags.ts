@@ -41,6 +41,11 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_action_sheet: Enable action sheets (bottom sheet on mobile, dropdown on desktop)
  * - ux_inline_edit: Enable inline editing (modal on mobile, in-place on desktop)
  *
+ * PHASE 11 - PWA & Offline:
+ * - ux_service_worker: Enable service worker registration
+ * - ux_offline_support: Enable offline support features
+ * - ux_pwa_update_prompt: Show update available prompt
+ *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
  * - When enabled, features are visible to ALL users (not restricted to staff)
@@ -109,6 +114,14 @@ export interface UXFeatureFlags {
   useActionSheet: boolean;
   /** Enable inline editing (modal on mobile, in-place on desktop) */
   useInlineEdit: boolean;
+
+  // Phase 11 - PWA & Offline
+  /** Enable service worker registration */
+  useServiceWorker: boolean;
+  /** Enable offline support features */
+  useOfflineSupport: boolean;
+  /** Show update available prompt */
+  usePWAUpdatePrompt: boolean;
 }
 
 /**
@@ -159,6 +172,11 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     useContextMenu: isFeatureEnabled("ux_context_menu"),
     useActionSheet: isFeatureEnabled("ux_action_sheet"),
     useInlineEdit: isFeatureEnabled("ux_inline_edit"),
+
+    // Phase 11 - PWA & Offline
+    useServiceWorker: isFeatureEnabled("ux_service_worker"),
+    useOfflineSupport: isFeatureEnabled("ux_offline_support"),
+    usePWAUpdatePrompt: isFeatureEnabled("ux_pwa_update_prompt"),
   };
 }
 
@@ -222,4 +240,12 @@ export const UXAnalyticsEvents = {
   INLINE_EDIT_STARTED: "ux_inline_edit_started",
   INLINE_EDIT_SAVED: "ux_inline_edit_saved",
   INLINE_EDIT_CANCELLED: "ux_inline_edit_cancelled",
+
+  // Phase 11 - PWA & Offline events
+  SERVICE_WORKER_REGISTERED: "ux_service_worker_registered",
+  SERVICE_WORKER_UPDATE_FOUND: "ux_service_worker_update_found",
+  SERVICE_WORKER_UPDATE_ACTIVATED: "ux_service_worker_update_activated",
+  OFFLINE_PAGE_VIEWED: "ux_offline_page_viewed",
+  CACHE_HIT: "ux_cache_hit",
+  CACHE_MISS: "ux_cache_miss",
 } as const;

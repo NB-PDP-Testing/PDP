@@ -263,6 +263,12 @@
       "name": "Smooth theme transitions",
       "phase": 14,
       "description": "Adds smooth 200ms transitions when switching themes (respects prefers-reduced-motion)"
+    },
+    {
+      "key": "ux_header_nav_minimal",
+      "name": "Minimal header navigation",
+      "phase": 14,
+      "description": "Hides Home, Platform, Coach, Parent, Admin links from header - users should use the switcher instead"
     }
   ]
 }

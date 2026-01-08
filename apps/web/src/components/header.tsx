@@ -7,6 +7,7 @@ import { useParams, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useOrgTheme } from "@/hooks/use-org-theme";
+import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
 import type { OrgMemberRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -122,6 +123,9 @@ export default function Header() {
   // Skip on join/create pages to avoid queries for orgs the user isn't a member of
   const { theme } = useOrgTheme({ skip: shouldHideOrgContent });
 
+  // Get UX feature flags
+  const { useMinimalHeaderNav } = useUXFeatureFlags();
+
   // Track current org in user profile
   // Skip this on join pages - user isn't a member yet and can't set active org
   // Also skip if user has no member record at all (not a member of any org)
@@ -172,10 +176,14 @@ export default function Header() {
         style={headerBackgroundStyle}
       >
         {/* Left side - Home link always visible + Org logo and nav */}
-        <nav className={cn("flex items-center gap-4 text-lg", headerTextStyle)}>
-          <Link href="/">Home</Link>
-          {user?.isPlatformStaff && <Link href="/platform">Platform</Link>}
-        </nav>
+        {/* When useMinimalHeaderNav is enabled, hide these links - users should use the switcher */}
+        {/* Exception: Always show on /platform pages and /orgs listing/join/create pages */}
+        {(!useMinimalHeaderNav || pathname?.startsWith("/platform") || shouldHideOrgContent) && (
+          <nav className={cn("flex items-center gap-4 text-lg", headerTextStyle)}>
+            <Link href="/">Home</Link>
+            {user?.isPlatformStaff && <Link href="/platform">Platform</Link>}
+          </nav>
+        )}
 
         {/* Org-specific content - only show when on a specific org page, not on /orgs listing, join, or create */}
         {org && !shouldHideOrgContent && (
@@ -200,7 +208,8 @@ export default function Header() {
               </Link>
             </div>
             {/* Only render OrgNav when member data is loaded and matches current org */}
-            {!isMemberPending && validMember && <OrgNav member={validMember} />}
+            {/* When useMinimalHeaderNav is enabled, hide these links - users should use the switcher */}
+            {!useMinimalHeaderNav && !isMemberPending && validMember && <OrgNav member={validMember} />}
           </>
         )}
 

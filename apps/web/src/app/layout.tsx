@@ -23,6 +23,19 @@ export const metadata: Metadata = {
     "PlayerARC - A comprehensive digital ecosystem where parents and coaches collaborate to support and manage a child's sporting development.",
   icons: {
     icon: "/logos/icon.png",
+    apple: "/logos/icon-192.png",
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "PlayerARC",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
   },
 };
 

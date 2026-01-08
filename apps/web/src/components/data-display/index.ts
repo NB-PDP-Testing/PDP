@@ -10,6 +10,7 @@ export {
   ResponsiveDataView,
   type DataColumn,
   type DataAction,
+  type SwipeActionDef,
   type ResponsiveDataViewProps,
 } from "./responsive-data-view";
 

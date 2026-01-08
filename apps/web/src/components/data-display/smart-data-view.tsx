@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
-import { ResponsiveDataView, type DataColumn, type DataAction } from "./responsive-data-view";
+import { ResponsiveDataView, type DataColumn, type DataAction, type SwipeActionDef } from "./responsive-data-view";
 import { DataTableEnhanced, type EnhancedColumn, type RowAction, type BulkAction } from "./data-table-enhanced";
 
 /**
@@ -20,6 +20,10 @@ export interface SmartDataViewProps<T> {
   actions?: DataAction<T>[];
   /** Bulk actions (only used when enhanced tables enabled) */
   bulkActions?: BulkAction<T>[];
+  /** Left swipe actions for mobile cards (swipe left to reveal) */
+  leftSwipeActions?: SwipeActionDef<T>[];
+  /** Right swipe actions for mobile cards (swipe right to reveal) */
+  rightSwipeActions?: SwipeActionDef<T>[];
   /** Enable row selection */
   selectable?: boolean;
   /** Selected row keys */
@@ -74,6 +78,8 @@ export function SmartDataView<T>({
   columns,
   actions,
   bulkActions,
+  leftSwipeActions,
+  rightSwipeActions,
   selectable = false,
   selectedKeys,
   onSelectionChange,
@@ -103,6 +109,7 @@ export function SmartDataView<T>({
       id: col.key,
       header: col.header,
       accessor: col.accessor,
+      exportAccessor: col.exportAccessor,
       sortable: col.sortable,
       hideable: true,
       visible: col.mobileVisible !== false, // Hide on mobile = start hidden
@@ -132,6 +139,8 @@ export function SmartDataView<T>({
         rowActions={rowActions}
         bulkActions={bulkActions}
         selectable={selectable}
+        selectedKeys={selectedKeys}
+        onSelectionChange={onSelectionChange}
         searchable={searchable}
         searchPlaceholder={searchPlaceholder}
         searchValue={searchValue}
@@ -157,6 +166,8 @@ export function SmartDataView<T>({
       getKey={getKey}
       columns={columns}
       actions={actions}
+      leftSwipeActions={leftSwipeActions}
+      rightSwipeActions={rightSwipeActions}
       selectable={selectable}
       selectedKeys={selectedKeys}
       onSelectionChange={onSelectionChange}
@@ -164,6 +175,7 @@ export function SmartDataView<T>({
       sortColumn={sortColumn}
       sortDirection={sortDirection}
       onSortChange={onSortChange as any}
+      loading={loading}
       emptyState={emptyState}
       className={className}
     />
@@ -173,5 +185,5 @@ export function SmartDataView<T>({
 /**
  * Re-export types for convenience
  */
-export type { DataColumn, DataAction } from "./responsive-data-view";
+export type { DataColumn, DataAction, SwipeActionDef } from "./responsive-data-view";
 export type { BulkAction } from "./data-table-enhanced";

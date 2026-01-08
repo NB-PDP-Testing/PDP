@@ -37,6 +37,7 @@ import {
   type DataColumn,
   type DataAction,
   type BulkAction,
+  type SwipeActionDef,
 } from "@/components/data-display";
 import {
   Dialog,
@@ -750,12 +751,14 @@ export default function ManagePlayersPage() {
                       </div>
                     </div>
                   ),
+                  exportAccessor: (player: any) => player.name || "Unnamed",
                 },
                 {
                   key: "team",
                   header: "Team(s)",
                   sortable: true,
                   accessor: (player: any) => getPlayerTeams(player).join(", "),
+                  exportAccessor: (player: any) => getPlayerTeams(player).join(", "),
                 },
                 {
                   key: "ageGroup",
@@ -763,6 +766,31 @@ export default function ManagePlayersPage() {
                   sortable: true,
                   mobileVisible: false,
                   accessor: (player: any) => player.ageGroup || "—",
+                  exportAccessor: (player: any) => player.ageGroup || "",
+                },
+                {
+                  key: "gender",
+                  header: "Gender",
+                  sortable: true,
+                  mobileVisible: false,
+                  accessor: (player: any) => player.gender || "—",
+                  exportAccessor: (player: any) => player.gender || "",
+                },
+                {
+                  key: "dateOfBirth",
+                  header: "Date of Birth",
+                  sortable: true,
+                  mobileVisible: false,
+                  accessor: (player: any) => player.dateOfBirth ? new Date(player.dateOfBirth).toLocaleDateString() : "—",
+                  exportAccessor: (player: any) => player.dateOfBirth || "",
+                },
+                {
+                  key: "sport",
+                  header: "Sport",
+                  sortable: true,
+                  mobileVisible: false,
+                  accessor: (player: any) => player.sport || "—",
+                  exportAccessor: (player: any) => player.sport || "",
                 },
                 {
                   key: "lastReviewDate",
@@ -788,6 +816,7 @@ export default function ManagePlayersPage() {
                     ) : (
                       <span className="text-muted-foreground text-xs">Not reviewed</span>
                     ),
+                  exportAccessor: (player: any) => player.lastReviewDate ? new Date(player.lastReviewDate).toLocaleDateString() : "",
                 },
               ]}
               actions={[
@@ -807,6 +836,32 @@ export default function ManagePlayersPage() {
                   icon: <Trash2 className="h-4 w-4" />,
                   destructive: true,
                   onClick: (player: any) => handleDeleteClick(player),
+                },
+              ]}
+              leftSwipeActions={[
+                {
+                  label: "Delete",
+                  icon: <Trash2 className="h-5 w-5" />,
+                  bgColor: "bg-destructive",
+                  textColor: "text-destructive-foreground",
+                  onClick: (player: any) => handleDeleteClick(player),
+                },
+              ]}
+              rightSwipeActions={[
+                {
+                  label: "View",
+                  icon: <Eye className="h-5 w-5" />,
+                  bgColor: "bg-primary",
+                  textColor: "text-primary-foreground",
+                  onClick: (player: any) => router.push(`/orgs/${orgId}/players/${player._id}`),
+                },
+                {
+                  label: "Edit",
+                  icon: <Edit className="h-5 w-5" />,
+                  bgColor: "bg-blue-500",
+                  textColor: "text-white",
+                  onClick: (player: any) =>
+                    router.push(`/orgs/${orgId}/admin/players/${player._id}/edit` as any),
                 },
               ]}
               onRowClick={(player: any) =>

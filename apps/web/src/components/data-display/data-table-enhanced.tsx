@@ -50,6 +50,8 @@ export interface EnhancedColumn<T> {
   header: string;
   /** Cell content accessor */
   accessor: (item: T) => React.ReactNode;
+  /** Export accessor - returns plain string for CSV export (optional, defaults to accessor result) */
+  exportAccessor?: (item: T) => string | number | null | undefined;
   /** Whether column is sortable */
   sortable?: boolean;
   /** Whether column can be hidden */
@@ -109,6 +111,10 @@ interface DataTableEnhancedProps<T> {
   bulkActions?: BulkAction<T>[];
   /** Enable row selection */
   selectable?: boolean;
+  /** Controlled selected keys (external state) */
+  selectedKeys?: Set<string>;
+  /** Selection change handler (external control) */
+  onSelectionChange?: (keys: Set<string>) => void;
   /** Enable search/filter */
   searchable?: boolean;
   /** Search placeholder */
@@ -161,6 +167,8 @@ export function DataTableEnhanced<T>({
   rowActions,
   bulkActions,
   selectable = false,
+  selectedKeys: controlledSelectedKeys,
+  onSelectionChange,
   searchable = false,
   searchPlaceholder = "Search...",
   onSearch,
@@ -184,8 +192,18 @@ export function DataTableEnhanced<T>({
     );
   });
 
-  // Selection state
-  const [selectedKeys, setSelectedKeys] = React.useState<Set<string>>(new Set());
+  // Selection state - use controlled if provided, otherwise internal
+  const [internalSelectedKeys, setInternalSelectedKeys] = React.useState<Set<string>>(new Set());
+  
+  // Use controlled selection if provided, otherwise use internal state
+  const isControlled = controlledSelectedKeys !== undefined;
+  const selectedKeys = isControlled ? controlledSelectedKeys : internalSelectedKeys;
+  const setSelectedKeys = isControlled 
+    ? (keys: Set<string> | ((prev: Set<string>) => Set<string>)) => {
+        const newKeys = typeof keys === 'function' ? keys(selectedKeys) : keys;
+        onSelectionChange?.(newKeys);
+      }
+    : setInternalSelectedKeys;
 
   // Local search state (if no external control)
   const [localSearch, setLocalSearch] = React.useState("");
@@ -259,11 +277,21 @@ export function DataTableEnhanced<T>({
     }
   };
 
-  // Handle CSV export
+  // Handle CSV export - exports selected rows if any are selected, otherwise all rows
   const handleExport = () => {
-    const headers = displayColumns.map((col) => col.header);
-    const rows = data.map((item) =>
-      displayColumns.map((col) => {
+    // Determine which data to export: selected items if any, otherwise all data
+    const dataToExport = selectedKeys.size > 0 ? selectedItems : data;
+    
+    // Export ALL columns (not just visible) for complete data
+    const headers = columns.map((col) => col.header);
+    const rows = dataToExport.map((item) =>
+      columns.map((col) => {
+        // Use exportAccessor if available, otherwise try accessor
+        if (col.exportAccessor) {
+          const value = col.exportAccessor(item);
+          return value != null ? String(value) : "";
+        }
+        
         const value = col.accessor(item);
         // Convert React nodes to string
         if (typeof value === "string" || typeof value === "number") {
@@ -274,14 +302,14 @@ export function DataTableEnhanced<T>({
     );
 
     const csv = [headers, ...rows]
-      .map((row) => row.map((cell) => `"${cell}"`).join(","))
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
       .join("\n");
 
-    const blob = new Blob([csv], { type: "text/csv" });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${exportFilename}.csv`;
+    a.download = `${exportFilename}${selectedKeys.size > 0 ? `-selected-${selectedKeys.size}` : ''}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

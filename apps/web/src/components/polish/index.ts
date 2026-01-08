@@ -5,8 +5,13 @@
  * - Keyboard shortcuts overlay (? to show)
  * - Density toggle (compact/comfortable/spacious)
  * - Offline indicator (PWA support)
+ * - PWA install prompt
+ * - Resizable sidebar
+ * - Pinned favorites
+ * - Recent items
  */
 
+// Keyboard shortcuts
 export {
   KeyboardShortcutsOverlay,
   useKeyboardShortcutsOverlay,
@@ -15,6 +20,7 @@ export {
   type ShortcutCategory,
 } from "./keyboard-shortcuts-overlay";
 
+// Density controls
 export {
   DensityProvider,
   DensityToggle,
@@ -27,6 +33,7 @@ export {
   type DensityToggleProps,
 } from "./density-toggle";
 
+// Offline support
 export {
   OfflineIndicator,
   OfflineBadge,
@@ -35,3 +42,31 @@ export {
   useOnlineStatus,
   type OfflineIndicatorProps,
 } from "./offline-indicator";
+
+// PWA install prompt
+export {
+  PWAInstallPrompt,
+  useIsPWAInstalled,
+} from "./pwa-install-prompt";
+
+// Resizable sidebar
+export {
+  ResizableSidebar,
+  useSidebarState,
+} from "./resizable-sidebar";
+
+// Pinned favorites
+export {
+  PinnedFavorites,
+  FavoriteToggleButton,
+  useFavorites,
+  type FavoriteItem,
+} from "./pinned-favorites";
+
+// Recent items history
+export {
+  RecentItems,
+  PageTracker,
+  useRecentItems,
+  type RecentItem,
+} from "./recent-items";

@@ -144,6 +144,9 @@ export default function OrgAdminLayout({
               </div>
               
               <div className="flex items-center gap-2">
+                {/* Command menu search trigger */}
+                <CommandMenu orgId={orgId} />
+                
                 <Link href={`/orgs/${orgId}` as Route}>
                   <Button size="sm" variant="outline">
                     Back to App
@@ -198,8 +201,6 @@ export default function OrgAdminLayout({
         </div>
       </AuthLoading>
       
-      {/* Global command menu - Cmd+K to open */}
-      <CommandMenu orgId={orgId} />
     </>
   );
 }

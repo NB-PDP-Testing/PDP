@@ -97,24 +97,94 @@ Once you're Platform Staff, you need PostHog credentials:
 | `ux_keyboard_shortcuts_overlay` | Keyboard shortcuts help | Press ? to show all keyboard shortcuts (desktop only) |
 | `ux_density_toggle` | Density toggle | Compact/comfortable/spacious density options (⌘D to cycle) |
 | `ux_offline_indicator` | Offline indicator | Shows banner when offline, "reconnected" when back online |
+| `ux_pwa_install_prompt` | PWA install prompt | Shows "Add to Home Screen" prompt |
+| `ux_resizable_sidebar` | Resizable sidebar | Allow dragging sidebar edge to resize |
+| `ux_pinned_favorites` | Pinned favorites | Pin pages to quick access list |
+| `ux_recent_items` | Recent items | Track and show recently visited pages |
 
-#### Quick Reference: All Flags
+#### Phase 7: Table Migration
 
-| Phase | Flag Name | Default |
-|-------|-----------|---------|
-| 1 | `ux_admin_nav_sidebar` | OFF |
-| 1 | `ux_admin_nav_bottomsheet` | OFF |
-| 1 | `ux_admin_nav_tabs` | OFF |
-| 1 | `ux_bottom_nav` | OFF |
-| 1 | `ux_touch_targets_44px` | OFF |
-| 2 | `ux_mobile_cards` | OFF |
-| 2 | `ux_skeleton_loaders` | OFF |
-| 3 | `ux_responsive_forms` | OFF |
-| 4 | `ux_command_menu` | OFF |
-| 4 | `ux_responsive_dialogs` | OFF |
-| 5 | `ux_keyboard_shortcuts_overlay` | OFF |
-| 5 | `ux_density_toggle` | OFF |
-| 5 | `ux_offline_indicator` | OFF |
+| Flag Name | Description | Effect |
+|-----------|-------------|--------|
+| `ux_enhanced_tables` | Enhanced table features | Column visibility, bulk selection, export, sorting |
+| `ux_swipe_cards` | Swipe actions on cards | Swipe left/right to reveal actions on mobile |
+| `ux_pull_to_refresh` | Pull to refresh | Pull down on lists to refresh data |
+
+#### Phase 10: Context Menu & Interactions
+
+| Flag Name | Description | Effect |
+|-----------|-------------|--------|
+| `ux_context_menu` | Context menus | Right-click (desktop) / long-press (mobile) context menus |
+| `ux_action_sheet` | Action sheets | Bottom sheet (mobile) / dropdown (desktop) action menus |
+| `ux_inline_edit` | Inline editing | Double-click (desktop) / tap (mobile) to edit in place |
+
+#### Phase 11: PWA & Offline
+
+| Flag Name | Description | Effect |
+|-----------|-------------|--------|
+| `ux_service_worker` | Service worker | Enable service worker registration and caching |
+| `ux_offline_support` | Offline support | Cache pages for offline access |
+| `ux_pwa_update_prompt` | PWA update prompt | Show toast when new app version available |
+
+#### Phase 12: Accessibility
+
+| Flag Name | Description | Effect |
+|-----------|-------------|--------|
+| `ux_skip_links` | Skip links | "Skip to main content" link for keyboard users |
+| `ux_focus_visible` | Focus indicators | Enhanced visible focus rings on all elements |
+| `ux_reduced_motion` | Reduced motion | Respect prefers-reduced-motion setting |
+| `ux_announcer` | Screen reader announcements | Programmatic announcements for screen readers |
+
+#### Phase 13: Performance
+
+| Flag Name | Description | Effect |
+|-----------|-------------|--------|
+| `ux_lazy_components` | Lazy loading | Load components only when visible |
+| `ux_web_vitals` | Web Vitals monitoring | Track LCP, FID, CLS, FCP, TTFB |
+| `ux_deferred_render` | Deferred rendering | Defer non-critical content to idle time |
+| `ux_resource_hints` | Resource hints | Preconnect, DNS prefetch, prefetch hints |
+
+#### Quick Reference: All Flags (36 Total)
+
+| Phase | Flag Name | Default | Description |
+|-------|-----------|---------|-------------|
+| 1 | `ux_admin_nav_sidebar` | OFF | Grouped sidebar navigation |
+| 1 | `ux_admin_nav_bottomsheet` | OFF | Bottom sheet admin nav |
+| 1 | `ux_admin_nav_tabs` | OFF | Tabs admin nav |
+| 1 | `ux_bottom_nav` | OFF | Mobile bottom navigation |
+| 1 | `ux_touch_targets_44px` | OFF | 44px touch targets |
+| 1 | `ux_app_shell` | OFF | AppShell responsive layout |
+| 1 | `ux_hover_actions` | OFF | Desktop hover-reveal actions |
+| 1 | `ux_responsive_inputs` | OFF | Responsive input sizing |
+| 2 | `ux_mobile_cards` | OFF | Card-based mobile display |
+| 2 | `ux_skeleton_loaders` | OFF | Skeleton loading states |
+| 3 | `ux_responsive_forms` | OFF | Mobile-optimized forms |
+| 4 | `ux_command_menu` | OFF | Command palette (⌘K) |
+| 4 | `ux_responsive_dialogs` | OFF | Responsive dialogs |
+| 5 | `ux_keyboard_shortcuts_overlay` | OFF | Keyboard shortcuts help |
+| 5 | `ux_density_toggle` | OFF | Density toggle |
+| 5 | `ux_offline_indicator` | OFF | Offline status indicator |
+| 5 | `ux_pwa_install_prompt` | OFF | PWA install prompt |
+| 5 | `ux_resizable_sidebar` | OFF | Resizable sidebar |
+| 5 | `ux_pinned_favorites` | OFF | Pinned favorites |
+| 5 | `ux_recent_items` | OFF | Recent items history |
+| 7 | `ux_enhanced_tables` | OFF | Enhanced table features |
+| 7 | `ux_swipe_cards` | OFF | Swipe actions on cards |
+| 7 | `ux_pull_to_refresh` | OFF | Pull to refresh |
+| 10 | `ux_context_menu` | OFF | Context menus |
+| 10 | `ux_action_sheet` | OFF | Action sheets |
+| 10 | `ux_inline_edit` | OFF | Inline editing |
+| 11 | `ux_service_worker` | OFF | Service worker |
+| 11 | `ux_offline_support` | OFF | Offline support |
+| 11 | `ux_pwa_update_prompt` | OFF | PWA update prompt |
+| 12 | `ux_skip_links` | OFF | Skip links |
+| 12 | `ux_focus_visible` | OFF | Focus indicators |
+| 12 | `ux_reduced_motion` | OFF | Reduced motion |
+| 12 | `ux_announcer` | OFF | Screen reader announcements |
+| 13 | `ux_lazy_components` | OFF | Lazy loading |
+| 13 | `ux_web_vitals` | OFF | Web Vitals monitoring |
+| 13 | `ux_deferred_render` | OFF | Deferred rendering |
+| 13 | `ux_resource_hints` | OFF | Resource hints |
 
 ---
 

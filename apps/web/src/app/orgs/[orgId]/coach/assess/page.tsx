@@ -22,6 +22,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import {
   getRatingConfig,
   type Rating,
@@ -609,18 +610,14 @@ export default function AssessPlayerPage() {
   return (
     <div className="space-y-6">
       {/* Header with gradient background - matching coach dashboard */}
-      <div
-        className="rounded-lg p-6 text-white shadow-lg"
-        style={{
-          background:
-            "linear-gradient(to right, var(--org-primary), var(--org-primary))",
-          filter: "brightness(0.95)",
-        }}
+      <OrgThemedGradient
+        className="rounded-lg p-6 shadow-lg"
+        style={{ filter: "brightness(0.95)" }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
-              className="border-white/20 bg-white/10 text-white hover:bg-white/20"
+              className="border-current/20 bg-current/10 hover:bg-current/20"
               onClick={() => router.back()}
               size="sm"
               variant="outline"
@@ -634,7 +631,7 @@ export default function AssessPlayerPage() {
                   ? "Team Session Assessment"
                   : "Assess Player Skills"}
               </h1>
-              <p className="text-sm text-white/80">
+              <p className="text-sm opacity-80">
                 {assessmentMode === "batch"
                   ? "Record the same assessment for multiple players at once"
                   : "Record skill assessments with automatic benchmark comparison"}
@@ -643,12 +640,12 @@ export default function AssessPlayerPage() {
           </div>
           <div className="flex items-center gap-2">
             {/* Mode Toggle */}
-            <div className="flex rounded-lg border border-white/30 bg-white/10 p-1">
+            <div className="flex rounded-lg border border-current/30 bg-current/10 p-1">
               <Button
                 className={`text-sm ${
                   assessmentMode === "individual"
                     ? "bg-white text-gray-800"
-                    : "bg-transparent text-white hover:bg-white/20"
+                    : "bg-transparent hover:bg-current/20"
                 }`}
                 onClick={() => {
                   setAssessmentMode("individual");
@@ -667,7 +664,7 @@ export default function AssessPlayerPage() {
                 className={`text-sm ${
                   assessmentMode === "batch"
                     ? "bg-white text-gray-800"
-                    : "bg-transparent text-white hover:bg-white/20"
+                    : "bg-transparent hover:bg-current/20"
                 }`}
                 onClick={() => {
                   setAssessmentMode("batch");
@@ -700,7 +697,7 @@ export default function AssessPlayerPage() {
             )}
           </div>
         </div>
-      </div>
+      </OrgThemedGradient>
 
       {/* Search and Filter Bar */}
       <Card

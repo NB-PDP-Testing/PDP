@@ -22,6 +22,11 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { OrgThemedButton } from "@/components/org-themed-button";
+import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
+import {
+  getContrastColor,
+  getWCAGCompliance,
+} from "@/lib/color-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -427,6 +432,19 @@ export default function OrgSettingsPage() {
   const previewSecondary = getPreviewColor(1);
   const previewTertiary = getPreviewColor(2);
 
+  // Get feature flags for enhanced theming
+  const { useThemeContrastColors } = useUXFeatureFlags();
+
+  // Calculate WCAG compliance for each color (white text on colored background)
+  const primaryCompliance = getWCAGCompliance("#ffffff", previewPrimary);
+  const secondaryCompliance = getWCAGCompliance("#ffffff", previewSecondary);
+  const tertiaryCompliance = getWCAGCompliance("#ffffff", previewTertiary);
+
+  // Get optimal contrast colors (auto black/white)
+  const primaryContrast = getContrastColor(previewPrimary);
+  const secondaryContrast = getContrastColor(previewSecondary);
+  const tertiaryContrast = getContrastColor(previewTertiary);
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -694,36 +712,156 @@ export default function OrgSettingsPage() {
               </div>
             </div>
 
-            {/* Color Palette Preview */}
+            {/* Color Palette Preview with WCAG Compliance */}
             <div className="rounded-lg border bg-muted/30 p-4">
-              <Label className="mb-3 block text-sm">Color Palette</Label>
+              <div className="mb-3 flex items-center justify-between">
+                <Label className="text-sm">Color Palette & Accessibility</Label>
+                {useThemeContrastColors && (
+                  <Badge variant="outline" className="text-xs">
+                    Auto-contrast enabled
+                  </Badge>
+                )}
+              </div>
               <div className="flex gap-3">
+                {/* Primary Color */}
                 <div className="flex flex-col items-center gap-2">
                   <div
-                    className="h-16 w-16 rounded-lg shadow-sm"
+                    className="relative flex h-16 w-16 items-center justify-center rounded-lg shadow-sm"
                     style={{ backgroundColor: previewPrimary }}
-                  />
+                  >
+                    <span
+                      className="font-bold text-xs"
+                      style={{ color: useThemeContrastColors ? primaryContrast : "#ffffff" }}
+                    >
+                      Aa
+                    </span>
+                  </div>
                   <span className="font-mono text-muted-foreground text-xs">
                     {previewPrimary}
                   </span>
+                  <Badge
+                    variant={primaryCompliance.level === "Fail" ? "destructive" : "secondary"}
+                    className="text-xs"
+                  >
+                    {primaryCompliance.level} ({primaryCompliance.ratioText})
+                  </Badge>
                 </div>
+                {/* Secondary Color */}
                 <div className="flex flex-col items-center gap-2">
                   <div
-                    className="h-16 w-16 rounded-lg shadow-sm"
+                    className="relative flex h-16 w-16 items-center justify-center rounded-lg shadow-sm"
                     style={{ backgroundColor: previewSecondary }}
-                  />
+                  >
+                    <span
+                      className="font-bold text-xs"
+                      style={{ color: useThemeContrastColors ? secondaryContrast : "#ffffff" }}
+                    >
+                      Aa
+                    </span>
+                  </div>
                   <span className="font-mono text-muted-foreground text-xs">
                     {previewSecondary}
                   </span>
+                  <Badge
+                    variant={secondaryCompliance.level === "Fail" ? "destructive" : "secondary"}
+                    className="text-xs"
+                  >
+                    {secondaryCompliance.level} ({secondaryCompliance.ratioText})
+                  </Badge>
                 </div>
+                {/* Tertiary Color */}
                 <div className="flex flex-col items-center gap-2">
                   <div
-                    className="h-16 w-16 rounded-lg shadow-sm"
+                    className="relative flex h-16 w-16 items-center justify-center rounded-lg shadow-sm"
                     style={{ backgroundColor: previewTertiary }}
-                  />
+                  >
+                    <span
+                      className="font-bold text-xs"
+                      style={{ color: useThemeContrastColors ? tertiaryContrast : "#ffffff" }}
+                    >
+                      Aa
+                    </span>
+                  </div>
                   <span className="font-mono text-muted-foreground text-xs">
                     {previewTertiary}
                   </span>
+                  <Badge
+                    variant={tertiaryCompliance.level === "Fail" ? "destructive" : "secondary"}
+                    className="text-xs"
+                  >
+                    {tertiaryCompliance.level} ({tertiaryCompliance.ratioText})
+                  </Badge>
+                </div>
+              </div>
+              {/* WCAG Warning */}
+              {(primaryCompliance.level === "Fail" ||
+                secondaryCompliance.level === "Fail" ||
+                tertiaryCompliance.level === "Fail") && (
+                <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-50 p-3 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <div className="text-xs">
+                    <p className="font-medium">Accessibility Warning</p>
+                    <p className="mt-1">
+                      {useThemeContrastColors
+                        ? "Some colors have low contrast with white text. Auto-contrast will use black text for better readability."
+                        : "Some colors don't meet WCAG AA contrast requirements (4.5:1) with white text. Enable 'ux_theme_contrast_colors' feature flag for automatic text color adjustment."}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Side-by-side Light/Dark Theme Preview */}
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <Label className="mb-3 block text-sm">Light & Dark Mode Preview</Label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Light Mode Preview */}
+                <div className="rounded-lg border bg-white p-4 shadow-sm">
+                  <p className="mb-2 font-medium text-gray-900 text-xs">Light Mode</p>
+                  <div className="space-y-2">
+                    <div
+                      className="flex items-center justify-center rounded px-3 py-2 font-medium text-sm"
+                      style={{
+                        backgroundColor: previewPrimary,
+                        color: useThemeContrastColors ? primaryContrast : "#ffffff",
+                      }}
+                    >
+                      Primary Button
+                    </div>
+                    <div
+                      className="flex items-center justify-center rounded px-3 py-2 font-medium text-sm"
+                      style={{
+                        backgroundColor: previewSecondary,
+                        color: useThemeContrastColors ? secondaryContrast : "#ffffff",
+                      }}
+                    >
+                      Secondary Button
+                    </div>
+                  </div>
+                </div>
+                {/* Dark Mode Preview */}
+                <div className="rounded-lg border bg-gray-900 p-4 shadow-sm">
+                  <p className="mb-2 font-medium text-gray-100 text-xs">Dark Mode</p>
+                  <div className="space-y-2">
+                    <div
+                      className="flex items-center justify-center rounded px-3 py-2 font-medium text-sm"
+                      style={{
+                        backgroundColor: previewPrimary,
+                        color: useThemeContrastColors ? primaryContrast : "#ffffff",
+                      }}
+                    >
+                      Primary Button
+                    </div>
+                    <div
+                      className="flex items-center justify-center rounded px-3 py-2 font-medium text-sm"
+                      style={{
+                        backgroundColor: previewSecondary,
+                        color: useThemeContrastColors ? secondaryContrast : "#ffffff",
+                      }}
+                    >
+                      Secondary Button
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

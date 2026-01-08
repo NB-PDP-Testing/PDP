@@ -147,3 +147,33 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/**
+ * Theme Smooth Transitions (Phase 14)
+ * Enabled via ux_theme_smooth_transitions feature flag
+ * Adds smooth 200ms transitions when switching between light/dark themes
+ * Respects prefers-reduced-motion for accessibility
+ */
+html.theme-transitions,
+html.theme-transitions *,
+html.theme-transitions *::before,
+html.theme-transitions *::after {
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease,
+    fill 200ms ease,
+    stroke 200ms ease,
+    opacity 200ms ease,
+    box-shadow 200ms ease !important;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transitions,
+  html.theme-transitions *,
+  html.theme-transitions *::before,
+  html.theme-transitions *::after {
+    transition: none !important;
+  }
+}

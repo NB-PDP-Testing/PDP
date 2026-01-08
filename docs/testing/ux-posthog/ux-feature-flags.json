@@ -257,6 +257,12 @@
       "name": "Dark mode color adaptation",
       "phase": 14,
       "description": "Lightens dark org colors in dark mode for better visibility"
+    },
+    {
+      "key": "ux_theme_smooth_transitions",
+      "name": "Smooth theme transitions",
+      "phase": 14,
+      "description": "Adds smooth 200ms transitions when switching themes (respects prefers-reduced-motion)"
     }
   ]
 }

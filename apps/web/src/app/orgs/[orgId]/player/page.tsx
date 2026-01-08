@@ -7,6 +7,7 @@ import { Loader2, Share2, User } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { BenchmarkComparison } from "@/components/benchmark-comparison";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -147,35 +148,31 @@ export default function PlayerDashboardPage() {
   return (
     <div className="container mx-auto max-w-5xl space-y-6 px-4 py-8">
       {/* Header */}
-      <div
-        className="rounded-lg p-6 text-white shadow-lg"
-        style={{
-          background:
-            "linear-gradient(to right, var(--org-primary), var(--org-primary))",
-          filter: "brightness(0.95)",
-        }}
+      <OrgThemedGradient
+        className="rounded-lg p-6 shadow-lg"
+        style={{ filter: "brightness(0.95)" }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20">
-              <User className="h-8 w-8 text-white" />
+              <User className="h-8 w-8" />
             </div>
             <div>
               <h1 className="font-bold text-2xl md:text-3xl">
                 My Player Passport
               </h1>
-              <p className="text-white/80">
+              <p className="opacity-80">
                 Welcome back, {session?.user?.name || playerIdentity.firstName}!
               </p>
               {activeOrganization && (
-                <p className="text-sm text-white/60">
+                <p className="text-sm opacity-60">
                   {activeOrganization.name}
                 </p>
               )}
             </div>
           </div>
           <Button
-            className="bg-white/20 text-white hover:bg-white/30"
+            className="border-current/20 bg-current/20 hover:bg-current/30"
             disabled={isPdfGenerating}
             onClick={handleShare}
             variant="outline"
@@ -193,7 +190,7 @@ export default function PlayerDashboardPage() {
             )}
           </Button>
         </div>
-      </div>
+      </OrgThemedGradient>
 
       {/* If we have full passport data, show the full view */}
       {playerData ? (

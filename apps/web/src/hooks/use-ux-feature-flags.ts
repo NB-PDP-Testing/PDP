@@ -36,6 +36,11 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_pinned_favorites: Enable pinned favorites in sidebar
  * - ux_recent_items: Enable recent items history
  *
+ * PHASE 10 - Context Menu & Advanced Interactions:
+ * - ux_context_menu: Enable responsive context menus (long-press on mobile, right-click on desktop)
+ * - ux_action_sheet: Enable action sheets (bottom sheet on mobile, dropdown on desktop)
+ * - ux_inline_edit: Enable inline editing (modal on mobile, in-place on desktop)
+ *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
  * - When enabled, features are visible to ALL users (not restricted to staff)
@@ -96,6 +101,14 @@ export interface UXFeatureFlags {
   usePinnedFavorites: boolean;
   /** Enable recent items history */
   useRecentItems: boolean;
+
+  // Phase 10 - Context Menu & Advanced Interactions
+  /** Enable responsive context menus (long-press on mobile, right-click on desktop) */
+  useContextMenu: boolean;
+  /** Enable action sheets (bottom sheet on mobile, dropdown on desktop) */
+  useActionSheet: boolean;
+  /** Enable inline editing (modal on mobile, in-place on desktop) */
+  useInlineEdit: boolean;
 }
 
 /**
@@ -141,6 +154,11 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     useResizableSidebar: isFeatureEnabled("ux_resizable_sidebar"),
     usePinnedFavorites: isFeatureEnabled("ux_pinned_favorites"),
     useRecentItems: isFeatureEnabled("ux_recent_items"),
+
+    // Phase 10 - Context Menu & Advanced Interactions
+    useContextMenu: isFeatureEnabled("ux_context_menu"),
+    useActionSheet: isFeatureEnabled("ux_action_sheet"),
+    useInlineEdit: isFeatureEnabled("ux_inline_edit"),
   };
 }
 
@@ -195,4 +213,13 @@ export const UXAnalyticsEvents = {
   FAVORITE_ADDED: "ux_favorite_added",
   FAVORITE_REMOVED: "ux_favorite_removed",
   RECENT_ITEM_CLICKED: "ux_recent_item_clicked",
+
+  // Phase 10 - Context Menu & Advanced Interactions events
+  CONTEXT_MENU_OPENED: "ux_context_menu_opened",
+  CONTEXT_MENU_ACTION: "ux_context_menu_action",
+  ACTION_SHEET_OPENED: "ux_action_sheet_opened",
+  ACTION_SHEET_ACTION: "ux_action_sheet_action",
+  INLINE_EDIT_STARTED: "ux_inline_edit_started",
+  INLINE_EDIT_SAVED: "ux_inline_edit_saved",
+  INLINE_EDIT_CANCELLED: "ux_inline_edit_cancelled",
 } as const;

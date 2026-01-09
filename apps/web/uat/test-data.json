@@ -1,42 +1,43 @@
 {
   "description": "UAT Test Data Configuration",
-  "version": "1.0.0",
-  "lastUpdated": "2026-01-05",
+  "version": "2.0.0",
+  "lastUpdated": "2026-01-09",
+  "note": "All test accounts use the pattern: 0wn3r, adm1n, c0ach, par3nt (with numbers for vowels)",
   
   "users": {
     "owner": {
-      "email": "owner_pdp@outlook.com",
-      "password": "Password123!",
+      "email": "0wn3r_pdp@outlook.com",
+      "password": "Gegrep_01",
       "name": "Owner User",
-      "description": "Organization owner - becomes platform staff"
+      "description": "Platform owner - has platformStaff=true"
     },
     "admin": {
       "email": "adm1n_pdp@outlook.com",
-      "password": "Password123!",
+      "password": "Gegrep_01",
       "name": "Admin User",
       "description": "Organization administrator"
     },
     "coach": {
-      "email": "coach_pdp@outlook.com",
-      "password": "Password123!",
+      "email": "c0ach_pdp@outlook.com",
+      "password": "Gegrep_01",
       "name": "Coach User",
       "description": "Team coach"
     },
     "parent": {
-      "email": "parent_pdp@outlook.com",
-      "password": "Password123!",
+      "email": "par3nt_pdp@outlook.com",
+      "password": "Gegrep_01",
       "name": "Parent User",
       "description": "Player guardian/parent"
     },
     "newUser": {
       "email": "newuser_pdp@outlook.com",
-      "password": "Password123!",
+      "password": "Gegrep_01",
       "name": "New Test User",
       "description": "New user for signup tests"
     },
     "multiRole": {
       "email": "multi_pdp@outlook.com",
-      "password": "Password123!",
+      "password": "Gegrep_01",
       "name": "Multi Role User",
       "description": "User with multiple roles"
     }
@@ -46,6 +47,7 @@
     "name": "Test Club FC",
     "editedname": "Test Club FC Updated",
     "slug": "test-club-fc",
+    "editedslug": "test-club-fc-updated",
     "sports": ["Soccer"],
     "editedSports": ["Soccer", "Rugby"],
     "colors": {
@@ -55,8 +57,6 @@
       "editedSecondary": "#f5f5dc"
     },
     "description": "Test organization for UAT",
-    "editedname": "Test Club FC Updated",
-    "editedslug": "test-club-fc-updated",
     "Website": "https://www.testclubfc.com",
     "FaceBook": "https://www.facebook.com/testclubfc",
     "Twitter": "https://www.twitter.com/testclubfc",
@@ -66,15 +66,24 @@
   
   "teams": [
     {
-      "name": "Test Club FC 11.13 Boys Sun",
+      "name": "Test Club FC U12 Boys",
+      "editedname": "Test Club FC U12 Boys Updated",
       "ageGroup": "U12",
       "sport": "Soccer",
       "gender": "Boys",
       "description": "First test team",
       "trainingSchedule": "Sundays 10am-12pm",
-      "HomeVenue": "Test Club Stadium",
-      "editedname": "Test Club FC 11.13 Boys Sun Updated"
-      
+      "HomeVenue": "Test Club Stadium"
+    },
+    {
+      "name": "Test Club FC U14 Girls",
+      "editedname": "Test Club FC U14 Girls Updated",
+      "ageGroup": "U14",
+      "sport": "Soccer",
+      "gender": "Girls",
+      "description": "Second test team",
+      "trainingSchedule": "Saturdays 9am-11am",
+      "HomeVenue": "Test Club Stadium"
     }
   ],
   
@@ -84,11 +93,11 @@
       "roles": ["admin"]
     },
     "coach": {
-      "email": "coach_pdp@outlook.com",
+      "email": "c0ach_pdp@outlook.com",
       "roles": ["coach"]
     },
     "parent": {
-      "email": "parent_pdp@outlook.com",
+      "email": "par3nt_pdp@outlook.com",
       "roles": ["parent"]
     }
   },
@@ -97,79 +106,23 @@
     {
       "firstName": "Liam",
       "lastName": "Murphy",
-      "dateOfBirth": "2017-01-01",
+      "dateOfBirth": "2014-03-15",
       "gender": "Male",
-      "ageGroup": "U10"
+      "ageGroup": "U12"
     },
     {
       "firstName": "Noah",
       "lastName": "O'Brien",
-      "dateOfBirth": "2017-01-01",
+      "dateOfBirth": "2014-06-22",
       "gender": "Male",
-      "ageGroup": "U10"
+      "ageGroup": "U12"
     },
     {
-      "firstName": "Jack",
+      "firstName": "Emma",
       "lastName": "Kelly",
-      "dateOfBirth": "2017-01-01",
-      "gender": "Male",
-      "ageGroup": "U10"
-    },
-    {
-      "firstName": "James",
-      "lastName": "Ryan",
-      "dateOfBirth": "2017-01-01",
-      "gender": "Male",
-      "ageGroup": "U10"
-    },
-    {
-      "firstName": "Conor",
-      "lastName": "Walsh",
-      "dateOfBirth": "2017-01-01",
-      "gender": "Male",
-      "ageGroup": "U10"
-    },
-    {
-      "firstName": "Sean",
-      "lastName": "McCarthy",
-      "dateOfBirth": "2017-01-01",
-      "gender": "Male",
-      "ageGroup": "U10"
-    },
-    {
-      "firstName": "Daniel",
-      "lastName": "Byrne",
-      "dateOfBirth": "2017-01-01",
-      "gender": "Male",
-      "ageGroup": "U10"
-    },
-    {
-      "firstName": "Adam",
-      "lastName": "Doyle",
-      "dateOfBirth": "2017-01-01",
-      "gender": "Male",
-      "ageGroup": "U10"
-    },
-    {
-      "firstName": "Cian",
-      "lastName": "O'Sullivan",
-      "dateOfBirth": "2017-01-01",
-      "gender": "Male",
-      "ageGroup": "U10"
-    },
-    {
-      "firstName": "Finn",
-      "lastName": "Brennan",
-      "dateOfBirth": "2017-01-01",
-      "gender": "Male",
-      "ageGroup": "U10"
-    },
-    {
-      "firstName": "Oisin",
-      "lastName": "Dunne",
-      "dateOfBirth": "2017-01-01",
-      "gender": "Male",
-      "ageGroup": "U10"
+      "dateOfBirth": "2012-01-10",
+      "gender": "Female",
+      "ageGroup": "U14"
     }
   ]
 }

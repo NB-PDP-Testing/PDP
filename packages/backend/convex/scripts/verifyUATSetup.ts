@@ -15,13 +15,24 @@ import { query } from "../_generated/server";
 import { v } from "convex/values";
 
 /**
+ * Test user configuration - MUST match apps/web/uat/test-data.json
+ * The emails use numbers for vowels: 0wn3r, adm1n, c0ach, par3nt
+ */
+const TEST_ACCOUNTS = {
+  owner: { email: "0wn3r_pdp@outlook.com", role: "owner" },
+  admin: { email: "adm1n_pdp@outlook.com", role: "admin" },
+  coach: { email: "c0ach_pdp@outlook.com", role: "coach" },
+  parent: { email: "par3nt_pdp@outlook.com", role: "parent" },
+};
+
+/**
  * Verify that the platform admin (owner) account exists and has correct permissions
  */
 export const verifyPlatformAdmin = query({
   args: {},
   handler: async (ctx) => {
-    // Look for the owner account
-    const ownerEmail = "0wn3r_pdp@outlook.com";
+    // Look for the owner account - MUST match test-data.json
+    const ownerEmail = TEST_ACCOUNTS.owner.email;
 
     // Check in users table - using any to handle dynamic schema
     const user = await (ctx.db as any)
@@ -81,15 +92,16 @@ export const checkUserExists = query({
 
 /**
  * Verify all test user permissions
+ * Uses TEST_ACCOUNTS which MUST match apps/web/uat/test-data.json
  */
 export const verifyTestUserPermissions = query({
   args: {},
   handler: async (ctx) => {
     const testUsers = [
-      { email: "0wn3r_pdp@outlook.com", expectedRole: "owner", description: "Platform Owner" },
-      { email: "adm1n_pdp@outlook.com", expectedRole: "admin", description: "Organization Admin" },
-      { email: "c0ach_pdp@outlook.com", expectedRole: "coach", description: "Team Coach" },
-      { email: "par3nt_pdp@outlook.com", expectedRole: "parent", description: "Player Parent" },
+      { email: TEST_ACCOUNTS.owner.email, expectedRole: TEST_ACCOUNTS.owner.role, description: "Platform Owner" },
+      { email: TEST_ACCOUNTS.admin.email, expectedRole: TEST_ACCOUNTS.admin.role, description: "Organization Admin" },
+      { email: TEST_ACCOUNTS.coach.email, expectedRole: TEST_ACCOUNTS.coach.role, description: "Team Coach" },
+      { email: TEST_ACCOUNTS.parent.email, expectedRole: TEST_ACCOUNTS.parent.role, description: "Player Parent" },
     ];
 
     const results = [];

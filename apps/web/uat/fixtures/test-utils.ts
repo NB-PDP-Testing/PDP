@@ -15,13 +15,13 @@ export const TEST_USERS = testData.users;
 
 /**
  * Test organization details - loaded from test-data.json
+ * NOTE: Organization ID should be extracted from URL after creation, not hardcoded
  */
 export const TEST_ORG = {
   name: testData.organization.name,
   slug: testData.organization.slug,
   sports: testData.organization.sports,
   colors: testData.organization.colors,
-  id: process.env.TEST_ORG_ID || "", // Populated at runtime
   // Organization edit fields for TEST-SETUP-011
   editedname: testData.organization.editedname,
   editedslug: testData.organization.editedslug,
@@ -31,6 +31,15 @@ export const TEST_ORG = {
   Instagram: testData.organization.Instagram,
   Linkedin: testData.organization.Linkedin,
 };
+
+/**
+ * Extract organization ID from the current page URL
+ * URL pattern: /orgs/{orgId} or /orgs/{orgId}/...
+ */
+export function extractOrgIdFromUrl(url: string): string | null {
+  const match = url.match(/\/orgs\/([^/]+)/);
+  return match ? match[1] : null;
+}
 
 /**
  * Test teams - loaded from test-data.json
@@ -200,37 +209,54 @@ export class TestHelper {
   }
 
   /**
+   * Get org ID from current URL or provided value
+   * Falls back to extracting from current page URL
+   */
+  getOrgId(orgId?: string): string | null {
+    if (orgId) return orgId;
+    return extractOrgIdFromUrl(this.page.url());
+  }
+
+  /**
    * Navigate to organization
+   * If orgId not provided, extracts from current URL
    */
   async goToOrg(orgId?: string) {
-    const id = orgId || process.env.TEST_ORG_ID || TEST_ORG.id;
+    const id = orgId || this.getOrgId();
+    if (!id) throw new Error("No org ID provided and could not extract from URL");
     await this.page.goto(`/orgs/${id}`);
     await this.page.waitForLoadState("networkidle");
   }
 
   /**
    * Navigate to admin dashboard
+   * If orgId not provided, extracts from current URL
    */
   async goToAdmin(orgId?: string) {
-    const id = orgId || process.env.TEST_ORG_ID || TEST_ORG.id;
+    const id = orgId || this.getOrgId();
+    if (!id) throw new Error("No org ID provided and could not extract from URL");
     await this.page.goto(`/orgs/${id}/admin`);
     await this.page.waitForLoadState("networkidle");
   }
 
   /**
    * Navigate to coach dashboard
+   * If orgId not provided, extracts from current URL
    */
   async goToCoach(orgId?: string) {
-    const id = orgId || process.env.TEST_ORG_ID || TEST_ORG.id;
+    const id = orgId || this.getOrgId();
+    if (!id) throw new Error("No org ID provided and could not extract from URL");
     await this.page.goto(`/orgs/${id}/coach`);
     await this.page.waitForLoadState("networkidle");
   }
 
   /**
    * Navigate to parent dashboard
+   * If orgId not provided, extracts from current URL
    */
   async goToParent(orgId?: string) {
-    const id = orgId || process.env.TEST_ORG_ID || TEST_ORG.id;
+    const id = orgId || this.getOrgId();
+    if (!id) throw new Error("No org ID provided and could not extract from URL");
     await this.page.goto(`/orgs/${id}/parents`);
     await this.page.waitForLoadState("networkidle");
   }

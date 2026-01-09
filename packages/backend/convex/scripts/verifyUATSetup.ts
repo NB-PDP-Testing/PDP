@@ -16,13 +16,12 @@ import { v } from "convex/values";
 
 /**
  * Test user configuration - MUST match apps/web/uat/test-data.json
- * The emails use numbers for vowels: 0wn3r, adm1n, c0ach, par3nt
  */
 const TEST_ACCOUNTS = {
-  owner: { email: "0wn3r_pdp@outlook.com", role: "owner" },
+  owner: { email: "owner_pdp@outlook.com", role: "owner" },
   admin: { email: "adm1n_pdp@outlook.com", role: "admin" },
-  coach: { email: "c0ach_pdp@outlook.com", role: "coach" },
-  parent: { email: "par3nt_pdp@outlook.com", role: "parent" },
+  coach: { email: "coach_pdp@outlook.com", role: "coach" },
+  parent: { email: "parent_pdp@outlook.com", role: "parent" },
 };
 
 /**

@@ -14,11 +14,10 @@ import { mutation, query } from "../_generated/server";
  * Test user configuration - MUST match apps/web/uat/test-data.json
  * 
  * NOTE: If you change these values, also update test-data.json to match.
- * The emails use numbers for vowels: 0wn3r, adm1n, c0ach, par3nt
  */
 const TEST_USERS = [
   {
-    email: "0wn3r_pdp@outlook.com",
+    email: "owner_pdp@outlook.com",
     name: "Owner User",
     role: "owner",
     platformStaff: true,
@@ -30,13 +29,13 @@ const TEST_USERS = [
     platformStaff: false,
   },
   {
-    email: "c0ach_pdp@outlook.com",
+    email: "coach_pdp@outlook.com",
     name: "Coach User",
     role: "coach",
     platformStaff: false,
   },
   {
-    email: "par3nt_pdp@outlook.com",
+    email: "parent_pdp@outlook.com",
     name: "Parent User",
     role: "parent",
     platformStaff: false,

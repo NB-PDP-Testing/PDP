@@ -71,6 +71,28 @@ export const verifyPlatformAdmin = query({
 /**
  * Check if a user exists by email
  */
+/**
+ * Get test organization info
+ */
+export const getTestOrganization = query({
+  args: {},
+  handler: async (ctx) => {
+    // Find any organization
+    const org = await (ctx.db as any).query("organizations").first();
+    
+    if (org) {
+      return {
+        found: true,
+        id: org._id,
+        name: org.name,
+        slug: org.slug,
+      };
+    }
+    
+    return { found: false };
+  },
+});
+
 export const checkUserExists = query({
   args: { email: v.string() },
   handler: async (ctx, args) => {
@@ -201,43 +223,6 @@ export const verifyReferenceData = query({
       sports: sports.length,
       skills: skills.length,
       benchmarks: benchmarks.length,
-    };
-  },
-});
-
-/**
- * Get test organization ID
- */
-export const getTestOrganization = query({
-  args: {},
-  handler: async (ctx) => {
-    // Look for the test organization
-    const org = await (ctx.db as any)
-      .query("organizations")
-      .filter((q: any) => q.eq(q.field("slug"), "test-club-fc"))
-      .first();
-
-    if (!org) {
-      // Try to find any organization for testing
-      const anyOrg = await (ctx.db as any).query("organizations").first();
-      if (anyOrg) {
-        return {
-          found: true,
-          id: anyOrg._id,
-          name: anyOrg.name,
-          slug: anyOrg.slug,
-          isTestOrg: false,
-        };
-      }
-      return { found: false };
-    }
-
-    return {
-      found: true,
-      id: org._id,
-      name: org.name,
-      slug: org.slug,
-      isTestOrg: true,
     };
   },
 });

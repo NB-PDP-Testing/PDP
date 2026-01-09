@@ -76,6 +76,7 @@ import type * as scripts_previewOrgCleanup from "../scripts/previewOrgCleanup.js
 import type * as scripts_queryExisting from "../scripts/queryExisting.js";
 import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSportRules.js";
 import type * as scripts_validateTeamAssignments from "../scripts/validateTeamAssignments.js";
+import type * as scripts_verifyUATSetup from "../scripts/verifyUATSetup.js";
 import type * as todos from "../todos.js";
 import type * as utils_email from "../utils/email.js";
 
@@ -154,6 +155,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/queryExisting": typeof scripts_queryExisting;
   "scripts/seedDefaultSportRules": typeof scripts_seedDefaultSportRules;
   "scripts/validateTeamAssignments": typeof scripts_validateTeamAssignments;
+  "scripts/verifyUATSetup": typeof scripts_verifyUATSetup;
   todos: typeof todos;
   "utils/email": typeof utils_email;
 }>;

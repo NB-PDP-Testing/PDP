@@ -1,382 +1,194 @@
-# PDP UAT (User Acceptance Testing) with Playwright
+# UAT Testing Infrastructure
 
-This directory contains User Acceptance Tests for the PDP application using [Playwright](https://playwright.dev/).
+This directory contains User Acceptance Testing (UAT) infrastructure for PDP.
 
-## Quick Start
+## Architecture
 
-### 1. Install Playwright
+### Test Types
 
-```bash
-cd apps/web
-npm install -D @playwright/test
-npx playwright install
-```
+1. **Standard Tests** (`npm run test`)
+   - Global Setup creates test data (users, org, teams, players)
+   - Tests run against existing data
+   - Global Teardown cleans up test data
+   - Uses authenticated sessions from auth-setup
 
-### 2. Configure Test Environment
+2. **Onboarding Tests** (`npm run test:onboarding:fresh`)
+   - Resets entire database before running
+   - Seeds reference data (sports, skills, benchmarks)
+   - Tests fresh user signup flows
+   - Creates users during test execution
 
-Create a `.env.test` file in `apps/web/`:
-
-```env
-# Test environment URL
-PLAYWRIGHT_BASE_URL=http://localhost:3000
-
-# Test organization ID
-TEST_ORG_ID=your_test_org_id_here
-
-# Optional: Use a staging/test environment instead of localhost
-# PLAYWRIGHT_BASE_URL=https://test.yourapp.com
-```
-
-### 3. Update Test User Credentials
-
-Edit `uat/fixtures/test-utils.ts` and update the `TEST_USERS` object with your actual test account credentials:
-
-```typescript
-export const TEST_USERS = {
-  admin: {
-    email: 'your-admin@example.com',
-    password: 'your-password',
-    name: 'Admin User',
-  },
-  // ... other users
-};
-```
-
-### 4. Run Tests
-
-```bash
-# Run all tests (all groups)
-npm run test
-
-# Run Initial Onboarding tests only (Group 1 - for fresh environment)
-npm run test:onboarding
-
-# Run Continuous tests only (Group 2 - after code changes)
-npm run test:continuous
-
-# Run mobile viewport tests
-npm run test:mobile
-
-# Run in UI mode (interactive)
-npm run test:ui
-npm run test:ui:onboarding # UI mode for onboarding tests only
-npm run test:ui:continuous # UI mode for continuous tests only
-
-# Run with browser visible
-npm run test:headed
-
-# Run in debug mode
-npm run test:debug
-
-# List all available tests
-npm run test:list
-```
-
-### Running with Dev Server Already Running
-
-If you already have the dev server running (`npm run dev`), use `npx playwright test` directly. **Important:** Run from the `apps/web` directory:
-
-```bash
-cd apps/web
-```
-
-| Project | Command | Tests |
-|---------|---------|-------|
-| `initial-onboarding` | `npx playwright test --project=initial-onboarding` | onboarding.spec.ts (46 tests) |
-| `auth-tests` | `npx playwright test --project=auth-tests` | auth.spec.ts (7 tests) |
-| `admin-tests` | `npx playwright test --project=admin-tests` | admin.spec.ts (7 tests) |
-| `coach-tests` | `npx playwright test --project=coach-tests` | coach.spec.ts (5 tests) |
-| `continuous` | `npx playwright test --project=continuous` | auth, admin, coach tests |
-| `all-desktop` | `npx playwright test --project=all-desktop` | All tests |
-| `mobile` | `npx playwright test --project=mobile` | All tests (mobile viewport) |
-
-**Example:**
-```bash
-# IMPORTANT: Must be in apps/web directory
-cd apps/web
-
-# Run just the onboarding tests
-npx playwright test --project=initial-onboarding
-
-# Run a specific test file directly
-npx playwright test onboarding.spec.ts
-
-# Run tests with visible browser
-npx playwright test --project=auth-tests --headed
-
-# Run tests in debug mode
-npx playwright test --project=coach-tests --debug
-```
-
-## Test Groups
-
-Tests are organized into two groups for different use cases:
-
-### Group 1: Initial Onboarding Tests (`npm run test:onboarding`)
-
-**When to run:** Once when setting up a fresh environment (after database reset)
-
-| Test File | Purpose |
-|-----------|---------|
-| `onboarding.spec.ts` | First-time organization setup, user onboarding, team creation |
-
-**Test Cases:**
-- TEST-ONBOARDING-001: First User Signup - Automatic Platform Staff
-- TEST-ONBOARDING-002: Non-Platform Staff Cannot Create Organizations
-- TEST-ONBOARDING-003: Owner First Login Experience
-- TEST-ONBOARDING-004: Owner Creates First Team
-- TEST-ONBOARDING-005: Owner Invites First Admin
-- TEST-ONBOARDING-006: First Admin Accepts Invitation
-- TEST-ONBOARDING-007: Owner Invites First Coach
-- TEST-ONBOARDING-008: First Coach Accepts and Gets Team Assignment
-- TEST-ONBOARDING-009: Admin Creates First Players
-- TEST-ONBOARDING-010: Owner Invites First Parent
-- TEST-ONBOARDING-011: Platform Admin Edits Organisation (name, sports, social links)
-
-### Group 2: Continuous Tests (`npm run test:continuous`)
-
-**When to run:** Regularly after code changes to ensure nothing is broken
-
-| Test File | Purpose |
-|-----------|---------|
-| `auth.spec.ts` | Login, signup, logout, session management |
-| `admin.spec.ts` | Admin dashboard, approval workflows |
-| `coach.spec.ts` | Coach dashboard, player management |
-
-**Test Cases:**
-- TEST-AUTH-001 to TEST-AUTH-004: Authentication flows
-- TEST-ADMIN-001 to TEST-ADMIN-004: Admin operations
-- TEST-COACH-001 to TEST-COACH-004: Coach operations
-
-### Typical Workflow
-
-```bash
-# 1. Fresh environment setup (run once)
-cd packages/backend
-npx convex run scripts/fullReset:fullReset '{"confirmNuclearDelete": true}'
-npx convex run models/referenceData:seedAllReferenceData
-
-# 2. Run Initial Onboarding tests - creates first user via signup
-#    (First user is automatically granted platform staff privileges)
-cd apps/web
-npm run test:onboarding
-
-# 3. After any code changes, run Continuous tests
-cd apps/web
-npm run test:continuous
-
-# 4. Before release, run all tests
-npm run test
-```
-
-### Platform Staff Bootstrap
-
-The `isPlatformStaff` flag must be explicitly set on user accounts. It is NOT automatically granted to the first user.
-
-**Available scripts:**
-
-| Script | Purpose |
-|--------|---------|
-| `setFirstPlatformStaff` | Sets a user as platform staff (only works if NO platform staff exists - safety check) |
-| `listPlatformStaff` | Shows all current platform staff users and total user count |
-
-**Usage:**
-
-**Windows (Command Prompt):**
-```bash
-# Set first platform staff (safe - fails if platform staff already exists)
-npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff "{\"email\": \"user@example.com\"}"
-
-# Check current platform staff
-npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
-```
-
-**Windows (PowerShell):**
-```powershell
-# Set first platform staff
-npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff '{"email": "user@example.com"}'
-
-# Check current platform staff
-npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
-```
-
-**macOS/Linux:**
-```bash
-# Set first platform staff
-npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff '{"email": "user@example.com"}'
-
-# Check current platform staff
-npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
-```
-
-## Test Structure
+## Directory Structure
 
 ```
 uat/
 ├── fixtures/
-│   └── test-utils.ts    # Shared utilities, test users, helper functions
+│   └── test-utils.ts       # Test helpers, utilities, and fixtures
 ├── tests/
-│   ├── onboarding.spec.ts # GROUP 1: Initial onboarding tests
-│   ├── auth.spec.ts     # GROUP 2: Authentication tests
-│   ├── admin.spec.ts    # GROUP 2: Admin dashboard tests
-│   ├── coach.spec.ts    # GROUP 2: Coach dashboard tests
-│   └── ...
-├── auth.setup.ts        # Authentication setup (creates logged-in sessions)
-├── .auth/               # Saved auth states (gitignored)
-└── README.md
+│   ├── admin.spec.ts       # Admin dashboard tests
+│   ├── admin-advanced.spec.ts  # Advanced admin features
+│   ├── auth.spec.ts        # Authentication tests
+│   ├── coach.spec.ts       # Coach dashboard tests
+│   ├── first-login-dashboard.spec.ts  # Dashboard redirect tests
+│   ├── mobile.spec.ts      # Mobile viewport tests
+│   ├── onboarding.spec.ts  # Fresh signup tests
+│   └── parent.spec.ts      # Parent dashboard tests
+├── auth.setup.ts           # Creates authenticated sessions
+├── global-setup.ts         # Runs before standard tests
+├── global-teardown.ts      # Runs after standard tests
+├── onboarding-db-setup.ts  # Resets DB for onboarding tests
+├── test-data.json          # Test user credentials and data
+└── README.md               # This file
 ```
 
-## Test Files Mapped to Test Cases
+## Available Commands
 
-| Test File | Test Cases Covered | Tests | Prerequisites |
-|-----------|-------------------|-------|---------------|
-| `onboarding.spec.ts` | TEST-ONBOARDING-001 to TEST-ONBOARDING-012 | 40+ | Fresh environment |
-| `first-login-dashboard.spec.ts` | TEST-FIRST-LOGIN-001 to TEST-FIRST-LOGIN-005 | 10 | onboarding.spec.ts |
-| `auth.spec.ts` | TEST-AUTH-001 to TEST-AUTH-004 | 7 | Users exist |
-| `admin.spec.ts` | TEST-ADMIN-001 to TEST-ADMIN-004 | 7 | Users exist |
-| `coach.spec.ts` | TEST-COACH-001 to TEST-COACH-004 | 5 | Users exist |
-| **Total** | **28+ Test Cases** | **69+ Tests** | |
-
-### Test Execution Order
-
-**IMPORTANT:** 
-1. You MUST use `--project=` flags to avoid auth setup dependencies running first!
-2. Run commands from the **project root** (`c:\code\PDP`), NOT from `apps/web`
-
-Tests should be run in this order for a fresh environment:
+Run from `apps/web` directory:
 
 ```bash
-# Step 1: Run onboarding tests FIRST (creates users, org, invitations)
-# Uses --project flag to avoid auth-setup dependency
-npx playwright test --project=initial-onboarding
+# Run all standard tests
+npm run test
 
-# Step 2: Run first login dashboard tests (verifies correct dashboard redirects)
-npx playwright test --project=first-login-dashboard
+# Run specific test suites
+npm run test:auth           # Authentication tests
+npm run test:admin          # Admin dashboard tests
+npm run test:coach          # Coach dashboard tests
+npm run test:parent         # Parent dashboard tests
+npm run test:first-login    # Dashboard redirect tests
+npm run test:mobile         # Mobile viewport tests
 
-# Step 3: Run remaining tests (these have auth-setup dependency which is OK now)
-npx playwright test --project=continuous
+# Run onboarding tests (RESETS DATABASE!)
+npm run test:onboarding:fresh
+
+# Debug and UI modes
+npm run test:ui             # Visual test runner
+npm run test:headed         # Run with browser visible
+npm run test:debug          # Debug mode with breakpoints
+npm run test:report         # View HTML report
 ```
 
-**Why use `--project=` flags?**
+## Test Users
 
-Running `npx playwright test onboarding.spec.ts` without a project flag matches ALL projects that include that test file, including `all-desktop` which has `auth-setup` as a dependency. This causes auth tests to run first, which fail on a fresh environment.
+Test users are configured in `test-data.json`:
 
-| Command | What Happens |
-|---------|-------------|
-| `npx playwright test onboarding.spec.ts` | ❌ Matches `all-desktop` project → runs `auth-setup` first → FAILS |
-| `npx playwright test --project=initial-onboarding` | ✅ Runs onboarding tests only, no dependencies |
+| Role   | Email                    | Password   | Description                |
+|--------|--------------------------|------------|----------------------------|
+| Owner  | 0wn3r_pdp@outlook.com    | Gegrep_01  | Platform staff, org owner  |
+| Admin  | adm1n_pdp@outlook.com    | Gegrep_01  | Organization admin         |
+| Coach  | c0ach_pdp@outlook.com    | Gegrep_01  | Team coach                 |
+| Parent | par3nt_pdp@outlook.com   | Gegrep_01  | Player parent              |
 
-## CI/CD Integration
+## Prerequisites
 
-Tests automatically run on:
-- Push to `main` or `develop` branches
-- Pull requests to `main` or `develop`
+1. **Convex dev server must be running**
+   ```bash
+   cd packages/backend && npx convex dev
+   ```
 
-### Required GitHub Secrets
+2. **Web app dev server running (or will be started by tests)**
+   ```bash
+   cd apps/web && npm run dev
+   ```
 
-Set these in your repository settings → Secrets → Actions:
+3. **Test users must exist in database**
+   - Run onboarding tests first to create users
+   - Or manually create users in Convex dashboard
 
-| Secret | Description |
-|--------|-------------|
-| `PLAYWRIGHT_BASE_URL` | URL of the test environment |
-| `TEST_ORG_ID` | Organization ID for testing |
-| `TEST_ADMIN_EMAIL` | Admin test account email |
-| `TEST_ADMIN_PASSWORD` | Admin test account password |
-| `TEST_COACH_EMAIL` | Coach test account email |
-| `TEST_COACH_PASSWORD` | Coach test account password |
-| `STAGING_URL` | (Optional) Staging environment URL |
+## Global Setup/Teardown
 
-## Writing New Tests
+### Global Setup (`global-setup.ts`)
+Runs before standard tests:
+1. Verifies platform admin has correct permissions
+2. Verifies test user accounts exist
+3. Creates/verifies UAT test data (idempotent)
+4. Creates `.auth` directory for session storage
 
-### Basic Test Structure
+### Global Teardown (`global-teardown.ts`)
+Runs after standard tests:
+1. Cleans up UAT-specific test data
+2. Removes auth session files
+3. Preserves users and organizations
+
+### Onboarding DB Setup (`onboarding-db-setup.ts`)
+Special setup for onboarding tests:
+1. **RESETS ENTIRE DATABASE**
+2. Seeds reference data only
+3. Prepares clean slate for signup tests
+
+## Writing Tests
+
+### Using Test Utilities
 
 ```typescript
-import { test, expect } from '../fixtures/test-utils';
+import { test, expect, TEST_USERS, TestHelper } from "../fixtures/test-utils";
 
-test.describe('Feature Name', () => {
-  test('should do something', async ({ page, helper }) => {
-    // Navigate
-    await page.goto('/some-page');
+test.describe("My Feature", () => {
+  test("should do something", async ({ page, helper }) => {
+    // Login
+    await helper.login(TEST_USERS.admin.email, TEST_USERS.admin.password);
     
-    // Interact
-    await page.getByRole('button', { name: /submit/i }).click();
+    // Navigate
+    await helper.goToAdmin();
     
     // Assert
-    await expect(page.getByText(/success/i)).toBeVisible();
+    await expect(page.getByText("Dashboard")).toBeVisible();
   });
 });
 ```
 
-### Using Authenticated Sessions
+### Available Helpers
 
 ```typescript
-import { AUTH_STATES } from '../fixtures/test-utils';
-
-test.describe('Admin Tests', () => {
-  // Use pre-authenticated admin session
-  test.use({ storageState: AUTH_STATES.admin });
-  
-  test('should access admin page', async ({ page }) => {
-    await page.goto('/admin');
-    // Already logged in as admin
-  });
-});
+helper.login(email, password)     // Login with credentials
+helper.logout()                   // Logout current user
+helper.goToOrg(orgId?)           // Navigate to organization
+helper.goToAdmin(orgId?)         // Navigate to admin dashboard
+helper.goToCoach(orgId?)         // Navigate to coach dashboard
+helper.goToParent(orgId?)        // Navigate to parent dashboard
+helper.waitForPageLoad()         // Wait for network idle
+helper.expectToast(text)         // Expect Sonner toast
+helper.expectRedirectToLogin()   // Expect redirect to login
+helper.fillField(label, value)   // Fill form field
+helper.clickButton(name)         // Click button by name
+helper.screenshot(name)          // Take screenshot
 ```
 
-### Using Helper Functions
+## Test Naming Convention
 
-```typescript
-test('should login and navigate', async ({ helper, page }) => {
-  await helper.login('user@example.com', 'password');
-  await helper.goToCoach();
-  await helper.expectToast(/success/i);
-});
-```
+Tests follow the pattern: `TEST-{CATEGORY}-{NUMBER}: description`
 
-## Best Practices
-
-1. **Use data-testid attributes** - Add `data-testid="component-name"` to key elements for stable selectors
-2. **Avoid flaky tests** - Use `waitForLoadState('networkidle')` when needed
-3. **Keep tests independent** - Each test should work in isolation
-4. **Use meaningful assertions** - Check for user-visible outcomes
-5. **Handle dynamic data** - Skip tests if required data isn't present
-
-## Debugging
-
-### View Test Report
-
-```bash
-npm run test:report
-```
-
-### Debug Single Test
-
-```bash
-npx playwright test auth.spec.ts --debug
-```
-
-### Use Playwright Inspector
-
-```bash
-PWDEBUG=1 npx playwright test --headed
-```
+- `TEST-AUTH-XXX` - Authentication tests
+- `TEST-ADMIN-XXX` - Admin functionality tests
+- `TEST-COACH-XXX` - Coach functionality tests
+- `TEST-PARENT-XXX` - Parent functionality tests
+- `TEST-MOBILE-XXX` - Mobile viewport tests
+- `TEST-SETUP-XXX` - Setup/onboarding tests
 
 ## Troubleshooting
 
-### Tests fail with "element not found"
+### Tests fail with "Login failed"
+- Check that test users exist in database
+- Run onboarding tests first: `npm run test:onboarding:fresh`
+- Verify credentials in `test-data.json`
 
-- Add `await page.waitForLoadState('networkidle')`
-- Increase timeout: `await expect(element).toBeVisible({ timeout: 10000 })`
-- Check if element exists with different selector
+### Tests timeout
+- Check if Convex dev server is running
+- Check if web app is accessible at localhost:3000
+- Increase timeout in playwright.config.ts
 
-### Authentication issues
+### Cannot find element
+- Use `page.pause()` to inspect the page
+- Check if element selector is correct
+- Verify page has finished loading
 
-- Ensure test users exist in the database
-- Check that credentials are correct
-- Verify session storage is being saved correctly
+### Database not reset
+- Onboarding tests require `npm run test:onboarding:fresh`
+- Standard tests DO NOT reset the database
 
-### CI fails but local passes
+## CI/CD Integration
 
-- Check environment variables are set in GitHub secrets
-- Ensure `CI: true` is set in workflow
-- Compare browser versions between local and CI
+For CI environments:
+- Set `PLAYWRIGHT_BASE_URL` environment variable
+- Tests will retry twice on failure
+- Video/trace recorded on failure
+- HTML report generated automatically

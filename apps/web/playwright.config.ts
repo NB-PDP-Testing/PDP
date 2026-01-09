@@ -1,28 +1,44 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Playwright configuration for PDP E2E tests
- * See https://playwright.dev/docs/test-configuration
- *
- * TEST GROUPS:
- *
- * 1. Initial Onboarding Tests (Group 1):
- *    - Run once when setting up a fresh environment
- *    - Uses initial-auth.setup.ts (creates accounts via SIGNUP)
- *    - Tests: onboarding.spec.ts
- *    - Command: npm run test:onboarding
- *
- * 2. Continuous Tests (Group 2):
- *    - Run regularly after code changes
- *    - Uses auth.setup.ts (logs into EXISTING accounts)
- *    - Tests: auth.spec.ts, admin.spec.ts, coach.spec.ts
- *    - Command: npm run test:continuous
+ * Playwright configuration for PDP UAT Tests
+ * 
+ * ARCHITECTURE:
+ * - Standard tests have global setup/teardown to create and cleanup test data
+ * - Onboarding tests reset the entire database and seed reference data
+ * 
+ * TEST TYPES:
+ * 1. Standard Tests (npm run test)
+ *    - Global Setup creates test data (users, org, teams, players)
+ *    - Tests run against the created test data
+ *    - Global Teardown removes the test data (leaves system as before)
+ *    - Use authenticated sessions from auth-setup
+ * 
+ * 2. Onboarding Tests (npm run test:onboarding:fresh)
+ *    - Reset entire database and seed reference data before running
+ *    - Create users during test execution
+ *    - Test fresh environment flows
+ * 
+ * COMMANDS:
+ * - npm run test              - Run standard tests (with setup/teardown)
+ * - npm run test:auth         - Auth tests only
+ * - npm run test:admin        - Admin tests only
+ * - npm run test:coach        - Coach tests only
+ * - npm run test:parent       - Parent tests only
+ * - npm run test:first-login  - Dashboard redirect tests
+ * - npm run test:mobile       - Mobile viewport tests
+ * - npm run test:onboarding:fresh  - Onboarding (resets entire DB)
  */
 export default defineConfig({
   testDir: "./uat/tests",
 
+  /* Global setup/teardown for standard tests */
+  /* NOTE: Disabled by default - enable when seed scripts are available */
+  // globalSetup: "./uat/global-setup.ts",
+  // globalTeardown: "./uat/global-teardown.ts",
+
   /* Run tests in files in parallel */
-  fullyParallel: false, // Run tests sequentially for setup
+  fullyParallel: false, // Sequential for predictable test order
 
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
@@ -53,23 +69,19 @@ export default defineConfig({
 
     /* Video recording on failure */
     video: "on-first-retry",
+
+    /* Default timeout for actions */
+    actionTimeout: 15000,
   },
 
-  /* Configure projects for different test groups */
+  /* Default test timeout */
+  timeout: 60000,
+
+  /* Configure projects */
   projects: [
     // ========================================
-    // INITIAL SETUP AUTH - Creates accounts via SIGNUP
-    // For fresh environment (no existing users)
-    // ========================================
-    {
-      name: "initial-auth-setup",
-      testDir: "./uat",
-      testMatch: /initial-auth\.setup\.ts/,
-    },
-
-    // ========================================
-    // CONTINUOUS AUTH - Logs into EXISTING accounts
-    // For environments with existing users
+    // AUTH SETUP - Creates authenticated browser sessions
+    // Runs before tests that need auth
     // ========================================
     {
       name: "auth-setup",
@@ -78,64 +90,57 @@ export default defineConfig({
     },
 
     // ========================================
-    // GROUP 1: INITIAL ONBOARDING TESTS
-    // Run once when setting up a fresh environment
-    // NO dependencies - tests handle their own signup/login
-    // Command: npm run test:onboarding
-    // OR: npx playwright test --project=initial-onboarding
+    // ONBOARDING DB SETUP - Resets and seeds database
+    // Only runs before onboarding tests
     // ========================================
     {
-      name: "initial-onboarding",
-      use: { ...devices["Desktop Chrome"] },
-      testDir: "./uat/tests",
-      testMatch: /onboarding\.spec\.ts/,
-      // No dependencies - tests do their own signup/login for fresh environment
+      name: "onboarding-db-setup",
+      testDir: "./uat",
+      testMatch: /onboarding-db-setup\.ts$/,
     },
 
     // ========================================
-    // FIRST LOGIN DASHBOARD TESTS
-    // Run AFTER onboarding tests to verify dashboard redirects
-    // NO auth dependencies - tests login themselves
-    // Command: npx playwright test --project=first-login-dashboard
+    // DEFAULT: ALL STANDARD TESTS
+    // Runs all test files with authenticated sessions
+    // Command: npm run test
+    // NOTE: Global setup creates test data, teardown removes it
     // ========================================
     {
-      name: "first-login-dashboard",
+      name: "default",
       use: { ...devices["Desktop Chrome"] },
       testDir: "./uat/tests",
-      testMatch: /first-login-dashboard\.spec\.ts/,
-      // No auth dependencies - tests do their own login
-      // MUST be run after onboarding.spec.ts has created the users
-    },
-
-    // ========================================
-    // GROUP 2: CONTINUOUS TESTS
-    // Run regularly after code changes
-    // Uses auth-setup (login-based)
-    // Command: npm run test:continuous
-    // ========================================
-    {
-      name: "continuous",
-      use: { ...devices["Desktop Chrome"] },
-      testDir: "./uat/tests",
-      testMatch: /(auth|admin|coach|first-login-dashboard)\.spec\.ts$/,
+      testMatch: /.*\.spec\.ts/,
+      testIgnore: /onboarding\.spec\.ts/, // Exclude onboarding (separate command)
       dependencies: ["auth-setup"],
     },
 
     // ========================================
-    // AUTH TESTS - Authentication tests only
-    // Command: npx playwright test --project=auth-tests
+    // AUTH TESTS - Authentication flow tests
+    // Command: npm run test:auth
     // ========================================
     {
       name: "auth-tests",
       use: { ...devices["Desktop Chrome"] },
       testDir: "./uat/tests",
       testMatch: /auth\.spec\.ts/,
-      // No dependencies - tests handle their own login
+      dependencies: ["auth-setup"],
     },
 
     // ========================================
-    // COACH TESTS - Coach dashboard tests only
-    // Command: npx playwright test --project=coach-tests
+    // ADMIN TESTS - Admin dashboard tests
+    // Command: npm run test:admin
+    // ========================================
+    {
+      name: "admin-tests",
+      use: { ...devices["Desktop Chrome"] },
+      testDir: "./uat/tests",
+      testMatch: /admin.*\.spec\.ts/,
+      dependencies: ["auth-setup"],
+    },
+
+    // ========================================
+    // COACH TESTS - Coach dashboard tests
+    // Command: npm run test:coach
     // ========================================
     {
       name: "coach-tests",
@@ -146,39 +151,53 @@ export default defineConfig({
     },
 
     // ========================================
-    // ADMIN TESTS - Admin dashboard tests only
-    // Command: npx playwright test --project=admin-tests
+    // PARENT TESTS - Parent dashboard tests
+    // Command: npm run test:parent
     // ========================================
     {
-      name: "admin-tests",
+      name: "parent-tests",
       use: { ...devices["Desktop Chrome"] },
       testDir: "./uat/tests",
-      testMatch: /admin\.spec\.ts/,
+      testMatch: /parent\.spec\.ts/,
       dependencies: ["auth-setup"],
     },
 
     // ========================================
-    // ALL TESTS - Runs both groups sequentially
-    // Command: npm run test OR npx playwright test --project=all-desktop
+    // FIRST-LOGIN TESTS - Dashboard redirect tests
+    // Command: npm run test:first-login
     // ========================================
     {
-      name: "all-desktop",
+      name: "first-login-tests",
       use: { ...devices["Desktop Chrome"] },
       testDir: "./uat/tests",
-      testMatch: /.*\.spec\.ts/,
+      testMatch: /first-login-dashboard\.spec\.ts/,
       dependencies: ["auth-setup"],
     },
 
     // ========================================
-    // MOBILE TESTS - Continuous tests on mobile viewport
+    // ONBOARDING TESTS (SPECIAL)
+    // Tests fresh user signup flows - RESETS ENTIRE DATABASE
+    // Run: npm run test:onboarding:fresh
+    // NOTE: Uses onboarding-db-setup to reset database
+    // ========================================
+    {
+      name: "onboarding-fresh",
+      use: { ...devices["Desktop Chrome"] },
+      testDir: "./uat/tests",
+      testMatch: /onboarding\.spec\.ts/,
+      dependencies: ["onboarding-db-setup"], // Reset DB before onboarding
+      // NO auth-setup - creates users during test
+    },
+
+    // ========================================
+    // MOBILE TESTS - All tests on mobile viewport
     // Command: npm run test:mobile
     // ========================================
     {
       name: "mobile",
       use: { ...devices["Pixel 5"] },
       testDir: "./uat/tests",
-      testMatch: /.*\.spec\.ts/,
-      testIgnore: /onboarding\.spec\.ts/, // Onboarding tests are desktop-focused
+      testMatch: /mobile\.spec\.ts/,
       dependencies: ["auth-setup"],
     },
   ],
@@ -189,5 +208,7 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
+    stdout: "ignore", // Suppress normal output
+    stderr: "ignore", // Suppress source map warnings from Next.js
   },
 });

@@ -936,6 +936,62 @@ posthog.getFeatureFlag('ux_bottom_nav')         // true or false
 
 ---
 
+## Technical Implementation
+
+### Server-Side Bootstrap (Next.js 16+)
+
+Feature flags are fetched server-side via `proxy.ts` to eliminate the race condition where components render before flags load. This ensures flags are available immediately on first render.
+
+**How it works:**
+
+1. **proxy.ts** runs on every page request (server-side)
+2. Fetches all feature flags from PostHog for the current user
+3. Stores flags in a `ph-bootstrap-flags` cookie
+4. **PHProvider** reads the cookie and bootstraps PostHog client with pre-fetched flags
+5. Components get correct flag values on first render (no flicker)
+
+**Key files:**
+
+| File | Purpose |
+|------|---------|
+| `apps/web/src/proxy.ts` | Server-side flag fetching (Next.js 16 proxy) |
+| `apps/web/src/providers/posthog-provider.tsx` | Client-side PostHog initialization with bootstrap |
+| `apps/web/src/hooks/use-ux-feature-flags.ts` | React hook to access feature flags |
+
+**Note:** In Next.js 16, the `middleware.ts` file convention was renamed to `proxy.ts`. The exported function is `proxy` instead of `middleware`.
+
+### Cookies Used
+
+| Cookie | Purpose | TTL |
+|--------|---------|-----|
+| `ph-bootstrap-flags` | Cached feature flag values (JSON) | 5 minutes |
+| `ph-distinct-id` | User identifier for consistent flag values | 1 year |
+
+These are first-party cookies and are not blocked by browsers. This is the industry-standard approach recommended by PostHog.
+
+---
+
+## Accessibility Notes
+
+All Sheet/Dialog components include proper accessibility attributes:
+
+- **SheetDescription** is added to all navigation sheets (admin, coach, parent sidebars)
+- Screen reader support via `sr-only` descriptions
+- ARIA attributes are properly configured
+
+If you create new Sheet components, always include a `SheetDescription`:
+
+```tsx
+<SheetHeader>
+  <SheetTitle>Menu Title</SheetTitle>
+  <SheetDescription className="sr-only">
+    Description for screen readers
+  </SheetDescription>
+</SheetHeader>
+```
+
+---
+
 ## Support
 
 For issues with feature flags:
@@ -943,3 +999,4 @@ For issues with feature flags:
 2. Verify PostHog configuration
 3. Check browser console for errors
 4. Review the `use-ux-feature-flags.ts` hook logic
+5. Verify `proxy.ts` is running (check for `ph-bootstrap-flags` cookie in DevTools)

@@ -81,13 +81,6 @@ export default function OrgAdminLayout({
     useUXFeatureFlags();
   const useNewNav = adminNavStyle === "sidebar";
 
-  // Debug: Log feature flag values
-  console.log("[Admin Layout] Feature flags:", {
-    adminNavStyle,
-    useBottomNav,
-    useNewNav,
-  });
-
   // Admin bottom nav items (only shown when useBottomNav flag is enabled)
   const adminBottomNavItems: BottomNavItem[] = [
     {

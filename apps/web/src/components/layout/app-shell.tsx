@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -235,6 +236,9 @@ export function AppShell({
           <SheetContent className="w-80 p-0" side="left">
             <SheetHeader className="border-b px-4 py-3">
               <SheetTitle>Menu</SheetTitle>
+              <SheetDescription className="sr-only">
+                Application navigation menu
+              </SheetDescription>
             </SheetHeader>
             <div className="flex-1 overflow-auto">{sidebar}</div>
           </SheetContent>

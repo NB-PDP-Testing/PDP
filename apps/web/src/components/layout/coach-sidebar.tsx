@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -273,6 +274,9 @@ export function CoachMobileNav({
             />
             Coach Dashboard
           </SheetTitle>
+          <SheetDescription className="sr-only">
+            Navigation menu for coach dashboard sections
+          </SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-col overflow-y-auto py-4">

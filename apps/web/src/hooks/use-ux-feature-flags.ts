@@ -189,20 +189,6 @@ export interface UXFeatureFlags {
 export function useUXFeatureFlags(): UXFeatureFlags {
   const { isFeatureEnabled } = useAnalytics();
 
-  // Debug: Log raw PostHog flag values
-  if (typeof window !== "undefined") {
-    const ph = (
-      window as unknown as {
-        posthog?: { getAllFlags?: () => Record<string, boolean> };
-      }
-    ).posthog;
-    console.log("[UX Flags] PostHog getAllFlags:", ph?.getAllFlags?.());
-    console.log(
-      "[UX Flags] ux_admin_nav_sidebar raw:",
-      ph?.getAllFlags?.()?.ux_admin_nav_sidebar
-    );
-  }
-
   return {
     // Phase 1 - Navigation Foundation
     useBottomNav: isFeatureEnabled("ux_bottom_nav"),

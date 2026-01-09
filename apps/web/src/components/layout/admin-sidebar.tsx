@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -358,6 +359,9 @@ export function AdminMobileNav({
             <Settings className="h-5 w-5" style={{ color: primaryColor }} />
             Admin Panel
           </SheetTitle>
+          <SheetDescription className="sr-only">
+            Navigation menu for admin panel sections
+          </SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-col overflow-y-auto py-4">

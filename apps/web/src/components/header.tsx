@@ -26,18 +26,6 @@ function OrgNav({ member }: { member: Member }) {
   const hasCoachRole = functionalRoles.includes("coach");
   const hasParentRole = functionalRoles.includes("parent");
 
-  // DEBUG: Log what we're actually receiving
-  console.log("🔍 [OrgNav] Member data:", {
-    memberId: member.id,
-    userId: member.userId,
-    orgId: member.organizationId,
-    betterAuthRole: member.role,
-    functionalRoles,
-    hasCoachRole,
-    hasParentRole,
-    rawMember: member,
-  });
-
   // Admin access: Check Better Auth role for organizational permissions
   const hasOrgAdmin = authClient.organization.checkRolePermission({
     permissions: { organization: ["update"] },
@@ -85,39 +73,6 @@ export default function Header() {
   const isOrgsCreatePage = pathname === "/orgs/create";
   const shouldHideOrgContent =
     isOrgsListingPage || isOrgsJoinPage || isOrgsCreatePage;
-
-  // Debug logging for nav links
-  if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
-    console.log("[Header] Navigation Debug:", {
-      isOrgPending,
-      isMemberPending,
-      isMemberDataStale,
-      org: org ? { name: org.name, id: (org as any).id } : "null",
-      member: member
-        ? {
-            role: member.role,
-            organizationId: member.organizationId,
-            functionalRoles: (member as any).functionalRoles,
-          }
-        : "null",
-      validMember: validMember
-        ? {
-            role: validMember.role,
-            organizationId: validMember.organizationId,
-            functionalRoles: (validMember as any).functionalRoles,
-          }
-        : "null",
-      pathname,
-      orgId,
-      shouldHideOrgContent,
-      showOrgNav: !!(
-        org &&
-        !shouldHideOrgContent &&
-        !isMemberPending &&
-        validMember
-      ),
-    });
-  }
 
   // Only fetch org theme when we're on a page where we need it
   // Skip on join/create pages to avoid queries for orgs the user isn't a member of
@@ -178,8 +133,12 @@ export default function Header() {
         {/* Left side - Home link always visible + Org logo and nav */}
         {/* When useMinimalHeaderNav is enabled, hide these links - users should use the switcher */}
         {/* Exception: Always show on /platform pages and /orgs listing/join/create pages */}
-        {(!useMinimalHeaderNav || pathname?.startsWith("/platform") || shouldHideOrgContent) && (
-          <nav className={cn("flex items-center gap-4 text-lg", headerTextStyle)}>
+        {(!useMinimalHeaderNav ||
+          pathname?.startsWith("/platform") ||
+          shouldHideOrgContent) && (
+          <nav
+            className={cn("flex items-center gap-4 text-lg", headerTextStyle)}
+          >
             <Link href="/">Home</Link>
             {user?.isPlatformStaff && <Link href="/platform">Platform</Link>}
           </nav>
@@ -209,7 +168,9 @@ export default function Header() {
             </div>
             {/* Only render OrgNav when member data is loaded and matches current org */}
             {/* When useMinimalHeaderNav is enabled, hide these links - users should use the switcher */}
-            {!useMinimalHeaderNav && !isMemberPending && validMember && <OrgNav member={validMember} />}
+            {!(useMinimalHeaderNav || isMemberPending) && validMember && (
+              <OrgNav member={validMember} />
+            )}
           </>
         )}
 

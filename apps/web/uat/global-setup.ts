@@ -21,6 +21,11 @@ import { execSync } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 
+// Load test data from JSON configuration file
+const testDataPath = path.join(__dirname, "test-data.json");
+const testData = JSON.parse(fs.readFileSync(testDataPath, "utf-8"));
+const TEST_USERS = testData.users;
+
 async function globalSetup() {
   console.log("\n🔧 UAT Global Setup Starting...\n");
 
@@ -62,7 +67,7 @@ async function globalSetup() {
       // Fallback: try to verify by checking if the user exists
       try {
         execSync(
-          'npx convex run scripts/verifyUATSetup:checkUserExists \'{"email": "0wn3r_pdp@outlook.com"}\'',
+          `npx convex run scripts/verifyUATSetup:checkUserExists '{"email": "${TEST_USERS.owner.email}"}'`,
           {
             cwd: backendDir,
             stdio: "inherit",
@@ -141,11 +146,11 @@ async function globalSetup() {
     fs.writeFileSync(setupMarker, new Date().toISOString());
 
     console.log("🎉 Global Setup Complete!\n");
-    console.log("Verified test accounts:");
-    console.log("  - Owner (platformStaff): 0wn3r_pdp@outlook.com / Gegrep_01");
-    console.log("  - Admin: adm1n_pdp@outlook.com / Gegrep_01");
-    console.log("  - Coach: c0ach_pdp@outlook.com / Gegrep_01");
-    console.log("  - Parent: par3nt_pdp@outlook.com / Gegrep_01");
+    console.log("Verified test accounts (from test-data.json):");
+    console.log(`  - Owner (platformStaff): ${TEST_USERS.owner.email}`);
+    console.log(`  - Admin: ${TEST_USERS.admin.email}`);
+    console.log(`  - Coach: ${TEST_USERS.coach.email}`);
+    console.log(`  - Parent: ${TEST_USERS.parent.email}`);
     console.log("");
     console.log("Expected permissions:");
     console.log("  - Owner: platformStaff=true, can create orgs, owner role");

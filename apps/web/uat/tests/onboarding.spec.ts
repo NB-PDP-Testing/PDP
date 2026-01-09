@@ -839,7 +839,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await expect(inviteButton).toBeVisible({ timeout: 10000 });
     });
 
-    test('should send admin invitation to adm1n_pdp@outlook.com', async ({ page, helper }) => {
+    test('should send admin invitation to test admin user', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
       await helper.waitForPageLoad();
       

@@ -2,42 +2,42 @@
   "description": "UAT Test Data Configuration",
   "version": "2.0.0",
   "lastUpdated": "2026-01-09",
-  "note": "All test accounts use the pattern: 0wn3r, adm1n, c0ach, par3nt (with numbers for vowels)",
+  "note": "Single source of truth for all UAT test accounts and data",
   
   "users": {
     "owner": {
-      "email": "0wn3r_pdp@outlook.com",
-      "password": "Gegrep_01",
+      "email": "owner_pdp@outlook.com",
+      "password": "Password123!",
       "name": "Owner User",
       "description": "Platform owner - has platformStaff=true"
     },
     "admin": {
       "email": "adm1n_pdp@outlook.com",
-      "password": "Gegrep_01",
+      "password": "Password123!",
       "name": "Admin User",
       "description": "Organization administrator"
     },
     "coach": {
-      "email": "c0ach_pdp@outlook.com",
-      "password": "Gegrep_01",
+      "email": "coach_pdp@outlook.com",
+      "password": "Password123!",
       "name": "Coach User",
       "description": "Team coach"
     },
     "parent": {
-      "email": "par3nt_pdp@outlook.com",
-      "password": "Gegrep_01",
+      "email": "parent_pdp@outlook.com",
+      "password": "Password123!",
       "name": "Parent User",
       "description": "Player guardian/parent"
     },
     "newUser": {
       "email": "newuser_pdp@outlook.com",
-      "password": "Gegrep_01",
+      "password": "Password123!",
       "name": "New Test User",
       "description": "New user for signup tests"
     },
     "multiRole": {
       "email": "multi_pdp@outlook.com",
-      "password": "Gegrep_01",
+      "password": "Password123!",
       "name": "Multi Role User",
       "description": "User with multiple roles"
     }
@@ -93,11 +93,11 @@
       "roles": ["admin"]
     },
     "coach": {
-      "email": "c0ach_pdp@outlook.com",
+      "email": "coach_pdp@outlook.com",
       "roles": ["coach"]
     },
     "parent": {
-      "email": "par3nt_pdp@outlook.com",
+      "email": "parent_pdp@outlook.com",
       "roles": ["parent"]
     }
   },

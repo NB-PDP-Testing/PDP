@@ -33,9 +33,8 @@ export default defineConfig({
   testDir: "./uat/tests",
 
   /* Global setup/teardown for standard tests */
-  /* NOTE: Disabled by default - enable when seed scripts are available */
-  // globalSetup: "./uat/global-setup.ts",
-  // globalTeardown: "./uat/global-teardown.ts",
+  globalSetup: "./uat/global-setup.ts",
+  globalTeardown: "./uat/global-teardown.ts",
 
   /* Run tests in files in parallel */
   fullyParallel: false, // Sequential for predictable test order

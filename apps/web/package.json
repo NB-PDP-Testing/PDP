@@ -21,8 +21,8 @@
     "test:debug": "playwright test --debug --project=default",
     "test:report": "playwright show-report",
     "test:list": "playwright test --list",
-    "test:setup": "node -r ts-node/register uat/global-setup.ts",
-    "test:cleanup": "node -r ts-node/register uat/global-teardown.ts"
+    "test:setup": "npx tsx -e \"import setup from './uat/global-setup.ts'; setup()\"",
+    "test:cleanup": "npx tsx -e \"import teardown from './uat/global-teardown.ts'; teardown()\""
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.9.1",

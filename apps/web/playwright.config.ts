@@ -32,9 +32,9 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./uat/tests",
 
-  /* Global setup/teardown for standard tests */
-  globalSetup: "./uat/global-setup.ts",
-  globalTeardown: "./uat/global-teardown.ts",
+  /* Global setup/teardown removed - onboarding tests create the data */
+  // globalSetup: "./uat/global-setup.ts",
+  // globalTeardown: "./uat/global-teardown.ts",
 
   /* Run tests in files in parallel */
   fullyParallel: false, // Sequential for predictable test order
@@ -80,37 +80,37 @@ export default defineConfig({
   projects: [
     // ========================================
     // AUTH SETUP - Creates authenticated browser sessions
-    // Runs before tests that need auth
+    // Runs AFTER onboarding creates the users
     // ========================================
     {
       name: "auth-setup",
       testDir: "./uat",
       testMatch: /(?<![a-z-])auth\.setup\.ts$/,
+      dependencies: ["onboarding"], // Wait for onboarding to create users first
     },
 
     // ========================================
-    // ONBOARDING DB SETUP - Resets and seeds database
-    // Only runs before onboarding tests
+    // ONBOARDING PROJECT - Runs first to create users/org/team
     // ========================================
     {
-      name: "onboarding-db-setup",
-      testDir: "./uat",
-      testMatch: /onboarding-db-setup\.ts$/,
+      name: "onboarding",
+      use: { ...devices["Desktop Chrome"] },
+      testDir: "./uat/tests",
+      testMatch: /onboarding\.spec\.ts/,
     },
 
     // ========================================
-    // DEFAULT: ALL STANDARD TESTS
-    // Runs all test files with authenticated sessions
+    // DEFAULT: ALL OTHER TESTS
+    // Runs after onboarding completes
     // Command: npm run test
-    // NOTE: Global setup creates test data, teardown removes it
     // ========================================
     {
       name: "default",
       use: { ...devices["Desktop Chrome"] },
       testDir: "./uat/tests",
       testMatch: /.*\.spec\.ts/,
-      testIgnore: [/onboarding\.spec\.ts/, /mobile\.spec\.ts/], // Exclude onboarding and mobile (separate commands)
-      dependencies: ["auth-setup"],
+      testIgnore: [/mobile\.spec\.ts/, /onboarding\.spec\.ts/], // Exclude onboarding and mobile
+      dependencies: ["onboarding", "auth-setup"], // Onboarding first, then auth
     },
 
     // ========================================
@@ -173,20 +173,6 @@ export default defineConfig({
       dependencies: ["auth-setup"],
     },
 
-    // ========================================
-    // ONBOARDING TESTS (SPECIAL)
-    // Tests fresh user signup flows - RESETS ENTIRE DATABASE
-    // Run: npm run test:onboarding:fresh
-    // NOTE: Uses onboarding-db-setup to reset database
-    // ========================================
-    {
-      name: "onboarding-fresh",
-      use: { ...devices["Desktop Chrome"] },
-      testDir: "./uat/tests",
-      testMatch: /onboarding\.spec\.ts/,
-      dependencies: ["onboarding-db-setup"], // Reset DB before onboarding
-      // NO auth-setup - creates users during test
-    },
 
     // ========================================
     // MOBILE TESTS - All tests on mobile viewport
@@ -211,3 +197,4 @@ export default defineConfig({
     stderr: "ignore", // Suppress source map warnings from Next.js
   },
 });
+

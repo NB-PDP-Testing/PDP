@@ -110,7 +110,7 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
       testDir: "./uat/tests",
       testMatch: /.*\.spec\.ts/,
-      testIgnore: /onboarding\.spec\.ts/, // Exclude onboarding (separate command)
+      testIgnore: [/onboarding\.spec\.ts/, /mobile\.spec\.ts/], // Exclude onboarding and mobile (separate commands)
       dependencies: ["auth-setup"],
     },
 

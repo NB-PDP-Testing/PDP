@@ -62,6 +62,7 @@ import type * as scripts_analyzeReimport from "../scripts/analyzeReimport.js";
 import type * as scripts_bootstrapPlatformStaff from "../scripts/bootstrapPlatformStaff.js";
 import type * as scripts_checkPlayerSport from "../scripts/checkPlayerSport.js";
 import type * as scripts_cleanupEnrollmentSport from "../scripts/cleanupEnrollmentSport.js";
+import type * as scripts_cleanupUATData from "../scripts/cleanupUATData.js";
 import type * as scripts_clearDevData from "../scripts/clearDevData.js";
 import type * as scripts_clearPlayerDataKeepUsers from "../scripts/clearPlayerDataKeepUsers.js";
 import type * as scripts_debugPlayerData from "../scripts/debugPlayerData.js";
@@ -75,6 +76,7 @@ import type * as scripts_migrateEnrollmentSport from "../scripts/migrateEnrollme
 import type * as scripts_previewOrgCleanup from "../scripts/previewOrgCleanup.js";
 import type * as scripts_queryExisting from "../scripts/queryExisting.js";
 import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSportRules.js";
+import type * as scripts_seedUATData from "../scripts/seedUATData.js";
 import type * as scripts_validateTeamAssignments from "../scripts/validateTeamAssignments.js";
 import type * as scripts_verifyUATSetup from "../scripts/verifyUATSetup.js";
 import type * as todos from "../todos.js";
@@ -141,6 +143,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/bootstrapPlatformStaff": typeof scripts_bootstrapPlatformStaff;
   "scripts/checkPlayerSport": typeof scripts_checkPlayerSport;
   "scripts/cleanupEnrollmentSport": typeof scripts_cleanupEnrollmentSport;
+  "scripts/cleanupUATData": typeof scripts_cleanupUATData;
   "scripts/clearDevData": typeof scripts_clearDevData;
   "scripts/clearPlayerDataKeepUsers": typeof scripts_clearPlayerDataKeepUsers;
   "scripts/debugPlayerData": typeof scripts_debugPlayerData;
@@ -154,6 +157,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/previewOrgCleanup": typeof scripts_previewOrgCleanup;
   "scripts/queryExisting": typeof scripts_queryExisting;
   "scripts/seedDefaultSportRules": typeof scripts_seedDefaultSportRules;
+  "scripts/seedUATData": typeof scripts_seedUATData;
   "scripts/validateTeamAssignments": typeof scripts_validateTeamAssignments;
   "scripts/verifyUATSetup": typeof scripts_verifyUATSetup;
   todos: typeof todos;

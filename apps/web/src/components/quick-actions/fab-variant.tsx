@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAnalytics } from "@/lib/analytics";
-import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
+import { UXAnalyticsEvents, useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 
 interface FABQuickActionsProps {
   onAssessPlayers: () => void;
@@ -55,6 +55,7 @@ export function FABQuickActions({
 }: FABQuickActionsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { track } = useAnalytics();
+  const { useBottomNav } = useUXFeatureFlags();
 
   // Track variant viewed on mount
   useEffect(() => {
@@ -145,7 +146,7 @@ export function FABQuickActions({
 
       {/* Action Menu - appears above FAB when open */}
       {isOpen && (
-        <div className="fixed bottom-24 right-4 z-50 w-56 space-y-2 rounded-lg bg-white p-3 shadow-2xl md:right-6">
+        <div className={`fixed ${useBottomNav ? "bottom-32" : "bottom-24"} right-4 z-50 w-56 space-y-2 rounded-lg bg-white p-3 shadow-2xl md:bottom-24 md:right-6`}>
           <div className="mb-2 flex items-center justify-between border-b pb-2">
             <span className="font-semibold text-gray-900 text-sm">
               Quick Actions
@@ -184,7 +185,7 @@ export function FABQuickActions({
 
       {/* FAB Button - fixed bottom-right */}
       <Button
-        className={`fixed bottom-4 right-4 z-50 h-14 w-14 rounded-full bg-emerald-600 p-0 shadow-lg transition-all hover:scale-110 hover:bg-emerald-700 active:scale-95 md:bottom-6 md:right-6 ${
+        className={`fixed ${useBottomNav ? "bottom-20" : "bottom-4"} right-4 z-50 h-14 w-14 rounded-full bg-emerald-600 p-0 shadow-lg transition-all hover:scale-110 hover:bg-emerald-700 active:scale-95 md:bottom-6 md:right-6 ${
           isOpen ? "rotate-45" : ""
         }`}
         onClick={handleFABClick}

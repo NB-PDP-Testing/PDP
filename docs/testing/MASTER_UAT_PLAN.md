@@ -752,33 +752,59 @@ Based on comprehensive code review and analysis of archived documents, the follo
 
 ### 12.1 Priority 0 (Critical - Must Have)
 
-| Test ID             | Description                                | Category       | Effort |
-| ------------------- | ------------------------------------------ | -------------- | ------ |
-| AUTH-PWA-001        | PWA install prompt can be dismissed        | Authentication | Low    |
-| AUTH-FORGOT-001     | Forgot password link navigation            | Authentication | Medium |
-| AUTH-FORGOT-002     | Password reset email sent                  | Authentication | Medium |
-| FLOW-ACCESS-001     | Non-Platform-Staff cannot access /platform | Flow System    | Low    |
-| FLOW-USER-LOGIN-001 | Active flow displays after login           | Flow System    | Medium |
+| Test ID             | Description                                | Category       | Effort | Status                        |
+| ------------------- | ------------------------------------------ | -------------- | ------ | ----------------------------- |
+| AUTH-PWA-001        | PWA install prompt can be dismissed        | Authentication | Low    | ✅ Implemented                |
+| AUTH-FORGOT-001     | Forgot password link navigation            | Authentication | Medium | 🟡 Skipped - Awaiting feature |
+| AUTH-FORGOT-002     | Password reset email sent                  | Authentication | Medium | 🟡 Skipped - Awaiting feature |
+| FLOW-ACCESS-001     | Non-Platform-Staff cannot access /platform | Flow System    | Low    | ✅ Implemented                |
+| FLOW-USER-LOGIN-001 | Active flow displays after login           | Flow System    | Medium | ✅ Implemented                |
 
-### 12.2 Priority 1 (High - Should Have)
+**Implementation Details:**
 
-| Test ID                | Description                                 | Category     | Effort |
-| ---------------------- | ------------------------------------------- | ------------ | ------ |
-| ONBOARD-FIRST-001      | First user auto-granted platformStaff       | Onboarding   | Medium |
-| ONBOARD-ORG-001        | Platform staff can create organization      | Onboarding   | Medium |
-| ONBOARD-TEAM-001       | Owner creates first team in empty org       | Onboarding   | Low    |
-| ONBOARD-INVITE-001     | Owner invites first admin                   | Onboarding   | Medium |
-| ADMIN-CMD-001          | Command Palette (⌘K) opens                  | Admin        | Low    |
-| ADMIN-CMD-002          | Command Palette search works                | Admin        | Medium |
-| ADMIN-PLAYERACCESS-001 | Player Access page loads                    | Admin        | Low    |
-| ADMIN-PLAYERACCESS-002 | Configure self-access minimum age           | Admin        | Medium |
-| COACH-EMPTY-001        | Empty state shown when no teams assigned    | Coach        | Low    |
-| GUARDIAN-LINK-001      | Admin manually links parent to player       | Guardian     | Medium |
-| GUARDIAN-SMART-001     | Smart matching suggests children for parent | Guardian     | Medium |
-| ORG-SWITCH-001         | User can switch between Coach/Admin panels  | Organization | Low    |
-| FLOW-CREATE-001        | Create simple announcement flow             | Flow System  | Medium |
-| FLOW-EDIT-001          | Edit existing flow                          | Flow System  | Medium |
-| FLOW-TOGGLE-001        | Toggle flow active/inactive                 | Flow System  | Low    |
+- `AUTH-PWA-001`: Implemented in `tests/auth/login.spec.ts` as `AUTH-010`
+- `AUTH-FORGOT-001`: Test written in `tests/auth/login.spec.ts` but **SKIPPED** - waiting on forgot password feature implementation
+- `AUTH-FORGOT-002`: Test written in `tests/auth/login.spec.ts` but **SKIPPED** - waiting on forgot password feature implementation
+- `FLOW-ACCESS-001`: Implemented in `tests/flows/platform-access.spec.ts` (with variants for coach, admin, and positive test for owner)
+- `FLOW-USER-LOGIN-001`: Implemented in `tests/flows/platform-access.spec.ts` (with flow dismissal test)
+
+**⚠️ Blocked Items:**
+The forgot password feature has not been implemented in the application yet. Tests are written and marked as `test.skip()`. Once the feature is implemented:
+
+1. Remove `test.skip` from `AUTH-FORGOT-001` and `AUTH-FORGOT-002` in `tests/auth/login.spec.ts`
+2. Verify the URL patterns match the actual implementation
+3. Update this document to mark as ✅ Implemented
+
+### 12.2 Priority 1 (High - Should Have) ✅ IMPLEMENTED
+
+| Test ID                | Description                                 | Category     | Effort | Status |
+| ---------------------- | ------------------------------------------- | ------------ | ------ | ------ |
+| ONBOARD-FIRST-001      | First user auto-granted platformStaff       | Onboarding   | Medium | ✅     |
+| ONBOARD-ORG-001        | Platform staff can create organization      | Onboarding   | Medium | ✅     |
+| ONBOARD-TEAM-001       | Owner creates first team in empty org       | Onboarding   | Low    | ✅     |
+| ONBOARD-INVITE-001     | Owner invites first admin                   | Onboarding   | Medium | ✅     |
+| ADMIN-CMD-001          | Command Palette (⌘K) opens                  | Admin        | Low    | ✅     |
+| ADMIN-CMD-002          | Command Palette search works                | Admin        | Medium | ✅     |
+| ADMIN-PLAYERACCESS-001 | Player Access page loads                    | Admin        | Low    | ✅     |
+| ADMIN-PLAYERACCESS-002 | Configure self-access minimum age           | Admin        | Medium | ✅     |
+| COACH-EMPTY-001        | Empty state shown when no teams assigned    | Coach        | Low    | ✅     |
+| GUARDIAN-LINK-001      | Admin manually links parent to player       | Guardian     | Medium | ✅     |
+| GUARDIAN-SMART-001     | Smart matching suggests children for parent | Guardian     | Medium | ✅     |
+| ORG-SWITCH-001         | User can switch between Coach/Admin panels  | Organization | Low    | ✅     |
+| FLOW-CREATE-001        | Create simple announcement flow             | Flow System  | Medium | ✅     |
+| FLOW-EDIT-001          | Edit existing flow                          | Flow System  | Medium | ✅     |
+| FLOW-TOGGLE-001        | Toggle flow active/inactive                 | Flow System  | Low    | ✅     |
+
+**Implementation Details:**
+
+- `ADMIN-CMD-001/002`: Implemented in `tests/admin/dashboard.spec.ts`
+- `ADMIN-PLAYERACCESS-001/002`: Implemented in `tests/admin/dashboard.spec.ts`
+- `COACH-EMPTY-001`: Already exists as `COACH-010` in `tests/coach/dashboard.spec.ts`
+- `GUARDIAN-LINK-001`: Implemented in `tests/admin/identity.spec.ts`
+- `GUARDIAN-SMART-001`: Implemented in `tests/admin/identity.spec.ts`
+- `ORG-SWITCH-001`: Implemented in `tests/admin/identity.spec.ts`
+- `FLOW-CREATE-001/EDIT-001/TOGGLE-001`: Implemented in `tests/flows/flow-management.spec.ts`
+- `ONBOARD-FIRST-001/ORG-001/TEAM-001/INVITE-001`: Implemented in `tests/flows/flow-management.spec.ts`
 
 ### 12.3 Priority 2 (Medium - Nice to Have)
 

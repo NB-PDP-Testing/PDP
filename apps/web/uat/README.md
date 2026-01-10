@@ -1,194 +1,102 @@
-# UAT Testing Infrastructure
+# PlayerARC UAT MCP Tests
 
-This directory contains User Acceptance Testing (UAT) infrastructure for PDP.
+Comprehensive User Acceptance Testing suite for PlayerARC using Playwright.
 
-## Architecture
+## Overview
 
-### Test Types
+This test suite validates all major user journeys and functionality of the PlayerARC application based on the gaps identified in `docs/testing/UAT_MCP_TESTS.MD`.
 
-1. **Standard Tests** (`npm run test`)
-   - Global Setup creates test data (users, org, teams, players)
-   - Tests run against existing data
-   - Global Teardown cleans up test data
-   - Uses authenticated sessions from auth-setup
-
-2. **Onboarding Tests** (`npm run test:onboarding:fresh`)
-   - Resets entire database before running
-   - Seeds reference data (sports, skills, benchmarks)
-   - Tests fresh user signup flows
-   - Creates users during test execution
-
-## Directory Structure
+## Test Structure
 
 ```
-uat/
-├── fixtures/
-│   └── test-utils.ts       # Test helpers, utilities, and fixtures
+uatmcp/
+├── README.md              # This file
+├── test-data.json         # Test data configuration
+├── playwright.config.ts   # Playwright configuration
 ├── tests/
-│   ├── admin.spec.ts       # Admin dashboard tests
-│   ├── admin-advanced.spec.ts  # Advanced admin features
-│   ├── auth.spec.ts        # Authentication tests
-│   ├── coach.spec.ts       # Coach dashboard tests
-│   ├── first-login-dashboard.spec.ts  # Dashboard redirect tests
-│   ├── mobile.spec.ts      # Mobile viewport tests
-│   ├── onboarding.spec.ts  # Fresh signup tests
-│   └── parent.spec.ts      # Parent dashboard tests
-├── auth.setup.ts           # Creates authenticated sessions
-├── global-setup.ts         # Runs before standard tests
-├── global-teardown.ts      # Runs after standard tests
-├── onboarding-db-setup.ts  # Resets DB for onboarding tests
-├── test-data.json          # Test user credentials and data
-└── README.md               # This file
+│   ├── auth/             # Authentication tests
+│   │   ├── login.spec.ts
+│   │   ├── signup.spec.ts
+│   │   └── password-reset.spec.ts
+│   ├── admin/            # Admin dashboard tests
+│   │   ├── dashboard.spec.ts
+│   │   ├── players.spec.ts
+│   │   ├── teams.spec.ts
+│   │   ├── users.spec.ts
+│   │   ├── benchmarks.spec.ts
+│   │   ├── analytics.spec.ts
+│   │   └── settings.spec.ts
+│   ├── coach/            # Coach features tests
+│   │   ├── dashboard.spec.ts
+│   │   └── players.spec.ts
+│   ├── parent/           # Parent dashboard tests
+│   │   └── dashboard.spec.ts
+│   ├── org/              # Organization tests
+│   │   ├── create.spec.ts
+│   │   └── join.spec.ts
+│   └── e2e/              # End-to-end flow tests
+│       ├── onboarding.spec.ts
+│       └── player-development.spec.ts
+├── fixtures/
+│   └── test-fixtures.ts  # Shared test fixtures
+└── utils/
+    ├── auth.ts           # Authentication helpers
+    └── helpers.ts        # General test helpers
 ```
 
-## Available Commands
+## Test Categories
 
-Run from `apps/web` directory:
+| Category | Test ID Prefix | Description              |
+| -------- | -------------- | ------------------------ |
+| AUTH     | AUTH-xxx       | Authentication flows     |
+| ADMIN    | ADMIN-xxx      | Admin dashboard features |
+| COACH    | COACH-xxx      | Coach features           |
+| PARENT   | PARENT-xxx     | Parent dashboard         |
+| ORG      | ORG-xxx        | Organization management  |
+| E2E      | E2E-xxx        | End-to-end flows         |
+| HOME     | HOME-xxx       | Homepage tests           |
+
+## Running Tests
 
 ```bash
-# Run all standard tests
-npm run test
+# Run all tests
+npx playwright test --config=apps/web/uatmcp/playwright.config.ts
 
-# Run specific test suites
-npm run test:auth           # Authentication tests
-npm run test:admin          # Admin dashboard tests
-npm run test:coach          # Coach dashboard tests
-npm run test:parent         # Parent dashboard tests
-npm run test:first-login    # Dashboard redirect tests
-npm run test:mobile         # Mobile viewport tests
+# Run specific category
+npx playwright test --config=apps/web/uatmcp/playwright.config.ts tests/auth/
 
-# Run onboarding tests (RESETS DATABASE!)
-npm run test:onboarding:fresh
+# Run with UI mode
+npx playwright test --config=apps/web/uatmcp/playwright.config.ts --ui
 
-# Debug and UI modes
-npm run test:ui             # Visual test runner
-npm run test:headed         # Run with browser visible
-npm run test:debug          # Debug mode with breakpoints
-npm run test:report         # View HTML report
+# Run headed (visible browser)
+npx playwright test --config=apps/web/uatmcp/playwright.config.ts --headed
 ```
 
-## Test Users
+## Test Data
 
-Test users are configured in `test-data.json`:
+All test accounts and data are defined in `test-data.json`. Key accounts:
 
-| Role   | Email                    | Password   | Description                |
-|--------|--------------------------|------------|----------------------------|
-| Owner  | 0wn3r_pdp@outlook.com    | Gegrep_01  | Platform staff, org owner  |
-| Admin  | adm1n_pdp@outlook.com    | Gegrep_01  | Organization admin         |
-| Coach  | c0ach_pdp@outlook.com    | Gegrep_01  | Team coach                 |
-| Parent | par3nt_pdp@outlook.com   | Gegrep_01  | Player parent              |
+| Role   | Email                  | Description                     |
+| ------ | ---------------------- | ------------------------------- |
+| Owner  | owner_pdp@outlook.com  | Platform staff with full access |
+| Admin  | adm1n_pdp@outlook.com  | Organization administrator      |
+| Coach  | coach_pdp@outlook.com  | Team coach                      |
+| Parent | parent_pdp@outlook.com | Player guardian                 |
 
 ## Prerequisites
 
-1. **Convex dev server must be running**
-   ```bash
-   cd packages/backend && npx convex dev
-   ```
+1. Development server running on `http://localhost:3000`
+2. Database seeded with test data
+3. Playwright browsers installed (`npx playwright install`)
 
-2. **Web app dev server running (or will be started by tests)**
-   ```bash
-   cd apps/web && npm run dev
-   ```
+## Best Practices
 
-3. **Test users must exist in database**
-   - Run onboarding tests first to create users
-   - Or manually create users in Convex dashboard
+1. **Test Isolation**: Each test should be independent and not rely on other tests
+2. **Clear Naming**: Test IDs follow the convention `CATEGORY-NNN: Description`
+3. **Data-Driven**: Test data comes from `test-data.json`
+4. **Page Objects**: Use page object patterns for maintainability
+5. **Assertions**: Clear assertions with descriptive error messages
 
-## Global Setup/Teardown
+## Coverage Mapping
 
-### Global Setup (`global-setup.ts`)
-Runs before standard tests:
-1. Verifies platform admin has correct permissions
-2. Verifies test user accounts exist
-3. Creates/verifies UAT test data (idempotent)
-4. Creates `.auth` directory for session storage
-
-### Global Teardown (`global-teardown.ts`)
-Runs after standard tests:
-1. Cleans up UAT-specific test data
-2. Removes auth session files
-3. Preserves users and organizations
-
-### Onboarding DB Setup (`onboarding-db-setup.ts`)
-Special setup for onboarding tests:
-1. **RESETS ENTIRE DATABASE**
-2. Seeds reference data only
-3. Prepares clean slate for signup tests
-
-## Writing Tests
-
-### Using Test Utilities
-
-```typescript
-import { test, expect, TEST_USERS, TestHelper } from "../fixtures/test-utils";
-
-test.describe("My Feature", () => {
-  test("should do something", async ({ page, helper }) => {
-    // Login
-    await helper.login(TEST_USERS.admin.email, TEST_USERS.admin.password);
-    
-    // Navigate
-    await helper.goToAdmin();
-    
-    // Assert
-    await expect(page.getByText("Dashboard")).toBeVisible();
-  });
-});
-```
-
-### Available Helpers
-
-```typescript
-helper.login(email, password)     // Login with credentials
-helper.logout()                   // Logout current user
-helper.goToOrg(orgId?)           // Navigate to organization
-helper.goToAdmin(orgId?)         // Navigate to admin dashboard
-helper.goToCoach(orgId?)         // Navigate to coach dashboard
-helper.goToParent(orgId?)        // Navigate to parent dashboard
-helper.waitForPageLoad()         // Wait for network idle
-helper.expectToast(text)         // Expect Sonner toast
-helper.expectRedirectToLogin()   // Expect redirect to login
-helper.fillField(label, value)   // Fill form field
-helper.clickButton(name)         // Click button by name
-helper.screenshot(name)          // Take screenshot
-```
-
-## Test Naming Convention
-
-Tests follow the pattern: `TEST-{CATEGORY}-{NUMBER}: description`
-
-- `TEST-AUTH-XXX` - Authentication tests
-- `TEST-ADMIN-XXX` - Admin functionality tests
-- `TEST-COACH-XXX` - Coach functionality tests
-- `TEST-PARENT-XXX` - Parent functionality tests
-- `TEST-MOBILE-XXX` - Mobile viewport tests
-- `TEST-SETUP-XXX` - Setup/onboarding tests
-
-## Troubleshooting
-
-### Tests fail with "Login failed"
-- Check that test users exist in database
-- Run onboarding tests first: `npm run test:onboarding:fresh`
-- Verify credentials in `test-data.json`
-
-### Tests timeout
-- Check if Convex dev server is running
-- Check if web app is accessible at localhost:3000
-- Increase timeout in playwright.config.ts
-
-### Cannot find element
-- Use `page.pause()` to inspect the page
-- Check if element selector is correct
-- Verify page has finished loading
-
-### Database not reset
-- Onboarding tests require `npm run test:onboarding:fresh`
-- Standard tests DO NOT reset the database
-
-## CI/CD Integration
-
-For CI environments:
-- Set `PLAYWRIGHT_BASE_URL` environment variable
-- Tests will retry twice on failure
-- Video/trace recorded on failure
-- HTML report generated automatically
+Tests are mapped to requirements in `docs/testing/UAT_MCP_TESTS.MD`.

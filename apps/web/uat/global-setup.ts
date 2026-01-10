@@ -1,108 +1,119 @@
+import { chromium, FullConfig } from "@playwright/test";
+import * as fs from "fs";
+import * as path from "path";
+
 /**
- * Global Setup for Standard UAT Tests
+ * Global Setup for PlayerARC UAT Tests
  *
- * This runs ONCE before standard tests to set up the test environment.
- * It performs the following steps:
- * 1. Verifies platform admin permissions
- * 2. Verifies test user permissions
- * 3. Seeds additional UAT test data (if seed function exists)
+ * This runs once before all tests to:
+ * 1. Verify the application is running
+ * 2. Create authenticated storage states for each user role
  *
- * PREREQUISITES:
- * - Convex dev server must be running
- * - Test user accounts must already exist (create manually or via onboarding tests)
- * - Web app must be running
+ * Uses the same login approach as apps/web/uat/auth.setup.ts
  */
 
-import { execSync } from "child_process";
-import * as path from "path";
-import * as fs from "fs";
+interface TestUser {
+  email: string;
+  password: string;
+  name: string;
+  description: string;
+}
 
-async function globalSetup() {
-  console.log("\n🔧 UAT Global Setup Starting...\n");
+interface TestData {
+  users: Record<string, TestUser>;
+}
 
-  const rootDir = path.resolve(__dirname, "../../..");
-  const backendDir = path.join(rootDir, "packages/backend");
+/**
+ * Helper function to login with email/password
+ * Matches the approach in apps/web/uat/auth.setup.ts
+ */
+async function loginWithEmail(
+  page: any,
+  email: string,
+  password: string
+): Promise<void> {
+  await page.goto("/login");
 
-  // Check if we should skip setup
-  if (process.env.SKIP_UAT_SETUP === "true") {
-    console.log("⏭️  Skipping setup (SKIP_UAT_SETUP=true)\n");
-    return;
+  // Wait for the page to fully load - the form is inside Suspense and Convex auth states
+  // Wait for either the email field OR the "Sign in with Google" button to appear
+  await page.waitForSelector(
+    '[id="email"], button:has-text("Sign in with Google")',
+    { timeout: 30000 }
+  );
+
+  // The form uses Tanstack Form - fields have id="email" and id="password"
+  const emailField = page.locator("#email");
+  await emailField.waitFor({ state: "visible", timeout: 30000 });
+
+  // Fill email
+  await emailField.fill(email);
+
+  // Fill password
+  const passwordField = page.locator("#password");
+  await passwordField.waitFor({ state: "visible", timeout: 5000 });
+  await passwordField.fill(password);
+
+  // Click Sign In button (exact match to avoid SSO buttons)
+  await page.getByRole("button", { name: "Sign In", exact: true }).click();
+
+  // Wait for successful login - redirects to /orgs
+  await page.waitForURL(/\/orgs/, { timeout: 30000 });
+}
+
+async function globalSetup(config: FullConfig) {
+  const baseURL = config.projects[0].use.baseURL || "http://localhost:3000";
+
+  // Load test data
+  const testDataPath = path.join(__dirname, "test-data.json");
+  const testData: TestData = JSON.parse(fs.readFileSync(testDataPath, "utf-8"));
+
+  // Create storage states directory
+  const storageDir = path.join(__dirname, ".auth");
+  if (!fs.existsSync(storageDir)) {
+    fs.mkdirSync(storageDir, { recursive: true });
   }
 
-  // Check if this is being run for onboarding tests (should use --no-setup)
-  if (process.env.TEST_PROJECT === "onboarding-fresh") {
-    console.log("⏭️  Skipping setup for onboarding tests\n");
-    return;
-  }
+  const browser = await chromium.launch();
 
+  // Verify application is running
+  const page = await browser.newPage();
   try {
-    // Step 1: Verify platform admin permissions
-    console.log("🔐 Step 1/3: Verifying platform admin permissions...");
-    console.log("   (Checking owner account has platformStaff role)\n");
-
-    try {
-      execSync("npx convex run scripts/verifyUATSetup:verifyPlatformAdmin", {
-        cwd: backendDir,
-        stdio: "inherit",
-        timeout: 30000,
-      });
-      console.log("✅ Platform admin permissions verified\n");
-    } catch {
-      console.log("⚠️  Platform admin verification failed or function not found\n");
-    }
-
-    // Step 2: Verify test user permissions
-    console.log("🛡️  Step 2/3: Verifying test user permissions...");
-    console.log("   (Checking all test accounts have correct roles)\n");
-
-    try {
-      execSync("npx convex run scripts/verifyUATSetup:verifyTestUserPermissions", {
-        cwd: backendDir,
-        stdio: "inherit",
-        timeout: 30000,
-      });
-      console.log("✅ Test user permissions verified\n");
-    } catch {
-      console.log("⚠️  Test user permission verification failed\n");
-    }
-
-    // Step 3: Seed UAT test data (optional)
-    console.log("📦 Step 3/3: Seeding UAT test data...");
-
-    try {
-      execSync("npx convex run scripts/seedUATData:seedUATTestData", {
-        cwd: backendDir,
-        stdio: "inherit",
-        timeout: 120000,
-      });
-      console.log("✅ UAT test data seeded\n");
-    } catch {
-      console.log("⚠️  UAT seed function not found or failed\n");
-    }
-
-    // Create .auth directory if it doesn't exist
-    const authDir = path.join(__dirname, ".auth");
-    if (!fs.existsSync(authDir)) {
-      fs.mkdirSync(authDir, { recursive: true });
-    }
-
-    // Store a marker that setup ran
-    const setupMarker = path.join(__dirname, ".setup-ran");
-    fs.writeFileSync(setupMarker, new Date().toISOString());
-
-    console.log("🎉 Global Setup Complete!\n");
-    console.log("NOTE: Test accounts must be created manually or via onboarding tests.");
-    console.log("Required accounts (from test-data.json):");
-    console.log("  - owner_pdp@outlook.com (platformStaff)");
-    console.log("  - adm1n_pdp@outlook.com (admin)");
-    console.log("  - coach_pdp@outlook.com (coach)");
-    console.log("  - parent_pdp@outlook.com (parent)");
-    console.log("");
-
+    await page.goto(baseURL, { timeout: 10000 });
+    console.log("✅ Application is running at", baseURL);
   } catch (error) {
-    console.error("❌ Global Setup Failed:", error);
-    console.log("⚠️  Continuing despite setup errors...\n");
+    console.error("❌ Application is not running at", baseURL);
+    console.error("Please start the dev server: npm run dev");
+    await browser.close();
+    throw new Error(`Application not running at ${baseURL}`);
   }
+  await page.close();
+
+  // Create authenticated states for each user role
+  const usersToAuth = ["owner", "admin", "coach", "parent"];
+
+  for (const userKey of usersToAuth) {
+    const user = testData.users[userKey];
+    if (!user) continue;
+
+    const context = await browser.newContext({ baseURL });
+    const authPage = await context.newPage();
+
+    try {
+      await loginWithEmail(authPage, user.email, user.password);
+
+      // Save storage state
+      const storagePath = path.join(storageDir, `${userKey}.json`);
+      await context.storageState({ path: storagePath });
+      console.log(`✅ Created auth state for ${userKey} (${user.email})`);
+    } catch (error) {
+      console.error(`❌ Failed to create auth state for ${userKey}:`, error);
+    }
+
+    await context.close();
+  }
+
+  await browser.close();
+  console.log("\n🎉 Global setup complete!\n");
 }
 
 export default globalSetup;

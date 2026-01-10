@@ -1,5 +1,8 @@
 import { useEffect } from "react";
-import { type QuickAction, useQuickActionsContext } from "@/contexts/quick-actions-context";
+import {
+  type QuickAction,
+  useQuickActionsContext,
+} from "@/contexts/quick-actions-context";
 
 /**
  * Hook for pages to register custom Quick Actions

@@ -52,6 +52,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -141,6 +142,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   const { data: session } = authClient.useSession();
   const { data: organizations, isPending: isLoadingOrgs } =
     authClient.useListOrganizations();
+  const user = useCurrentUser();
 
   // Get all memberships with roles for all organizations
   const allMemberships = useQuery(
@@ -480,37 +482,24 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
             )}
 
             {/* Platform Staff options */}
-            {session?.user &&
-              (session.user as { isPlatformStaff?: boolean })
-                .isPlatformStaff && (
-                <>
-                  <CommandSeparator />
-                  <CommandGroup heading="Platform">
-                    <CommandItem
-                      className="min-h-[44px]"
-                      onSelect={() => {
-                        setOpen(false);
-                        router.push("/orgs" as Route);
-                      }}
-                      value="manage-organizations"
-                    >
-                      <Building2 className="mr-2 h-4 w-4" />
-                      <span>Manage Organizations</span>
-                    </CommandItem>
-                    <CommandItem
-                      className="min-h-[44px]"
-                      onSelect={() => {
-                        setOpen(false);
-                        router.push("/orgs/create" as Route);
-                      }}
-                      value="create-organization"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      <span>Create Organization</span>
-                    </CommandItem>
-                  </CommandGroup>
-                </>
-              )}
+            {user?.isPlatformStaff && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading="Platform">
+                  <CommandItem
+                    className="min-h-[44px]"
+                    onSelect={() => {
+                      setOpen(false);
+                      router.push("/orgs" as Route);
+                    }}
+                    value="manage-organizations"
+                  >
+                    <Building2 className="mr-2 h-4 w-4" />
+                    <span>Manage Organizations</span>
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
           </CommandList>
         </Command>
       </ResponsiveDialog>

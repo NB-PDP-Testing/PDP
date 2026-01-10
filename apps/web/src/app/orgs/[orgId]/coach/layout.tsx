@@ -4,13 +4,11 @@ import {
   AlertCircle,
   CheckSquare,
   Edit,
-  FileText,
   Heart,
   Home,
   Menu,
   Mic,
   Stethoscope,
-  Target,
   Users,
   Zap,
 } from "lucide-react";

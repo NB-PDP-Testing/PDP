@@ -1,10 +1,10 @@
 # Master UAT Test Plan
 
-**Version:** 3.1  
+**Version:** 4.1  
 **Created:** January 7, 2026  
-**Last Updated:** January 10, 2026  
+**Last Updated:** October 1, 2026  
 **Status:** ACTIVE - Lightweight UAT Model  
-**Total Tests:** 18 test files, 177 tests across 11 categories
+**Total Tests:** 23 test files, 229 tests across 11 categories (+ 51 setup tests)
 
 ---
 
@@ -101,17 +101,20 @@ apps/web/uat/
 
 ### 2.2 Test File Summary
 
-| Category  | Files  | Tests    | Description                                         |
-| --------- | ------ | -------- | --------------------------------------------------- |
-| auth      | 2      | ~20      | Login flows, signup validation                      |
-| admin     | 5      | ~56      | Dashboard, navigation, identity, invitations, teams |
-| coach     | 4      | ~29      | Dashboard, assessment, voice notes, injuries        |
-| parent    | 1      | ~10      | Child management, linked players                    |
-| player    | 2      | ~17      | Passport viewing, self-access (18+)                 |
-| org       | 2      | ~20      | Dashboard, announcements                            |
-| flows     | 1      | ~9       | Flow wizard system                                  |
-| homepage  | 1      | ~13      | Marketing page content                              |
-| **Total** | **18** | **~174** |                                                     |
+| Category    | Files  | Tests   | Description                                         |
+| ----------- | ------ | ------- | --------------------------------------------------- |
+| admin       | 5      | 56      | Dashboard, navigation, identity, invitations, teams |
+| coach       | 4      | 28      | Dashboard, assessment, voice notes, injuries        |
+| flows       | 3      | 23      | Flow wizard, platform access, flow management       |
+| auth        | 2      | 22      | Login flows, signup validation                      |
+| org         | 2      | 20      | Dashboard, announcements                            |
+| player      | 2      | 17      | Passport viewing, self-access (18+)                 |
+| mobile      | 1      | 15      | Mobile viewport responsive tests                    |
+| cross-role  | 1      | 15      | Multi-role scenario tests                           |
+| homepage    | 1      | 13      | Marketing page content                              |
+| parent      | 1      | 10      | Child management, linked players                    |
+| performance | 1      | 10      | Page load and API performance tests                 |
+| **Total**   | **23** | **229** | (+ 51 tests in onboarding setup script)             |
 
 ---
 
@@ -484,23 +487,20 @@ npm run test:setup -- --headed
 
 ## 6. Test Coverage by Category
 
-| Category       | Tests   | Coverage Status   |
-| -------------- | ------- | ----------------- |
-| Authentication | 12      | ✅ Complete       |
-| Admin          | 39      | ✅ Complete       |
-| Coach          | 29      | ✅ Complete       |
-| Parent         | 10      | ✅ Complete       |
-| Player         | 17      | ✅ Complete       |
-| Organization   | 20      | ✅ Complete       |
-| Flows          | 9       | ✅ Complete       |
-| Homepage       | 13      | ✅ Complete       |
-| Identity       | 6       | ✅ Complete       |
-| Invitations    | 10      | ✅ Complete       |
-| Teams          | 12      | ✅ Complete       |
-| Cross-Role     | 15      | ✅ Complete       |
-| Performance    | 10      | ✅ Complete       |
-| Mobile         | 15      | ✅ NEW - Complete |
-| **Total**      | **217** | **14 categories** |
+| Category       | Tests   | Coverage Status                    |
+| -------------- | ------- | ---------------------------------- |
+| Admin          | 56      | ✅ Complete                        |
+| Coach          | 28      | ✅ Complete                        |
+| Flows          | 23      | ✅ Complete                        |
+| Authentication | 22      | ✅ Complete                        |
+| Organization   | 20      | ✅ Complete                        |
+| Player         | 17      | ✅ Complete                        |
+| Mobile         | 15      | ✅ Complete                        |
+| Cross-Role     | 15      | ✅ Complete                        |
+| Homepage       | 13      | ✅ Complete                        |
+| Performance    | 10      | ✅ Complete                        |
+| Parent         | 10      | ✅ Complete                        |
+| **Total**      | **229** | **11 categories + 51 setup tests** |
 
 ---
 

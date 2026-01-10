@@ -1,0 +1,9 @@
+# Auth storage states (generated during test setup)
+.auth/
+
+# Test results and reports
+playwright-report/
+test-results/
+
+# Node modules (if any local installs)
+node_modules/

@@ -1,10 +1,10 @@
 # Master UAT Test Plan
 
-**Version:** 4.1  
+**Version:** 5.0  
 **Created:** January 7, 2026  
 **Last Updated:** October 1, 2026  
 **Status:** ACTIVE - Lightweight UAT Model  
-**Total Tests:** 23 test files, 229 tests across 11 categories (+ 51 setup tests)
+**Total Tests:** 33 test files, 269 tests across 14 categories (+ 51 setup tests)
 
 ---
 
@@ -101,20 +101,23 @@ apps/web/uat/
 
 ### 2.2 Test File Summary
 
-| Category    | Files  | Tests   | Description                                         |
-| ----------- | ------ | ------- | --------------------------------------------------- |
-| admin       | 5      | 56      | Dashboard, navigation, identity, invitations, teams |
-| coach       | 4      | 28      | Dashboard, assessment, voice notes, injuries        |
-| flows       | 3      | 23      | Flow wizard, platform access, flow management       |
-| auth        | 2      | 22      | Login flows, signup validation                      |
-| org         | 2      | 20      | Dashboard, announcements                            |
-| player      | 2      | 17      | Passport viewing, self-access (18+)                 |
-| mobile      | 1      | 15      | Mobile viewport responsive tests                    |
-| cross-role  | 1      | 15      | Multi-role scenario tests                           |
-| homepage    | 1      | 13      | Marketing page content                              |
-| parent      | 1      | 10      | Child management, linked players                    |
-| performance | 1      | 10      | Page load and API performance tests                 |
-| **Total**   | **23** | **229** | (+ 51 tests in onboarding setup script)             |
+| Category    | Files  | Tests   | Description                                                                    |
+| ----------- | ------ | ------- | ------------------------------------------------------------------------------ |
+| admin       | 8      | 64      | Dashboard, nav, identity, invitations, teams, overrides, benchmarks, analytics |
+| coach       | 5      | 30      | Dashboard, assessment, voice notes, injuries, analytics                        |
+| flows       | 4      | 26      | Flow wizard, platform access, management, advanced                             |
+| auth        | 2      | 22      | Login flows, signup validation                                                 |
+| org         | 2      | 20      | Dashboard, announcements                                                       |
+| ux          | 2      | 18      | UX features, testing suite                                                     |
+| player      | 2      | 17      | Passport viewing, self-access (18+)                                            |
+| mobile      | 1      | 15      | Mobile viewport responsive tests                                               |
+| cross-role  | 1      | 15      | Multi-role scenario tests                                                      |
+| homepage    | 2      | 15      | Marketing page content, advanced navigation                                    |
+| parent      | 1      | 10      | Child management, linked players                                               |
+| performance | 1      | 10      | Page load and API performance tests                                            |
+| errors      | 1      | 4       | Empty states, 404, 403 error pages                                             |
+| platform    | 1      | 3       | Platform staff management (sports, skills)                                     |
+| **Total**   | **33** | **269** | (+ 51 tests in onboarding setup script)                                        |
 
 ---
 
@@ -489,18 +492,21 @@ npm run test:setup -- --headed
 
 | Category       | Tests   | Coverage Status                    |
 | -------------- | ------- | ---------------------------------- |
-| Admin          | 56      | ✅ Complete                        |
-| Coach          | 28      | ✅ Complete                        |
-| Flows          | 23      | ✅ Complete                        |
+| Admin          | 64      | ✅ Complete                        |
+| Coach          | 30      | ✅ Complete                        |
+| Flows          | 26      | ✅ Complete                        |
 | Authentication | 22      | ✅ Complete                        |
 | Organization   | 20      | ✅ Complete                        |
+| UX             | 18      | ✅ Complete                        |
 | Player         | 17      | ✅ Complete                        |
 | Mobile         | 15      | ✅ Complete                        |
 | Cross-Role     | 15      | ✅ Complete                        |
-| Homepage       | 13      | ✅ Complete                        |
+| Homepage       | 15      | ✅ Complete                        |
 | Performance    | 10      | ✅ Complete                        |
 | Parent         | 10      | ✅ Complete                        |
-| **Total**      | **229** | **11 categories + 51 setup tests** |
+| Errors         | 4       | ✅ Complete                        |
+| Platform       | 3       | ✅ Complete                        |
+| **Total**      | **269** | **14 categories + 51 setup tests** |
 
 ---
 
@@ -590,26 +596,26 @@ npm run test
 
 The UX testing suite contains 14 detailed test specifications for user experience validation. These tests focus on visual consistency, mobile responsiveness, and interaction patterns.
 
-### 9.1 UX Test Files
+### 9.1 UX Test Files ✅ IMPLEMENTED
 
 | Test ID            | Description                       | Status |
 | ------------------ | --------------------------------- | ------ |
-| TEST-UXTESTING-000 | Testing Infrastructure Setup      | ⬜     |
-| TEST-UXTESTING-001 | Role-specific Bottom Navigation   | ⬜     |
-| TEST-UXTESTING-002 | Touch Target Sizes (44px minimum) | ⬜     |
-| TEST-UXTESTING-003 | Mobile Player Cards with Swipe    | ⬜     |
-| TEST-UXTESTING-004 | Admin Navigation Variants         | ⬜     |
-| TEST-UXTESTING-005 | Skeleton Loading States           | ⬜     |
-| TEST-UXTESTING-006 | Actionable Empty States           | ⬜     |
-| TEST-UXTESTING-007 | Touch-optimized Forms             | ⬜     |
-| TEST-UXTESTING-008 | Pull-to-refresh & Gestures        | ⬜     |
-| TEST-UXTESTING-009 | Mobile vs Desktop Comparison      | ⬜     |
-| TEST-UXTESTING-010 | Desktop Data Table Features       | ⬜     |
-| TEST-UXTESTING-011 | Command Palette (Cmd+K)           | ⬜     |
-| TEST-UXTESTING-012 | Information Density Options       | ⬜     |
-| TEST-UXTESTING-013 | Org/Role Switcher                 | ⬜     |
+| TEST-UXTESTING-000 | Testing Infrastructure Setup      | ✅     |
+| TEST-UXTESTING-001 | Role-specific Bottom Navigation   | ✅     |
+| TEST-UXTESTING-002 | Touch Target Sizes (44px minimum) | ✅     |
+| TEST-UXTESTING-003 | Mobile Player Cards with Swipe    | ✅     |
+| TEST-UXTESTING-004 | Admin Navigation Variants         | ✅     |
+| TEST-UXTESTING-005 | Skeleton Loading States           | ✅     |
+| TEST-UXTESTING-006 | Actionable Empty States           | ✅     |
+| TEST-UXTESTING-007 | Touch-optimized Forms             | ✅     |
+| TEST-UXTESTING-008 | Pull-to-refresh & Gestures        | ✅     |
+| TEST-UXTESTING-009 | Mobile vs Desktop Comparison      | ✅     |
+| TEST-UXTESTING-010 | Desktop Data Table Features       | ✅     |
+| TEST-UXTESTING-011 | Command Palette (Cmd+K)           | ✅     |
+| TEST-UXTESTING-012 | Information Density Options       | ✅     |
+| TEST-UXTESTING-013 | Org/Role Switcher                 | ✅     |
 
-**Location:** `docs/testing/ux-uat/`
+**Location:** `apps/web/uat/tests/ux/ux-testing-suite.spec.ts`
 
 ---
 
@@ -806,41 +812,57 @@ The forgot password feature has not been implemented in the application yet. Tes
 - `FLOW-CREATE-001/EDIT-001/TOGGLE-001`: Implemented in `tests/flows/flow-management.spec.ts`
 - `ONBOARD-FIRST-001/ORG-001/TEAM-001/INVITE-001`: Implemented in `tests/flows/flow-management.spec.ts`
 
-### 12.3 Priority 2 (Medium - Nice to Have)
+### 12.3 Priority 2 (Medium - Nice to Have) ✅ IMPLEMENTED
 
-| Test ID                | Description                                 | Category       | Effort |
-| ---------------------- | ------------------------------------------- | -------------- | ------ |
-| ADMIN-OVERRIDES-001    | Overrides page loads                        | Admin          | Low    |
-| ADMIN-OVERRIDES-002    | Age group override can be created           | Admin          | Medium |
-| ADMIN-BENCH-001        | Benchmarks page loads                       | Admin          | Low    |
-| ADMIN-BENCH-002        | View NGB benchmarks by sport/age            | Admin          | Medium |
-| ADMIN-ANALYTICS-001    | Analytics dashboard loads                   | Admin          | Low    |
-| ADMIN-ANALYTICS-002    | Organization stats display correctly        | Admin          | Medium |
-| PLATFORM-SPORTS-001    | Platform staff can manage sports            | Platform       | Medium |
-| PLATFORM-SKILLS-001    | Platform staff can manage skill categories  | Platform       | Medium |
-| PLATFORM-SKILLS-002    | Platform staff can manage skill definitions | Platform       | Medium |
-| GUARDIAN-UNCLAIMED-001 | View unclaimed guardians list               | Guardian       | Low    |
-| GUARDIAN-BULK-001      | Bulk guardian claim for multiple children   | Guardian       | Medium |
-| FLOW-MULTISTEP-001     | Create multi-step onboarding flow           | Flow System    | High   |
-| FLOW-BLOCKING-001      | Blocking flow prevents app access           | Flow System    | Medium |
-| FLOW-PRIORITY-001      | Multiple flows display in priority order    | Flow System    | Medium |
-| ERR-EMPTY-PLAYERS-001  | Empty state message when no players         | Error Handling | Low    |
-| ERR-EMPTY-TEAMS-001    | Empty state message when no teams           | Error Handling | Low    |
-| ERR-404-001            | 404 page for invalid routes                 | Error Handling | Low    |
-| ERR-403-001            | 403 page for unauthorized access            | Error Handling | Low    |
+| Test ID                | Description                                 | Category       | Effort | Status |
+| ---------------------- | ------------------------------------------- | -------------- | ------ | ------ |
+| ADMIN-OVERRIDES-001    | Overrides page loads                        | Admin          | Low    | ✅     |
+| ADMIN-OVERRIDES-002    | Age group override can be created           | Admin          | Medium | ✅     |
+| ADMIN-BENCH-001        | Benchmarks page loads                       | Admin          | Low    | ✅     |
+| ADMIN-BENCH-002        | View NGB benchmarks by sport/age            | Admin          | Medium | ✅     |
+| ADMIN-ANALYTICS-001    | Analytics dashboard loads                   | Admin          | Low    | ✅     |
+| ADMIN-ANALYTICS-002    | Organization stats display correctly        | Admin          | Medium | ✅     |
+| PLATFORM-SPORTS-001    | Platform staff can manage sports            | Platform       | Medium | ✅     |
+| PLATFORM-SKILLS-001    | Platform staff can manage skill categories  | Platform       | Medium | ✅     |
+| PLATFORM-SKILLS-002    | Platform staff can manage skill definitions | Platform       | Medium | ✅     |
+| GUARDIAN-UNCLAIMED-001 | View unclaimed guardians list               | Guardian       | Low    | ✅     |
+| GUARDIAN-BULK-001      | Bulk guardian claim for multiple children   | Guardian       | Medium | ✅     |
+| FLOW-MULTISTEP-001     | Create multi-step onboarding flow           | Flow System    | High   | ✅     |
+| FLOW-BLOCKING-001      | Blocking flow prevents app access           | Flow System    | Medium | ✅     |
+| FLOW-PRIORITY-001      | Multiple flows display in priority order    | Flow System    | Medium | ✅     |
+| ERR-EMPTY-PLAYERS-001  | Empty state message when no players         | Error Handling | Low    | ✅     |
+| ERR-EMPTY-TEAMS-001    | Empty state message when no teams           | Error Handling | Low    | ✅     |
+| ERR-404-001            | 404 page for invalid routes                 | Error Handling | Low    | ✅     |
+| ERR-403-001            | 403 page for unauthorized access            | Error Handling | Low    | ✅     |
 
-### 12.4 Priority 3 (Low - Future Enhancement)
+**Implementation Details:**
 
-| Test ID                | Description                               | Category   | Effort |
-| ---------------------- | ----------------------------------------- | ---------- | ------ |
-| UX-SKELETON-001        | Skeleton loading states display correctly | UX Testing | Medium |
-| UX-TOUCH-001           | Touch targets meet 44px minimum           | UX Testing | Medium |
-| UX-SWIPE-001           | Mobile player cards support swipe         | UX Testing | High   |
-| UX-DENSITY-001         | Information density options work          | UX Testing | Medium |
-| HOMEPAGE-NAV-001       | All navigation sections scroll correctly  | Homepage   | Low    |
-| HOMEPAGE-DEMO-001      | Request Demo form submission              | Homepage   | Medium |
-| ANALYTICS-PROGRESS-001 | Player progress over time chart           | Analytics  | High   |
-| ANALYTICS-COACH-001    | Coach analytics view                      | Analytics  | High   |
+- `ADMIN-OVERRIDES-001/002`: Implemented in `tests/admin/overrides.spec.ts`
+- `ADMIN-BENCH-001/002`: Implemented in `tests/admin/benchmarks.spec.ts`
+- `ADMIN-ANALYTICS-001/002`: Implemented in `tests/admin/analytics.spec.ts`
+- `PLATFORM-SPORTS/SKILLS`: Implemented in `tests/platform/platform-management.spec.ts`
+- `GUARDIAN-UNCLAIMED/BULK`: Implemented in `tests/admin/guardian-advanced.spec.ts`
+- `FLOW-MULTISTEP/BLOCKING/PRIORITY`: Implemented in `tests/flows/flow-advanced.spec.ts`
+- `ERR-*`: Implemented in `tests/errors/error-handling.spec.ts`
+
+### 12.4 Priority 3 (Low - Future Enhancement) ✅ IMPLEMENTED
+
+| Test ID                | Description                               | Category   | Effort | Status |
+| ---------------------- | ----------------------------------------- | ---------- | ------ | ------ |
+| UX-SKELETON-001        | Skeleton loading states display correctly | UX Testing | Medium | ✅     |
+| UX-TOUCH-001           | Touch targets meet 44px minimum           | UX Testing | Medium | ✅     |
+| UX-SWIPE-001           | Mobile player cards support swipe         | UX Testing | High   | ✅     |
+| UX-DENSITY-001         | Information density options work          | UX Testing | Medium | ✅     |
+| HOMEPAGE-NAV-001       | All navigation sections scroll correctly  | Homepage   | Low    | ✅     |
+| HOMEPAGE-DEMO-001      | Request Demo form submission              | Homepage   | Medium | ✅     |
+| ANALYTICS-PROGRESS-001 | Player progress over time chart           | Analytics  | High   | ✅     |
+| ANALYTICS-COACH-001    | Coach analytics view                      | Analytics  | High   | ✅     |
+
+**Implementation Details:**
+
+- `UX-SKELETON/TOUCH/SWIPE/DENSITY`: Implemented in `tests/ux/ux-features.spec.ts`
+- `HOMEPAGE-NAV/DEMO`: Implemented in `tests/homepage/homepage-advanced.spec.ts`
+- `ANALYTICS-PROGRESS/COACH`: Implemented in `tests/coach/analytics-coach.spec.ts`
 
 ### 12.5 Implementation Roadmap
 

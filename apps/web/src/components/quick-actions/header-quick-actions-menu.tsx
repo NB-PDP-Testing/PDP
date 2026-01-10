@@ -84,9 +84,16 @@ export function HeaderQuickActionsMenu() {
                 >
                   <Icon className="h-5 w-5 text-white" strokeWidth={2} />
                 </div>
-                <span className="font-medium text-gray-900 text-sm">
-                  {action.label}
-                </span>
+                <div className="flex-1">
+                  <div className="font-medium text-gray-900 text-sm">
+                    {action.label}
+                  </div>
+                  {action.title && (
+                    <div className="text-gray-600 text-xs leading-tight">
+                      {action.title}
+                    </div>
+                  )}
+                </div>
               </button>
             );
           })}

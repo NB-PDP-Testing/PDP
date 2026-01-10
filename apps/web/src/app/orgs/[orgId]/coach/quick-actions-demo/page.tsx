@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Download,
   Edit,
@@ -11,6 +10,7 @@ import {
   Upload,
   Zap,
 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { usePageQuickActions } from "@/hooks/use-page-quick-actions";
@@ -55,7 +55,7 @@ export default function QuickActionsDemoPage() {
   ]);
   */
 
-  // Example 2: Dynamic actions based on state
+  // Example 2: Dynamic actions based on state with titles
   // This changes the actions based on whether we're in draft mode
   usePageQuickActions(
     isDraft
@@ -64,6 +64,7 @@ export default function QuickActionsDemoPage() {
             id: "save-draft",
             icon: Save,
             label: hasChanges ? "Save Draft" : "Saved",
+            title: hasChanges ? "Save your changes" : "All changes saved",
             onClick: () => {
               setHasChanges(false);
               alert("Draft saved!");
@@ -76,6 +77,7 @@ export default function QuickActionsDemoPage() {
             id: "publish",
             icon: Upload,
             label: "Publish",
+            title: "Make content live",
             onClick: () => {
               setIsDraft(false);
               setHasChanges(false);
@@ -87,6 +89,7 @@ export default function QuickActionsDemoPage() {
             id: "delete-draft",
             icon: Trash,
             label: "Delete",
+            title: "Remove this draft",
             onClick: () => {
               if (confirm("Delete this draft?")) {
                 alert("Draft deleted!");
@@ -100,6 +103,7 @@ export default function QuickActionsDemoPage() {
             id: "edit",
             icon: Edit,
             label: "Edit",
+            title: "Return to draft mode",
             onClick: () => {
               setIsDraft(true);
               alert("Switched to draft mode");
@@ -110,6 +114,7 @@ export default function QuickActionsDemoPage() {
             id: "share-published",
             icon: Share,
             label: "Share",
+            title: "Share with others",
             onClick: () => alert("Sharing published version..."),
             color: "bg-cyan-600 hover:bg-cyan-700",
           },
@@ -117,6 +122,7 @@ export default function QuickActionsDemoPage() {
             id: "download-published",
             icon: Download,
             label: "Download",
+            title: "Export as file",
             onClick: () => alert("Downloading..."),
             color: "bg-green-600 hover:bg-green-700",
           },
@@ -166,7 +172,7 @@ export default function QuickActionsDemoPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Status Display */}
-          <div className="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-4">
+          <div className="rounded-lg border-2 border-gray-300 border-dashed bg-gray-50 p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-gray-900 text-sm">
@@ -338,9 +344,9 @@ function MyPage() {
                 Navigate Away & Back
               </p>
               <p className="mt-1 text-purple-800 text-xs">
-                Go to another coach page (like Players or Goals), then come
-                back here. Notice how the Quick Actions automatically restore
-                when you return!
+                Go to another coach page (like Players or Goals), then come back
+                here. Notice how the Quick Actions automatically restore when
+                you return!
               </p>
             </div>
           </div>

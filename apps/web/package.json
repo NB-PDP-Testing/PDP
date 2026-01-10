@@ -22,7 +22,7 @@
     "test:debug": "playwright test --config=uat/playwright.config.ts --debug",
     "test:report": "playwright show-report uat/playwright-report",
     "test:list": "playwright test --config=uat/playwright.config.ts --list",
-    "test:setup": "playwright test --config=uat/playwright.config.ts uat/scripts/onboarding.spec.ts --headed"
+    "test:setup": "playwright test --config=uat/scripts/playwright.config.ts scripts/onboarding.spec.ts"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.9.1",

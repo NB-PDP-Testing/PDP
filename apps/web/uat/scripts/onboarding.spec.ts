@@ -1,4 +1,4 @@
-import { test, expect, TEST_USERS, TEST_ORG, TEST_TEAMS, TEST_INVITATIONS, TEST_PLAYERS } from '../fixtures/test-utils';
+import { test, expect, TEST_USERS, TEST_ORG, TEST_TEAMS, TEST_INVITATIONS, TEST_PLAYERS } from '../tests/fixtures/test-utils';
 import path from 'path';
 import { execSync } from 'child_process';
 

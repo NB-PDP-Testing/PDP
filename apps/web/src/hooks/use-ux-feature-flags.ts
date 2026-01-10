@@ -72,6 +72,7 @@ import { useAnalytics } from "@/lib/analytics";
  */
 
 export type AdminNavStyle = "current" | "sidebar" | "bottomsheet" | "tabs";
+export type QuickActionsVariant = "control" | "fab" | "horizontal" | "two-tier";
 
 export interface UXFeatureFlags {
   // Phase 1 - Navigation Foundation
@@ -175,6 +176,10 @@ export interface UXFeatureFlags {
   // Phase 14 - Header Navigation
   /** Hide header nav links (Home, Platform, Coach, Parent, Admin) - users should use the switcher */
   useMinimalHeaderNav: boolean;
+
+  // Quick Actions A/B/C Testing
+  /** Which quick actions variant to display: control (collapsible grid), fab (floating button), horizontal (icon scroll), two-tier (3 primary + more) */
+  quickActionsVariant: QuickActionsVariant;
 }
 
 /**
@@ -253,6 +258,9 @@ export function useUXFeatureFlags(): UXFeatureFlags {
 
     // Phase 14 - Header Navigation
     useMinimalHeaderNav: isFeatureEnabled("ux_header_nav_minimal"),
+
+    // Quick Actions A/B/C Testing
+    quickActionsVariant: getQuickActionsVariant(isFeatureEnabled),
   };
 }
 
@@ -273,6 +281,25 @@ function getAdminNavStyle(
     return "tabs";
   }
   return "current";
+}
+
+/**
+ * Get the quick actions variant based on feature flags
+ * Supports A/B/C testing different quick actions patterns
+ */
+function getQuickActionsVariant(
+  isFeatureEnabled: (flag: string) => boolean
+): QuickActionsVariant {
+  if (isFeatureEnabled("ux_quick_actions_fab")) {
+    return "fab";
+  }
+  if (isFeatureEnabled("ux_quick_actions_horizontal")) {
+    return "horizontal";
+  }
+  if (isFeatureEnabled("ux_quick_actions_two_tier")) {
+    return "two-tier";
+  }
+  return "control";
 }
 
 /**
@@ -348,4 +375,11 @@ export const UXAnalyticsEvents = {
   // Phase 14 - Theme events
   THEME_CHANGED: "ux_theme_changed",
   THEME_TOGGLE_OPENED: "ux_theme_toggle_opened",
+
+  // Quick Actions A/B/C Testing events
+  QUICK_ACTIONS_VARIANT_VIEWED: "ux_quick_actions_variant_viewed",
+  QUICK_ACTIONS_ACTION_CLICKED: "ux_quick_actions_action_clicked",
+  QUICK_ACTIONS_FAB_OPENED: "ux_quick_actions_fab_opened",
+  QUICK_ACTIONS_COLLAPSED: "ux_quick_actions_collapsed",
+  QUICK_ACTIONS_EXPANDED: "ux_quick_actions_expanded",
 } as const;

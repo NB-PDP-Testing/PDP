@@ -96,11 +96,33 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
     );
   }, [coachTeamPlayerLinks]);
 
-  // Get all players
-  const allPlayers = useQuery(
+  // Get all players (raw data from backend)
+  const enrolledPlayersData = useQuery(
     api.models.orgPlayerEnrollments.getPlayersForOrg,
     orgId ? { organizationId: orgId } : "skip"
   );
+
+  // Transform to legacy format with review status
+  const allPlayers = useMemo(() => {
+    if (!enrolledPlayersData) return [];
+    return enrolledPlayersData.map(
+      ({ enrollment, player, sportCode }: any) => ({
+        _id: player._id,
+        name: `${player.firstName} ${player.lastName}`,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        ageGroup: enrollment.ageGroup,
+        gender: player.gender,
+        sport: sportCode || "Not assigned",
+        dateOfBirth: player.dateOfBirth,
+        lastReviewDate: enrollment.lastReviewDate,
+        reviewStatus: enrollment.reviewStatus,
+        coachNotes: enrollment.coachNotes,
+        enrollmentId: enrollment._id,
+        enrollmentStatus: enrollment.status,
+      })
+    );
+  }, [enrolledPlayersData]);
 
   // Filter to coach's players
   const coachPlayers = useMemo(() => {

@@ -8,6 +8,8 @@ export interface QuickAction {
   label: string;
   onClick: () => void;
   color: string;
+  /** Optional title/description for tooltip or additional context */
+  title?: string;
 }
 
 interface QuickActionsContextValue {

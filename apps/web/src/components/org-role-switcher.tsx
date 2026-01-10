@@ -492,10 +492,10 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
                       setOpen(false);
                       router.push("/orgs" as Route);
                     }}
-                    value="manage-organizations"
+                    value="manage-organisations"
                   >
                     <Building2 className="mr-2 h-4 w-4" />
-                    <span>Manage Organizations</span>
+                    <span>Manage Organisations</span>
                   </CommandItem>
                 </CommandGroup>
               </>

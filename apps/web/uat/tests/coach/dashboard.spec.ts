@@ -34,19 +34,9 @@ test.describe("COACH - Dashboard Tests", () => {
     ).toBeVisible();
   });
 
-  test("COACH-003: Back to App button works", async ({ ownerPage }) => {
-    const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Coach Panel"');
-    await waitForPageLoad(page);
-
-    // Click Back to App
-    await page.click('text="Back to App"');
-    await waitForPageLoad(page);
-
-    // Should navigate back to org page
-    await expect(page).toHaveURL(/\/orgs\/[^/]+$/);
-  });
+  // REMOVED: COACH-003 - "Back to App" button was permanently removed
+  // See docs/ux/BACK_TO_APP_BUTTON_REVIEW.md for details
+  // Platform staff now use OrgRoleSwitcher > Platform > Manage Organizations
 
   test("COACH-010: Empty state shows when no teams assigned", async ({ ownerPage }) => {
     const page = ownerPage;

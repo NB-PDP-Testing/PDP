@@ -13,11 +13,14 @@ import {
   CoachMobileNav,
   CoachSidebar,
 } from "@/components/layout/coach-sidebar";
+import { HeaderQuickActionsMenu } from "@/components/quick-actions/header-quick-actions-menu";
 import { Button } from "@/components/ui/button";
+import {
+  QuickActionsProvider,
+  useQuickActionsContext,
+} from "@/contexts/quick-actions-context";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
-import { QuickActionsProvider, useQuickActionsContext } from "@/contexts/quick-actions-context";
-import { HeaderQuickActionsMenu } from "@/components/quick-actions/header-quick-actions-menu";
 
 function CoachLayoutInner({ children }: { children: React.ReactNode }) {
   const params = useParams();
@@ -27,7 +30,8 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
   const { theme } = useOrgTheme();
 
   // Get UX feature flags
-  const { adminNavStyle, useBottomNav, quickActionsVariant } = useUXFeatureFlags();
+  const { adminNavStyle, useBottomNav, quickActionsVariant } =
+    useUXFeatureFlags();
   const useNewNav = adminNavStyle === "sidebar";
 
   // Get quick actions context for header button
@@ -97,10 +101,7 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
                 className="flex items-center gap-2"
                 href={`/orgs/${orgId}/coach` as Route}
               >
-                <Users
-                  className="h-5 w-5"
-                  style={{ color: theme.primary }}
-                />
+                <Users className="h-5 w-5" style={{ color: theme.primary }} />
                 <span className="font-semibold">Coach Dashboard</span>
               </Link>
             </div>
@@ -109,7 +110,6 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
               {/* Quick Actions Button - only show for FAB variant */}
               {quickActionsVariant === "fab" && actions.length > 0 && (
                 <Button
-                  className="relative overflow-hidden transition-all hover:scale-105 active:scale-95"
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                   size="sm"
                   style={{
@@ -118,12 +118,8 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
                   }}
                   title="Quick Actions"
                 >
-                  {/* Subtle shine effect */}
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] animate-[shine_3s_ease-in-out_infinite]" />
-                  <Zap className="relative z-10 h-4 w-4" />
-                  <span className="relative z-10 ml-2 hidden font-semibold sm:inline">
-                    Quick Actions
-                  </span>
+                  <Zap className="h-4 w-4" />
+                  <span className="ml-2 hidden sm:inline">Quick Actions</span>
                 </Button>
               )}
               <Link href={`/orgs/${orgId}` as Route}>

@@ -17,7 +17,6 @@ import {
   Mic,
   Share,
   Share2,
-  Stethoscope,
   Target,
   TrendingDown,
   TrendingUp,
@@ -25,15 +24,15 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { ActionCard } from "@/components/action-card";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { FABQuickActions } from "@/components/quick-actions/fab-variant";
 import { HorizontalScrollQuickActions } from "@/components/quick-actions/horizontal-variant";
 import { TwoTierQuickActions } from "@/components/quick-actions/two-tier-variant";
-import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
-import { useEffect, useState } from "react";
-import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import {
   type AIRecommendation,
   generateCoachingRecommendations,
@@ -631,7 +630,7 @@ export function SmartCoachDashboard({
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <Users className="text-blue-600" size={20} />
-                  <div className="font-bold text-xl text-gray-800 transition-all duration-300 md:text-2xl">
+                  <div className="font-bold text-gray-800 text-xl transition-all duration-300 md:text-2xl">
                     {totalCount}
                   </div>
                 </div>
@@ -657,7 +656,7 @@ export function SmartCoachDashboard({
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <CheckCircle className="text-green-600" size={20} />
-                  <div className="font-bold text-xl text-gray-800 transition-all duration-300 md:text-2xl">
+                  <div className="font-bold text-gray-800 text-xl transition-all duration-300 md:text-2xl">
                     {completedCount}
                   </div>
                 </div>
@@ -683,7 +682,7 @@ export function SmartCoachDashboard({
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <AlertCircle className="text-red-600" size={20} />
-                  <div className="font-bold text-xl text-gray-800 transition-all duration-300 md:text-2xl">
+                  <div className="font-bold text-gray-800 text-xl transition-all duration-300 md:text-2xl">
                     {needsReviewCount}
                   </div>
                 </div>
@@ -706,7 +705,7 @@ export function SmartCoachDashboard({
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <TrendingUp className="text-purple-600" size={20} />
-                  <div className="font-bold text-xl text-gray-800 transition-all duration-300 md:text-2xl">
+                  <div className="font-bold text-gray-800 text-xl transition-all duration-300 md:text-2xl">
                     {playersWithSkills.length === 0 ? "—" : avgSkill.toFixed(1)}
                   </div>
                 </div>
@@ -955,45 +954,43 @@ export function SmartCoachDashboard({
         <FABQuickActions
           onAssessPlayers={onAssessPlayers || (() => {})}
           onGenerateSessionPlan={handleGenerateSessionPlan}
+          onGoals={onViewGoals || (() => {})}
+          onInjuries={onViewInjuries || (() => {})}
+          onMatchDay={onViewMatchDay || (() => {})}
+          onMedical={onViewMedical || (() => {})}
           onViewAnalytics={() => onViewAnalytics?.()}
           onVoiceNotes={onViewVoiceNotes || (() => {})}
-          onInjuries={onViewInjuries || (() => {})}
-          onGoals={onViewGoals || (() => {})}
-          onMedical={onViewMedical || (() => {})}
-          onMatchDay={onViewMatchDay || (() => {})}
         />
       ) : quickActionsVariant === "horizontal" ? (
         // Variant B: Horizontal Icon Scroll
         <HorizontalScrollQuickActions
           onAssessPlayers={onAssessPlayers || (() => {})}
           onGenerateSessionPlan={handleGenerateSessionPlan}
+          onGoals={onViewGoals || (() => {})}
+          onInjuries={onViewInjuries || (() => {})}
+          onMatchDay={onViewMatchDay || (() => {})}
+          onMedical={onViewMedical || (() => {})}
           onViewAnalytics={() => onViewAnalytics?.()}
           onVoiceNotes={onViewVoiceNotes || (() => {})}
-          onInjuries={onViewInjuries || (() => {})}
-          onGoals={onViewGoals || (() => {})}
-          onMedical={onViewMedical || (() => {})}
-          onMatchDay={onViewMatchDay || (() => {})}
         />
       ) : quickActionsVariant === "two-tier" ? (
         // Variant E: Two-Tier (3 primary + More)
         <TwoTierQuickActions
           onAssessPlayers={onAssessPlayers || (() => {})}
           onGenerateSessionPlan={handleGenerateSessionPlan}
+          onGoals={onViewGoals || (() => {})}
+          onInjuries={onViewInjuries || (() => {})}
+          onMatchDay={onViewMatchDay || (() => {})}
+          onMedical={onViewMedical || (() => {})}
           onViewAnalytics={() => onViewAnalytics?.()}
           onVoiceNotes={onViewVoiceNotes || (() => {})}
-          onInjuries={onViewInjuries || (() => {})}
-          onGoals={onViewGoals || (() => {})}
-          onMedical={onViewMedical || (() => {})}
-          onMatchDay={onViewMatchDay || (() => {})}
         />
       ) : (
         // Control: Collapsible Grid (existing)
         <Card>
           <CardHeader
-            className="cursor-pointer hover:bg-muted/50 transition-colors"
-            onClick={() =>
-              setIsQuickActionsCollapsed(!isQuickActionsCollapsed)
-            }
+            className="cursor-pointer transition-colors hover:bg-muted/50"
+            onClick={() => setIsQuickActionsCollapsed(!isQuickActionsCollapsed)}
           >
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">

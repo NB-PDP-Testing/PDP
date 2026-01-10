@@ -17,7 +17,9 @@ export const getTasksForCoach = query({
       completed: v.boolean(),
       coachEmail: v.string(),
       organizationId: v.string(),
-      priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
+      priority: v.optional(
+        v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+      ),
       dueDate: v.optional(v.number()),
       createdAt: v.number(),
       completedAt: v.optional(v.number()),
@@ -27,7 +29,9 @@ export const getTasksForCoach = query({
     const tasks = await ctx.db
       .query("coachTasks")
       .withIndex("by_coach_and_org", (q) =>
-        q.eq("coachEmail", args.coachEmail).eq("organizationId", args.organizationId)
+        q
+          .eq("coachEmail", args.coachEmail)
+          .eq("organizationId", args.organizationId)
       )
       .collect();
 
@@ -43,7 +47,9 @@ export const createTask = mutation({
     text: v.string(),
     coachEmail: v.string(),
     organizationId: v.string(),
-    priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
+    priority: v.optional(
+      v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+    ),
     dueDate: v.optional(v.number()),
   },
   returns: v.id("coachTasks"),
@@ -115,7 +121,9 @@ export const updateTask = mutation({
   args: {
     taskId: v.id("coachTasks"),
     text: v.optional(v.string()),
-    priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
+    priority: v.optional(
+      v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+    ),
     dueDate: v.optional(v.number()),
   },
   returns: v.object({ success: v.boolean() }),

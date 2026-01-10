@@ -3,7 +3,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
-  Award,
   Calendar,
   ChevronDown,
   ClipboardList,
@@ -11,10 +10,7 @@ import {
   Home,
   Menu,
   Mic,
-  Settings,
-  Star,
   TrendingUp,
-  User,
   Users,
 } from "lucide-react";
 import type { Route } from "next";

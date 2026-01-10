@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
 import { X, Zap } from "lucide-react";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useQuickActionsContext } from "@/contexts/quick-actions-context";
-import { useAnalytics } from "@/lib/analytics";
 import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
+import { useAnalytics } from "@/lib/analytics";
 
 /**
  * Header Quick Actions Menu
@@ -26,7 +26,10 @@ export function HeaderQuickActionsMenu() {
     }
   }, [track, actions.length]);
 
-  const handleActionClick = (action: { label: string; onClick: () => void }) => {
+  const handleActionClick = (action: {
+    label: string;
+    onClick: () => void;
+  }) => {
     track(UXAnalyticsEvents.QUICK_ACTIONS_ACTION_CLICKED, {
       variant: "header-fab",
       action: action.label,
@@ -52,7 +55,7 @@ export function HeaderQuickActionsMenu() {
 
       {/* Action Menu - appears below header button when open */}
       {isMenuOpen && (
-        <div className="fixed right-4 top-16 z-50 w-64 space-y-2 rounded-lg bg-white p-3 shadow-2xl">
+        <div className="fixed top-16 right-4 z-50 w-64 space-y-2 rounded-lg bg-white p-3 shadow-2xl">
           <div className="mb-2 flex items-center justify-between border-b pb-2">
             <span className="flex items-center gap-2 font-semibold text-gray-900 text-sm">
               <Zap className="h-4 w-4 text-yellow-600" />

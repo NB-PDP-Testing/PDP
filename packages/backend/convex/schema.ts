@@ -830,7 +830,9 @@ export default defineSchema({
     completed: v.boolean(),
     coachEmail: v.string(), // Coach's email (from Better Auth user)
     organizationId: v.string(), // Org scope
-    priority: v.optional(v.union(v.literal("low"), v.literal("medium"), v.literal("high"))),
+    priority: v.optional(
+      v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+    ),
     dueDate: v.optional(v.number()), // Timestamp
     createdAt: v.number(),
     completedAt: v.optional(v.number()),

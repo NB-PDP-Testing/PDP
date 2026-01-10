@@ -38,16 +38,14 @@ export function PlayerTeamBadges({
         const isCoreTeam = coreTeamName === teamName;
         return (
           <span
-            key={`${teamName}-${idx}`}
             className={`inline-flex items-center gap-1 rounded ${padding} ${textSize} ${
               isCoreTeam
                 ? "bg-green-100 font-medium text-green-700"
                 : "bg-gray-100 text-gray-700"
             }`}
+            key={`${teamName}-${idx}`}
             title={
-              isCoreTeam
-                ? "Core Team (matches age group)"
-                : "Additional Team"
+              isCoreTeam ? "Core Team (matches age group)" : "Additional Team"
             }
           >
             {isCoreTeam && <Shield size={iconSize} />}

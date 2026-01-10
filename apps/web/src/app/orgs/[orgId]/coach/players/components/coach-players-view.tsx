@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import {
   ChevronDown,
   ChevronUp,
@@ -140,11 +140,15 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
   }, [teamPlayerLinks, coachTeamIds]);
 
   // Get unique player IDs that belong to coach's teams
-  const coachPlayerIds = useMemo(() => {
-    return new Set(
-      coachTeamPlayerLinks.map((link: any) => link.playerIdentityId.toString())
-    );
-  }, [coachTeamPlayerLinks]);
+  const coachPlayerIds = useMemo(
+    () =>
+      new Set(
+        coachTeamPlayerLinks.map((link: any) =>
+          link.playerIdentityId.toString()
+        )
+      ),
+    [coachTeamPlayerLinks]
+  );
 
   // Filter to only coach's players
   const coachPlayers = useMemo(() => {
@@ -175,8 +179,8 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
 
   // Get core team name (team matching player's sport + ageGroup)
   const getCoreTeamName = (player: any) => {
-    if (!teamPlayerLinks || !teams) {
-      return undefined;
+    if (!(teamPlayerLinks && teams)) {
+      return;
     }
     const playerLinks = teamPlayerLinks.filter(
       (link: any) => link.playerIdentityId.toString() === player._id.toString()
@@ -191,7 +195,7 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
         return team.name;
       }
     }
-    return undefined;
+    return;
   };
 
   // Get unique filter values
@@ -376,7 +380,9 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
                         : "border-gray-300"
                     }`}
                     onChange={(e) =>
-                      setTeamFilter(e.target.value === "all" ? null : e.target.value)
+                      setTeamFilter(
+                        e.target.value === "all" ? null : e.target.value
+                      )
                     }
                     value={teamFilter || "all"}
                   >
@@ -615,8 +621,8 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
                       </td>
                       <td className="px-4 py-3 text-gray-600 text-sm">
                         <PlayerTeamBadges
-                          teams={getPlayerTeams(player)}
                           coreTeamName={getCoreTeamName(player)}
+                          teams={getPlayerTeams(player)}
                         />
                       </td>
                       <td className="hidden px-4 py-3 text-gray-600 text-sm md:table-cell">

@@ -11,7 +11,15 @@ interface ActionCardProps {
   /** Optional tooltip for full context */
   title?: string;
   /** Optional background color (default: primary) */
-  variant?: "primary" | "success" | "warning" | "danger" | "info" | "purple" | "pink" | "orange";
+  variant?:
+    | "primary"
+    | "success"
+    | "warning"
+    | "danger"
+    | "info"
+    | "purple"
+    | "pink"
+    | "orange";
   /** Optional disabled state */
   disabled?: boolean;
 }
@@ -57,14 +65,14 @@ export function ActionCard({
     <Button
       className={`flex h-auto min-h-[110px] w-full flex-col items-center justify-center gap-2 rounded-xl px-2 py-4 text-white transition-all ${
         variantStyles[variant]
-      } ${disabled ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"}`}
+      } ${disabled ? "cursor-not-allowed opacity-50" : "hover:scale-105 active:scale-95"}`}
       disabled={disabled}
       onClick={onClick}
       title={title || label}
       type="button"
     >
       <Icon className="h-8 w-8 shrink-0" strokeWidth={2} />
-      <span className="line-clamp-2 text-center text-xs font-semibold leading-tight">
+      <span className="line-clamp-2 text-center font-semibold text-xs leading-tight">
         {label}
       </span>
     </Button>

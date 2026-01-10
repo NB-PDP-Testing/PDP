@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import "../index.css";
+import { SkipLink } from "@/components/accessibility";
 import { FlowInterceptor } from "@/components/flow-interceptor";
+import { KeyboardShortcutsOverlay } from "@/components/polish/keyboard-shortcuts-overlay";
 import { OfflineIndicator } from "@/components/polish/offline-indicator";
 import { PWAInstallPrompt } from "@/components/polish/pwa-install-prompt";
 import Providers from "@/components/providers";
+import { PWAUpdatePrompt } from "@/components/pwa";
 import { PostHogAuthTracker } from "@/providers/posthog-auth-tracker";
 import { PostHogPageView } from "@/providers/posthog-pageview";
 
@@ -58,15 +61,20 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} overflow-x-hidden antialiased`}
       >
+        <SkipLink targetId="main-content" />
         <Providers>
           <Suspense fallback={null}>
             <PostHogPageView />
           </Suspense>
           <PostHogAuthTracker />
           <FlowInterceptor>
+            <KeyboardShortcutsOverlay />
             <OfflineIndicator position="top" />
             <PWAInstallPrompt />
-            <div className="flex min-h-svh flex-col">{children}</div>
+            <PWAUpdatePrompt />
+            <div className="flex min-h-svh flex-col" id="main-content">
+              {children}
+            </div>
           </FlowInterceptor>
         </Providers>
       </body>

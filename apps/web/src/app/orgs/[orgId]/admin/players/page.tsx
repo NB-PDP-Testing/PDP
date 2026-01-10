@@ -19,6 +19,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { SmartDataView } from "@/components/data-display";
+import { ResponsiveDialog } from "@/components/interactions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,13 +30,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -623,7 +624,7 @@ export default function ManagePlayersPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Select onValueChange={setSportFilter} value={sportFilter}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="Sport" />
             </SelectTrigger>
             <SelectContent>
@@ -636,7 +637,7 @@ export default function ManagePlayersPage() {
             </SelectContent>
           </Select>
           <Select onValueChange={setAgeGroupFilter} value={ageGroupFilter}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="Age Group" />
             </SelectTrigger>
             <SelectContent>
@@ -649,7 +650,7 @@ export default function ManagePlayersPage() {
             </SelectContent>
           </Select>
           <Select onValueChange={setGenderFilter} value={genderFilter}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="Gender" />
             </SelectTrigger>
             <SelectContent>
@@ -662,7 +663,7 @@ export default function ManagePlayersPage() {
             </SelectContent>
           </Select>
           <Select onValueChange={setTeamFilter} value={teamFilter}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="Team" />
             </SelectTrigger>
             <SelectContent>
@@ -678,7 +679,7 @@ export default function ManagePlayersPage() {
             onValueChange={setReviewStatusFilter}
             value={reviewStatusFilter}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Review Status" />
             </SelectTrigger>
             <SelectContent>
@@ -846,36 +847,41 @@ export default function ManagePlayersPage() {
               ]}
               data={sortedPlayers}
               emptyState={
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <UserCircle className="mb-4 h-12 w-12 text-muted-foreground" />
-                  <h3 className="font-semibold text-lg">No Players Found</h3>
-                  <p className="mt-1 text-muted-foreground">
-                    {searchTerm ||
-                    sportFilter !== "all" ||
-                    ageGroupFilter !== "all" ||
-                    genderFilter !== "all" ||
-                    teamFilter !== "all" ||
-                    reviewStatusFilter !== "all"
-                      ? "No players match your search criteria"
-                      : "Import your first players to get started"}
-                  </p>
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <UserCircle />
+                    </EmptyMedia>
+                    <EmptyTitle>No Players Found</EmptyTitle>
+                    <EmptyDescription>
+                      {searchTerm ||
+                      sportFilter !== "all" ||
+                      ageGroupFilter !== "all" ||
+                      genderFilter !== "all" ||
+                      teamFilter !== "all" ||
+                      reviewStatusFilter !== "all"
+                        ? "No players match your search criteria"
+                        : "Import your first players to get started"}
+                    </EmptyDescription>
+                  </EmptyHeader>
                   {!searchTerm &&
                     sportFilter === "all" &&
                     ageGroupFilter === "all" &&
                     genderFilter === "all" &&
                     teamFilter === "all" &&
                     reviewStatusFilter === "all" && (
-                      <Button
-                        className="mt-4"
-                        onClick={() =>
-                          router.push(`/orgs/${orgId}/admin/player-import`)
-                        }
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Import Players
-                      </Button>
+                      <EmptyContent>
+                        <Button
+                          onClick={() =>
+                            router.push(`/orgs/${orgId}/admin/player-import`)
+                          }
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Import Players
+                        </Button>
+                      </EmptyContent>
                     )}
-                </div>
+                </Empty>
               }
               exportable
               exportFilename={`players-${orgId}`}
@@ -925,192 +931,51 @@ export default function ManagePlayersPage() {
               sortDirection={sortDirection}
             />
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <UserCircle className="mb-4 h-12 w-12 text-muted-foreground" />
-              <h3 className="font-semibold text-lg">No Players Found</h3>
-              <p className="mt-1 text-muted-foreground">
-                {searchTerm ||
-                sportFilter !== "all" ||
-                ageGroupFilter !== "all" ||
-                genderFilter !== "all" ||
-                teamFilter !== "all" ||
-                reviewStatusFilter !== "all"
-                  ? "No players match your search criteria"
-                  : "Import your first players to get started"}
-              </p>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <UserCircle />
+                </EmptyMedia>
+                <EmptyTitle>No Players Found</EmptyTitle>
+                <EmptyDescription>
+                  {searchTerm ||
+                  sportFilter !== "all" ||
+                  ageGroupFilter !== "all" ||
+                  genderFilter !== "all" ||
+                  teamFilter !== "all" ||
+                  reviewStatusFilter !== "all"
+                    ? "No players match your search criteria"
+                    : "Import your first players to get started"}
+                </EmptyDescription>
+              </EmptyHeader>
               {!searchTerm &&
                 sportFilter === "all" &&
                 ageGroupFilter === "all" &&
                 genderFilter === "all" &&
                 teamFilter === "all" &&
                 reviewStatusFilter === "all" && (
-                  <Button
-                    className="mt-4"
-                    onClick={() =>
-                      router.push(`/orgs/${orgId}/admin/player-import`)
-                    }
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Import Players
-                  </Button>
+                  <EmptyContent>
+                    <Button
+                      onClick={() =>
+                        router.push(`/orgs/${orgId}/admin/player-import`)
+                      }
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Import Players
+                    </Button>
+                  </EmptyContent>
                 )}
-            </div>
+            </Empty>
           )}
         </CardContent>
       </Card>
 
       {/* Add Player Dialog */}
-      <Dialog
-        onOpenChange={(open) => {
-          if (!open) {
-            setAddPlayerForm(emptyFormData);
-            setFormErrors({});
-          }
-          setShowAddPlayerDialog(open);
-        }}
-        open={showAddPlayerDialog}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add New Player</DialogTitle>
-            <DialogDescription>
-              Create a new player and enroll them in your organization.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            {/* First Name */}
-            <div className="space-y-2">
-              <Label htmlFor="firstName">
-                First Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                className={formErrors.firstName ? "border-red-500" : ""}
-                id="firstName"
-                onChange={(e) => {
-                  setAddPlayerForm({
-                    ...addPlayerForm,
-                    firstName: e.target.value,
-                  });
-                  if (formErrors.firstName) {
-                    setFormErrors({ ...formErrors, firstName: undefined });
-                  }
-                }}
-                placeholder="Enter first name"
-                value={addPlayerForm.firstName}
-              />
-              {formErrors.firstName && (
-                <p className="text-red-500 text-sm">{formErrors.firstName}</p>
-              )}
-            </div>
-
-            {/* Last Name */}
-            <div className="space-y-2">
-              <Label htmlFor="lastName">
-                Last Name <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                className={formErrors.lastName ? "border-red-500" : ""}
-                id="lastName"
-                onChange={(e) => {
-                  setAddPlayerForm({
-                    ...addPlayerForm,
-                    lastName: e.target.value,
-                  });
-                  if (formErrors.lastName) {
-                    setFormErrors({ ...formErrors, lastName: undefined });
-                  }
-                }}
-                placeholder="Enter last name"
-                value={addPlayerForm.lastName}
-              />
-              {formErrors.lastName && (
-                <p className="text-red-500 text-sm">{formErrors.lastName}</p>
-              )}
-            </div>
-
-            {/* Date of Birth */}
-            <div className="space-y-2">
-              <Label htmlFor="dateOfBirth">
-                Date of Birth <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                className={formErrors.dateOfBirth ? "border-red-500" : ""}
-                id="dateOfBirth"
-                max={new Date().toISOString().split("T")[0]}
-                onChange={(e) => {
-                  setAddPlayerForm({
-                    ...addPlayerForm,
-                    dateOfBirth: e.target.value,
-                  });
-                  if (formErrors.dateOfBirth) {
-                    setFormErrors({ ...formErrors, dateOfBirth: undefined });
-                  }
-                }}
-                type="date"
-                value={addPlayerForm.dateOfBirth}
-              />
-              {formErrors.dateOfBirth && (
-                <p className="text-red-500 text-sm">{formErrors.dateOfBirth}</p>
-              )}
-            </div>
-
-            {/* Gender */}
-            <div className="space-y-2">
-              <Label htmlFor="gender">
-                Gender <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                onValueChange={(value: "male" | "female" | "other") =>
-                  setAddPlayerForm({ ...addPlayerForm, gender: value })
-                }
-                value={addPlayerForm.gender}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select gender" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Age Group */}
-            <div className="space-y-2">
-              <Label htmlFor="ageGroup">
-                Age Group <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                onValueChange={(value) => {
-                  setAddPlayerForm({ ...addPlayerForm, ageGroup: value });
-                  if (formErrors.ageGroup) {
-                    setFormErrors({ ...formErrors, ageGroup: undefined });
-                  }
-                }}
-                value={addPlayerForm.ageGroup}
-              >
-                <SelectTrigger
-                  className={formErrors.ageGroup ? "border-red-500" : ""}
-                >
-                  <SelectValue placeholder="Select age group" />
-                </SelectTrigger>
-                <SelectContent>
-                  {AGE_GROUPS.map((ag) => (
-                    <SelectItem key={ag} value={ag}>
-                      {ag}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {formErrors.ageGroup && (
-                <p className="text-red-500 text-sm">{formErrors.ageGroup}</p>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter>
+      <ResponsiveDialog
+        contentClassName="sm:max-w-md"
+        description="Create a new player and enroll them in your organization."
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               disabled={isAddingPlayer}
               onClick={() => {
@@ -1135,33 +1000,156 @@ export default function ManagePlayersPage() {
                 </>
               )}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog onOpenChange={setShowDeleteDialog} open={showDeleteDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-5 w-5" />
-              Remove Player
-            </DialogTitle>
-            <DialogDescription className="pt-2">
-              Are you sure you want to remove{" "}
-              <span className="font-semibold">{playerToDelete?.name}</span> from
-              this organization?
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4">
-            <p className="text-muted-foreground text-sm">
-              This will remove the player from your organization. Their player
-              identity will remain in the system and can be re-enrolled later.
-            </p>
+          </div>
+        }
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddPlayerForm(emptyFormData);
+            setFormErrors({});
+          }
+          setShowAddPlayerDialog(open);
+        }}
+        open={showAddPlayerDialog}
+        title="Add New Player"
+      >
+        <div className="space-y-4">
+          {/* First Name */}
+          <div className="space-y-2">
+            <Label htmlFor="firstName">
+              First Name <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              className={formErrors.firstName ? "border-red-500" : ""}
+              id="firstName"
+              onChange={(e) => {
+                setAddPlayerForm({
+                  ...addPlayerForm,
+                  firstName: e.target.value,
+                });
+                if (formErrors.firstName) {
+                  setFormErrors({ ...formErrors, firstName: undefined });
+                }
+              }}
+              placeholder="Enter first name"
+              value={addPlayerForm.firstName}
+            />
+            {formErrors.firstName && (
+              <p className="text-red-500 text-sm">{formErrors.firstName}</p>
+            )}
           </div>
 
-          <DialogFooter className="flex gap-2 sm:gap-0">
+          {/* Last Name */}
+          <div className="space-y-2">
+            <Label htmlFor="lastName">
+              Last Name <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              className={formErrors.lastName ? "border-red-500" : ""}
+              id="lastName"
+              onChange={(e) => {
+                setAddPlayerForm({
+                  ...addPlayerForm,
+                  lastName: e.target.value,
+                });
+                if (formErrors.lastName) {
+                  setFormErrors({ ...formErrors, lastName: undefined });
+                }
+              }}
+              placeholder="Enter last name"
+              value={addPlayerForm.lastName}
+            />
+            {formErrors.lastName && (
+              <p className="text-red-500 text-sm">{formErrors.lastName}</p>
+            )}
+          </div>
+
+          {/* Date of Birth */}
+          <div className="space-y-2">
+            <Label htmlFor="dateOfBirth">
+              Date of Birth <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              className={formErrors.dateOfBirth ? "border-red-500" : ""}
+              id="dateOfBirth"
+              max={new Date().toISOString().split("T")[0]}
+              onChange={(e) => {
+                setAddPlayerForm({
+                  ...addPlayerForm,
+                  dateOfBirth: e.target.value,
+                });
+                if (formErrors.dateOfBirth) {
+                  setFormErrors({ ...formErrors, dateOfBirth: undefined });
+                }
+              }}
+              type="date"
+              value={addPlayerForm.dateOfBirth}
+            />
+            {formErrors.dateOfBirth && (
+              <p className="text-red-500 text-sm">{formErrors.dateOfBirth}</p>
+            )}
+          </div>
+
+          {/* Gender */}
+          <div className="space-y-2">
+            <Label htmlFor="gender">
+              Gender <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              onValueChange={(value: "male" | "female" | "other") =>
+                setAddPlayerForm({ ...addPlayerForm, gender: value })
+              }
+              value={addPlayerForm.gender}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select gender" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="male">Male</SelectItem>
+                <SelectItem value="female">Female</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Age Group */}
+          <div className="space-y-2">
+            <Label htmlFor="ageGroup">
+              Age Group <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              onValueChange={(value) => {
+                setAddPlayerForm({ ...addPlayerForm, ageGroup: value });
+                if (formErrors.ageGroup) {
+                  setFormErrors({ ...formErrors, ageGroup: undefined });
+                }
+              }}
+              value={addPlayerForm.ageGroup}
+            >
+              <SelectTrigger
+                className={formErrors.ageGroup ? "border-red-500" : ""}
+              >
+                <SelectValue placeholder="Select age group" />
+              </SelectTrigger>
+              <SelectContent>
+                {AGE_GROUPS.map((ag) => (
+                  <SelectItem key={ag} value={ag}>
+                    {ag}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {formErrors.ageGroup && (
+              <p className="text-red-500 text-sm">{formErrors.ageGroup}</p>
+            )}
+          </div>
+        </div>
+      </ResponsiveDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ResponsiveDialog
+        contentClassName="sm:max-w-md"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               onClick={() => {
                 setShowDeleteDialog(false);
@@ -1188,34 +1176,33 @@ export default function ManagePlayersPage() {
                 </>
               )}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        }
+        onOpenChange={setShowDeleteDialog}
+        open={showDeleteDialog}
+      >
+        <div className="space-y-4">
+          <h3 className="flex items-center gap-2 font-semibold text-destructive text-lg">
+            <AlertTriangle className="h-5 w-5" />
+            Remove Player
+          </h3>
+          <p className="text-muted-foreground">
+            Are you sure you want to remove{" "}
+            <span className="font-semibold">{playerToDelete?.name}</span> from
+            this organization?
+          </p>
+          <p className="text-muted-foreground text-sm">
+            This will remove the player from your organization. Their player
+            identity will remain in the system and can be re-enrolled later.
+          </p>
+        </div>
+      </ResponsiveDialog>
 
       {/* Duplicate Warning Dialog */}
-      <Dialog
-        onOpenChange={setShowDuplicateWarning}
-        open={showDuplicateWarning}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-600">
-              ⚠️ Potential Duplicate
-            </DialogTitle>
-            <DialogDescription className="pt-2">
-              {duplicateMessage}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4">
-            <p className="text-muted-foreground text-sm">
-              The system allows players with the same name if they have
-              different dates of birth or gender. An exact match (same name,
-              date of birth, AND gender) has been detected.
-            </p>
-          </div>
-
-          <DialogFooter className="flex gap-2 sm:gap-0">
+      <ResponsiveDialog
+        contentClassName="sm:max-w-md"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               onClick={() => setShowDuplicateWarning(false)}
               variant="outline"
@@ -1236,38 +1223,29 @@ export default function ManagePlayersPage() {
                 "Create Anyway"
               )}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        }
+        onOpenChange={setShowDuplicateWarning}
+        open={showDuplicateWarning}
+      >
+        <div className="space-y-4">
+          <h3 className="flex items-center gap-2 font-semibold text-amber-600 text-lg">
+            ⚠️ Potential Duplicate
+          </h3>
+          <p className="text-muted-foreground">{duplicateMessage}</p>
+          <p className="text-muted-foreground text-sm">
+            The system allows players with the same name if they have different
+            dates of birth or gender. An exact match (same name, date of birth,
+            AND gender) has been detected.
+          </p>
+        </div>
+      </ResponsiveDialog>
 
       {/* Bulk Delete Confirmation Dialog */}
-      <Dialog
-        onOpenChange={setShowBulkDeleteDialog}
-        open={showBulkDeleteDialog}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-5 w-5" />
-              Remove {selectedPlayers.size} Player
-              {selectedPlayers.size !== 1 ? "s" : ""}
-            </DialogTitle>
-            <DialogDescription className="pt-2">
-              Are you sure you want to remove {selectedPlayers.size} selected
-              player{selectedPlayers.size !== 1 ? "s" : ""} from this
-              organization?
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4">
-            <p className="text-muted-foreground text-sm">
-              This will remove the selected players from your organization.
-              Their player identities will remain in the system and can be
-              re-enrolled later.
-            </p>
-          </div>
-
-          <DialogFooter className="flex gap-2 sm:gap-0">
+      <ResponsiveDialog
+        contentClassName="sm:max-w-md"
+        footer={
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               onClick={() => setShowBulkDeleteDialog(false)}
               variant="outline"
@@ -1292,9 +1270,29 @@ export default function ManagePlayersPage() {
                 </>
               )}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        }
+        onOpenChange={setShowBulkDeleteDialog}
+        open={showBulkDeleteDialog}
+      >
+        <div className="space-y-4">
+          <h3 className="flex items-center gap-2 font-semibold text-destructive text-lg">
+            <AlertTriangle className="h-5 w-5" />
+            Remove {selectedPlayers.size} Player
+            {selectedPlayers.size !== 1 ? "s" : ""}
+          </h3>
+          <p className="text-muted-foreground">
+            Are you sure you want to remove {selectedPlayers.size} selected
+            player{selectedPlayers.size !== 1 ? "s" : ""} from this
+            organization?
+          </p>
+          <p className="text-muted-foreground text-sm">
+            This will remove the selected players from your organization. Their
+            player identities will remain in the system and can be re-enrolled
+            later.
+          </p>
+        </div>
+      </ResponsiveDialog>
     </div>
   );
 }

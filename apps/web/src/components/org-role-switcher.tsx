@@ -28,6 +28,7 @@ import {
 import type { Route } from "next";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ResponsiveDialog } from "@/components/interactions";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -45,17 +46,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -145,6 +142,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   const { data: session } = authClient.useSession();
   const { data: organizations, isPending: isLoadingOrgs } =
     authClient.useListOrganizations();
+  const user = useCurrentUser();
 
   // Get all memberships with roles for all organizations
   const allMemberships = useQuery(
@@ -324,188 +322,187 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
     };
   });
 
+  const triggerButton = (
+    <Button
+      aria-expanded={open}
+      className={cn("w-[220px] justify-between", className)}
+      disabled={switching}
+      variant="outline"
+    >
+      {switching ? (
+        <span className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Switching...
+        </span>
+      ) : currentOrg && currentMembership?.activeFunctionalRole ? (
+        <div className="flex items-center gap-2 truncate">
+          {currentOrg.logo ? (
+            <img alt="" className="h-4 w-4 rounded" src={currentOrg.logo} />
+          ) : (
+            <Building2 className="h-4 w-4 shrink-0" />
+          )}
+          <span className="truncate">{currentOrg.name}</span>
+          <span className="text-muted-foreground">•</span>
+          {getRoleIcon(currentMembership.activeFunctionalRole)}
+          <span className="truncate">
+            {getRoleLabel(currentMembership.activeFunctionalRole)}
+          </span>
+        </div>
+      ) : currentOrg ? (
+        <div className="flex items-center gap-2 truncate">
+          {currentOrg.logo ? (
+            <img alt="" className="h-4 w-4 rounded" src={currentOrg.logo} />
+          ) : (
+            <Building2 className="h-4 w-4 shrink-0" />
+          )}
+          <span className="truncate">{currentOrg.name}</span>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Building2 className="h-4 w-4" />
+          <span>Select organization...</span>
+        </div>
+      )}
+      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+    </Button>
+  );
+
   return (
     <>
-      <Popover onOpenChange={setOpen} open={open}>
-        <PopoverTrigger asChild>
-          <Button
-            aria-expanded={open}
-            className={cn("w-[220px] justify-between", className)}
-            disabled={switching}
-            variant="outline"
-          >
-            {switching ? (
-              <span className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Switching...
-              </span>
-            ) : currentOrg && currentMembership?.activeFunctionalRole ? (
-              <div className="flex items-center gap-2 truncate">
-                {currentOrg.logo ? (
-                  <img
-                    alt=""
-                    className="h-4 w-4 rounded"
-                    src={currentOrg.logo}
-                  />
-                ) : (
-                  <Building2 className="h-4 w-4 shrink-0" />
-                )}
-                <span className="truncate">{currentOrg.name}</span>
-                <span className="text-muted-foreground">•</span>
-                {getRoleIcon(currentMembership.activeFunctionalRole)}
-                <span className="truncate">
-                  {getRoleLabel(currentMembership.activeFunctionalRole)}
-                </span>
-              </div>
-            ) : currentOrg ? (
-              <div className="flex items-center gap-2 truncate">
-                {currentOrg.logo ? (
-                  <img
-                    alt=""
-                    className="h-4 w-4 rounded"
-                    src={currentOrg.logo}
-                  />
-                ) : (
-                  <Building2 className="h-4 w-4 shrink-0" />
-                )}
-                <span className="truncate">{currentOrg.name}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                <span>Select organization...</span>
-              </div>
-            )}
-            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-[320px] p-0">
-          <Command>
-            <CommandList>
-              <CommandEmpty>No organization found.</CommandEmpty>
-              {orgRoleStructure.map(
-                ({ org, roles, activeRole, pendingRequests }: OrgRoleItem) => (
-                  <CommandGroup
-                    heading={
-                      <div className="flex items-center gap-2">
-                        {org.logo ? (
-                          <img
-                            alt=""
-                            className="h-4 w-4 rounded object-cover"
-                            src={org.logo}
-                          />
-                        ) : (
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                        )}
-                        <span>{org.name}</span>
-                      </div>
-                    }
-                    key={org.id}
-                  >
-                    {roles.length === 0 && pendingRequests.length === 0 ? (
-                      <CommandItem disabled>
-                        <span className="text-muted-foreground text-sm">
-                          No roles assigned
-                        </span>
-                      </CommandItem>
-                    ) : (
-                      <>
-                        {/* Active roles */}
-                        {roles.map((role) => {
-                          const isActive =
-                            urlOrgId === org.id && role === activeRole;
-                          return (
-                            <CommandItem
-                              className={cn(isActive && "bg-green-50")}
-                              key={`${org.id}-${role}`}
-                              onSelect={() => handleSwitchRole(org.id, role)}
-                              value={`${org.id}-${role}`}
-                            >
-                              <div className="flex w-full items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  {getRoleIcon(role)}
-                                  <span>{getRoleLabel(role)}</span>
-                                </div>
-                                {isActive && (
-                                  <span className="flex items-center gap-1 text-green-600 text-xs">
-                                    <Check className="h-3 w-3" />
-                                    Active
-                                  </span>
-                                )}
-                              </div>
-                            </CommandItem>
-                          );
-                        })}
-                        {/* Pending role requests */}
-                        {pendingRequests.map((request) => (
+      <ResponsiveDialog
+        contentClassName="sm:w-[360px]"
+        onOpenChange={setOpen}
+        open={open}
+        title="Switch Organization or Role"
+        trigger={triggerButton}
+      >
+        <Command className="rounded-none border-none">
+          <CommandList className="max-h-[60vh]">
+            <CommandEmpty>No organization found.</CommandEmpty>
+            {orgRoleStructure.map(
+              ({ org, roles, activeRole, pendingRequests }: OrgRoleItem) => (
+                <CommandGroup
+                  heading={
+                    <div className="flex items-center gap-2">
+                      {org.logo ? (
+                        <img
+                          alt=""
+                          className="h-4 w-4 rounded object-cover"
+                          src={org.logo}
+                        />
+                      ) : (
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <span>{org.name}</span>
+                    </div>
+                  }
+                  key={org.id}
+                >
+                  {roles.length === 0 && pendingRequests.length === 0 ? (
+                    <CommandItem disabled>
+                      <span className="text-muted-foreground text-sm">
+                        No roles assigned
+                      </span>
+                    </CommandItem>
+                  ) : (
+                    <>
+                      {/* Active roles */}
+                      {roles.map((role) => {
+                        const isActive =
+                          urlOrgId === org.id && role === activeRole;
+                        return (
                           <CommandItem
-                            className="bg-yellow-50"
-                            key={`${org.id}-pending-${request.role}`}
-                            onSelect={() =>
-                              handleCancelPendingRequest(org.id, request.role)
-                            }
-                            value={`${org.id}-pending-${request.role}`}
+                            className={cn(
+                              "min-h-[44px]",
+                              isActive && "bg-green-50"
+                            )}
+                            key={`${org.id}-${role}`}
+                            onSelect={() => handleSwitchRole(org.id, role)}
+                            value={`${org.id}-${role}`}
                           >
                             <div className="flex w-full items-center justify-between">
                               <div className="flex items-center gap-2">
-                                {getRoleIcon(request.role)}
-                                <span>{getRoleLabel(request.role)}</span>
+                                {getRoleIcon(role)}
+                                <span>{getRoleLabel(role)}</span>
                               </div>
-                              <span className="flex items-center gap-1 text-xs text-yellow-600">
-                                <Clock className="h-3 w-3" />
-                                Pending
-                                <X className="h-3 w-3 hover:text-red-500" />
-                              </span>
+                              {isActive && (
+                                <span className="flex items-center gap-1 text-green-600 text-xs">
+                                  <Check className="h-3 w-3" />
+                                  Active
+                                </span>
+                              )}
                             </div>
                           </CommandItem>
-                        ))}
-                      </>
-                    )}
-                  </CommandGroup>
-                )
-              )}
+                        );
+                      })}
+                      {/* Pending role requests */}
+                      {pendingRequests.map((request) => (
+                        <CommandItem
+                          className="min-h-[44px] bg-yellow-50"
+                          key={`${org.id}-pending-${request.role}`}
+                          onSelect={() =>
+                            handleCancelPendingRequest(org.id, request.role)
+                          }
+                          value={`${org.id}-pending-${request.role}`}
+                        >
+                          <div className="flex w-full items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {getRoleIcon(request.role)}
+                              <span>{getRoleLabel(request.role)}</span>
+                            </div>
+                            <span className="flex items-center gap-1 text-xs text-yellow-600">
+                              <Clock className="h-3 w-3" />
+                              Pending
+                              <X className="h-3 w-3 hover:text-red-500" />
+                            </span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </>
+                  )}
+                </CommandGroup>
+              )
+            )}
 
-              {/* Single consolidated Request Role option */}
-              {hasAnyRolesToRequest && (
-                <>
-                  <CommandSeparator />
-                  <CommandGroup>
-                    <CommandItem
-                      className="text-muted-foreground"
-                      onSelect={handleOpenRequestDialog}
-                      value="request-new-role"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      <span>Request a Role</span>
-                    </CommandItem>
-                  </CommandGroup>
-                </>
-              )}
+            {/* Single consolidated Request Role option */}
+            {hasAnyRolesToRequest && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem
+                    className="min-h-[44px] text-muted-foreground"
+                    onSelect={handleOpenRequestDialog}
+                    value="request-new-role"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span>Request a Role</span>
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
 
-              {/* Create Organization option for platform staff */}
-              {session?.user &&
-                (session.user as { isPlatformStaff?: boolean })
-                  .isPlatformStaff && (
-                  <>
-                    <CommandSeparator />
-                    <CommandGroup>
-                      <CommandItem
-                        onSelect={() => {
-                          setOpen(false);
-                          router.push("/orgs/create" as Route);
-                        }}
-                        value="create-organization"
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        <span>Create Organization</span>
-                      </CommandItem>
-                    </CommandGroup>
-                  </>
-                )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+            {/* Platform Staff options */}
+            {user?.isPlatformStaff && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading="Platform">
+                  <CommandItem
+                    className="min-h-[44px]"
+                    onSelect={() => {
+                      setOpen(false);
+                      router.push("/orgs" as Route);
+                    }}
+                    value="manage-organisations"
+                  >
+                    <Building2 className="mr-2 h-4 w-4" />
+                    <span>Manage Organisations</span>
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </ResponsiveDialog>
 
       {/* Request Role Dialog */}
       <Dialog onOpenChange={setRequestDialogOpen} open={requestDialogOpen}>

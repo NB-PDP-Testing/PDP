@@ -10,16 +10,13 @@ import {
   ChevronUp,
   Download,
   Edit,
-  Eye,
   FileText,
   Heart,
   Mail,
   MessageCircle,
   Mic,
-  Search,
   Share,
   Share2,
-  Shield,
   Target,
   TrendingDown,
   TrendingUp,
@@ -28,10 +25,8 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  OrgThemedGradient,
-  useOrgGradientTextClasses,
-} from "@/components/org-themed-gradient";
+import { ActionCard } from "@/components/action-card";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -81,8 +76,6 @@ interface SmartCoachDashboardProps {
   onFilterOverdueReviews?: () => void;
   onFilterAllPlayers?: () => void;
   onFilterCompletedReviews?: () => void;
-  onViewPlayer?: (player: any) => void;
-  onEditPlayer?: (player: any) => void;
   onClearTeamSelection?: () => void;
   onViewVoiceNotes?: () => void;
   onViewInjuries?: () => void;
@@ -94,20 +87,6 @@ interface SmartCoachDashboardProps {
   selectedTeamData?: TeamData | null; // Team data with coachNotes
   onSaveTeamNote?: (teamId: string, note: string) => Promise<boolean>;
   isClubView?: boolean;
-  // Search and filter props
-  searchTerm?: string;
-  onSearchChange?: (value: string) => void;
-  teamFilter?: string | null;
-  onTeamFilterChange?: (value: string | null) => void;
-  ageGroupFilter?: string;
-  onAgeGroupFilterChange?: (value: string) => void;
-  sportFilter?: string;
-  onSportFilterChange?: (value: string) => void;
-  genderFilter?: string;
-  onGenderFilterChange?: (value: string) => void;
-  uniqueAgeGroups?: string[];
-  uniqueSports?: string[];
-  uniqueGenders?: string[];
 }
 
 export function SmartCoachDashboard({
@@ -119,8 +98,6 @@ export function SmartCoachDashboard({
   onFilterOverdueReviews,
   onFilterAllPlayers,
   onFilterCompletedReviews,
-  onViewPlayer,
-  onEditPlayer,
   onClearTeamSelection,
   onViewVoiceNotes,
   onViewInjuries,
@@ -132,20 +109,6 @@ export function SmartCoachDashboard({
   selectedTeamData,
   onSaveTeamNote,
   isClubView = false,
-  // Search and filter props
-  searchTerm = "",
-  onSearchChange,
-  teamFilter = null,
-  onTeamFilterChange,
-  ageGroupFilter = "all",
-  onAgeGroupFilterChange,
-  sportFilter = "all",
-  onSportFilterChange,
-  genderFilter = "all",
-  onGenderFilterChange,
-  uniqueAgeGroups = [],
-  uniqueSports = [],
-  uniqueGenders = [],
 }: SmartCoachDashboardProps) {
   const [teamAnalytics, setTeamAnalytics] = useState<TeamAnalytics[]>([]);
   const [insights, setInsights] = useState<CorrelationInsight[]>([]);
@@ -161,15 +124,12 @@ export function SmartCoachDashboard({
   );
   const [showShareModal, setShowShareModal] = useState(false);
   const [planToShare, setPlanToShare] = useState<any>(null);
-  const [sortColumn, setSortColumn] = useState<
-    "name" | "team" | "ageGroup" | "lastReview"
-  >("name");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Team notes state
   const [showAddTeamNote, setShowAddTeamNote] = useState(false);
   const [newTeamNote, setNewTeamNote] = useState("");
   const [savingTeamNote, setSavingTeamNote] = useState(false);
+
 
   // Handle saving team note
   const handleSaveTeamNote = async () => {
@@ -194,67 +154,6 @@ export function SmartCoachDashboard({
     calculateTeamAnalytics();
     generateCorrelationInsights();
   }, [players, coachTeams]);
-
-  // Handle column sort
-  const handleSort = (column: "name" | "team" | "ageGroup" | "lastReview") => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortColumn(column);
-      setSortDirection("asc");
-    }
-  };
-
-  // Sort players
-  const sortedPlayers = [...players].sort((a, b) => {
-    let comparison = 0;
-    switch (sortColumn) {
-      case "name": {
-        const surnameA = (a.name || "").split(" ").pop()?.toLowerCase() || "";
-        const surnameB = (b.name || "").split(" ").pop()?.toLowerCase() || "";
-        comparison = surnameA.localeCompare(surnameB);
-        break;
-      }
-      case "team": {
-        const teamA = (a.teamName || a.team || "").toLowerCase();
-        const teamB = (b.teamName || b.team || "").toLowerCase();
-        comparison = teamA.localeCompare(teamB);
-        break;
-      }
-      case "ageGroup": {
-        const ageOrder: Record<string, number> = {
-          U8: 1,
-          U9: 2,
-          U10: 3,
-          U11: 4,
-          U12: 5,
-          U13: 6,
-          U14: 7,
-          U15: 8,
-          U16: 9,
-          U17: 10,
-          U18: 11,
-          Minor: 12,
-          Adult: 13,
-          Senior: 14,
-        };
-        comparison =
-          (ageOrder[a.ageGroup] ?? 99) - (ageOrder[b.ageGroup] ?? 99);
-        break;
-      }
-      case "lastReview": {
-        const dateA = a.lastReviewDate
-          ? new Date(a.lastReviewDate).getTime()
-          : 0;
-        const dateB = b.lastReviewDate
-          ? new Date(b.lastReviewDate).getTime()
-          : 0;
-        comparison = dateA - dateB;
-        break;
-      }
-    }
-    return sortDirection === "asc" ? comparison : -comparison;
-  });
 
   // Helper to get all teams for a player
   const getPlayerTeams = (player: any): string[] => {
@@ -667,7 +566,7 @@ export function SmartCoachDashboard({
             <Users className="flex-shrink-0" size={28} />
             <div>
               <h2 className="font-bold text-xl md:text-2xl">My Teams</h2>
-              <p className="opacity-80 text-xs md:text-sm">
+              <p className="text-xs opacity-80 md:text-sm">
                 Dashboard & Insights
               </p>
             </div>
@@ -722,7 +621,7 @@ export function SmartCoachDashboard({
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <Users className="text-blue-600" size={20} />
-                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                  <div className="font-bold text-gray-800 text-xl transition-all duration-300 md:text-2xl">
                     {totalCount}
                   </div>
                 </div>
@@ -748,7 +647,7 @@ export function SmartCoachDashboard({
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <CheckCircle className="text-green-600" size={20} />
-                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                  <div className="font-bold text-gray-800 text-xl transition-all duration-300 md:text-2xl">
                     {completedCount}
                   </div>
                 </div>
@@ -774,7 +673,7 @@ export function SmartCoachDashboard({
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <AlertCircle className="text-red-600" size={20} />
-                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                  <div className="font-bold text-gray-800 text-xl transition-all duration-300 md:text-2xl">
                     {needsReviewCount}
                   </div>
                 </div>
@@ -797,7 +696,7 @@ export function SmartCoachDashboard({
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <TrendingUp className="text-purple-600" size={20} />
-                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                  <div className="font-bold text-gray-800 text-xl transition-all duration-300 md:text-2xl">
                     {playersWithSkills.length === 0 ? "—" : avgSkill.toFixed(1)}
                   </div>
                 </div>
@@ -868,7 +767,10 @@ export function SmartCoachDashboard({
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 flex-1">
-                    <CardTitle className="truncate text-lg md:text-xl">
+                    <CardTitle
+                      className="truncate text-lg md:text-xl"
+                      title={team.teamName}
+                    >
                       {team.teamName}
                     </CardTitle>
                     <p className="text-gray-600 text-xs md:text-sm">
@@ -1037,85 +939,6 @@ export function SmartCoachDashboard({
           ))}
       </div>
 
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Zap className="flex-shrink-0 text-yellow-600" size={20} />
-            Quick Actions
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4 md:gap-3">
-          {onAssessPlayers && (
-            <Button
-              className="flex items-center justify-center gap-2 bg-emerald-600 py-3 font-medium text-sm transition-colors hover:bg-emerald-700"
-              onClick={onAssessPlayers}
-            >
-              <Edit className="flex-shrink-0" size={16} />
-              <span className="truncate">Assess Players</span>
-            </Button>
-          )}
-          <Button
-            className="flex items-center justify-center gap-2 bg-green-600 py-3 font-medium text-sm transition-colors hover:bg-green-700"
-            onClick={handleGenerateSessionPlan}
-          >
-            <Target className="flex-shrink-0" size={16} />
-            <span className="truncate">Generate Session Plan (AI)</span>
-          </Button>
-          <Button
-            className="flex items-center justify-center gap-2 bg-blue-600 py-3 font-medium text-sm transition-colors hover:bg-blue-700"
-            onClick={() => onViewAnalytics?.()}
-          >
-            <BarChart3 className="flex-shrink-0" size={16} />
-            <span className="truncate">View Team Analytics</span>
-          </Button>
-          {onViewVoiceNotes && (
-            <Button
-              className="flex items-center justify-center gap-2 bg-purple-600 py-3 font-medium text-sm transition-colors hover:bg-purple-700"
-              onClick={onViewVoiceNotes}
-            >
-              <Mic className="flex-shrink-0" size={16} />
-              <span className="truncate">Voice Notes</span>
-            </Button>
-          )}
-          {onViewInjuries && (
-            <Button
-              className="flex items-center justify-center gap-2 bg-red-600 py-3 font-medium text-sm transition-colors hover:bg-red-700"
-              onClick={onViewInjuries}
-            >
-              <AlertCircle className="flex-shrink-0" size={16} />
-              <span className="truncate">Injury Tracking</span>
-            </Button>
-          )}
-          {onViewGoals && (
-            <Button
-              className="flex items-center justify-center gap-2 bg-amber-600 py-3 font-medium text-sm transition-colors hover:bg-amber-700"
-              onClick={onViewGoals}
-            >
-              <Target className="flex-shrink-0" size={16} />
-              <span className="truncate">Goals Dashboard</span>
-            </Button>
-          )}
-          {onViewMedical && (
-            <Button
-              className="flex items-center justify-center gap-2 bg-pink-600 py-3 font-medium text-sm transition-colors hover:bg-pink-700"
-              onClick={onViewMedical}
-            >
-              <Heart className="flex-shrink-0" size={16} />
-              <span className="truncate">Medical Info</span>
-            </Button>
-          )}
-          {onViewMatchDay && (
-            <Button
-              className="flex items-center justify-center gap-2 bg-red-600 py-3 font-medium text-sm transition-colors hover:bg-red-700"
-              onClick={onViewMatchDay}
-            >
-              <Calendar className="flex-shrink-0" size={16} />
-              <span className="truncate">Match Day ICE</span>
-            </Button>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Data Insights - Always show, even if empty */}
       <Card>
@@ -1406,359 +1229,6 @@ export function SmartCoachDashboard({
           </CardContent>
         </Card>
       )}
-
-      {/* Search and Filters Section - Positioned right above player table */}
-      {(onSearchChange ||
-        onTeamFilterChange ||
-        onAgeGroupFilterChange ||
-        onSportFilterChange ||
-        onGenderFilterChange) && (
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex flex-col gap-4">
-              {/* Primary filters: Search and Team */}
-              <div className="flex flex-col gap-3 sm:flex-row">
-                {onSearchChange && (
-                  <div className="relative flex-1">
-                    <Search
-                      className="-translate-y-1/2 absolute top-1/2 left-3 text-gray-400"
-                      size={20}
-                    />
-                    <input
-                      className="w-full rounded-lg border-2 border-gray-300 py-3 pr-10 pl-10 text-lg focus:border-green-500 focus:ring-2 focus:ring-green-500"
-                      onChange={(e) => onSearchChange(e.target.value)}
-                      placeholder="Search by player name..."
-                      type="text"
-                      value={searchTerm}
-                    />
-                    {searchTerm && (
-                      <button
-                        className="-translate-y-1/2 absolute top-1/2 right-3 text-gray-400 transition-colors hover:text-gray-600"
-                        onClick={() => onSearchChange("")}
-                      >
-                        <X size={20} />
-                      </button>
-                    )}
-                  </div>
-                )}
-                {onTeamFilterChange && coachTeams && coachTeams.length > 0 && (
-                  <div className="relative sm:w-64">
-                    <select
-                      className={`w-full rounded-lg border-2 px-4 py-3 font-medium text-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-500 ${
-                        teamFilter
-                          ? "border-purple-500 bg-purple-50 text-purple-700"
-                          : "border-gray-300"
-                      }`}
-                      onChange={(e) =>
-                        onTeamFilterChange(
-                          e.target.value === "all" ? null : e.target.value
-                        )
-                      }
-                      value={teamFilter || "all"}
-                    >
-                      <option value="all">🏆 All Teams</option>
-                      {coachTeams.map((team) => (
-                        <option key={team} value={team}>
-                          {team}
-                        </option>
-                      ))}
-                    </select>
-                    {teamFilter && (
-                      <button
-                        className="-translate-y-1/2 absolute top-1/2 right-10 text-purple-600 transition-colors hover:text-purple-800"
-                        onClick={() => onTeamFilterChange(null)}
-                        title="Clear team filter"
-                      >
-                        <X size={18} />
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Secondary filters */}
-              {(onAgeGroupFilterChange ||
-                onSportFilterChange ||
-                onGenderFilterChange) && (
-                <div className="flex flex-wrap gap-3">
-                  {onAgeGroupFilterChange && uniqueAgeGroups.length > 0 && (
-                    <select
-                      className="rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
-                      onChange={(e) => onAgeGroupFilterChange(e.target.value)}
-                      value={ageGroupFilter}
-                    >
-                      <option value="all">All Ages</option>
-                      {uniqueAgeGroups.map((ag) => (
-                        <option key={ag} value={ag}>
-                          {ag}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {onSportFilterChange && uniqueSports.length > 0 && (
-                    <select
-                      className="rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
-                      onChange={(e) => onSportFilterChange(e.target.value)}
-                      value={sportFilter}
-                    >
-                      <option value="all">All Sports</option>
-                      {uniqueSports.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {onGenderFilterChange && uniqueGenders.length > 0 && (
-                    <select
-                      className="rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-green-500"
-                      onChange={(e) => onGenderFilterChange(e.target.value)}
-                      value={genderFilter}
-                    >
-                      <option value="all">All Genders</option>
-                      {uniqueGenders.map((g) => (
-                        <option key={g} value={g}>
-                          {g.charAt(0) + g.slice(1).toLowerCase()}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Players List Table */}
-      <Card data-players-list>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="text-green-600" size={20} />
-            Players ({sortedPlayers.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {sortedPlayers.length === 0 ? (
-            <div className="py-12 text-center">
-              <Users className="mx-auto mb-3 text-gray-300" size={48} />
-              <p className="text-gray-500">No players found</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-gray-200 border-b">
-                    <th
-                      className="cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100"
-                      onClick={() => handleSort("name")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Name
-                        {sortColumn === "name" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th
-                      className="cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100"
-                      onClick={() => handleSort("team")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Team(s)
-                        {sortColumn === "team" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th
-                      className="hidden cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100 md:table-cell"
-                      onClick={() => handleSort("ageGroup")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Age Group
-                        {sortColumn === "ageGroup" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th
-                      className="hidden cursor-pointer px-4 py-3 text-left font-semibold text-gray-600 text-xs uppercase tracking-wider transition-colors hover:bg-gray-100 lg:table-cell"
-                      onClick={() => handleSort("lastReview")}
-                    >
-                      <div className="flex items-center gap-1">
-                        Last Review
-                        {sortColumn === "lastReview" &&
-                          (sortDirection === "asc" ? (
-                            <ChevronUp size={14} />
-                          ) : (
-                            <ChevronDown size={14} />
-                          ))}
-                      </div>
-                    </th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-600 text-xs uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {sortedPlayers.map((player) => (
-                    <tr
-                      className="cursor-pointer transition-colors hover:bg-gray-50"
-                      key={player._id || player.id}
-                      onClick={() => onViewPlayer?.(player)}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-100">
-                            <span className="font-medium text-green-600 text-xs">
-                              {(player.name || "U")
-                                .split(" ")
-                                .map((n: string) => n[0])
-                                .join("")
-                                .slice(0, 2)
-                                .toUpperCase()}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              {player.name || "Unnamed"}
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <p className="text-gray-500 text-xs md:hidden">
-                                {player.ageGroup}
-                              </p>
-                              {player.coachNotes && (
-                                <span
-                                  className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700"
-                                  title={player.coachNotes}
-                                >
-                                  <FileText size={10} />
-                                  Notes
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 text-sm">
-                        {getPlayerTeams(player).length > 0 ? (
-                          <div className="flex flex-wrap items-center gap-1">
-                            {getPlayerTeams(player).map((teamName, idx) => {
-                              const isCoreTeam =
-                                player.coreTeamName === teamName;
-                              return (
-                                <span
-                                  className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${
-                                    isCoreTeam
-                                      ? "bg-green-100 font-medium text-green-700"
-                                      : "bg-gray-100 text-gray-700"
-                                  }`}
-                                  key={`${player._id}-${teamName}-${idx}`}
-                                  title={
-                                    isCoreTeam
-                                      ? "Core Team (matches age group)"
-                                      : "Additional Team"
-                                  }
-                                >
-                                  {isCoreTeam && <Shield size={12} />}
-                                  {teamName}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          "Not assigned"
-                        )}
-                      </td>
-                      <td className="hidden px-4 py-3 text-gray-600 text-sm md:table-cell">
-                        {player.ageGroup}
-                      </td>
-                      <td className="hidden px-4 py-3 text-sm lg:table-cell">
-                        {player.lastReviewDate ? (
-                          <span
-                            className={`inline-flex items-center rounded px-2 py-0.5 font-medium text-xs ${(() => {
-                              const days = Math.floor(
-                                (Date.now() -
-                                  new Date(player.lastReviewDate).getTime()) /
-                                  (1000 * 60 * 60 * 24)
-                              );
-                              if (days <= 60)
-                                return "bg-green-100 text-green-700";
-                              if (days <= 90)
-                                return "bg-orange-100 text-orange-700";
-                              return "bg-red-100 text-red-700";
-                            })()}`}
-                          >
-                            {new Date(
-                              player.lastReviewDate
-                            ).toLocaleDateString()}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 text-xs">
-                            Not reviewed
-                          </span>
-                        )}
-                      </td>
-                      <td
-                        className="px-4 py-3 text-right"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex items-center justify-end gap-1">
-                          {onViewPlayer && (
-                            <Button
-                              className="h-8 w-8 rounded-lg p-0 text-blue-600 transition-colors hover:bg-blue-50"
-                              onClick={() => onViewPlayer(player)}
-                              size="icon"
-                              title="View Passport"
-                              variant="ghost"
-                            >
-                              <Eye size={16} />
-                            </Button>
-                          )}
-                          {onEditPlayer && (
-                            <Button
-                              className="h-8 w-8 rounded-lg p-0 text-green-600 transition-colors hover:bg-green-50"
-                              onClick={() => onEditPlayer(player)}
-                              size="icon"
-                              title="Edit Passport"
-                              variant="ghost"
-                            >
-                              <Edit size={16} />
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {sortedPlayers.length > 0 && (
-            <div className="border-gray-200 border-t bg-gray-50 px-4 py-3 text-gray-600 text-sm">
-              {sortedPlayers.length} player
-              {sortedPlayers.length !== 1 ? "s" : ""} • Sorted by{" "}
-              {sortColumn === "name"
-                ? "surname"
-                : sortColumn === "team"
-                  ? "team"
-                  : sortColumn === "ageGroup"
-                    ? "age group"
-                    : "last review"}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Share Practice Plan Modal */}
       {showShareModal && planToShare && (

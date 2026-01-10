@@ -440,7 +440,7 @@ export default function CoachMedicalPage() {
               onValueChange={(v) => setFilterAlert(v as typeof filterAlert)}
               value={filterAlert}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Filter by Alert" />
               </SelectTrigger>
               <SelectContent>

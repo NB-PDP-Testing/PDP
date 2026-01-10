@@ -824,6 +824,23 @@ export default defineSchema({
     completed: v.boolean(),
   }),
 
+  // Coach tasks - personal task management for coaches
+  coachTasks: defineTable({
+    text: v.string(), // Task description
+    completed: v.boolean(),
+    coachEmail: v.string(), // Coach's email (from Better Auth user)
+    organizationId: v.string(), // Org scope
+    priority: v.optional(
+      v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+    ),
+    dueDate: v.optional(v.number()), // Timestamp
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_coach_and_org", ["coachEmail", "organizationId"])
+    .index("by_org", ["organizationId"])
+    .index("by_completed", ["completed"]),
+
   // Coach assignments - stores team/age group assignments for coaches
   coachAssignments: defineTable({
     userId: v.string(), // Better Auth user ID

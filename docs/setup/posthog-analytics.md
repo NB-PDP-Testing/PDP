@@ -1,7 +1,7 @@
 # PostHog Implementation Guide - Exact Code Changes
 
 **Status:** Phase 1-3 Implementation
-**Completed:** Backend helper + signup tracking
+**Completed:** Backend helper + signup tracking + Feature Flag Bootstrap
 **Remaining:** ~95 events across 30+ files
 
 This guide provides **copy-paste code examples** for implementing Phase 1-3 tracking.
@@ -14,6 +14,54 @@ This guide provides **copy-paste code examples** for implementing Phase 1-3 trac
 - ✅ `user_signed_up` - Email signup tracking
 - ✅ `user_logged_in` - Already tracking (auth tracker)
 - ✅ `user_logged_out` - Already tracking (auth tracker)
+- ✅ **Feature Flag Bootstrap** - Server-side flag fetching via proxy.ts
+
+---
+
+## 🏗️ Architecture: Feature Flag Bootstrap
+
+Feature flags are fetched server-side to eliminate the race condition where components render before flags load.
+
+### How It Works
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   proxy.ts      │────▶│   PostHog API   │────▶│  Cookie Set     │
+│ (server-side)   │     │  getAllFlags()  │     │ ph-bootstrap-   │
+└─────────────────┘     └─────────────────┘     │     flags       │
+                                                └────────┬────────┘
+                                                         │
+┌─────────────────┐     ┌─────────────────┐              │
+│  PHProvider     │◀────│   Read Cookie   │◀─────────────┘
+│ (client-side)   │     │                 │
+└────────┬────────┘     └─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│ useUXFeature    │
+│    Flags()      │
+│ (instant access)│
+└─────────────────┘
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `apps/web/src/proxy.ts` | Server-side flag fetching (Next.js 16 proxy) |
+| `apps/web/src/providers/posthog-provider.tsx` | Client-side PostHog init with bootstrap |
+| `apps/web/src/hooks/use-ux-feature-flags.ts` | React hook to access feature flags |
+
+### Why proxy.ts (not middleware.ts)?
+
+In **Next.js 16**, the `middleware.ts` file convention was renamed to `proxy.ts`. The exported function is `proxy` instead of `middleware`. This clarifies the network boundary purpose.
+
+### Cookies Used
+
+| Cookie | Purpose | TTL |
+|--------|---------|-----|
+| `ph-bootstrap-flags` | Cached feature flag values (JSON) | 5 minutes |
+| `ph-distinct-id` | User identifier for consistent flag values | 1 year |
 
 ---
 

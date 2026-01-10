@@ -27,12 +27,8 @@ import {
 import { useEffect, useState } from "react";
 import { ActionCard } from "@/components/action-card";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
-import { FABQuickActions } from "@/components/quick-actions/fab-variant";
-import { HorizontalScrollQuickActions } from "@/components/quick-actions/horizontal-variant";
-import { TwoTierQuickActions } from "@/components/quick-actions/two-tier-variant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import {
   type AIRecommendation,
   generateCoachingRecommendations,
@@ -134,11 +130,6 @@ export function SmartCoachDashboard({
   const [newTeamNote, setNewTeamNote] = useState("");
   const [savingTeamNote, setSavingTeamNote] = useState(false);
 
-  // Quick Actions collapse state
-  const [isQuickActionsCollapsed, setIsQuickActionsCollapsed] = useState(true);
-
-  // Feature flags for Quick Actions A/B/C testing
-  const { quickActionsVariant } = useUXFeatureFlags();
 
   // Handle saving team note
   const handleSaveTeamNote = async () => {
@@ -948,138 +939,6 @@ export function SmartCoachDashboard({
           ))}
       </div>
 
-      {/* Quick Actions - Feature Flagged Variants */}
-      {quickActionsVariant === "fab" ? (
-        // Variant A: FAB (Floating Action Button)
-        <FABQuickActions
-          onAssessPlayers={onAssessPlayers || (() => {})}
-          onGenerateSessionPlan={handleGenerateSessionPlan}
-          onGoals={onViewGoals || (() => {})}
-          onInjuries={onViewInjuries || (() => {})}
-          onMatchDay={onViewMatchDay || (() => {})}
-          onMedical={onViewMedical || (() => {})}
-          onViewAnalytics={() => onViewAnalytics?.()}
-          onVoiceNotes={onViewVoiceNotes || (() => {})}
-        />
-      ) : quickActionsVariant === "horizontal" ? (
-        // Variant B: Horizontal Icon Scroll
-        <HorizontalScrollQuickActions
-          onAssessPlayers={onAssessPlayers || (() => {})}
-          onGenerateSessionPlan={handleGenerateSessionPlan}
-          onGoals={onViewGoals || (() => {})}
-          onInjuries={onViewInjuries || (() => {})}
-          onMatchDay={onViewMatchDay || (() => {})}
-          onMedical={onViewMedical || (() => {})}
-          onViewAnalytics={() => onViewAnalytics?.()}
-          onVoiceNotes={onViewVoiceNotes || (() => {})}
-        />
-      ) : quickActionsVariant === "two-tier" ? (
-        // Variant E: Two-Tier (3 primary + More)
-        <TwoTierQuickActions
-          onAssessPlayers={onAssessPlayers || (() => {})}
-          onGenerateSessionPlan={handleGenerateSessionPlan}
-          onGoals={onViewGoals || (() => {})}
-          onInjuries={onViewInjuries || (() => {})}
-          onMatchDay={onViewMatchDay || (() => {})}
-          onMedical={onViewMedical || (() => {})}
-          onViewAnalytics={() => onViewAnalytics?.()}
-          onVoiceNotes={onViewVoiceNotes || (() => {})}
-        />
-      ) : (
-        // Control: Collapsible Grid (existing)
-        <Card>
-          <CardHeader
-            className="cursor-pointer transition-colors hover:bg-muted/50"
-            onClick={() => setIsQuickActionsCollapsed(!isQuickActionsCollapsed)}
-          >
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Zap className="flex-shrink-0 text-yellow-600" size={20} />
-                Quick Actions
-              </div>
-              <Button className="h-8 w-8" size="icon" variant="ghost">
-                {isQuickActionsCollapsed ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronUp className="h-4 w-4" />
-                )}
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          {!isQuickActionsCollapsed && (
-            <CardContent className="grid grid-cols-3 gap-3 p-4">
-              {onAssessPlayers && (
-                <ActionCard
-                  icon={Edit}
-                  label="Assess Players"
-                  onClick={onAssessPlayers}
-                  title="Assess and rate player skills"
-                  variant="primary"
-                />
-              )}
-              <ActionCard
-                icon={Target}
-                label="Session Plan"
-                onClick={handleGenerateSessionPlan}
-                title="Generate AI-powered training session plan"
-                variant="primary"
-              />
-              <ActionCard
-                icon={BarChart3}
-                label="Team Analytics"
-                onClick={() => onViewAnalytics?.()}
-                title="View detailed team analytics and performance insights"
-                variant="primary"
-              />
-              {onViewVoiceNotes && (
-                <ActionCard
-                  icon={Mic}
-                  label="Voice Notes"
-                  onClick={onViewVoiceNotes}
-                  title="Record and manage voice notes for players"
-                  variant="primary"
-                />
-              )}
-              {onViewInjuries && (
-                <ActionCard
-                  icon={AlertCircle}
-                  label="Injury Tracking"
-                  onClick={onViewInjuries}
-                  title="Track and manage player injuries"
-                  variant="danger"
-                />
-              )}
-              {onViewGoals && (
-                <ActionCard
-                  icon={Target}
-                  label="Goals"
-                  onClick={onViewGoals}
-                  title="View and manage player development goals"
-                  variant="primary"
-                />
-              )}
-              {onViewMedical && (
-                <ActionCard
-                  icon={Heart}
-                  label="Medical Info"
-                  onClick={onViewMedical}
-                  title="View player medical information and health records"
-                  variant="info"
-                />
-              )}
-              {onViewMatchDay && (
-                <ActionCard
-                  icon={Calendar}
-                  label="Match Day ICE"
-                  onClick={onViewMatchDay}
-                  title="Access emergency contacts for match day (In Case of Emergency)"
-                  variant="warning"
-                />
-              )}
-            </CardContent>
-          )}
-        </Card>
-      )}
 
       {/* Data Insights - Always show, even if empty */}
       <Card>

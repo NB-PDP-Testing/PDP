@@ -161,7 +161,7 @@ The UAT (User Acceptance Testing) suite uses Playwright to test the application 
 
 ### UAT Test Structure
 
-```
+```text
 apps/web/uat/
 ├── playwright.config.ts      # Configuration
 ├── global-setup.ts           # Creates auth states
@@ -247,7 +247,7 @@ jobs:
 
 #### Step 4: Choose Trigger Mode
 
-**Option A: Run on all PRs and pushes (default)**
+##### Option A: Run on all PRs and pushes (default)
 
 ```yaml
 on:
@@ -257,14 +257,14 @@ on:
     branches: [main, develop]
 ```
 
-**Option B: Manual trigger only**
+##### Option B: Manual trigger only
 
 ```yaml
 on:
   workflow_dispatch:
 ```
 
-**Option C: Run on specific paths**
+##### Option C: Run on specific paths
 
 ```yaml
 on:

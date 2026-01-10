@@ -152,14 +152,14 @@ apps/web/uat/
 
 Before running the onboarding setup script on a fresh database, you must clear any existing data and seed reference data. Use one of the provided reset scripts.
 
-**Option 1: Using PowerShell Script (Windows)**
+#### Option 1: Using PowerShell Script (Windows)
 
 ```powershell
 # From the project root
 .\apps\web\uat\scripts\reset-pdp-database.ps1
 ```
 
-**Option 2: Using Shell Script (macOS/Linux)**
+#### Option 2: Using Shell Script (macOS/Linux)
 
 ```bash
 # From the project root
@@ -882,4 +882,4 @@ The following documents have been archived to `docs/archive/testing/` after cont
 
 ---
 
-**End of Document**
+<!-- End of Document -->

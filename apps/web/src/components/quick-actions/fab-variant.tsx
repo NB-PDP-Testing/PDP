@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
 import {
-  Edit,
-  Target,
-  Mic,
-  Heart,
-  FileText,
   AlertCircle,
+  Edit,
+  FileText,
+  Heart,
+  Mic,
   Stethoscope,
+  Target,
 } from "lucide-react";
-import { useAnalytics } from "@/lib/analytics";
-import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
+import { useEffect } from "react";
 import { useQuickActionsContext } from "@/contexts/quick-actions-context";
+import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
+import { useAnalytics } from "@/lib/analytics";
 
 interface FABQuickActionsProps {
   onAssessPlayers: () => void;

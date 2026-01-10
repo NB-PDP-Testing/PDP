@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { ParentChildrenView } from "./components/parent-children-view";
 import { PageSkeleton } from "@/components/loading/page-skeleton";
+import { ParentChildrenView } from "./components/parent-children-view";
 
 export const metadata: Metadata = {
   title: "My Children | Parent Dashboard",
@@ -12,7 +12,9 @@ interface ParentChildrenPageProps {
   params: Promise<{ orgId: string }>;
 }
 
-export default async function ParentChildrenPage({ params }: ParentChildrenPageProps) {
+export default async function ParentChildrenPage({
+  params,
+}: ParentChildrenPageProps) {
   const { orgId } = await params;
 
   return (

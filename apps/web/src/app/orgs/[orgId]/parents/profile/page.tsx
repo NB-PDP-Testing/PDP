@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
 import { User } from "lucide-react";
+import type { Metadata } from "next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {

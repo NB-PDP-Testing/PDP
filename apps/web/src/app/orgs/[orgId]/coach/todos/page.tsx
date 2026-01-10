@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { CoachTodosView } from "./components/coach-todos-view";
 import { PageSkeleton } from "@/components/loading/page-skeleton";
+import { CoachTodosView } from "./components/coach-todos-view";
 
 export const metadata: Metadata = {
   title: "Action Center | Coach Dashboard",

@@ -7,8 +7,8 @@ import {
   Award,
   Calendar,
   Star,
-  Trophy,
   TrendingUp,
+  Trophy,
   Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -16,12 +16,7 @@ import { useMemo, useState } from "react";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 
@@ -43,10 +38,8 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
   );
 
   // Get children from guardian identity system
-  const {
-    children: identityChildren,
-    isLoading: identityLoading,
-  } = useGuardianChildrenInOrg(orgId, session?.user?.email);
+  const { children: identityChildren, isLoading: identityLoading } =
+    useGuardianChildrenInOrg(orgId, session?.user?.email);
 
   // Check if user has parent role
   const hasParentRole = useMemo(() => {
@@ -67,15 +60,16 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
       setSelectedChildId(firstChild.player._id);
       return firstChild;
     }
-    return identityChildren.find((c) => c.player._id === selectedChildId) || identityChildren[0];
+    return (
+      identityChildren.find((c) => c.player._id === selectedChildId) ||
+      identityChildren[0]
+    );
   }, [identityChildren, selectedChildId]);
 
   // Get development goals for selected child
   const developmentGoals = useQuery(
     api.models.passportGoals.getGoalsForPlayer,
-    selectedChild
-      ? { playerIdentityId: selectedChild.player._id }
-      : "skip"
+    selectedChild ? { playerIdentityId: selectedChild.player._id } : "skip"
   );
 
   // Show loading state
@@ -139,11 +133,12 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
   }
 
   const playerCount = identityChildren.length;
-  const completedGoals = developmentGoals?.filter((g: any) => g.status === "completed") || [];
+  const completedGoals =
+    developmentGoals?.filter((g: any) => g.status === "completed") || [];
 
   // Calculate achievement statistics
-  const achievementStats = useMemo(() => {
-    return {
+  const achievementStats = useMemo(
+    () => ({
       completedGoals: completedGoals.length,
       recentReviews: identityChildren.filter((c) => {
         if (!c.enrollment?.lastReviewDate) return false;
@@ -154,8 +149,9 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
         return daysSince <= 30;
       }).length,
       totalChildren: playerCount,
-    };
-  }, [identityChildren, completedGoals, playerCount]);
+    }),
+    [identityChildren, completedGoals, playerCount]
+  );
 
   return (
     <div className="space-y-6">
@@ -197,7 +193,9 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
               <Trophy className="text-yellow-600" size={24} />
               <div>
                 <p className="text-gray-600 text-sm">Goals Achieved</p>
-                <p className="font-bold text-2xl">{achievementStats.completedGoals}</p>
+                <p className="font-bold text-2xl">
+                  {achievementStats.completedGoals}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -208,7 +206,9 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
               <Star className="text-purple-600" size={24} />
               <div>
                 <p className="text-gray-600 text-sm">Recent Reviews</p>
-                <p className="font-bold text-2xl">{achievementStats.recentReviews}</p>
+                <p className="font-bold text-2xl">
+                  {achievementStats.recentReviews}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -219,7 +219,9 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
               <TrendingUp className="text-green-600" size={24} />
               <div>
                 <p className="text-gray-600 text-sm">Active Players</p>
-                <p className="font-bold text-2xl">{achievementStats.totalChildren}</p>
+                <p className="font-bold text-2xl">
+                  {achievementStats.totalChildren}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -250,11 +252,16 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
                   className="flex items-start gap-4 rounded-lg border bg-gradient-to-r from-yellow-50 to-orange-50 p-4"
                   key={goal._id}
                 >
-                  <Trophy className="mt-1 flex-shrink-0 text-yellow-600" size={24} />
+                  <Trophy
+                    className="mt-1 flex-shrink-0 text-yellow-600"
+                    size={24}
+                  />
                   <div className="flex-1">
                     <div className="mb-1 flex items-start justify-between">
                       <h3 className="font-medium">{goal.title}</h3>
-                      <Badge className="bg-green-100 text-green-700">Completed</Badge>
+                      <Badge className="bg-green-100 text-green-700">
+                        Completed
+                      </Badge>
                     </div>
                     {goal.description && (
                       <p className="mt-1 text-gray-600 text-sm">
@@ -264,7 +271,10 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
                     {goal.completedDate && (
                       <div className="mt-2 flex items-center gap-2 text-gray-500 text-sm">
                         <Calendar size={14} />
-                        <span>Completed {new Date(goal.completedDate).toLocaleDateString()}</span>
+                        <span>
+                          Completed{" "}
+                          {new Date(goal.completedDate).toLocaleDateString()}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -288,8 +298,12 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
             {identityChildren
               .filter((c) => c.enrollment?.lastReviewDate)
               .sort((a, b) => {
-                const aDate = a.enrollment?.lastReviewDate ? new Date(a.enrollment.lastReviewDate).getTime() : 0;
-                const bDate = b.enrollment?.lastReviewDate ? new Date(b.enrollment.lastReviewDate).getTime() : 0;
+                const aDate = a.enrollment?.lastReviewDate
+                  ? new Date(a.enrollment.lastReviewDate).getTime()
+                  : 0;
+                const bDate = b.enrollment?.lastReviewDate
+                  ? new Date(b.enrollment.lastReviewDate).getTime()
+                  : 0;
                 return bDate - aDate;
               })
               .slice(0, 5)
@@ -311,12 +325,15 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
                   </div>
                   <Badge variant="outline">
                     {child.enrollment?.lastReviewDate
-                      ? new Date(child.enrollment.lastReviewDate).toLocaleDateString()
+                      ? new Date(
+                          child.enrollment.lastReviewDate
+                        ).toLocaleDateString()
                       : "N/A"}
                   </Badge>
                 </div>
               ))}
-            {identityChildren.filter((c) => c.enrollment?.lastReviewDate).length === 0 && (
+            {identityChildren.filter((c) => c.enrollment?.lastReviewDate)
+              .length === 0 && (
               <div className="py-8 text-center">
                 <Star className="mx-auto mb-3 text-gray-300" size={48} />
                 <p className="text-gray-500">No milestones yet</p>

@@ -1,18 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import {
-  Edit,
-  Target,
-  Mic,
-  Heart,
-  FileText,
   AlertCircle,
-  Stethoscope,
+  Edit,
+  FileText,
+  Heart,
+  Mic,
   MoreHorizontal,
+  Stethoscope,
+  Target,
   Zap,
-  X,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -21,8 +20,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useAnalytics } from "@/lib/analytics";
 import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
+import { useAnalytics } from "@/lib/analytics";
 
 interface TwoTierQuickActionsProps {
   onAssessPlayers: () => void;
@@ -162,7 +161,7 @@ export function TwoTierQuickActions({
                   type="button"
                 >
                   <Icon className="h-8 w-8 flex-shrink-0" strokeWidth={2} />
-                  <span className="line-clamp-2 text-center text-xs font-semibold leading-tight">
+                  <span className="line-clamp-2 text-center font-semibold text-xs leading-tight">
                     {action.label}
                   </span>
                 </Button>
@@ -172,7 +171,7 @@ export function TwoTierQuickActions({
 
           {/* More Actions Button */}
           <Button
-            className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-white py-4 text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50 active:bg-gray-100"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-gray-300 border-dashed bg-white py-4 text-gray-700 transition-colors hover:border-gray-400 hover:bg-gray-50 active:bg-gray-100"
             onClick={() => setIsMoreActionsOpen(true)}
             type="button"
             variant="ghost"
@@ -185,10 +184,7 @@ export function TwoTierQuickActions({
 
       {/* More Actions Sheet (mobile bottom sheet, desktop modal) */}
       <Sheet onOpenChange={setIsMoreActionsOpen} open={isMoreActionsOpen}>
-        <SheetContent
-          className="max-h-[80vh] overflow-y-auto"
-          side="bottom"
-        >
+        <SheetContent className="max-h-[80vh] overflow-y-auto" side="bottom">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <Zap className="text-yellow-600" size={20} />
@@ -210,7 +206,7 @@ export function TwoTierQuickActions({
                   >
                     <Icon className="h-6 w-6 text-white" strokeWidth={2} />
                   </div>
-                  <span className="font-semibold text-gray-900 text-base">
+                  <span className="font-semibold text-base text-gray-900">
                     {action.label}
                   </span>
                 </button>

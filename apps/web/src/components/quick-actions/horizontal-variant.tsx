@@ -1,20 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
 import {
-  Edit,
-  Target,
-  Mic,
-  Heart,
-  FileText,
   AlertCircle,
+  Edit,
+  FileText,
+  Heart,
+  Mic,
   Stethoscope,
+  Target,
   Zap,
 } from "lucide-react";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAnalytics } from "@/lib/analytics";
 import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
+import { useAnalytics } from "@/lib/analytics";
 
 interface HorizontalScrollQuickActionsProps {
   onAssessPlayers: () => void;
@@ -143,7 +143,7 @@ export function HorizontalScrollQuickActions({
                 type="button"
               >
                 <Icon className="h-7 w-7 flex-shrink-0" strokeWidth={2} />
-                <span className="w-full truncate text-center text-[10px] font-semibold leading-tight">
+                <span className="w-full truncate text-center font-semibold text-[10px] leading-tight">
                   {action.label}
                 </span>
               </Button>

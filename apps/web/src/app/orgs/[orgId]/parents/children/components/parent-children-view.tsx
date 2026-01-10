@@ -7,12 +7,7 @@ import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 import { ChildCard } from "../../components/child-card";
@@ -105,7 +100,8 @@ export function ParentChildrenView({ orgId }: ParentChildrenViewProps) {
       <div>
         <h1 className="font-bold text-2xl text-gray-900">My Children</h1>
         <p className="text-gray-600 text-sm">
-          View and manage {playerCount} {playerCount === 1 ? "child's" : "children's"} profiles and progress
+          View and manage {playerCount}{" "}
+          {playerCount === 1 ? "child's" : "children's"} profiles and progress
         </p>
       </div>
 
@@ -116,18 +112,15 @@ export function ParentChildrenView({ orgId }: ParentChildrenViewProps) {
             <Users className="mx-auto mb-3 text-gray-300" size={48} />
             <p className="text-gray-500">No children linked to your account</p>
             <p className="mt-2 text-gray-400 text-sm">
-              Contact your organization's administrator to link your children's profiles
+              Contact your organization's administrator to link your children's
+              profiles
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {identityChildren.map((child) => (
-            <ChildCard
-              child={child}
-              key={child.player._id}
-              orgId={orgId}
-            />
+            <ChildCard child={child} key={child.player._id} orgId={orgId} />
           ))}
         </div>
       )}

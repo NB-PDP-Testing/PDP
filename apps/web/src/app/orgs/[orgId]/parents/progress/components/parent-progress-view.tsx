@@ -15,12 +15,7 @@ import { useMemo, useState } from "react";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
@@ -43,10 +38,8 @@ export function ParentProgressView({ orgId }: ParentProgressViewProps) {
   );
 
   // Get children from guardian identity system
-  const {
-    children: identityChildren,
-    isLoading: identityLoading,
-  } = useGuardianChildrenInOrg(orgId, session?.user?.email);
+  const { children: identityChildren, isLoading: identityLoading } =
+    useGuardianChildrenInOrg(orgId, session?.user?.email);
 
   // Check if user has parent role
   const hasParentRole = useMemo(() => {
@@ -67,15 +60,16 @@ export function ParentProgressView({ orgId }: ParentProgressViewProps) {
       setSelectedChildId(firstChild.player._id);
       return firstChild;
     }
-    return identityChildren.find((c) => c.player._id === selectedChildId) || identityChildren[0];
+    return (
+      identityChildren.find((c) => c.player._id === selectedChildId) ||
+      identityChildren[0]
+    );
   }, [identityChildren, selectedChildId]);
 
   // Get development goals for selected child
   const developmentGoals = useQuery(
     api.models.passportGoals.getGoalsForPlayer,
-    selectedChild
-      ? { playerIdentityId: selectedChild.player._id }
-      : "skip"
+    selectedChild ? { playerIdentityId: selectedChild.player._id } : "skip"
   );
 
   // For now, we don't query skill assessments (would require passport ID)
@@ -126,7 +120,9 @@ export function ParentProgressView({ orgId }: ParentProgressViewProps) {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="font-bold text-2xl text-gray-900">Progress Tracking</h1>
+          <h1 className="font-bold text-2xl text-gray-900">
+            Progress Tracking
+          </h1>
           <p className="text-gray-600 text-sm">
             View your children's development goals and progress
           </p>
@@ -142,8 +138,10 @@ export function ParentProgressView({ orgId }: ParentProgressViewProps) {
   }
 
   const playerCount = identityChildren.length;
-  const activeGoals = developmentGoals?.filter((g: any) => g.status === "active") || [];
-  const completedGoals = developmentGoals?.filter((g: any) => g.status === "completed") || [];
+  const activeGoals =
+    developmentGoals?.filter((g: any) => g.status === "active") || [];
+  const completedGoals =
+    developmentGoals?.filter((g: any) => g.status === "completed") || [];
 
   return (
     <div className="space-y-6">
@@ -220,7 +218,9 @@ export function ParentProgressView({ orgId }: ParentProgressViewProps) {
                 <p className="text-gray-600 text-sm">Last Review</p>
                 <p className="font-medium text-sm">
                   {selectedChild?.enrollment?.lastReviewDate
-                    ? new Date(selectedChild.enrollment.lastReviewDate).toLocaleDateString()
+                    ? new Date(
+                        selectedChild.enrollment.lastReviewDate
+                      ).toLocaleDateString()
                     : "Not reviewed"}
                 </p>
               </div>
@@ -249,10 +249,7 @@ export function ParentProgressView({ orgId }: ParentProgressViewProps) {
           ) : (
             <div className="space-y-4">
               {activeGoals.map((goal: any) => (
-                <div
-                  className="rounded-lg border p-4"
-                  key={goal._id}
-                >
+                <div className="rounded-lg border p-4" key={goal._id}>
                   <div className="mb-2 flex items-start justify-between">
                     <div>
                       <h3 className="font-medium">{goal.title}</h3>
@@ -262,7 +259,11 @@ export function ParentProgressView({ orgId }: ParentProgressViewProps) {
                         </p>
                       )}
                     </div>
-                    <Badge variant={goal.status === "completed" ? "default" : "secondary"}>
+                    <Badge
+                      variant={
+                        goal.status === "completed" ? "default" : "secondary"
+                      }
+                    >
                       {goal.status}
                     </Badge>
                   </div>
@@ -309,7 +310,8 @@ export function ParentProgressView({ orgId }: ParentProgressViewProps) {
                       <p className="font-medium">{goal.title}</p>
                       {goal.completedDate && (
                         <p className="text-gray-600 text-sm">
-                          Completed {new Date(goal.completedDate).toLocaleDateString()}
+                          Completed{" "}
+                          {new Date(goal.completedDate).toLocaleDateString()}
                         </p>
                       )}
                     </div>

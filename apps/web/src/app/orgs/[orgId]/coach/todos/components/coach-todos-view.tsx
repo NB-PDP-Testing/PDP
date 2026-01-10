@@ -7,10 +7,8 @@ import {
   CheckCircle2,
   CheckSquare,
   Clock,
-  ListTodo,
   Plus,
   Target,
-  TrendingUp,
   Users,
   X,
 } from "lucide-react";
@@ -56,9 +54,7 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
   // Get coach assignments
   const coachAssignments = useQuery(
     api.models.coaches.getCoachAssignments,
-    userId && orgId
-      ? { userId, organizationId: orgId }
-      : "skip"
+    userId && orgId ? { userId, organizationId: orgId } : "skip"
   );
 
   // Get all teams in org
@@ -90,11 +86,15 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
   }, [teamPlayerLinks, coachTeamIds]);
 
   // Get unique player IDs
-  const coachPlayerIds = useMemo(() => {
-    return new Set(
-      coachTeamPlayerLinks.map((link: any) => link.playerIdentityId.toString())
-    );
-  }, [coachTeamPlayerLinks]);
+  const coachPlayerIds = useMemo(
+    () =>
+      new Set(
+        coachTeamPlayerLinks.map((link: any) =>
+          link.playerIdentityId.toString()
+        )
+      ),
+    [coachTeamPlayerLinks]
+  );
 
   // Get all players (raw data from backend)
   const enrolledPlayersData = useQuery(
@@ -178,7 +178,7 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
 
   // Handler functions
   const handleAddTask = async () => {
-    if (!newTaskText.trim() || !session?.user?.email) return;
+    if (!(newTaskText.trim() && session?.user?.email)) return;
 
     try {
       await createTask({
@@ -243,7 +243,9 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
               <AlertCircle className="text-orange-600" size={20} />
               <div className="text-center sm:text-left">
                 <p className="text-gray-600 text-xs sm:text-sm">Action Items</p>
-                <p className="font-bold text-xl sm:text-2xl">{totalActionItems}</p>
+                <p className="font-bold text-xl sm:text-2xl">
+                  {totalActionItems}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -254,7 +256,9 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
               <Clock className="text-blue-600" size={20} />
               <div className="text-center sm:text-left">
                 <p className="text-gray-600 text-xs sm:text-sm">Reviews Due</p>
-                <p className="font-bold text-xl sm:text-2xl">{playersNeedingReview.length}</p>
+                <p className="font-bold text-xl sm:text-2xl">
+                  {playersNeedingReview.length}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -265,7 +269,9 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
               <Target className="text-purple-600" size={20} />
               <div className="text-center sm:text-left">
                 <p className="text-gray-600 text-xs sm:text-sm">Active Goals</p>
-                <p className="font-bold text-xl sm:text-2xl">{activeGoals.length}</p>
+                <p className="font-bold text-xl sm:text-2xl">
+                  {activeGoals.length}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -275,8 +281,12 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
             <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-3">
               <AlertCircle className="text-red-600" size={20} />
               <div className="text-center sm:text-left">
-                <p className="text-gray-600 text-xs sm:text-sm">Active Injuries</p>
-                <p className="font-bold text-xl sm:text-2xl">{activeInjuries.length}</p>
+                <p className="text-gray-600 text-xs sm:text-sm">
+                  Active Injuries
+                </p>
+                <p className="font-bold text-xl sm:text-2xl">
+                  {activeInjuries.length}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -350,7 +360,9 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
                     className="flex h-5 w-5 items-center justify-center rounded border border-gray-300 hover:border-blue-500 hover:bg-blue-50"
                     onClick={() => handleToggleTask(task._id, true)}
                   >
-                    {task.completed && <CheckCircle2 className="text-blue-600" size={16} />}
+                    {task.completed && (
+                      <CheckCircle2 className="text-blue-600" size={16} />
+                    )}
                   </button>
                   <span className="text-gray-900">{task.text}</span>
                 </div>
@@ -368,8 +380,10 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
             {completedTasks.length > 0 && (
               <>
                 {pendingTasks.length > 0 && (
-                  <div className="mt-4 pt-4 border-t">
-                    <p className="text-gray-500 text-sm font-medium mb-2">Completed</p>
+                  <div className="mt-4 border-t pt-4">
+                    <p className="mb-2 font-medium text-gray-500 text-sm">
+                      Completed
+                    </p>
                   </div>
                 )}
                 {completedTasks.map((task) => (
@@ -384,7 +398,9 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
                       >
                         <CheckCircle2 className="text-green-600" size={16} />
                       </button>
-                      <span className="text-gray-500 line-through">{task.text}</span>
+                      <span className="text-gray-500 line-through">
+                        {task.text}
+                      </span>
                     </div>
                     <Button
                       onClick={() => handleDeleteTask(task._id)}
@@ -447,7 +463,11 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
                       </div>
                     </div>
                     <Badge variant={isOverdue ? "destructive" : "secondary"}>
-                      {neverReviewed ? "Never" : isOverdue ? "Overdue" : "Needs Review"}
+                      {neverReviewed
+                        ? "Never"
+                        : isOverdue
+                          ? "Overdue"
+                          : "Needs Review"}
                     </Badge>
                   </div>
                 );
@@ -473,7 +493,8 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
             <div className="space-y-3">
               {activeGoals.slice(0, 5).map((goal: any) => {
                 const player = coachPlayers.find(
-                  (p: any) => p._id.toString() === goal.playerIdentityId?.toString()
+                  (p: any) =>
+                    p._id.toString() === goal.playerIdentityId?.toString()
                 );
 
                 return (
@@ -518,7 +539,8 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
             <div className="space-y-2">
               {activeInjuries.slice(0, 5).map((injury: any) => {
                 const player = coachPlayers.find(
-                  (p: any) => p._id.toString() === injury.playerIdentityId?.toString()
+                  (p: any) =>
+                    p._id.toString() === injury.playerIdentityId?.toString()
                 );
 
                 return (
@@ -530,12 +552,17 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
                       <AlertCircle className="text-red-600" size={20} />
                       <div>
                         <p className="font-medium">
-                          {player ? `${player.firstName} ${player.lastName}` : "Unknown Player"}
+                          {player
+                            ? `${player.firstName} ${player.lastName}`
+                            : "Unknown Player"}
                         </p>
                         <p className="text-gray-600 text-sm">{injury.type}</p>
                       </div>
                     </div>
-                    <Badge variant="outline" className="border-red-300 text-red-700">
+                    <Badge
+                      className="border-red-300 text-red-700"
+                      variant="outline"
+                    >
                       {injury.severity || "Active"}
                     </Badge>
                   </div>

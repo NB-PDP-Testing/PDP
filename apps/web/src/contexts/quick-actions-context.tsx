@@ -13,6 +13,7 @@ export interface QuickAction {
 interface QuickActionsContextValue {
   actions: QuickAction[];
   setActions: (actions: QuickAction[]) => void;
+  clearActions: () => void;
   isMenuOpen: boolean;
   setIsMenuOpen: (open: boolean) => void;
 }
@@ -25,9 +26,11 @@ export function QuickActionsProvider({ children }: { children: ReactNode }) {
   const [actions, setActions] = useState<QuickAction[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  const clearActions = () => setActions([]);
+
   return (
     <QuickActionsContext.Provider
-      value={{ actions, setActions, isMenuOpen, setIsMenuOpen }}
+      value={{ actions, setActions, clearActions, isMenuOpen, setIsMenuOpen }}
     >
       {children}
     </QuickActionsContext.Provider>

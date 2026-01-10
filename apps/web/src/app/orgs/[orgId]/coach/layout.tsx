@@ -1,9 +1,23 @@
 "use client";
 
-import { CheckSquare, Home, Menu, Mic, Users, Zap } from "lucide-react";
+import {
+  AlertCircle,
+  CheckSquare,
+  Edit,
+  FileText,
+  Heart,
+  Home,
+  Menu,
+  Mic,
+  Stethoscope,
+  Target,
+  Users,
+  Zap,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import {
   BottomNav,
   type BottomNavItem,
@@ -25,6 +39,7 @@ import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 function CoachLayoutInner({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const orgId = params.orgId as string;
+  const router = useRouter();
 
   // Apply organization theme colors
   const { theme } = useOrgTheme();
@@ -35,7 +50,77 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
   const useNewNav = adminNavStyle === "sidebar";
 
   // Get quick actions context for header button
-  const { actions, isMenuOpen, setIsMenuOpen } = useQuickActionsContext();
+  const { actions, isMenuOpen, setIsMenuOpen, setActions } =
+    useQuickActionsContext();
+
+  // Define default quick actions for all coach pages
+  useEffect(() => {
+    // Only set default actions if no actions are currently registered
+    // This allows individual pages to override
+    if (actions.length === 0) {
+      const defaultActions = [
+        {
+          id: "overview",
+          icon: Home,
+          label: "Overview",
+          onClick: () => router.push(`/orgs/${orgId}/coach` as Route),
+          color: "bg-blue-600 hover:bg-blue-700",
+        },
+        {
+          id: "players",
+          icon: Users,
+          label: "Players",
+          onClick: () => router.push(`/orgs/${orgId}/coach/players` as Route),
+          color: "bg-cyan-600 hover:bg-cyan-700",
+        },
+        {
+          id: "assess",
+          icon: Edit,
+          label: "Assess",
+          onClick: () => router.push(`/orgs/${orgId}/coach/assess` as Route),
+          color: "bg-purple-600 hover:bg-purple-700",
+        },
+        {
+          id: "voice-notes",
+          icon: Mic,
+          label: "Voice Notes",
+          onClick: () =>
+            router.push(`/orgs/${orgId}/coach/voice-notes` as Route),
+          color: "bg-green-600 hover:bg-green-700",
+        },
+        {
+          id: "goals",
+          icon: Heart,
+          label: "Goals",
+          onClick: () => router.push(`/orgs/${orgId}/coach/goals` as Route),
+          color: "bg-pink-600 hover:bg-pink-700",
+        },
+        {
+          id: "injuries",
+          icon: AlertCircle,
+          label: "Injuries",
+          onClick: () => router.push(`/orgs/${orgId}/coach/injuries` as Route),
+          color: "bg-red-600 hover:bg-red-700",
+        },
+        {
+          id: "medical",
+          icon: Stethoscope,
+          label: "Medical",
+          onClick: () => router.push(`/orgs/${orgId}/coach/medical` as Route),
+          color: "bg-amber-600 hover:bg-amber-700",
+        },
+        {
+          id: "todos",
+          icon: CheckSquare,
+          label: "Tasks",
+          onClick: () => router.push(`/orgs/${orgId}/coach/todos` as Route),
+          color: "bg-orange-600 hover:bg-orange-700",
+        },
+      ];
+
+      setActions(defaultActions);
+    }
+  }, [actions.length, orgId, router, setActions]);
 
   // Debug: Log feature flag values
   console.log("[Coach Layout] Feature flags:", {
@@ -122,11 +207,6 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
                   <span className="ml-2 hidden sm:inline">Quick Actions</span>
                 </Button>
               )}
-              <Link href={`/orgs/${orgId}` as Route}>
-                <Button size="sm" variant="outline">
-                  Back to App
-                </Button>
-              </Link>
             </div>
           </div>
         </header>

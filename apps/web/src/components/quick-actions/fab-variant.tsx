@@ -45,7 +45,7 @@ export function FABQuickActions({
   onMatchDay,
 }: FABQuickActionsProps) {
   const { track } = useAnalytics();
-  const { setActions } = useQuickActionsContext();
+  const { setActions, clearActions } = useQuickActionsContext();
 
   // Register actions with context on mount
   useEffect(() => {
@@ -113,8 +113,8 @@ export function FABQuickActions({
       variant: "header-fab",
     });
 
-    // Cleanup on unmount
-    return () => setActions([]);
+    // Cleanup on unmount - clear actions so layout defaults show
+    return () => clearActions();
   }, [
     onAssessPlayers,
     onGenerateSessionPlan,
@@ -125,6 +125,7 @@ export function FABQuickActions({
     onMedical,
     onMatchDay,
     setActions,
+    clearActions,
     track,
   ]);
 

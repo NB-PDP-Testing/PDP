@@ -34,7 +34,7 @@ This document provides the authoritative reference for the PlayerARC UAT test su
 
 ### 1.2 Test ID Convention
 
-```
+```text
 TEST-{CATEGORY}-{NUMBER}
 ```
 
@@ -63,7 +63,7 @@ Categories:
 
 ### 2.1 Test Suite Structure
 
-```
+```text
 apps/web/uat/
 ├── playwright.config.ts      # Main configuration
 ├── global-setup.ts           # Creates auth states for all users
@@ -181,8 +181,11 @@ The onboarding setup script creates all necessary test accounts, organizations, 
 ```bash
 cd apps/web
 
-# Run the onboarding setup script (runs with visible browser)
+# Run the onboarding setup script (headless by default)
 npm run test:setup
+
+# Run with visible browser
+npm run test:setup -- --headed
 ```
 
 **Location:** `apps/web/uat/scripts/onboarding.spec.ts`
@@ -470,7 +473,7 @@ npm run test
 
 ---
 
-**Document Version History**
+## Document Version History
 
 | Version | Date       | Author | Changes                                                                                    |
 | ------- | ---------- | ------ | ------------------------------------------------------------------------------------------ |

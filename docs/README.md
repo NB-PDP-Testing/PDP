@@ -74,6 +74,15 @@ Developer guides and code quality.
 | [ci-cd-guide.md](./development/ci-cd-guide.md) | CI/CD pipeline documentation |
 | [convex-troubleshooting.md](./development/convex-troubleshooting.md) | Convex & Vercel troubleshooting |
 
+### [research/](./research/)
+UX research, competitive analysis, and design studies.
+
+| Document | Description |
+|----------|-------------|
+| [mobile-quick-actions-research-2025.md](./research/mobile-quick-actions-research-2025.md) | Mobile quick actions research (7 platforms, 2025 patterns) |
+| [mobile-quick-actions-summary.md](./research/mobile-quick-actions-summary.md) | Executive summary of mobile quick actions research |
+| [coach-dashboard-mobile-spec.md](./research/coach-dashboard-mobile-spec.md) | Coach dashboard mobile implementation specification |
+
 ### [reference/](./reference/)
 Schema, data models, and comparisons.
 

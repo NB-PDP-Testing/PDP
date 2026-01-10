@@ -96,11 +96,7 @@ export default function ParentsLayout({
             </div>
 
             <div className="flex items-center gap-2">
-              <Link href={`/orgs/${orgId}` as Route}>
-                <Button size="sm" variant="outline">
-                  Back to App
-                </Button>
-              </Link>
+              {/* Reserved for future actions */}
             </div>
           </div>
         </header>

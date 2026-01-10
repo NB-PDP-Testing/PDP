@@ -479,13 +479,24 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
               </>
             )}
 
-            {/* Create Organization option for platform staff */}
+            {/* Platform Staff options */}
             {session?.user &&
               (session.user as { isPlatformStaff?: boolean })
                 .isPlatformStaff && (
                 <>
                   <CommandSeparator />
-                  <CommandGroup>
+                  <CommandGroup heading="Platform">
+                    <CommandItem
+                      className="min-h-[44px]"
+                      onSelect={() => {
+                        setOpen(false);
+                        router.push("/orgs" as Route);
+                      }}
+                      value="manage-organizations"
+                    >
+                      <Building2 className="mr-2 h-4 w-4" />
+                      <span>Manage Organizations</span>
+                    </CommandItem>
                     <CommandItem
                       className="min-h-[44px]"
                       onSelect={() => {

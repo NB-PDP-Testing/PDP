@@ -174,6 +174,35 @@ npm run test:report     # View HTML report
 npm run test:list       # List all tests
 ```
 
+### 4.1 Setup Script (Pre-UAT Data Creation)
+
+The onboarding setup script creates all necessary test accounts, organizations, teams, and players **before** running the regular UAT tests. This is a standalone script that should be run on a **fresh/empty database**.
+
+```bash
+cd apps/web
+
+# Run the onboarding setup script (runs with visible browser)
+npm run test:setup
+```
+
+**Location:** `apps/web/uat/scripts/onboarding.spec.ts`
+
+**What it creates:**
+
+- Platform owner account (first user, auto-granted platformStaff)
+- Organization with configured sports and colors
+- Test teams with proper sport/age group settings
+- Admin, Coach, and Parent user accounts
+- Player records with team assignments
+- Guardian-player relationships
+
+**⚠️ Important Notes:**
+
+- This script is **NOT** included in regular `npm run test` runs
+- Run this **only once** on a fresh database before UAT testing
+- The script runs in `--headed` mode so you can observe the setup process
+- All test data comes from `uat/test-data.json`
+
 ---
 
 ## 5. Test Categories

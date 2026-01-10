@@ -324,11 +324,11 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
   };
 
   const handleViewPlayer = (player: any) => {
-    router.push(`/orgs/${orgId}/admin/players/${player._id}`);
+    router.push(`/orgs/${orgId}/players/${player._id}`);
   };
 
   const handleEditPlayer = (player: any) => {
-    router.push(`/orgs/${orgId}/admin/players/${player._id}/edit`);
+    router.push(`/orgs/${orgId}/players/${player._id}/edit`);
   };
 
   return (

@@ -29,10 +29,16 @@ uat/
 │   │   └── teams.spec.ts
 │   ├── auth/                 # Authentication tests
 │   ├── coach/                # Coach features tests
-│   ├── flows/                # Cross-role flow tests
+│   ├── cross-role/           # Cross-role scenario tests (NEW)
+│   │   └── cross-role.spec.ts
+│   ├── flows/                # Flow wizard tests
 │   ├── homepage/             # Homepage tests
+│   ├── mobile/               # Mobile viewport tests (NEW)
+│   │   └── mobile-viewport.spec.ts
 │   ├── org/                  # Organization tests
 │   ├── parent/               # Parent dashboard tests
+│   ├── performance/          # Performance tests (NEW)
+│   │   └── performance.spec.ts
 │   ├── player/               # Player features tests
 │   └── fixtures/
 │       └── test-utils.ts     # Test utilities and data exports
@@ -42,21 +48,24 @@ uat/
 
 ## Test Categories
 
-| Category   | Test ID Prefix | Description              |
-| ---------- | -------------- | ------------------------ |
-| AUTH       | AUTH-xxx       | Authentication flows     |
-| ONBOARDING | ONBOARDING-xxx | First-time setup flow    |
-| ADMIN      | ADMIN-xxx      | Admin dashboard features |
-| COACH      | COACH-xxx      | Coach features           |
-| PARENT     | PARENT-xxx     | Parent dashboard         |
-| PLAYER     | PLAYER-xxx     | Player features          |
-| ORG        | ORG-xxx        | Organization management  |
-| TEAM       | TEAM-xxx       | Team management          |
-| INVITE     | INVITE-xxx     | Invitation workflow      |
-| FLOW       | FLOW-xxx       | Cross-role flows         |
-| IDENTITY   | IDENTITY-xxx   | Identity system tests    |
-| HOME       | HOME-xxx       | Homepage tests           |
-| E2E        | E2E-xxx        | End-to-end flows         |
+| Category   | Test ID Prefix | Description                 |
+| ---------- | -------------- | --------------------------- |
+| AUTH       | AUTH-xxx       | Authentication flows        |
+| ONBOARDING | ONBOARDING-xxx | First-time setup flow       |
+| ADMIN      | ADMIN-xxx      | Admin dashboard features    |
+| COACH      | COACH-xxx      | Coach features              |
+| PARENT     | PARENT-xxx     | Parent dashboard            |
+| PLAYER     | PLAYER-xxx     | Player features             |
+| ORG        | ORG-xxx        | Organization management     |
+| TEAM       | TEAM-xxx       | Team management             |
+| INVITE     | INVITE-xxx     | Invitation workflow         |
+| FLOW       | FLOW-xxx       | Flow wizard tests           |
+| IDENTITY   | IDENTITY-xxx   | Identity system tests       |
+| HOME       | HOME-xxx       | Homepage tests              |
+| CROSS      | CROSS-xxx      | Cross-role scenarios (NEW)  |
+| PERF       | PERF-xxx       | Performance tests (NEW)     |
+| MOBILE     | MOBILE-xxx     | Mobile viewport tests (NEW) |
+| E2E        | E2E-xxx        | End-to-end flows            |
 
 ## Test Users
 
@@ -86,6 +95,9 @@ npm run test:player -w web
 npm run test:org -w web
 npm run test:flows -w web
 npm run test:homepage -w web
+npm run test:cross-role -w web    # NEW: Cross-role scenarios
+npm run test:performance -w web   # NEW: Performance tests
+npm run test:mobile -w web        # NEW: Mobile viewport tests
 
 # Run with UI mode
 npm run test:ui -w web
@@ -120,6 +132,9 @@ npm run test:player
 npm run test:org
 npm run test:flows
 npm run test:homepage
+npm run test:cross-role     # NEW: Cross-role scenarios
+npm run test:performance    # NEW: Performance tests
+npm run test:mobile         # NEW: Mobile viewport tests
 
 # Run with UI
 npm run test:ui
@@ -183,6 +198,73 @@ Tests the invitation and approval workflow:
 | INVITE-009 | Pending requests display user information        |
 | INVITE-010 | Multiple roles can be selected                   |
 
+### Cross-Role Scenario Tests (`tests/cross-role/cross-role.spec.ts`) - NEW
+
+Tests multi-role user behavior and data isolation:
+
+| Test ID   | Description                                     |
+| --------- | ----------------------------------------------- |
+| CROSS-001 | User can switch from Admin to Coach panel       |
+| CROSS-002 | User can switch from Coach to Admin panel       |
+| CROSS-003 | OrgRoleSwitcher displays available roles        |
+| CROSS-004 | Coach can only see assigned team players        |
+| CROSS-005 | Parent can only see linked children             |
+| CROSS-006 | Admin can see all organization players          |
+| CROSS-007 | Coach cannot access admin settings              |
+| CROSS-008 | Parent cannot create assessments                |
+| CROSS-009 | Coach cannot manage users                       |
+| CROSS-010 | Owner has access to both Admin and Coach panels |
+| CROSS-011 | Multi-role user can create assessment as coach  |
+| CROSS-012 | Multi-role user can manage teams as admin       |
+| CROSS-013 | Player data consistent across Admin/Coach views |
+| CROSS-014 | Role context persists after navigation          |
+| CROSS-015 | Platform staff can see Platform link            |
+
+### Performance Tests (`tests/performance/performance.spec.ts`) - NEW
+
+Tests application performance metrics:
+
+| Test ID  | Description                                     |
+| -------- | ----------------------------------------------- |
+| PERF-001 | Homepage loads within acceptable time (<5s)     |
+| PERF-002 | Login page loads within acceptable time (<5s)   |
+| PERF-003 | Organizations page loads within time (<5s)      |
+| PERF-004 | Admin dashboard loads within time (<5s)         |
+| PERF-005 | Coach dashboard loads within time (<5s)         |
+| PERF-006 | Navigation between admin sections is fast (<3s) |
+| PERF-007 | Role switching is fast (<3s)                    |
+| PERF-008 | Players list loads efficiently (<5s)            |
+| PERF-009 | Teams list loads efficiently (<5s)              |
+| PERF-010 | No slow API requests on dashboard load (<2s)    |
+
+### Mobile Viewport Tests (`tests/mobile/mobile-viewport.spec.ts`) - NEW
+
+Tests responsive design on mobile devices:
+
+| Test ID    | Description                             |
+| ---------- | --------------------------------------- |
+| MOBILE-001 | Homepage renders correctly on mobile    |
+| MOBILE-002 | Mobile navigation is accessible         |
+| MOBILE-003 | Login page is usable on mobile          |
+| MOBILE-004 | Organizations page renders on mobile    |
+| MOBILE-005 | Admin dashboard works on mobile         |
+| MOBILE-006 | Coach dashboard works on mobile         |
+| MOBILE-007 | Buttons have adequate touch target size |
+| MOBILE-008 | Form inputs are accessible on mobile    |
+| MOBILE-009 | Links have adequate spacing on mobile   |
+| MOBILE-010 | Bottom navigation works if present      |
+| MOBILE-011 | PWA install prompt can be dismissed     |
+| MOBILE-012 | Content hierarchy maintained on mobile  |
+| MOBILE-013 | Tables are scrollable or responsive     |
+| MOBILE-014 | Modals/dialogs work on mobile           |
+| MOBILE-015 | Different mobile sizes render correctly |
+
+**Mobile viewport sizes tested:**
+
+- iPhone SE: 375x667
+- iPhone 12/13: 390x844
+- Android common: 360x640
+
 ### Onboarding Tests (`scripts/onboarding.spec.ts`)
 
 First-time setup flow on fresh database:
@@ -220,6 +302,26 @@ The test looks for empty state text that doesn't match the actual UI:
 4. **Fixtures**: Use shared fixtures from `fixtures/test-fixtures.ts`
 5. **Assertions**: Clear assertions with descriptive messages
 6. **Wait States**: Use proper waits for async operations
+
+## Test Suite Summary
+
+| Category     | Tests   | Status            |
+| ------------ | ------- | ----------------- |
+| Auth         | 12      | ✅ Complete       |
+| Admin        | 39      | ✅ Complete       |
+| Coach        | 29      | ✅ Complete       |
+| Parent       | 10      | ✅ Complete       |
+| Player       | 17      | ✅ Complete       |
+| Organization | 20      | ✅ Complete       |
+| Flows        | 9       | ✅ Complete       |
+| Homepage     | 13      | ✅ Complete       |
+| Identity     | 6       | ✅ Complete       |
+| Invitations  | 10      | ✅ Complete       |
+| Teams        | 12      | ✅ Complete       |
+| Cross-Role   | 15      | ✅ NEW            |
+| Performance  | 10      | ✅ NEW            |
+| Mobile       | 15      | ✅ NEW            |
+| **Total**    | **217** | **14 categories** |
 
 ## Coverage Mapping
 

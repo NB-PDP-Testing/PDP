@@ -454,6 +454,32 @@ npm run test:setup -- --headed
 - Navigation: < 3 seconds
 - API responses: < 2 seconds
 
+### 5.14 Mobile Viewport Tests (`tests/mobile/mobile-viewport.spec.ts`) - NEW
+
+| ID         | Test                                    | Status | File                    |
+| ---------- | --------------------------------------- | ------ | ----------------------- |
+| MOBILE-001 | Homepage renders correctly on mobile    | ✅     | mobile-viewport.spec.ts |
+| MOBILE-002 | Mobile navigation is accessible         | ✅     | mobile-viewport.spec.ts |
+| MOBILE-003 | Login page is usable on mobile          | ✅     | mobile-viewport.spec.ts |
+| MOBILE-004 | Organizations page renders on mobile    | ✅     | mobile-viewport.spec.ts |
+| MOBILE-005 | Admin dashboard works on mobile         | ✅     | mobile-viewport.spec.ts |
+| MOBILE-006 | Coach dashboard works on mobile         | ✅     | mobile-viewport.spec.ts |
+| MOBILE-007 | Buttons have adequate touch target      | ✅     | mobile-viewport.spec.ts |
+| MOBILE-008 | Form inputs are accessible on mobile    | ✅     | mobile-viewport.spec.ts |
+| MOBILE-009 | Links have adequate spacing on mobile   | ✅     | mobile-viewport.spec.ts |
+| MOBILE-010 | Bottom navigation works if present      | ✅     | mobile-viewport.spec.ts |
+| MOBILE-011 | PWA install prompt can be dismissed     | ✅     | mobile-viewport.spec.ts |
+| MOBILE-012 | Content hierarchy maintained on mobile  | ✅     | mobile-viewport.spec.ts |
+| MOBILE-013 | Tables are scrollable or responsive     | ✅     | mobile-viewport.spec.ts |
+| MOBILE-014 | Modals/dialogs work on mobile           | ✅     | mobile-viewport.spec.ts |
+| MOBILE-015 | Different mobile sizes render correctly | ✅     | mobile-viewport.spec.ts |
+
+**Mobile Viewport Sizes Tested:**
+
+- iPhone SE: 375x667
+- iPhone 12/13: 390x844
+- Android common: 360x640
+
 ---
 
 ## 6. Test Coverage by Category
@@ -472,8 +498,9 @@ npm run test:setup -- --headed
 | Invitations    | 10      | ✅ Complete       |
 | Teams          | 12      | ✅ Complete       |
 | Cross-Role     | 15      | ✅ Complete       |
-| Performance    | 10      | ✅ NEW - Complete |
-| **Total**      | **202** | **13 categories** |
+| Performance    | 10      | ✅ Complete       |
+| Mobile         | 15      | ✅ NEW - Complete |
+| **Total**      | **217** | **14 categories** |
 
 ---
 
@@ -488,7 +515,9 @@ npm run test:setup -- --headed
 | Team Management CRUD  | P1       | 12              | ✅ IMPLEMENTED |
 | Cross-Role Scenarios  | P2       | 15              | ✅ IMPLEMENTED |
 | Performance Tests     | P2       | 10              | ✅ IMPLEMENTED |
-| Mobile Viewport Tests | P3       | 15-20           | ⬜ Not started |
+| Mobile Viewport Tests | P3       | 15              | ✅ IMPLEMENTED |
+
+**All planned test categories are now implemented!**
 
 ### 7.2 Known Limitations
 
@@ -513,11 +542,11 @@ npm run test:setup -- --headed
 2. ~~**Data Isolation Tests**~~ - ✅ Included in cross-role tests (CROSS-004 to CROSS-009)
 3. **CI/CD Integration** - Add to GitHub Actions
 
-### 8.3 Long-Term (P2) - PARTIALLY COMPLETED
+### 8.3 Long-Term (P2/P3) - MOSTLY COMPLETED
 
 1. **Visual Regression** - Screenshot comparison ⬜
 2. ~~**Performance Testing**~~ - ✅ 10 tests implemented (performance.spec.ts)
-3. **Mobile Testing** - Full mobile viewport coverage ⬜
+3. ~~**Mobile Testing**~~ - ✅ 15 tests implemented (mobile-viewport.spec.ts)
 4. **Parallel Execution** - Speed up test runs ⬜
 
 ---
@@ -566,3 +595,4 @@ npm run test
 | 3.1     | 2026-01-10 | Cline  | Added 28 new tests: Identity (6), Invitations (10), Teams (12). All P0 priorities complete |
 | 3.2     | 2026-01-10 | Cline  | Added 15 Cross-Role Scenario tests. All P1 priorities complete (except CI/CD)              |
 | 3.3     | 2026-01-10 | Cline  | Added 10 Performance tests. P2 performance testing complete                                |
+| 3.4     | 2026-01-10 | Cline  | Added 15 Mobile Viewport tests. All planned test categories complete (217 tests total)     |

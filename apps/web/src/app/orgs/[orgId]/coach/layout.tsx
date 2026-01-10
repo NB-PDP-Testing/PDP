@@ -86,7 +86,7 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
         {
           id: "voice-notes",
           icon: Mic,
-          label: "Voice Notes",
+          label: "Record Voice Note",
           title: "Quick audio observations",
           onClick: () =>
             router.push(`/orgs/${orgId}/coach/voice-notes` as Route),
@@ -95,7 +95,7 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
         {
           id: "injuries",
           icon: AlertCircle,
-          label: "Injuries",
+          label: "Report Injury",
           title: "Track player injuries",
           onClick: () => router.push(`/orgs/${orgId}/coach/injuries` as Route),
           color: "bg-red-600 hover:bg-red-700",
@@ -103,7 +103,7 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
         {
           id: "goals",
           icon: Heart,
-          label: "Goals",
+          label: "Manage Goals",
           title: "Development objectives",
           onClick: () => router.push(`/orgs/${orgId}/coach/goals` as Route),
           color: "bg-pink-600 hover:bg-pink-700",
@@ -111,7 +111,7 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
         {
           id: "medical",
           icon: Stethoscope,
-          label: "Medical",
+          label: "View Medical Info",
           title: "Health & emergency details",
           onClick: () => router.push(`/orgs/${orgId}/coach/medical` as Route),
           color: "bg-amber-600 hover:bg-amber-700",
@@ -119,7 +119,7 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
         {
           id: "match-day",
           icon: Target,
-          label: "Match Day",
+          label: "View Match Day",
           title: "Emergency contacts & info",
           onClick: () => router.push(`/orgs/${orgId}/coach/match-day` as Route),
           color: "bg-orange-600 hover:bg-orange-700",

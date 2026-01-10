@@ -28,9 +28,9 @@ test.describe("COACH - Dashboard Tests", () => {
     await page.click('text="Coach Panel"');
     await waitForPageLoad(page);
 
-    // Verify Coach Dashboard link/heading
+    // Verify Coach Dashboard link/heading - use first() for duplicates
     await expect(
-      page.getByText("Coach Dashboard")
+      page.getByText("Coach Dashboard").first()
     ).toBeVisible();
   });
 

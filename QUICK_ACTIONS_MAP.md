@@ -1,5 +1,8 @@
 # Quick Actions Architecture Map
 
+**⚠️ This is a quick reference. For comprehensive documentation, see:**
+**`/docs/features/quick-actions-system.md`**
+
 ## Components & Files
 
 ### 1. Context (`/contexts/quick-actions-context.tsx`)

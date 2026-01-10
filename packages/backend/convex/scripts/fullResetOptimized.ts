@@ -5,7 +5,7 @@ import { mutation } from "../_generated/server";
 /**
  * ⚠️ NUCLEAR OPTION: Delete EVERYTHING including users, orgs, and sessions
  * This completely resets the database to a fresh state
- * 
+ *
  * OPTIMIZED VERSION: Uses batch deleteMany instead of individual deleteOne
  * to avoid timeout issues with large session tables.
  *
@@ -140,7 +140,9 @@ export const fullReset = mutation({
 
     // Team player identities
     console.log("Deleting team player identities...");
-    const teamPlayerIdentities = await ctx.db.query("teamPlayerIdentities").collect();
+    const teamPlayerIdentities = await ctx.db
+      .query("teamPlayerIdentities")
+      .collect();
     for (const record of teamPlayerIdentities) {
       await ctx.db.delete(record._id);
       deleted.teamPlayerIdentities++;
@@ -164,7 +166,9 @@ export const fullReset = mutation({
 
     // Guardian-player links
     console.log("Deleting guardian-player links...");
-    const guardianPlayerLinks = await ctx.db.query("guardianPlayerLinks").collect();
+    const guardianPlayerLinks = await ctx.db
+      .query("guardianPlayerLinks")
+      .collect();
     for (const record of guardianPlayerLinks) {
       await ctx.db.delete(record._id);
       deleted.guardianPlayerLinks++;
@@ -180,7 +184,9 @@ export const fullReset = mutation({
 
     // Guardian identities
     console.log("Deleting guardian identities...");
-    const guardianIdentities = await ctx.db.query("guardianIdentities").collect();
+    const guardianIdentities = await ctx.db
+      .query("guardianIdentities")
+      .collect();
     for (const record of guardianIdentities) {
       await ctx.db.delete(record._id);
       deleted.guardianIdentities++;
@@ -244,7 +250,16 @@ export const fullReset = mutation({
 
     // Helper function to batch delete Better Auth tables
     async function batchDeleteBetterAuthTable(
-      model: "team" | "teamMember" | "invitation" | "member" | "organization" | "session" | "account" | "user" | "verification"
+      model:
+        | "team"
+        | "teamMember"
+        | "invitation"
+        | "member"
+        | "organization"
+        | "session"
+        | "account"
+        | "user"
+        | "verification"
     ): Promise<number> {
       let totalDeleted = 0;
       let cursor: string | null = null;
@@ -273,7 +288,11 @@ export const fullReset = mutation({
         }
 
         // Check if there are more records
-        if (result && typeof result === "object" && "continueCursor" in result) {
+        if (
+          result &&
+          typeof result === "object" &&
+          "continueCursor" in result
+        ) {
           cursor = result.continueCursor as string | null;
           hasMore = !!cursor && cursor !== "";
         } else {

@@ -1,9 +1,23 @@
 "use client";
 
-import { ClipboardList, Home, Menu, TrendingUp, Users } from "lucide-react";
+import {
+  AlertCircle,
+  CheckSquare,
+  Edit,
+  FileText,
+  Heart,
+  Home,
+  Menu,
+  Mic,
+  Stethoscope,
+  Target,
+  Users,
+  Zap,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import {
   BottomNav,
   type BottomNavItem,
@@ -13,24 +27,108 @@ import {
   CoachMobileNav,
   CoachSidebar,
 } from "@/components/layout/coach-sidebar";
+import { HeaderQuickActionsMenu } from "@/components/quick-actions/header-quick-actions-menu";
 import { Button } from "@/components/ui/button";
+import {
+  QuickActionsProvider,
+  useQuickActionsContext,
+} from "@/contexts/quick-actions-context";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 
-export default function CoachLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function CoachLayoutInner({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const orgId = params.orgId as string;
+  const router = useRouter();
 
   // Apply organization theme colors
   const { theme } = useOrgTheme();
 
   // Get UX feature flags
-  const { adminNavStyle, useBottomNav } = useUXFeatureFlags();
+  const { adminNavStyle, useBottomNav, quickActionsVariant } =
+    useUXFeatureFlags();
   const useNewNav = adminNavStyle === "sidebar";
+
+  // Get quick actions context for header button
+  const { actions, isMenuOpen, setIsMenuOpen, setActions } =
+    useQuickActionsContext();
+
+  // Define default quick actions for all coach pages
+  useEffect(() => {
+    // Only set default actions if no actions are currently registered
+    // This allows individual pages to override
+    if (actions.length === 0) {
+      const defaultActions = [
+        {
+          id: "assess",
+          icon: Edit,
+          label: "Assess Players",
+          title: "Rate player skills & performance",
+          onClick: () => router.push(`/orgs/${orgId}/coach/assess` as Route),
+          color: "bg-blue-600 hover:bg-blue-700",
+        },
+        {
+          id: "session-plan",
+          icon: Target,
+          label: "Generate Session Plan",
+          title: "AI-powered training session",
+          onClick: () => router.push(`/orgs/${orgId}/coach` as Route),
+          color: "bg-purple-600 hover:bg-purple-700",
+        },
+        {
+          id: "analytics",
+          icon: FileText,
+          label: "View Analytics",
+          title: "Team performance insights",
+          onClick: () => router.push(`/orgs/${orgId}/coach` as Route),
+          color: "bg-cyan-600 hover:bg-cyan-700",
+        },
+        {
+          id: "voice-notes",
+          icon: Mic,
+          label: "Record Voice Note",
+          title: "Quick audio observations",
+          onClick: () =>
+            router.push(`/orgs/${orgId}/coach/voice-notes` as Route),
+          color: "bg-green-600 hover:bg-green-700",
+        },
+        {
+          id: "injuries",
+          icon: AlertCircle,
+          label: "Report Injury",
+          title: "Track player injuries",
+          onClick: () => router.push(`/orgs/${orgId}/coach/injuries` as Route),
+          color: "bg-red-600 hover:bg-red-700",
+        },
+        {
+          id: "goals",
+          icon: Heart,
+          label: "Manage Goals",
+          title: "Development objectives",
+          onClick: () => router.push(`/orgs/${orgId}/coach/goals` as Route),
+          color: "bg-pink-600 hover:bg-pink-700",
+        },
+        {
+          id: "medical",
+          icon: Stethoscope,
+          label: "View Medical Info",
+          title: "Health & emergency details",
+          onClick: () => router.push(`/orgs/${orgId}/coach/medical` as Route),
+          color: "bg-amber-600 hover:bg-amber-700",
+        },
+        {
+          id: "match-day",
+          icon: Target,
+          label: "View Match Day",
+          title: "Emergency contacts & info",
+          onClick: () => router.push(`/orgs/${orgId}/coach/match-day` as Route),
+          color: "bg-orange-600 hover:bg-orange-700",
+        },
+      ];
+
+      setActions(defaultActions);
+    }
+  }, [actions.length, orgId, router, setActions]);
 
   // Debug: Log feature flag values
   console.log("[Coach Layout] Feature flags:", {
@@ -54,17 +152,16 @@ export default function CoachLayout({
       href: `/orgs/${orgId}/coach/players`,
     },
     {
-      id: "assess",
-      icon: ClipboardList,
-      label: "Assess",
-      href: `/orgs/${orgId}/coach/assessments/new`,
-      isAction: true,
+      id: "voice",
+      icon: Mic,
+      label: "Voice",
+      href: `/orgs/${orgId}/coach/voice-notes`,
     },
     {
-      id: "reports",
-      icon: TrendingUp,
-      label: "Reports",
-      href: `/orgs/${orgId}/coach/reports`,
+      id: "todos",
+      icon: CheckSquare,
+      label: "Tasks",
+      href: `/orgs/${orgId}/coach/todos`,
     },
   ];
 
@@ -97,23 +194,33 @@ export default function CoachLayout({
                 className="flex items-center gap-2"
                 href={`/orgs/${orgId}/coach` as Route}
               >
-                <ClipboardList
-                  className="h-5 w-5"
-                  style={{ color: theme.primary }}
-                />
+                <Users className="h-5 w-5" style={{ color: theme.primary }} />
                 <span className="font-semibold">Coach Dashboard</span>
               </Link>
             </div>
 
             <div className="flex items-center gap-2">
-              <Link href={`/orgs/${orgId}` as Route}>
-                <Button size="sm" variant="outline">
-                  Back to App
+              {/* Quick Actions Button - only show for FAB variant */}
+              {quickActionsVariant === "fab" && actions.length > 0 && (
+                <Button
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  size="sm"
+                  style={{
+                    backgroundColor: `rgb(${theme.primaryRgb})`,
+                    color: "white",
+                  }}
+                  title="Quick Actions"
+                >
+                  <Zap className="h-4 w-4" />
+                  <span className="ml-2 hidden sm:inline">Quick Actions</span>
                 </Button>
-              </Link>
+              )}
             </div>
           </div>
         </header>
+
+        {/* Quick Actions Menu - rendered for FAB variant */}
+        {quickActionsVariant === "fab" && <HeaderQuickActionsMenu />}
 
         {/* Main layout with sidebar */}
         {useNewNav ? (
@@ -141,5 +248,17 @@ export default function CoachLayout({
         )}
       </div>
     </>
+  );
+}
+
+export default function CoachLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <QuickActionsProvider>
+      <CoachLayoutInner>{children}</CoachLayoutInner>
+    </QuickActionsProvider>
   );
 }

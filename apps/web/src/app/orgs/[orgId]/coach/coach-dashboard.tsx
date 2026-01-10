@@ -628,40 +628,25 @@ export function CoachDashboard() {
   return (
     <div className="space-y-6">
       <SmartCoachDashboard
-        ageGroupFilter={ageGroupFilter}
         allPlayers={playersWithTeams}
         coachTeams={coachTeamNames}
-        genderFilter={genderFilter}
         isClubView={false}
-        onAgeGroupFilterChange={setAgeGroupFilter}
         onAssessPlayers={handleAssessPlayers}
         onClearTeamSelection={handleClearTeamSelection}
-        onEditPlayer={handleEditPlayer}
         onFilterAllPlayers={handleFilterAllPlayers}
         onFilterCompletedReviews={handleFilterCompletedReviews}
         onFilterOverdueReviews={handleFilterOverdueReviews}
-        onGenderFilterChange={setGenderFilter}
         onSaveTeamNote={handleSaveTeamNote}
-        onSearchChange={setSearchTerm}
-        onSportFilterChange={setSportFilter}
-        onTeamFilterChange={setTeamFilter}
         onViewAnalytics={handleViewAnalytics}
         onViewGoals={handleViewGoals}
         onViewInjuries={handleViewInjuries}
         onViewMatchDay={handleViewMatchDay}
         onViewMedical={handleViewMedical}
-        onViewPlayer={handleViewPlayer}
         onViewTeam={handleViewTeam}
         onViewVoiceNotes={handleViewVoiceNotes}
         players={filteredPlayers}
-        searchTerm={searchTerm}
         selectedTeam={selectedTeam}
         selectedTeamData={selectedTeamData}
-        sportFilter={sportFilter}
-        teamFilter={teamFilter}
-        uniqueAgeGroups={uniqueAgeGroups}
-        uniqueGenders={uniqueGenders}
-        uniqueSports={uniqueSports}
       />
 
       {/* Empty State */}

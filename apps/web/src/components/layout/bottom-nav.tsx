@@ -53,7 +53,15 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
   // Determine which item is active based on pathname
   const getIsActive = (item: BottomNavItem) => {
     if (item.href === "/") return pathname === "/";
-    return pathname.startsWith(item.href);
+
+    // For overview/dashboard buttons (id="overview"), only match exact pathname
+    if (item.id === "overview") {
+      return pathname === item.href;
+    }
+
+    // For all other routes, check exact match or child routes
+    if (pathname === item.href) return true;
+    return pathname.startsWith(item.href + "/");
   };
 
   const navContent = (

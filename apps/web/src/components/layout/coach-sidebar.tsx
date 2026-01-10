@@ -2,15 +2,15 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
-  Award,
+  Activity,
+  Calendar,
   ChevronDown,
   ClipboardList,
+  HeartPulse,
   Home,
   Menu,
-  Settings,
-  Star,
+  Mic,
   TrendingUp,
-  User,
   Users,
 } from "lucide-react";
 import type { Route } from "next";
@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -59,46 +60,46 @@ export function getCoachNavGroups(orgId: string): NavGroup[] {
           icon: Users,
         },
         {
-          href: `/orgs/${orgId}/coach/assessments`,
+          href: `/orgs/${orgId}/coach/assess`,
           label: "Assessments",
           icon: ClipboardList,
         },
       ],
     },
     {
-      label: "Performance",
+      label: "Development",
       icon: TrendingUp,
       items: [
         {
-          href: `/orgs/${orgId}/coach/reports`,
-          label: "Reports",
-          icon: Award,
-        },
-        {
-          href: `/orgs/${orgId}/coach/benchmarks`,
-          label: "Benchmarks",
-          icon: Star,
-        },
-        {
-          href: `/orgs/${orgId}/coach/progress`,
-          label: "Progress",
+          href: `/orgs/${orgId}/coach/goals`,
+          label: "Goals",
           icon: TrendingUp,
+        },
+        {
+          href: `/orgs/${orgId}/coach/voice-notes`,
+          label: "Voice Notes",
+          icon: Mic,
         },
       ],
     },
     {
-      label: "Account",
-      icon: Settings,
+      label: "Health & Attendance",
+      icon: HeartPulse,
       items: [
         {
-          href: `/orgs/${orgId}/coach/profile`,
-          label: "Profile",
-          icon: User,
+          href: `/orgs/${orgId}/coach/injuries`,
+          label: "Injuries",
+          icon: Activity,
         },
         {
-          href: `/orgs/${orgId}/coach/settings`,
-          label: "Settings",
-          icon: Settings,
+          href: `/orgs/${orgId}/coach/medical`,
+          label: "Medical Info",
+          icon: HeartPulse,
+        },
+        {
+          href: `/orgs/${orgId}/coach/match-day`,
+          label: "Match Day",
+          icon: Calendar,
         },
       ],
     },
@@ -273,6 +274,9 @@ export function CoachMobileNav({
             />
             Coach Dashboard
           </SheetTitle>
+          <SheetDescription className="sr-only">
+            Navigation menu for coach dashboard sections
+          </SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-col overflow-y-auto py-4">

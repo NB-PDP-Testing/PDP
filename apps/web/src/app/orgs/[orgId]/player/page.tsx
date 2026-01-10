@@ -165,9 +165,7 @@ export default function PlayerDashboardPage() {
                 Welcome back, {session?.user?.name || playerIdentity.firstName}!
               </p>
               {activeOrganization && (
-                <p className="text-sm opacity-60">
-                  {activeOrganization.name}
-                </p>
+                <p className="text-sm opacity-60">{activeOrganization.name}</p>
               )}
             </div>
           </div>

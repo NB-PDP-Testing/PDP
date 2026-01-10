@@ -77,7 +77,11 @@ export function OrgThemedGradient({
   const textClasses = useThemeContrastColors ? "" : "text-white";
 
   return (
-    <div className={cn(textClasses, className)} style={gradientStyle} {...props}>
+    <div
+      className={cn(textClasses, className)}
+      style={gradientStyle}
+      {...props}
+    >
       {children}
     </div>
   );

@@ -31,6 +31,12 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 
 type ViewMode = "players" | "guardians" | "status";
@@ -839,7 +845,14 @@ export default function GuardianManagementPage() {
             {filteredData.length === 0 ? (
               <Card>
                 <CardContent className="flex min-h-[200px] items-center justify-center">
-                  <p className="text-muted-foreground">No guardians found</p>
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyTitle>No Guardians Found</EmptyTitle>
+                      <EmptyDescription>
+                        No guardians match your current filters
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
                 </CardContent>
               </Card>
             ) : (

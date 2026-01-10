@@ -334,7 +334,7 @@ export default function AnalyticsDashboard() {
             </div>
 
             <Select onValueChange={setDateRange} value={dateRange}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-full sm:w-[140px]">
                 <Calendar className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Date range" />
               </SelectTrigger>
@@ -347,7 +347,7 @@ export default function AnalyticsDashboard() {
             </Select>
 
             <Select onValueChange={setSportFilter} value={sportFilter}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-full sm:w-[140px]">
                 <SelectValue placeholder="Sport" />
               </SelectTrigger>
               <SelectContent>
@@ -361,7 +361,7 @@ export default function AnalyticsDashboard() {
             </Select>
 
             <Select onValueChange={setAgeGroupFilter} value={ageGroupFilter}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-full sm:w-[140px]">
                 <SelectValue placeholder="Age Group" />
               </SelectTrigger>
               <SelectContent>

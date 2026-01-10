@@ -19,6 +19,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -159,10 +160,17 @@ export function ResponsiveContextMenu({
         } as React.HTMLAttributes<HTMLElement>)}
         <Sheet onOpenChange={handleOpenChange} open={open}>
           <SheetContent className={cn("pb-8", contentClassName)} side="bottom">
-            {title && (
+            {title ? (
               <SheetHeader className="mb-4">
                 <SheetTitle>{title}</SheetTitle>
+                <SheetDescription className="sr-only">
+                  Context menu actions
+                </SheetDescription>
               </SheetHeader>
+            ) : (
+              <SheetDescription className="sr-only">
+                Context menu actions
+              </SheetDescription>
             )}
             <div className="space-y-1">
               {menuContent ||

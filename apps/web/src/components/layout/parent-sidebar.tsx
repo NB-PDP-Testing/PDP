@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -271,6 +272,9 @@ export function ParentMobileNav({
             <Heart className="h-5 w-5" style={{ color: primaryColor }} />
             Parent Portal
           </SheetTitle>
+          <SheetDescription className="sr-only">
+            Navigation menu for parent portal sections
+          </SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-col overflow-y-auto py-4">

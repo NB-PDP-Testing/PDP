@@ -64,10 +64,39 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
   );
 
   // Get coach's team IDs
+  // Note: Some coach assignments may have team names instead of IDs (legacy data)
+  // We need to handle both cases
   const coachTeamIds = useMemo(() => {
-    if (!coachAssignments) return [];
-    return coachAssignments.teams || [];
-  }, [coachAssignments]);
+    if (!(coachAssignments && teams)) return [];
+    const assignmentTeams = coachAssignments.teams || [];
+
+    // Create maps for both ID and name lookup
+    const teamIdSet = new Set(teams.map((t: any) => t._id));
+    const teamNameToId = new Map(teams.map((t: any) => [t.name, t._id]));
+
+    // Convert assignment values to team IDs (handles both ID and name formats)
+    const resolvedIds = assignmentTeams
+      .map((value: string) => {
+        // If it's already a valid team ID, use it
+        if (teamIdSet.has(value)) {
+          return value;
+        }
+        // Otherwise, try to look up by name
+        const idFromName = teamNameToId.get(value);
+        if (idFromName) {
+          console.log(
+            `[coach-todos] Resolved team name "${value}" to ID "${idFromName}"`
+          );
+          return idFromName;
+        }
+        console.warn(`[coach-todos] Could not resolve team: "${value}"`);
+        return null;
+      })
+      .filter((id: string | null): id is string => id !== null);
+
+    // Deduplicate
+    return Array.from(new Set(resolvedIds));
+  }, [coachAssignments, teams]);
 
   // Get team-player links for coach's teams
   const teamPlayerLinks = useQuery(

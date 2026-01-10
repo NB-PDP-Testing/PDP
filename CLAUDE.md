@@ -400,3 +400,21 @@ This ensures full documentation is preserved both in the repository and on GitHu
 - Review `docs/` folder for detailed specifications
 - Reference `.ruler/` for development standards
 - Look at MVP app for feature reference (read-only)
+
+## Visual Testing with dev-browser
+
+When making frontend changes, **verify the layout visually** using the dev-browser tool. This is especially important for mobile-responsive and desktop layouts.
+
+### Setup (Already Configured)
+- Dev-browser is installed at `~/.claude/skills/dev-browser`
+- Server runs on `ws://127.0.0.1:9223`
+- Test account: `neil.B@blablablak.com` / `lien1979`
+
+### Starting the Browser Server
+If the server isn't running:
+```bash
+~/.claude/skills/dev-browser/server.sh &
+```
+
+### Visual Verification Pattern
+After making frontend changes, verify the layout:

@@ -413,6 +413,47 @@ npm run test:setup -- --headed
 | TEAM-011 | Add player to team available        | ✅     | teams.spec.ts |
 | TEAM-012 | Delete team option accessible       | ✅     | teams.spec.ts |
 
+### 5.12 Cross-Role Scenario Tests (`tests/cross-role/cross-role.spec.ts`) - NEW
+
+| ID        | Test                                            | Status | File               |
+| --------- | ----------------------------------------------- | ------ | ------------------ |
+| CROSS-001 | User can switch from Admin to Coach panel       | ✅     | cross-role.spec.ts |
+| CROSS-002 | User can switch from Coach to Admin panel       | ✅     | cross-role.spec.ts |
+| CROSS-003 | OrgRoleSwitcher displays available roles        | ✅     | cross-role.spec.ts |
+| CROSS-004 | Coach can only see assigned team players        | ✅     | cross-role.spec.ts |
+| CROSS-005 | Parent can only see linked children             | ✅     | cross-role.spec.ts |
+| CROSS-006 | Admin can see all organization players          | ✅     | cross-role.spec.ts |
+| CROSS-007 | Coach cannot access admin settings              | ✅     | cross-role.spec.ts |
+| CROSS-008 | Parent cannot create assessments                | ✅     | cross-role.spec.ts |
+| CROSS-009 | Coach cannot manage users                       | ✅     | cross-role.spec.ts |
+| CROSS-010 | Owner has access to both Admin and Coach panels | ✅     | cross-role.spec.ts |
+| CROSS-011 | Multi-role user can create assessment as coach  | ✅     | cross-role.spec.ts |
+| CROSS-012 | Multi-role user can manage teams as admin       | ✅     | cross-role.spec.ts |
+| CROSS-013 | Player data consistent across Admin/Coach views | ✅     | cross-role.spec.ts |
+| CROSS-014 | Role context persists after navigation          | ✅     | cross-role.spec.ts |
+| CROSS-015 | Platform staff can see Platform link            | ✅     | cross-role.spec.ts |
+
+### 5.13 Performance Tests (`tests/performance/performance.spec.ts`) - NEW
+
+| ID       | Test                                      | Status | File                |
+| -------- | ----------------------------------------- | ------ | ------------------- |
+| PERF-001 | Homepage loads within acceptable time     | ✅     | performance.spec.ts |
+| PERF-002 | Login page loads within acceptable time   | ✅     | performance.spec.ts |
+| PERF-003 | Organizations page loads within time      | ✅     | performance.spec.ts |
+| PERF-004 | Admin dashboard loads within time         | ✅     | performance.spec.ts |
+| PERF-005 | Coach dashboard loads within time         | ✅     | performance.spec.ts |
+| PERF-006 | Navigation between admin sections is fast | ✅     | performance.spec.ts |
+| PERF-007 | Role switching is fast                    | ✅     | performance.spec.ts |
+| PERF-008 | Players list loads efficiently            | ✅     | performance.spec.ts |
+| PERF-009 | Teams list loads efficiently              | ✅     | performance.spec.ts |
+| PERF-010 | No slow API requests on dashboard load    | ✅     | performance.spec.ts |
+
+**Performance Thresholds:**
+
+- Page load: < 5 seconds
+- Navigation: < 3 seconds
+- API responses: < 2 seconds
+
 ---
 
 ## 6. Test Coverage by Category
@@ -427,10 +468,12 @@ npm run test:setup -- --headed
 | Organization   | 20      | ✅ Complete       |
 | Flows          | 9       | ✅ Complete       |
 | Homepage       | 13      | ✅ Complete       |
-| Identity       | 6       | ✅ NEW - Complete |
-| Invitations    | 10      | ✅ NEW - Complete |
-| Teams          | 12      | ✅ NEW - Complete |
-| **Total**      | **177** | **11 categories** |
+| Identity       | 6       | ✅ Complete       |
+| Invitations    | 10      | ✅ Complete       |
+| Teams          | 12      | ✅ Complete       |
+| Cross-Role     | 15      | ✅ Complete       |
+| Performance    | 10      | ✅ NEW - Complete |
+| **Total**      | **202** | **13 categories** |
 
 ---
 
@@ -443,8 +486,8 @@ npm run test:setup -- --headed
 | Identity System       | P1       | 6               | ✅ IMPLEMENTED |
 | Invitation Workflow   | P1       | 10              | ✅ IMPLEMENTED |
 | Team Management CRUD  | P1       | 12              | ✅ IMPLEMENTED |
-| Cross-Role Scenarios  | P2       | 10-15           | ⬜ Not started |
-| Performance Tests     | P2       | 5-10            | ⬜ Not started |
+| Cross-Role Scenarios  | P2       | 15              | ✅ IMPLEMENTED |
+| Performance Tests     | P2       | 10              | ✅ IMPLEMENTED |
 | Mobile Viewport Tests | P3       | 15-20           | ⬜ Not started |
 
 ### 7.2 Known Limitations
@@ -464,18 +507,18 @@ npm run test:setup -- --headed
 2. ~~**Add Invitation Workflow tests**~~ - ✅ 10 tests implemented (invitations.spec.ts)
 3. ~~**Add Team Management CRUD tests**~~ - ✅ 12 tests implemented (teams.spec.ts)
 
-### 8.2 Medium-Term (P1)
+### 8.2 Medium-Term (P1) - ✅ COMPLETED
 
-1. **Cross-Role Tests** - Users with multiple roles
-2. **Data Isolation Tests** - Verify users can't access others' data
+1. ~~**Cross-Role Tests**~~ - ✅ 15 tests implemented (cross-role.spec.ts)
+2. ~~**Data Isolation Tests**~~ - ✅ Included in cross-role tests (CROSS-004 to CROSS-009)
 3. **CI/CD Integration** - Add to GitHub Actions
 
-### 8.3 Long-Term (P2)
+### 8.3 Long-Term (P2) - PARTIALLY COMPLETED
 
-1. **Visual Regression** - Screenshot comparison
-2. **Performance Testing** - Response time monitoring
-3. **Mobile Testing** - Full mobile viewport coverage
-4. **Parallel Execution** - Speed up test runs
+1. **Visual Regression** - Screenshot comparison ⬜
+2. ~~**Performance Testing**~~ - ✅ 10 tests implemented (performance.spec.ts)
+3. **Mobile Testing** - Full mobile viewport coverage ⬜
+4. **Parallel Execution** - Speed up test runs ⬜
 
 ---
 
@@ -521,3 +564,5 @@ npm run test
 | 2.1     | 2026-01-10 | Cline  | Added 67 new tests across 8 files                                                          |
 | 3.0     | 2026-01-10 | Cline  | Migrated to lightweight UAT model, removed onboarding, consolidated to single uat/ folder  |
 | 3.1     | 2026-01-10 | Cline  | Added 28 new tests: Identity (6), Invitations (10), Teams (12). All P0 priorities complete |
+| 3.2     | 2026-01-10 | Cline  | Added 15 Cross-Role Scenario tests. All P1 priorities complete (except CI/CD)              |
+| 3.3     | 2026-01-10 | Cline  | Added 10 Performance tests. P2 performance testing complete                                |

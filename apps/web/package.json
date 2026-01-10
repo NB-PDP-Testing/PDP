@@ -17,6 +17,8 @@
     "test:org": "playwright test --config=uat/playwright.config.ts tests/org/",
     "test:flows": "playwright test --config=uat/playwright.config.ts tests/flows/",
     "test:homepage": "playwright test --config=uat/playwright.config.ts tests/homepage/",
+    "test:cross-role": "playwright test --config=uat/playwright.config.ts tests/cross-role/",
+    "test:performance": "playwright test --config=uat/playwright.config.ts tests/performance/",
     "test:ui": "playwright test --config=uat/playwright.config.ts --ui",
     "test:headed": "playwright test --config=uat/playwright.config.ts --headed",
     "test:debug": "playwright test --config=uat/playwright.config.ts --debug",

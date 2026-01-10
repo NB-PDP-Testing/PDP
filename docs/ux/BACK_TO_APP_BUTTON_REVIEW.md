@@ -248,14 +248,31 @@ Add a "Platform Management" section to the OrgRoleSwitcher dropdown for platform
 ### Implementation Plan:
 
 1. **Delete** the button code from:
-   - `apps/web/src/app/orgs/[orgId]/admin/layout.tsx` (lines 176-181)
-   - `apps/web/src/app/orgs/[orgId]/coach/layout.tsx` (lines 122-127)
-   - `apps/web/src/app/orgs/[orgId]/parents/layout.tsx` (lines 98-104)
+   - `apps/web/src/app/orgs/[orgId]/admin/layout.tsx` (lines 176-181) ✅ DONE
+   - `apps/web/src/app/orgs/[orgId]/coach/layout.tsx` (lines 122-127) ✅ DONE
+   - `apps/web/src/app/orgs/[orgId]/parents/layout.tsx` (lines 98-104) ✅ DONE
 
-2. **Optional enhancement:** Add platform shortcuts to OrgRoleSwitcher for better platform staff UX
+2. **Enhancement:** Add platform staff "Manage Organizations" link to OrgRoleSwitcher ✅ DONE
+   - Added `useCurrentUser()` hook to access `isPlatformStaff` custom field
+   - Created "Platform" section in dropdown with "Manage Organizations" link
+   - Links directly to `/orgs` page for platform staff
+   - "Create Organization" remains on `/platform` page (not duplicated in switcher)
 
-3. **Update documentation:** This file serves as the analysis documentation
+3. **Update documentation:** This file serves as the analysis documentation ✅ DONE
 
 ### Confidence Level: **High**
 
 The button serves no meaningful purpose in its current form and can be safely removed without impacting any user workflows.
+
+---
+
+## Final Implementation (Jan 10, 2026)
+
+**Changes Made:**
+
+1. **Removed "Back to App" button** from all three role-specific layouts (Admin, Coach, Parent)
+2. **Added Platform Staff navigation** to OrgRoleSwitcher component:
+   - Platform staff see a "Platform" section with "Manage Organizations" option
+   - Clicking it navigates to `/orgs` (organization management hub)
+   - Uses `useCurrentUser()` hook to properly check `isPlatformStaff` flag
+3. **Result:** Cleaner layouts, better platform staff UX, no circular navigation

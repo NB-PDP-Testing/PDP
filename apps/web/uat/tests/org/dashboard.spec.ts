@@ -1,11 +1,4 @@
-import { test, expect } from "@playwright/test";
-import {
-  dismissPWAPrompt,
-  login,
-  users,
-  organization,
-  waitForPageLoad,
-} from "../../fixtures/test-fixtures";
+import { test, expect, waitForPageLoad } from "../../fixtures/test-fixtures";
 
 /**
  * Organization Dashboard Tests
@@ -15,11 +8,10 @@ import {
  */
 
 test.describe("ORG - Dashboard Tests", () => {
-  test.beforeEach(async ({ page }) => {
-    await login(page, users.owner.email, users.owner.password);
-  });
-
-  test("ORG-001: Organizations dashboard displays correctly", async ({ page }) => {
+  test("ORG-001: Organizations dashboard displays correctly", async ({ ownerPage }) => {
+    const page = ownerPage;
+    await page.goto("/orgs");
+    await waitForPageLoad(page);
     await expect(page).toHaveURL(/\/orgs/);
 
     // Verify welcome section
@@ -33,7 +25,10 @@ test.describe("ORG - Dashboard Tests", () => {
     await expect(page.getByText("Analytics & Insights")).toBeVisible();
   });
 
-  test("ORG-002: Your Organizations section is visible", async ({ page }) => {
+  test("ORG-002: Your Organizations section is visible", async ({ ownerPage }) => {
+    const page = ownerPage;
+    await page.goto("/orgs");
+    await waitForPageLoad(page);
     await expect(
       page.getByRole("heading", { name: "Your Organizations" })
     ).toBeVisible();
@@ -43,33 +38,48 @@ test.describe("ORG - Dashboard Tests", () => {
     ).toBeVisible();
   });
 
-  test("ORG-003: Create Organization button is visible", async ({ page }) => {
+  test("ORG-003: Create Organization button is visible", async ({ ownerPage }) => {
+    const page = ownerPage;
+    await page.goto("/orgs");
+    await waitForPageLoad(page);
     await expect(
       page.getByRole("link", { name: /Create Organization/i })
     ).toBeVisible();
   });
 
-  test("ORG-004: Join Organization button is visible", async ({ page }) => {
+  test("ORG-004: Join Organization button is visible", async ({ ownerPage }) => {
+    const page = ownerPage;
+    await page.goto("/orgs");
+    await waitForPageLoad(page);
     await expect(
       page.getByRole("link", { name: /Join Organization/i })
     ).toBeVisible();
   });
 
-  test("ORG-005: Navigate to Create Organization page", async ({ page }) => {
+  test("ORG-005: Navigate to Create Organization page", async ({ ownerPage }) => {
+    const page = ownerPage;
+    await page.goto("/orgs");
+    await waitForPageLoad(page);
     await page.click('text="Create Organization"');
     await waitForPageLoad(page);
 
     await expect(page).toHaveURL(/\/orgs\/create/);
   });
 
-  test("ORG-006: Navigate to Join Organization page", async ({ page }) => {
+  test("ORG-006: Navigate to Join Organization page", async ({ ownerPage }) => {
+    const page = ownerPage;
+    await page.goto("/orgs");
+    await waitForPageLoad(page);
     await page.click('text="Join Organization"');
     await waitForPageLoad(page);
 
     await expect(page).toHaveURL(/\/orgs\/join/);
   });
 
-  test("ORG-007: Organization card displays correct info", async ({ page }) => {
+  test("ORG-007: Organization card displays correct info", async ({ ownerPage }) => {
+    const page = ownerPage;
+    await page.goto("/orgs");
+    await waitForPageLoad(page);
     // Look for any organization card - the organization may have different name
     // Check for common org name patterns or just verify an org card exists
     const orgCard = page.locator('[data-slot="card"]').first();
@@ -81,19 +91,28 @@ test.describe("ORG - Dashboard Tests", () => {
     ).toBeVisible();
   });
 
-  test("ORG-008: Organization card has Coach Panel link", async ({ page }) => {
+  test("ORG-008: Organization card has Coach Panel link", async ({ ownerPage }) => {
+    const page = ownerPage;
+    await page.goto("/orgs");
+    await waitForPageLoad(page);
     await expect(
       page.getByRole("link", { name: /Coach Panel/i })
     ).toBeVisible();
   });
 
-  test("ORG-009: Organization card has Admin Panel link", async ({ page }) => {
+  test("ORG-009: Organization card has Admin Panel link", async ({ ownerPage }) => {
+    const page = ownerPage;
+    await page.goto("/orgs");
+    await waitForPageLoad(page);
     await expect(
       page.getByRole("link", { name: /Admin Panel/i })
     ).toBeVisible();
   });
 
-  test("ORG-010: Switch between Coach and Admin panels", async ({ page }) => {
+  test("ORG-010: Switch between Coach and Admin panels", async ({ ownerPage }) => {
+    const page = ownerPage;
+    await page.goto("/orgs");
+    await waitForPageLoad(page);
     // Click Coach Panel
     await page.click('text="Coach Panel"');
     await waitForPageLoad(page);
@@ -109,7 +128,10 @@ test.describe("ORG - Dashboard Tests", () => {
     await expect(page).toHaveURL(/\/admin/);
   });
 
-  test("ORG-011: Header navigation is visible", async ({ page }) => {
+  test("ORG-011: Header navigation is visible", async ({ ownerPage }) => {
+    const page = ownerPage;
+    await page.goto("/orgs");
+    await waitForPageLoad(page);
     // Home link
     await expect(
       page.getByRole("link", { name: "Home" })
@@ -131,7 +153,10 @@ test.describe("ORG - Dashboard Tests", () => {
     ).toBeVisible();
   });
 
-  test("ORG-012: Platform staff sees All Platform Organizations", async ({ page }) => {
+  test("ORG-012: Platform staff sees All Platform Organizations", async ({ ownerPage }) => {
+    const page = ownerPage;
+    await page.goto("/orgs");
+    await waitForPageLoad(page);
     // Platform staff (owner) should see this section
     await expect(
       page.getByRole("heading", { name: "All Platform Organizations" })

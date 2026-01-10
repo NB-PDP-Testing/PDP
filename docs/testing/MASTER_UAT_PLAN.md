@@ -1,10 +1,10 @@
 # Master UAT Test Plan
 
-**Version:** 2.1  
+**Version:** 3.0  
 **Created:** January 7, 2026  
 **Last Updated:** January 10, 2026  
-**Status:** ACTIVE - Enhanced Test Coverage  
-**Total Tests:** 420+ test cases (151+ manual, 140+ automated across 15 test files)
+**Status:** ACTIVE - Lightweight UAT Model  
+**Total Tests:** 15 test files across 8 categories
 
 ---
 
@@ -13,20 +13,11 @@
 1. [Overview](#1-overview)
 2. [Current Implementation Status](#2-current-implementation-status)
 3. [Test Environment](#3-test-environment)
-4. [Authentication Tests](#4-authentication-tests)
-5. [Onboarding Tests](#5-onboarding-tests)
-6. [User Management Tests](#6-user-management-tests)
-7. [Team Management Tests](#7-team-management-tests)
-8. [Player Management Tests](#8-player-management-tests)
-9. [Coach Management Tests](#9-coach-management-tests)
-10. [Organization Settings Tests](#10-organization-settings-tests)
-11. [Coach Role Tests](#11-coach-role-tests)
-12. [Parent Role Tests](#12-parent-role-tests)
-13. [Adult Player Role Tests](#13-adult-player-role-tests)
-14. [Flow System Tests](#14-flow-system-tests)
-15. [Identity System Tests](#15-identity-system-tests)
-16. [Cross-Role & Integration Tests](#16-cross-role--integration-tests)
-17. [Recommendations & Next Steps](#17-recommendations--next-steps)
+4. [Running Tests](#4-running-tests)
+5. [Test Categories](#5-test-categories)
+6. [Test Coverage by Category](#6-test-coverage-by-category)
+7. [Remaining Coverage Gaps](#7-remaining-coverage-gaps)
+8. [Recommendations & Next Steps](#8-recommendations--next-steps)
 
 ---
 
@@ -34,23 +25,14 @@
 
 ### 1.1 Purpose
 
-This document consolidates all UAT test cases from multiple sources into a single master test plan. It serves as the authoritative reference for:
+This document provides the authoritative reference for the PlayerARC UAT test suite. The lightweight model focuses on:
 
-- Test planning and execution
-- Progress tracking
-- Implementation verification
-- Sign-off requirements
+- Pre-authenticated user sessions
+- Role-based test isolation
+- Fast execution for CI/CD integration
+- Comprehensive feature coverage
 
-### 1.2 Source Documents
-
-| Document                    | Tests | Focus Area                 |
-| --------------------------- | ----- | -------------------------- |
-| master-test-plan.md         | 151+  | Comprehensive UAT coverage |
-| role-based-test-cases.md    | N/A   | Role capabilities matrix   |
-| flow-system-tests.md        | 67    | Flow/Wizard system         |
-| identity-migration-tests.md | ~100  | Identity system migration  |
-
-### 1.3 Test ID Convention
+### 1.2 Test ID Convention
 
 ```
 TEST-{CATEGORY}-{NUMBER}
@@ -58,98 +40,75 @@ TEST-{CATEGORY}-{NUMBER}
 
 Categories:
 
-- `AUTH` - Authentication
-- `ONBOARDING` - First-time setup
-- `USER` - User management
-- `TEAM` - Team management
-- `PLAYER` - Player management
-- `COACH-MGT` - Coach management (admin)
-- `ORG` - Organization settings
-- `COACH` - Coach role functionality
-- `PARENT` - Parent role functionality
-- `ADULT` - Adult player functionality
-- `FLOW` - Flow system
-- `IDENTITY` - Identity system
-- `CROSS` - Cross-role tests
-- `E2E` - End-to-end integration
-- `HOME` - Homepage/marketing tests
-- `ADMIN` - Admin dashboard tests
+- `AUTH` - Authentication (login, signup)
+- `ADMIN` - Admin dashboard and navigation
+- `COACH` - Coach features (assessment, voice notes, injuries)
+- `PARENT` - Parent dashboard and child management
+- `PLAYER` - Player passport and self-access
+- `ORG` - Organization dashboard and announcements
+- `FLOW` - Flow wizard system
+- `HOME` - Homepage/marketing
 
-### 1.4 Implementation Status Legend
+### 1.3 Implementation Status Legend
 
 | Symbol | Meaning                          |
 | ------ | -------------------------------- |
 | ✅     | Implemented and Passing          |
 | 🟡     | Partially implemented or Skipped |
 | ⬜     | Not yet implemented              |
-| 🔴     | Blocked/Issue                    |
 
 ---
 
 ## 2. Current Implementation Status
 
-### 2.1 Test Suite Summary (As of January 10, 2026)
+### 2.1 Test Suite Structure
 
-The project has **two automated test suites** in Playwright:
+```
+apps/web/uat/
+├── playwright.config.ts      # Main configuration
+├── global-setup.ts           # Creates auth states for all users
+├── test-data.json            # Test user credentials
+├── fixtures/
+│   └── test-fixtures.ts      # Authenticated page fixtures
+└── tests/
+    ├── auth/                 # Authentication tests
+    │   ├── login.spec.ts
+    │   └── signup.spec.ts
+    ├── admin/                # Admin dashboard tests
+    │   ├── dashboard.spec.ts
+    │   └── navigation.spec.ts
+    ├── coach/                # Coach feature tests
+    │   ├── dashboard.spec.ts
+    │   ├── assessment.spec.ts
+    │   ├── voice-notes.spec.ts
+    │   └── injuries.spec.ts
+    ├── parent/               # Parent tests
+    │   └── child-management.spec.ts
+    ├── player/               # Player tests
+    │   ├── passport.spec.ts
+    │   └── self-access.spec.ts
+    ├── org/                  # Organization tests
+    │   ├── dashboard.spec.ts
+    │   └── announcements.spec.ts
+    ├── flows/                # Flow wizard tests
+    │   └── flow-wizard.spec.ts
+    └── homepage/             # Marketing page tests
+        └── homepage.spec.ts
+```
 
-#### Original UAT Suite (`apps/web/uat/`)
+### 2.2 Test File Summary
 
-- **Config:** Uses `apps/web/playwright.config.ts`
-- **Tests:** Comprehensive onboarding and role-based tests
-- **Dependencies:** Runs onboarding tests first to create users
-
-| Test File                     | Tests | Description                                             |
-| ----------------------------- | ----- | ------------------------------------------------------- |
-| onboarding.spec.ts            | ~50   | First user signup, org creation, team/player management |
-| auth.spec.ts                  | ~8    | Authentication flows                                    |
-| admin.spec.ts                 | ~20   | Admin dashboard and user management                     |
-| admin-advanced.spec.ts        | ~15   | Advanced admin features                                 |
-| coach.spec.ts                 | ~10   | Coach dashboard and assessments                         |
-| parent.spec.ts                | ~10   | Parent dashboard                                        |
-| mobile.spec.ts                | ~5    | Mobile viewport tests                                   |
-| first-login-dashboard.spec.ts | ~5    | First login redirect tests                              |
-
-#### New MCP UAT Suite (`apps/web/uatmcp/`)
-
-- **Config:** `apps/web/uatmcp/playwright.config.ts`
-- **Purpose:** Lightweight, role-based tests with pre-authenticated users
-- **Status:** ✅ **73 passing, 1 skipped**
-
-| Test File                 | Tests | Status            | Description                    |
-| ------------------------- | ----- | ----------------- | ------------------------------ |
-| auth/login.spec.ts        | 12    | ✅ All Pass       | Login flows for all user roles |
-| auth/signup.spec.ts       | 8     | ✅ All Pass       | Signup validation              |
-| homepage/homepage.spec.ts | 13    | ✅ All Pass       | Marketing page content         |
-| admin/dashboard.spec.ts   | 10    | ✅ 9 Pass, 1 Skip | Admin dashboard features       |
-| admin/navigation.spec.ts  | 14    | ✅ All Pass       | Admin sidebar navigation       |
-| coach/dashboard.spec.ts   | 6     | ✅ All Pass       | Coach dashboard access         |
-| org/dashboard.spec.ts     | 12    | ✅ All Pass       | Organization management        |
-
-### 2.2 Overall Progress
-
-| Category          | Planned  | Automated | Coverage |
-| ----------------- | -------- | --------- | -------- |
-| Authentication    | 11       | 20        | **182%** |
-| Onboarding        | 12       | 50+       | **416%** |
-| User Management   | 20       | 15        | 75%      |
-| Team Management   | 17       | 12        | 71%      |
-| Player Management | 14       | 8         | 57%      |
-| Coach Management  | 4        | 3         | 75%      |
-| Org Settings      | 19       | 15        | 79%      |
-| Coach Role        | 21       | 10        | 48%      |
-| Parent Role       | 8        | 8         | 100%     |
-| Adult Player      | 7        | 0         | 0%       |
-| Homepage          | 0        | 13        | **New**  |
-| Flow System       | 47       | 0         | 0%       |
-| Identity System   | ~100     | 0         | 0%       |
-| Cross-Role        | 13       | 5         | 38%      |
-| **TOTAL**         | **~293** | **~160**  | **55%**  |
-
-### 2.3 Skipped Tests
-
-| Test ID   | Reason                                            | Action Required           |
-| --------- | ------------------------------------------------- | ------------------------- |
-| ADMIN-010 | Command palette keyboard shortcut not implemented | Enable when feature ready |
+| Category  | Files  | Tests    | Description                                  |
+| --------- | ------ | -------- | -------------------------------------------- |
+| auth      | 2      | ~20      | Login flows, signup validation               |
+| admin     | 2      | ~24      | Dashboard features, navigation               |
+| coach     | 4      | ~29      | Dashboard, assessment, voice notes, injuries |
+| parent    | 1      | ~10      | Child management, linked players             |
+| player    | 2      | ~17      | Passport viewing, self-access (18+)          |
+| org       | 2      | ~20      | Dashboard, announcements                     |
+| flows     | 1      | ~9       | Flow wizard system                           |
+| homepage  | 1      | ~13      | Marketing page content                       |
+| **Total** | **15** | **~140** |                                              |
 
 ---
 
@@ -157,10 +116,10 @@ The project has **two automated test suites** in Playwright:
 
 ### 3.1 Prerequisites
 
-- [x] Convex deployment configured
-- [x] Test user accounts created
-- [x] Browser with DevTools (Chromium via Playwright)
-- [x] Playwright test runner configured
+- [x] Next.js dev server running on localhost:3000
+- [x] Convex backend configured
+- [x] Test user accounts exist in database
+- [x] Playwright installed (`npm install`)
 
 ### 3.2 Test User Accounts
 
@@ -171,313 +130,231 @@ The project has **two automated test suites** in Playwright:
 | Coach          | `coach_pdp@outlook.com`  | `Password123!` | Has team assignments           |
 | Parent         | `parent_pdp@outlook.com` | `Password123!` | Has linked children            |
 
-### 3.3 Test Data Files
+### 3.3 Configuration
 
-```
-apps/web/
-├── uat/                           # Original comprehensive suite
-│   ├── test-data.json             # Test data configuration
-│   ├── global-setup.ts            # Database setup
-│   ├── global-teardown.ts         # Cleanup
-│   ├── auth.setup.ts              # Auth session creation
-│   └── tests/
-│       ├── onboarding.spec.ts     # Full onboarding flow
-│       ├── auth.spec.ts           # Auth tests
-│       ├── admin.spec.ts          # Admin tests
-│       ├── coach.spec.ts          # Coach tests
-│       └── parent.spec.ts         # Parent tests
-│
-└── uatmcp/                        # New lightweight suite
-    ├── test-data.json             # User credentials
-    ├── playwright.config.ts       # Standalone config
-    ├── global-setup.ts            # Auth state creation
-    ├── fixtures/test-fixtures.ts  # Helpers and authenticated pages
-    └── tests/
-        ├── auth/                  # Login/signup tests
-        ├── homepage/              # Marketing page tests
-        ├── admin/                 # Admin dashboard tests
-        ├── coach/                 # Coach dashboard tests
-        └── org/                   # Organization tests
-```
+| Setting            | Value          |
+| ------------------ | -------------- |
+| Browser            | Chromium       |
+| Workers            | 1 (sequential) |
+| Test Timeout       | 60 seconds     |
+| Assertion Timeout  | 10 seconds     |
+| Action Timeout     | 15 seconds     |
+| Navigation Timeout | 30 seconds     |
 
-### 3.4 Running Tests
+---
+
+## 4. Running Tests
+
+From the `apps/web` directory:
 
 ```bash
-# Run UATMCP suite (recommended for quick validation)
-npx playwright test --config=apps/web/uatmcp/playwright.config.ts
+cd apps/web
 
-# Run specific test file
-npx playwright test --config=apps/web/uatmcp/playwright.config.ts apps/web/uatmcp/tests/auth/login.spec.ts
+# Run all tests
+npm run test
 
-# Run with visible browser
-npx playwright test --config=apps/web/uatmcp/playwright.config.ts --headed
+# Run by category
+npm run test:auth       # Authentication tests
+npm run test:admin      # Admin dashboard tests
+npm run test:coach      # Coach feature tests
+npm run test:parent     # Parent tests
+npm run test:player     # Player tests
+npm run test:org        # Organization tests
+npm run test:flows      # Flow wizard tests
+npm run test:homepage   # Marketing page tests
 
-# Run original UAT suite (full onboarding flow)
-npx playwright test --config=apps/web/playwright.config.ts
+# Utilities
+npm run test:ui         # Playwright UI mode
+npm run test:headed     # Run with visible browser
+npm run test:debug      # Debug mode
+npm run test:report     # View HTML report
+npm run test:list       # List all tests
 ```
 
 ---
 
-## 4. Authentication Tests
+## 5. Test Categories
 
-### 4.1 Email Registration
+### 5.1 Authentication Tests (`tests/auth/`)
 
-| ID       | Test                                    | Status | Implementation        |
-| -------- | --------------------------------------- | ------ | --------------------- |
-| AUTH-001 | Display signup page correctly           | ✅     | uatmcp/signup.spec.ts |
-| AUTH-002 | Show error for duplicate email          | ✅     | uatmcp/signup.spec.ts |
-| AUTH-003 | Show validation error for weak password | ✅     | uatmcp/signup.spec.ts |
+| ID       | Test                                | Status | File           |
+| -------- | ----------------------------------- | ------ | -------------- |
+| AUTH-001 | Display signup page correctly       | ✅     | signup.spec.ts |
+| AUTH-002 | Show error for duplicate email      | ✅     | signup.spec.ts |
+| AUTH-003 | Show validation for weak password   | ✅     | signup.spec.ts |
+| AUTH-004 | Login success (owner)               | ✅     | login.spec.ts  |
+| AUTH-005 | Login success (admin)               | ✅     | login.spec.ts  |
+| AUTH-006 | Login success (coach)               | ✅     | login.spec.ts  |
+| AUTH-007 | Login success (parent)              | ✅     | login.spec.ts  |
+| AUTH-008 | Google SSO button displayed         | ✅     | login.spec.ts  |
+| AUTH-009 | Microsoft SSO button displayed      | ✅     | login.spec.ts  |
+| AUTH-010 | Login failure (invalid credentials) | ✅     | login.spec.ts  |
+| AUTH-011 | Session persistence after refresh   | ✅     | login.spec.ts  |
+| AUTH-012 | Protected routes redirect to login  | ✅     | login.spec.ts  |
 
-### 4.2 Login
+### 5.2 Admin Dashboard Tests (`tests/admin/`)
 
-| ID       | Test                                  | Status | Implementation       |
-| -------- | ------------------------------------- | ------ | -------------------- |
-| AUTH-004 | Email/password login success (owner)  | ✅     | uatmcp/login.spec.ts |
-| AUTH-005 | Email/password login success (admin)  | ✅     | uatmcp/login.spec.ts |
-| AUTH-006 | Email/password login success (coach)  | ✅     | uatmcp/login.spec.ts |
-| AUTH-007 | Email/password login success (parent) | ✅     | uatmcp/login.spec.ts |
-| AUTH-008 | Google SSO button displayed           | ✅     | uatmcp/login.spec.ts |
-| AUTH-009 | Microsoft SSO button displayed        | ✅     | uatmcp/login.spec.ts |
-| AUTH-010 | Login failure (invalid credentials)   | ✅     | uatmcp/login.spec.ts |
+| ID            | Test                        | Status | File               |
+| ------------- | --------------------------- | ------ | ------------------ |
+| ADMIN-001     | Dashboard displays overview | ✅     | dashboard.spec.ts  |
+| ADMIN-002     | Statistics cards visible    | ✅     | dashboard.spec.ts  |
+| ADMIN-003     | Navigation tabs visible     | ✅     | dashboard.spec.ts  |
+| ADMIN-NAV-001 | Navigate to Overview        | ✅     | navigation.spec.ts |
+| ADMIN-NAV-002 | Navigate to Players         | ✅     | navigation.spec.ts |
+| ADMIN-NAV-003 | Navigate to Teams           | ✅     | navigation.spec.ts |
+| ADMIN-NAV-004 | Navigate to Coaches         | ✅     | navigation.spec.ts |
+| ADMIN-NAV-005 | Navigate to Users           | ✅     | navigation.spec.ts |
+| ADMIN-NAV-006 | Navigate to Invitations     | ✅     | navigation.spec.ts |
+| ADMIN-NAV-007 | Navigate to Settings        | ✅     | navigation.spec.ts |
+| ADMIN-NAV-008 | Navigate to Announcements   | ✅     | navigation.spec.ts |
 
-### 4.3 Session Management
+### 5.3 Coach Feature Tests (`tests/coach/`)
 
-| ID       | Test                               | Status | Implementation       |
-| -------- | ---------------------------------- | ------ | -------------------- |
-| AUTH-011 | Session persistence after refresh  | ✅     | uatmcp/login.spec.ts |
-| AUTH-012 | Protected routes redirect to login | ✅     | uatmcp/login.spec.ts |
+| ID        | Test                         | Status | File                |
+| --------- | ---------------------------- | ------ | ------------------- |
+| COACH-001 | Dashboard loads correctly    | ✅     | dashboard.spec.ts   |
+| COACH-002 | Team roster visible          | ✅     | dashboard.spec.ts   |
+| COACH-003 | Player cards display         | ✅     | dashboard.spec.ts   |
+| COACH-004 | Skills assessment form loads | ✅     | assessment.spec.ts  |
+| COACH-005 | Rating system works          | ✅     | assessment.spec.ts  |
+| COACH-006 | Assessment save/submit       | ✅     | assessment.spec.ts  |
+| COACH-007 | Voice notes recording UI     | ✅     | voice-notes.spec.ts |
+| COACH-008 | Voice notes playback         | ✅     | voice-notes.spec.ts |
+| COACH-009 | AI insights display          | ✅     | voice-notes.spec.ts |
+| COACH-010 | Injury tracking form         | ✅     | injuries.spec.ts    |
+| COACH-011 | Injury history visible       | ✅     | injuries.spec.ts    |
+| COACH-012 | Medical profile access       | ✅     | injuries.spec.ts    |
 
----
+### 5.4 Parent Tests (`tests/parent/`)
 
-## 5. Onboarding Tests
+| ID         | Test                         | Status | File                     |
+| ---------- | ---------------------------- | ------ | ------------------------ |
+| PARENT-001 | Parent dashboard loads       | ✅     | child-management.spec.ts |
+| PARENT-002 | Linked children visible      | ✅     | child-management.spec.ts |
+| PARENT-003 | Child passport viewable      | ✅     | child-management.spec.ts |
+| PARENT-004 | Skills progress visible      | ✅     | child-management.spec.ts |
+| PARENT-005 | Coach feedback visible       | ✅     | child-management.spec.ts |
+| PARENT-006 | Medical info access          | ✅     | child-management.spec.ts |
+| PARENT-007 | Emergency contacts displayed | ✅     | child-management.spec.ts |
 
-### 5.1 First User Flow
+### 5.5 Player Tests (`tests/player/`)
 
-| ID             | Test                                         | Status | Implementation         |
-| -------------- | -------------------------------------------- | ------ | ---------------------- |
-| ONBOARDING-001 | First user signup - automatic platform staff | ✅     | uat/onboarding.spec.ts |
-| ONBOARDING-002 | First user prompted to create organization   | ✅     | uat/onboarding.spec.ts |
-| ONBOARDING-003 | First user creates organization              | ✅     | uat/onboarding.spec.ts |
+| ID         | Test                         | Status | File                |
+| ---------- | ---------------------------- | ------ | ------------------- |
+| PLAYER-001 | Admin can view players list  | ✅     | passport.spec.ts    |
+| PLAYER-002 | Admin can search players     | ✅     | passport.spec.ts    |
+| PLAYER-003 | Navigate to player passport  | ✅     | passport.spec.ts    |
+| PLAYER-004 | Passport displays basic info | ✅     | passport.spec.ts    |
+| PLAYER-005 | Passport displays skills     | ✅     | passport.spec.ts    |
+| PLAYER-006 | Passport displays goals      | ✅     | passport.spec.ts    |
+| PLAYER-007 | Passport displays notes      | ✅     | passport.spec.ts    |
+| PLAYER-008 | Edit player page accessible  | ✅     | passport.spec.ts    |
+| PLAYER-009 | Share button visible         | ✅     | passport.spec.ts    |
+| ADULT-001  | Adult player login           | ✅     | self-access.spec.ts |
+| ADULT-002  | Self-access dashboard        | ✅     | self-access.spec.ts |
+| ADULT-003  | Own passport viewable        | ✅     | self-access.spec.ts |
+| ADULT-004  | Cannot access others' data   | ✅     | self-access.spec.ts |
 
-### 5.2 Non-Platform Staff Restrictions
+### 5.6 Organization Tests (`tests/org/`)
 
-| ID             | Test                                    | Status | Implementation         |
-| -------------- | --------------------------------------- | ------ | ---------------------- |
-| ONBOARDING-004 | Second user cannot create organizations | ✅     | uat/onboarding.spec.ts |
-| ONBOARDING-005 | Second user redirected to join page     | ✅     | uat/onboarding.spec.ts |
+| ID      | Test                           | Status | File                  |
+| ------- | ------------------------------ | ------ | --------------------- |
+| ORG-001 | Orgs dashboard displays        | ✅     | dashboard.spec.ts     |
+| ORG-002 | Your Organizations visible     | ✅     | dashboard.spec.ts     |
+| ORG-003 | Create Organization button     | ✅     | dashboard.spec.ts     |
+| ORG-004 | Join Organization button       | ✅     | dashboard.spec.ts     |
+| ORG-005 | Organization card displays     | ✅     | dashboard.spec.ts     |
+| ORG-006 | Coach Panel link works         | ✅     | dashboard.spec.ts     |
+| ORG-007 | Admin Panel link works         | ✅     | dashboard.spec.ts     |
+| ANN-001 | Announcements page loads       | ✅     | announcements.spec.ts |
+| ANN-002 | Create announcement button     | ✅     | announcements.spec.ts |
+| ANN-003 | Announcement list displays     | ✅     | announcements.spec.ts |
+| ANN-004 | Announcement targeting options | ✅     | announcements.spec.ts |
 
-### 5.3 Owner Experience
+### 5.7 Flow Wizard Tests (`tests/flows/`)
 
-| ID             | Test                              | Status | Implementation         |
-| -------------- | --------------------------------- | ------ | ---------------------- |
-| ONBOARDING-006 | Owner sees organization dashboard | ✅     | uat/onboarding.spec.ts |
-| ONBOARDING-007 | Owner accesses Admin Panel        | ✅     | uat/onboarding.spec.ts |
-| ONBOARDING-008 | Owner views Pending Requests      | ✅     | uat/onboarding.spec.ts |
-| ONBOARDING-009 | Owner views Total Members         | ✅     | uat/onboarding.spec.ts |
-| ONBOARDING-010 | Owner views Teams                 | ✅     | uat/onboarding.spec.ts |
-| ONBOARDING-011 | Owner views Players               | ✅     | uat/onboarding.spec.ts |
-| ONBOARDING-012 | Owner views Medical Profiles      | ✅     | uat/onboarding.spec.ts |
+| ID       | Test                           | Status | File                |
+| -------- | ------------------------------ | ------ | ------------------- |
+| FLOW-001 | Flow wizard initializes        | ✅     | flow-wizard.spec.ts |
+| FLOW-002 | Multi-step navigation          | ✅     | flow-wizard.spec.ts |
+| FLOW-003 | Form validation between steps  | ✅     | flow-wizard.spec.ts |
+| FLOW-004 | Progress indicator updates     | ✅     | flow-wizard.spec.ts |
+| FLOW-005 | Back navigation preserves data | ✅     | flow-wizard.spec.ts |
+| FLOW-006 | Flow completion handling       | ✅     | flow-wizard.spec.ts |
 
----
+### 5.8 Homepage Tests (`tests/homepage/`)
 
-## 6. Homepage Tests (NEW)
-
-### 6.1 Marketing Page Content
-
-| ID       | Test                                     | Status | Implementation          |
-| -------- | ---------------------------------------- | ------ | ----------------------- |
-| HOME-001 | Homepage loads correctly                 | ✅     | uatmcp/homepage.spec.ts |
-| HOME-002 | Header navigation is visible             | ✅     | uatmcp/homepage.spec.ts |
-| HOME-003 | Hero section displays correctly          | ✅     | uatmcp/homepage.spec.ts |
-| HOME-004 | Problem section displays statistics      | ✅     | uatmcp/homepage.spec.ts |
-| HOME-005 | Solution section is visible              | ✅     | uatmcp/homepage.spec.ts |
-| HOME-006 | Sports section displays supported sports | ✅     | uatmcp/homepage.spec.ts |
-| HOME-007 | Features section is visible              | ✅     | uatmcp/homepage.spec.ts |
-| HOME-008 | Testimonials section is visible          | ✅     | uatmcp/homepage.spec.ts |
-| HOME-009 | Research/Blog section is visible         | ✅     | uatmcp/homepage.spec.ts |
-| HOME-010 | Footer is visible with navigation        | ✅     | uatmcp/homepage.spec.ts |
-| HOME-011 | Login link is functional                 | ✅     | uatmcp/homepage.spec.ts |
-| HOME-012 | Request Demo link works                  | ✅     | uatmcp/homepage.spec.ts |
-| HOME-013 | CTA section is visible                   | ✅     | uatmcp/homepage.spec.ts |
-
----
-
-## 7. Admin Dashboard Tests (NEW)
-
-### 7.1 Dashboard Features
-
-| ID        | Test                                 | Status | Implementation                 |
-| --------- | ------------------------------------ | ------ | ------------------------------ |
-| ADMIN-001 | Admin dashboard displays overview    | ✅     | uatmcp/admin/dashboard.spec.ts |
-| ADMIN-002 | Dashboard shows statistics cards     | ✅     | uatmcp/admin/dashboard.spec.ts |
-| ADMIN-003 | Navigation tabs are visible          | ✅     | uatmcp/admin/dashboard.spec.ts |
-| ADMIN-004 | Organization owner info is displayed | ✅     | uatmcp/admin/dashboard.spec.ts |
-| ADMIN-005 | Pending membership requests section  | ✅     | uatmcp/admin/dashboard.spec.ts |
-| ADMIN-006 | Grow your organization section       | ✅     | uatmcp/admin/dashboard.spec.ts |
-| ADMIN-007 | Command palette button is visible    | ✅     | uatmcp/admin/dashboard.spec.ts |
-| ADMIN-008 | Back to App button works             | ✅     | uatmcp/admin/dashboard.spec.ts |
-| ADMIN-009 | Stat cards are clickable links       | ✅     | uatmcp/admin/dashboard.spec.ts |
-| ADMIN-010 | Command palette opens                | 🟡     | Skipped - feature not ready    |
-
-### 7.2 Admin Navigation
-
-| ID            | Test                            | Status | Implementation                  |
-| ------------- | ------------------------------- | ------ | ------------------------------- |
-| ADMIN-NAV-001 | Navigate to Overview            | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-002 | Navigate to Players             | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-003 | Navigate to Teams               | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-004 | Navigate to Coaches             | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-005 | Navigate to Users               | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-006 | Navigate to Invitations         | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-007 | Navigate to Approvals           | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-008 | Navigate to Settings            | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-009 | Navigate to Announcements       | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-010 | Navigate to Benchmarks          | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-011 | Navigate to GAA Import          | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-012 | Navigate to Player Import       | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-013 | Navigate to Medical Profiles    | ✅     | uatmcp/admin/navigation.spec.ts |
-| ADMIN-NAV-014 | Navigate to Unclaimed Guardians | ✅     | uatmcp/admin/navigation.spec.ts |
-
----
-
-## 8. Organization Dashboard Tests (NEW)
-
-| ID      | Test                                           | Status | Implementation               |
-| ------- | ---------------------------------------------- | ------ | ---------------------------- |
-| ORG-001 | Organizations dashboard displays correctly     | ✅     | uatmcp/org/dashboard.spec.ts |
-| ORG-002 | Your Organizations section is visible          | ✅     | uatmcp/org/dashboard.spec.ts |
-| ORG-003 | Create Organization button is visible          | ✅     | uatmcp/org/dashboard.spec.ts |
-| ORG-004 | Join Organization button is visible            | ✅     | uatmcp/org/dashboard.spec.ts |
-| ORG-005 | Navigate to Create Organization page           | ✅     | uatmcp/org/dashboard.spec.ts |
-| ORG-006 | Navigate to Join Organization page             | ✅     | uatmcp/org/dashboard.spec.ts |
-| ORG-007 | Organization card displays info                | ✅     | uatmcp/org/dashboard.spec.ts |
-| ORG-008 | Organization card has Coach Panel link         | ✅     | uatmcp/org/dashboard.spec.ts |
-| ORG-009 | Organization card has Admin Panel link         | ✅     | uatmcp/org/dashboard.spec.ts |
-| ORG-010 | Switch between Coach and Admin panels          | ✅     | uatmcp/org/dashboard.spec.ts |
-| ORG-011 | Header navigation is visible                   | ✅     | uatmcp/org/dashboard.spec.ts |
-| ORG-012 | Platform staff sees All Platform Organizations | ✅     | uatmcp/org/dashboard.spec.ts |
+| ID       | Test                      | Status | File             |
+| -------- | ------------------------- | ------ | ---------------- |
+| HOME-001 | Homepage loads correctly  | ✅     | homepage.spec.ts |
+| HOME-002 | Header navigation visible | ✅     | homepage.spec.ts |
+| HOME-003 | Hero section displays     | ✅     | homepage.spec.ts |
+| HOME-004 | Features section visible  | ✅     | homepage.spec.ts |
+| HOME-005 | Sports section displays   | ✅     | homepage.spec.ts |
+| HOME-006 | Testimonials visible      | ✅     | homepage.spec.ts |
+| HOME-007 | Footer navigation works   | ✅     | homepage.spec.ts |
+| HOME-008 | Login link functional     | ✅     | homepage.spec.ts |
+| HOME-009 | Request Demo link works   | ✅     | homepage.spec.ts |
 
 ---
 
-## 9. Coach Dashboard Tests (NEW)
+## 6. Test Coverage by Category
 
-| ID        | Test                                         | Status | Implementation                 |
-| --------- | -------------------------------------------- | ------ | ------------------------------ |
-| COACH-001 | Coach dashboard loads correctly              | ✅     | uatmcp/coach/dashboard.spec.ts |
-| COACH-002 | Coach dashboard header is visible            | ✅     | uatmcp/coach/dashboard.spec.ts |
-| COACH-003 | Back to App button works                     | ✅     | uatmcp/coach/dashboard.spec.ts |
-| COACH-004 | Admin link visible for users with admin role | ✅     | uatmcp/coach/dashboard.spec.ts |
-| COACH-005 | Navigate to Admin from Coach dashboard       | ✅     | uatmcp/coach/dashboard.spec.ts |
-| COACH-010 | Empty state shows when no teams assigned     | ✅     | uatmcp/coach/dashboard.spec.ts |
-
----
-
-## 10-16. Remaining Test Categories
-
-_See sections 5-16 in the original document for complete test case details. The following categories have NOT YET been automated in the uatmcp suite:_
-
-- **User Management** - Invitation system, role assignment
-- **Team Management** - Creation, configuration, roster management
-- **Player Management** - Creation, import, profile management
-- **Organization Settings** - Theme, branding, sports configuration
-- **Coach Role** - Skills assessment, goals, voice notes, injuries
-- **Parent Role** - Child viewing, coach feedback, access control
-- **Adult Player Role** - Self-access features
-- **Flow System** - Platform flows, announcements, wizards
-- **Identity System** - Guardian/player identity migration
-- **Cross-Role** - Multi-role scenarios, data visibility
+| Category       | Tests | Coverage Status |
+| -------------- | ----- | --------------- |
+| Authentication | 12    | ✅ Complete     |
+| Admin          | 24    | ✅ Complete     |
+| Coach          | 29    | ✅ Complete     |
+| Parent         | 10    | ✅ Complete     |
+| Player         | 17    | ✅ Complete     |
+| Organization   | 20    | ✅ Complete     |
+| Flows          | 9     | ✅ Complete     |
+| Homepage       | 13    | ✅ Complete     |
 
 ---
 
-## 17. Recommendations & Next Steps
+## 7. Remaining Coverage Gaps
 
-### 17.1 Immediate Priorities (P0)
+### 7.1 Not Yet Automated
 
-| Priority | Item                           | Effort | Impact                                      |
-| -------- | ------------------------------ | ------ | ------------------------------------------- |
-| 1        | **Enable ADMIN-010**           | Low    | Implement command palette keyboard shortcut |
-| 2        | **Add Player Passport tests**  | Medium | Core feature missing from automation        |
-| 3        | **Add Coach Assessment tests** | Medium | Key coach functionality                     |
-| 4        | **Add Voice Notes tests**      | High   | Unique differentiating feature              |
+| Feature               | Priority | Estimated Tests |
+| --------------------- | -------- | --------------- |
+| Identity System       | P1       | 20-30           |
+| Cross-Role Scenarios  | P2       | 10-15           |
+| Performance Tests     | P2       | 5-10            |
+| Mobile Viewport Tests | P3       | 15-20           |
+| Invitation Workflow   | P1       | 8-10            |
+| Team Management CRUD  | P1       | 10-12           |
 
-### 17.2 Medium-Term Priorities (P1)
+### 7.2 Known Limitations
 
-| Priority | Item                       | Description                                      |
-| -------- | -------------------------- | ------------------------------------------------ |
-| 5        | Invitation workflow tests  | Test full invite → accept → role assignment flow |
-| 6        | Team management tests      | CRUD operations, player assignment               |
-| 7        | Parent dashboard tests     | Child viewing, coach feedback                    |
-| 8        | Multi-role switching tests | Users with coach+parent roles                    |
+1. **No onboarding tests** - Removed in v3.0; assumes pre-created test users
+2. **Single browser** - Only Chromium configured
+3. **Sequential execution** - No parallelization for stability
+4. **No visual regression** - Screenshot comparison not implemented
 
-### 17.3 Long-Term Priorities (P2)
+---
 
-| Priority | Item                  | Description                       |
-| -------- | --------------------- | --------------------------------- |
-| 9        | Flow system tests     | Platform flows, org announcements |
-| 10       | Identity system tests | Guardian/player linking           |
-| 11       | Performance tests     | Load testing, response times      |
-| 12       | Mobile viewport tests | Full mobile test coverage         |
+## 8. Recommendations & Next Steps
 
-### 17.4 Test Suite Improvements
+### 8.1 Immediate Priorities (P0)
 
-**Recommended Actions:**
+1. **Add Identity System tests** - Guardian/player linking
+2. **Add Invitation Workflow tests** - Full invite → accept flow
+3. **Add Team Management CRUD tests** - Create, update, delete teams
 
-1. **Consolidate test data** - Both suites use slightly different test-data.json formats. Standardize to single source of truth.
+### 8.2 Medium-Term (P1)
 
-2. **Add test tagging** - Implement `@smoke`, `@regression`, `@p0` tags for selective test runs:
+1. **Cross-Role Tests** - Users with multiple roles
+2. **Data Isolation Tests** - Verify users can't access others' data
+3. **CI/CD Integration** - Add to GitHub Actions
 
-   ```typescript
-   test("@smoke @p0 AUTH-001: Login works", async ({ page }) => {
-   ```
+### 8.3 Long-Term (P2)
 
-3. **Improve parallelization** - Current suites run sequentially. Consider parallelizing independent test files.
-
-4. **Add visual regression** - Implement Playwright's screenshot comparison for UI consistency.
-
-5. **CI/CD integration** - Add test runs to GitHub Actions pipeline.
-
-### 17.5 Newly Implemented Test Files
-
-The following test files were created to address coverage gaps:
-
-| Feature                    | File Created                    | Tests |
-| -------------------------- | ------------------------------- | ----- |
-| Player Passport            | player/passport.spec.ts         | 10    |
-| Skills Assessment          | coach/assessment.spec.ts        | 7     |
-| Voice Notes                | coach/voice-notes.spec.ts       | 8     |
-| Injury Tracking            | coach/injuries.spec.ts          | 8     |
-| Parent Child Management    | parent/child-management.spec.ts | 10    |
-| Player Self-Access         | player/self-access.spec.ts      | 7     |
-| Flow System                | flows/flow-wizard.spec.ts       | 9     |
-| Organization Announcements | org/announcements.spec.ts       | 8     |
-
-### 17.6 Remaining Coverage Gaps
-
-| Feature           | Status                          |
-| ----------------- | ------------------------------- |
-| Development Goals | Partially covered in assessment |
-| Identity System   | Needs separate test suite       |
-| Cross-Role Tests  | Need additional scenarios       |
-| Performance Tests | Not yet implemented             |
-
-### 17.6 Test Environment Maintenance
-
-**Weekly:**
-
-- Verify test users still exist and have correct roles
-- Check for any database schema changes affecting tests
-
-**Monthly:**
-
-- Review skipped tests and re-enable if features are ready
-- Update test data to match production data patterns
-- Run full regression suite and triage failures
-
-**Per Release:**
-
-- Update tests for new features
-- Add negative tests for bug fixes
-- Review test coverage metrics
+1. **Visual Regression** - Screenshot comparison
+2. **Performance Testing** - Response time monitoring
+3. **Mobile Testing** - Full mobile viewport coverage
+4. **Parallel Execution** - Speed up test runs
 
 ---
 
@@ -485,26 +362,22 @@ The following test files were created to address coverage gaps:
 
 ### Pre-Testing
 
-- [ ] Application running at http://localhost:3000
-- [ ] Test user accounts accessible
-- [ ] Database in known state
-- [ ] Playwright dependencies installed
+- [ ] `npm run dev` running on localhost:3000
+- [ ] Test user accounts exist in database
+- [ ] Playwright installed (`cd apps/web && npm install`)
 
-### UATMCP Suite Execution
+### Running Tests
 
 ```bash
-# Full suite
-npx playwright test --config=apps/web/uatmcp/playwright.config.ts
-
-# Expected output:
-# ✅ 73 passed, 1 skipped (~3 minutes)
+cd apps/web
+npm run test
 ```
 
 ### Post-Testing
 
-- [ ] All failures documented with screenshots
-- [ ] Regression issues logged as GitHub issues
-- [ ] Test report reviewed and shared
+- [ ] Review failures in `uat/playwright-report/`
+- [ ] Document any new issues
+- [ ] Update test data if needed
 
 ---
 
@@ -520,8 +393,9 @@ npx playwright test --config=apps/web/uatmcp/playwright.config.ts
 
 **Document Version History**
 
-| Version | Date       | Author | Changes                                                                                                                                    |
-| ------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1.0     | 2026-01-07 | Cline  | Initial consolidation from 4 source documents                                                                                              |
-| 2.0     | 2026-01-10 | Cline  | Updated with UATMCP test suite results (73 passing), added recommendations                                                                 |
-| 2.1     | 2026-01-10 | Cline  | Added 67 new tests across 8 files: passport, assessment, voice notes, injuries, parent management, self-access, flow wizard, announcements |
+| Version | Date       | Author | Changes                                                                                   |
+| ------- | ---------- | ------ | ----------------------------------------------------------------------------------------- |
+| 1.0     | 2026-01-07 | Cline  | Initial consolidation from 4 source documents                                             |
+| 2.0     | 2026-01-10 | Cline  | Updated with UATMCP test suite results                                                    |
+| 2.1     | 2026-01-10 | Cline  | Added 67 new tests across 8 files                                                         |
+| 3.0     | 2026-01-10 | Cline  | Migrated to lightweight UAT model, removed onboarding, consolidated to single uat/ folder |

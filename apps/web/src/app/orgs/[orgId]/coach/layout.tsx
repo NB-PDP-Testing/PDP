@@ -109,14 +109,21 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
               {/* Quick Actions Button - only show for FAB variant */}
               {quickActionsVariant === "fab" && actions.length > 0 && (
                 <Button
+                  className="relative overflow-hidden transition-all hover:scale-105 active:scale-95"
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                   size="sm"
-                  style={{ backgroundColor: theme.primary }}
+                  style={{
+                    backgroundColor: `rgb(${theme.primaryRgb})`,
+                    color: "white",
+                  }}
                   title="Quick Actions"
-                  variant="default"
                 >
-                  <Zap className="h-4 w-4" />
-                  <span className="ml-2 hidden sm:inline">Quick Actions</span>
+                  {/* Subtle shine effect */}
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] animate-[shine_3s_ease-in-out_infinite]" />
+                  <Zap className="relative z-10 h-4 w-4" />
+                  <span className="relative z-10 ml-2 hidden font-semibold sm:inline">
+                    Quick Actions
+                  </span>
                 </Button>
               )}
               <Link href={`/orgs/${orgId}` as Route}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardList, Home, Menu, TrendingUp, Users } from "lucide-react";
+import { CheckSquare, Home, Menu, Mic, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -54,17 +54,16 @@ export default function CoachLayout({
       href: `/orgs/${orgId}/coach/players`,
     },
     {
-      id: "assess",
-      icon: ClipboardList,
-      label: "Assess",
-      href: `/orgs/${orgId}/coach/assessments/new`,
-      isAction: true,
+      id: "voice",
+      icon: Mic,
+      label: "Voice",
+      href: `/orgs/${orgId}/coach/voice-notes`,
     },
     {
-      id: "reports",
-      icon: TrendingUp,
-      label: "Reports",
-      href: `/orgs/${orgId}/coach/reports`,
+      id: "todos",
+      icon: CheckSquare,
+      label: "Tasks",
+      href: `/orgs/${orgId}/coach/todos`,
     },
   ];
 
@@ -97,7 +96,7 @@ export default function CoachLayout({
                 className="flex items-center gap-2"
                 href={`/orgs/${orgId}/coach` as Route}
               >
-                <ClipboardList
+                <Users
                   className="h-5 w-5"
                   style={{ color: theme.primary }}
                 />

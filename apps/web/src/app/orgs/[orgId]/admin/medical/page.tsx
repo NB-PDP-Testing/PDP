@@ -1005,7 +1005,7 @@ export default function MedicalProfilesPage() {
               onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}
               value={filterStatus}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Profile Status" />
               </SelectTrigger>
               <SelectContent>
@@ -1018,7 +1018,7 @@ export default function MedicalProfilesPage() {
               onValueChange={(v) => setFilterAlert(v as typeof filterAlert)}
               value={filterAlert}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue placeholder="Alert Filter" />
               </SelectTrigger>
               <SelectContent>

@@ -953,6 +953,7 @@ export default function CreateOrganizationPage() {
                       </Label>
                       <div className="flex gap-2">
                         <input
+                          aria-label="Primary color picker"
                           className="h-10 w-10 cursor-pointer rounded border"
                           disabled={loading}
                           onChange={(e) => {
@@ -998,6 +999,7 @@ export default function CreateOrganizationPage() {
                       </Label>
                       <div className="flex gap-2">
                         <input
+                          aria-label="Secondary color picker"
                           className="h-10 w-10 cursor-pointer rounded border"
                           disabled={loading}
                           onChange={(e) => {
@@ -1043,6 +1045,7 @@ export default function CreateOrganizationPage() {
                       </Label>
                       <div className="flex gap-2">
                         <input
+                          aria-label="Tertiary color picker"
                           className="h-10 w-10 cursor-pointer rounded border"
                           disabled={loading}
                           onChange={(e) => {

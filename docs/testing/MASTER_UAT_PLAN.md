@@ -148,6 +148,45 @@ apps/web/uat/
 
 ## 4. Running Tests
 
+### 4.0 Database Reset (Pre-Setup)
+
+Before running the onboarding setup script on a fresh database, you must clear any existing data and seed reference data. Use one of the provided reset scripts.
+
+**Option 1: Using PowerShell Script (Windows)**
+
+```powershell
+# From the project root
+.\apps\web\uat\scripts\reset-pdp-database.ps1
+```
+
+**Option 2: Using Shell Script (macOS/Linux)**
+
+```bash
+# From the project root
+./apps/web/uat/scripts/reset-pdp-database.sh
+```
+
+**What the reset scripts do (4 stages):**
+
+1. **Stage 1** - Delete application data (players, assessments, goals, etc.)
+2. **Stage 2** - Delete reference data (sports, skills, benchmarks)
+3. **Stage 3** - Delete Better Auth tables (users, sessions, organizations, etc.)
+4. **Stage 4** - Re-seed reference data (sports, skills, benchmarks)
+
+**Location:** `apps/web/uat/scripts/`
+
+- `reset-pdp-database.ps1` - PowerShell script for Windows
+- `reset-pdp-database.sh` - Bash script for macOS/Linux
+
+**⚠️ Important Notes:**
+
+- Run from the project root directory
+- Requires the Convex backend to be running (`npx convex dev` in `packages/backend`)
+- Uses staged deletion to avoid timeouts on large datasets
+- Automatically re-seeds reference data after clearing
+
+---
+
 From the `apps/web` directory:
 
 ```bash

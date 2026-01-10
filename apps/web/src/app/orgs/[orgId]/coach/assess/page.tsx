@@ -1636,10 +1636,10 @@ function BatchAssessmentSection({
       <Card className="border-blue-200 bg-blue-50/50">
         <CardContent className="py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2 sm:gap-4 md:gap-8">
               {/* Step 1: Players */}
               <button
-                className={`flex items-center gap-2 ${
+                className={`flex items-center gap-1 sm:gap-2 ${
                   batchStep === "players"
                     ? "font-bold text-blue-700"
                     : selectedBatchPlayers.size > 0
@@ -1649,7 +1649,7 @@ function BatchAssessmentSection({
                 onClick={() => setBatchStep("players")}
               >
                 <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                     batchStep === "players"
                       ? "bg-blue-600 text-white"
                       : selectedBatchPlayers.size > 0
@@ -1663,14 +1663,16 @@ function BatchAssessmentSection({
                     "1"
                   )}
                 </div>
-                <span>Select Players ({selectedBatchPlayers.size})</span>
+                <span className="hidden text-sm sm:inline">
+                  Select Players ({selectedBatchPlayers.size})
+                </span>
               </button>
 
-              <ChevronRight className="h-5 w-5 text-gray-300" />
+              <ChevronRight className="h-4 w-4 shrink-0 text-gray-300 sm:h-5 sm:w-5" />
 
               {/* Step 2: Skills */}
               <button
-                className={`flex items-center gap-2 ${
+                className={`flex items-center gap-1 sm:gap-2 ${
                   batchStep === "skills"
                     ? "font-bold text-blue-700"
                     : batchSelectedSkills.size > 0
@@ -1683,7 +1685,7 @@ function BatchAssessmentSection({
                 }
               >
                 <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                     batchStep === "skills"
                       ? "bg-blue-600 text-white"
                       : batchSelectedSkills.size > 0
@@ -1697,14 +1699,16 @@ function BatchAssessmentSection({
                     "2"
                   )}
                 </div>
-                <span>Select Skills ({batchSelectedSkills.size})</span>
+                <span className="hidden text-sm sm:inline">
+                  Select Skills ({batchSelectedSkills.size})
+                </span>
               </button>
 
-              <ChevronRight className="h-5 w-5 text-gray-300" />
+              <ChevronRight className="h-4 w-4 shrink-0 text-gray-300 sm:h-5 sm:w-5" />
 
               {/* Step 3: Rate */}
               <button
-                className={`flex items-center gap-2 ${
+                className={`flex items-center gap-1 sm:gap-2 ${
                   batchStep === "rate"
                     ? "font-bold text-blue-700"
                     : "text-gray-400"
@@ -1720,7 +1724,7 @@ function BatchAssessmentSection({
                 }
               >
                 <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
                     batchStep === "rate"
                       ? "bg-blue-600 text-white"
                       : "bg-gray-200 text-gray-500"
@@ -1728,7 +1732,7 @@ function BatchAssessmentSection({
                 >
                   3
                 </div>
-                <span>Rate & Save</span>
+                <span className="hidden text-sm sm:inline">Rate & Save</span>
               </button>
             </div>
 

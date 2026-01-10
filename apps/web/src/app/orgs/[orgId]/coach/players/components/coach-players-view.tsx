@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { PlayerTeamBadges } from "@/app/orgs/[orgId]/coach/components/player-team-badges";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -156,7 +157,7 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
   }, [allPlayers, coachPlayerIds]);
 
   // Get team names for each player
-  const getPlayerTeams = (player: any) => {
+  const getPlayerTeams = (player: any): string[] => {
     if (!teamPlayerLinks) {
       return [];
     }
@@ -168,8 +169,29 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
         const team = teams?.find((t: any) => t._id === link.teamId);
         return team?.name;
       })
-      .filter(Boolean);
+      .filter((name): name is string => Boolean(name)); // Type guard to ensure only strings
     return [...new Set(teamNames)]; // Deduplicate
+  };
+
+  // Get core team name (team matching player's sport + ageGroup)
+  const getCoreTeamName = (player: any) => {
+    if (!teamPlayerLinks || !teams) {
+      return undefined;
+    }
+    const playerLinks = teamPlayerLinks.filter(
+      (link: any) => link.playerIdentityId.toString() === player._id.toString()
+    );
+    for (const link of playerLinks) {
+      const team = teams.find((t: any) => t._id === link.teamId);
+      if (
+        team &&
+        team.sport === player.sport &&
+        team.ageGroup === player.ageGroup
+      ) {
+        return team.name;
+      }
+    }
+    return undefined;
   };
 
   // Get unique filter values
@@ -231,27 +253,19 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
         return false;
       }
 
-      // Review status filter
+      // Review status filter (standardized logic)
       if (reviewStatusFilter === "overdue") {
-        if (!player.lastReviewDate) {
-          return true;
-        }
-        const daysSinceReview = Math.floor(
-          (Date.now() - new Date(player.lastReviewDate).getTime()) /
-            (1000 * 60 * 60 * 24)
-        );
-        if (daysSinceReview <= 90) {
+        // Overdue: reviewStatus is "Overdue" OR no reviewStatus OR no lastReviewDate
+        const isOverdue =
+          player.reviewStatus === "Overdue" ||
+          !player.reviewStatus ||
+          !player.lastReviewDate;
+        if (!isOverdue) {
           return false;
         }
       } else if (reviewStatusFilter === "completed") {
-        if (!player.lastReviewDate) {
-          return false;
-        }
-        const daysSinceReview = Math.floor(
-          (Date.now() - new Date(player.lastReviewDate).getTime()) /
-            (1000 * 60 * 60 * 24)
-        );
-        if (daysSinceReview > 90) {
+        // Completed: reviewStatus is "Completed"
+        if (player.reviewStatus !== "Completed") {
           return false;
         }
       }
@@ -455,8 +469,43 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
         <CardContent>
           {sortedPlayers.length === 0 ? (
             <div className="py-12 text-center">
-              <Users className="mx-auto mb-3 text-gray-300" size={48} />
-              <p className="text-gray-500">No players found</p>
+              <Users className="mx-auto mb-4 text-gray-300" size={48} />
+              <p className="mb-2 font-medium text-gray-600 text-lg">
+                No Players Found
+              </p>
+              <p className="mx-auto mb-4 max-w-md text-gray-500 text-sm">
+                {coachPlayers.length === 0
+                  ? "You don't have any players assigned to your teams yet. Contact your admin to be assigned to teams and have players added."
+                  : "No players match your current filters. Try adjusting your search or filter criteria."}
+              </p>
+              <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
+                {(searchTerm ||
+                  teamFilter ||
+                  ageGroupFilter !== "all" ||
+                  sportFilter !== "all" ||
+                  genderFilter !== "all" ||
+                  reviewStatusFilter !== "all") && (
+                  <Button
+                    onClick={() => {
+                      setSearchTerm("");
+                      setTeamFilter(null);
+                      setAgeGroupFilter("all");
+                      setSportFilter("all");
+                      setGenderFilter("all");
+                      setReviewStatusFilter("all");
+                    }}
+                    variant="outline"
+                  >
+                    Clear All Filters
+                  </Button>
+                )}
+                <Button
+                  onClick={() => router.push(`/orgs/${orgId}/coach`)}
+                  variant="default"
+                >
+                  Go to Dashboard
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -565,20 +614,10 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-600 text-sm">
-                        {getPlayerTeams(player).length > 0 ? (
-                          <div className="flex flex-wrap items-center gap-1">
-                            {getPlayerTeams(player).map((teamName, idx) => (
-                              <span
-                                className="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-gray-700 text-xs"
-                                key={`${player._id}-${teamName}-${idx}`}
-                              >
-                                {teamName}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          "Not assigned"
-                        )}
+                        <PlayerTeamBadges
+                          teams={getPlayerTeams(player)}
+                          coreTeamName={getCoreTeamName(player)}
+                        />
                       </td>
                       <td className="hidden px-4 py-3 text-gray-600 text-sm md:table-cell">
                         {player.ageGroup}

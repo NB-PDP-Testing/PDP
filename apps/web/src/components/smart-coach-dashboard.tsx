@@ -617,7 +617,7 @@ export function SmartCoachDashboard({
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <Users className="text-blue-600" size={20} />
-                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                  <div className="font-bold text-xl text-gray-800 transition-all duration-300 md:text-2xl">
                     {totalCount}
                   </div>
                 </div>
@@ -643,7 +643,7 @@ export function SmartCoachDashboard({
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <CheckCircle className="text-green-600" size={20} />
-                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                  <div className="font-bold text-xl text-gray-800 transition-all duration-300 md:text-2xl">
                     {completedCount}
                   </div>
                 </div>
@@ -669,7 +669,7 @@ export function SmartCoachDashboard({
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <AlertCircle className="text-red-600" size={20} />
-                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                  <div className="font-bold text-xl text-gray-800 transition-all duration-300 md:text-2xl">
                     {needsReviewCount}
                   </div>
                 </div>
@@ -692,7 +692,7 @@ export function SmartCoachDashboard({
               <CardContent className="pt-6">
                 <div className="mb-2 flex items-center justify-between">
                   <TrendingUp className="text-purple-600" size={20} />
-                  <div className="font-bold text-2xl text-gray-800 transition-all duration-300">
+                  <div className="font-bold text-xl text-gray-800 transition-all duration-300 md:text-2xl">
                     {playersWithSkills.length === 0 ? "—" : avgSkill.toFixed(1)}
                   </div>
                 </div>
@@ -763,7 +763,10 @@ export function SmartCoachDashboard({
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 flex-1">
-                    <CardTitle className="truncate text-lg md:text-xl">
+                    <CardTitle
+                      className="truncate text-lg md:text-xl"
+                      title={team.teamName}
+                    >
                       {team.teamName}
                     </CardTitle>
                     <p className="text-gray-600 text-xs md:text-sm">
@@ -945,68 +948,84 @@ export function SmartCoachDashboard({
             <Button
               className="flex items-center justify-center gap-2 bg-emerald-600 py-3 font-medium text-sm transition-colors hover:bg-emerald-700"
               onClick={onAssessPlayers}
+              title="Assess and rate player skills"
             >
-              <Edit className="flex-shrink-0" size={16} />
-              <span className="truncate">Assess Players</span>
+              <Edit className="flex-shrink-0" size={20} />
+              <span className="line-clamp-1">Assess Players</span>
             </Button>
           )}
           <Button
             className="flex items-center justify-center gap-2 bg-green-600 py-3 font-medium text-sm transition-colors hover:bg-green-700"
             onClick={handleGenerateSessionPlan}
+            title="Generate AI-powered training session plan"
           >
-            <Target className="flex-shrink-0" size={16} />
-            <span className="truncate">Generate Session Plan (AI)</span>
+            <Target className="flex-shrink-0" size={20} />
+            <span className="line-clamp-1">
+              <span className="hidden sm:inline">Generate </span>Session Plan
+            </span>
           </Button>
           <Button
             className="flex items-center justify-center gap-2 bg-blue-600 py-3 font-medium text-sm transition-colors hover:bg-blue-700"
             onClick={() => onViewAnalytics?.()}
+            title="View detailed team analytics and performance insights"
           >
-            <BarChart3 className="flex-shrink-0" size={16} />
-            <span className="truncate">View Team Analytics</span>
+            <BarChart3 className="flex-shrink-0" size={20} />
+            <span className="line-clamp-1">
+              <span className="hidden sm:inline">View </span>Team Analytics
+            </span>
           </Button>
           {onViewVoiceNotes && (
             <Button
               className="flex items-center justify-center gap-2 bg-purple-600 py-3 font-medium text-sm transition-colors hover:bg-purple-700"
               onClick={onViewVoiceNotes}
+              title="Record and manage voice notes for players"
             >
-              <Mic className="flex-shrink-0" size={16} />
-              <span className="truncate">Voice Notes</span>
+              <Mic className="flex-shrink-0" size={20} />
+              <span className="line-clamp-1">Voice Notes</span>
             </Button>
           )}
           {onViewInjuries && (
             <Button
               className="flex items-center justify-center gap-2 bg-red-600 py-3 font-medium text-sm transition-colors hover:bg-red-700"
               onClick={onViewInjuries}
+              title="Track and manage player injuries"
             >
-              <AlertCircle className="flex-shrink-0" size={16} />
-              <span className="truncate">Injury Tracking</span>
+              <AlertCircle className="flex-shrink-0" size={20} />
+              <span className="line-clamp-1">
+                <span className="hidden sm:inline">Injury </span>Tracking
+              </span>
             </Button>
           )}
           {onViewGoals && (
             <Button
               className="flex items-center justify-center gap-2 bg-amber-600 py-3 font-medium text-sm transition-colors hover:bg-amber-700"
               onClick={onViewGoals}
+              title="View and manage player development goals"
             >
-              <Target className="flex-shrink-0" size={16} />
-              <span className="truncate">Goals Dashboard</span>
+              <Target className="flex-shrink-0" size={20} />
+              <span className="line-clamp-1">
+                <span className="hidden sm:inline">Goals </span>Dashboard
+              </span>
             </Button>
           )}
           {onViewMedical && (
             <Button
               className="flex items-center justify-center gap-2 bg-pink-600 py-3 font-medium text-sm transition-colors hover:bg-pink-700"
               onClick={onViewMedical}
+              title="View player medical information and health records"
             >
-              <Heart className="flex-shrink-0" size={16} />
-              <span className="truncate">Medical Info</span>
+              <Heart className="flex-shrink-0" size={20} />
+              <span className="line-clamp-1">Medical Info</span>
             </Button>
           )}
           {onViewMatchDay && (
             <Button
-              className="flex items-center justify-center gap-2 bg-red-600 py-3 font-medium text-sm transition-colors hover:bg-red-700"
+              className="flex items-center justify-center gap-2 bg-orange-600 py-3 font-medium text-sm transition-colors hover:bg-orange-700"
               onClick={onViewMatchDay}
+              title="Access emergency contacts for match day (In Case of Emergency)"
             >
-              <Calendar className="flex-shrink-0" size={16} />
-              <span className="truncate">Match Day ICE</span>
+              <Calendar className="flex-shrink-0" size={20} />
+              <span className="line-clamp-1">Match Day ICE</span>
             </Button>
           )}
         </CardContent>

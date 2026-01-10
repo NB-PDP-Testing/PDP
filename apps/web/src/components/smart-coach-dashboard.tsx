@@ -28,10 +28,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  OrgThemedGradient,
-  useOrgGradientTextClasses,
-} from "@/components/org-themed-gradient";
+import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -667,7 +664,7 @@ export function SmartCoachDashboard({
             <Users className="flex-shrink-0" size={28} />
             <div>
               <h2 className="font-bold text-xl md:text-2xl">My Teams</h2>
-              <p className="opacity-80 text-xs md:text-sm">
+              <p className="text-xs opacity-80 md:text-sm">
                 Dashboard & Insights
               </p>
             </div>

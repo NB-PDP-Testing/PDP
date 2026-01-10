@@ -430,7 +430,7 @@ export default function GoalsDashboardPage() {
 
             {/* Status Filter */}
             <Select onValueChange={setStatusFilter} value={statusFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-full sm:w-[150px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -445,7 +445,7 @@ export default function GoalsDashboardPage() {
 
             {/* Category Filter */}
             <Select onValueChange={setCategoryFilter} value={categoryFilter}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-full sm:w-[150px]">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>

@@ -22,11 +22,6 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { OrgThemedButton } from "@/components/org-themed-button";
-import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
-import {
-  getContrastColor,
-  getWCAGCompliance,
-} from "@/lib/color-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,7 +47,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useOrgTheme } from "@/hooks/use-org-theme";
+import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
+import { getContrastColor, getWCAGCompliance } from "@/lib/color-utils";
 import { StatCard } from "../stat-card";
 
 // Default colors for preview when no color is set
@@ -580,6 +577,7 @@ export default function OrgSettingsPage() {
                   </p>
                   <div className="flex gap-2">
                     <input
+                      aria-label="Primary color picker"
                       className="h-10 w-10 cursor-pointer rounded border"
                       disabled={savingColors}
                       onChange={(e) => {
@@ -628,6 +626,7 @@ export default function OrgSettingsPage() {
                   </p>
                   <div className="flex gap-2">
                     <input
+                      aria-label="Secondary color picker"
                       className="h-10 w-10 cursor-pointer rounded border"
                       disabled={savingColors}
                       onChange={(e) => {
@@ -676,6 +675,7 @@ export default function OrgSettingsPage() {
                   </p>
                   <div className="flex gap-2">
                     <input
+                      aria-label="Tertiary color picker"
                       className="h-10 w-10 cursor-pointer rounded border"
                       disabled={savingColors}
                       onChange={(e) => {
@@ -717,7 +717,7 @@ export default function OrgSettingsPage() {
               <div className="mb-3 flex items-center justify-between">
                 <Label className="text-sm">Color Palette & Accessibility</Label>
                 {useThemeContrastColors && (
-                  <Badge variant="outline" className="text-xs">
+                  <Badge className="text-xs" variant="outline">
                     Auto-contrast enabled
                   </Badge>
                 )}
@@ -731,7 +731,11 @@ export default function OrgSettingsPage() {
                   >
                     <span
                       className="font-bold text-xs"
-                      style={{ color: useThemeContrastColors ? primaryContrast : "#ffffff" }}
+                      style={{
+                        color: useThemeContrastColors
+                          ? primaryContrast
+                          : "#ffffff",
+                      }}
                     >
                       Aa
                     </span>
@@ -740,8 +744,12 @@ export default function OrgSettingsPage() {
                     {previewPrimary}
                   </span>
                   <Badge
-                    variant={primaryCompliance.level === "Fail" ? "destructive" : "secondary"}
                     className="text-xs"
+                    variant={
+                      primaryCompliance.level === "Fail"
+                        ? "destructive"
+                        : "secondary"
+                    }
                   >
                     {primaryCompliance.level} ({primaryCompliance.ratioText})
                   </Badge>
@@ -754,7 +762,11 @@ export default function OrgSettingsPage() {
                   >
                     <span
                       className="font-bold text-xs"
-                      style={{ color: useThemeContrastColors ? secondaryContrast : "#ffffff" }}
+                      style={{
+                        color: useThemeContrastColors
+                          ? secondaryContrast
+                          : "#ffffff",
+                      }}
                     >
                       Aa
                     </span>
@@ -763,10 +775,15 @@ export default function OrgSettingsPage() {
                     {previewSecondary}
                   </span>
                   <Badge
-                    variant={secondaryCompliance.level === "Fail" ? "destructive" : "secondary"}
                     className="text-xs"
+                    variant={
+                      secondaryCompliance.level === "Fail"
+                        ? "destructive"
+                        : "secondary"
+                    }
                   >
-                    {secondaryCompliance.level} ({secondaryCompliance.ratioText})
+                    {secondaryCompliance.level} ({secondaryCompliance.ratioText}
+                    )
                   </Badge>
                 </div>
                 {/* Tertiary Color */}
@@ -777,7 +794,11 @@ export default function OrgSettingsPage() {
                   >
                     <span
                       className="font-bold text-xs"
-                      style={{ color: useThemeContrastColors ? tertiaryContrast : "#ffffff" }}
+                      style={{
+                        color: useThemeContrastColors
+                          ? tertiaryContrast
+                          : "#ffffff",
+                      }}
                     >
                       Aa
                     </span>
@@ -786,8 +807,12 @@ export default function OrgSettingsPage() {
                     {previewTertiary}
                   </span>
                   <Badge
-                    variant={tertiaryCompliance.level === "Fail" ? "destructive" : "secondary"}
                     className="text-xs"
+                    variant={
+                      tertiaryCompliance.level === "Fail"
+                        ? "destructive"
+                        : "secondary"
+                    }
                   >
                     {tertiaryCompliance.level} ({tertiaryCompliance.ratioText})
                   </Badge>
@@ -813,17 +838,23 @@ export default function OrgSettingsPage() {
 
             {/* Side-by-side Light/Dark Theme Preview */}
             <div className="rounded-lg border bg-muted/30 p-4">
-              <Label className="mb-3 block text-sm">Light & Dark Mode Preview</Label>
+              <Label className="mb-3 block text-sm">
+                Light & Dark Mode Preview
+              </Label>
               <div className="grid gap-4 sm:grid-cols-2">
                 {/* Light Mode Preview */}
                 <div className="rounded-lg border bg-white p-4 shadow-sm">
-                  <p className="mb-2 font-medium text-gray-900 text-xs">Light Mode</p>
+                  <p className="mb-2 font-medium text-gray-900 text-xs">
+                    Light Mode
+                  </p>
                   <div className="space-y-2">
                     <div
                       className="flex items-center justify-center rounded px-3 py-2 font-medium text-sm"
                       style={{
                         backgroundColor: previewPrimary,
-                        color: useThemeContrastColors ? primaryContrast : "#ffffff",
+                        color: useThemeContrastColors
+                          ? primaryContrast
+                          : "#ffffff",
                       }}
                     >
                       Primary Button
@@ -832,7 +863,9 @@ export default function OrgSettingsPage() {
                       className="flex items-center justify-center rounded px-3 py-2 font-medium text-sm"
                       style={{
                         backgroundColor: previewSecondary,
-                        color: useThemeContrastColors ? secondaryContrast : "#ffffff",
+                        color: useThemeContrastColors
+                          ? secondaryContrast
+                          : "#ffffff",
                       }}
                     >
                       Secondary Button
@@ -841,13 +874,17 @@ export default function OrgSettingsPage() {
                 </div>
                 {/* Dark Mode Preview */}
                 <div className="rounded-lg border bg-gray-900 p-4 shadow-sm">
-                  <p className="mb-2 font-medium text-gray-100 text-xs">Dark Mode</p>
+                  <p className="mb-2 font-medium text-gray-100 text-xs">
+                    Dark Mode
+                  </p>
                   <div className="space-y-2">
                     <div
                       className="flex items-center justify-center rounded px-3 py-2 font-medium text-sm"
                       style={{
                         backgroundColor: previewPrimary,
-                        color: useThemeContrastColors ? primaryContrast : "#ffffff",
+                        color: useThemeContrastColors
+                          ? primaryContrast
+                          : "#ffffff",
                       }}
                     >
                       Primary Button
@@ -856,7 +893,9 @@ export default function OrgSettingsPage() {
                       className="flex items-center justify-center rounded px-3 py-2 font-medium text-sm"
                       style={{
                         backgroundColor: previewSecondary,
-                        color: useThemeContrastColors ? secondaryContrast : "#ffffff",
+                        color: useThemeContrastColors
+                          ? secondaryContrast
+                          : "#ffffff",
                       }}
                     >
                       Secondary Button

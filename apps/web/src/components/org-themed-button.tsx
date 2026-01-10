@@ -46,8 +46,7 @@ export function OrgThemedButton({
         primary: "shadow-sm hover:opacity-90 focus:ring-[var(--org-primary)]",
         secondary:
           "shadow-sm hover:opacity-90 focus:ring-[var(--org-secondary)]",
-        tertiary:
-          "shadow-sm hover:opacity-90 focus:ring-[var(--org-tertiary)]",
+        tertiary: "shadow-sm hover:opacity-90 focus:ring-[var(--org-tertiary)]",
         outline: "border-2 bg-transparent hover:bg-opacity-10",
       };
     }
@@ -80,16 +79,15 @@ export function OrgThemedButton({
       tertiary: "--org-tertiary",
     };
 
-    const contrastVarMap: Record<
-      "primary" | "secondary" | "tertiary",
-      string
-    > = {
-      primary: "--org-primary-contrast",
-      secondary: "--org-secondary-contrast",
-      tertiary: "--org-tertiary-contrast",
-    };
+    const contrastVarMap: Record<"primary" | "secondary" | "tertiary", string> =
+      {
+        primary: "--org-primary-contrast",
+        secondary: "--org-secondary-contrast",
+        tertiary: "--org-tertiary-contrast",
+      };
 
-    const colorVar = colorVarMap[variant as "primary" | "secondary" | "tertiary"];
+    const colorVar =
+      colorVarMap[variant as "primary" | "secondary" | "tertiary"];
 
     if (useThemeContrastColors) {
       // Use auto-contrast text color for WCAG compliance

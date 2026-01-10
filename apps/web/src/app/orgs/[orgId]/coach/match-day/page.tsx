@@ -254,7 +254,7 @@ export default function MatchDayPage() {
             </div>
             {teams && teams.length > 0 && (
               <Select onValueChange={setTeamFilter} value={teamFilter}>
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Filter by Team" />
                 </SelectTrigger>
                 <SelectContent>

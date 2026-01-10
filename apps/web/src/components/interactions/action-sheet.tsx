@@ -153,7 +153,7 @@ export function ActionSheet({
           )}
           side="bottom"
         >
-          {(title || description) ? (
+          {title || description ? (
             <SheetHeader className="mb-4 text-left">
               {title && <SheetTitle>{title}</SheetTitle>}
               <SheetDescription className={description ? undefined : "sr-only"}>

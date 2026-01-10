@@ -54,6 +54,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -855,7 +863,7 @@ export default function ManageTeamsPage() {
           />
         </div>
         <Select onValueChange={setSportFilter} value={sportFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filter by sport" />
           </SelectTrigger>
           <SelectContent>
@@ -868,7 +876,7 @@ export default function ManageTeamsPage() {
           </SelectContent>
         </Select>
         <Select onValueChange={setAgeGroupFilter} value={ageGroupFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filter by age" />
           </SelectTrigger>
           <SelectContent>
@@ -1096,23 +1104,31 @@ export default function ManageTeamsPage() {
               })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Shield className="mb-4 h-12 w-12 text-muted-foreground" />
-              <h3 className="font-semibold text-lg">No Teams Found</h3>
-              <p className="mt-1 text-muted-foreground">
-                {searchTerm || sportFilter !== "all" || ageGroupFilter !== "all"
-                  ? "No teams match your search criteria"
-                  : "Create your first team to get started"}
-              </p>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Shield />
+                </EmptyMedia>
+                <EmptyTitle>No Teams Found</EmptyTitle>
+                <EmptyDescription>
+                  {searchTerm ||
+                  sportFilter !== "all" ||
+                  ageGroupFilter !== "all"
+                    ? "No teams match your search criteria"
+                    : "Create your first team to get started"}
+                </EmptyDescription>
+              </EmptyHeader>
               {!searchTerm &&
                 sportFilter === "all" &&
                 ageGroupFilter === "all" && (
-                  <Button className="mt-4" onClick={openCreateDialog}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Team
-                  </Button>
+                  <EmptyContent>
+                    <Button onClick={openCreateDialog}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Team
+                    </Button>
+                  </EmptyContent>
                 )}
-            </div>
+            </Empty>
           )}
         </CardContent>
       </Card>

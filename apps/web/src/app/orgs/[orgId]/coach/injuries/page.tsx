@@ -393,7 +393,7 @@ export default function InjuryTrackingPage() {
               </CardDescription>
             </div>
             <Select onValueChange={setStatusFilter} value={statusFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -525,7 +525,7 @@ export default function InjuryTrackingPage() {
               onValueChange={setHistoryStatusFilter}
               value={historyStatusFilter}
             >
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

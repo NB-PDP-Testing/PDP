@@ -22,6 +22,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { ActionCard } from "@/components/action-card";
 import { useEffect, useState } from "react";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Button } from "@/components/ui/button";
@@ -943,90 +944,74 @@ export function SmartCoachDashboard({
             Quick Actions
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-4 md:gap-3">
+        <CardContent className="grid grid-cols-3 gap-3 p-4">
           {onAssessPlayers && (
-            <Button
-              className="flex items-center justify-center gap-2 bg-emerald-600 py-3 font-medium text-sm transition-colors hover:bg-emerald-700"
+            <ActionCard
+              icon={Edit}
+              label="Assess Players"
               onClick={onAssessPlayers}
               title="Assess and rate player skills"
-            >
-              <Edit className="flex-shrink-0" size={20} />
-              <span className="line-clamp-1">Assess Players</span>
-            </Button>
+              variant="success"
+            />
           )}
-          <Button
-            className="flex items-center justify-center gap-2 bg-green-600 py-3 font-medium text-sm transition-colors hover:bg-green-700"
+          <ActionCard
+            icon={Target}
+            label="Session Plan"
             onClick={handleGenerateSessionPlan}
             title="Generate AI-powered training session plan"
-          >
-            <Target className="flex-shrink-0" size={20} />
-            <span className="line-clamp-1">
-              <span className="hidden sm:inline">Generate </span>Session Plan
-            </span>
-          </Button>
-          <Button
-            className="flex items-center justify-center gap-2 bg-blue-600 py-3 font-medium text-sm transition-colors hover:bg-blue-700"
+            variant="success"
+          />
+          <ActionCard
+            icon={BarChart3}
+            label="Team Analytics"
             onClick={() => onViewAnalytics?.()}
             title="View detailed team analytics and performance insights"
-          >
-            <BarChart3 className="flex-shrink-0" size={20} />
-            <span className="line-clamp-1">
-              <span className="hidden sm:inline">View </span>Team Analytics
-            </span>
-          </Button>
+            variant="primary"
+          />
           {onViewVoiceNotes && (
-            <Button
-              className="flex items-center justify-center gap-2 bg-purple-600 py-3 font-medium text-sm transition-colors hover:bg-purple-700"
+            <ActionCard
+              icon={Mic}
+              label="Voice Notes"
               onClick={onViewVoiceNotes}
               title="Record and manage voice notes for players"
-            >
-              <Mic className="flex-shrink-0" size={20} />
-              <span className="line-clamp-1">Voice Notes</span>
-            </Button>
+              variant="purple"
+            />
           )}
           {onViewInjuries && (
-            <Button
-              className="flex items-center justify-center gap-2 bg-red-600 py-3 font-medium text-sm transition-colors hover:bg-red-700"
+            <ActionCard
+              icon={AlertCircle}
+              label="Injury Tracking"
               onClick={onViewInjuries}
               title="Track and manage player injuries"
-            >
-              <AlertCircle className="flex-shrink-0" size={20} />
-              <span className="line-clamp-1">
-                <span className="hidden sm:inline">Injury </span>Tracking
-              </span>
-            </Button>
+              variant="danger"
+            />
           )}
           {onViewGoals && (
-            <Button
-              className="flex items-center justify-center gap-2 bg-amber-600 py-3 font-medium text-sm transition-colors hover:bg-amber-700"
+            <ActionCard
+              icon={Target}
+              label="Goals"
               onClick={onViewGoals}
               title="View and manage player development goals"
-            >
-              <Target className="flex-shrink-0" size={20} />
-              <span className="line-clamp-1">
-                <span className="hidden sm:inline">Goals </span>Dashboard
-              </span>
-            </Button>
+              variant="warning"
+            />
           )}
           {onViewMedical && (
-            <Button
-              className="flex items-center justify-center gap-2 bg-pink-600 py-3 font-medium text-sm transition-colors hover:bg-pink-700"
+            <ActionCard
+              icon={Heart}
+              label="Medical Info"
               onClick={onViewMedical}
               title="View player medical information and health records"
-            >
-              <Heart className="flex-shrink-0" size={20} />
-              <span className="line-clamp-1">Medical Info</span>
-            </Button>
+              variant="pink"
+            />
           )}
           {onViewMatchDay && (
-            <Button
-              className="flex items-center justify-center gap-2 bg-orange-600 py-3 font-medium text-sm transition-colors hover:bg-orange-700"
+            <ActionCard
+              icon={Calendar}
+              label="Match Day ICE"
               onClick={onViewMatchDay}
               title="Access emergency contacts for match day (In Case of Emergency)"
-            >
-              <Calendar className="flex-shrink-0" size={20} />
-              <span className="line-clamp-1">Match Day ICE</span>
-            </Button>
+              variant="orange"
+            />
           )}
         </CardContent>
       </Card>

@@ -15,6 +15,9 @@ export const testData = JSON.parse(fs.readFileSync(testDataPath, "utf-8"));
 // Storage state paths
 const authDir = path.join(__dirname, "../.auth");
 
+// Base URL for all tests
+const baseURL = "http://localhost:3000";
+
 /**
  * Extended test fixture with authenticated users
  */
@@ -28,6 +31,7 @@ export const test = base.extend<{
   ownerPage: async ({ browser }, use) => {
     const storageState = path.join(authDir, "owner.json");
     const context = await browser.newContext({
+      baseURL,
       storageState: fs.existsSync(storageState) ? storageState : undefined,
     });
     const page = await context.newPage();
@@ -39,6 +43,7 @@ export const test = base.extend<{
   adminPage: async ({ browser }, use) => {
     const storageState = path.join(authDir, "admin.json");
     const context = await browser.newContext({
+      baseURL,
       storageState: fs.existsSync(storageState) ? storageState : undefined,
     });
     const page = await context.newPage();
@@ -50,6 +55,7 @@ export const test = base.extend<{
   coachPage: async ({ browser }, use) => {
     const storageState = path.join(authDir, "coach.json");
     const context = await browser.newContext({
+      baseURL,
       storageState: fs.existsSync(storageState) ? storageState : undefined,
     });
     const page = await context.newPage();
@@ -61,6 +67,7 @@ export const test = base.extend<{
   parentPage: async ({ browser }, use) => {
     const storageState = path.join(authDir, "parent.json");
     const context = await browser.newContext({
+      baseURL,
       storageState: fs.existsSync(storageState) ? storageState : undefined,
     });
     const page = await context.newPage();

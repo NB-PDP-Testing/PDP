@@ -152,14 +152,14 @@ apps/web/uat/
 
 Before running the onboarding setup script on a fresh database, you must clear any existing data and seed reference data. Use one of the provided reset scripts.
 
-**Option 1: Using PowerShell Script (Windows)**
+#### Option 1: Using PowerShell Script (Windows)
 
 ```powershell
 # From the project root
 .\apps\web\uat\scripts\reset-pdp-database.ps1
 ```
 
-**Option 2: Using Shell Script (macOS/Linux)**
+#### Option 2: Using Shell Script (macOS/Linux)
 
 ```bash
 # From the project root
@@ -584,15 +584,302 @@ npm run test
 
 ---
 
+---
+
+## 9. UX Testing Suite (tests/ux/)
+
+The UX testing suite contains 14 detailed test specifications for user experience validation. These tests focus on visual consistency, mobile responsiveness, and interaction patterns.
+
+### 9.1 UX Test Files
+
+| Test ID            | Description                       | Status |
+| ------------------ | --------------------------------- | ------ |
+| TEST-UXTESTING-000 | Testing Infrastructure Setup      | ⬜     |
+| TEST-UXTESTING-001 | Role-specific Bottom Navigation   | ⬜     |
+| TEST-UXTESTING-002 | Touch Target Sizes (44px minimum) | ⬜     |
+| TEST-UXTESTING-003 | Mobile Player Cards with Swipe    | ⬜     |
+| TEST-UXTESTING-004 | Admin Navigation Variants         | ⬜     |
+| TEST-UXTESTING-005 | Skeleton Loading States           | ⬜     |
+| TEST-UXTESTING-006 | Actionable Empty States           | ⬜     |
+| TEST-UXTESTING-007 | Touch-optimized Forms             | ⬜     |
+| TEST-UXTESTING-008 | Pull-to-refresh & Gestures        | ⬜     |
+| TEST-UXTESTING-009 | Mobile vs Desktop Comparison      | ⬜     |
+| TEST-UXTESTING-010 | Desktop Data Table Features       | ⬜     |
+| TEST-UXTESTING-011 | Command Palette (Cmd+K)           | ⬜     |
+| TEST-UXTESTING-012 | Information Density Options       | ⬜     |
+| TEST-UXTESTING-013 | Org/Role Switcher                 | ⬜     |
+
+**Location:** `docs/testing/ux-uat/`
+
+---
+
+## 10. Additional Test Areas (Not Yet Automated)
+
+### 10.1 First-Time Onboarding Tests
+
+These manual tests cover initial platform setup scenarios:
+
+| Test ID     | Description                                    | Priority |
+| ----------- | ---------------------------------------------- | -------- |
+| ONBOARD-001 | Platform Staff Creates First Organization      | P0       |
+| ONBOARD-002 | Non-Platform Staff Cannot Create Organizations | P0       |
+| ONBOARD-003 | Owner First Login Experience                   | P1       |
+| ONBOARD-004 | Owner Creates First Team                       | P1       |
+| ONBOARD-005 | Owner Invites First Admin                      | P1       |
+| ONBOARD-006 | First Admin Accepts Invitation                 | P1       |
+| ONBOARD-007 | Owner Invites First Coach                      | P1       |
+| ONBOARD-008 | First Coach Accepts and Gets Team Assignment   | P1       |
+| ONBOARD-009 | Admin Creates First Players                    | P1       |
+| ONBOARD-010 | Owner Invites First Parent                     | P1       |
+| ONBOARD-011 | Platform Admin Edits Organization              | P1       |
+| ONBOARD-012 | Owner Transfers Ownership to Admin             | P2       |
+
+### 10.2 Platform Staff Management Tests
+
+| Test ID      | Description                     | Priority |
+| ------------ | ------------------------------- | -------- |
+| PLATFORM-001 | Platform Staff Dashboard Access | P1       |
+| PLATFORM-002 | Manage Sports                   | P2       |
+| PLATFORM-003 | Manage Skill Categories         | P2       |
+| PLATFORM-004 | Manage Skill Definitions        | P2       |
+| PLATFORM-005 | Platform Staff Management       | P2       |
+| PLATFORM-006 | Bulk Skills Import              | P2       |
+
+### 10.3 Flow System Tests
+
+Detailed flow wizard testing (reference: `docs/archive/testing/flow-system-tests.md`):
+
+| Test ID           | Description                               | Priority |
+| ----------------- | ----------------------------------------- | -------- |
+| FLOW-PLATFORM-001 | View Platform Flows List                  | P1       |
+| FLOW-PLATFORM-002 | Empty State Display                       | P2       |
+| FLOW-PLATFORM-003 | Create Simple Announcement Flow           | P1       |
+| FLOW-PLATFORM-004 | Create Multi-Step Onboarding Flow         | P1       |
+| FLOW-PLATFORM-005 | Flow Validation - Missing Required Fields | P1       |
+| FLOW-PLATFORM-006 | Create Blocking Priority Flow             | P2       |
+| FLOW-PLATFORM-007 | Edit Existing Flow                        | P1       |
+| FLOW-PLATFORM-008 | Add/Remove Steps in Edit Mode             | P2       |
+| FLOW-PLATFORM-009 | Toggle Flow Active/Inactive               | P1       |
+| FLOW-PLATFORM-010 | Delete Flow                               | P2       |
+| FLOW-PLATFORM-011 | Non-Platform-Staff Cannot Access          | P0       |
+| FLOW-ORG-001      | View Announcements Dashboard              | P1       |
+| FLOW-ORG-002      | Announcements Empty State                 | P2       |
+| FLOW-ORG-003      | Create Announcement for All Members       | P1       |
+| FLOW-ORG-004      | Create Coach-Only Announcement            | P2       |
+| FLOW-ORG-005      | Create Parent-Only Announcement           | P2       |
+| FLOW-ORG-006      | Announcement with Markdown Formatting     | P2       |
+| FLOW-ORG-007      | Validation - Empty Title or Content       | P1       |
+| FLOW-ORG-008      | Only Admins Can Create Announcements      | P0       |
+| FLOW-USER-001     | Flow Displays on Login                    | P0       |
+| FLOW-USER-002     | Blocking Flow Prevents Access             | P1       |
+| FLOW-USER-003     | Multiple Flows - Priority Ordering        | P2       |
+| FLOW-E2E-001      | Platform Flow Creation to User Completion | P1       |
+
+### 10.4 Guardian/Parent Linking Tests
+
+| Test ID                | Description                  | Priority |
+| ---------------------- | ---------------------------- | -------- |
+| GUARDIAN-BULK-001      | Bulk Guardian Claim          | P2       |
+| GUARDIAN-ADMIN-001     | Admin Links Parent to Player | P1       |
+| GUARDIAN-UNCLAIMED-001 | View Unclaimed Guardians     | P2       |
+
+### 10.5 Analytics & Reporting Tests
+
+| Test ID                | Description               | Priority |
+| ---------------------- | ------------------------- | -------- |
+| ANALYTICS-ADMIN-001    | Admin Dashboard Stats     | P2       |
+| ANALYTICS-COACH-001    | Coach Analytics View      | P2       |
+| ANALYTICS-PROGRESS-001 | Player Progress Over Time | P2       |
+
+### 10.6 Error Handling & Edge Cases
+
+| Test ID       | Description              | Priority |
+| ------------- | ------------------------ | -------- |
+| ERR-EMPTY-001 | Empty State - No Players | P2       |
+| ERR-EMPTY-002 | Empty State - No Teams   | P2       |
+| ERR-403-001   | Permission Denied Page   | P1       |
+| ERR-404-001   | 404 Not Found            | P2       |
+
+---
+
+## 11. Known Gaps from MCP Browser Exploration
+
+Based on live browser exploration (reference: `docs/archive/testing/UAT_MCP_TESTS.MD`):
+
+### 11.1 UI Elements Missing Tests
+
+| Area     | Element                         | Priority |
+| -------- | ------------------------------- | -------- |
+| AUTH     | PWA install prompt handling     | P1       |
+| AUTH     | Forgot password flow            | P1       |
+| ADMIN    | Command Palette (⌘K) search     | P1       |
+| ADMIN    | Overrides page                  | P2       |
+| ADMIN    | Benchmarks page                 | P2       |
+| ADMIN    | Analytics dashboard             | P2       |
+| ADMIN    | Player Access controls          | P1       |
+| HOMEPAGE | All navigation section clicks   | P2       |
+| HOMEPAGE | Request Demo form submission    | P2       |
+| ORG      | Coach/Admin panel switching     | P1       |
+| COACH    | Empty state (no teams assigned) | P1       |
+
+### 11.2 UI Inconsistencies Identified
+
+1. **Branding**: Signup page shows "Welcome to PDP" instead of "Welcome to PlayerARC"
+2. **Console Warnings**: PostHog not initialized (missing env vars)
+3. **UX Issue**: PWA install prompt appears immediately on login page
+
+---
+
 ## Document Version History
 
-| Version | Date       | Author | Changes                                                                                    |
-| ------- | ---------- | ------ | ------------------------------------------------------------------------------------------ |
-| 1.0     | 2026-01-07 | Cline  | Initial consolidation from 4 source documents                                              |
-| 2.0     | 2026-01-10 | Cline  | Updated with UATMCP test suite results                                                     |
-| 2.1     | 2026-01-10 | Cline  | Added 67 new tests across 8 files                                                          |
-| 3.0     | 2026-01-10 | Cline  | Migrated to lightweight UAT model, removed onboarding, consolidated to single uat/ folder  |
-| 3.1     | 2026-01-10 | Cline  | Added 28 new tests: Identity (6), Invitations (10), Teams (12). All P0 priorities complete |
-| 3.2     | 2026-01-10 | Cline  | Added 15 Cross-Role Scenario tests. All P1 priorities complete (except CI/CD)              |
-| 3.3     | 2026-01-10 | Cline  | Added 10 Performance tests. P2 performance testing complete                                |
-| 3.4     | 2026-01-10 | Cline  | Added 15 Mobile Viewport tests. All planned test categories complete (217 tests total)     |
+| Version | Date       | Author | Changes                                                                                           |
+| ------- | ---------- | ------ | ------------------------------------------------------------------------------------------------- |
+| 1.0     | 2026-01-07 | Cline  | Initial consolidation from 4 source documents                                                     |
+| 2.0     | 2026-01-10 | Cline  | Updated with UATMCP test suite results                                                            |
+| 2.1     | 2026-01-10 | Cline  | Added 67 new tests across 8 files                                                                 |
+| 3.0     | 2026-01-10 | Cline  | Migrated to lightweight UAT model, removed onboarding, consolidated to single uat/ folder         |
+| 3.1     | 2026-01-10 | Cline  | Added 28 new tests: Identity (6), Invitations (10), Teams (12). All P0 priorities complete        |
+| 3.2     | 2026-01-10 | Cline  | Added 15 Cross-Role Scenario tests. All P1 priorities complete (except CI/CD)                     |
+| 3.3     | 2026-01-10 | Cline  | Added 10 Performance tests. P2 performance testing complete                                       |
+| 3.4     | 2026-01-10 | Cline  | Added 15 Mobile Viewport tests. All planned test categories complete (217 tests total)            |
+| 4.0     | 2026-01-10 | UAT    | Consolidated content from 6 archived documents. Added UX tests, Onboarding, Flow System, MCP gaps |
+
+---
+
+## 12. Next Steps - Missing UAT Tests to Implement
+
+Based on comprehensive code review and analysis of archived documents, the following UAT tests are identified as **missing** and should be prioritized for implementation.
+
+### 12.1 Priority 0 (Critical - Must Have)
+
+| Test ID             | Description                                | Category       | Effort | Status                        |
+| ------------------- | ------------------------------------------ | -------------- | ------ | ----------------------------- |
+| AUTH-PWA-001        | PWA install prompt can be dismissed        | Authentication | Low    | ✅ Implemented                |
+| AUTH-FORGOT-001     | Forgot password link navigation            | Authentication | Medium | 🟡 Skipped - Awaiting feature |
+| AUTH-FORGOT-002     | Password reset email sent                  | Authentication | Medium | 🟡 Skipped - Awaiting feature |
+| FLOW-ACCESS-001     | Non-Platform-Staff cannot access /platform | Flow System    | Low    | ✅ Implemented                |
+| FLOW-USER-LOGIN-001 | Active flow displays after login           | Flow System    | Medium | ✅ Implemented                |
+
+**Implementation Details:**
+
+- `AUTH-PWA-001`: Implemented in `tests/auth/login.spec.ts` as `AUTH-010`
+- `AUTH-FORGOT-001`: Test written in `tests/auth/login.spec.ts` but **SKIPPED** - waiting on forgot password feature implementation
+- `AUTH-FORGOT-002`: Test written in `tests/auth/login.spec.ts` but **SKIPPED** - waiting on forgot password feature implementation
+- `FLOW-ACCESS-001`: Implemented in `tests/flows/platform-access.spec.ts` (with variants for coach, admin, and positive test for owner)
+- `FLOW-USER-LOGIN-001`: Implemented in `tests/flows/platform-access.spec.ts` (with flow dismissal test)
+
+**⚠️ Blocked Items:**
+The forgot password feature has not been implemented in the application yet. Tests are written and marked as `test.skip()`. Once the feature is implemented:
+
+1. Remove `test.skip` from `AUTH-FORGOT-001` and `AUTH-FORGOT-002` in `tests/auth/login.spec.ts`
+2. Verify the URL patterns match the actual implementation
+3. Update this document to mark as ✅ Implemented
+
+### 12.2 Priority 1 (High - Should Have) ✅ IMPLEMENTED
+
+| Test ID                | Description                                 | Category     | Effort | Status |
+| ---------------------- | ------------------------------------------- | ------------ | ------ | ------ |
+| ONBOARD-FIRST-001      | First user auto-granted platformStaff       | Onboarding   | Medium | ✅     |
+| ONBOARD-ORG-001        | Platform staff can create organization      | Onboarding   | Medium | ✅     |
+| ONBOARD-TEAM-001       | Owner creates first team in empty org       | Onboarding   | Low    | ✅     |
+| ONBOARD-INVITE-001     | Owner invites first admin                   | Onboarding   | Medium | ✅     |
+| ADMIN-CMD-001          | Command Palette (⌘K) opens                  | Admin        | Low    | ✅     |
+| ADMIN-CMD-002          | Command Palette search works                | Admin        | Medium | ✅     |
+| ADMIN-PLAYERACCESS-001 | Player Access page loads                    | Admin        | Low    | ✅     |
+| ADMIN-PLAYERACCESS-002 | Configure self-access minimum age           | Admin        | Medium | ✅     |
+| COACH-EMPTY-001        | Empty state shown when no teams assigned    | Coach        | Low    | ✅     |
+| GUARDIAN-LINK-001      | Admin manually links parent to player       | Guardian     | Medium | ✅     |
+| GUARDIAN-SMART-001     | Smart matching suggests children for parent | Guardian     | Medium | ✅     |
+| ORG-SWITCH-001         | User can switch between Coach/Admin panels  | Organization | Low    | ✅     |
+| FLOW-CREATE-001        | Create simple announcement flow             | Flow System  | Medium | ✅     |
+| FLOW-EDIT-001          | Edit existing flow                          | Flow System  | Medium | ✅     |
+| FLOW-TOGGLE-001        | Toggle flow active/inactive                 | Flow System  | Low    | ✅     |
+
+**Implementation Details:**
+
+- `ADMIN-CMD-001/002`: Implemented in `tests/admin/dashboard.spec.ts`
+- `ADMIN-PLAYERACCESS-001/002`: Implemented in `tests/admin/dashboard.spec.ts`
+- `COACH-EMPTY-001`: Already exists as `COACH-010` in `tests/coach/dashboard.spec.ts`
+- `GUARDIAN-LINK-001`: Implemented in `tests/admin/identity.spec.ts`
+- `GUARDIAN-SMART-001`: Implemented in `tests/admin/identity.spec.ts`
+- `ORG-SWITCH-001`: Implemented in `tests/admin/identity.spec.ts`
+- `FLOW-CREATE-001/EDIT-001/TOGGLE-001`: Implemented in `tests/flows/flow-management.spec.ts`
+- `ONBOARD-FIRST-001/ORG-001/TEAM-001/INVITE-001`: Implemented in `tests/flows/flow-management.spec.ts`
+
+### 12.3 Priority 2 (Medium - Nice to Have)
+
+| Test ID                | Description                                 | Category       | Effort |
+| ---------------------- | ------------------------------------------- | -------------- | ------ |
+| ADMIN-OVERRIDES-001    | Overrides page loads                        | Admin          | Low    |
+| ADMIN-OVERRIDES-002    | Age group override can be created           | Admin          | Medium |
+| ADMIN-BENCH-001        | Benchmarks page loads                       | Admin          | Low    |
+| ADMIN-BENCH-002        | View NGB benchmarks by sport/age            | Admin          | Medium |
+| ADMIN-ANALYTICS-001    | Analytics dashboard loads                   | Admin          | Low    |
+| ADMIN-ANALYTICS-002    | Organization stats display correctly        | Admin          | Medium |
+| PLATFORM-SPORTS-001    | Platform staff can manage sports            | Platform       | Medium |
+| PLATFORM-SKILLS-001    | Platform staff can manage skill categories  | Platform       | Medium |
+| PLATFORM-SKILLS-002    | Platform staff can manage skill definitions | Platform       | Medium |
+| GUARDIAN-UNCLAIMED-001 | View unclaimed guardians list               | Guardian       | Low    |
+| GUARDIAN-BULK-001      | Bulk guardian claim for multiple children   | Guardian       | Medium |
+| FLOW-MULTISTEP-001     | Create multi-step onboarding flow           | Flow System    | High   |
+| FLOW-BLOCKING-001      | Blocking flow prevents app access           | Flow System    | Medium |
+| FLOW-PRIORITY-001      | Multiple flows display in priority order    | Flow System    | Medium |
+| ERR-EMPTY-PLAYERS-001  | Empty state message when no players         | Error Handling | Low    |
+| ERR-EMPTY-TEAMS-001    | Empty state message when no teams           | Error Handling | Low    |
+| ERR-404-001            | 404 page for invalid routes                 | Error Handling | Low    |
+| ERR-403-001            | 403 page for unauthorized access            | Error Handling | Low    |
+
+### 12.4 Priority 3 (Low - Future Enhancement)
+
+| Test ID                | Description                               | Category   | Effort |
+| ---------------------- | ----------------------------------------- | ---------- | ------ |
+| UX-SKELETON-001        | Skeleton loading states display correctly | UX Testing | Medium |
+| UX-TOUCH-001           | Touch targets meet 44px minimum           | UX Testing | Medium |
+| UX-SWIPE-001           | Mobile player cards support swipe         | UX Testing | High   |
+| UX-DENSITY-001         | Information density options work          | UX Testing | Medium |
+| HOMEPAGE-NAV-001       | All navigation sections scroll correctly  | Homepage   | Low    |
+| HOMEPAGE-DEMO-001      | Request Demo form submission              | Homepage   | Medium |
+| ANALYTICS-PROGRESS-001 | Player progress over time chart           | Analytics  | High   |
+| ANALYTICS-COACH-001    | Coach analytics view                      | Analytics  | High   |
+
+### 12.5 Implementation Roadmap
+
+**Phase 1 (Immediate - P0 tests):** ~5 tests, ~1-2 days effort
+
+- Focus on critical auth flows and access control
+- Ensure blocking flows work correctly
+
+**Phase 2 (Short-term - P1 tests):** ~15 tests, ~3-5 days effort
+
+- Onboarding journey tests
+- Command palette and admin features
+- Guardian linking workflows
+
+**Phase 3 (Medium-term - P2 tests):** ~18 tests, ~5-7 days effort
+
+- Platform staff management
+- Flow system comprehensive testing
+- Error handling edge cases
+
+**Phase 4 (Long-term - P3 tests):** ~8 tests, ~3-5 days effort
+
+- UX testing suite
+- Analytics dashboards
+- Homepage interactions
+
+### 12.6 Archived Documents Reference
+
+The following documents have been archived to `docs/archive/testing/` after content consolidation:
+
+| Document                      | Key Content Extracted                                |
+| ----------------------------- | ---------------------------------------------------- |
+| `flow-system-tests.md`        | 67 detailed flow system test cases                   |
+| `identity-migration-tests.md` | Technical migration phase tests (7 phases)           |
+| `master-test-plan.md`         | Onboarding tests, settings tests, comprehensive plan |
+| `role-based-test-cases.md`    | Role capability matrix, implementation status        |
+| `UAT_MCP_TESTS.MD`            | Browser exploration gaps, UI element inventory       |
+| `ux-uat/`                     | 14 UX test specifications                            |
+
+---
+
+<!-- End of Document -->

@@ -53,31 +53,49 @@ jobs:
 
       # Phase 0: Re-enabled linting for changed files only
       # This prevents new linting issues while allowing gradual fixes
-      # See LINTING_COMPREHENSIVE_PLAN.md for full implementation plan
+      # FIXED: Now properly fails when linting errors are found
+      # See LINTING_COMPREHENSIVE_PLAN.md and LINTING_STATUS_JAN_10_2026.md
       - name: Run linting (changed files only)
         run: |
+          echo "Checking linting on changed files..."
+
+          # Get list of changed TypeScript/JavaScript files
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            # Exit 0 if no files to lint (all changed files are excluded)
-            npx biome check --changed --diagnostic-level=error . || {
-              exit_code=$?
-              # Exit code 1 with "No files were processed" is acceptable
-              if [ $exit_code -eq 1 ]; then
-                echo "No lintable files changed or all changes in excluded paths - OK"
-                exit 0
-              fi
-              exit $exit_code
-            }
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT origin/main...HEAD | grep -E '\.(ts|tsx|js|jsx)$' || true)
           else
-            # For pushes to main, check files changed in the last commit
-            npx biome check --changed --since=HEAD~1 --diagnostic-level=error . || {
-              exit_code=$?
-              if [ $exit_code -eq 1 ]; then
-                echo "No lintable files changed or all changes in excluded paths - OK"
-                exit 0
-              fi
-              exit $exit_code
-            }
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT HEAD~1 | grep -E '\.(ts|tsx|js|jsx)$' || true)
           fi
+
+          # If no TypeScript/JavaScript files changed, exit success
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "✅ No TypeScript/JavaScript files changed - skipping lint"
+            exit 0
+          fi
+
+          echo "Files to lint:"
+          echo "$CHANGED_FILES"
+          echo ""
+
+          # Run biome check on changed files - FAIL if errors found
+          echo "Running biome check..."
+          npx biome check --changed --diagnostic-level=error .
+
+          LINT_EXIT_CODE=$?
+
+          if [ $LINT_EXIT_CODE -ne 0 ]; then
+            echo ""
+            echo "❌ LINTING FAILED!"
+            echo "Found linting errors in changed files."
+            echo ""
+            echo "To fix locally:"
+            echo "1. Check errors: npx biome check --changed ."
+            echo "2. Auto-fix safe issues: npx biome check --write <file>"
+            echo "3. Manually fix remaining issues"
+            echo ""
+            exit 1
+          fi
+
+          echo "✅ Linting passed!"
 
   build:
     name: Build Check

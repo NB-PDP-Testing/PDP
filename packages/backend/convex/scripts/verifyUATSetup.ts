@@ -11,8 +11,8 @@
  * Type assertions are used because the exact schema may vary.
  */
 
-import { query } from "../_generated/server";
 import { v } from "convex/values";
+import { query } from "../_generated/server";
 
 /**
  * Test user configuration - MUST match apps/web/uat/test-data.json
@@ -52,11 +52,15 @@ export const verifyPlatformAdmin = query({
     const isPlatformStaff = user.platformStaff === true;
 
     if (!isPlatformStaff) {
-      console.log(`⚠️ Owner account exists but is not platform staff`);
+      console.log("⚠️ Owner account exists but is not platform staff");
       return {
         success: false,
         error: "Owner account is not platform staff",
-        user: { id: user._id, email: user.email, platformStaff: user.platformStaff },
+        user: {
+          id: user._id,
+          email: user.email,
+          platformStaff: user.platformStaff,
+        },
       };
     }
 
@@ -79,7 +83,7 @@ export const getTestOrganization = query({
   handler: async (ctx) => {
     // Find any organization
     const org = await (ctx.db as any).query("organizations").first();
-    
+
     if (org) {
       return {
         found: true,
@@ -88,7 +92,7 @@ export const getTestOrganization = query({
         slug: org.slug,
       };
     }
-    
+
     return { found: false };
   },
 });
@@ -119,10 +123,26 @@ export const verifyTestUserPermissions = query({
   args: {},
   handler: async (ctx) => {
     const testUsers = [
-      { email: TEST_ACCOUNTS.owner.email, expectedRole: TEST_ACCOUNTS.owner.role, description: "Platform Owner" },
-      { email: TEST_ACCOUNTS.admin.email, expectedRole: TEST_ACCOUNTS.admin.role, description: "Organization Admin" },
-      { email: TEST_ACCOUNTS.coach.email, expectedRole: TEST_ACCOUNTS.coach.role, description: "Team Coach" },
-      { email: TEST_ACCOUNTS.parent.email, expectedRole: TEST_ACCOUNTS.parent.role, description: "Player Parent" },
+      {
+        email: TEST_ACCOUNTS.owner.email,
+        expectedRole: TEST_ACCOUNTS.owner.role,
+        description: "Platform Owner",
+      },
+      {
+        email: TEST_ACCOUNTS.admin.email,
+        expectedRole: TEST_ACCOUNTS.admin.role,
+        description: "Organization Admin",
+      },
+      {
+        email: TEST_ACCOUNTS.coach.email,
+        expectedRole: TEST_ACCOUNTS.coach.role,
+        description: "Team Coach",
+      },
+      {
+        email: TEST_ACCOUNTS.parent.email,
+        expectedRole: TEST_ACCOUNTS.parent.role,
+        description: "Player Parent",
+      },
     ];
 
     const results = [];
@@ -213,7 +233,7 @@ export const verifyReferenceData = query({
     }
     const hasBenchmarks = benchmarks.length > 0;
 
-    console.log(`Reference data check:`);
+    console.log("Reference data check:");
     console.log(`  Sports: ${sports.length}`);
     console.log(`  Skills: ${skills.length}`);
     console.log(`  Benchmarks: ${benchmarks.length}`);

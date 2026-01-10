@@ -12,7 +12,7 @@ import { mutation, query } from "../_generated/server";
 
 /**
  * Test user configuration - MUST match apps/web/uat/test-data.json
- * 
+ *
  * NOTE: If you change these values, also update test-data.json to match.
  */
 const TEST_USERS = [
@@ -72,9 +72,27 @@ const TEST_TEAMS = [
  * Test players - MUST match apps/web/uat/test-data.json
  */
 const TEST_PLAYERS = [
-  { firstName: "Liam", lastName: "Murphy", dateOfBirth: "2014-03-15", gender: "Male", ageGroup: "U12" },
-  { firstName: "Noah", lastName: "O'Brien", dateOfBirth: "2014-06-22", gender: "Male", ageGroup: "U12" },
-  { firstName: "Emma", lastName: "Kelly", dateOfBirth: "2012-01-10", gender: "Female", ageGroup: "U14" },
+  {
+    firstName: "Liam",
+    lastName: "Murphy",
+    dateOfBirth: "2014-03-15",
+    gender: "Male",
+    ageGroup: "U12",
+  },
+  {
+    firstName: "Noah",
+    lastName: "O'Brien",
+    dateOfBirth: "2014-06-22",
+    gender: "Male",
+    ageGroup: "U12",
+  },
+  {
+    firstName: "Emma",
+    lastName: "Kelly",
+    dateOfBirth: "2012-01-10",
+    gender: "Female",
+    ageGroup: "U14",
+  },
 ];
 
 /**
@@ -109,14 +127,16 @@ export const seedUATTestData = mutation({
 
           // Update platformStaff if needed
           if (testUser.platformStaff && !existingUser.platformStaff) {
-            await ctx.db.patch(existingUser._id, { platformStaff: true } as any);
-            console.log(`    → Updated platformStaff flag`);
+            await ctx.db.patch(existingUser._id, {
+              platformStaff: true,
+            } as any);
+            console.log("    → Updated platformStaff flag");
           }
         } else {
           // Users are created via auth flow, we can't create them directly
           // Log that the user needs to be created manually or via auth
           console.log(`  ✗ User NOT found: ${testUser.email}`);
-          console.log(`    → User must sign up via the app first`);
+          console.log("    → User must sign up via the app first");
           results.users.errors.push(testUser.email);
         }
       }
@@ -140,8 +160,8 @@ export const seedUATTestData = mutation({
           results.organization.found = true;
           results.organization.id = org._id;
         } else {
-          console.log(`  ✗ No organization found`);
-          console.log(`    → Organization must be created via onboarding flow`);
+          console.log("  ✗ No organization found");
+          console.log("    → Organization must be created via onboarding flow");
         }
       }
 
@@ -150,7 +170,9 @@ export const seedUATTestData = mutation({
         console.log("\n⚽ Step 3: Checking teams...");
         const teams = await (ctx.db as any)
           .query("teams")
-          .filter((q: any) => q.eq(q.field("organizationId"), results.organization.id))
+          .filter((q: any) =>
+            q.eq(q.field("organizationId"), results.organization.id)
+          )
           .collect();
 
         results.teams.found = teams.length;
@@ -162,7 +184,9 @@ export const seedUATTestData = mutation({
         console.log("\n👶 Step 4: Checking players...");
         const players = await (ctx.db as any)
           .query("players")
-          .filter((q: any) => q.eq(q.field("organizationId"), results.organization.id))
+          .filter((q: any) =>
+            q.eq(q.field("organizationId"), results.organization.id)
+          )
           .collect();
 
         results.players.found = players.length;
@@ -189,7 +213,9 @@ export const seedUATTestData = mutation({
             .collect();
 
           if (roles.length > 0) {
-            console.log(`  ✓ ${testUser.email}: ${roles.map((r: any) => r.role).join(", ")}`);
+            console.log(
+              `  ✓ ${testUser.email}: ${roles.map((r: any) => r.role).join(", ")}`
+            );
             results.roles.assigned++;
           } else {
             console.log(`  ✗ ${testUser.email}: No roles assigned`);
@@ -199,11 +225,17 @@ export const seedUATTestData = mutation({
 
       // Summary
       console.log("\n📊 UAT Seed Summary:");
-      console.log(`  Users: ${results.users.found} found, ${results.users.errors.length} missing`);
-      console.log(`  Organization: ${results.organization.found ? "Found" : "Missing"}`);
+      console.log(
+        `  Users: ${results.users.found} found, ${results.users.errors.length} missing`
+      );
+      console.log(
+        `  Organization: ${results.organization.found ? "Found" : "Missing"}`
+      );
       console.log(`  Teams: ${results.teams.found} found`);
       console.log(`  Players: ${results.players.found} found`);
-      console.log(`  Role Assignments: ${results.roles.assigned}/${TEST_USERS.length}`);
+      console.log(
+        `  Role Assignments: ${results.roles.assigned}/${TEST_USERS.length}`
+      );
 
       if (results.users.errors.length > 0) {
         console.log("\n⚠️  Missing users must sign up manually:");
@@ -234,7 +266,11 @@ export const checkUATDataStatus = query({
   args: {},
   handler: async (ctx) => {
     const status = {
-      users: [] as { email: string; exists: boolean; platformStaff?: boolean }[],
+      users: [] as {
+        email: string;
+        exists: boolean;
+        platformStaff?: boolean;
+      }[],
       organization: null as { id: string; name: string; slug: string } | null,
       teamsCount: 0,
       playersCount: 0,

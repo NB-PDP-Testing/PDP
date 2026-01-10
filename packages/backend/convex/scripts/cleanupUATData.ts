@@ -57,12 +57,16 @@ export const cleanupUATTestData = mutation({
         );
 
         if (isTestPlayer) {
-          console.log(`  🗑️ Deleting test player: ${player.firstName} ${player.lastName}`);
+          console.log(
+            `  🗑️ Deleting test player: ${player.firstName} ${player.lastName}`
+          );
           await ctx.db.delete(player._id);
           results.players.deleted++;
         }
       }
-      console.log(`  ✓ Deleted ${results.players.deleted}/${results.players.checked} players\n`);
+      console.log(
+        `  ✓ Deleted ${results.players.deleted}/${results.players.checked} players\n`
+      );
 
       // Step 2: Clean up UAT test teams
       console.log("⚽ Step 2: Cleaning up UAT test teams...");
@@ -81,7 +85,9 @@ export const cleanupUATTestData = mutation({
           results.teams.deleted++;
         }
       }
-      console.log(`  ✓ Deleted ${results.teams.deleted}/${results.teams.checked} teams\n`);
+      console.log(
+        `  ✓ Deleted ${results.teams.deleted}/${results.teams.checked} teams\n`
+      );
 
       // Step 3: Clean up pending invitations (optional)
       console.log("📧 Step 3: Cleaning up stale invitations...");
@@ -102,7 +108,9 @@ export const cleanupUATTestData = mutation({
             results.invitations.deleted++;
           }
         }
-        console.log(`  ✓ Deleted ${results.invitations.deleted}/${results.invitations.checked} stale invitations\n`);
+        console.log(
+          `  ✓ Deleted ${results.invitations.deleted}/${results.invitations.checked} stale invitations\n`
+        );
       } catch {
         console.log("  ⏭️ Invitations table not found or not accessible\n");
       }
@@ -182,7 +190,7 @@ export const previewCleanup = query({
         .query("invitations")
         .filter((q: any) => q.eq(q.field("status"), "pending"))
         .collect();
-      
+
       const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
       for (const invitation of invitations) {
         const createdAt = invitation._creationTime || 0;

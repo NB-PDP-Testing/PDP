@@ -5,7 +5,7 @@ import { mutation, query } from "../_generated/server";
 /**
  * STAGED RESET: Breaks the full reset into smaller stages to avoid timeouts.
  * Run stages sequentially:
- * 
+ *
  * npx convex run scripts/stagedReset:stage1AppData '{"confirm": true}'
  * npx convex run scripts/stagedReset:stage2ReferenceData '{"confirm": true}'
  * npx convex run scripts/stagedReset:stage3BetterAuthBatch '{"model": "session", "confirm": true}'
@@ -46,7 +46,9 @@ export const stage1AppData = mutation({
       if (record.audioStorageId) {
         try {
           await ctx.storage.delete(record.audioStorageId);
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+          /* ignore */
+        }
       }
       await ctx.db.delete(record._id);
       deleted.voiceNotes++;
@@ -152,14 +154,11 @@ export const stage3BetterAuthBatch = mutation({
     console.log(`🔄 Stage 3: Deleting ${args.model} records...`);
 
     // Get records
-    const result = await ctx.runQuery(
-      components.betterAuth.adapter.findMany,
-      {
-        model: args.model,
-        paginationOpts: { cursor: null, numItems: BATCH_SIZE },
-        where: [],
-      }
-    );
+    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: args.model,
+      paginationOpts: { cursor: null, numItems: BATCH_SIZE },
+      where: [],
+    });
 
     const records = result?.page || [];
     let deleted = 0;
@@ -170,7 +169,9 @@ export const stage3BetterAuthBatch = mutation({
         await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
           input: {
             model: args.model,
-            where: [{ field: "_id", value: record._id as string, operator: "eq" }],
+            where: [
+              { field: "_id", value: record._id as string, operator: "eq" },
+            ],
           },
         });
         deleted++;
@@ -180,7 +181,9 @@ export const stage3BetterAuthBatch = mutation({
     }
 
     const hasMore = records.length === BATCH_SIZE;
-    console.log(`✅ Deleted ${deleted} ${args.model} records. Has more: ${hasMore}`);
+    console.log(
+      `✅ Deleted ${deleted} ${args.model} records. Has more: ${hasMore}`
+    );
 
     return { deleted, hasMore };
   },

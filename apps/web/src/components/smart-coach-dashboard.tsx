@@ -4,17 +4,12 @@ import {
   AlertCircle,
   BarChart3,
   Brain,
-  Calendar,
   CheckCircle,
-  ChevronDown,
-  ChevronUp,
   Download,
   Edit,
   FileText,
-  Heart,
   Mail,
   MessageCircle,
-  Mic,
   Share,
   Share2,
   Target,
@@ -22,10 +17,8 @@ import {
   TrendingUp,
   Users,
   X,
-  Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { ActionCard } from "@/components/action-card";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -129,7 +122,6 @@ export function SmartCoachDashboard({
   const [showAddTeamNote, setShowAddTeamNote] = useState(false);
   const [newTeamNote, setNewTeamNote] = useState("");
   const [savingTeamNote, setSavingTeamNote] = useState(false);
-
 
   // Handle saving team note
   const handleSaveTeamNote = async () => {
@@ -938,7 +930,6 @@ export function SmartCoachDashboard({
             </Card>
           ))}
       </div>
-
 
       {/* Data Insights - Always show, even if empty */}
       <Card>

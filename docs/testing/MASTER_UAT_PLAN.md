@@ -1,30 +1,23 @@
 # Master UAT Test Plan
 
-**Version:** 1.0  
+**Version:** 3.1  
 **Created:** January 7, 2026  
-**Status:** Consolidated from 4 source documents  
-**Total Tests:** 350+ test cases
+**Last Updated:** January 10, 2026  
+**Status:** ACTIVE - Lightweight UAT Model  
+**Total Tests:** 18 test files, 177 tests across 11 categories
 
 ---
 
 ## Table of Contents
 
 1. [Overview](#1-overview)
-2. [Test Environment](#2-test-environment)
-3. [Authentication Tests](#3-authentication-tests)
-4. [Onboarding Tests](#4-onboarding-tests)
-5. [User Management Tests](#5-user-management-tests)
-6. [Team Management Tests](#6-team-management-tests)
-7. [Player Management Tests](#7-player-management-tests)
-8. [Coach Management Tests](#8-coach-management-tests)
-9. [Organization Settings Tests](#9-organization-settings-tests)
-10. [Coach Role Tests](#10-coach-role-tests)
-11. [Parent Role Tests](#11-parent-role-tests)
-12. [Adult Player Role Tests](#12-adult-player-role-tests)
-13. [Flow System Tests](#13-flow-system-tests)
-14. [Identity System Tests](#14-identity-system-tests)
-15. [Cross-Role & Integration Tests](#15-cross-role--integration-tests)
-16. [Implementation Status](#16-implementation-status)
+2. [Current Implementation Status](#2-current-implementation-status)
+3. [Test Environment](#3-test-environment)
+4. [Running Tests](#4-running-tests)
+5. [Test Categories](#5-test-categories)
+6. [Test Coverage by Category](#6-test-coverage-by-category)
+7. [Remaining Coverage Gaps](#7-remaining-coverage-gaps)
+8. [Recommendations & Next Steps](#8-recommendations--next-steps)
 
 ---
 
@@ -32,785 +25,499 @@
 
 ### 1.1 Purpose
 
-This document consolidates all UAT test cases from multiple sources into a single master test plan. It serves as the authoritative reference for:
-- Test planning and execution
-- Progress tracking
-- Implementation verification
-- Sign-off requirements
+This document provides the authoritative reference for the PlayerARC UAT test suite. The lightweight model focuses on:
 
-### 1.2 Source Documents
+- Pre-authenticated user sessions
+- Role-based test isolation
+- Fast execution for CI/CD integration
+- Comprehensive feature coverage
 
-| Document | Tests | Focus Area |
-|----------|-------|------------|
-| master-test-plan.md | 151+ | Comprehensive UAT coverage |
-| role-based-test-cases.md | N/A | Role capabilities matrix |
-| flow-system-tests.md | 67 | Flow/Wizard system |
-| identity-migration-tests.md | ~100 | Identity system migration |
+### 1.2 Test ID Convention
 
-### 1.3 Test ID Convention
-
-```
+```text
 TEST-{CATEGORY}-{NUMBER}
 ```
 
 Categories:
-- `AUTH` - Authentication
-- `ONBOARDING` - First-time setup
-- `USER` - User management
-- `TEAM` - Team management
-- `PLAYER` - Player management
-- `COACH-MGT` - Coach management (admin)
-- `ORG` - Organization settings
-- `COACH` - Coach role functionality
-- `PARENT` - Parent role functionality
-- `ADULT` - Adult player functionality
-- `FLOW` - Flow system
-- `IDENTITY` - Identity system
-- `CROSS` - Cross-role tests
-- `E2E` - End-to-end integration
 
-### 1.4 Implementation Status Legend
+- `AUTH` - Authentication (login, signup)
+- `ADMIN` - Admin dashboard and navigation
+- `COACH` - Coach features (assessment, voice notes, injuries)
+- `PARENT` - Parent dashboard and child management
+- `PLAYER` - Player passport and self-access
+- `ORG` - Organization dashboard and announcements
+- `FLOW` - Flow wizard system
+- `HOME` - Homepage/marketing
 
-| Symbol | Meaning |
-|--------|---------|
-| ✅ | Implemented in Playwright |
-| 🟡 | Partially implemented |
-| ⬜ | Not yet implemented |
-| 🔴 | Blocked/Issue |
+### 1.3 Implementation Status Legend
+
+| Symbol | Meaning                          |
+| ------ | -------------------------------- |
+| ✅     | Implemented and Passing          |
+| 🟡     | Partially implemented or Skipped |
+| ⬜     | Not yet implemented              |
 
 ---
 
-## 2. Test Environment
+## 2. Current Implementation Status
 
-### 2.1 Prerequisites
+### 2.1 Test Suite Structure
 
-- [ ] Fresh Convex deployment OR test database
-- [ ] Test user accounts configured
-- [ ] Browser DevTools available
-- [ ] Playwright test runner configured
-
-### 2.2 Test User Accounts
-
-| Role | Email | Config Key | Notes |
-|------|-------|------------|-------|
-| Platform Owner | `test-data.json` | `TEST_USERS.owner` | First user, platform staff |
-| Admin | `test-data.json` | `TEST_USERS.admin` | Organization admin |
-| Coach | `test-data.json` | `TEST_USERS.coach` | Assigned to teams |
-| Parent | `test-data.json` | `TEST_USERS.parent` | Linked to players |
-
-### 2.3 Test Data Files
-
-```
+```text
 apps/web/uat/
-├── test-data.json          # All test data configuration
+├── playwright.config.ts      # Main configuration
+├── global-setup.ts           # Creates auth states for all users
+├── test-data.json            # Test user credentials
 ├── fixtures/
-│   └── test-utils.ts       # Helper functions
+│   └── test-fixtures.ts      # Authenticated page fixtures
 └── tests/
-    ├── onboarding.spec.ts  # ✅ Implemented
-    ├── auth.spec.ts        # ✅ Implemented
-    ├── admin.spec.ts       # ✅ Implemented
-    └── coach.spec.ts       # ✅ Implemented
+    ├── auth/                 # Authentication tests
+    │   ├── login.spec.ts
+    │   └── signup.spec.ts
+    ├── admin/                # Admin dashboard tests
+    │   ├── dashboard.spec.ts
+    │   ├── navigation.spec.ts
+    │   ├── identity.spec.ts      # NEW: Guardian/player linking
+    │   ├── invitations.spec.ts   # NEW: Approvals/membership workflow
+    │   └── teams.spec.ts         # NEW: Team management CRUD
+    ├── coach/                # Coach feature tests
+    │   ├── dashboard.spec.ts
+    │   ├── assessment.spec.ts
+    │   ├── voice-notes.spec.ts
+    │   └── injuries.spec.ts
+    ├── parent/               # Parent tests
+    │   └── child-management.spec.ts
+    ├── player/               # Player tests
+    │   ├── passport.spec.ts
+    │   └── self-access.spec.ts
+    ├── org/                  # Organization tests
+    │   ├── dashboard.spec.ts
+    │   └── announcements.spec.ts
+    ├── flows/                # Flow wizard tests
+    │   └── flow-wizard.spec.ts
+    └── homepage/             # Marketing page tests
+        └── homepage.spec.ts
 ```
 
----
+### 2.2 Test File Summary
 
-## 3. Authentication Tests
-
-### 3.1 Email Registration
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-AUTH-001 | Display signup page correctly | ✅ | auth.spec.ts |
-| TEST-AUTH-002 | Show error for duplicate email | ✅ | auth.spec.ts |
-| TEST-AUTH-003 | Show validation error for weak password | ✅ | auth.spec.ts |
-
-### 3.2 Login
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-AUTH-004 | Email/password login success | ✅ | auth.spec.ts |
-| TEST-AUTH-005 | Email/password login failure (wrong password) | ⬜ | - |
-| TEST-AUTH-006 | Email/password login failure (unknown email) | ⬜ | - |
-| TEST-AUTH-007 | Google SSO button displayed | ✅ | auth.spec.ts (skipped) |
-| TEST-AUTH-008 | Microsoft SSO button displayed | ⬜ | - |
-
-### 3.3 Session Management
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-AUTH-009 | Session persistence after refresh | ✅ | auth.spec.ts |
-| TEST-AUTH-010 | Logout redirects to login | ✅ | auth.spec.ts |
-| TEST-AUTH-011 | Protected routes inaccessible after logout | ✅ | auth.spec.ts |
+| Category  | Files  | Tests    | Description                                         |
+| --------- | ------ | -------- | --------------------------------------------------- |
+| auth      | 2      | ~20      | Login flows, signup validation                      |
+| admin     | 5      | ~56      | Dashboard, navigation, identity, invitations, teams |
+| coach     | 4      | ~29      | Dashboard, assessment, voice notes, injuries        |
+| parent    | 1      | ~10      | Child management, linked players                    |
+| player    | 2      | ~17      | Passport viewing, self-access (18+)                 |
+| org       | 2      | ~20      | Dashboard, announcements                            |
+| flows     | 1      | ~9       | Flow wizard system                                  |
+| homepage  | 1      | ~13      | Marketing page content                              |
+| **Total** | **18** | **~174** |                                                     |
 
 ---
 
-## 4. Onboarding Tests
+## 3. Test Environment
 
-### 4.1 First User Flow
+### 3.1 Prerequisites
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-ONBOARDING-001 | First user signup - automatic platform staff | ✅ | onboarding.spec.ts |
-| TEST-ONBOARDING-002 | First user prompted to create organization | ✅ | onboarding.spec.ts |
-| TEST-ONBOARDING-003 | First user creates organization | ✅ | onboarding.spec.ts |
+- [x] Next.js dev server running on localhost:3000
+- [x] Convex backend configured
+- [x] Test user accounts exist in database
+- [x] Playwright installed (`npm install`)
 
-### 4.2 Non-Platform Staff Restrictions
+### 3.2 Test User Accounts
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-ONBOARDING-004 | Second user cannot create organizations | ✅ | onboarding.spec.ts |
-| TEST-ONBOARDING-005 | Second user redirected to join page | ✅ | onboarding.spec.ts |
+| Role           | Email                    | Password       | Notes                          |
+| -------------- | ------------------------ | -------------- | ------------------------------ |
+| Platform Owner | `owner_pdp@outlook.com`  | `Password123!` | First user, platformStaff=true |
+| Org Admin      | `adm1n_pdp@outlook.com`  | `Password123!` | Organization administrator     |
+| Coach          | `coach_pdp@outlook.com`  | `Password123!` | Has team assignments           |
+| Parent         | `parent_pdp@outlook.com` | `Password123!` | Has linked children            |
 
-### 4.3 Owner Experience
+### 3.3 Configuration
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-ONBOARDING-006 | Owner sees organization dashboard | ✅ | onboarding.spec.ts |
-| TEST-ONBOARDING-007 | Owner accesses Admin Panel | ✅ | onboarding.spec.ts |
-| TEST-ONBOARDING-008 | Owner views Pending Requests | ✅ | onboarding.spec.ts |
-| TEST-ONBOARDING-009 | Owner views Total Members | ✅ | onboarding.spec.ts |
-| TEST-ONBOARDING-010 | Owner views Teams | ✅ | onboarding.spec.ts |
-| TEST-ONBOARDING-011 | Owner views Players | ✅ | onboarding.spec.ts |
-| TEST-ONBOARDING-012 | Owner views Medical Profiles | ✅ | onboarding.spec.ts |
-
----
-
-## 5. User Management Tests
-
-### 5.1 Invitation System
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-USER-001 | Owner can invite admin | ✅ | onboarding.spec.ts |
-| TEST-USER-002 | Owner can invite coach | ✅ | onboarding.spec.ts |
-| TEST-USER-003 | Owner can invite parent with linked player | ✅ | onboarding.spec.ts |
-| TEST-USER-004 | Admin accepts invitation | ✅ | onboarding.spec.ts |
-| TEST-USER-005 | Coach accepts invitation | ✅ | onboarding.spec.ts |
-| TEST-USER-006 | Parent accepts invitation | ✅ | onboarding.spec.ts |
-| TEST-USER-007 | Invited user sees pending invitation | ✅ | onboarding.spec.ts |
-| TEST-USER-008 | Invitation with multiple roles | ⬜ | - |
-
-### 5.2 Role Assignment
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-USER-009 | Verify admin has admin role | ✅ | onboarding.spec.ts |
-| TEST-USER-010 | Verify coach has coach role | ✅ | onboarding.spec.ts |
-| TEST-USER-011 | Verify parent has parent role | ✅ | onboarding.spec.ts |
-| TEST-USER-012 | Role modification by admin | ⬜ | - |
-| TEST-USER-013 | Role removal by admin | ⬜ | - |
-
-### 5.3 Approval Workflow
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-USER-014 | View pending requests | ✅ | admin.spec.ts |
-| TEST-USER-015 | Approve coach with team assignment | 🟡 | admin.spec.ts (skipped) |
-| TEST-USER-016 | Approve parent with smart matching | 🟡 | admin.spec.ts (skipped) |
-| TEST-USER-017 | Reject request with reason | 🟡 | admin.spec.ts (skipped) |
-
-### 5.4 Access Control
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-USER-018 | Non-admin cannot access admin pages | ✅ | admin.spec.ts |
-| TEST-USER-019 | Coach cannot modify users | ⬜ | - |
-| TEST-USER-020 | Parent cannot access admin pages | ⬜ | - |
+| Setting            | Value          |
+| ------------------ | -------------- |
+| Browser            | Chromium       |
+| Workers            | 1 (sequential) |
+| Test Timeout       | 60 seconds     |
+| Assertion Timeout  | 10 seconds     |
+| Action Timeout     | 15 seconds     |
+| Navigation Timeout | 30 seconds     |
 
 ---
 
-## 6. Team Management Tests
+## 4. Running Tests
 
-### 6.1 Team Creation
+### 4.0 Database Reset (Pre-Setup)
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-TEAM-001 | Navigate to team management | ✅ | onboarding.spec.ts |
-| TEST-TEAM-002 | Create team with required fields | ✅ | onboarding.spec.ts |
-| TEST-TEAM-003 | Edit team details | ✅ | onboarding.spec.ts |
-| TEST-TEAM-004 | Delete team | ⬜ | - |
-| TEST-TEAM-005 | Team validation - name required | ⬜ | - |
-| TEST-TEAM-006 | Team validation - sport required | ⬜ | - |
-| TEST-TEAM-007 | Team validation - age group required | ⬜ | - |
+Before running the onboarding setup script on a fresh database, you must clear any existing data and seed reference data. Use one of the provided reset scripts.
 
-### 6.2 Team Configuration
+**Option 1: Using PowerShell Script (Windows)**
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-TEAM-008 | Set training schedule | ✅ | onboarding.spec.ts |
-| TEST-TEAM-009 | Set home venue | ✅ | onboarding.spec.ts |
-| TEST-TEAM-010 | Add team description | ✅ | onboarding.spec.ts |
-| TEST-TEAM-011 | Change team sport | ⬜ | - |
-| TEST-TEAM-012 | Change team age group | ⬜ | - |
+```powershell
+# From the project root
+.\apps\web\uat\scripts\reset-pdp-database.ps1
+```
 
-### 6.3 Team Roster
+**Option 2: Using Shell Script (macOS/Linux)**
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-TEAM-013 | Assign player to team | ✅ | onboarding.spec.ts |
-| TEST-TEAM-014 | Assign player via team page | ✅ | onboarding.spec.ts |
-| TEST-TEAM-015 | Verify players in team roster | ✅ | onboarding.spec.ts |
-| TEST-TEAM-016 | Remove player from team | ⬜ | - |
-| TEST-TEAM-017 | Player multi-team assignment | ⬜ | - |
+```bash
+# From the project root
+./apps/web/uat/scripts/reset-pdp-database.sh
+```
 
----
+**What the reset scripts do (4 stages):**
 
-## 7. Player Management Tests
+1. **Stage 1** - Delete application data (players, assessments, goals, etc.)
+2. **Stage 2** - Delete reference data (sports, skills, benchmarks)
+3. **Stage 3** - Delete Better Auth tables (users, sessions, organizations, etc.)
+4. **Stage 4** - Re-seed reference data (sports, skills, benchmarks)
 
-### 7.1 Player Creation
+**Location:** `apps/web/uat/scripts/`
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-PLAYER-001 | Navigate to player management | ✅ | onboarding.spec.ts |
-| TEST-PLAYER-002 | Add player functionality exists | ✅ | onboarding.spec.ts |
-| TEST-PLAYER-003 | Create player with required fields | ✅ | onboarding.spec.ts |
-| TEST-PLAYER-004 | Player validation - name required | ⬜ | - |
-| TEST-PLAYER-005 | Player validation - DOB required | ⬜ | - |
-| TEST-PLAYER-006 | Player validation - gender required | ⬜ | - |
+- `reset-pdp-database.ps1` - PowerShell script for Windows
+- `reset-pdp-database.sh` - Bash script for macOS/Linux
 
-### 7.2 Player Import
+**⚠️ Important Notes:**
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-PLAYER-007 | Bulk import option exists | ✅ | onboarding.spec.ts |
-| TEST-PLAYER-008 | GAA Foireann import | ⬜ | - |
-| TEST-PLAYER-009 | CSV import | ⬜ | - |
-| TEST-PLAYER-010 | Import duplicate handling | ⬜ | - |
-
-### 7.3 Player Profile
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-PLAYER-011 | View player profile | ⬜ | - |
-| TEST-PLAYER-012 | Edit player details | ⬜ | - |
-| TEST-PLAYER-013 | Delete player | ⬜ | - |
-| TEST-PLAYER-014 | Player medical profile | ⬜ | - |
+- Run from the project root directory
+- Requires the Convex backend to be running (`npx convex dev` in `packages/backend`)
+- Uses staged deletion to avoid timeouts on large datasets
+- Automatically re-seeds reference data after clearing
 
 ---
 
-## 8. Coach Management Tests
+From the `apps/web` directory:
 
-### 8.1 Coach Assignment
+```bash
+cd apps/web
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-COACH-MGT-001 | Coach management section exists | ✅ | onboarding.spec.ts |
-| TEST-COACH-MGT-002 | Assign coach to team | ⬜ | - |
-| TEST-COACH-MGT-003 | Remove coach from team | ⬜ | - |
-| TEST-COACH-MGT-004 | Coach multi-team assignment | ⬜ | - |
+# Run all tests
+npm run test
 
----
+# Run by category
+npm run test:auth       # Authentication tests
+npm run test:admin      # Admin dashboard tests
+npm run test:coach      # Coach feature tests
+npm run test:parent     # Parent tests
+npm run test:player     # Player tests
+npm run test:org        # Organization tests
+npm run test:flows      # Flow wizard tests
+npm run test:homepage   # Marketing page tests
 
-## 9. Organization Settings Tests
+# Utilities
+npm run test:ui         # Playwright UI mode
+npm run test:headed     # Run with visible browser
+npm run test:debug      # Debug mode
+npm run test:report     # View HTML report
+npm run test:list       # List all tests
+```
 
-### 9.1 General Settings
+### 4.1 Setup Script (Pre-UAT Data Creation)
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-ORG-001 | Navigate to settings | ✅ | onboarding.spec.ts |
-| TEST-ORG-002 | Edit organization name | ✅ | onboarding.spec.ts |
-| TEST-ORG-003 | Edit organization slug | ⬜ | - |
-| TEST-ORG-004 | Save general settings | ✅ | onboarding.spec.ts |
+The onboarding setup script creates all necessary test accounts, organizations, teams, and players **before** running the regular UAT tests. This is a standalone script that should be run on a **fresh/empty database**.
 
-### 9.2 Theme & Branding
+```bash
+cd apps/web
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-ORG-005 | Edit primary color | ✅ | onboarding.spec.ts |
-| TEST-ORG-006 | Edit secondary color | ✅ | onboarding.spec.ts |
-| TEST-ORG-007 | Save color settings | ✅ | onboarding.spec.ts |
-| TEST-ORG-008 | Upload organization logo | ⬜ | - |
+# Run the onboarding setup script (headless by default)
+npm run test:setup
 
-### 9.3 Sports Configuration
+# Run with visible browser
+npm run test:setup -- --headed
+```
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-ORG-009 | Add supported sport | ✅ | onboarding.spec.ts |
-| TEST-ORG-010 | Remove supported sport | ⬜ | - |
-| TEST-ORG-011 | Save sports settings | ✅ | onboarding.spec.ts |
+**Location:** `apps/web/uat/scripts/onboarding.spec.ts`
 
-### 9.4 Social Media
+**What it creates:**
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-ORG-012 | Edit website URL | ✅ | onboarding.spec.ts |
-| TEST-ORG-013 | Edit social media links | ✅ | onboarding.spec.ts |
-| TEST-ORG-014 | Save social settings | ✅ | onboarding.spec.ts |
-| TEST-ORG-015 | Verify settings persisted | ✅ | onboarding.spec.ts |
+- Platform owner account (first user, auto-granted platformStaff)
+- Organization with configured sports and colors
+- Test teams with proper sport/age group settings
+- Admin, Coach, and Parent user accounts
+- Player records with team assignments
+- Guardian-player relationships
 
-### 9.5 Ownership
+**⚠️ Important Notes:**
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-ORG-016 | Transfer ownership available | ✅ | onboarding.spec.ts |
-| TEST-ORG-017 | Transfer ownership to admin | ✅ | onboarding.spec.ts |
-| TEST-ORG-018 | Verify new owner has privileges | ✅ | onboarding.spec.ts |
-| TEST-ORG-019 | Verify old owner lost privileges | ✅ | onboarding.spec.ts |
-
----
-
-## 10. Coach Role Tests
-
-### 10.1 Dashboard
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-COACH-001 | View assigned teams | ✅ | coach.spec.ts |
-| TEST-COACH-002 | Dashboard shows team players | ✅ | coach.spec.ts |
-| TEST-COACH-003 | Filter players by team | ✅ | coach.spec.ts |
-| TEST-COACH-004 | Filter by review status | ✅ | coach.spec.ts |
-
-### 10.2 Player Assessment
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-COACH-005 | Navigate to player passport | ✅ | coach.spec.ts |
-| TEST-COACH-006 | View player skills | ⬜ | - |
-| TEST-COACH-007 | Record skill assessment | ⬜ | - |
-| TEST-COACH-008 | View assessment history | ⬜ | - |
-| TEST-COACH-009 | Edit previous assessment | ⬜ | - |
-
-### 10.3 Goals
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-COACH-010 | Create player goal | ⬜ | - |
-| TEST-COACH-011 | Edit player goal | ⬜ | - |
-| TEST-COACH-012 | Mark goal complete | ⬜ | - |
-| TEST-COACH-013 | Delete goal | ⬜ | - |
-
-### 10.4 Voice Notes
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-COACH-014 | Record voice note | ⬜ | - |
-| TEST-COACH-015 | Play voice note | ⬜ | - |
-| TEST-COACH-016 | Delete voice note | ⬜ | - |
-| TEST-COACH-017 | View voice note transcription | ⬜ | - |
-
-### 10.5 Injuries
-
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-COACH-018 | Log player injury | ⬜ | - |
-| TEST-COACH-019 | View injury history | ⬜ | - |
-| TEST-COACH-020 | Update injury status | ⬜ | - |
-| TEST-COACH-021 | Close injury record | ⬜ | - |
+- This script is **NOT** included in regular `npm run test` runs
+- Run this **only once** on a fresh database before UAT testing
+- The script runs in `--headed` mode so you can observe the setup process
+- All test data comes from `uat/test-data.json`
 
 ---
 
-## 11. Parent Role Tests
+## 5. Test Categories
 
-### 11.1 Dashboard
+### 5.1 Authentication Tests (`tests/auth/`)
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-PARENT-001 | View parent dashboard | ✅ | onboarding.spec.ts |
-| TEST-PARENT-002 | See linked children | ✅ | onboarding.spec.ts |
-| TEST-PARENT-003 | View child details | ⬜ | - |
+| ID       | Test                                | Status | File           |
+| -------- | ----------------------------------- | ------ | -------------- |
+| AUTH-001 | Display signup page correctly       | ✅     | signup.spec.ts |
+| AUTH-002 | Show error for duplicate email      | ✅     | signup.spec.ts |
+| AUTH-003 | Show validation for weak password   | ✅     | signup.spec.ts |
+| AUTH-004 | Login success (owner)               | ✅     | login.spec.ts  |
+| AUTH-005 | Login success (admin)               | ✅     | login.spec.ts  |
+| AUTH-006 | Login success (coach)               | ✅     | login.spec.ts  |
+| AUTH-007 | Login success (parent)              | ✅     | login.spec.ts  |
+| AUTH-008 | Google SSO button displayed         | ✅     | login.spec.ts  |
+| AUTH-009 | Microsoft SSO button displayed      | ✅     | login.spec.ts  |
+| AUTH-010 | Login failure (invalid credentials) | ✅     | login.spec.ts  |
+| AUTH-011 | Session persistence after refresh   | ✅     | login.spec.ts  |
+| AUTH-012 | Protected routes redirect to login  | ✅     | login.spec.ts  |
 
-### 11.2 Child Management
+### 5.2 Admin Dashboard Tests (`tests/admin/`)
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-PARENT-004 | View child's progress | ⬜ | - |
-| TEST-PARENT-005 | View child's goals | ⬜ | - |
-| TEST-PARENT-006 | View child's assessments | ⬜ | - |
+| ID            | Test                        | Status | File               |
+| ------------- | --------------------------- | ------ | ------------------ |
+| ADMIN-001     | Dashboard displays overview | ✅     | dashboard.spec.ts  |
+| ADMIN-002     | Statistics cards visible    | ✅     | dashboard.spec.ts  |
+| ADMIN-003     | Navigation tabs visible     | ✅     | dashboard.spec.ts  |
+| ADMIN-NAV-001 | Navigate to Overview        | ✅     | navigation.spec.ts |
+| ADMIN-NAV-002 | Navigate to Players         | ✅     | navigation.spec.ts |
+| ADMIN-NAV-003 | Navigate to Teams           | ✅     | navigation.spec.ts |
+| ADMIN-NAV-004 | Navigate to Coaches         | ✅     | navigation.spec.ts |
+| ADMIN-NAV-005 | Navigate to Users           | ✅     | navigation.spec.ts |
+| ADMIN-NAV-006 | Navigate to Invitations     | ✅     | navigation.spec.ts |
+| ADMIN-NAV-007 | Navigate to Settings        | ✅     | navigation.spec.ts |
+| ADMIN-NAV-008 | Navigate to Announcements   | ✅     | navigation.spec.ts |
 
-### 11.3 Profile Management
+### 5.3 Coach Feature Tests (`tests/coach/`)
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-PARENT-007 | Update child medical info | ⬜ | - |
-| TEST-PARENT-008 | Update emergency contacts | ⬜ | - |
+| ID        | Test                         | Status | File                |
+| --------- | ---------------------------- | ------ | ------------------- |
+| COACH-001 | Dashboard loads correctly    | ✅     | dashboard.spec.ts   |
+| COACH-002 | Team roster visible          | ✅     | dashboard.spec.ts   |
+| COACH-003 | Player cards display         | ✅     | dashboard.spec.ts   |
+| COACH-004 | Skills assessment form loads | ✅     | assessment.spec.ts  |
+| COACH-005 | Rating system works          | ✅     | assessment.spec.ts  |
+| COACH-006 | Assessment save/submit       | ✅     | assessment.spec.ts  |
+| COACH-007 | Voice notes recording UI     | ✅     | voice-notes.spec.ts |
+| COACH-008 | Voice notes playback         | ✅     | voice-notes.spec.ts |
+| COACH-009 | AI insights display          | ✅     | voice-notes.spec.ts |
+| COACH-010 | Injury tracking form         | ✅     | injuries.spec.ts    |
+| COACH-011 | Injury history visible       | ✅     | injuries.spec.ts    |
+| COACH-012 | Medical profile access       | ✅     | injuries.spec.ts    |
 
----
+### 5.4 Parent Tests (`tests/parent/`)
 
-## 12. Adult Player Role Tests
+| ID         | Test                         | Status | File                     |
+| ---------- | ---------------------------- | ------ | ------------------------ |
+| PARENT-001 | Parent dashboard loads       | ✅     | child-management.spec.ts |
+| PARENT-002 | Linked children visible      | ✅     | child-management.spec.ts |
+| PARENT-003 | Child passport viewable      | ✅     | child-management.spec.ts |
+| PARENT-004 | Skills progress visible      | ✅     | child-management.spec.ts |
+| PARENT-005 | Coach feedback visible       | ✅     | child-management.spec.ts |
+| PARENT-006 | Medical info access          | ✅     | child-management.spec.ts |
+| PARENT-007 | Emergency contacts displayed | ✅     | child-management.spec.ts |
 
-### 12.1 Profile
+### 5.5 Player Tests (`tests/player/`)
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-ADULT-001 | View own passport | ⬜ | - |
-| TEST-ADULT-002 | View own progress | ⬜ | - |
-| TEST-ADULT-003 | View own goals | ⬜ | - |
-| TEST-ADULT-004 | View own assessments | ⬜ | - |
+| ID         | Test                         | Status | File                |
+| ---------- | ---------------------------- | ------ | ------------------- |
+| PLAYER-001 | Admin can view players list  | ✅     | passport.spec.ts    |
+| PLAYER-002 | Admin can search players     | ✅     | passport.spec.ts    |
+| PLAYER-003 | Navigate to player passport  | ✅     | passport.spec.ts    |
+| PLAYER-004 | Passport displays basic info | ✅     | passport.spec.ts    |
+| PLAYER-005 | Passport displays skills     | ✅     | passport.spec.ts    |
+| PLAYER-006 | Passport displays goals      | ✅     | passport.spec.ts    |
+| PLAYER-007 | Passport displays notes      | ✅     | passport.spec.ts    |
+| PLAYER-008 | Edit player page accessible  | ✅     | passport.spec.ts    |
+| PLAYER-009 | Share button visible         | ✅     | passport.spec.ts    |
+| ADULT-001  | Adult player login           | ✅     | self-access.spec.ts |
+| ADULT-002  | Self-access dashboard        | ✅     | self-access.spec.ts |
+| ADULT-003  | Own passport viewable        | ✅     | self-access.spec.ts |
+| ADULT-004  | Cannot access others' data   | ✅     | self-access.spec.ts |
 
-### 12.2 Self-Management
+### 5.6 Organization Tests (`tests/org/`)
 
-| ID | Test | Status | Implementation |
-|----|------|--------|----------------|
-| TEST-ADULT-005 | Update personal info | ⬜ | - |
-| TEST-ADULT-006 | Update emergency contacts | ⬜ | - |
-| TEST-ADULT-007 | View injury history | ⬜ | - |
+| ID      | Test                           | Status | File                  |
+| ------- | ------------------------------ | ------ | --------------------- |
+| ORG-001 | Orgs dashboard displays        | ✅     | dashboard.spec.ts     |
+| ORG-002 | Your Organizations visible     | ✅     | dashboard.spec.ts     |
+| ORG-003 | Create Organization button     | ✅     | dashboard.spec.ts     |
+| ORG-004 | Join Organization button       | ✅     | dashboard.spec.ts     |
+| ORG-005 | Organization card displays     | ✅     | dashboard.spec.ts     |
+| ORG-006 | Coach Panel link works         | ✅     | dashboard.spec.ts     |
+| ORG-007 | Admin Panel link works         | ✅     | dashboard.spec.ts     |
+| ANN-001 | Announcements page loads       | ✅     | announcements.spec.ts |
+| ANN-002 | Create announcement button     | ✅     | announcements.spec.ts |
+| ANN-003 | Announcement list displays     | ✅     | announcements.spec.ts |
+| ANN-004 | Announcement targeting options | ✅     | announcements.spec.ts |
 
----
+### 5.7 Flow Wizard Tests (`tests/flows/`)
 
-## 13. Flow System Tests
+| ID       | Test                           | Status | File                |
+| -------- | ------------------------------ | ------ | ------------------- |
+| FLOW-001 | Flow wizard initializes        | ✅     | flow-wizard.spec.ts |
+| FLOW-002 | Multi-step navigation          | ✅     | flow-wizard.spec.ts |
+| FLOW-003 | Form validation between steps  | ✅     | flow-wizard.spec.ts |
+| FLOW-004 | Progress indicator updates     | ✅     | flow-wizard.spec.ts |
+| FLOW-005 | Back navigation preserves data | ✅     | flow-wizard.spec.ts |
+| FLOW-006 | Flow completion handling       | ✅     | flow-wizard.spec.ts |
 
-### 13.1 Platform Flow Management
+### 5.8 Homepage Tests (`tests/homepage/`)
 
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-FLOW-PLATFORM-001 | View platform flows list | ⬜ | Platform staff can see all flows |
-| TEST-FLOW-PLATFORM-002 | Empty state display | ⬜ | Shows message when no flows |
-| TEST-FLOW-PLATFORM-003 | Create simple announcement | ⬜ | Single-step flow creation |
-| TEST-FLOW-PLATFORM-004 | Create multi-step wizard | ⬜ | Multi-step flow creation |
-| TEST-FLOW-PLATFORM-005 | Flow validation | ⬜ | Required fields enforced |
-| TEST-FLOW-PLATFORM-006 | Create blocking priority flow | ⬜ | Must-complete flows |
-| TEST-FLOW-PLATFORM-007 | Edit existing flow | ⬜ | Modify flow details |
-| TEST-FLOW-PLATFORM-008 | Add/remove steps in edit | ⬜ | Step management |
-| TEST-FLOW-PLATFORM-009 | Toggle flow active/inactive | ⬜ | Activation control |
-| TEST-FLOW-PLATFORM-010 | Delete flow | ⬜ | Flow removal |
-| TEST-FLOW-PLATFORM-011 | Non-staff access denied | ⬜ | Access control |
+| ID       | Test                      | Status | File             |
+| -------- | ------------------------- | ------ | ---------------- |
+| HOME-001 | Homepage loads correctly  | ✅     | homepage.spec.ts |
+| HOME-002 | Header navigation visible | ✅     | homepage.spec.ts |
+| HOME-003 | Hero section displays     | ✅     | homepage.spec.ts |
+| HOME-004 | Features section visible  | ✅     | homepage.spec.ts |
+| HOME-005 | Sports section displays   | ✅     | homepage.spec.ts |
+| HOME-006 | Testimonials visible      | ✅     | homepage.spec.ts |
+| HOME-007 | Footer navigation works   | ✅     | homepage.spec.ts |
+| HOME-008 | Login link functional     | ✅     | homepage.spec.ts |
+| HOME-009 | Request Demo link works   | ✅     | homepage.spec.ts |
 
-### 13.2 Organization Announcements
+### 5.9 Identity System Tests (`tests/admin/identity.spec.ts`) - NEW
 
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-FLOW-ORG-001 | View announcements dashboard | ⬜ | Admin sees announcements |
-| TEST-FLOW-ORG-002 | Empty state | ⬜ | No announcements message |
-| TEST-FLOW-ORG-003 | Create all-members announcement | ⬜ | Target all members |
-| TEST-FLOW-ORG-004 | Create coach-only announcement | ⬜ | Target coaches |
-| TEST-FLOW-ORG-005 | Create parent-only announcement | ⬜ | Target parents |
-| TEST-FLOW-ORG-006 | Markdown formatting | ⬜ | Content formatting |
-| TEST-FLOW-ORG-007 | Validation | ⬜ | Required fields |
-| TEST-FLOW-ORG-008 | Admin-only access | ⬜ | Access control |
+| ID           | Test                                    | Status | File             |
+| ------------ | --------------------------------------- | ------ | ---------------- |
+| IDENTITY-001 | Admin can navigate to guardians mgmt    | ✅     | identity.spec.ts |
+| IDENTITY-002 | Admin can view parent users with links  | ✅     | identity.spec.ts |
+| IDENTITY-003 | Invite dialog shows player linking      | ✅     | identity.spec.ts |
+| IDENTITY-004 | Parent sees linked children on dash     | ✅     | identity.spec.ts |
+| IDENTITY-005 | Parent can access linked child passport | ✅     | identity.spec.ts |
+| IDENTITY-006 | Admin can modify guardian-player links  | ✅     | identity.spec.ts |
 
-### 13.3 User Flow Experience
+### 5.10 Invitation/Approvals Tests (`tests/admin/invitations.spec.ts`) - NEW
 
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-FLOW-USER-001 | Flow displays on login | ⬜ | Automatic interception |
-| TEST-FLOW-USER-002 | Blocking flow prevents access | ⬜ | Must complete |
-| TEST-FLOW-USER-003 | Priority ordering | ⬜ | Correct flow sequence |
-| TEST-FLOW-USER-004 | Modal display type | ⬜ | Modal presentation |
-| TEST-FLOW-USER-005 | Full page display type | ⬜ | Page takeover |
-| TEST-FLOW-USER-006 | Banner display type | ⬜ | Top banner |
-| TEST-FLOW-USER-007 | Toast display type | ⬜ | Toast notification |
-| TEST-FLOW-USER-008 | Multi-step navigation | ⬜ | Step progression |
-| TEST-FLOW-USER-009 | Progress indicator | ⬜ | Visual progress |
-| TEST-FLOW-USER-010 | Complete flow | ⬜ | Completion tracking |
-| TEST-FLOW-USER-011 | Dismiss flow | ⬜ | Dismissal tracking |
-| TEST-FLOW-USER-012 | Resume partial flow | ⬜ | State persistence |
+| ID         | Test                                    | Status | File                |
+| ---------- | --------------------------------------- | ------ | ------------------- |
+| INVITE-001 | Admin can navigate to approvals mgmt    | ✅     | invitations.spec.ts |
+| INVITE-002 | Approvals page shows pending requests   | ✅     | invitations.spec.ts |
+| INVITE-003 | Invite dialog has email and role fields | ✅     | invitations.spec.ts |
+| INVITE-004 | Can send invitation with admin role     | ✅     | invitations.spec.ts |
+| INVITE-005 | Can send invitation with coach role     | ✅     | invitations.spec.ts |
+| INVITE-006 | Parent role shows player linking opts   | ✅     | invitations.spec.ts |
+| INVITE-007 | Pending requests can be approved        | ✅     | invitations.spec.ts |
+| INVITE-008 | Admin can access org join page link     | ✅     | invitations.spec.ts |
+| INVITE-009 | Pending requests display user info      | ✅     | invitations.spec.ts |
+| INVITE-010 | Can select multiple roles               | ✅     | invitations.spec.ts |
 
-### 13.4 First User Onboarding Flow
+### 5.11 Team Management Tests (`tests/admin/teams.spec.ts`) - NEW
 
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-FLOW-ONBOARD-001 | First user auto-detection | ⬜ | Platform staff assignment |
-| TEST-FLOW-ONBOARD-002 | Second user not staff | ⬜ | Normal user |
-| TEST-FLOW-ONBOARD-003 | Onboarding flow displays | ⬜ | Welcome wizard |
-| TEST-FLOW-ONBOARD-004 | Welcome step | ⬜ | Introduction |
-| TEST-FLOW-ONBOARD-005 | Create org step | ⬜ | Org creation |
-| TEST-FLOW-ONBOARD-006 | Completion step | ⬜ | Finish wizard |
-
-### 13.5 Flow Interception
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-FLOW-INTERCEPT-001 | Org announcement to members | ⬜ | Correct targeting |
-| TEST-FLOW-INTERCEPT-002 | Coach-only to coaches | ⬜ | Role filtering |
-| TEST-FLOW-INTERCEPT-003 | Parent-only to parents | ⬜ | Role filtering |
-| TEST-FLOW-INTERCEPT-004 | Progress persists | ⬜ | Session survival |
-| TEST-FLOW-INTERCEPT-005 | CTA navigation | ⬜ | Action handling |
-
-### 13.6 Flow E2E
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-FLOW-E2E-001 | Full flow lifecycle | ⬜ | Create → display → complete |
-| TEST-FLOW-E2E-002 | Multi-user announcement | ⬜ | All users receive |
-| TEST-FLOW-E2E-003 | Concurrent flows | ⬜ | Platform + org flows |
-| TEST-FLOW-E2E-004 | Performance (10 flows) | ⬜ | Query performance |
-| TEST-FLOW-E2E-005 | Rapid login/logout | ⬜ | State consistency |
-| TEST-FLOW-E2E-006 | Delete active flow | ⬜ | Error handling |
-| TEST-FLOW-E2E-007 | Deactivate mid-session | ⬜ | Graceful handling |
-
----
-
-## 14. Identity System Tests
-
-### 14.1 Foundation Tables (Phase 1)
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-IDENTITY-1.1.1 | Schema compiles | ⬜ | Convex codegen |
-| TEST-IDENTITY-1.1.2 | Types generated | ⬜ | DataModel types |
-| TEST-IDENTITY-1.2.x | Sports table | ⬜ | 5 tests |
-| TEST-IDENTITY-1.3.x | Age groups table | ⬜ | 5 tests |
-| TEST-IDENTITY-1.4.x | Skill categories | ⬜ | 4 tests |
-| TEST-IDENTITY-1.5.x | Skill definitions | ⬜ | 6 tests |
-
-### 14.2 Guardian Identity (Phase 2)
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-IDENTITY-2.1.x | Schema tests | ⬜ | 3 tests |
-| TEST-IDENTITY-2.2.x | Guardian CRUD | ⬜ | 6 tests |
-| TEST-IDENTITY-2.3.x | Guardian queries | ⬜ | 5 tests |
-| TEST-IDENTITY-2.4.x | Duplicate prevention | ⬜ | 4 tests |
-| TEST-IDENTITY-2.5.x | User linking | ⬜ | 4 tests |
-| TEST-IDENTITY-2.6.x | Org profiles | ⬜ | 5 tests |
-| TEST-IDENTITY-2.7.x | Identity matching | ⬜ | 5 tests |
-
-### 14.3 Player Identity (Phase 3)
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-IDENTITY-3.1.x | Schema tests | ⬜ | 4 tests |
-| TEST-IDENTITY-3.2.x | Player CRUD | ⬜ | 5 tests |
-| TEST-IDENTITY-3.3.x | Player queries | ⬜ | 4 tests |
-| TEST-IDENTITY-3.4.x | Guardian-player links | ⬜ | 8 tests |
-| TEST-IDENTITY-3.5.x | Enrollments | ⬜ | 7 tests |
-| TEST-IDENTITY-3.6.x | Combined queries | ⬜ | 3 tests |
-| TEST-IDENTITY-3.7.x | Age calculations | ⬜ | 4 tests |
-
-### 14.4 Adult Player Support (Phase 4)
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-IDENTITY-4.1.x | Schema tests | ⬜ | 2 tests |
-| TEST-IDENTITY-4.2.x | Adult player tests | ⬜ | 4 tests |
-| TEST-IDENTITY-4.3.x | Emergency contacts | ⬜ | 7 tests |
-| TEST-IDENTITY-4.4.x | Youth→Adult transition | ⬜ | 6 tests |
-
-### 14.5 Data Migration (Phase 5)
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-IDENTITY-5.1.x | Pre-migration | ⬜ | 2 tests |
-| TEST-IDENTITY-5.2.x | Clean slate | ⬜ | 4 tests |
-| TEST-IDENTITY-5.3.x | Migration | ⬜ | 6 tests |
-| TEST-IDENTITY-5.4.x | Post-migration | ⬜ | 3 tests |
-
-### 14.6 Frontend Integration (Phase 6)
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-IDENTITY-6.1.x | Hook tests | ⬜ | 2 tests |
-| TEST-IDENTITY-6.2.x | Parent dashboard | ⬜ | 4 tests |
-| TEST-IDENTITY-6.3.x | Player passport | ⬜ | 3 tests |
-| TEST-IDENTITY-6.4.x | Admin tests | ⬜ | 3 tests |
-| TEST-IDENTITY-6.5.x | Import tests | ⬜ | 6 tests |
-| TEST-IDENTITY-6.6.x | Cross-org tests | ⬜ | 2 tests |
-
-### 14.7 Sport Passport (Phase 7)
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-IDENTITY-7.1.x | Schema tests | ⬜ | 3 tests |
-| TEST-IDENTITY-7.2.x | Passport CRUD | ⬜ | 6 tests |
-| TEST-IDENTITY-7.3.x | Skill assessments | ⬜ | 6 tests |
-| TEST-IDENTITY-7.4.x | Denormalization | ⬜ | 3 tests |
-| TEST-IDENTITY-7.5.x | Progress calculation | ⬜ | 4 tests |
-
-### 14.8 Identity E2E
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-IDENTITY-E2E-1 | New family joins | ⬜ | Full workflow |
-| TEST-IDENTITY-E2E-2 | Child joins second club | ⬜ | Multi-org |
-| TEST-IDENTITY-E2E-3 | Skill assessment flow | ⬜ | Coach workflow |
-| TEST-IDENTITY-E2E-4 | Adult self-registers | ⬜ | Adult workflow |
-| TEST-IDENTITY-E2E-5 | Youth turns 18 | ⬜ | Transition |
-| TEST-IDENTITY-E2E-6 | Import workflow | ⬜ | Bulk import |
+| ID       | Test                                | Status | File          |
+| -------- | ----------------------------------- | ------ | ------------- |
+| TEAM-001 | Admin can navigate to teams mgmt    | ✅     | teams.spec.ts |
+| TEAM-002 | Teams page shows list of teams      | ✅     | teams.spec.ts |
+| TEAM-003 | Create team button is accessible    | ✅     | teams.spec.ts |
+| TEAM-004 | Create team dialog opens            | ✅     | teams.spec.ts |
+| TEAM-005 | Create team form has sport dropdown | ✅     | teams.spec.ts |
+| TEAM-006 | Create team form has age dropdown   | ✅     | teams.spec.ts |
+| TEAM-007 | Can click team to view details      | ✅     | teams.spec.ts |
+| TEAM-008 | Team details shows player roster    | ✅     | teams.spec.ts |
+| TEAM-009 | Edit team functionality accessible  | ✅     | teams.spec.ts |
+| TEAM-010 | Coach assignment option available   | ✅     | teams.spec.ts |
+| TEAM-011 | Add player to team available        | ✅     | teams.spec.ts |
+| TEAM-012 | Delete team option accessible       | ✅     | teams.spec.ts |
 
 ---
 
-## 15. Cross-Role & Integration Tests
+## 6. Test Coverage by Category
 
-### 15.1 Multi-Role Access
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-CROSS-001 | Admin+Coach same user | ⬜ | Dual role access |
-| TEST-CROSS-002 | Parent+Coach same user | ⬜ | Dual role access |
-| TEST-CROSS-003 | Role switching | ⬜ | Context switching |
-
-### 15.2 Data Visibility
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-CROSS-004 | Parent sees only own children | ⬜ | Data isolation |
-| TEST-CROSS-005 | Coach sees only assigned teams | ⬜ | Data isolation |
-| TEST-CROSS-006 | Admin sees all data | ⬜ | Full access |
-
-### 15.3 Workflow Integration
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-CROSS-007 | Coach assess → Parent view | ⬜ | Data flow |
-| TEST-CROSS-008 | Admin create → Coach access | ⬜ | Data flow |
-| TEST-CROSS-009 | Invitation → Acceptance → Access | ⬜ | Full workflow |
-
-### 15.4 Edge Cases
-
-| ID | Test | Status | Description |
-|----|------|--------|-------------|
-| TEST-CROSS-010 | User with no roles | ⬜ | Default behavior |
-| TEST-CROSS-011 | Deleted team impact | ⬜ | Cascading |
-| TEST-CROSS-012 | Deleted player impact | ⬜ | Cascading |
-| TEST-CROSS-013 | Organization deletion | ⬜ | Full cleanup |
+| Category       | Tests   | Coverage Status   |
+| -------------- | ------- | ----------------- |
+| Authentication | 12      | ✅ Complete       |
+| Admin          | 39      | ✅ Complete       |
+| Coach          | 29      | ✅ Complete       |
+| Parent         | 10      | ✅ Complete       |
+| Player         | 17      | ✅ Complete       |
+| Organization   | 20      | ✅ Complete       |
+| Flows          | 9       | ✅ Complete       |
+| Homepage       | 13      | ✅ Complete       |
+| Identity       | 6       | ✅ NEW - Complete |
+| Invitations    | 10      | ✅ NEW - Complete |
+| Teams          | 12      | ✅ NEW - Complete |
+| **Total**      | **177** | **11 categories** |
 
 ---
 
-## 16. Implementation Status
+## 7. Remaining Coverage Gaps
 
-### 16.1 Summary
+### 7.1 Not Yet Automated
 
-| Category | Total | Implemented | Partial | Not Started |
-|----------|-------|-------------|---------|-------------|
-| Authentication | 11 | 7 | 0 | 4 |
-| Onboarding | 12 | 12 | 0 | 0 |
-| User Management | 20 | 14 | 3 | 3 |
-| Team Management | 17 | 10 | 0 | 7 |
-| Player Management | 14 | 5 | 0 | 9 |
-| Coach Management | 4 | 1 | 0 | 3 |
-| Org Settings | 19 | 15 | 0 | 4 |
-| Coach Role | 21 | 5 | 0 | 16 |
-| Parent Role | 8 | 2 | 0 | 6 |
-| Adult Player | 7 | 0 | 0 | 7 |
-| Flow System | 47 | 0 | 0 | 47 |
-| Identity System | ~100 | 0 | 0 | ~100 |
-| Cross-Role | 13 | 0 | 0 | 13 |
-| **TOTAL** | **~293** | **~71** | **3** | **~219** |
+| Feature               | Priority | Estimated Tests | Status         |
+| --------------------- | -------- | --------------- | -------------- |
+| Identity System       | P1       | 6               | ✅ IMPLEMENTED |
+| Invitation Workflow   | P1       | 10              | ✅ IMPLEMENTED |
+| Team Management CRUD  | P1       | 12              | ✅ IMPLEMENTED |
+| Cross-Role Scenarios  | P2       | 10-15           | ⬜ Not started |
+| Performance Tests     | P2       | 5-10            | ⬜ Not started |
+| Mobile Viewport Tests | P3       | 15-20           | ⬜ Not started |
 
-### 16.2 Implementation Priority
+### 7.2 Known Limitations
 
-**Phase 1 - Core Flows (Current)**
-- ✅ Authentication
-- ✅ Onboarding  
-- ✅ Basic Admin
-- ✅ Basic Coach
-
-**Phase 2 - Extended Functionality**
-- Coach assessments and goals
-- Parent child management
-- Player profile management
-
-**Phase 3 - Advanced Features**
-- Flow system
-- Voice notes
-- Injury tracking
-
-**Phase 4 - Backend Systems**
-- Identity migration tests
-- Performance tests
-- E2E integration
-
-### 16.3 Test Files to Create
-
-| File | Tests | Priority |
-|------|-------|----------|
-| `parent.spec.ts` | Parent role tests | High |
-| `player-passport.spec.ts` | Player profile tests | High |
-| `assessment.spec.ts` | Coach assessment tests | High |
-| `flow-system.spec.ts` | Flow system tests | Medium |
-| `identity.spec.ts` | Identity system tests | Medium |
-| `integration.spec.ts` | Cross-role tests | Medium |
+1. **No onboarding tests** - Removed in v3.0; assumes pre-created test users
+2. **Single browser** - Only Chromium configured
+3. **Sequential execution** - No parallelization for stability
+4. **No visual regression** - Screenshot comparison not implemented
 
 ---
 
-## Appendix A: Role Capabilities Matrix
+## 8. Recommendations & Next Steps
 
-### Application Admin
+### 8.1 Immediate Priorities (P0) - ✅ COMPLETED
 
-| Capability | Status | Tests |
-|------------|--------|-------|
-| Create organizations | ✅ | TEST-ONBOARDING-003 |
-| View all organizations | ✅ | - |
-| Manage platform flows | ⬜ | TEST-FLOW-PLATFORM-* |
-| View platform analytics | ⬜ | - |
+1. ~~**Add Identity System tests**~~ - ✅ 6 tests implemented (identity.spec.ts)
+2. ~~**Add Invitation Workflow tests**~~ - ✅ 10 tests implemented (invitations.spec.ts)
+3. ~~**Add Team Management CRUD tests**~~ - ✅ 12 tests implemented (teams.spec.ts)
 
-### Organization Owner
+### 8.2 Medium-Term (P1)
 
-| Capability | Status | Tests |
-|------------|--------|-------|
-| All admin capabilities | ✅ | Multiple |
-| Transfer ownership | ✅ | TEST-ORG-017 |
-| Delete organization | ⬜ | - |
-| Manage billing | ⬜ | - |
+1. **Cross-Role Tests** - Users with multiple roles
+2. **Data Isolation Tests** - Verify users can't access others' data
+3. **CI/CD Integration** - Add to GitHub Actions
 
-### Organization Admin
+### 8.3 Long-Term (P2)
 
-| Capability | Status | Tests |
-|------------|--------|-------|
-| Manage users | ✅ | TEST-USER-* |
-| Manage teams | ✅ | TEST-TEAM-* |
-| Manage players | ✅ | TEST-PLAYER-* |
-| Organization settings | ✅ | TEST-ORG-* |
-| Create announcements | ⬜ | TEST-FLOW-ORG-* |
-
-### Coach
-
-| Capability | Status | Tests |
-|------------|--------|-------|
-| View assigned teams | ✅ | TEST-COACH-001 |
-| Record assessments | ⬜ | TEST-COACH-007 |
-| Manage goals | ⬜ | TEST-COACH-010-013 |
-| Record voice notes | ⬜ | TEST-COACH-014-017 |
-| Log injuries | ⬜ | TEST-COACH-018-021 |
-
-### Parent/Guardian
-
-| Capability | Status | Tests |
-|------------|--------|-------|
-| View linked children | ✅ | TEST-PARENT-002 |
-| View child progress | ⬜ | TEST-PARENT-004 |
-| Update medical info | ⬜ | TEST-PARENT-007 |
-
-### Adult Player
-
-| Capability | Status | Tests |
-|------------|--------|-------|
-| View own passport | ⬜ | TEST-ADULT-001 |
-| Self-management | ⬜ | TEST-ADULT-005-007 |
+1. **Visual Regression** - Screenshot comparison
+2. **Performance Testing** - Response time monitoring
+3. **Mobile Testing** - Full mobile viewport coverage
+4. **Parallel Execution** - Speed up test runs
 
 ---
 
-## Appendix B: Test Execution Checklist
+## Appendix A: Test Execution Checklist
 
 ### Pre-Testing
 
-- [ ] Test environment configured
-- [ ] Database in known state
-- [ ] Test data loaded
-- [ ] All test users accessible
+- [ ] `npm run dev` running on localhost:3000
+- [ ] Test user accounts exist in database
+- [ ] Playwright installed (`cd apps/web && npm install`)
 
-### Execution
+### Running Tests
 
-- [ ] Authentication tests pass
-- [ ] Onboarding tests pass
-- [ ] User management tests pass
-- [ ] Team management tests pass
-- [ ] Player management tests pass
-- [ ] Coach role tests pass
-- [ ] Parent role tests pass
-- [ ] Organization settings tests pass
+```bash
+cd apps/web
+npm run test
+```
 
 ### Post-Testing
 
-- [ ] All failures documented
-- [ ] Screenshots captured for failures
-- [ ] Regression issues logged
-- [ ] Sign-off obtained
+- [ ] Review failures in `uat/playwright-report/`
+- [ ] Document any new issues
+- [ ] Update test data if needed
 
 ---
 
-## Appendix C: Sign-Off
+## Appendix B: Sign-Off
 
-| Role | Name | Date | Signature |
-|------|------|------|-----------|
-| QA Lead | | | |
-| Product Owner | | | |
-| Tech Lead | | | |
+| Role          | Name | Date | Signature |
+| ------------- | ---- | ---- | --------- |
+| QA Lead       |      |      |           |
+| Product Owner |      |      |           |
+| Tech Lead     |      |      |           |
 
 ---
 
-**Document Version History**
+## Document Version History
 
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2026-01-07 | Cline | Initial consolidation from 4 source documents |
+| Version | Date       | Author | Changes                                                                                    |
+| ------- | ---------- | ------ | ------------------------------------------------------------------------------------------ |
+| 1.0     | 2026-01-07 | Cline  | Initial consolidation from 4 source documents                                              |
+| 2.0     | 2026-01-10 | Cline  | Updated with UATMCP test suite results                                                     |
+| 2.1     | 2026-01-10 | Cline  | Added 67 new tests across 8 files                                                          |
+| 3.0     | 2026-01-10 | Cline  | Migrated to lightweight UAT model, removed onboarding, consolidated to single uat/ folder  |
+| 3.1     | 2026-01-10 | Cline  | Added 28 new tests: Identity (6), Invitations (10), Teams (12). All P0 priorities complete |

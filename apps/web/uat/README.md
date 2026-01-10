@@ -1,382 +1,229 @@
-# PDP UAT (User Acceptance Testing) with Playwright
+# PlayerARC UAT Test Suite
 
-This directory contains User Acceptance Tests for the PDP application using [Playwright](https://playwright.dev/).
+Comprehensive User Acceptance Testing suite for PlayerARC using Playwright.
 
-## Quick Start
+## Overview
 
-### 1. Install Playwright
+This test suite validates all major user journeys and functionality of the PlayerARC application.
+
+## Directory Structure
+
+```text
+uat/
+├── README.md                 # This file
+├── test-data.json            # Test data configuration (users, org, teams, players)
+├── playwright.config.ts      # Main Playwright configuration
+├── global-setup.ts           # Authentication setup for test users
+├── .auth/                    # Cached auth states
+├── fixtures/
+│   └── test-fixtures.ts      # Shared test fixtures and helpers
+├── scripts/
+│   ├── onboarding.spec.ts    # First-time setup tests (runs on fresh DB)
+│   └── playwright.config.ts  # Standalone config for setup scripts
+├── tests/
+│   ├── admin/                # Admin dashboard tests
+│   │   ├── dashboard.spec.ts
+│   │   ├── identity.spec.ts
+│   │   ├── invitations.spec.ts
+│   │   ├── navigation.spec.ts
+│   │   └── teams.spec.ts
+│   ├── auth/                 # Authentication tests
+│   ├── coach/                # Coach features tests
+│   ├── flows/                # Cross-role flow tests
+│   ├── homepage/             # Homepage tests
+│   ├── org/                  # Organization tests
+│   ├── parent/               # Parent dashboard tests
+│   ├── player/               # Player features tests
+│   └── fixtures/
+│       └── test-utils.ts     # Test utilities and data exports
+├── playwright-report/        # HTML test reports
+└── test-results/             # Test artifacts (screenshots, traces)
+```
+
+## Test Categories
+
+| Category   | Test ID Prefix | Description              |
+| ---------- | -------------- | ------------------------ |
+| AUTH       | AUTH-xxx       | Authentication flows     |
+| ONBOARDING | ONBOARDING-xxx | First-time setup flow    |
+| ADMIN      | ADMIN-xxx      | Admin dashboard features |
+| COACH      | COACH-xxx      | Coach features           |
+| PARENT     | PARENT-xxx     | Parent dashboard         |
+| PLAYER     | PLAYER-xxx     | Player features          |
+| ORG        | ORG-xxx        | Organization management  |
+| TEAM       | TEAM-xxx       | Team management          |
+| INVITE     | INVITE-xxx     | Invitation workflow      |
+| FLOW       | FLOW-xxx       | Cross-role flows         |
+| IDENTITY   | IDENTITY-xxx   | Identity system tests    |
+| HOME       | HOME-xxx       | Homepage tests           |
+| E2E        | E2E-xxx        | End-to-end flows         |
+
+## Test Users
+
+All test accounts are defined in `test-data.json`:
+
+| Role   | Email                    | Description                     |
+| ------ | ------------------------ | ------------------------------- |
+| Owner  | <owner_pdp@outlook.com>  | Platform staff with full access |
+| Admin  | <adm1n_pdp@outlook.com>  | Organization administrator      |
+| Coach  | <coach_pdp@outlook.com>  | Team coach                      |
+| Parent | <parent_pdp@outlook.com> | Player guardian                 |
+
+## Running Tests
+
+### From Project Root
 
 ```bash
-cd apps/web
-npm install -D @playwright/test
-npx playwright install
-```
+# Run all UAT tests
+npm run test -w web
 
-### 2. Configure Test Environment
+# Run specific test category
+npm run test:admin -w web
+npm run test:auth -w web
+npm run test:coach -w web
+npm run test:parent -w web
+npm run test:player -w web
+npm run test:org -w web
+npm run test:flows -w web
+npm run test:homepage -w web
 
-Create a `.env.test` file in `apps/web/`:
+# Run with UI mode
+npm run test:ui -w web
 
-```env
-# Test environment URL
-PLAYWRIGHT_BASE_URL=http://localhost:3000
-
-# Test organization ID
-TEST_ORG_ID=your_test_org_id_here
-
-# Optional: Use a staging/test environment instead of localhost
-# PLAYWRIGHT_BASE_URL=https://test.yourapp.com
-```
-
-### 3. Update Test User Credentials
-
-Edit `uat/fixtures/test-utils.ts` and update the `TEST_USERS` object with your actual test account credentials:
-
-```typescript
-export const TEST_USERS = {
-  admin: {
-    email: 'your-admin@example.com',
-    password: 'your-password',
-    name: 'Admin User',
-  },
-  // ... other users
-};
-```
-
-### 4. Run Tests
-
-```bash
-# Run all tests (all groups)
-npm run test
-
-# Run Initial Onboarding tests only (Group 1 - for fresh environment)
-npm run test:onboarding
-
-# Run Continuous tests only (Group 2 - after code changes)
-npm run test:continuous
-
-# Run mobile viewport tests
-npm run test:mobile
-
-# Run in UI mode (interactive)
-npm run test:ui
-npm run test:ui:onboarding # UI mode for onboarding tests only
-npm run test:ui:continuous # UI mode for continuous tests only
-
-# Run with browser visible
-npm run test:headed
+# Run headed (visible browser)
+npm run test:headed -w web
 
 # Run in debug mode
+npm run test:debug -w web
+
+# View HTML report
+npm run test:report -w web
+
+# List all tests
+npm run test:list -w web
+```
+
+### From apps/web Directory
+
+```bash
+cd apps/web
+
+# Run all tests
+npm run test
+
+# Run specific category
+npm run test:admin
+npm run test:auth
+npm run test:coach
+npm run test:parent
+npm run test:player
+npm run test:org
+npm run test:flows
+npm run test:homepage
+
+# Run with UI
+npm run test:ui
+
+# Run headed
+npm run test:headed
+
+# Debug mode
 npm run test:debug
 
-# List all available tests
-npm run test:list
-```
-
-### Running with Dev Server Already Running
-
-If you already have the dev server running (`npm run dev`), use `npx playwright test` directly. **Important:** Run from the `apps/web` directory:
-
-```bash
-cd apps/web
-```
-
-| Project | Command | Tests |
-|---------|---------|-------|
-| `initial-onboarding` | `npx playwright test --project=initial-onboarding` | onboarding.spec.ts (46 tests) |
-| `auth-tests` | `npx playwright test --project=auth-tests` | auth.spec.ts (7 tests) |
-| `admin-tests` | `npx playwright test --project=admin-tests` | admin.spec.ts (7 tests) |
-| `coach-tests` | `npx playwright test --project=coach-tests` | coach.spec.ts (5 tests) |
-| `continuous` | `npx playwright test --project=continuous` | auth, admin, coach tests |
-| `all-desktop` | `npx playwright test --project=all-desktop` | All tests |
-| `mobile` | `npx playwright test --project=mobile` | All tests (mobile viewport) |
-
-**Example:**
-```bash
-# IMPORTANT: Must be in apps/web directory
-cd apps/web
-
-# Run just the onboarding tests
-npx playwright test --project=initial-onboarding
-
-# Run a specific test file directly
-npx playwright test onboarding.spec.ts
-
-# Run tests with visible browser
-npx playwright test --project=auth-tests --headed
-
-# Run tests in debug mode
-npx playwright test --project=coach-tests --debug
-```
-
-## Test Groups
-
-Tests are organized into two groups for different use cases:
-
-### Group 1: Initial Onboarding Tests (`npm run test:onboarding`)
-
-**When to run:** Once when setting up a fresh environment (after database reset)
-
-| Test File | Purpose |
-|-----------|---------|
-| `onboarding.spec.ts` | First-time organization setup, user onboarding, team creation |
-
-**Test Cases:**
-- TEST-ONBOARDING-001: First User Signup - Automatic Platform Staff
-- TEST-ONBOARDING-002: Non-Platform Staff Cannot Create Organizations
-- TEST-ONBOARDING-003: Owner First Login Experience
-- TEST-ONBOARDING-004: Owner Creates First Team
-- TEST-ONBOARDING-005: Owner Invites First Admin
-- TEST-ONBOARDING-006: First Admin Accepts Invitation
-- TEST-ONBOARDING-007: Owner Invites First Coach
-- TEST-ONBOARDING-008: First Coach Accepts and Gets Team Assignment
-- TEST-ONBOARDING-009: Admin Creates First Players
-- TEST-ONBOARDING-010: Owner Invites First Parent
-- TEST-ONBOARDING-011: Platform Admin Edits Organisation (name, sports, social links)
-
-### Group 2: Continuous Tests (`npm run test:continuous`)
-
-**When to run:** Regularly after code changes to ensure nothing is broken
-
-| Test File | Purpose |
-|-----------|---------|
-| `auth.spec.ts` | Login, signup, logout, session management |
-| `admin.spec.ts` | Admin dashboard, approval workflows |
-| `coach.spec.ts` | Coach dashboard, player management |
-
-**Test Cases:**
-- TEST-AUTH-001 to TEST-AUTH-004: Authentication flows
-- TEST-ADMIN-001 to TEST-ADMIN-004: Admin operations
-- TEST-COACH-001 to TEST-COACH-004: Coach operations
-
-### Typical Workflow
-
-```bash
-# 1. Fresh environment setup (run once)
-cd packages/backend
-npx convex run scripts/fullReset:fullReset '{"confirmNuclearDelete": true}'
-npx convex run models/referenceData:seedAllReferenceData
-
-# 2. Run Initial Onboarding tests - creates first user via signup
-#    (First user is automatically granted platform staff privileges)
-cd apps/web
-npm run test:onboarding
-
-# 3. After any code changes, run Continuous tests
-cd apps/web
-npm run test:continuous
-
-# 4. Before release, run all tests
-npm run test
-```
-
-### Platform Staff Bootstrap
-
-The `isPlatformStaff` flag must be explicitly set on user accounts. It is NOT automatically granted to the first user.
-
-**Available scripts:**
-
-| Script | Purpose |
-|--------|---------|
-| `setFirstPlatformStaff` | Sets a user as platform staff (only works if NO platform staff exists - safety check) |
-| `listPlatformStaff` | Shows all current platform staff users and total user count |
-
-**Usage:**
-
-**Windows (Command Prompt):**
-```bash
-# Set first platform staff (safe - fails if platform staff already exists)
-npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff "{\"email\": \"user@example.com\"}"
-
-# Check current platform staff
-npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
-```
-
-**Windows (PowerShell):**
-```powershell
-# Set first platform staff
-npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff '{"email": "user@example.com"}'
-
-# Check current platform staff
-npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
-```
-
-**macOS/Linux:**
-```bash
-# Set first platform staff
-npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff '{"email": "user@example.com"}'
-
-# Check current platform staff
-npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
-```
-
-## Test Structure
-
-```
-uat/
-├── fixtures/
-│   └── test-utils.ts    # Shared utilities, test users, helper functions
-├── tests/
-│   ├── onboarding.spec.ts # GROUP 1: Initial onboarding tests
-│   ├── auth.spec.ts     # GROUP 2: Authentication tests
-│   ├── admin.spec.ts    # GROUP 2: Admin dashboard tests
-│   ├── coach.spec.ts    # GROUP 2: Coach dashboard tests
-│   └── ...
-├── auth.setup.ts        # Authentication setup (creates logged-in sessions)
-├── .auth/               # Saved auth states (gitignored)
-└── README.md
-```
-
-## Test Files Mapped to Test Cases
-
-| Test File | Test Cases Covered | Tests | Prerequisites |
-|-----------|-------------------|-------|---------------|
-| `onboarding.spec.ts` | TEST-ONBOARDING-001 to TEST-ONBOARDING-012 | 40+ | Fresh environment |
-| `first-login-dashboard.spec.ts` | TEST-FIRST-LOGIN-001 to TEST-FIRST-LOGIN-005 | 10 | onboarding.spec.ts |
-| `auth.spec.ts` | TEST-AUTH-001 to TEST-AUTH-004 | 7 | Users exist |
-| `admin.spec.ts` | TEST-ADMIN-001 to TEST-ADMIN-004 | 7 | Users exist |
-| `coach.spec.ts` | TEST-COACH-001 to TEST-COACH-004 | 5 | Users exist |
-| **Total** | **28+ Test Cases** | **69+ Tests** | |
-
-### Test Execution Order
-
-**IMPORTANT:** 
-1. You MUST use `--project=` flags to avoid auth setup dependencies running first!
-2. Run commands from the **project root** (`c:\code\PDP`), NOT from `apps/web`
-
-Tests should be run in this order for a fresh environment:
-
-```bash
-# Step 1: Run onboarding tests FIRST (creates users, org, invitations)
-# Uses --project flag to avoid auth-setup dependency
-npx playwright test --project=initial-onboarding
-
-# Step 2: Run first login dashboard tests (verifies correct dashboard redirects)
-npx playwright test --project=first-login-dashboard
-
-# Step 3: Run remaining tests (these have auth-setup dependency which is OK now)
-npx playwright test --project=continuous
-```
-
-**Why use `--project=` flags?**
-
-Running `npx playwright test onboarding.spec.ts` without a project flag matches ALL projects that include that test file, including `all-desktop` which has `auth-setup` as a dependency. This causes auth tests to run first, which fail on a fresh environment.
-
-| Command | What Happens |
-|---------|-------------|
-| `npx playwright test onboarding.spec.ts` | ❌ Matches `all-desktop` project → runs `auth-setup` first → FAILS |
-| `npx playwright test --project=initial-onboarding` | ✅ Runs onboarding tests only, no dependencies |
-
-## CI/CD Integration
-
-Tests automatically run on:
-- Push to `main` or `develop` branches
-- Pull requests to `main` or `develop`
-
-### Required GitHub Secrets
-
-Set these in your repository settings → Secrets → Actions:
-
-| Secret | Description |
-|--------|-------------|
-| `PLAYWRIGHT_BASE_URL` | URL of the test environment |
-| `TEST_ORG_ID` | Organization ID for testing |
-| `TEST_ADMIN_EMAIL` | Admin test account email |
-| `TEST_ADMIN_PASSWORD` | Admin test account password |
-| `TEST_COACH_EMAIL` | Coach test account email |
-| `TEST_COACH_PASSWORD` | Coach test account password |
-| `STAGING_URL` | (Optional) Staging environment URL |
-
-## Writing New Tests
-
-### Basic Test Structure
-
-```typescript
-import { test, expect } from '../fixtures/test-utils';
-
-test.describe('Feature Name', () => {
-  test('should do something', async ({ page, helper }) => {
-    // Navigate
-    await page.goto('/some-page');
-    
-    // Interact
-    await page.getByRole('button', { name: /submit/i }).click();
-    
-    // Assert
-    await expect(page.getByText(/success/i)).toBeVisible();
-  });
-});
-```
-
-### Using Authenticated Sessions
-
-```typescript
-import { AUTH_STATES } from '../fixtures/test-utils';
-
-test.describe('Admin Tests', () => {
-  // Use pre-authenticated admin session
-  test.use({ storageState: AUTH_STATES.admin });
-  
-  test('should access admin page', async ({ page }) => {
-    await page.goto('/admin');
-    // Already logged in as admin
-  });
-});
-```
-
-### Using Helper Functions
-
-```typescript
-test('should login and navigate', async ({ helper, page }) => {
-  await helper.login('user@example.com', 'password');
-  await helper.goToCoach();
-  await helper.expectToast(/success/i);
-});
-```
-
-## Best Practices
-
-1. **Use data-testid attributes** - Add `data-testid="component-name"` to key elements for stable selectors
-2. **Avoid flaky tests** - Use `waitForLoadState('networkidle')` when needed
-3. **Keep tests independent** - Each test should work in isolation
-4. **Use meaningful assertions** - Check for user-visible outcomes
-5. **Handle dynamic data** - Skip tests if required data isn't present
-
-## Debugging
-
-### View Test Report
-
-```bash
+# View report
 npm run test:report
 ```
 
-### Debug Single Test
+### First-Time Setup Tests
+
+The onboarding tests run on a **fresh database** (no existing users):
 
 ```bash
-npx playwright test auth.spec.ts --debug
+# Run onboarding/setup tests (headless)
+npm run test:setup -w web
+
+# Run with visible browser
+npm run test:setup -w web -- --headed
 ```
 
-### Use Playwright Inspector
+> **Note:** The `test:setup` script uses a separate config (`scripts/playwright.config.ts`) that does NOT use globalSetup, since users don't exist yet.
 
-```bash
-PWDEBUG=1 npx playwright test --headed
-```
+## Test Data Configuration
 
-## Troubleshooting
+`test-data.json` contains:
 
-### Tests fail with "element not found"
+- **users**: Test user accounts (owner, admin, coach, parent)
+- **organization**: Test organization details
+- **teams**: Team configurations
+- **players**: Player profiles for testing
+- **invitations**: Invitation test data
 
-- Add `await page.waitForLoadState('networkidle')`
-- Increase timeout: `await expect(element).toBeVisible({ timeout: 10000 })`
-- Check if element exists with different selector
+## Prerequisites
 
-### Authentication issues
+1. Development server running on `http://localhost:3000`
+2. Database seeded with test data (for regular tests)
+3. Playwright browsers installed: `npx playwright install`
 
-- Ensure test users exist in the database
-- Check that credentials are correct
-- Verify session storage is being saved correctly
+## Key Test Files
 
-### CI fails but local passes
+### Invitation Workflow Tests (`tests/admin/invitations.spec.ts`)
 
-- Check environment variables are set in GitHub secrets
-- Ensure `CI: true` is set in workflow
-- Compare browser versions between local and CI
+Tests the invitation and approval workflow:
+
+| Test ID    | Description                                      |
+| ---------- | ------------------------------------------------ |
+| INVITE-001 | Admin can navigate to approvals management       |
+| INVITE-002 | Approvals page shows pending membership requests |
+| INVITE-003 | Invite member dialog has email and role fields   |
+| INVITE-004 | Can send invitation with admin role selected     |
+| INVITE-005 | Can send invitation with coach role selected     |
+| INVITE-006 | Parent role invitation shows player linking      |
+| INVITE-007 | Pending requests can be approved or rejected     |
+| INVITE-008 | Admin can access org join page link              |
+| INVITE-009 | Pending requests display user information        |
+| INVITE-010 | Multiple roles can be selected                   |
+
+### Onboarding Tests (`scripts/onboarding.spec.ts`)
+
+First-time setup flow on fresh database:
+
+| Test ID        | Description                                    |
+| -------------- | ---------------------------------------------- |
+| ONBOARDING-001 | First user signup - automatic platform staff   |
+| ONBOARDING-002 | Non-platform staff cannot create organizations |
+| ONBOARDING-003 | Owner first login experience                   |
+| ONBOARDING-004 | Owner creates first team                       |
+| ONBOARDING-005 | Owner invites first admin                      |
+| ONBOARDING-006 | First admin accepts invitation                 |
+| ONBOARDING-007 | Owner invites first coach                      |
+| ONBOARDING-008 | First coach accepts and gets team assignment   |
+| ONBOARDING-009 | Admin creates first players                    |
+| ONBOARDING-010 | Owner invites first parent                     |
+| ONBOARDING-011 | Platform admin edits organization              |
+| ONBOARDING-012 | Owner transfers ownership to admin             |
+
+## Known Issues
+
+### INVITE-007 Empty State Detection
+
+The test looks for empty state text that doesn't match the actual UI:
+
+- **Test expects:** `/no pending|all caught up/i`
+- **Actual UI shows:** "No Membership Requests" or "There are no pending membership requests at the moment."
+- **Fix:** Update the regex to match actual UI text.
+
+## Best Practices
+
+1. **Test Isolation**: Each test should be independent
+2. **Clear Naming**: Test IDs follow `CATEGORY-NNN: Description`
+3. **Data-Driven**: Test data from `test-data.json`
+4. **Fixtures**: Use shared fixtures from `fixtures/test-fixtures.ts`
+5. **Assertions**: Clear assertions with descriptive messages
+6. **Wait States**: Use proper waits for async operations
+
+## Coverage Mapping
+
+Tests are mapped to requirements in:
+
+- `docs/testing/MASTER_UAT_PLAN.md`
+- `docs/testing/UAT_MCP_TESTS.MD`

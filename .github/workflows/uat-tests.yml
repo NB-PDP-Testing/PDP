@@ -5,23 +5,42 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
-  # Allow manual trigger when environment is ready
+  # Allow manual trigger for on-demand testing
   workflow_dispatch:
+    inputs:
+      test_category:
+        description: "Test category to run (leave empty for all)"
+        required: false
+        default: ""
+        type: choice
+        options:
+          - ""
+          - "auth"
+          - "admin"
+          - "coach"
+          - "flows"
+          - "player"
+          - "parent"
+          - "org"
 
 # Cancel previous runs when new commits are pushed
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Default base URL for deployed staging/preview environment
+  PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL || 'https://your-staging-url.vercel.app' }}
+
 jobs:
   uat-tests:
     name: Playwright UAT Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # DISABLED: Tests require NEXT_PUBLIC_CONVEX_URL and a running Convex backend
-    # Re-enable when test environment is set up with proper secrets
+    timeout-minutes: 45
+    # Enable when staging environment and secrets are configured
+    # Remove 'if: false' after completing setup steps below
     if: false
-    
+
     defaults:
       run:
         working-directory: apps/web
@@ -33,44 +52,80 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
-      - name: Install dependencies
+      - name: Install root dependencies
         run: npm ci
         working-directory: .
+
+      - name: Install web app dependencies
+        run: npm ci
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run Playwright UAT tests
-        run: npx playwright test
+      - name: Create auth storage directory
+        run: mkdir -p uat/.auth
+
+      - name: Setup test authentication
+        run: |
+          echo "Setting up pre-authenticated sessions..."
+          # The global-setup.ts will create auth states for each user
         env:
           CI: true
-          PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL || 'http://localhost:3000' }}
+
+      - name: Run Playwright UAT tests
+        run: |
+          if [ -n "${{ github.event.inputs.test_category }}" ]; then
+            npx playwright test --config=uat/playwright.config.ts uat/tests/${{ github.event.inputs.test_category }}/
+          else
+            npx playwright test --config=uat/playwright.config.ts
+          fi
+        env:
+          CI: true
+          PLAYWRIGHT_BASE_URL: ${{ env.PLAYWRIGHT_BASE_URL }}
           NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
-          TEST_ORG_ID: ${{ secrets.TEST_ORG_ID }}
-          # Test user credentials (set these in GitHub secrets)
+          # Test user credentials from GitHub secrets
+          TEST_OWNER_EMAIL: ${{ secrets.TEST_OWNER_EMAIL }}
+          TEST_OWNER_PASSWORD: ${{ secrets.TEST_OWNER_PASSWORD }}
           TEST_ADMIN_EMAIL: ${{ secrets.TEST_ADMIN_EMAIL }}
           TEST_ADMIN_PASSWORD: ${{ secrets.TEST_ADMIN_PASSWORD }}
           TEST_COACH_EMAIL: ${{ secrets.TEST_COACH_EMAIL }}
           TEST_COACH_PASSWORD: ${{ secrets.TEST_COACH_PASSWORD }}
+          TEST_PARENT_EMAIL: ${{ secrets.TEST_PARENT_EMAIL }}
+          TEST_PARENT_PASSWORD: ${{ secrets.TEST_PARENT_PASSWORD }}
 
-      - name: Upload test results
+      - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
-          path: apps/web/playwright-report/
+          name: playwright-report-${{ github.run_id }}
+          path: apps/web/uat/playwright-report/
           retention-days: 30
 
-      - name: Upload test screenshots
+      - name: Upload Test Screenshots
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: test-screenshots
-          path: apps/web/test-results/
+          name: test-screenshots-${{ github.run_id }}
+          path: apps/web/uat/test-results/
           retention-days: 7
+
+      - name: Create Test Summary
+        if: always()
+        run: |
+          echo "## 🧪 UAT Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f uat/test-results/results.json ]; then
+            echo "### Test Statistics" >> $GITHUB_STEP_SUMMARY
+            cat uat/test-results/results.json | jq -r '"- **Total Tests:** \(.stats.expected)"' >> $GITHUB_STEP_SUMMARY
+            cat uat/test-results/results.json | jq -r '"- **Passed:** \(.stats.passed)"' >> $GITHUB_STEP_SUMMARY
+            cat uat/test-results/results.json | jq -r '"- **Failed:** \(.stats.failed)"' >> $GITHUB_STEP_SUMMARY
+            cat uat/test-results/results.json | jq -r '"- **Skipped:** \(.stats.skipped)"' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No test results file found." >> $GITHUB_STEP_SUMMARY
+          fi
 
   # Placeholder job to show UAT tests are disabled
   uat-tests-disabled:
@@ -98,7 +153,7 @@ jobs:
     timeout-minutes: 30
     # Only run on main branch push when staging is configured
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && false
-    
+
     defaults:
       run:
         working-directory: apps/web
@@ -110,8 +165,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci

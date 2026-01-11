@@ -139,10 +139,70 @@ test.describe("AUTH - Login Tests", () => {
       name: /Forgot password/i,
     });
     await expect(forgotPasswordLink).toBeVisible();
+  });
 
-    // Note: Click test depends on actual implementation
-    // await forgotPasswordLink.click();
-    // await expect(page).toHaveURL(/\/reset-password/);
+  test.skip("AUTH-FORGOT-001: Forgot password link navigates to reset page", async ({ page }) => {
+    // SKIPPED: Waiting on forgot password feature implementation
+    // P0 Critical Test - Verify forgot password flow works
+    const forgotPasswordLink = page.getByRole("link", {
+      name: /Forgot password/i,
+    });
+    await expect(forgotPasswordLink).toBeVisible();
+
+    // Click the forgot password link
+    await forgotPasswordLink.click();
+
+    // Should navigate to password reset page
+    // Common patterns: /forgot-password, /reset-password, /auth/forgot-password
+    await expect(page).toHaveURL(/\/(forgot-password|reset-password|auth\/forgot)/i, { timeout: 10000 });
+
+    // Verify the reset password form is displayed
+    const emailField = page.locator("#email").or(page.getByPlaceholder(/email/i)).or(page.getByLabel(/email/i));
+    await expect(emailField).toBeVisible({ timeout: 5000 });
+
+    // Verify there's a submit button for requesting password reset
+    const resetButton = page.getByRole("button", { name: /reset|send|submit|request/i });
+    await expect(resetButton).toBeVisible({ timeout: 5000 });
+  });
+
+  test.skip("AUTH-FORGOT-002: Password reset request can be submitted", async ({ page }) => {
+    // SKIPPED: Waiting on forgot password feature implementation
+    // P0 Critical Test - Verify password reset email can be requested
+    // Navigate directly to forgot password page
+    await page.goto("/forgot-password");
+    
+    // Wait for page to load - try multiple possible URL patterns
+    const isOnForgotPage = await page.waitForURL(/\/(forgot-password|reset-password|auth\/forgot)/i, { timeout: 5000 }).then(() => true).catch(() => false);
+    
+    if (!isOnForgotPage) {
+      // If direct navigation doesn't work, navigate via login page
+      await page.goto("/login");
+      await dismissPWAPrompt(page);
+      const forgotPasswordLink = page.getByRole("link", { name: /Forgot password/i });
+      await forgotPasswordLink.click();
+      await page.waitForURL(/\/(forgot-password|reset-password|auth\/forgot)/i, { timeout: 10000 });
+    }
+
+    // Fill in email for password reset
+    const emailField = page.locator("#email").or(page.getByPlaceholder(/email/i)).or(page.getByLabel(/email/i));
+    await emailField.fill("test@example.com");
+
+    // Submit the form
+    const resetButton = page.getByRole("button", { name: /reset|send|submit|request/i });
+    await resetButton.click();
+
+    // After submission, should either:
+    // 1. Show success message
+    // 2. Redirect to a confirmation page
+    // 3. Show inline confirmation
+    const successMessage = page.getByText(/sent|check your email|password reset|email sent|instructions sent/i);
+    const confirmationHeading = page.getByRole("heading", { name: /check your email|email sent|reset link sent/i });
+    
+    const hasConfirmation = 
+      await successMessage.isVisible({ timeout: 10000 }).catch(() => false) ||
+      await confirmationHeading.isVisible({ timeout: 5000 }).catch(() => false);
+    
+    expect(hasConfirmation).toBeTruthy();
   });
 
   test("AUTH-012: Google SSO button is clickable", async ({ page }) => {

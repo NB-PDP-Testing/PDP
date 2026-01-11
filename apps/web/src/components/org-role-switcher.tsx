@@ -28,6 +28,7 @@ import {
 import type { Route } from "next";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/interactions";
 import { Button } from "@/components/ui/button";
 import {
@@ -139,7 +140,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
     useState<FunctionalRole | null>(null);
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
 
-  const { data: session } = authClient.useSession();
+  const { data: _session } = authClient.useSession();
   const { data: organizations, isPending: isLoadingOrgs } =
     authClient.useListOrganizations();
   const user = useCurrentUser();
@@ -256,7 +257,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
       setSelectedRoleToRequest(null);
     } catch (error) {
       console.error("Error requesting role:", error);
-      alert(
+      toast.error(
         error instanceof Error ? error.message : "Failed to submit request"
       );
     } finally {
@@ -325,7 +326,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   const triggerButton = (
     <Button
       aria-expanded={open}
-      className={cn("w-[220px] justify-between", className)}
+      className={cn("w-[140px] justify-between sm:w-[220px]", className)}
       disabled={switching}
       variant="outline"
     >
@@ -342,9 +343,9 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
             <Building2 className="h-4 w-4 shrink-0" />
           )}
           <span className="truncate">{currentOrg.name}</span>
-          <span className="text-muted-foreground">•</span>
+          <span className="hidden text-muted-foreground sm:inline">•</span>
           {getRoleIcon(currentMembership.activeFunctionalRole)}
-          <span className="truncate">
+          <span className="hidden truncate sm:inline">
             {getRoleLabel(currentMembership.activeFunctionalRole)}
           </span>
         </div>

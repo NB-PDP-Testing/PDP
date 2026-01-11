@@ -209,20 +209,15 @@ export function VoiceNotesDashboard() {
       let message = "✓ Insight applied!";
       if (result.appliedTo && result.message) {
         // Show where the insight was routed
-        const destination =
-          result.appliedTo === "playerInjuries"
-            ? "🩹 Injury Record Created"
-            : result.appliedTo === "passportGoals"
-              ? "🎯 Development Goal Created"
-              : result.appliedTo === "orgPlayerEnrollments.coachNotes"
-                ? "📝 Added to Player Notes"
-                : result.appliedTo === "sportPassports.coachNotes"
-                  ? "📝 Added to Passport Notes"
-                  : result.appliedTo === "team.coachNotes"
-                    ? "🏆 Added to Team Notes"
-                    : result.appliedTo === "skillAssessments"
-                      ? "📊 Skill Rating Updated"
-                      : "📋 Applied";
+        const destinationMap: Record<string, string> = {
+          playerInjuries: "🩹 Injury Record Created",
+          passportGoals: "🎯 Development Goal Created",
+          "orgPlayerEnrollments.coachNotes": "📝 Added to Player Notes",
+          "sportPassports.coachNotes": "📝 Added to Passport Notes",
+          "team.coachNotes": "🏆 Added to Team Notes",
+          skillAssessments: "📊 Skill Rating Updated",
+        };
+        const destination = destinationMap[result.appliedTo] ?? "📋 Applied";
         message = `${destination}: ${result.message}`;
       } else if (result.message) {
         message = `⚠️ ${result.message}`;
@@ -648,41 +643,48 @@ Example: 'Emma Murphy had a great session today. Her left foot passing is really
                     )}
 
                     {/* Transcription */}
-                    {note.transcription ? (
+                    {note.transcription && (
                       <p className="whitespace-pre-wrap text-gray-700">
                         {note.transcription}
                       </p>
-                    ) : note.transcriptionStatus === "pending" ||
-                      note.transcriptionStatus === "processing" ? (
-                      <p className="text-gray-400 italic">
-                        Transcribing audio...
-                      </p>
-                    ) : note.transcriptionError ? (
-                      <p className="text-red-500 text-sm">
-                        ⚠️ Transcription failed: {note.transcriptionError}
-                      </p>
-                    ) : null}
+                    )}
+                    {!note.transcription &&
+                      (note.transcriptionStatus === "pending" ||
+                        note.transcriptionStatus === "processing") && (
+                        <p className="text-gray-400 italic">
+                          Transcribing audio...
+                        </p>
+                      )}
+                    {!note.transcription &&
+                      note.transcriptionStatus !== "pending" &&
+                      note.transcriptionStatus !== "processing" &&
+                      note.transcriptionError && (
+                        <p className="text-red-500 text-sm">
+                          ⚠️ Transcription failed: {note.transcriptionError}
+                        </p>
+                      )}
 
                     {/* Insights preview */}
                     {note.insights.length > 0 && (
                       <div className="mt-3 border-gray-200 border-t pt-3">
                         <div className="flex flex-wrap gap-2">
-                          {note.insights.map((insight) => (
-                            <Badge
-                              key={insight.id}
-                              variant={
-                                insight.status === "applied"
-                                  ? "default"
-                                  : insight.status === "dismissed"
-                                    ? "secondary"
-                                    : "outline"
-                              }
-                            >
-                              {insight.status === "applied" && "✓ "}
-                              {insight.status === "dismissed" && "✗ "}
-                              {insight.title}
-                            </Badge>
-                          ))}
+                          {note.insights.map((insight) => {
+                            const variantMap = {
+                              applied: "default",
+                              dismissed: "secondary",
+                            } as const;
+                            const variant =
+                              variantMap[
+                                insight.status as keyof typeof variantMap
+                              ] ?? "outline";
+                            return (
+                              <Badge key={insight.id} variant={variant}>
+                                {insight.status === "applied" && "✓ "}
+                                {insight.status === "dismissed" && "✗ "}
+                                {insight.title}
+                              </Badge>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

@@ -187,17 +187,27 @@ export default function InjuryTrackingPage() {
 
   // Filter injuries by status
   const filteredInjuries = useMemo(() => {
-    if (!injuries) return [];
-    if (statusFilter === "all") return injuries;
-    return injuries.filter((i: any) => i.status === statusFilter);
+    if (!injuries) {
+      return [];
+    }
+    if (statusFilter === "all") {
+      return injuries;
+    }
+    return injuries.filter(
+      (i: { status: string }) => i.status === statusFilter
+    );
   }, [injuries, statusFilter]);
 
   // Filter complete history by status
   const filteredHistoryInjuries = useMemo(() => {
-    if (!allInjuriesForOrg) return [];
-    if (historyStatusFilter === "all") return allInjuriesForOrg;
+    if (!allInjuriesForOrg) {
+      return [];
+    }
+    if (historyStatusFilter === "all") {
+      return allInjuriesForOrg;
+    }
     return allInjuriesForOrg.filter(
-      (i: any) => i.status === historyStatusFilter
+      (i: { status: string }) => i.status === historyStatusFilter
     );
   }, [allInjuriesForOrg, historyStatusFilter]);
 
@@ -317,7 +327,7 @@ export default function InjuryTrackingPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {activeInjuriesForOrg.map((injury: any) => (
+              {activeInjuriesForOrg.map((injury) => (
                 <div
                   className="flex items-center gap-3 rounded-lg border border-red-200 bg-white p-3"
                   key={injury._id}
@@ -365,7 +375,7 @@ export default function InjuryTrackingPage() {
               <SelectValue placeholder="Select a player" />
             </SelectTrigger>
             <SelectContent>
-              {players?.map(({ enrollment, player }: any) => (
+              {players?.map(({ enrollment, player }) => (
                 <SelectItem
                   key={enrollment.playerIdentityId}
                   value={enrollment.playerIdentityId}
@@ -437,7 +447,7 @@ export default function InjuryTrackingPage() {
               </Empty>
             ) : (
               <div className="space-y-4">
-                {filteredInjuries.map((injury: any) => (
+                {filteredInjuries.map((injury) => (
                   <div className="rounded-lg border p-4" key={injury._id}>
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
@@ -582,7 +592,7 @@ export default function InjuryTrackingPage() {
             </Empty>
           ) : (
             <div className="space-y-3">
-              {filteredHistoryInjuries.map((injury: any) => (
+              {filteredHistoryInjuries.map((injury) => (
                 <div
                   className="flex items-start justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
                   key={injury._id}
@@ -772,7 +782,12 @@ export default function InjuryTrackingPage() {
                   onValueChange={(value) =>
                     setNewInjury((prev) => ({
                       ...prev,
-                      occurredDuring: value as any,
+                      occurredDuring: value as
+                        | "training"
+                        | "match"
+                        | "other_sport"
+                        | "non_sport"
+                        | "unknown",
                     }))
                   }
                   value={newInjury.occurredDuring}

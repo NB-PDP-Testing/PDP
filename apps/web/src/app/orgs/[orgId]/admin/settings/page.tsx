@@ -63,7 +63,7 @@ const DEFAULT_COLORS = {
 // Regex patterns - defined at module level for performance
 const HEX_COLOR_REGEX = /^#[0-9A-F]{6}$/i;
 // Allow typing with or without # prefix, will be normalized
-const HEX_INPUT_REGEX = /^#?[0-9A-F]{0,6}$/i;
+const _HEX_INPUT_REGEX = /^#?[0-9A-F]{0,6}$/i;
 const HEX_RGB_REGEX = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i;
 
 // Helper to sanitize color values
@@ -191,11 +191,11 @@ export default function OrgSettingsPage() {
           query: { organizationId: orgId },
         });
         if (data) {
-          const orgData = data as Organization;
-          setOrg(orgData);
-          setName(orgData.name);
-          setLogo(orgData.logo || "");
-          setColors(parseOrgColors(orgData.colors));
+          const fetchedOrg = data as Organization;
+          setOrg(fetchedOrg);
+          setName(fetchedOrg.name);
+          setLogo(fetchedOrg.logo || "");
+          setColors(parseOrgColors(fetchedOrg.colors));
         }
       } catch (error) {
         console.error("Error loading organization:", error);
@@ -361,7 +361,9 @@ export default function OrgSettingsPage() {
   };
 
   const handleCancelDeletionRequest = async () => {
-    if (!deletionRequest?._id) return;
+    if (!deletionRequest?._id) {
+      return;
+    }
 
     setCancelling(true);
     try {
@@ -621,9 +623,11 @@ export default function OrgSettingsPage() {
                         // Ensure # prefix and limit to 7 chars (#XXXXXX)
                         let value = cleaned.startsWith("#")
                           ? cleaned.slice(0, 7)
-                          : "#" + cleaned.slice(0, 6);
+                          : `#${cleaned.slice(0, 6)}`;
                         // Allow empty
-                        if (raw === "") value = "";
+                        if (raw === "") {
+                          value = "";
+                        }
                         const newColors = [...colors];
                         newColors[0] = value;
                         setColors(newColors);
@@ -670,9 +674,11 @@ export default function OrgSettingsPage() {
                         // Ensure # prefix and limit to 7 chars (#XXXXXX)
                         let value = cleaned.startsWith("#")
                           ? cleaned.slice(0, 7)
-                          : "#" + cleaned.slice(0, 6);
+                          : `#${cleaned.slice(0, 6)}`;
                         // Allow empty
-                        if (raw === "") value = "";
+                        if (raw === "") {
+                          value = "";
+                        }
                         const newColors = [...colors];
                         newColors[1] = value;
                         setColors(newColors);
@@ -719,9 +725,11 @@ export default function OrgSettingsPage() {
                         // Ensure # prefix and limit to 7 chars (#XXXXXX)
                         let value = cleaned.startsWith("#")
                           ? cleaned.slice(0, 7)
-                          : "#" + cleaned.slice(0, 6);
+                          : `#${cleaned.slice(0, 6)}`;
                         // Allow empty
-                        if (raw === "") value = "";
+                        if (raw === "") {
+                          value = "";
+                        }
                         const newColors = [...colors];
                         newColors[2] = value;
                         setColors(newColors);

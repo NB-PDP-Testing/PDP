@@ -81,7 +81,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/auth-client";
 import { PlayerEligibilityBadge } from "./player-eligibility";
 
-interface TeamFormData {
+type TeamFormData = {
   name: string;
   sport: string;
   ageGroup: string;
@@ -91,7 +91,7 @@ interface TeamFormData {
   trainingSchedule: string;
   homeVenue: string;
   isActive: boolean;
-}
+};
 
 const defaultFormData: TeamFormData = {
   name: "",
@@ -105,7 +105,7 @@ const defaultFormData: TeamFormData = {
   isActive: true,
 };
 
-const SPORTS = [
+const _SPORTS = [
   "GAA Football",
   "Hurling",
   "Camogie",
@@ -148,11 +148,9 @@ function TeamPlayerCount({ teamId }: { teamId: string }) {
 // Component to display team roster
 function TeamRoster({
   teamId,
-  teamName,
   onManageClick,
 }: {
   teamId: string;
-  teamName: string;
   onManageClick: () => void;
 }) {
   const players = useQuery(api.models.teamPlayerIdentities.getPlayersForTeam, {
@@ -227,15 +225,18 @@ function TeamRoster({
 // Component for player assignment in edit dialog
 function PlayerAssignmentGrid({
   teamId,
-  editingTeamName,
   allPlayers,
   playerSearch,
   pendingAssignments,
   setPendingAssignments,
 }: {
   teamId: string;
-  editingTeamName: string;
-  allPlayers: any[];
+  allPlayers: {
+    playerIdentityId: string;
+    firstName: string;
+    lastName: string;
+    ageGroup?: string;
+  }[];
   playerSearch: string;
   pendingAssignments: { add: string[]; remove: string[] };
   setPendingAssignments: React.Dispatch<
@@ -264,17 +265,24 @@ function PlayerAssignmentGrid({
     const isBeingRemoved = pendingAssignments.remove.includes(p._id);
 
     let status: "assigned" | "adding" | "removing" | "available";
-    if (isBeingAdded) status = "adding";
-    else if (isBeingRemoved) status = "removing";
-    else if (isOnTeam) status = "assigned";
-    else status = "available";
+    if (isBeingAdded) {
+      status = "adding";
+    } else if (isBeingRemoved) {
+      status = "removing";
+    } else if (isOnTeam) {
+      status = "assigned";
+    } else {
+      status = "available";
+    }
 
     return { ...p, status };
   });
 
   // Filter by search
   const filtered = categorized.filter((p) => {
-    if (!playerSearch) return true;
+    if (!playerSearch) {
+      return true;
+    }
     const search = playerSearch.toLowerCase();
     return (
       p.name.toLowerCase().includes(search) ||
@@ -501,13 +509,17 @@ export default function ManageTeamsPage() {
 
   // Create sport code to name mapping
   const sportCodeToName = useMemo(() => {
-    if (!availableSports) return new Map<string, string>();
+    if (!availableSports) {
+      return new Map<string, string>();
+    }
     return new Map(availableSports.map((sport) => [sport.code, sport.name]));
   }, [availableSports]);
 
   // Helper function to get sport display name
   const getSportDisplayName = (sportCode: string | undefined) => {
-    if (!sportCode) return;
+    if (!sportCode) {
+      return;
+    }
     return sportCodeToName.get(sportCode) || sportCode;
   };
 
@@ -535,7 +547,7 @@ export default function ManageTeamsPage() {
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
-  const [editingTeamName, setEditingTeamName] = useState<string>("");
+  const [_editingTeamName, setEditingTeamName] = useState<string>("");
   const [teamToDelete, setTeamToDelete] = useState<{
     id: string;
     name: string;
@@ -561,7 +573,9 @@ export default function ManageTeamsPage() {
     if (ageGroupFilter !== "all" && team.ageGroup !== ageGroupFilter) {
       return false;
     }
-    if (!searchTerm) return true;
+    if (!searchTerm) {
+      return true;
+    }
     const searchable = [team.name, team.sport, team.ageGroup, team.homeVenue]
       .filter(Boolean)
       .join(" ")
@@ -761,7 +775,9 @@ export default function ManageTeamsPage() {
   };
 
   const handleDelete = async () => {
-    if (!teamToDelete) return;
+    if (!teamToDelete) {
+      return;
+    }
 
     setLoading(true);
     try {
@@ -1101,7 +1117,6 @@ export default function ManageTeamsPage() {
                             <TeamRoster
                               onManageClick={() => openEditDialog(team)}
                               teamId={team._id}
-                              teamName={team.name}
                             />
                           </div>
                         </div>
@@ -1350,7 +1365,6 @@ export default function ManageTeamsPage() {
                 <div className="max-h-80 overflow-y-auto pr-1">
                   <PlayerAssignmentGrid
                     allPlayers={allPlayers}
-                    editingTeamName={editingTeamName}
                     pendingAssignments={pendingAssignments}
                     playerSearch={playerSearch}
                     setPendingAssignments={setPendingAssignments}

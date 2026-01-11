@@ -93,9 +93,9 @@ export default function AssessPlayerPage() {
   const [batchSelectedSkills, setBatchSelectedSkills] = useState<Set<string>>(
     new Set()
   );
-  const [batchRatings, setBatchRatings] = useState<BatchRatings>({});
-  const [batchNotes, setBatchNotes] = useState<BatchNotes>({});
-  const [batchSavedCount, setBatchSavedCount] = useState(0);
+  const [_batchRatings, setBatchRatings] = useState<BatchRatings>({});
+  const [_batchNotes, setBatchNotes] = useState<BatchNotes>({});
+  const [_batchSavedCount, setBatchSavedCount] = useState(0);
 
   // Queries
   const sports = useQuery(api.models.referenceData.getSports);
@@ -109,14 +109,18 @@ export default function AssessPlayerPage() {
   // Helper: Sport code to display name mapping
   const sportCodeToName = useMemo(() => {
     const map = new Map<string, string>();
-    sports?.forEach((sport) => {
-      map.set(sport.code, sport.name);
-    });
+    if (sports) {
+      for (const sport of sports) {
+        map.set(sport.code, sport.name);
+      }
+    }
     return map;
   }, [sports]);
 
   const getSportDisplayName = (sportCode: string | undefined) => {
-    if (!sportCode) return "";
+    if (!sportCode) {
+      return "";
+    }
     return sportCodeToName.get(sportCode) || sportCode;
   };
 
@@ -217,7 +221,9 @@ export default function AssessPlayerPage() {
 
   // Get player's passport (or create one)
   const selectedPlayer = useMemo(() => {
-    if (!(allPlayers && selectedPlayerId)) return null;
+    if (!(allPlayers && selectedPlayerId)) {
+      return null;
+    }
     const found = allPlayers.find(
       (p) => p.enrollment.playerIdentityId === selectedPlayerId
     );
@@ -254,7 +260,9 @@ export default function AssessPlayerPage() {
 
   // Create lookup for existing assessments
   const existingRatings = useMemo(() => {
-    if (!existingAssessments) return new Map<string, number>();
+    if (!existingAssessments) {
+      return new Map<string, number>();
+    }
     return new Map(existingAssessments.map((a) => [a.skillCode, a.rating]));
   }, [existingAssessments]);
 
@@ -266,7 +274,9 @@ export default function AssessPlayerPage() {
 
   // Filter and search players
   const filteredPlayers = useMemo(() => {
-    if (!allPlayers) return [];
+    if (!allPlayers) {
+      return [];
+    }
 
     let filtered = allPlayers;
 
@@ -343,7 +353,9 @@ export default function AssessPlayerPage() {
 
   // Calculate player stats
   const playerStats = useMemo(() => {
-    if (!assessmentHistory) return null;
+    if (!assessmentHistory) {
+      return null;
+    }
 
     const totalAssessments = assessmentHistory.length;
     const skillsAssessed = new Set(assessmentHistory.map((a) => a.skillCode))
@@ -435,8 +447,9 @@ export default function AssessPlayerPage() {
   // Group skills by category
   type SkillDefinition = NonNullable<typeof skills>[number];
   const skillsByCategory = useMemo(() => {
-    if (!(skills && skillCategories))
+    if (!(skills && skillCategories)) {
       return new Map<string, SkillDefinition[]>();
+    }
 
     const map = new Map<string, SkillDefinition[]>();
     for (const category of skillCategories) {
@@ -561,9 +574,9 @@ export default function AssessPlayerPage() {
     for (const [skillCode] of skillsToSave) {
       try {
         await handleSaveSkill(skillCode);
-        saved++;
+        saved += 1;
       } catch {
-        errors++;
+        errors += 1;
       }
     }
 
@@ -1241,8 +1254,6 @@ export default function AssessPlayerPage() {
         skills.length > 0 && (
           <BatchAssessmentSection
             assessmentType={assessmentType}
-            batchRatings={batchRatings}
-            batchSavedCount={batchSavedCount}
             batchSelectedSkills={batchSelectedSkills}
             currentUser={currentUser}
             filteredPlayers={filteredPlayers}
@@ -1252,7 +1263,6 @@ export default function AssessPlayerPage() {
             recordAssessment={recordAssessment}
             selectedBatchPlayers={selectedBatchPlayers}
             selectedSportCode={selectedSportCode}
-            setBatchRatings={setBatchRatings}
             setBatchSavedCount={setBatchSavedCount}
             setBatchSelectedSkills={setBatchSelectedSkills}
             setIsSaving={setIsSaving}
@@ -1472,8 +1482,6 @@ function BatchAssessmentSection({
   setSelectedBatchPlayers,
   batchSelectedSkills,
   setBatchSelectedSkills,
-  batchRatings,
-  setBatchRatings,
   skills,
   skillsByCategory,
   assessmentType,
@@ -1484,7 +1492,6 @@ function BatchAssessmentSection({
   recordAssessment,
   isSaving,
   setIsSaving,
-  batchSavedCount,
   setBatchSavedCount,
 }: {
   filteredPlayers: Array<{
@@ -1495,8 +1502,6 @@ function BatchAssessmentSection({
   setSelectedBatchPlayers: React.Dispatch<React.SetStateAction<Set<string>>>;
   batchSelectedSkills: Set<string>;
   setBatchSelectedSkills: React.Dispatch<React.SetStateAction<Set<string>>>;
-  batchRatings: BatchRatings;
-  setBatchRatings: React.Dispatch<React.SetStateAction<BatchRatings>>;
   skills: Array<{
     code: string;
     name: string;
@@ -1515,12 +1520,24 @@ function BatchAssessmentSection({
   assessmentType: AssessmentType;
   orgId: string;
   selectedSportCode: string;
-  currentUser: any;
-  findOrCreatePassport: any;
-  recordAssessment: any;
+  currentUser: { _id: string; name?: string; email?: string } | null;
+  findOrCreatePassport: (args: {
+    playerIdentityId: Id<"playerIdentities">;
+    sportCode: string;
+  }) => Promise<Id<"sportPassports">>;
+  recordAssessment: (args: {
+    sportPassportId: Id<"sportPassports">;
+    skillCode: string;
+    rating: number;
+    assessmentDate: string;
+    assessmentType: AssessmentType;
+    assessedBy?: string;
+    assessedByName?: string;
+    assessorRole?: string;
+    notes?: string;
+  }) => Promise<void>;
   isSaving: boolean;
   setIsSaving: (value: boolean) => void;
-  batchSavedCount: number;
   setBatchSavedCount: (value: number) => void;
 }) {
   const [batchStep, setBatchStep] = useState<"players" | "skills" | "rate">(
@@ -1554,13 +1571,17 @@ function BatchAssessmentSection({
     if (allSelected) {
       setBatchSelectedSkills((prev) => {
         const next = new Set(prev);
-        codes.forEach((code) => next.delete(code));
+        for (const code of codes) {
+          next.delete(code);
+        }
         return next;
       });
     } else {
       setBatchSelectedSkills((prev) => {
         const next = new Set(prev);
-        codes.forEach((code) => next.add(code));
+        for (const code of codes) {
+          next.add(code);
+        }
         return next;
       });
     }
@@ -1611,9 +1632,9 @@ function BatchAssessmentSection({
               assessorRole: "coach",
               notes: batchNotes || undefined,
             });
-            saved++;
+            saved += 1;
           } catch {
-            errors++;
+            errors += 1;
           }
         }
       } catch {
@@ -1860,7 +1881,7 @@ function BatchAssessmentSection({
                 const allSelected = categorySkills.every((s) =>
                   batchSelectedSkills.has(s.code)
                 );
-                const someSelected = categorySkills.some((s) =>
+                const _someSelected = categorySkills.some((s) =>
                   batchSelectedSkills.has(s.code)
                 );
 
@@ -1952,14 +1973,14 @@ function BatchAssessmentSection({
               <div className="flex flex-wrap gap-1">
                 {Array.from(selectedBatchPlayers)
                   .slice(0, 10)
-                  .map((playerId, idx) => {
+                  .map((playerId) => {
                     const player = filteredPlayers.find(
                       (p) => p.enrollment.playerIdentityId === playerId
                     );
                     return (
                       <Badge
                         className="text-xs"
-                        key={`${playerId}-${idx}`}
+                        key={playerId}
                         variant="secondary"
                       >
                         {player?.player.firstName} {player?.player.lastName}
@@ -1978,7 +1999,9 @@ function BatchAssessmentSection({
             <div className="space-y-4">
               {Array.from(batchSelectedSkills).map((skillCode) => {
                 const skill = skills.find((s) => s.code === skillCode);
-                if (!skill) return null;
+                if (!skill) {
+                  return null;
+                }
 
                 return (
                   <div className="rounded-lg border p-4" key={skillCode}>

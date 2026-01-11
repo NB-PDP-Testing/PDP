@@ -89,13 +89,13 @@ const getCurrentSeason = () => {
 type SortColumn = "name" | "team" | "ageGroup" | "lastReview";
 type SortDirection = "asc" | "desc";
 
-interface AddPlayerFormData {
+type AddPlayerFormData = {
   firstName: string;
   lastName: string;
   dateOfBirth: string;
   gender: "male" | "female" | "other";
   ageGroup: string;
-}
+};
 
 const emptyFormData: AddPlayerFormData = {
   firstName: "",
@@ -224,7 +224,9 @@ export default function ManagePlayersPage() {
 
   // Check for duplicates and show warning if found
   const checkForDuplicates = async (): Promise<boolean> => {
-    if (!addPlayerForm.dateOfBirth) return true; // Can't check without DOB
+    if (!addPlayerForm.dateOfBirth) {
+      return true; // Can't check without DOB
+    }
 
     setIsCheckingDuplicate(true);
     try {
@@ -332,7 +334,9 @@ export default function ManagePlayersPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!playerToDelete) return;
+    if (!playerToDelete) {
+      return;
+    }
 
     setIsDeleting(true);
     try {
@@ -361,12 +365,16 @@ export default function ManagePlayersPage() {
 
   // Handle bulk delete
   const handleBulkDeleteClick = () => {
-    if (selectedPlayers.size === 0) return;
+    if (selectedPlayers.size === 0) {
+      return;
+    }
     setShowBulkDeleteDialog(true);
   };
 
   const handleBulkDeleteConfirm = async () => {
-    if (selectedPlayers.size === 0) return;
+    if (selectedPlayers.size === 0) {
+      return;
+    }
 
     setIsBulkDeleting(true);
     try {
@@ -381,12 +389,12 @@ export default function ManagePlayersPage() {
       for (const player of selectedPlayersList) {
         try {
           await unenrollPlayer({
-            enrollmentId: player.enrollmentId as any,
+            enrollmentId: player.enrollmentId as Id<"orgPlayerEnrollments">,
           });
-          successCount++;
+          successCount += 1;
         } catch (error) {
           console.error(`Failed to remove ${player.name}:`, error);
-          failCount++;
+          failCount += 1;
         }
       }
 
@@ -492,6 +500,11 @@ export default function ManagePlayersPage() {
         comparison = dateA - dateB;
         break;
       }
+      default: {
+        // Default to name sort
+        comparison = a.name.localeCompare(b.name);
+        break;
+      }
     }
 
     return sortDirection === "asc" ? comparison : -comparison;
@@ -506,7 +519,7 @@ export default function ManagePlayersPage() {
     }
   };
 
-  const togglePlayerSelection = (playerId: string) => {
+  const _togglePlayerSelection = (playerId: string) => {
     const newSelected = new Set(selectedPlayers);
     if (newSelected.has(playerId)) {
       newSelected.delete(playerId);
@@ -516,7 +529,7 @@ export default function ManagePlayersPage() {
     setSelectedPlayers(newSelected);
   };
 
-  const toggleSelectAll = () => {
+  const _toggleSelectAll = () => {
     if (selectedPlayers.size === sortedPlayers.length) {
       setSelectedPlayers(new Set());
     } else {
@@ -535,7 +548,9 @@ export default function ManagePlayersPage() {
     needsReview: players?.filter((p: any) => !p.lastReviewDate).length || 0,
     recentReviews:
       players?.filter((p: any) => {
-        if (!p.lastReviewDate) return false;
+        if (!p.lastReviewDate) {
+          return false;
+        }
         const days =
           (Date.now() - new Date(p.lastReviewDate).getTime()) /
           (1000 * 60 * 60 * 24);
@@ -833,10 +848,12 @@ export default function ManagePlayersPage() {
                               new Date(player.lastReviewDate).getTime()) /
                               (1000 * 60 * 60 * 24)
                           );
-                          if (days <= 60)
+                          if (days <= 60) {
                             return "bg-green-500/10 text-green-600";
-                          if (days <= 90)
+                          }
+                          if (days <= 90) {
                             return "bg-orange-500/10 text-orange-600";
+                          }
                           return "bg-red-500/10 text-red-600";
                         })()}
                         variant="outline"

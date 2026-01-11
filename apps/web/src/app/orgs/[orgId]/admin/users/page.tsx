@@ -39,7 +39,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -67,7 +66,7 @@ import { RemoveFromOrgDialog } from "./remove-from-org-dialog";
 
 type FunctionalRole = "coach" | "parent" | "admin" | "player";
 
-interface UserEditState {
+type UserEditState = {
   [userId: string]: {
     functionalRoles: FunctionalRole[];
     teams: string[];
@@ -76,7 +75,7 @@ interface UserEditState {
     expanded: boolean;
     modified: boolean;
   };
-}
+};
 
 export default function ManageUsersPage() {
   const params = useParams();
@@ -361,7 +360,7 @@ export default function ManageUsersPage() {
   const handleSave = async (member: any) => {
     const userId = member.userId;
     const state = editStates[userId];
-    if (!(state && state.modified)) {
+    if (!state?.modified) {
       return;
     }
 
@@ -494,13 +493,13 @@ export default function ManageUsersPage() {
 
       // Build invitation metadata with functional roles and role-specific data
       // These will be auto-assigned when the user accepts via syncFunctionalRolesFromInvitation
-      interface InviteMetadata {
+      type InviteMetadata = {
         suggestedFunctionalRoles: ("coach" | "parent" | "admin")[];
         roleSpecificData?: {
           teams?: string[]; // Team IDs for coach role
         };
         suggestedPlayerLinks?: string[]; // Player IDs for parent role
-      }
+      };
 
       const metadata: InviteMetadata = {
         suggestedFunctionalRoles: inviteFunctionalRoles,
@@ -947,9 +946,8 @@ export default function ManageUsersPage() {
                             const resendHistory =
                               invitation.metadata?.resendHistory || [];
                             if (resendHistory.length > 0) {
-                              const lastResend =
-                                resendHistory[resendHistory.length - 1];
-                              const lastSentDate = new Date(
+                              const lastResend = resendHistory.at(-1);
+                              const _lastSentDate = new Date(
                                 lastResend.resentAt
                               );
                               const daysAgo = Math.floor(
@@ -983,6 +981,7 @@ export default function ManageUsersPage() {
                         variant="ghost"
                       >
                         <svg
+                          aria-hidden="true"
                           className="mr-2 h-4 w-4"
                           fill="none"
                           stroke="currentColor"
@@ -1010,6 +1009,7 @@ export default function ManageUsersPage() {
                         variant="ghost"
                       >
                         <svg
+                          aria-hidden="true"
                           className="mr-2 h-4 w-4"
                           fill="none"
                           stroke="currentColor"
@@ -1143,7 +1143,7 @@ export default function ManageUsersPage() {
             const hasParentWarning =
               state.functionalRoles.includes("parent") &&
               state.linkedPlayerIds.length === 0;
-            const hasWarning = hasCoachWarning || hasParentWarning;
+            const _hasWarning = hasCoachWarning || hasParentWarning;
 
             return (
               <Card key={member.userId}>
@@ -1173,6 +1173,7 @@ export default function ManageUsersPage() {
                         {member.isDisabled && (
                           <Badge className="border-red-300 bg-red-100 text-red-700">
                             <svg
+                              aria-hidden="true"
                               className="mr-1 h-3 w-3"
                               fill="none"
                               stroke="currentColor"
@@ -1249,6 +1250,7 @@ export default function ManageUsersPage() {
                               variant="ghost"
                             >
                               <svg
+                                aria-hidden="true"
                                 className="h-4 w-4"
                                 fill="none"
                                 stroke="currentColor"
@@ -1317,24 +1319,21 @@ export default function ManageUsersPage() {
                       <div className="flex flex-wrap gap-2">
                         {(["coach", "parent", "admin", "player"] as const).map(
                           (role) => (
-                            <label
+                            <button
                               className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
                                 state.functionalRoles.includes(role)
                                   ? getRoleBadgeColor(role)
                                   : "border-gray-200 bg-white hover:bg-gray-50"
                               }`}
                               key={role}
+                              onClick={() =>
+                                toggleFunctionalRole(member.userId, role)
+                              }
+                              type="button"
                             >
-                              <Checkbox
-                                checked={state.functionalRoles.includes(role)}
-                                className="sr-only"
-                                onCheckedChange={() =>
-                                  toggleFunctionalRole(member.userId, role)
-                                }
-                              />
                               {getRoleIcon(role)}
                               <span className="capitalize">{role}</span>
-                            </label>
+                            </button>
                           )
                         )}
                       </div>
@@ -1374,22 +1373,25 @@ export default function ManageUsersPage() {
                           </Label>
                           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                             {teams?.map((team) => (
-                              <label
+                              <button
                                 className={`flex cursor-pointer items-center gap-2 rounded border p-2 text-sm transition-colors ${
                                   state.teams.includes(team._id)
                                     ? "border-green-400 bg-green-100"
                                     : "border-gray-200 bg-white hover:bg-gray-50"
                                 }`}
                                 key={team._id}
+                                onClick={() =>
+                                  toggleTeam(member.userId, team._id)
+                                }
+                                type="button"
                               >
-                                <Checkbox
-                                  checked={state.teams.includes(team._id)}
-                                  onCheckedChange={() =>
-                                    toggleTeam(member.userId, team._id)
-                                  }
-                                />
+                                <span
+                                  className={`flex h-4 w-4 items-center justify-center rounded-sm border ${state.teams.includes(team._id) ? "border-primary bg-primary text-primary-foreground" : "border-muted"}`}
+                                >
+                                  {state.teams.includes(team._id) && "✓"}
+                                </span>
                                 <span className="truncate">{team.name}</span>
-                              </label>
+                              </button>
                             ))}
                           </div>
                         </div>
@@ -1401,22 +1403,25 @@ export default function ManageUsersPage() {
                             </Label>
                             <div className="flex flex-wrap gap-2">
                               {ageGroups.map((ageGroup) => (
-                                <label
+                                <button
                                   className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors ${
                                     state.ageGroups.includes(ageGroup)
                                       ? "border-green-400 bg-green-100"
                                       : "border-gray-200 bg-white hover:bg-gray-50"
                                   }`}
                                   key={ageGroup}
+                                  onClick={() =>
+                                    toggleAgeGroup(member.userId, ageGroup)
+                                  }
+                                  type="button"
                                 >
-                                  <Checkbox
-                                    checked={state.ageGroups.includes(ageGroup)}
-                                    onCheckedChange={() =>
-                                      toggleAgeGroup(member.userId, ageGroup)
-                                    }
-                                  />
+                                  <span
+                                    className={`flex h-4 w-4 items-center justify-center rounded-sm border ${state.ageGroups.includes(ageGroup) ? "border-primary bg-primary text-primary-foreground" : "border-muted"}`}
+                                  >
+                                    {state.ageGroups.includes(ageGroup) && "✓"}
+                                  </span>
                                   {ageGroup}
-                                </label>
+                                </button>
                               ))}
                             </div>
                           </div>
@@ -1492,49 +1497,52 @@ export default function ManageUsersPage() {
                           <div className="max-h-48 space-y-1 overflow-y-auto">
                             {allPlayers
                               ?.filter((player) => {
-                                const searchTerm =
+                                const playerSearch =
                                   playerSearchTerms[
                                     member.userId
                                   ]?.toLowerCase() || "";
-                                if (!searchTerm) {
+                                if (!playerSearch) {
                                   return true;
                                 }
                                 return (
                                   player.name
                                     .toLowerCase()
-                                    .includes(searchTerm) ||
+                                    .includes(playerSearch) ||
                                   player.sport
                                     .toLowerCase()
-                                    .includes(searchTerm) ||
+                                    .includes(playerSearch) ||
                                   player.ageGroup
                                     .toLowerCase()
-                                    .includes(searchTerm)
+                                    .includes(playerSearch)
                                 );
                               })
                               .map((player) => (
-                                <label
-                                  className={`flex cursor-pointer items-center gap-2 rounded border p-2 text-sm ${
+                                <button
+                                  className={`flex cursor-pointer items-center gap-2 rounded border p-2 text-left text-sm ${
                                     state.linkedPlayerIds.includes(player._id)
                                       ? "border-blue-400 bg-blue-100"
                                       : "border-gray-200 bg-white hover:bg-gray-50"
                                   }`}
                                   key={player._id}
+                                  onClick={() =>
+                                    togglePlayer(member.userId, player._id)
+                                  }
+                                  type="button"
                                 >
-                                  <Checkbox
-                                    checked={state.linkedPlayerIds.includes(
+                                  <span
+                                    className={`flex h-4 w-4 items-center justify-center rounded-sm border ${state.linkedPlayerIds.includes(player._id) ? "border-primary bg-primary text-primary-foreground" : "border-muted"}`}
+                                  >
+                                    {state.linkedPlayerIds.includes(
                                       player._id
-                                    )}
-                                    onCheckedChange={() =>
-                                      togglePlayer(member.userId, player._id)
-                                    }
-                                  />
+                                    ) && "✓"}
+                                  </span>
                                   <span className="flex-1 font-medium">
                                     {player.name}
                                   </span>
                                   <span className="text-muted-foreground text-xs">
                                     {player.ageGroup} - {player.sport}
                                   </span>
-                                </label>
+                                </button>
                               ))}
                           </div>
                         </div>
@@ -1626,57 +1634,45 @@ export default function ManageUsersPage() {
                   users and settings.
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <label
+                  <button
                     className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
                       inviteFunctionalRoles.includes("admin")
                         ? "border-purple-400 bg-purple-100 text-purple-700"
                         : "border-gray-200 bg-white hover:bg-gray-50"
                     }`}
+                    disabled={inviting}
+                    onClick={() => toggleInviteFunctionalRole("admin")}
+                    type="button"
                   >
-                    <Checkbox
-                      checked={inviteFunctionalRoles.includes("admin")}
-                      disabled={inviting}
-                      onCheckedChange={() =>
-                        toggleInviteFunctionalRole("admin")
-                      }
-                    />
                     <Shield className="h-4 w-4" />
                     <span>Admin</span>
-                  </label>
-                  <label
+                  </button>
+                  <button
                     className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
                       inviteFunctionalRoles.includes("coach")
                         ? "border-green-400 bg-green-100 text-green-700"
                         : "border-gray-200 bg-white hover:bg-gray-50"
                     }`}
+                    disabled={inviting}
+                    onClick={() => toggleInviteFunctionalRole("coach")}
+                    type="button"
                   >
-                    <Checkbox
-                      checked={inviteFunctionalRoles.includes("coach")}
-                      disabled={inviting}
-                      onCheckedChange={() =>
-                        toggleInviteFunctionalRole("coach")
-                      }
-                    />
                     <Users className="h-4 w-4" />
                     <span>Coach</span>
-                  </label>
-                  <label
+                  </button>
+                  <button
                     className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
                       inviteFunctionalRoles.includes("parent")
                         ? "border-blue-400 bg-blue-100 text-blue-700"
                         : "border-gray-200 bg-white hover:bg-gray-50"
                     }`}
+                    disabled={inviting}
+                    onClick={() => toggleInviteFunctionalRole("parent")}
+                    type="button"
                   >
-                    <Checkbox
-                      checked={inviteFunctionalRoles.includes("parent")}
-                      disabled={inviting}
-                      onCheckedChange={() =>
-                        toggleInviteFunctionalRole("parent")
-                      }
-                    />
                     <UserCircle className="h-4 w-4" />
                     <span>Parent</span>
-                  </label>
+                  </button>
                 </div>
                 {inviteFunctionalRoles.length > 0 && (
                   <p className="text-muted-foreground text-xs">
@@ -1700,27 +1696,30 @@ export default function ManageUsersPage() {
                       </p>
                     ) : (
                       teams.map((team) => (
-                        <label
-                          className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors ${
+                        <button
+                          className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors ${
                             inviteTeams.includes(team._id)
                               ? "bg-green-100 text-green-700"
                               : "hover:bg-gray-100"
                           }`}
+                          disabled={inviting}
                           key={team._id}
+                          onClick={() => {
+                            if (inviteTeams.includes(team._id)) {
+                              setInviteTeams(
+                                inviteTeams.filter((id) => id !== team._id)
+                              );
+                            } else {
+                              setInviteTeams([...inviteTeams, team._id]);
+                            }
+                          }}
+                          type="button"
                         >
-                          <Checkbox
-                            checked={inviteTeams.includes(team._id)}
-                            disabled={inviting}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setInviteTeams([...inviteTeams, team._id]);
-                              } else {
-                                setInviteTeams(
-                                  inviteTeams.filter((id) => id !== team._id)
-                                );
-                              }
-                            }}
-                          />
+                          <span
+                            className={`flex h-4 w-4 items-center justify-center rounded-sm border ${inviteTeams.includes(team._id) ? "border-primary bg-primary text-primary-foreground" : "border-muted"}`}
+                          >
+                            {inviteTeams.includes(team._id) && "✓"}
+                          </span>
                           <span>
                             {team.name}
                             {team.ageGroup && (
@@ -1729,7 +1728,7 @@ export default function ManageUsersPage() {
                               </span>
                             )}
                           </span>
-                        </label>
+                        </button>
                       ))
                     )}
                   </div>
@@ -1772,32 +1771,35 @@ export default function ManageUsersPage() {
                         )
                         .slice(0, 20)
                         .map((player) => (
-                          <label
-                            className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors ${
+                          <button
+                            className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors ${
                               invitePlayerIds.includes(player._id)
                                 ? "bg-blue-100 text-blue-700"
                                 : "hover:bg-gray-100"
                             }`}
+                            disabled={inviting}
                             key={player._id}
+                            onClick={() => {
+                              if (invitePlayerIds.includes(player._id)) {
+                                setInvitePlayerIds(
+                                  invitePlayerIds.filter(
+                                    (id) => id !== player._id
+                                  )
+                                );
+                              } else {
+                                setInvitePlayerIds([
+                                  ...invitePlayerIds,
+                                  player._id,
+                                ]);
+                              }
+                            }}
+                            type="button"
                           >
-                            <Checkbox
-                              checked={invitePlayerIds.includes(player._id)}
-                              disabled={inviting}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setInvitePlayerIds([
-                                    ...invitePlayerIds,
-                                    player._id,
-                                  ]);
-                                } else {
-                                  setInvitePlayerIds(
-                                    invitePlayerIds.filter(
-                                      (id) => id !== player._id
-                                    )
-                                  );
-                                }
-                              }}
-                            />
+                            <span
+                              className={`flex h-4 w-4 items-center justify-center rounded-sm border ${invitePlayerIds.includes(player._id) ? "border-primary bg-primary text-primary-foreground" : "border-muted"}`}
+                            >
+                              {invitePlayerIds.includes(player._id) && "✓"}
+                            </span>
                             <span>
                               {player.name}
                               {player.ageGroup && (
@@ -1806,7 +1808,7 @@ export default function ManageUsersPage() {
                                 </span>
                               )}
                             </span>
-                          </label>
+                          </button>
                         ))
                     )}
                     {allPlayers.filter(
@@ -1847,7 +1849,7 @@ export default function ManageUsersPage() {
               await cancelInvitation({ invitationId: selectedInvitationId });
               toast.success("Invitation cancelled successfully");
               setSelectedInvitationId(null);
-            } catch (error) {
+            } catch (_error) {
               toast.error("Failed to cancel invitation");
             }
           }}
@@ -1856,7 +1858,7 @@ export default function ManageUsersPage() {
             try {
               await resendInvitation({ invitationId: selectedInvitationId });
               toast.success("Invitation resent successfully");
-            } catch (error) {
+            } catch (_error) {
               toast.error("Failed to resend invitation");
             }
           }}

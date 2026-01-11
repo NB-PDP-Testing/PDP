@@ -118,7 +118,7 @@ const getPriorityColor = (priority: string) => {
   }
 };
 
-const getStatusColor = (status: string) => {
+const _getStatusColor = (status: string) => {
   switch (status) {
     case "completed":
       return "bg-green-600";
@@ -188,7 +188,7 @@ export default function GoalsDashboardPage() {
   );
 
   // Get coach's teams
-  const coachAssignments = useQuery(
+  const _coachAssignments = useQuery(
     api.models.coaches.getCoachAssignmentsWithTeams,
     { userId: "", organizationId: orgId } // Will need current user
   );
@@ -222,7 +222,9 @@ export default function GoalsDashboardPage() {
 
   // Process goals with player names
   const goalsWithPlayers: GoalWithPlayer[] = useMemo(() => {
-    if (!goals) return [];
+    if (!goals) {
+      return [];
+    }
 
     return goals.map((goal) => ({
       ...goal,
@@ -307,7 +309,7 @@ export default function GoalsDashboardPage() {
           setSelectedGoal(updatedGoal);
         }
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to complete milestone");
     }
   };
@@ -327,7 +329,7 @@ export default function GoalsDashboardPage() {
       });
       setNewMilestoneText((prev) => ({ ...prev, [goalId]: "" }));
       toast.success("Milestone added!");
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to add milestone");
     }
   };
@@ -340,7 +342,7 @@ export default function GoalsDashboardPage() {
     try {
       await updateGoalSkills({ goalId, linkedSkills: skills });
       toast.success("Skills linked!");
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to update linked skills");
     }
   };
@@ -523,7 +525,7 @@ export default function GoalsDashboardPage() {
             await deleteGoal({ goalId });
             setSelectedGoal(null);
             toast.success("Goal deleted");
-          } catch (error) {
+          } catch (_error) {
             toast.error("Failed to delete goal");
           }
         }}
@@ -538,7 +540,7 @@ export default function GoalsDashboardPage() {
           try {
             await updateGoal({ goalId, status });
             toast.success("Goal status updated");
-          } catch (error) {
+          } catch (_error) {
             toast.error("Failed to update goal");
           }
         }}
@@ -553,14 +555,13 @@ export default function GoalsDashboardPage() {
             await createGoal(data);
             setShowCreateDialog(false);
             toast.success("Goal created successfully!");
-          } catch (error) {
+          } catch (_error) {
             toast.error("Failed to create goal");
           }
         }}
         open={showCreateDialog}
         passports={passports || []}
         playerNameMap={playerNameMap}
-        skillDefinitions={skillDefinitions || []}
       />
 
       {/* Bulk Create Goals Dialog */}
@@ -580,8 +581,8 @@ export default function GoalsDashboardPage() {
                 linkedSkills: data.linkedSkills,
                 parentCanView: data.parentCanView,
               });
-              created++;
-            } catch (error) {
+              created += 1;
+            } catch (_error) {
               console.error("Failed to create goal for passport:", passportId);
             }
           }
@@ -664,8 +665,8 @@ function GoalCard({
         {/* Linked Skills */}
         {goal.linkedSkills && goal.linkedSkills.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1">
-            {goal.linkedSkills.slice(0, 3).map((skill, idx) => (
-              <Badge className="text-xs" key={idx} variant="secondary">
+            {goal.linkedSkills.slice(0, 3).map((skill) => (
+              <Badge className="text-xs" key={skill} variant="secondary">
                 {skill}
               </Badge>
             ))}
@@ -726,7 +727,9 @@ function GoalDetailDialog({
     goal?.linkedSkills || []
   );
 
-  if (!goal) return null;
+  if (!goal) {
+    return null;
+  }
 
   return (
     <Dialog onOpenChange={onClose} open={!!goal}>
@@ -926,12 +929,12 @@ function GoalDetailDialog({
           ) : (
             <div className="flex flex-wrap gap-2">
               {goal.linkedSkills && goal.linkedSkills.length > 0 ? (
-                goal.linkedSkills.map((skillCode, idx) => {
+                goal.linkedSkills.map((skillCode) => {
                   const skill = skillDefinitions.find(
                     (s) => s.code === skillCode
                   );
                   return (
-                    <Badge key={idx} variant="secondary">
+                    <Badge key={skillCode} variant="secondary">
                       {skill?.name || skillCode}
                     </Badge>
                   );
@@ -950,10 +953,10 @@ function GoalDetailDialog({
           <div>
             <h3 className="mb-2 font-bold">What Parents Can Do</h3>
             <ul className="space-y-1">
-              {goal.parentActions.map((action, idx) => (
+              {goal.parentActions.map((action) => (
                 <li
                   className="flex items-start gap-2 text-muted-foreground"
-                  key={idx}
+                  key={`action-${action}`}
                 >
                   <span className="mt-1 text-blue-600">•</span>
                   <span>{action}</span>
@@ -1016,7 +1019,6 @@ function CreateGoalDialog({
   onClose,
   passports,
   playerNameMap,
-  skillDefinitions,
   onSubmit,
 }: {
   open: boolean;
@@ -1027,12 +1029,6 @@ function CreateGoalDialog({
     sportCode: string;
   }>;
   playerNameMap: Map<string, string>;
-  skillDefinitions: Array<{
-    _id: string;
-    code: string;
-    name: string;
-    sportCode: string;
-  }>;
   onSubmit: (data: {
     passportId: Id<"sportPassports">;
     title: string;
@@ -1260,7 +1256,9 @@ function BulkCreateGoalsDialog({
 
   // Get players in selected team
   const teamPlayers = useMemo(() => {
-    if (!selectedTeamId) return [];
+    if (!selectedTeamId) {
+      return [];
+    }
     const players = teamPlayerLinks.filter(
       (link) => link.teamId === selectedTeamId
     );

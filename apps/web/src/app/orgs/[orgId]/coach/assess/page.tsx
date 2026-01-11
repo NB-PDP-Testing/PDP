@@ -1520,22 +1520,12 @@ function BatchAssessmentSection({
   assessmentType: AssessmentType;
   orgId: string;
   selectedSportCode: string;
-  currentUser: { _id: string; name?: string; email?: string } | null;
-  findOrCreatePassport: (args: {
-    playerIdentityId: Id<"playerIdentities">;
-    sportCode: string;
-  }) => Promise<Id<"sportPassports">>;
-  recordAssessment: (args: {
-    sportPassportId: Id<"sportPassports">;
-    skillCode: string;
-    rating: number;
-    assessmentDate: string;
-    assessmentType: AssessmentType;
-    assessedBy?: string;
-    assessedByName?: string;
-    assessorRole?: string;
-    notes?: string;
-  }) => Promise<void>;
+  // biome-ignore lint/suspicious/noExplicitAny: User type from auth
+  currentUser: any;
+  // biome-ignore lint/suspicious/noExplicitAny: Convex mutation type
+  findOrCreatePassport: any;
+  // biome-ignore lint/suspicious/noExplicitAny: Convex mutation type
+  recordAssessment: any;
   isSaving: boolean;
   setIsSaving: (value: boolean) => void;
   setBatchSavedCount: (value: number) => void;

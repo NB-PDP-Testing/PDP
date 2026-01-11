@@ -231,12 +231,8 @@ function PlayerAssignmentGrid({
   setPendingAssignments,
 }: {
   teamId: string;
-  allPlayers: {
-    playerIdentityId: string;
-    firstName: string;
-    lastName: string;
-    ageGroup?: string;
-  }[];
+  // biome-ignore lint/suspicious/noExplicitAny: Player type varies based on query
+  allPlayers: any[];
   playerSearch: string;
   pendingAssignments: { add: string[]; remove: string[] };
   setPendingAssignments: React.Dispatch<

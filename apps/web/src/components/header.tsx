@@ -127,7 +127,7 @@ export default function Header() {
   return (
     <div>
       <div
-        className="flex flex-row items-center justify-start space-x-4 px-2 py-1"
+        className="flex flex-row items-center justify-start space-x-2 px-2 py-1 sm:space-x-4"
         style={headerBackgroundStyle}
       >
         {/* Left side - Home link always visible + Org logo and nav */}

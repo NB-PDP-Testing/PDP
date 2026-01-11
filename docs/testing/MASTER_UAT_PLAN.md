@@ -1,8 +1,8 @@
 # Master UAT Test Plan
 
-**Version:** 5.0  
+**Version:** 5.1  
 **Created:** January 7, 2026  
-**Last Updated:** October 1, 2026  
+**Last Updated:** January 11, 2026  
 **Status:** ACTIVE - Lightweight UAT Model  
 **Total Tests:** 33 test files, 269 tests across 14 categories (+ 51 setup tests)
 
@@ -141,14 +141,15 @@ apps/web/uat/
 
 ### 3.3 Configuration
 
-| Setting            | Value          |
-| ------------------ | -------------- |
-| Browser            | Chromium       |
-| Workers            | 1 (sequential) |
-| Test Timeout       | 60 seconds     |
-| Assertion Timeout  | 10 seconds     |
-| Action Timeout     | 15 seconds     |
-| Navigation Timeout | 30 seconds     |
+| Setting            | Value              |
+| ------------------ | ------------------ |
+| Browser            | Chromium           |
+| Workers            | 6 (local) / 1 (CI) |
+| Retries            | 1 (local) / 2 (CI) |
+| Test Timeout       | 60 seconds         |
+| Assertion Timeout  | 10 seconds         |
+| Action Timeout     | 15 seconds         |
+| Navigation Timeout | 30 seconds         |
 
 ---
 
@@ -749,6 +750,8 @@ Based on live browser exploration (reference: `docs/archive/testing/UAT_MCP_TEST
 | 3.3     | 2026-01-10 | Cline  | Added 10 Performance tests. P2 performance testing complete                                       |
 | 3.4     | 2026-01-10 | Cline  | Added 15 Mobile Viewport tests. All planned test categories complete (217 tests total)            |
 | 4.0     | 2026-01-10 | UAT    | Consolidated content from 6 archived documents. Added UX tests, Onboarding, Flow System, MCP gaps |
+| 5.0     | 2026-10-01 | Cline  | Implemented all 40 missing tests across P0-P3 priorities. Total: 269 tests                        |
+| 5.1     | 2026-01-11 | Cline  | Fixed test stability (ORG-001 fixture issue), added retries. Updated config settings              |
 
 ---
 

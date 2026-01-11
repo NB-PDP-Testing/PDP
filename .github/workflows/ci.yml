@@ -54,7 +54,8 @@ jobs:
       # Phase 0: Re-enabled linting for changed files only
       # This prevents new linting issues while allowing gradual fixes
       # FIXED: Now properly fails when linting errors are found
-      # See LINTING_COMPREHENSIVE_PLAN.md and LINTING_STATUS_JAN_10_2026.md
+      # Note: We pass explicit file list instead of --changed flag because
+      # --changed relies on git staged changes which don't exist in CI
       - name: Run linting (changed files only)
         run: |
           echo "Checking linting on changed files..."
@@ -76,9 +77,9 @@ jobs:
           echo "$CHANGED_FILES"
           echo ""
 
-          # Run biome check on changed files - FAIL if errors found
+          # Run biome check on specific changed files (not --changed flag)
           echo "Running biome check..."
-          npx biome check --changed --diagnostic-level=error .
+          echo "$CHANGED_FILES" | xargs npx biome check --diagnostic-level=error
 
           LINT_EXIT_CODE=$?
 
@@ -88,7 +89,7 @@ jobs:
             echo "Found linting errors in changed files."
             echo ""
             echo "To fix locally:"
-            echo "1. Check errors: npx biome check --changed ."
+            echo "1. Check errors: npx biome check <file>"
             echo "2. Auto-fix safe issues: npx biome check --write <file>"
             echo "3. Manually fix remaining issues"
             echo ""

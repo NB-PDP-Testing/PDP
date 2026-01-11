@@ -1,10 +1,10 @@
 # Master UAT Test Plan
 
-**Version:** 5.1  
+**Version:** 5.2  
 **Created:** January 7, 2026  
 **Last Updated:** January 11, 2026  
 **Status:** ACTIVE - Lightweight UAT Model  
-**Total Tests:** 33 test files, 269 tests across 14 categories (+ 51 setup tests)
+**Total Tests:** 33 test files, 272 tests across 14 categories (+ 51 setup tests)
 
 ---
 
@@ -116,8 +116,8 @@ apps/web/uat/
 | parent      | 1      | 10      | Child management, linked players                                               |
 | performance | 1      | 10      | Page load and API performance tests                                            |
 | errors      | 1      | 4       | Empty states, 404, 403 error pages                                             |
-| platform    | 1      | 3       | Platform staff management (sports, skills)                                     |
-| **Total**   | **33** | **269** | (+ 51 tests in onboarding setup script)                                        |
+| platform    | 1      | 6       | Platform staff management (dashboard, staff, sports, skills, bulk import)      |
+| **Total**   | **33** | **272** | (+ 51 tests in onboarding setup script)                                        |
 
 ---
 
@@ -620,37 +620,37 @@ The UX testing suite contains 14 detailed test specifications for user experienc
 
 ---
 
-## 10. Additional Test Areas (Not Yet Automated)
+## 10. Additional Test Areas
 
-### 10.1 First-Time Onboarding Tests
+### 10.1 First-Time Onboarding Tests ✅ AUTOMATED
 
-These manual tests cover initial platform setup scenarios:
+All onboarding tests are now automated in `uat/scripts/onboarding.spec.ts` (51 sub-tests).
 
-| Test ID     | Description                                    | Priority |
-| ----------- | ---------------------------------------------- | -------- |
-| ONBOARD-001 | Platform Staff Creates First Organization      | P0       |
-| ONBOARD-002 | Non-Platform Staff Cannot Create Organizations | P0       |
-| ONBOARD-003 | Owner First Login Experience                   | P1       |
-| ONBOARD-004 | Owner Creates First Team                       | P1       |
-| ONBOARD-005 | Owner Invites First Admin                      | P1       |
-| ONBOARD-006 | First Admin Accepts Invitation                 | P1       |
-| ONBOARD-007 | Owner Invites First Coach                      | P1       |
-| ONBOARD-008 | First Coach Accepts and Gets Team Assignment   | P1       |
-| ONBOARD-009 | Admin Creates First Players                    | P1       |
-| ONBOARD-010 | Owner Invites First Parent                     | P1       |
-| ONBOARD-011 | Platform Admin Edits Organization              | P1       |
-| ONBOARD-012 | Owner Transfers Ownership to Admin             | P2       |
+| Test ID     | Description                                    | Priority | Status |
+| ----------- | ---------------------------------------------- | -------- | ------ |
+| ONBOARD-001 | Platform Staff Creates First Organization      | P0       | ✅     |
+| ONBOARD-002 | Non-Platform Staff Cannot Create Organizations | P0       | ✅     |
+| ONBOARD-003 | Owner First Login Experience                   | P1       | ✅     |
+| ONBOARD-004 | Owner Creates First Team                       | P1       | ✅     |
+| ONBOARD-005 | Owner Invites First Admin                      | P1       | ✅     |
+| ONBOARD-006 | First Admin Accepts Invitation                 | P1       | ✅     |
+| ONBOARD-007 | Owner Invites First Coach                      | P1       | ✅     |
+| ONBOARD-008 | First Coach Accepts and Gets Team Assignment   | P1       | ✅     |
+| ONBOARD-009 | Admin Creates First Players                    | P1       | ✅     |
+| ONBOARD-010 | Owner Invites First Parent                     | P1       | ✅     |
+| ONBOARD-011 | Platform Admin Edits Organization              | P1       | ✅     |
+| ONBOARD-012 | Owner Transfers Ownership to Admin             | P2       | ✅     |
 
-### 10.2 Platform Staff Management Tests
+### 10.2 Platform Staff Management Tests ✅ AUTOMATED
 
-| Test ID      | Description                     | Priority |
-| ------------ | ------------------------------- | -------- |
-| PLATFORM-001 | Platform Staff Dashboard Access | P1       |
-| PLATFORM-002 | Manage Sports                   | P2       |
-| PLATFORM-003 | Manage Skill Categories         | P2       |
-| PLATFORM-004 | Manage Skill Definitions        | P2       |
-| PLATFORM-005 | Platform Staff Management       | P2       |
-| PLATFORM-006 | Bulk Skills Import              | P2       |
+| Test ID      | Description                     | Priority | Status         | File                        |
+| ------------ | ------------------------------- | -------- | -------------- | --------------------------- |
+| PLATFORM-001 | Platform Staff Dashboard Access | P1       | ✅ Implemented | platform-management.spec.ts |
+| PLATFORM-002 | Manage Sports                   | P2       | ✅ Implemented | platform-management.spec.ts |
+| PLATFORM-003 | Manage Skill Categories         | P2       | ✅ Implemented | platform-management.spec.ts |
+| PLATFORM-004 | Manage Skill Definitions        | P2       | ✅ Implemented | platform-management.spec.ts |
+| PLATFORM-005 | Platform Staff Management       | P2       | ✅ Implemented | platform-management.spec.ts |
+| PLATFORM-006 | Bulk Skills Import              | P2       | ✅ Implemented | platform-management.spec.ts |
 
 ### 10.3 Flow System Tests
 
@@ -682,30 +682,31 @@ Detailed flow wizard testing (reference: `docs/archive/testing/flow-system-tests
 | FLOW-USER-003     | Multiple Flows - Priority Ordering        | P2       |
 | FLOW-E2E-001      | Platform Flow Creation to User Completion | P1       |
 
-### 10.4 Guardian/Parent Linking Tests
+### 10.4 Guardian/Parent Linking Tests ✅ AUTOMATED
 
-| Test ID                | Description                  | Priority |
-| ---------------------- | ---------------------------- | -------- |
-| GUARDIAN-BULK-001      | Bulk Guardian Claim          | P2       |
-| GUARDIAN-ADMIN-001     | Admin Links Parent to Player | P1       |
-| GUARDIAN-UNCLAIMED-001 | View Unclaimed Guardians     | P2       |
+| Test ID                | Description                  | Priority | Status         | File                      |
+| ---------------------- | ---------------------------- | -------- | -------------- | ------------------------- |
+| GUARDIAN-BULK-001      | Bulk Guardian Claim          | P2       | ✅ Implemented | guardian-advanced.spec.ts |
+| GUARDIAN-ADMIN-001     | Admin Links Parent to Player | P1       | ✅ Implemented | identity.spec.ts          |
+| GUARDIAN-UNCLAIMED-001 | View Unclaimed Guardians     | P2       | ✅ Implemented | guardian-advanced.spec.ts |
 
-### 10.5 Analytics & Reporting Tests
+### 10.5 Analytics & Reporting Tests ✅ AUTOMATED
 
-| Test ID                | Description               | Priority |
-| ---------------------- | ------------------------- | -------- |
-| ANALYTICS-ADMIN-001    | Admin Dashboard Stats     | P2       |
-| ANALYTICS-COACH-001    | Coach Analytics View      | P2       |
-| ANALYTICS-PROGRESS-001 | Player Progress Over Time | P2       |
+| Test ID                | Description               | Priority | Status         | File                    |
+| ---------------------- | ------------------------- | -------- | -------------- | ----------------------- |
+| ANALYTICS-ADMIN-001    | Admin Dashboard Stats     | P2       | ✅ Implemented | analytics.spec.ts       |
+| ANALYTICS-ADMIN-002    | Organization Stats        | P2       | ✅ Implemented | analytics.spec.ts       |
+| ANALYTICS-COACH-001    | Coach Analytics View      | P2       | ✅ Implemented | analytics-coach.spec.ts |
+| ANALYTICS-PROGRESS-001 | Player Progress Over Time | P2       | ✅ Implemented | analytics-coach.spec.ts |
 
-### 10.6 Error Handling & Edge Cases
+### 10.6 Error Handling & Edge Cases ✅ AUTOMATED
 
-| Test ID       | Description              | Priority |
-| ------------- | ------------------------ | -------- |
-| ERR-EMPTY-001 | Empty State - No Players | P2       |
-| ERR-EMPTY-002 | Empty State - No Teams   | P2       |
-| ERR-403-001   | Permission Denied Page   | P1       |
-| ERR-404-001   | 404 Not Found            | P2       |
+| Test ID       | Description              | Priority | Status         | File                   |
+| ------------- | ------------------------ | -------- | -------------- | ---------------------- |
+| ERR-EMPTY-001 | Empty State - No Players | P2       | ✅ Implemented | error-handling.spec.ts |
+| ERR-EMPTY-002 | Empty State - No Teams   | P2       | ✅ Implemented | error-handling.spec.ts |
+| ERR-403-001   | Permission Denied Page   | P1       | ✅ Implemented | error-handling.spec.ts |
+| ERR-404-001   | 404 Not Found            | P2       | ✅ Implemented | error-handling.spec.ts |
 
 ---
 
@@ -752,6 +753,7 @@ Based on live browser exploration (reference: `docs/archive/testing/UAT_MCP_TEST
 | 4.0     | 2026-01-10 | UAT    | Consolidated content from 6 archived documents. Added UX tests, Onboarding, Flow System, MCP gaps |
 | 5.0     | 2026-10-01 | Cline  | Implemented all 40 missing tests across P0-P3 priorities. Total: 269 tests                        |
 | 5.1     | 2026-01-11 | Cline  | Fixed test stability (ORG-001 fixture issue), added retries. Updated config settings              |
+| 5.2     | 2026-01-11 | Cline  | Added 3 Platform Staff tests (PLATFORM-001, PLATFORM-005, PLATFORM-006). Total: 272 tests         |
 
 ---
 

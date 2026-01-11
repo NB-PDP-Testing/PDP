@@ -33,6 +33,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -473,21 +480,35 @@ export default function GoalsDashboardPage() {
           ))}
         </div>
       ) : (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Target className="mb-4 h-16 w-16 text-muted-foreground" />
-            <h2 className="mb-2 font-bold text-2xl text-gray-800">
-              No Goals Found
-            </h2>
-            <p className="text-muted-foreground">
+        <Empty>
+          <EmptyContent>
+            <EmptyMedia variant="icon">
+              <Target className="h-6 w-6" />
+            </EmptyMedia>
+            <EmptyTitle>
               {searchTerm ||
               statusFilter !== "active" ||
               categoryFilter !== "all"
-                ? "No goals match your current filters."
-                : "Create your first development goal to get started."}
-            </p>
-          </CardContent>
-        </Card>
+                ? "No results found"
+                : "No goals yet"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {searchTerm ||
+              statusFilter !== "active" ||
+              categoryFilter !== "all"
+                ? "Try adjusting your search or filter criteria"
+                : "Create your first development goal to start tracking player progress"}
+            </EmptyDescription>
+            {!searchTerm &&
+              statusFilter === "active" &&
+              categoryFilter === "all" && (
+                <Button onClick={() => setShowCreateDialog(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Goal
+                </Button>
+              )}
+          </EmptyContent>
+        </Empty>
       )}
 
       {/* Goal Detail Dialog */}

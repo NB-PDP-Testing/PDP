@@ -34,6 +34,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -411,15 +418,23 @@ export default function InjuryTrackingPage() {
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : filteredInjuries.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <Heart className="mb-4 h-12 w-12 text-muted-foreground" />
-                <h3 className="font-medium">No Injuries Found</h3>
-                <p className="text-muted-foreground text-sm">
-                  {statusFilter === "all"
-                    ? "This player has no recorded injuries"
-                    : `No ${statusFilter} injuries found`}
-                </p>
-              </div>
+              <Empty>
+                <EmptyContent>
+                  <EmptyMedia variant="icon">
+                    <Heart className="h-6 w-6" />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {statusFilter === "all"
+                      ? "No injuries recorded"
+                      : "No results found"}
+                  </EmptyTitle>
+                  <EmptyDescription>
+                    {statusFilter === "all"
+                      ? "This player has a clean injury history"
+                      : `No ${statusFilter} injuries found for this player. Try adjusting the filter.`}
+                  </EmptyDescription>
+                </EmptyContent>
+              </Empty>
             ) : (
               <div className="space-y-4">
                 {filteredInjuries.map((injury: any) => (
@@ -548,15 +563,23 @@ export default function InjuryTrackingPage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : filteredHistoryInjuries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <Heart className="mb-4 h-12 w-12 text-muted-foreground" />
-              <h3 className="font-medium">No Injuries Found</h3>
-              <p className="text-muted-foreground text-sm">
-                {historyStatusFilter === "all"
-                  ? "No injury records have been created yet"
-                  : `No ${historyStatusFilter} injuries found`}
-              </p>
-            </div>
+            <Empty>
+              <EmptyContent>
+                <EmptyMedia variant="icon">
+                  <Heart className="h-6 w-6" />
+                </EmptyMedia>
+                <EmptyTitle>
+                  {historyStatusFilter === "all"
+                    ? "No injury records yet"
+                    : "No results found"}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {historyStatusFilter === "all"
+                    ? "Your organization has no recorded injuries. This is great news!"
+                    : `No ${historyStatusFilter} injuries found. Try adjusting the filter.`}
+                </EmptyDescription>
+              </EmptyContent>
+            </Empty>
           ) : (
             <div className="space-y-3">
               {filteredHistoryInjuries.map((injury: any) => (

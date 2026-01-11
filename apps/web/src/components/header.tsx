@@ -52,7 +52,7 @@ export default function Header() {
   const pathname = usePathname();
   const orgId = params?.orgId as string | undefined;
   const user = useCurrentUser();
-  const { data: org, isPending: isOrgPending } =
+  const { data: org, isPending: _isOrgPending } =
     authClient.useActiveOrganization();
   const { data: member, isPending: isMemberPending } =
     authClient.useActiveMember();

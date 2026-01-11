@@ -78,6 +78,8 @@ function getRoleIcon(role: FunctionalRole) {
       return <Shield className="h-4 w-4 text-purple-600" />;
     case "player":
       return <UserCircle className="h-4 w-4 text-orange-600" />;
+    default:
+      return <UserCircle className="h-4 w-4" />;
   }
 }
 
@@ -91,6 +93,8 @@ function getRoleLabel(role: FunctionalRole): string {
       return "Admin";
     case "player":
       return "Player";
+    default:
+      return "Member";
   }
 }
 
@@ -104,6 +108,8 @@ function getRoleDescription(role: FunctionalRole): string {
       return "Full club administration access";
     case "player":
       return "Access your player passport";
+    default:
+      return "Member access";
   }
 }
 
@@ -117,6 +123,8 @@ function getRoleDashboardRoute(orgId: string, role: FunctionalRole): Route {
       return `/orgs/${orgId}/admin` as Route;
     case "player":
       return `/orgs/${orgId}/player` as Route;
+    default:
+      return `/orgs/${orgId}` as Route;
   }
 }
 
@@ -243,7 +251,9 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   };
 
   const handleSubmitRoleRequest = async () => {
-    if (!(selectedOrgForRequest && selectedRoleToRequest)) return;
+    if (!(selectedOrgForRequest && selectedRoleToRequest)) {
+      return;
+    }
 
     setIsSubmittingRequest(true);
     try {
@@ -519,7 +529,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
           <div className="space-y-4 py-4">
             {/* Organization selector */}
             <div className="space-y-2">
-              <label className="font-medium text-sm">Organization</label>
+              <div className="font-medium text-sm">Organization</div>
               <Select
                 onValueChange={(value) => {
                   setSelectedOrgForRequest(value);
@@ -554,7 +564,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
             {/* Role selector */}
             {selectedOrgForRequest && (
               <div className="space-y-2">
-                <label className="font-medium text-sm">Role to Request</label>
+                <div className="font-medium text-sm">Role to Request</div>
                 <div className="space-y-2">
                   {getAvailableRolesToRequest(selectedOrgForRequest).length ===
                   0 ? (

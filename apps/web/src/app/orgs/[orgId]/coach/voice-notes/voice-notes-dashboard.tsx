@@ -36,6 +36,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Textarea } from "@/components/ui/textarea";
 
 type NoteType = "training" | "match" | "general";
@@ -534,10 +541,18 @@ Example: 'Emma Murphy had a great session today. Her left foot passing is really
         <CardContent>
           {voiceNotes ? (
             voiceNotes.length === 0 ? (
-              <div className="py-8 text-center text-gray-500">
-                <Mic className="mx-auto mb-4 text-gray-400" size={48} />
-                <p>No voice notes yet. Create your first note above!</p>
-              </div>
+              <Empty>
+                <EmptyContent>
+                  <EmptyMedia variant="icon">
+                    <Mic className="h-6 w-6" />
+                  </EmptyMedia>
+                  <EmptyTitle>No recordings yet</EmptyTitle>
+                  <EmptyDescription>
+                    Start recording your first voice note using the form above
+                    to capture your coaching insights
+                  </EmptyDescription>
+                </EmptyContent>
+              </Empty>
             ) : (
               <div className="space-y-4">
                 {voiceNotes.map((note) => (

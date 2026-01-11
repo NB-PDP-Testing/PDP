@@ -23,6 +23,11 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  ResponsiveForm,
+  ResponsiveFormRow,
+  ResponsiveFormSection,
+} from "@/components/forms/responsive-form";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -50,7 +55,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -630,7 +634,11 @@ export default function ManageTeamsPage() {
     setDeleteDialogOpen(true);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) {
+      e.preventDefault();
+    }
+
     if (!(formData.name && formData.sport && formData.ageGroup)) {
       toast.error("Please fill in all required fields");
       return;
@@ -1147,161 +1155,171 @@ export default function ManageTeamsPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Team Name *</Label>
-              <Input
-                id="name"
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder="e.g., U12 Boys A"
-                value={formData.name}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+          <ResponsiveForm
+            isLoading={loading}
+            onCancel={() => setFormDialogOpen(false)}
+            onSubmit={handleSubmit}
+            submitText={editingTeamId ? "Update Team" : "Create Team"}
+          >
+            <ResponsiveFormSection title="Basic Information">
               <div className="space-y-2">
-                <Label htmlFor="sport">Sport *</Label>
-                <Select
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, sport: value })
-                  }
-                  value={formData.sport}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select sport" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableSports?.map((sport) => (
-                      <SelectItem key={sport.code} value={sport.code}>
-                        {sport.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {organization?.supportedSports &&
-                  organization.supportedSports.length > 0 &&
-                  formData.sport === organization.supportedSports[0] && (
-                    <p className="text-muted-foreground text-xs">
-                      Auto-selected from organization
-                    </p>
-                  )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="ageGroup">Age Group *</Label>
-                <Select
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, ageGroup: value })
-                  }
-                  value={formData.ageGroup}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select age" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AGE_GROUPS.map((age) => (
-                      <SelectItem key={age} value={age}>
-                        {age}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="gender">Gender</Label>
-                <Select
-                  onValueChange={(value) =>
-                    setFormData({
-                      ...formData,
-                      gender: value as TeamFormData["gender"],
-                    })
-                  }
-                  value={formData.gender}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                    <SelectItem value="Mixed">Mixed</SelectItem>
-                    <SelectItem value="Boys">Boys</SelectItem>
-                    <SelectItem value="Girls">Girls</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="season">Season</Label>
+                <Label htmlFor="name">Team Name *</Label>
                 <Input
-                  id="season"
+                  id="name"
                   onChange={(e) =>
-                    setFormData({ ...formData, season: e.target.value })
+                    setFormData({ ...formData, name: e.target.value })
                   }
-                  placeholder="e.g., 2025"
-                  value={formData.season}
+                  placeholder="e.g., U12 Boys A"
+                  value={formData.name}
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="trainingSchedule">Training Schedule</Label>
-              <Input
-                id="trainingSchedule"
-                onChange={(e) =>
-                  setFormData({ ...formData, trainingSchedule: e.target.value })
-                }
-                placeholder="e.g., Tuesdays & Thursdays 6-7pm"
-                value={formData.trainingSchedule}
-              />
-            </div>
+              <ResponsiveFormRow columns={2}>
+                <div className="space-y-2">
+                  <Label htmlFor="sport">Sport *</Label>
+                  <Select
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, sport: value })
+                    }
+                    value={formData.sport}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select sport" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSports?.map((sport) => (
+                        <SelectItem key={sport.code} value={sport.code}>
+                          {sport.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {organization?.supportedSports &&
+                    organization.supportedSports.length > 0 &&
+                    formData.sport === organization.supportedSports[0] && (
+                      <p className="text-muted-foreground text-xs">
+                        Auto-selected from organization
+                      </p>
+                    )}
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="homeVenue">Home Venue</Label>
-              <Input
-                id="homeVenue"
-                onChange={(e) =>
-                  setFormData({ ...formData, homeVenue: e.target.value })
-                }
-                placeholder="e.g., Main Pitch"
-                value={formData.homeVenue}
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ageGroup">Age Group *</Label>
+                  <Select
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, ageGroup: value })
+                    }
+                    value={formData.ageGroup}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select age" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AGE_GROUPS.map((age) => (
+                        <SelectItem key={age} value={age}>
+                          {age}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </ResponsiveFormRow>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="Optional team description..."
-                rows={3}
-                value={formData.description}
-              />
-            </div>
+              <ResponsiveFormRow columns={2}>
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender</Label>
+                  <Select
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        gender: value as TeamFormData["gender"],
+                      })
+                    }
+                    value={formData.gender}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Mixed">Mixed</SelectItem>
+                      <SelectItem value="Boys">Boys</SelectItem>
+                      <SelectItem value="Girls">Girls</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="flex items-center justify-between">
-              <Label htmlFor="isActive">Active Team</Label>
-              <Switch
-                checked={formData.isActive}
-                id="isActive"
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, isActive: checked })
-                }
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="season">Season</Label>
+                  <Input
+                    id="season"
+                    onChange={(e) =>
+                      setFormData({ ...formData, season: e.target.value })
+                    }
+                    placeholder="e.g., 2025"
+                    value={formData.season}
+                  />
+                </div>
+              </ResponsiveFormRow>
+
+              <div className="space-y-2">
+                <Label htmlFor="trainingSchedule">Training Schedule</Label>
+                <Input
+                  id="trainingSchedule"
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      trainingSchedule: e.target.value,
+                    })
+                  }
+                  placeholder="e.g., Tuesdays & Thursdays 6-7pm"
+                  value={formData.trainingSchedule}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="homeVenue">Home Venue</Label>
+                <Input
+                  id="homeVenue"
+                  onChange={(e) =>
+                    setFormData({ ...formData, homeVenue: e.target.value })
+                  }
+                  placeholder="e.g., Main Pitch"
+                  value={formData.homeVenue}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  placeholder="Optional team description..."
+                  rows={3}
+                  value={formData.description}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="isActive">Active Team</Label>
+                <Switch
+                  checked={formData.isActive}
+                  id="isActive"
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, isActive: checked })
+                  }
+                />
+              </div>
+            </ResponsiveFormSection>
 
             {/* Team Members Management - only show when editing */}
             {editingTeamId && allPlayers && (
-              <div className="mt-6 border-t pt-4">
+              <ResponsiveFormSection title="Team Members">
                 <div className="mb-3 flex items-center justify-between">
-                  <Label>Team Members</Label>
+                  <span className="font-medium text-sm">Assign Players</span>
                   {(pendingAssignments.add.length > 0 ||
                     pendingAssignments.remove.length > 0) && (
                     <Badge variant="secondary">
@@ -1344,34 +1362,9 @@ export default function ManageTeamsPage() {
                   Tap to toggle • Green = on team • Blue = adding • Red =
                   removing
                 </p>
-              </div>
+              </ResponsiveFormSection>
             )}
-          </div>
-
-          <DialogFooter>
-            <Button
-              disabled={loading}
-              onClick={() => setFormDialogOpen(false)}
-              variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={
-                loading ||
-                !formData.name ||
-                !formData.sport ||
-                !formData.ageGroup
-              }
-              onClick={handleSubmit}
-            >
-              {loading
-                ? "Saving..."
-                : editingTeamId
-                  ? "Update Team"
-                  : "Create Team"}
-            </Button>
-          </DialogFooter>
+          </ResponsiveForm>
         </DialogContent>
       </Dialog>
 

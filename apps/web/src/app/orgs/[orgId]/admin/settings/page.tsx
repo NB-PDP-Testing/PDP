@@ -22,6 +22,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { OrgThemedButton } from "@/components/org-themed-button";
+import { DensityToggle } from "@/components/polish/density-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -525,6 +526,27 @@ export default function OrgSettingsPage() {
               </>
             )}
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Display Preferences - Available to all users */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Display Preferences</CardTitle>
+          <CardDescription>
+            Customize how information is displayed throughout the app
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <h4 className="mb-3 font-medium text-sm">Information Density</h4>
+              <p className="mb-3 text-muted-foreground text-sm">
+                Choose how compact or spacious you want the interface to be
+              </p>
+              <DensityToggle />
+            </div>
+          </div>
         </CardContent>
       </Card>
 

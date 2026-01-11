@@ -25,6 +25,10 @@ import {
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import {
+  ResponsiveForm,
+  ResponsiveFormSection,
+} from "@/components/forms/responsive-form";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,10 +44,16 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1086,16 +1096,29 @@ export default function ManageUsersPage() {
       {/* Users List */}
       <div className="space-y-3">
         {filteredMembers && filteredMembers.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Users className="mb-4 h-12 w-12 text-muted-foreground" />
-              <p className="text-muted-foreground">
+          <Empty>
+            <EmptyContent>
+              <EmptyMedia variant="icon">
+                <Users className="h-6 w-6" />
+              </EmptyMedia>
+              <EmptyTitle>
                 {searchTerm || roleFilter !== "all"
-                  ? "No users match your search criteria"
-                  : "No users in this organization yet"}
-              </p>
-            </CardContent>
-          </Card>
+                  ? "No results found"
+                  : "No users yet"}
+              </EmptyTitle>
+              <EmptyDescription>
+                {searchTerm || roleFilter !== "all"
+                  ? "Try adjusting your search or filter criteria"
+                  : "Get started by inviting your first team member to join this organization"}
+              </EmptyDescription>
+              {!searchTerm && roleFilter === "all" && (
+                <Button onClick={() => setInviteDialogOpen(true)}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Invite Member
+                </Button>
+              )}
+            </EmptyContent>
+          </Empty>
         ) : (
           filteredMembers?.map((member) => {
             // Initialize edit state if needed
@@ -1574,250 +1597,239 @@ export default function ManageUsersPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form className="space-y-4" onSubmit={handleInvite}>
-            <div className="space-y-2">
-              <Label htmlFor="email">
-                Email Address <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                disabled={inviting}
-                id="email"
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="coach@example.com"
-                required
-                type="email"
-                value={inviteEmail}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Roles</Label>
-              <p className="mb-2 text-muted-foreground text-xs">
-                Select the roles this user should have. Admins can manage users
-                and settings.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <label
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                    inviteFunctionalRoles.includes("admin")
-                      ? "border-purple-400 bg-purple-100 text-purple-700"
-                      : "border-gray-200 bg-white hover:bg-gray-50"
-                  }`}
-                >
-                  <Checkbox
-                    checked={inviteFunctionalRoles.includes("admin")}
-                    disabled={inviting}
-                    onCheckedChange={() => toggleInviteFunctionalRole("admin")}
-                  />
-                  <Shield className="h-4 w-4" />
-                  <span>Admin</span>
-                </label>
-                <label
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                    inviteFunctionalRoles.includes("coach")
-                      ? "border-green-400 bg-green-100 text-green-700"
-                      : "border-gray-200 bg-white hover:bg-gray-50"
-                  }`}
-                >
-                  <Checkbox
-                    checked={inviteFunctionalRoles.includes("coach")}
-                    disabled={inviting}
-                    onCheckedChange={() => toggleInviteFunctionalRole("coach")}
-                  />
-                  <Users className="h-4 w-4" />
-                  <span>Coach</span>
-                </label>
-                <label
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                    inviteFunctionalRoles.includes("parent")
-                      ? "border-blue-400 bg-blue-100 text-blue-700"
-                      : "border-gray-200 bg-white hover:bg-gray-50"
-                  }`}
-                >
-                  <Checkbox
-                    checked={inviteFunctionalRoles.includes("parent")}
-                    disabled={inviting}
-                    onCheckedChange={() => toggleInviteFunctionalRole("parent")}
-                  />
-                  <UserCircle className="h-4 w-4" />
-                  <span>Parent</span>
-                </label>
-              </div>
-              {inviteFunctionalRoles.length > 0 && (
-                <p className="text-muted-foreground text-xs">
-                  Selected: {inviteFunctionalRoles.join(", ")}. These roles will
-                  be auto-assigned when the invitation is accepted.
-                </p>
-              )}
-            </div>
-
-            {/* Coach: Team Selection */}
-            {inviteFunctionalRoles.includes("coach") && teams && (
+          <ResponsiveForm
+            isLoading={inviting}
+            onCancel={() => setInviteDialogOpen(false)}
+            onSubmit={handleInvite}
+            submitText="Send Invitation"
+          >
+            <ResponsiveFormSection>
               <div className="space-y-2">
-                <Label>Assign to Teams (optional)</Label>
+                <Label htmlFor="email">
+                  Email Address <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  disabled={inviting}
+                  id="email"
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="coach@example.com"
+                  required
+                  type="email"
+                  value={inviteEmail}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Roles</Label>
                 <p className="mb-2 text-muted-foreground text-xs">
-                  Select teams this coach will manage. Can be changed later.
+                  Select the roles this user should have. Admins can manage
+                  users and settings.
                 </p>
-                <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-2">
-                  {teams.length === 0 ? (
-                    <p className="py-2 text-center text-muted-foreground text-sm">
-                      No teams available
-                    </p>
-                  ) : (
-                    teams.map((team) => (
-                      <label
-                        className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors ${
-                          inviteTeams.includes(team._id)
-                            ? "bg-green-100 text-green-700"
-                            : "hover:bg-gray-100"
-                        }`}
-                        key={team._id}
-                      >
-                        <Checkbox
-                          checked={inviteTeams.includes(team._id)}
-                          disabled={inviting}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setInviteTeams([...inviteTeams, team._id]);
-                            } else {
-                              setInviteTeams(
-                                inviteTeams.filter((id) => id !== team._id)
-                              );
-                            }
-                          }}
-                        />
-                        <span>
-                          {team.name}
-                          {team.ageGroup && (
-                            <span className="ml-1 text-muted-foreground">
-                              ({team.ageGroup})
-                            </span>
-                          )}
-                        </span>
-                      </label>
-                    ))
-                  )}
+                <div className="flex flex-wrap gap-2">
+                  <label
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                      inviteFunctionalRoles.includes("admin")
+                        ? "border-purple-400 bg-purple-100 text-purple-700"
+                        : "border-gray-200 bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={inviteFunctionalRoles.includes("admin")}
+                      disabled={inviting}
+                      onCheckedChange={() =>
+                        toggleInviteFunctionalRole("admin")
+                      }
+                    />
+                    <Shield className="h-4 w-4" />
+                    <span>Admin</span>
+                  </label>
+                  <label
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                      inviteFunctionalRoles.includes("coach")
+                        ? "border-green-400 bg-green-100 text-green-700"
+                        : "border-gray-200 bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={inviteFunctionalRoles.includes("coach")}
+                      disabled={inviting}
+                      onCheckedChange={() =>
+                        toggleInviteFunctionalRole("coach")
+                      }
+                    />
+                    <Users className="h-4 w-4" />
+                    <span>Coach</span>
+                  </label>
+                  <label
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                      inviteFunctionalRoles.includes("parent")
+                        ? "border-blue-400 bg-blue-100 text-blue-700"
+                        : "border-gray-200 bg-white hover:bg-gray-50"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={inviteFunctionalRoles.includes("parent")}
+                      disabled={inviting}
+                      onCheckedChange={() =>
+                        toggleInviteFunctionalRole("parent")
+                      }
+                    />
+                    <UserCircle className="h-4 w-4" />
+                    <span>Parent</span>
+                  </label>
                 </div>
-                {inviteTeams.length > 0 && (
+                {inviteFunctionalRoles.length > 0 && (
                   <p className="text-muted-foreground text-xs">
-                    {inviteTeams.length} team(s) selected
+                    Selected: {inviteFunctionalRoles.join(", ")}. These roles
+                    will be auto-assigned when the invitation is accepted.
                   </p>
                 )}
               </div>
-            )}
 
-            {/* Parent: Player Linking */}
-            {inviteFunctionalRoles.includes("parent") && allPlayers && (
-              <div className="space-y-2">
-                <Label>Link to Players (optional)</Label>
-                <p className="mb-2 text-muted-foreground text-xs">
-                  Select players this parent is associated with. Auto-matching
-                  by email will also run.
-                </p>
-                <Input
-                  className="mb-2"
-                  disabled={inviting}
-                  onChange={(e) => setInvitePlayerSearch(e.target.value)}
-                  placeholder="Search players by name..."
-                  value={invitePlayerSearch}
-                />
-                <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-2">
-                  {allPlayers.length === 0 ? (
-                    <p className="py-2 text-center text-muted-foreground text-sm">
-                      No players available
-                    </p>
-                  ) : (
-                    allPlayers
-                      .filter(
-                        (player) =>
-                          !invitePlayerSearch ||
-                          player.name
-                            .toLowerCase()
-                            .includes(invitePlayerSearch.toLowerCase())
-                      )
-                      .slice(0, 20)
-                      .map((player) => (
+              {/* Coach: Team Selection */}
+              {inviteFunctionalRoles.includes("coach") && teams && (
+                <div className="space-y-2">
+                  <Label>Assign to Teams (optional)</Label>
+                  <p className="mb-2 text-muted-foreground text-xs">
+                    Select teams this coach will manage. Can be changed later.
+                  </p>
+                  <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-2">
+                    {teams.length === 0 ? (
+                      <p className="py-2 text-center text-muted-foreground text-sm">
+                        No teams available
+                      </p>
+                    ) : (
+                      teams.map((team) => (
                         <label
                           className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors ${
-                            invitePlayerIds.includes(player._id)
-                              ? "bg-blue-100 text-blue-700"
+                            inviteTeams.includes(team._id)
+                              ? "bg-green-100 text-green-700"
                               : "hover:bg-gray-100"
                           }`}
-                          key={player._id}
+                          key={team._id}
                         >
                           <Checkbox
-                            checked={invitePlayerIds.includes(player._id)}
+                            checked={inviteTeams.includes(team._id)}
                             disabled={inviting}
                             onCheckedChange={(checked) => {
                               if (checked) {
-                                setInvitePlayerIds([
-                                  ...invitePlayerIds,
-                                  player._id,
-                                ]);
+                                setInviteTeams([...inviteTeams, team._id]);
                               } else {
-                                setInvitePlayerIds(
-                                  invitePlayerIds.filter(
-                                    (id) => id !== player._id
-                                  )
+                                setInviteTeams(
+                                  inviteTeams.filter((id) => id !== team._id)
                                 );
                               }
                             }}
                           />
                           <span>
-                            {player.name}
-                            {player.ageGroup && (
+                            {team.name}
+                            {team.ageGroup && (
                               <span className="ml-1 text-muted-foreground">
-                                ({player.ageGroup})
+                                ({team.ageGroup})
                               </span>
                             )}
                           </span>
                         </label>
                       ))
-                  )}
-                  {allPlayers.filter(
-                    (player) =>
-                      !invitePlayerSearch ||
-                      player.name
-                        .toLowerCase()
-                        .includes(invitePlayerSearch.toLowerCase())
-                  ).length > 20 && (
-                    <p className="py-1 text-center text-muted-foreground text-xs">
-                      Showing first 20 results. Use search to narrow down.
+                    )}
+                  </div>
+                  {inviteTeams.length > 0 && (
+                    <p className="text-muted-foreground text-xs">
+                      {inviteTeams.length} team(s) selected
                     </p>
                   )}
                 </div>
-                {invitePlayerIds.length > 0 && (
-                  <p className="text-muted-foreground text-xs">
-                    {invitePlayerIds.length} player(s) selected
-                  </p>
-                )}
-              </div>
-            )}
+              )}
 
-            <DialogFooter>
-              <Button
-                disabled={inviting}
-                onClick={() => setInviteDialogOpen(false)}
-                type="button"
-                variant="outline"
-              >
-                Cancel
-              </Button>
-              <Button disabled={inviting || !inviteEmail} type="submit">
-                {inviting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Send className="mr-2 h-4 w-4" />
-                    Send Invitation
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
+              {/* Parent: Player Linking */}
+              {inviteFunctionalRoles.includes("parent") && allPlayers && (
+                <div className="space-y-2">
+                  <Label>Link to Players (optional)</Label>
+                  <p className="mb-2 text-muted-foreground text-xs">
+                    Select players this parent is associated with. Auto-matching
+                    by email will also run.
+                  </p>
+                  <Input
+                    className="mb-2"
+                    disabled={inviting}
+                    onChange={(e) => setInvitePlayerSearch(e.target.value)}
+                    placeholder="Search players by name..."
+                    value={invitePlayerSearch}
+                  />
+                  <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-2">
+                    {allPlayers.length === 0 ? (
+                      <p className="py-2 text-center text-muted-foreground text-sm">
+                        No players available
+                      </p>
+                    ) : (
+                      allPlayers
+                        .filter(
+                          (player) =>
+                            !invitePlayerSearch ||
+                            player.name
+                              .toLowerCase()
+                              .includes(invitePlayerSearch.toLowerCase())
+                        )
+                        .slice(0, 20)
+                        .map((player) => (
+                          <label
+                            className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm transition-colors ${
+                              invitePlayerIds.includes(player._id)
+                                ? "bg-blue-100 text-blue-700"
+                                : "hover:bg-gray-100"
+                            }`}
+                            key={player._id}
+                          >
+                            <Checkbox
+                              checked={invitePlayerIds.includes(player._id)}
+                              disabled={inviting}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setInvitePlayerIds([
+                                    ...invitePlayerIds,
+                                    player._id,
+                                  ]);
+                                } else {
+                                  setInvitePlayerIds(
+                                    invitePlayerIds.filter(
+                                      (id) => id !== player._id
+                                    )
+                                  );
+                                }
+                              }}
+                            />
+                            <span>
+                              {player.name}
+                              {player.ageGroup && (
+                                <span className="ml-1 text-muted-foreground">
+                                  ({player.ageGroup})
+                                </span>
+                              )}
+                            </span>
+                          </label>
+                        ))
+                    )}
+                    {allPlayers.filter(
+                      (player) =>
+                        !invitePlayerSearch ||
+                        player.name
+                          .toLowerCase()
+                          .includes(invitePlayerSearch.toLowerCase())
+                    ).length > 20 && (
+                      <p className="py-1 text-center text-muted-foreground text-xs">
+                        Showing first 20 results. Use search to narrow down.
+                      </p>
+                    )}
+                  </div>
+                  {invitePlayerIds.length > 0 && (
+                    <p className="text-muted-foreground text-xs">
+                      {invitePlayerIds.length} player(s) selected
+                    </p>
+                  )}
+                </div>
+              )}
+            </ResponsiveFormSection>
+          </ResponsiveForm>
         </DialogContent>
       </Dialog>
 

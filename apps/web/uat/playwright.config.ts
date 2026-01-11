@@ -13,8 +13,8 @@ export default defineConfig({
   testDir: path.join(configDir, "tests"),
   fullyParallel: false, // Run tests sequentially for UAT stability
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: 1, // Single worker for consistent test execution
+  retries: process.env.CI ? 2 : 1, // 1 retry for local, 2 for CI to handle intermittent failures
+  workers: process.env.CI ? 1 : 6, // 6 workers locally for faster runs, 1 for CI stability
   reporter: [
     ["html", { outputFolder: "playwright-report" }],
     ["json", { outputFile: "test-results/results.json" }],

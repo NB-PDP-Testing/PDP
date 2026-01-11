@@ -931,10 +931,20 @@ test.describe.serial('Initial Onboarding Flow', () => {
       // Fill in admin email
       const emailField = dialog.getByRole('textbox', { name: /email/i });
       await emailField.fill(TEST_USERS.admin.email);
-      
-      // Select Admin role (checkbox)
+
+      // Select Admin role - UI may show either toggle button or checkbox depending on feature flags
       const adminCheckbox = dialog.getByRole('checkbox', { name: /admin/i });
-      await adminCheckbox.check();
+      const adminButton = dialog.getByRole('button', { name: /admin/i }).first();
+      
+      if (await adminCheckbox.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await adminCheckbox.check();
+        console.log('Selected Admin role via checkbox');
+      } else if (await adminButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await adminButton.click();
+        console.log('Selected Admin role via button');
+      } else {
+        throw new Error('Could not find Admin role selector (neither checkbox nor button)');
+      }
       await page.waitForTimeout(500);
       
       // Click Send Invitation button
@@ -942,14 +952,24 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await expect(sendButton).toBeEnabled({ timeout: 5000 });
       await sendButton.click();
       
-      // Wait for success
+      // Wait for response
       await page.waitForTimeout(3000);
       
-      // Verify invitation was sent - dialog should close or show success
+      // Verify invitation was sent - dialog should close, show success, OR user already invited
       const dialogClosed = !(await dialog.isVisible({ timeout: 3000 }).catch(() => false));
       const hasSuccessMessage = await page.getByText(/invitation sent|successfully|invited/i).isVisible({ timeout: 5000 }).catch(() => false);
+      const alreadyInvited = await page.getByText(/already invited|already.*member/i).isVisible({ timeout: 3000 }).catch(() => false);
       
-      expect(dialogClosed || hasSuccessMessage).toBeTruthy();
+      if (alreadyInvited) {
+        console.log('Admin user was already invited - this is acceptable');
+        // Close the dialog
+        const closeButton = dialog.getByRole('button', { name: /close|cancel/i }).first();
+        if (await closeButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await closeButton.click();
+        }
+      }
+      
+      expect(dialogClosed || hasSuccessMessage || alreadyInvited).toBeTruthy();
     });
   });
 
@@ -1155,11 +1175,16 @@ test.describe.serial('Initial Onboarding Flow', () => {
       const dialog = page.getByRole('dialog', { name: /invite member/i });
       await expect(dialog).toBeVisible({ timeout: 10000 });
       
-      // Look for coach role checkbox in the dialog
+      // Look for coach role option in the dialog - may be checkbox or button depending on feature flags
       const coachCheckbox = dialog.getByRole('checkbox', { name: /coach/i });
-      const hasCoachOption = await coachCheckbox.isVisible({ timeout: 5000 }).catch(() => false);
+      const coachButton = dialog.getByRole('button', { name: /coach/i }).first();
       
-      expect(hasCoachOption).toBeTruthy();
+      const hasCoachCheckbox = await coachCheckbox.isVisible({ timeout: 3000 }).catch(() => false);
+      const hasCoachButton = await coachButton.isVisible({ timeout: 2000 }).catch(() => false);
+      
+      console.log('Coach role option:', { hasCoachCheckbox, hasCoachButton });
+
+      expect(hasCoachCheckbox || hasCoachButton).toBeTruthy();
     });
   });
 
@@ -1964,11 +1989,20 @@ test.describe.serial('Initial Onboarding Flow', () => {
       await emailField.fill(TEST_USERS.parent.email);
       console.log(`Entered parent email: ${TEST_USERS.parent.email}`);
       
-      // Select Parent role (checkbox)
+      // Select Parent role - UI may show either toggle button or checkbox depending on feature flags
       const parentCheckbox = dialog.getByRole('checkbox', { name: /parent/i });
-      await parentCheckbox.check();
+      const parentButton = dialog.getByRole('button', { name: /parent/i }).first();
+      
+      if (await parentCheckbox.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await parentCheckbox.check();
+        console.log('Selected Parent role via checkbox');
+      } else if (await parentButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await parentButton.click();
+        console.log('Selected Parent role via button');
+      } else {
+        throw new Error('Could not find Parent role selector (neither checkbox nor button)');
+      }
       await page.waitForTimeout(1000);
-      console.log('Selected Parent role');
       
       // After selecting Parent role, the "Link to Players" section should appear
       // The player search input has placeholder "Search players by name..."

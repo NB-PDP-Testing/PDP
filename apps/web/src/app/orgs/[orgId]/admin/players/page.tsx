@@ -19,6 +19,11 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { SmartDataView } from "@/components/data-display";
+import {
+  ResponsiveForm,
+  ResponsiveFormRow,
+  ResponsiveFormSection,
+} from "@/components/forms/responsive-form";
 import { ResponsiveDialog } from "@/components/interactions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -297,7 +302,11 @@ export default function ManagePlayersPage() {
   };
 
   // Handle add player submit - first check for duplicates
-  const handleAddPlayer = async () => {
+  const handleAddPlayer = async (e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) {
+      e.preventDefault();
+    }
+
     if (!validateForm()) {
       return;
     }
@@ -974,34 +983,6 @@ export default function ManagePlayersPage() {
       <ResponsiveDialog
         contentClassName="sm:max-w-md"
         description="Create a new player and enroll them in your organization."
-        footer={
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button
-              disabled={isAddingPlayer}
-              onClick={() => {
-                setShowAddPlayerDialog(false);
-                setAddPlayerForm(emptyFormData);
-                setFormErrors({});
-              }}
-              variant="outline"
-            >
-              Cancel
-            </Button>
-            <Button disabled={isAddingPlayer} onClick={handleAddPlayer}>
-              {isAddingPlayer ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Add Player
-                </>
-              )}
-            </Button>
-          </div>
-        }
         onOpenChange={(open) => {
           if (!open) {
             setAddPlayerForm(emptyFormData);
@@ -1012,137 +993,150 @@ export default function ManagePlayersPage() {
         open={showAddPlayerDialog}
         title="Add New Player"
       >
-        <div className="space-y-4">
-          {/* First Name */}
-          <div className="space-y-2">
-            <Label htmlFor="firstName">
-              First Name <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              className={formErrors.firstName ? "border-red-500" : ""}
-              id="firstName"
-              onChange={(e) => {
-                setAddPlayerForm({
-                  ...addPlayerForm,
-                  firstName: e.target.value,
-                });
-                if (formErrors.firstName) {
-                  setFormErrors({ ...formErrors, firstName: undefined });
-                }
-              }}
-              placeholder="Enter first name"
-              value={addPlayerForm.firstName}
-            />
-            {formErrors.firstName && (
-              <p className="text-red-500 text-sm">{formErrors.firstName}</p>
-            )}
-          </div>
+        <ResponsiveForm
+          isLoading={isAddingPlayer || isCheckingDuplicate}
+          onCancel={() => {
+            setShowAddPlayerDialog(false);
+            setAddPlayerForm(emptyFormData);
+            setFormErrors({});
+          }}
+          onSubmit={handleAddPlayer}
+          submitText="Add Player"
+        >
+          <ResponsiveFormSection>
+            {/* First Name and Last Name */}
+            <ResponsiveFormRow columns={2}>
+              <div className="space-y-2">
+                <Label htmlFor="firstName">
+                  First Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  className={formErrors.firstName ? "border-red-500" : ""}
+                  id="firstName"
+                  onChange={(e) => {
+                    setAddPlayerForm({
+                      ...addPlayerForm,
+                      firstName: e.target.value,
+                    });
+                    if (formErrors.firstName) {
+                      setFormErrors({ ...formErrors, firstName: undefined });
+                    }
+                  }}
+                  placeholder="Enter first name"
+                  value={addPlayerForm.firstName}
+                />
+                {formErrors.firstName && (
+                  <p className="text-red-500 text-sm">{formErrors.firstName}</p>
+                )}
+              </div>
 
-          {/* Last Name */}
-          <div className="space-y-2">
-            <Label htmlFor="lastName">
-              Last Name <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              className={formErrors.lastName ? "border-red-500" : ""}
-              id="lastName"
-              onChange={(e) => {
-                setAddPlayerForm({
-                  ...addPlayerForm,
-                  lastName: e.target.value,
-                });
-                if (formErrors.lastName) {
-                  setFormErrors({ ...formErrors, lastName: undefined });
-                }
-              }}
-              placeholder="Enter last name"
-              value={addPlayerForm.lastName}
-            />
-            {formErrors.lastName && (
-              <p className="text-red-500 text-sm">{formErrors.lastName}</p>
-            )}
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">
+                  Last Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  className={formErrors.lastName ? "border-red-500" : ""}
+                  id="lastName"
+                  onChange={(e) => {
+                    setAddPlayerForm({
+                      ...addPlayerForm,
+                      lastName: e.target.value,
+                    });
+                    if (formErrors.lastName) {
+                      setFormErrors({ ...formErrors, lastName: undefined });
+                    }
+                  }}
+                  placeholder="Enter last name"
+                  value={addPlayerForm.lastName}
+                />
+                {formErrors.lastName && (
+                  <p className="text-red-500 text-sm">{formErrors.lastName}</p>
+                )}
+              </div>
+            </ResponsiveFormRow>
 
-          {/* Date of Birth */}
-          <div className="space-y-2">
-            <Label htmlFor="dateOfBirth">
-              Date of Birth <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              className={formErrors.dateOfBirth ? "border-red-500" : ""}
-              id="dateOfBirth"
-              max={new Date().toISOString().split("T")[0]}
-              onChange={(e) => {
-                setAddPlayerForm({
-                  ...addPlayerForm,
-                  dateOfBirth: e.target.value,
-                });
-                if (formErrors.dateOfBirth) {
-                  setFormErrors({ ...formErrors, dateOfBirth: undefined });
-                }
-              }}
-              type="date"
-              value={addPlayerForm.dateOfBirth}
-            />
-            {formErrors.dateOfBirth && (
-              <p className="text-red-500 text-sm">{formErrors.dateOfBirth}</p>
-            )}
-          </div>
+            {/* Date of Birth */}
+            <div className="space-y-2">
+              <Label htmlFor="dateOfBirth">
+                Date of Birth <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                className={formErrors.dateOfBirth ? "border-red-500" : ""}
+                id="dateOfBirth"
+                max={new Date().toISOString().split("T")[0]}
+                onChange={(e) => {
+                  setAddPlayerForm({
+                    ...addPlayerForm,
+                    dateOfBirth: e.target.value,
+                  });
+                  if (formErrors.dateOfBirth) {
+                    setFormErrors({ ...formErrors, dateOfBirth: undefined });
+                  }
+                }}
+                type="date"
+                value={addPlayerForm.dateOfBirth}
+              />
+              {formErrors.dateOfBirth && (
+                <p className="text-red-500 text-sm">{formErrors.dateOfBirth}</p>
+              )}
+            </div>
 
-          {/* Gender */}
-          <div className="space-y-2">
-            <Label htmlFor="gender">
-              Gender <span className="text-red-500">*</span>
-            </Label>
-            <Select
-              onValueChange={(value: "male" | "female" | "other") =>
-                setAddPlayerForm({ ...addPlayerForm, gender: value })
-              }
-              value={addPlayerForm.gender}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select gender" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="male">Male</SelectItem>
-                <SelectItem value="female">Female</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+            {/* Gender and Age Group */}
+            <ResponsiveFormRow columns={2}>
+              <div className="space-y-2">
+                <Label htmlFor="gender">
+                  Gender <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  onValueChange={(value: "male" | "female" | "other") =>
+                    setAddPlayerForm({ ...addPlayerForm, gender: value })
+                  }
+                  value={addPlayerForm.gender}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* Age Group */}
-          <div className="space-y-2">
-            <Label htmlFor="ageGroup">
-              Age Group <span className="text-red-500">*</span>
-            </Label>
-            <Select
-              onValueChange={(value) => {
-                setAddPlayerForm({ ...addPlayerForm, ageGroup: value });
-                if (formErrors.ageGroup) {
-                  setFormErrors({ ...formErrors, ageGroup: undefined });
-                }
-              }}
-              value={addPlayerForm.ageGroup}
-            >
-              <SelectTrigger
-                className={formErrors.ageGroup ? "border-red-500" : ""}
-              >
-                <SelectValue placeholder="Select age group" />
-              </SelectTrigger>
-              <SelectContent>
-                {AGE_GROUPS.map((ag) => (
-                  <SelectItem key={ag} value={ag}>
-                    {ag}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {formErrors.ageGroup && (
-              <p className="text-red-500 text-sm">{formErrors.ageGroup}</p>
-            )}
-          </div>
-        </div>
+              <div className="space-y-2">
+                <Label htmlFor="ageGroup">
+                  Age Group <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  onValueChange={(value) => {
+                    setAddPlayerForm({ ...addPlayerForm, ageGroup: value });
+                    if (formErrors.ageGroup) {
+                      setFormErrors({ ...formErrors, ageGroup: undefined });
+                    }
+                  }}
+                  value={addPlayerForm.ageGroup}
+                >
+                  <SelectTrigger
+                    className={formErrors.ageGroup ? "border-red-500" : ""}
+                  >
+                    <SelectValue placeholder="Select age group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {AGE_GROUPS.map((ag) => (
+                      <SelectItem key={ag} value={ag}>
+                        {ag}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {formErrors.ageGroup && (
+                  <p className="text-red-500 text-sm">{formErrors.ageGroup}</p>
+                )}
+              </div>
+            </ResponsiveFormRow>
+          </ResponsiveFormSection>
+        </ResponsiveForm>
       </ResponsiveDialog>
 
       {/* Delete Confirmation Dialog */}

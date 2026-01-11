@@ -37,6 +37,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -946,14 +953,18 @@ export default function AssessPlayerPage() {
                       </div>
                     </div>
                   ) : playerStats ? (
-                    <div className="text-center">
-                      <p className="text-muted-foreground text-sm">
-                        No assessments yet
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        Start recording skills below
-                      </p>
-                    </div>
+                    <Empty>
+                      <EmptyContent>
+                        <EmptyMedia variant="icon">
+                          <BarChart3 className="h-6 w-6" />
+                        </EmptyMedia>
+                        <EmptyTitle>No assessments yet</EmptyTitle>
+                        <EmptyDescription>
+                          Start recording skill ratings below to track this
+                          player's progress
+                        </EmptyDescription>
+                      </EmptyContent>
+                    </Empty>
                   ) : (
                     <p className="text-muted-foreground text-sm">
                       Loading stats...

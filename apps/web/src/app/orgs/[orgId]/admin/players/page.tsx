@@ -389,7 +389,8 @@ export default function ManagePlayersPage() {
       for (const player of selectedPlayersList) {
         try {
           await unenrollPlayer({
-            enrollmentId: player.enrollmentId as Id<"orgPlayerEnrollments">,
+            // biome-ignore lint/suspicious/noExplicitAny: enrollmentId type comes from API
+            enrollmentId: player.enrollmentId as any,
           });
           successCount += 1;
         } catch (error) {

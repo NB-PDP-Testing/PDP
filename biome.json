@@ -30,6 +30,7 @@
       "!**/apps/web/src/components/ui",
       "!**/apps/web/src/hooks/use-mobile.ts",
       "!**/packages/backend/**/_generated",
+      "!**/apps/web/convex/_generated",
       "!**/mvp-app",
       "!**/apps/web/uat",
       "!**/test-results",

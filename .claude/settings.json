@@ -7,6 +7,33 @@
           {
             "type": "command",
             "command": "npx ultracite fix"
+          },
+          {
+            "type": "command",
+            "command": "npm run check-types 2>&1 | head -30 || true"
+          },
+          {
+            "type": "command",
+            "command": "npx biome check . 2>&1 | tail -50 || true"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash.*git commit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '\\n⚠️  PRE-COMMIT CHECK: Verifying code quality...'"
+          },
+          {
+            "type": "command",
+            "command": "npm run check-types 2>&1 | tail -10 || true"
+          },
+          {
+            "type": "command",
+            "command": "npx biome check . 2>&1 | tail -20 || true"
           }
         ]
       }

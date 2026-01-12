@@ -412,7 +412,7 @@
         "Linting passes: npm run check"
       ],
       "priority": 23,
-      "passes": false,
+      "passes": true,
       "notes": "Reference apps/web/src/app/orgs/[orgId]/admin/ for existing admin page patterns."
     },
     {

@@ -20,7 +20,7 @@ export const resendInvitationEmail = internalAction({
     players: v.optional(v.any()),
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     console.log("📧 Resending invitation email", {
       email: args.email,
       organizationName: args.organizationName,

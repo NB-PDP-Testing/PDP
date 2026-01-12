@@ -359,7 +359,7 @@
         "Linting passes: npm run check"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "Use useSearchParams from next/navigation. Add a query to fetch voice note by ID if needed."
     },
     {

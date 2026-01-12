@@ -1,5 +1,7 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
 import type { LucideIcon } from "lucide-react";
 import {
   Award,
@@ -18,6 +20,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -29,22 +32,26 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-interface NavItem {
+type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-}
+  badge?: number; // Optional badge count (e.g., unread messages)
+};
 
-interface NavGroup {
+type NavGroup = {
   label: string;
   icon: LucideIcon;
   items: NavItem[];
-}
+};
 
 /**
  * Generate parent navigation structure for an organization
  */
-export function getParentNavGroups(orgId: string): NavGroup[] {
+export function getParentNavGroups(
+  orgId: string,
+  unreadMessagesCount?: number
+): NavGroup[] {
   return [
     {
       label: "Children",
@@ -80,6 +87,7 @@ export function getParentNavGroups(orgId: string): NavGroup[] {
           href: `/orgs/${orgId}/parents/messages`,
           label: "Messages",
           icon: MessageSquare,
+          badge: unreadMessagesCount,
         },
         {
           href: `/orgs/${orgId}/parents/announcements`,
@@ -107,24 +115,30 @@ export function getParentNavGroups(orgId: string): NavGroup[] {
   ];
 }
 
-interface ParentSidebarProps {
+type ParentSidebarProps = {
   orgId: string;
   /** Primary color for active states */
   primaryColor?: string;
-}
+};
 
 /**
  * Grouped sidebar navigation for parent portal (desktop)
  */
 export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
   const pathname = usePathname();
-  const navGroups = getParentNavGroups(orgId);
+
+  // Fetch unread message count
+  const unreadCount = useQuery(api.models.coachParentMessages.getUnreadCount, {
+    organizationId: orgId,
+  });
+
+  const navGroups = getParentNavGroups(orgId, unreadCount ?? 0);
 
   // Track which groups are expanded - auto-expand group containing current page
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {
       for (const item of group.items) {
-        if (pathname === item.href || pathname.startsWith(item.href + "/")) {
+        if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
           return [group.label];
         }
       }
@@ -140,8 +154,10 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
 
   const isActive = (href: string) => {
     const parentBase = `/orgs/${orgId}/parents`;
-    if (href === parentBase) return pathname === parentBase;
-    return pathname === href || pathname.startsWith(href + "/");
+    if (href === parentBase) {
+      return pathname === parentBase;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
@@ -164,6 +180,7 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
                     hasActiveItem && "text-primary"
                   )}
                   onClick={() => toggleGroup(group.label)}
+                  type="button"
                 >
                   <div className="flex items-center gap-2">
                     <GroupIcon className="h-4 w-4" />
@@ -202,6 +219,14 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
                           >
                             <ItemIcon className="h-4 w-4" />
                             {item.label}
+                            {item.badge && item.badge > 0 && (
+                              <Badge
+                                className="ml-auto bg-red-500 text-white hover:bg-red-600"
+                                variant="default"
+                              >
+                                {item.badge}
+                              </Badge>
+                            )}
                           </Button>
                         </Link>
                       );
@@ -217,11 +242,11 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
   );
 }
 
-interface ParentMobileNavProps {
+type ParentMobileNavProps = {
   orgId: string;
   primaryColor?: string;
   trigger?: React.ReactNode;
-}
+};
 
 /**
  * Mobile navigation drawer for parent portal
@@ -232,12 +257,18 @@ export function ParentMobileNav({
   trigger,
 }: ParentMobileNavProps) {
   const pathname = usePathname();
-  const navGroups = getParentNavGroups(orgId);
+
+  // Fetch unread message count
+  const unreadCount = useQuery(api.models.coachParentMessages.getUnreadCount, {
+    organizationId: orgId,
+  });
+
+  const navGroups = getParentNavGroups(orgId, unreadCount ?? 0);
   const [open, setOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {
       for (const item of group.items) {
-        if (pathname === item.href || pathname.startsWith(item.href + "/")) {
+        if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
           return [group.label];
         }
       }
@@ -253,8 +284,10 @@ export function ParentMobileNav({
 
   const isActive = (href: string) => {
     const parentBase = `/orgs/${orgId}/parents`;
-    if (href === parentBase) return pathname === parentBase;
-    return pathname === href || pathname.startsWith(href + "/");
+    if (href === parentBase) {
+      return pathname === parentBase;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
@@ -295,6 +328,7 @@ export function ParentMobileNav({
                       hasActiveItem && "text-primary"
                     )}
                     onClick={() => toggleGroup(group.label)}
+                    type="button"
                   >
                     <div className="flex items-center gap-3">
                       <GroupIcon className="h-5 w-5" />
@@ -334,6 +368,14 @@ export function ParentMobileNav({
                             >
                               <ItemIcon className="h-4 w-4" />
                               {item.label}
+                              {item.badge && item.badge > 0 && (
+                                <Badge
+                                  className="ml-auto bg-red-500 text-white hover:bg-red-600"
+                                  variant="default"
+                                >
+                                  {item.badge}
+                                </Badge>
+                              )}
                             </Button>
                           </Link>
                         );

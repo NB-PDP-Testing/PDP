@@ -15,13 +15,16 @@ export const resendInvitationEmail = internalAction({
     invitedByEmail: v.string(),
     organizationName: v.string(),
     inviteLink: v.string(),
-    role: v.optional(v.string()),
+    functionalRoles: v.optional(v.array(v.string())),
+    teams: v.optional(v.any()),
+    players: v.optional(v.any()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     console.log("📧 Resending invitation email", {
       email: args.email,
       organizationName: args.organizationName,
+      functionalRoles: args.functionalRoles,
     });
 
     try {
@@ -31,7 +34,9 @@ export const resendInvitationEmail = internalAction({
         invitedByEmail: args.invitedByEmail,
         organizationName: args.organizationName,
         inviteLink: args.inviteLink,
-        role: args.role,
+        functionalRoles: args.functionalRoles,
+        teams: args.teams,
+        players: args.players,
       });
       console.log("✅ Invitation email resent successfully");
     } catch (error) {

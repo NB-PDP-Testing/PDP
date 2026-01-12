@@ -6,7 +6,6 @@ import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { ac, admin, member, owner } from "./betterAuth/accessControl";
 import authSchema from "./betterAuth/schema";
-import { sendOrganizationInvitation } from "./utils/email";
 
 /**
  * Type for functional roles stored in member.functionalRoles array
@@ -133,23 +132,12 @@ export function createAuth(
           member,
         },
         // Email invitation configuration
+        // NOTE: Email sending is handled by updateInvitationMetadata mutation
+        // This callback fires before metadata (functional roles, teams, players) exists.
+        // See: packages/backend/convex/models/members.ts updateInvitationMetadata
         async sendInvitationEmail(data) {
-          const inviteLink = `${siteUrl}/orgs/accept-invitation/${data.id}`;
-          // Extract functional roles from invitation metadata
-          // Note: TypeScript types don't include metadata, so we cast to any
-          const invitation = data.invitation as any;
-          const metadata = invitation.metadata;
-          const functionalRoles = metadata?.suggestedFunctionalRoles || [];
-
-          await sendOrganizationInvitation({
-            email: data.email,
-            invitedByUsername: data.inviter.user.name || "Someone",
-            invitedByEmail: data.inviter.user.email,
-            organizationName: data.organization.name,
-            inviteLink,
-            role: data.role || undefined, // Better Auth role (for fallback)
-            functionalRoles, // Functional roles from metadata
-          });
+          // Email will be sent after metadata is added by the UI
+          // No action needed here
         },
 
         // Organization lifecycle hooks for automatic role assignment

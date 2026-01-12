@@ -219,6 +219,73 @@ export const getMyMessages = query({
 });
 
 /**
+ * Get count of unread messages for the current parent
+ * Used for badge display in navigation
+ */
+export const getUnreadCount = query({
+  args: {
+    organizationId: v.optional(v.string()),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    // Get current user
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      return 0;
+    }
+
+    // Find guardian identity for this user
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", authUser._id))
+      .first();
+
+    if (!guardianIdentity) {
+      // User is not a guardian
+      return 0;
+    }
+
+    // Get all unread message recipients for this guardian
+    const allRecipients = await ctx.db
+      .query("messageRecipients")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", guardianIdentity._id)
+      )
+      .collect();
+
+    // Filter where inAppViewedAt is undefined (unread)
+    const unreadRecipients = allRecipients.filter(
+      (r) => r.inAppViewedAt === undefined
+    );
+
+    // If organizationId provided, fetch each message and filter by org
+    if (args.organizationId) {
+      const messagesWithRecipients = await Promise.all(
+        unreadRecipients.map(async (recipient) => {
+          const message = await ctx.db.get(recipient.messageId);
+          return {
+            recipient,
+            message,
+          };
+        })
+      );
+
+      // Filter by organization
+      const orgFilteredMessages = messagesWithRecipients.filter(
+        (item) =>
+          item.message !== null &&
+          item.message.organizationId === args.organizationId
+      );
+
+      return orgFilteredMessages.length;
+    }
+
+    // No org filter - return total unread count
+    return unreadRecipients.length;
+  },
+});
+
+/**
  * Get messages for the current parent about their children
  * Returns messages with recipient tracking and unread status
  */

@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
@@ -59,6 +60,50 @@ export async function getGuardiansForPlayer(
     link: (typeof links)[0];
     guardian: NonNullable<Awaited<ReturnType<typeof ctx.db.get>>>;
   }>;
+}
+
+/**
+ * Check if user is an admin or owner in the organization
+ * Returns true if user has admin/owner permissions, false otherwise
+ * @internal - Helper function for use within this module
+ */
+export async function isOrgAdmin(
+  ctx: QueryCtx | MutationCtx,
+  userId: string,
+  orgId: string
+): Promise<boolean> {
+  // Query the member record for this user in this org using Better Auth's adapter
+  const memberResult = await ctx.runQuery(
+    components.betterAuth.adapter.findOne,
+    {
+      model: "member",
+      where: [
+        {
+          field: "userId",
+          value: userId,
+          operator: "eq",
+        },
+        {
+          field: "organizationId",
+          value: orgId,
+          operator: "eq",
+        },
+      ],
+    }
+  );
+
+  if (!memberResult) {
+    return false;
+  }
+
+  // Check if user is owner, admin role, or has admin functional role
+  // Type cast to access member fields from Better Auth
+  const member = memberResult as any;
+  return (
+    member.role === "owner" ||
+    member.role === "admin" ||
+    member.functionalRoles?.includes("admin")
+  );
 }
 
 /**
@@ -860,5 +905,99 @@ export const acknowledgeMessage = mutation({
     });
 
     return null;
+  },
+});
+
+// ============================================================
+// ADMIN QUERIES
+// ============================================================
+
+/**
+ * Get all messages in an organization (admin only)
+ * Returns messages with sender and recipient summary info
+ */
+export const getOrganizationMessages = query({
+  args: {
+    organizationId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("coachParentMessages"),
+      subject: v.string(),
+      senderName: v.string(),
+      playerName: v.string(),
+      createdAt: v.number(),
+      sentAt: v.optional(v.number()),
+      status: v.union(
+        v.literal("draft"),
+        v.literal("pending_approval"),
+        v.literal("sent"),
+        v.literal("delivered"),
+        v.literal("failed")
+      ),
+      recipientCount: v.number(),
+      viewedCount: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // 1. Verify user is authenticated
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new Error(
+        "User must be authenticated to view organization messages"
+      );
+    }
+
+    // 2. Verify user is org admin/owner
+    const hasAdminAccess = await isOrgAdmin(
+      ctx,
+      authUser._id,
+      args.organizationId
+    );
+    if (!hasAdminAccess) {
+      throw new Error(
+        "Only organization admins and owners can view all messages"
+      );
+    }
+
+    // 3. Query messages by organization
+    const limit = args.limit || 100;
+    const messages = await ctx.db
+      .query("coachParentMessages")
+      .withIndex("by_org", (q) => q.eq("organizationId", args.organizationId))
+      .order("desc")
+      .take(limit);
+
+    // 4. For each message, get recipient stats
+    const messagesWithStats = await Promise.all(
+      messages.map(async (message) => {
+        // Get all recipients for this message
+        const recipients = await ctx.db
+          .query("messageRecipients")
+          .withIndex("by_message", (q) => q.eq("messageId", message._id))
+          .collect();
+
+        // Count recipients and how many have viewed
+        const recipientCount = recipients.length;
+        const viewedCount = recipients.filter(
+          (r) => r.inAppViewedAt !== undefined
+        ).length;
+
+        return {
+          _id: message._id,
+          subject: message.subject,
+          senderName: message.senderName,
+          playerName: message.playerName,
+          createdAt: message.createdAt,
+          sentAt: message.sentAt,
+          status: message.status,
+          recipientCount,
+          viewedCount,
+        };
+      })
+    );
+
+    return messagesWithStats;
   },
 });

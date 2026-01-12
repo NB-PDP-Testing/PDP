@@ -110,6 +110,79 @@ export async function logAuditEvent(
 // ============================================================
 
 /**
+ * Get a single message by ID with recipient information
+ * For parents: returns message if they are a recipient
+ * For coaches: returns message if they are the sender
+ */
+export const getMessageById = query({
+  args: {
+    messageId: v.id("coachParentMessages"),
+  },
+  returns: v.union(
+    v.object({
+      message: v.any(),
+      recipient: v.optional(v.any()),
+      isUnread: v.boolean(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Get current user
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      return null;
+    }
+
+    // Fetch the message
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      return null;
+    }
+
+    // Check if user is the sender (coach)
+    if (message.senderId === authUser.userId) {
+      // Coach can view any message they sent
+      return {
+        message,
+        recipient: undefined,
+        isUnread: false,
+      };
+    }
+
+    // Check if user is a recipient (parent)
+    // Find guardian identity for this user
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", authUser.userId ?? ""))
+      .first();
+
+    if (!guardianIdentity) {
+      return null; // User is not a guardian
+    }
+
+    // Find recipient record for this guardian and message
+    const recipients = await ctx.db
+      .query("messageRecipients")
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .collect();
+
+    const recipient = recipients.find(
+      (r) => r.guardianIdentityId === guardianIdentity._id
+    );
+
+    if (!recipient) {
+      return null; // User is not a recipient of this message
+    }
+
+    return {
+      message,
+      recipient,
+      isUnread: recipient.inAppViewedAt === undefined,
+    };
+  },
+});
+
+/**
  * Get messages sent by the current coach
  * Returns messages with recipient count and viewed count
  */

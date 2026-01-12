@@ -289,7 +289,7 @@
         "Linting passes: npm run check"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "Mark as viewed immediately on page load. MVP design: Discussion prompts use purple gradient like AI Practice Assistant. Card with shadow-md, header with gradient. See PRD MVP Mockup Reference."
     },
     {

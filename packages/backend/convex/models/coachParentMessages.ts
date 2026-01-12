@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { mutation } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
 // ============================================================
@@ -111,7 +111,112 @@ export async function logAuditEvent(
 // QUERIES
 // ============================================================
 
-// Queries will be added in subsequent stories
+/**
+ * Get messages sent by the current coach
+ * Returns messages with recipient count and viewed count
+ */
+export const getMyMessages = query({
+  args: {
+    organizationId: v.string(),
+    status: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("coachParentMessages"),
+      _creationTime: v.number(),
+      messageType: v.union(v.literal("direct"), v.literal("insight")),
+      organizationId: v.string(),
+      teamId: v.optional(v.string()),
+      senderId: v.string(),
+      senderName: v.string(),
+      playerIdentityId: v.id("playerIdentities"),
+      playerName: v.string(),
+      subject: v.string(),
+      body: v.string(),
+      context: v.optional(
+        v.object({
+          sessionType: v.optional(v.string()),
+          sessionDate: v.optional(v.string()),
+          developmentArea: v.optional(v.string()),
+        })
+      ),
+      deliveryMethod: v.union(
+        v.literal("in_app"),
+        v.literal("email"),
+        v.literal("both")
+      ),
+      priority: v.union(v.literal("normal"), v.literal("high")),
+      status: v.union(
+        v.literal("draft"),
+        v.literal("pending_approval"),
+        v.literal("sent"),
+        v.literal("delivered"),
+        v.literal("failed")
+      ),
+      createdAt: v.number(),
+      sentAt: v.optional(v.number()),
+      updatedAt: v.number(),
+      // Additional computed fields
+      recipientCount: v.number(),
+      viewedCount: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get current user
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      return [];
+    }
+
+    // Query messages by sender, ordered by creation date
+    const allMessages = await ctx.db
+      .query("coachParentMessages")
+      .withIndex("by_sender_and_createdAt", (q) =>
+        q.eq("senderId", authUser._id)
+      )
+      .order("desc")
+      .collect();
+
+    // Filter by org and status in memory
+    let filteredMessages = allMessages.filter(
+      (m) => m.organizationId === args.organizationId
+    );
+
+    if (args.status) {
+      filteredMessages = filteredMessages.filter(
+        (m) => m.status === args.status
+      );
+    }
+
+    // Apply limit
+    const limit = args.limit || 50;
+    const limitedMessages = filteredMessages.slice(0, limit);
+
+    // Get recipient stats for each message
+    const messagesWithStats = await Promise.all(
+      limitedMessages.map(async (message) => {
+        const recipients = await ctx.db
+          .query("messageRecipients")
+          .withIndex("by_message", (q) => q.eq("messageId", message._id))
+          .collect();
+
+        const recipientCount = recipients.length;
+        const viewedCount = recipients.filter(
+          (r) => r.inAppViewedAt !== undefined
+        ).length;
+
+        return {
+          ...message,
+          recipientCount,
+          viewedCount,
+        };
+      })
+    );
+
+    return messagesWithStats;
+  },
+});
 
 // ============================================================
 // MUTATIONS

@@ -322,3 +322,71 @@ Started: Mon 12 Jan 2026 15:45:51 GMT
 - None - implementation was clean and efficient
 
 ---
+## 2026-01-12 18:00 - US-013 - Create coach message history page
+**Iteration**: 3
+**Commit**: 1d10f6fde2f2789a1df77ba0d01309464f76d88e
+**Session**: cff59de3-d600-473a-87b5-527c2f24c856
+**Status**: Complete
+
+### What was implemented
+- Created coach message list page at apps/web/src/app/orgs/[orgId]/coach/messages/page.tsx
+- useQuery integration with api.models.coachParentMessages.getMyMessages
+- Status filter dropdown (All, Draft, Sent, Delivered, Failed)
+- Empty state with MessageSquare icon and call-to-action
+- Message cards displaying: subject, player name, date, recipient count, viewed count
+- Color-coded status badges (draft, sent, delivered=green, failed=destructive)
+- High priority badge for urgent messages
+- Click navigation to message detail page
+- New Message button linking to compose page
+- Created placeholder pages for compose and [messageId] routes
+- Fixed backend index usage (by_player not by_playerIdentityId)
+- Fixed messageRecipients deliveryMethod handling for "both" case
+- Fixed TypeScript return type inference with explicit type annotation
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/messages/page.tsx (new, 192 lines)
+- apps/web/src/app/orgs/[orgId]/coach/messages/compose/page.tsx (placeholder, 10 lines)
+- apps/web/src/app/orgs/[orgId]/coach/messages/[messageId]/page.tsx (placeholder, 10 lines)
+- packages/backend/convex/models/coachParentMessages.ts (fixed index names, deliveryMethod handling, type assertion)
+- scripts/ralph/prd.json (US-013 passes: false -> true)
+
+### Quality checks
+- ✅ Type check: passed (npm run check-types)
+- ✅ Linting: passed (npx biome check)
+- ✅ Frontend page created (placeholders for routes needed for type checking)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Empty state pattern: Use Empty, EmptyMedia, EmptyContent, EmptyTitle, EmptyDescription components
+- Card hover effect: hover:bg-accent transition-colors cursor-pointer
+- Status badges: Use Badge variant="outline" for draft, variant="default" for sent, custom className="bg-green-500" for delivered
+- Format dates: Use toLocaleDateString with month/day/year options
+- Next.js route type generation: New routes require @ts-expect-error on Link href until Next.js regenerates types
+- Filter state: useState for local filter state, pass to backend query
+
+**Gotchas encountered:**
+- guardianPlayerLinks table uses by_player index, not by_playerIdentityId
+- messageRecipients.deliveryMethod is "in_app" | "email" (not "both"), must convert when creating records
+- TypeScript can't narrow ctx.db.get() return type - need explicit type annotation for complex validators
+- Next.js Link href types require routes to exist - use @ts-expect-error for new routes until restart
+- Must place @ts-expect-error directly before the line with the error, not above the component
+
+**Dependencies found:**
+- Uses shadcn/ui components: Card, Button, Select, Badge, Empty
+- Lucide icons: MessageSquare, Plus
+- Next.js: Link, useParams
+- Convex: useQuery hook
+- Placeholder routes created to satisfy TypeScript Link type checking
+
+**What to do next**:
+- US-014: Create coach message composer page (real implementation, replace placeholder)
+- Will need player selector, guardian checkboxes, form fields
+- Reference voice-notes-dashboard.tsx for form patterns
+
+**Mistakes made**:
+- Initially forgot to fix guardianPlayerLinks index name (by_playerIdentityId -> by_player)
+- Initially didn't handle messageRecipients deliveryMethod="both" case correctly
+- Spent time on TypeScript return type issue - could have used type assertion sooner
+
+---

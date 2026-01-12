@@ -228,7 +228,7 @@
         "Linting passes: npm run check"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "Reference apps/web/src/app/orgs/[orgId]/coach/voice-notes/page.tsx for page structure patterns."
     },
     {
@@ -249,7 +249,7 @@
         "Linting passes: npm run check"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "Use existing hooks: useQuery for player data. Reference voice-notes-dashboard.tsx for form patterns."
     },
     {

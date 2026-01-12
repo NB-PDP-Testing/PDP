@@ -5,14 +5,29 @@
  * Currently supports basic email sending - can be extended with Resend, SendGrid, etc.
  */
 
+interface TeamInfo {
+  id: string;
+  name: string;
+  sport?: string;
+  ageGroup?: string;
+}
+
+interface PlayerInfo {
+  id: string;
+  name: string;
+  ageGroup?: string;
+}
+
 interface InvitationEmailData {
   email: string;
   invitedByUsername: string;
   invitedByEmail: string;
   organizationName: string;
   inviteLink: string;
-  role?: string; // Better Auth role (fallback)
   functionalRoles?: string[]; // Functional roles (Coach, Parent, Admin)
+  // Role-specific context for email
+  teams?: TeamInfo[]; // For coach role - shows which teams they'll manage
+  players?: PlayerInfo[]; // For parent role - shows which players they're linked to
 }
 
 /**
@@ -22,6 +37,38 @@ interface InvitationEmailData {
  * For now, this logs the email details - actual sending should be implemented
  * via an HTTP action or external service.
  */
+/**
+ * Get role-specific capabilities list
+ */
+function getRoleCapabilities(role: string): string[] {
+  switch (role.toLowerCase()) {
+    case "coach":
+      return [
+        "Manage your assigned teams and players",
+        "Create and track player assessments",
+        "Record voice notes with AI transcription",
+        "Set and monitor development goals",
+        "View player passports and progress",
+      ];
+    case "parent":
+      return [
+        "View your child's player passport and progress",
+        "Track development goals and assessments",
+        "Communicate with coaches",
+        "Access medical information and attendance records",
+      ];
+    case "admin":
+      return [
+        "Manage organization members and teams",
+        "Invite and assign roles to users",
+        "Configure organization settings",
+        "Access all features across the platform",
+      ];
+    default:
+      return ["Access organization features"];
+  }
+}
+
 export async function sendOrganizationInvitation(
   data: InvitationEmailData
 ): Promise<void> {
@@ -31,20 +78,43 @@ export async function sendOrganizationInvitation(
     invitedByEmail,
     organizationName,
     inviteLink,
-    role,
     functionalRoles,
+    teams,
+    players,
   } = data;
 
-  // Format roles for display
+  // Format roles for display - NEVER show Better Auth role
   const rolesDisplay =
     functionalRoles && functionalRoles.length > 0
       ? functionalRoles
           .map((r) => r.charAt(0).toUpperCase() + r.slice(1))
           .join(", ")
-      : role; // Fallback to Better Auth role if no functional roles
+      : null;
+
+  // Format sport codes to display names
+  const formatSport = (sportCode: string) => {
+    const sportMap: Record<string, string> = {
+      gaa_football: "GAA Football",
+      gaa_hurling: "GAA Hurling",
+      gaa_camogie: "GAA Camogie",
+      gaa_handball: "GAA Handball",
+      soccer: "Soccer",
+      rugby: "Rugby",
+      basketball: "Basketball",
+      athletics: "Athletics",
+      swimming: "Swimming",
+    };
+    return (
+      sportMap[sportCode] ||
+      sportCode.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+    );
+  };
 
   // Email template
   const subject = `Invitation to join ${organizationName} on PlayerARC`;
+  const preheaderText = rolesDisplay
+    ? `Join as ${rolesDisplay} at ${organizationName}`
+    : `Join ${organizationName} on PlayerARC`;
   const logoUrl = getLogoUrl();
   const htmlBody = `
     <!DOCTYPE html>
@@ -55,6 +125,10 @@ export async function sendOrganizationInvitation(
         <title>${subject}</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <!-- Preheader text (shows in email preview) -->
+        <div style="display: none; max-height: 0px; overflow: hidden;">
+          ${preheaderText}
+        </div>
         <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 0 auto;">
             <tr>
@@ -85,25 +159,130 @@ export async function sendOrganizationInvitation(
             <strong>${invitedByUsername}</strong> (${invitedByEmail}) has invited you to join
             <strong>${organizationName}</strong> on PlayerARC.
           </p>
-          ${rolesDisplay ? `<p><strong>Role${functionalRoles && functionalRoles.length > 1 ? "s" : ""}:</strong> ${rolesDisplay}</p>` : ""}
-          <p>
-            PlayerARC is a comprehensive platform for managing youth sports development, 
-            helping coaches and parents collaborate to support young athletes.
-          </p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a 
-              href="${inviteLink}" 
-              style="background-color: #22c55e; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;"
+
+          ${rolesDisplay ? `<p style="font-size: 16px; margin: 20px 0;"><strong>Your Role${functionalRoles && functionalRoles.length > 1 ? "s" : ""}:</strong> ${rolesDisplay}</p>` : ""}
+
+          <!-- Primary CTA - Above the fold for immediate action -->
+          <div style="text-align: center; margin: 25px 0;">
+            <a
+              href="${inviteLink}"
+              style="background-color: #22c55e; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;"
+              onmouseover="this.style.backgroundColor='#16a34a'"
+              onmouseout="this.style.backgroundColor='#22c55e'"
             >
-              Accept Invitation
+              Accept Invitation & Create Your Account
             </a>
           </div>
-          <p style="font-size: 12px; color: #666; margin-top: 30px;">
+
+          <!-- Optional divider with "Want to know more?" prompt -->
+          ${
+            (teams && teams.length > 0) ||
+            (players && players.length > 0) ||
+            (functionalRoles && functionalRoles.length > 0)
+              ? `
+          <div style="text-align: center; margin: 30px 0 25px 0; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+            <p style="color: #666; font-size: 14px; margin: 0; font-style: italic;">Want to know more about your role and responsibilities? Read on below.</p>
+          </div>
+          `
+              : ""
+          }
+
+          <!-- Detailed information for users who want to know more -->
+          ${
+            teams && teams.length > 0
+              ? `
+            <div style="background-color: white; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #22c55e;">
+              <h3 style="color: #1E3A5F; margin: 0 0 10px 0; font-size: 16px;">Your Teams</h3>
+              <p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">You've been assigned to coach the following teams:</p>
+              <ul style="margin: 0; padding-left: 20px;">
+                ${teams
+                  .map(
+                    (team) => `
+                  <li style="margin: 5px 0; color: #333;">
+                    <strong>${team.name}</strong>${team.ageGroup ? ` - ${team.ageGroup}` : ""}${team.sport ? ` (${formatSport(team.sport)})` : ""}
+                  </li>
+                `
+                  )
+                  .join("")}
+              </ul>
+            </div>
+          `
+              : ""
+          }
+
+          ${
+            players && players.length > 0
+              ? `
+            <div style="background-color: white; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+              <h3 style="color: #1E3A5F; margin: 0 0 10px 0; font-size: 16px;">Linked Players</h3>
+              <p style="font-size: 13px; color: #666; margin: 0 0 10px 0;">You'll be able to view these players' progress and development:</p>
+              <ul style="margin: 0; padding-left: 20px;">
+                ${players
+                  .map(
+                    (player) => `
+                  <li style="margin: 5px 0; color: #333;">
+                    <strong>${player.name}</strong>${player.ageGroup ? ` - ${player.ageGroup}` : ""}
+                  </li>
+                `
+                  )
+                  .join("")}
+              </ul>
+            </div>
+          `
+              : ""
+          }
+
+          ${
+            functionalRoles && functionalRoles.length > 0
+              ? `
+            <div style="background-color: white; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #1E3A5F; margin: 0 0 10px 0; font-size: 16px;">What you'll be able to do:</h3>
+              ${functionalRoles
+                .map(
+                  (role) => `
+                ${functionalRoles.length > 1 ? `<p style="margin: 15px 0 5px 0; font-weight: bold; color: #1E3A5F;">${role.charAt(0).toUpperCase() + role.slice(1)}:</p>` : ""}
+                <ul style="margin: 5px 0; padding-left: 20px;">
+                  ${getRoleCapabilities(role)
+                    .map(
+                      (cap) =>
+                        `<li style="margin: 5px 0; color: #666;">${cap}</li>`
+                    )
+                    .join("")}
+                </ul>
+              `
+                )
+                .join("")}
+            </div>
+          `
+              : ""
+          }
+
+          <!-- Secondary CTA - Repeat for users who scrolled through details -->
+          <div style="text-align: center; margin: 30px 0;">
+            <a
+              href="${inviteLink}"
+              style="background-color: #22c55e; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;"
+              onmouseover="this.style.backgroundColor='#16a34a'"
+              onmouseout="this.style.backgroundColor='#22c55e'"
+            >
+              Accept Invitation & Create Your Account
+            </a>
+          </div>
+
+          <p style="font-size: 13px; color: #666; margin-top: 25px;">
+            Once you accept, you'll be able to immediately access <strong>${organizationName}</strong> and start using your assigned features.
+          </p>
+
+          <p style="font-size: 13px; color: #666;">
+            Questions? Reply to this email and we'll help you get started.
+          </p>
+
+          <p style="font-size: 12px; color: #999; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
             If the button doesn't work, copy and paste this link into your browser:<br>
             <a href="${inviteLink}" style="color: #1E3A5F; word-break: break-all;">${inviteLink}</a>
           </p>
-          <p style="font-size: 12px; color: #666;">
-            This invitation will expire in 7 days. If you didn't expect this invitation, 
+          <p style="font-size: 12px; color: #999;">
+            This invitation will expire in 7 days. If you didn't expect this invitation,
             you can safely ignore this email.
           </p>
         </div>
@@ -119,12 +298,51 @@ You've been invited to join ${organizationName} on PlayerARC!
 
 ${invitedByUsername} (${invitedByEmail}) has invited you to join ${organizationName}.
 
-${rolesDisplay ? `Role${functionalRoles && functionalRoles.length > 1 ? "s" : ""}: ${rolesDisplay}\n` : ""}
-PlayerARC is a comprehensive platform for managing youth sports development.
+${rolesDisplay ? `Your Role${functionalRoles && functionalRoles.length > 1 ? "s" : ""}: ${rolesDisplay}\n` : ""}
+${
+  teams && teams.length > 0
+    ? `
+YOUR TEAMS
+You've been assigned to coach the following teams:
+${teams.map((team) => `  • ${team.name}${team.ageGroup ? ` - ${team.ageGroup}` : ""}${team.sport ? ` (${formatSport(team.sport)})` : ""}`).join("\n")}
+`
+    : ""
+}
+${
+  players && players.length > 0
+    ? `
+LINKED PLAYERS
+You'll be able to view these players' progress and development:
+${players.map((player) => `  • ${player.name}${player.ageGroup ? ` - ${player.ageGroup}` : ""}`).join("\n")}
+`
+    : ""
+}
+${
+  functionalRoles && functionalRoles.length > 0
+    ? `
+WHAT YOU'LL BE ABLE TO DO:
+${functionalRoles
+  .map(
+    (role) => `
+${functionalRoles.length > 1 ? `${role.charAt(0).toUpperCase() + role.slice(1)}:\n` : ""}${getRoleCapabilities(
+  role
+)
+  .map((cap) => `  • ${cap}`)
+  .join("\n")}`
+  )
+  .join("\n")}
+`
+    : ""
+}
 
 Accept your invitation by clicking this link:
 ${inviteLink}
 
+Once you accept, you'll be able to immediately access ${organizationName} and start using your assigned features.
+
+Questions? Reply to this email and we'll help you get started.
+
+---
 This invitation will expire in 7 days. If you didn't expect this invitation, you can safely ignore this email.
 
 © ${new Date().getFullYear()} PlayerARC. All rights reserved.
@@ -137,6 +355,10 @@ This invitation will expire in 7 days. If you didn't expect this invitation, you
     inviteLink,
     organizationName,
     invitedBy: invitedByUsername,
+    functionalRoles,
+    rolesDisplay,
+    teamsCount: teams?.length || 0,
+    playersCount: players?.length || 0,
   });
 
   // Send email via Resend API
@@ -192,13 +414,8 @@ This invitation will expire in 7 days. If you didn't expect this invitation, you
 export function generateWhatsAppInvitationMessage(
   data: InvitationEmailData
 ): string {
-  const {
-    invitedByUsername,
-    organizationName,
-    inviteLink,
-    role,
-    functionalRoles,
-  } = data;
+  const { invitedByUsername, organizationName, inviteLink, functionalRoles } =
+    data;
 
   // Format roles for display
   const rolesDisplay =
@@ -206,7 +423,7 @@ export function generateWhatsAppInvitationMessage(
       ? functionalRoles
           .map((r) => r.charAt(0).toUpperCase() + r.slice(1))
           .join(", ")
-      : role;
+      : null;
 
   let message = `🏆 *You've been invited to join ${organizationName} on PlayerARC!*\n\n`;
   message += `${invitedByUsername} has invited you to join ${organizationName}.\n\n`;
@@ -225,12 +442,9 @@ export function generateWhatsAppInvitationMessage(
  * Get the PlayerARC logo URL for emails
  */
 function getLogoUrl(): string {
-  // Normalize SITE_URL to remove trailing slash
-  const siteUrl = (process.env.SITE_URL || "https://playerarc.io").replace(
-    /\/+$/,
-    ""
-  );
-  return `${siteUrl}/logos-landing/PDP-Logo-OffWhiteOrbit_GreenHuman.png`;
+  // Use production URL for logo (email clients can't access localhost)
+  // This ensures logo displays correctly in both dev and production
+  return "https://playerarc.io/logos-landing/PDP-Logo-OffWhiteOrbit_GreenHuman.png";
 }
 
 /**

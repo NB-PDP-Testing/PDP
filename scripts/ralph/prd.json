@@ -376,7 +376,7 @@
         "Type checking passes: npm run check-types"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": "Admin check: member.role === 'owner' || member.role === 'admin' || member.functionalRoles?.includes('admin')"
     },
     {

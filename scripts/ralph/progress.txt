@@ -390,3 +390,73 @@ Started: Mon 12 Jan 2026 15:45:51 GMT
 - Spent time on TypeScript return type issue - could have used type assertion sooner
 
 ---
+## 2026-01-12 - US-014 - Create coach message composer page
+**Iteration**: 4
+**Commit**: 227a42faacd0ce24b5f48f24f02e4305bd560845
+**Session**: 20dd27d9-baad-4c21-9636-50d713768f9a
+**Status**: Complete
+
+### What was implemented
+- Full-featured message composition page for coaches at /orgs/[orgId]/coach/messages/compose
+- Player selector using orgPlayerEnrollments.getPlayersForOrg query - shows all players in organization
+- Guardian selection with checkboxes, displays guardian name, relationship badge, primary badge, and email
+- Required fields: subject (Input) and body (Textarea with 200px min-height)
+- Optional context section: session type dropdown (training/match/assessment/other), date picker, development area dropdown
+- Delivery method radio group: in-app only, email only, both (default)
+- Priority radio group: normal (default), high
+- Form validation with toast notifications for missing required fields
+- Submit calls createDirectMessage mutation with sendImmediately: true
+- Success: toast notification and redirect to messages list
+- Error handling with user-friendly toast messages
+- URL param handling for future insight pre-fill (urlType, urlPlayerIdentityId, etc.)
+- Empty states for no players and no guardians
+- Loading states with spinner for queries
+- Responsive layout with shadcn/ui Card components
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/messages/compose/page.tsx (new, 528 lines)
+- scripts/ralph/prd.json (US-014 passes: false → true)
+
+### Quality checks
+- ✅ Type check: passed (npm run check-types)
+- ✅ Linting: passed (lint-staged pre-commit hook)
+- ⚠️ Minor linting warnings acceptable:
+  - Nested ternary for conditional rendering (common React pattern)
+  - Complexity 17 vs 15 (handleSubmit has validation logic, acceptable)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Player data from orgPlayerEnrollments.getPlayersForOrg returns { _id, firstName, lastName, ageGroup, ... }
+- Guardian data from guardianPlayerLinks.getGuardiansForPlayer returns array of { link, guardian }
+- Form pattern: progressive disclosure - show guardian section only after player selected
+- Empty state pattern: yellow border/background for warning states (no guardians)
+- Loading states: center spinner with "Loading..." text
+- Toast notifications via Sonner: toast.success(), toast.error()
+- URL params for future pre-fill: get params, store in state, use in useEffect
+- Form submission: prevent default, validate, setIsSubmitting, try/catch, finally
+
+**Gotchas encountered:**
+- Next.js route type errors require @ts-expect-error comments until route types regenerate
+- Must place @ts-expect-error directly before router.push() call
+- Unused URL params need underscore prefix to pass linting
+- Guardian data structure: { link: { relationship, isPrimary }, guardian: { firstName, lastName, email } }
+- Pre-commit hooks only check staged files, not entire codebase
+
+**Dependencies found:**
+- Uses api.models.orgPlayerEnrollments.getPlayersForOrg for player list
+- Uses api.models.guardianPlayerLinks.getGuardiansForPlayer for guardian list
+- Uses api.models.coachParentMessages.createDirectMessage mutation
+- Depends on shadcn/ui components: Card, Select, Input, Textarea, Checkbox, RadioGroup, Badge, Button, Empty
+- useCurrentUser and authClient.useSession hooks (though not strictly needed for this page)
+
+**What to do next**:
+- US-015: Create parent message inbox page
+- US-016: Create parent message detail page
+- US-020: Complete insight pre-fill logic (fetch voice note, extract insight, pre-populate form)
+
+**Mistakes made**:
+- Initially left unused variables without underscore prefix (urlVoiceNoteId, urlInsightId, userId)
+- Had to add @ts-expect-error comments for Next.js route types (expected for new routes)
+
+---

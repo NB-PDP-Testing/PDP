@@ -31,17 +31,33 @@ After writing ANY code (Edit or Write tools), you MUST:
 - Linting errors in files you modified
 - Unformatted code
 
-## Local Pre-commit Hook:
+## Team-Wide Pre-commit Hook (Husky + lint-staged)
 
-A git pre-commit hook is installed at `.git/hooks/pre-commit` that:
-- Runs `biome check` on staged TypeScript/JavaScript files
-- **BLOCKS commits** if linting errors are found in staged files
-- Can be bypassed with `git commit --no-verify` (NOT recommended)
+This project uses **Husky** and **lint-staged** for team-wide pre-commit enforcement.
 
-## Before Using Bash Tool to Commit:
+**How it works:**
+
+- `.husky/pre-commit` runs automatically before every commit
+- `lint-staged` runs `biome check` only on staged `.ts/.tsx/.js/.jsx` files
+- **Commits are BLOCKED** if linting errors are found
+- All developers get this automatically on `npm install`
+
+**What triggers a block:**
+
+- Error-level linting rules (e.g., `noVar`, `noParameterAssign`)
+- Formatting issues
+- Note: Warning-level rules (e.g., `noExplicitAny`) do NOT block commits
+
+**Bypass (NOT recommended):**
+
+```bash
+git commit --no-verify
+```
+
+## Before Using Bash Tool to Commit
 
 1. PreToolUse hook will warn if trying to commit
-2. Pre-commit hook will block if staged files have errors
+2. Husky pre-commit hook will block if staged files have errors
 3. Only proceed with commit after fixing issues
 
 ## The "Fix as You Go" Rule:

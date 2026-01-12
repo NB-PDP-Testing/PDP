@@ -829,3 +829,65 @@ Started: Mon 12 Jan 2026 15:45:51 GMT
 - Used --no-verify as appropriate solution since errors are unrelated to my changes
 
 ---
+## 2026-01-12 23:00 - US-021 - Implement getOrganizationMessages admin query
+**Iteration**: 6
+**Commit**: 29cd58379756081782fd02c0f2deee1392c0fbd5
+**Session**: d6eebe63-9fc0-4e78-8c9a-ea58969aee9b
+**Status**: Complete
+
+### What was implemented
+- Added isOrgAdmin helper function to check admin/owner permissions
+  - Uses components.betterAuth.adapter.findOne to query member table
+  - Checks: member.role === 'owner' OR 'admin' OR functionalRoles includes 'admin'
+  - Returns boolean indicating admin access
+- Added getOrganizationMessages admin query
+  - Verifies user authentication via authComponent.safeGetAuthUser
+  - Verifies user is org admin/owner using isOrgAdmin helper
+  - Queries coachParentMessages with by_org index, ordered by createdAt descending
+  - Default limit 100, configurable via args
+  - Returns messages with recipient stats (recipientCount, viewedCount)
+  - Queries messageRecipients table for each message to calculate stats
+
+### Files changed
+- packages/backend/convex/models/coachParentMessages.ts (+109, -0)
+- scripts/ralph/prd.json (US-021 passes: false → true)
+
+### Quality checks
+- ✅ Type check: passed (npm run check-types)
+- ✅ Linting: passed (pre-commit hooks)
+- ✅ Browser verification: Not applicable for backend query
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Better Auth member queries use components.betterAuth.adapter.findOne/findMany
+- Member table not in Convex schema - accessed via Better Auth adapter
+- Admin check pattern: query member, check role === 'owner'/'admin' OR functionalRoles?.includes('admin')
+- Return v.array with explicit object validator for complex return types
+- Helper function pattern: export async function for shared logic across queries/mutations
+- components import required from ../_generated/api to access Better Auth adapter
+
+**Gotchas encountered:**
+- Can't query 'member' table directly with ctx.db - must use ctx.runQuery(components.betterAuth.adapter...)
+- Biome linter removes unused imports - must add import and usage simultaneously
+- Better Auth member records have any type - must type cast to access fields
+- where clause is array of objects with field/value/operator structure
+
+**Dependencies found:**
+- Uses components.betterAuth.adapter.findOne for member queries
+- Uses authComponent.safeGetAuthUser for authentication check
+- Queries coachParentMessages with by_org index (from US-001 schema)
+- Queries messageRecipients with by_message index (from US-002 schema)
+- isOrgAdmin helper function can be reused for US-022 and admin pages
+
+**What to do next**:
+- US-022: getMessageAuditLog admin query (similar pattern to US-021)
+- US-023+: Admin frontend pages (messaging dashboard, audit log page)
+- Reuse isOrgAdmin helper for all admin authorization checks
+
+**Mistakes made**:
+- Initially tried to query member table with ctx.db.query() - had to switch to components.betterAuth.adapter
+- Initially forgot to import components from _generated/api
+- Linter removed components import when it wasn't used yet - had to add back
+
+---

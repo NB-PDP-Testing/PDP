@@ -647,3 +647,74 @@ export const markMessageViewed = mutation({
     return null;
   },
 });
+
+/**
+ * Acknowledge a message from a coach
+ * Parents can optionally add a note when acknowledging
+ * Updates the recipient record with acknowledgment timestamp and logs audit event
+ */
+export const acknowledgeMessage = mutation({
+  args: {
+    messageId: v.id("coachParentMessages"),
+    note: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // 1. Get current user
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new Error("User must be authenticated to acknowledge messages");
+    }
+
+    // 2. Find guardian identity
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", authUser._id))
+      .first();
+
+    if (!guardianIdentity) {
+      throw new Error("User is not a guardian");
+    }
+
+    // 3. Get message
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error("Message not found");
+    }
+
+    // 4. Find the recipient record for this guardian and message
+    const allRecipients = await ctx.db
+      .query("messageRecipients")
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .collect();
+
+    const recipient = allRecipients.find(
+      (r) => r.guardianIdentityId === guardianIdentity._id
+    );
+
+    if (!recipient) {
+      throw new Error("You are not a recipient of this message");
+    }
+
+    // 5. Update recipient with acknowledgment timestamp and optional note
+    await ctx.db.patch(recipient._id, {
+      acknowledgedAt: Date.now(),
+      acknowledgmentNote: args.note,
+      updatedAt: Date.now(),
+    });
+
+    // 6. Log audit event
+    const guardianName = `${guardianIdentity.firstName} ${guardianIdentity.lastName}`;
+    await logAuditEvent(ctx, {
+      messageId: args.messageId,
+      organizationId: message.organizationId,
+      action: "acknowledged",
+      actorId: authUser._id,
+      actorType: "parent",
+      actorName: guardianName,
+      details: args.note ? { reason: args.note } : undefined,
+    });
+
+    return null;
+  },
+});

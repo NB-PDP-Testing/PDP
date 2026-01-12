@@ -253,3 +253,65 @@ export const createDirectMessage = mutation({
     return messageId;
   },
 });
+
+/**
+ * Send a drafted message
+ * Updates message status to 'sent' and marks recipients as pending delivery
+ * For now just updates statuses - email scheduling will be added in US-027
+ */
+export const sendMessage = mutation({
+  args: {
+    messageId: v.id("coachParentMessages"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // 1. Verify user is authenticated
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new Error("User must be authenticated to send messages");
+    }
+
+    // 2. Get the message
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error("Message not found");
+    }
+
+    // 3. Verify user is the sender
+    if (message.senderId !== authUser._id) {
+      throw new Error("You can only send messages you created");
+    }
+
+    // 4. Update message status
+    await ctx.db.patch(args.messageId, {
+      status: "sent",
+      sentAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // 5. Update all recipient records to pending
+    const recipients = await ctx.db
+      .query("messageRecipients")
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .collect();
+
+    for (const recipient of recipients) {
+      await ctx.db.patch(recipient._id, {
+        deliveryStatus: "pending",
+        updatedAt: Date.now(),
+      });
+    }
+
+    // 6. Log audit event
+    await logAuditEvent(ctx, {
+      messageId: args.messageId,
+      organizationId: message.organizationId,
+      action: "sent",
+      actorId: authUser._id,
+      actorType: "coach",
+      actorName: message.senderName,
+    });
+
+    return null;
+  },
+});

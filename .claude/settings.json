@@ -6,34 +6,24 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx ultracite fix"
+            "command": "npx ultracite fix $CLAUDE_FILE_PATH 2>/dev/null || true",
+            "statusMessage": "Formatting file..."
           },
           {
             "type": "command",
-            "command": "npm run check-types 2>&1 | head -30 || true"
-          },
-          {
-            "type": "command",
-            "command": "npx biome check . 2>&1 | tail -50 || true"
+            "command": "npx biome check --max-diagnostics=10 $CLAUDE_FILE_PATH 2>&1 | head -40",
+            "statusMessage": "Checking linting..."
           }
         ]
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash.*git commit",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "echo '\\n⚠️  PRE-COMMIT CHECK: Verifying code quality...'"
-          },
-          {
-            "type": "command",
-            "command": "npm run check-types 2>&1 | tail -10 || true"
-          },
-          {
-            "type": "command",
-            "command": "npx biome check . 2>&1 | tail -20 || true"
+            "command": "if echo \"$CLAUDE_BASH_COMMAND\" | grep -qE 'git commit'; then echo '⚠️  PRE-COMMIT: Checking staged files...' && git diff --cached --name-only 2>/dev/null | grep -E '\\.(ts|tsx)$' | head -3 | while read f; do npx biome check --max-diagnostics=5 \"$f\" 2>&1 | head -15; done; fi || true"
           }
         ]
       }

@@ -879,6 +879,54 @@ export const updateInvitationMetadata = mutation({
           performedByEmail: currentUser?.email,
           metadata: args.metadata,
         });
+
+        // Send invitation email now that metadata is ready
+        console.log(
+          "[updateInvitationMetadata] Scheduling invitation email for:",
+          invitationResult.email
+        );
+
+        // Get organization and inviter details
+        const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+          model: "organization",
+          where: [{ field: "_id", value: invitationResult.organizationId }],
+        });
+
+        const inviter = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [{ field: "_id", value: invitationResult.inviterId }],
+          }
+        );
+
+        if (org && inviter) {
+          const siteUrl = (
+            process.env.SITE_URL ?? "http://localhost:3000"
+          ).replace(/\/+$/, "");
+          const inviteLink = `${siteUrl}/orgs/accept-invitation/${args.invitationId}`;
+
+          const functionalRoles = args.metadata?.suggestedFunctionalRoles || [];
+          const teams = args.metadata?.roleSpecificData?.teams || [];
+          const players = args.metadata?.suggestedPlayerLinks || [];
+
+          // Schedule action to send email
+          const actionRef = (internal.actions as any).invitations
+            ?.resendInvitationEmail;
+          if (actionRef) {
+            await ctx.scheduler.runAfter(0, actionRef, {
+              email: invitationResult.email,
+              invitedByUsername: inviter.name || "Someone",
+              invitedByEmail: inviter.email,
+              organizationName: org.name,
+              inviteLink,
+              functionalRoles,
+              teams,
+              players,
+            });
+            console.log("[updateInvitationMetadata] Email action scheduled");
+          }
+        }
       } else {
         // This is a modification of existing invitation
         await ctx.runMutation(internal.models.members.logInvitationEvent, {
@@ -1255,10 +1303,12 @@ export const getPendingInvitationsByEmail = query({
 
         // Fetch team details for coaches
         let teams = [];
-        const teamIds = metadata.roleSpecificData?.teams || [];
-        if (teamIds.length > 0) {
+        const teamData = metadata.roleSpecificData?.teams || [];
+        if (teamData.length > 0) {
           teams = await Promise.all(
-            teamIds.map(async (teamId: string) => {
+            teamData.map(async (team: any) => {
+              // Extract ID from team object (Phase 1 stores full objects now)
+              const teamId = typeof team === "string" ? team : team.id;
               const teamResult = await ctx.runQuery(
                 components.betterAuth.adapter.findOne,
                 {
@@ -1287,16 +1337,18 @@ export const getPendingInvitationsByEmail = query({
 
         // Fetch player details for parents
         let players = [];
-        const playerIds = metadata.suggestedPlayerLinks || [];
-        if (playerIds.length > 0) {
+        const playerData = metadata.suggestedPlayerLinks || [];
+        if (playerData.length > 0) {
           players = await Promise.all(
-            playerIds.map(async (playerId: string) => {
-              const player = await ctx.db.get(playerId as any);
-              if (player) {
+            playerData.map(async (player: any) => {
+              // Extract ID from player object (Phase 1 stores full objects now)
+              const playerId = typeof player === "string" ? player : player.id;
+              const playerRecord = await ctx.db.get(playerId as any);
+              if (playerRecord) {
                 return {
-                  _id: player._id,
-                  firstName: (player as any).firstName,
-                  lastName: (player as any).lastName,
+                  _id: playerRecord._id,
+                  firstName: (playerRecord as any).firstName,
+                  lastName: (playerRecord as any).lastName,
                 };
               }
               return null;
@@ -1399,10 +1451,12 @@ export const getPendingInvitationsWithAssignments = query({
 
         // Fetch team details for coaches
         let teams = [];
-        const teamIds = metadata.roleSpecificData?.teams || [];
-        if (teamIds.length > 0) {
+        const teamData = metadata.roleSpecificData?.teams || [];
+        if (teamData.length > 0) {
           teams = await Promise.all(
-            teamIds.map(async (teamId: string) => {
+            teamData.map(async (team: any) => {
+              // Extract ID from team object (Phase 1 stores full objects now)
+              const teamId = typeof team === "string" ? team : team.id;
               const teamResult = await ctx.runQuery(
                 components.betterAuth.adapter.findOne,
                 {
@@ -1431,16 +1485,18 @@ export const getPendingInvitationsWithAssignments = query({
 
         // Fetch player details for parents
         let players = [];
-        const playerIds = metadata.suggestedPlayerLinks || [];
-        if (playerIds.length > 0) {
+        const playerData = metadata.suggestedPlayerLinks || [];
+        if (playerData.length > 0) {
           players = await Promise.all(
-            playerIds.map(async (playerId: string) => {
-              const player = await ctx.db.get(playerId as any);
-              if (player) {
+            playerData.map(async (player: any) => {
+              // Extract ID from player object (Phase 1 stores full objects now)
+              const playerId = typeof player === "string" ? player : player.id;
+              const playerRecord = await ctx.db.get(playerId as any);
+              if (playerRecord) {
                 return {
-                  _id: player._id,
-                  firstName: (player as any).firstName,
-                  lastName: (player as any).lastName,
+                  _id: playerRecord._id,
+                  firstName: (playerRecord as any).firstName,
+                  lastName: (playerRecord as any).lastName,
                 };
               }
               return null;
@@ -2955,6 +3011,12 @@ export const resendInvitation = mutation({
     );
     const inviteLink = `${siteUrl}/orgs/accept-invitation/${args.invitationId}`;
 
+    // Extract metadata for email context (teams, players, functional roles)
+    const metadata = invitationResult.metadata || {};
+    const functionalRoles = metadata.suggestedFunctionalRoles || [];
+    const teams = metadata.roleSpecificData?.teams || [];
+    const players = metadata.suggestedPlayerLinks || [];
+
     // Schedule the action to resend email
     const actionRef = (internal.actions as any).invitations
       ?.resendInvitationEmail;
@@ -2966,7 +3028,9 @@ export const resendInvitation = mutation({
         invitedByEmail: inviterResult?.email || "",
         organizationName: orgResult?.name || "Organization",
         inviteLink,
-        role: invitationResult.role || undefined,
+        functionalRoles, // Pass functional roles from metadata
+        teams, // Pass team details for coach role
+        players, // Pass player details for parent role
       });
     } else {
       console.warn(

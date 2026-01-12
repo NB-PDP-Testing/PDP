@@ -218,6 +218,161 @@ export const getMyMessages = query({
   },
 });
 
+/**
+ * Get messages for the current parent about their children
+ * Returns messages with recipient tracking and unread status
+ */
+export const getMessagesForParent = query({
+  args: {
+    organizationId: v.optional(v.string()),
+    unreadOnly: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      message: v.object({
+        _id: v.id("coachParentMessages"),
+        _creationTime: v.number(),
+        messageType: v.union(v.literal("direct"), v.literal("insight")),
+        organizationId: v.string(),
+        teamId: v.optional(v.string()),
+        senderId: v.string(),
+        senderName: v.string(),
+        playerIdentityId: v.id("playerIdentities"),
+        playerName: v.string(),
+        subject: v.string(),
+        body: v.string(),
+        context: v.optional(
+          v.object({
+            sessionType: v.optional(v.string()),
+            sessionDate: v.optional(v.string()),
+            developmentArea: v.optional(v.string()),
+          })
+        ),
+        discussionPrompts: v.optional(v.array(v.string())),
+        actionItems: v.optional(v.array(v.string())),
+        deliveryMethod: v.union(
+          v.literal("in_app"),
+          v.literal("email"),
+          v.literal("both")
+        ),
+        priority: v.union(v.literal("normal"), v.literal("high")),
+        status: v.union(
+          v.literal("draft"),
+          v.literal("pending_approval"),
+          v.literal("sent"),
+          v.literal("delivered"),
+          v.literal("failed")
+        ),
+        createdAt: v.number(),
+        sentAt: v.optional(v.number()),
+        updatedAt: v.number(),
+      }),
+      recipient: v.object({
+        _id: v.id("messageRecipients"),
+        messageId: v.id("coachParentMessages"),
+        guardianIdentityId: v.id("guardianIdentities"),
+        guardianUserId: v.optional(v.string()),
+        deliveryStatus: v.union(
+          v.literal("pending"),
+          v.literal("sent"),
+          v.literal("delivered"),
+          v.literal("failed"),
+          v.literal("bounced")
+        ),
+        deliveryMethod: v.union(v.literal("in_app"), v.literal("email")),
+        inAppViewedAt: v.optional(v.number()),
+        acknowledgedAt: v.optional(v.number()),
+        acknowledgmentNote: v.optional(v.string()),
+      }),
+      isUnread: v.boolean(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get current user
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      return [];
+    }
+
+    // Find guardian identity for this user
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", authUser._id))
+      .first();
+
+    if (!guardianIdentity) {
+      // User is not a guardian
+      return [];
+    }
+
+    // Get all message recipients for this guardian
+    const allRecipients = await ctx.db
+      .query("messageRecipients")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", guardianIdentity._id)
+      )
+      .collect();
+
+    // Filter by unread if requested
+    let recipients = allRecipients;
+    if (args.unreadOnly) {
+      recipients = recipients.filter((r) => r.inAppViewedAt === undefined);
+    }
+
+    // Fetch messages for each recipient
+    const messagesWithRecipients = await Promise.all(
+      recipients.map(async (recipient) => {
+        const message = await ctx.db.get(recipient.messageId);
+        return {
+          recipient,
+          message,
+        };
+      })
+    );
+
+    // Filter out any null messages (shouldn't happen but be safe)
+    const validMessages = messagesWithRecipients.filter(
+      (item) => item.message !== null
+    ) as Array<{
+      recipient: (typeof recipients)[0];
+      message: NonNullable<Awaited<ReturnType<typeof ctx.db.get>>>;
+    }>;
+
+    // Filter by organization if provided
+    let filteredMessages = validMessages;
+    if (args.organizationId) {
+      filteredMessages = validMessages.filter(
+        (item) => item.message.organizationId === args.organizationId
+      );
+    }
+
+    // Sort by message creation date descending
+    filteredMessages.sort((a, b) => b.message.createdAt - a.message.createdAt);
+
+    // Apply limit
+    const limit = args.limit || 50;
+    const limitedMessages = filteredMessages.slice(0, limit);
+
+    // Return with isUnread flag
+    return limitedMessages.map((item) => ({
+      message: item.message,
+      recipient: {
+        _id: item.recipient._id,
+        messageId: item.recipient.messageId,
+        guardianIdentityId: item.recipient.guardianIdentityId,
+        guardianUserId: item.recipient.guardianUserId,
+        deliveryStatus: item.recipient.deliveryStatus,
+        deliveryMethod: item.recipient.deliveryMethod,
+        inAppViewedAt: item.recipient.inAppViewedAt,
+        acknowledgedAt: item.recipient.acknowledgedAt,
+        acknowledgmentNote: item.recipient.acknowledgmentNote,
+      },
+      isUnread: item.recipient.inAppViewedAt === undefined,
+    }));
+  },
+});
+
 // ============================================================
 // MUTATIONS
 // ============================================================

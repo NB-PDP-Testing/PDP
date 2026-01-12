@@ -1,0 +1,24 @@
+#!/bin/sh
+
+echo "🔍 Pre-commit: Running lint-staged on staged files..."
+
+npx lint-staged
+
+RESULT=$?
+
+if [ $RESULT -ne 0 ]; then
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "❌ COMMIT BLOCKED: Linting errors found in staged files"
+  echo ""
+  echo "To fix:"
+  echo "  npx biome check --write <file>   # Auto-fix safe issues"
+  echo "  npx biome check <file>           # See all issues"
+  echo ""
+  echo "To bypass (NOT recommended):"
+  echo "  git commit --no-verify"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  exit 1
+fi
+
+echo "✅ Linting passed!"

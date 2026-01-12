@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { FABQuickActions } from "@/components/quick-actions/fab-variant";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,9 @@ type SmartCoachDashboardProps = {
   onSaveTeamNote?: (teamId: string, note: string) => Promise<boolean>;
   isClubView?: boolean;
 };
+
+// Regex constants at module scope for performance
+const FIRST_CHAR_REGEX = /^./;
 
 export function SmartCoachDashboard({
   players,
@@ -330,13 +334,13 @@ export function SmartCoachDashboard({
     );
     const averages: Record<string, number> = {};
 
-    skillKeys.forEach((skillKey) => {
+    for (const skillKey of skillKeys) {
       const sum = teamPlayers.reduce((acc, player) => {
         const value = (player.skills as any)[skillKey];
         return acc + (typeof value === "number" ? value : 0);
       }, 0);
       averages[skillKey] = sum / teamPlayers.length;
-    });
+    }
 
     return averages;
   };
@@ -355,12 +359,12 @@ export function SmartCoachDashboard({
   const formatSkillName = (key: string): string =>
     key
       .replace(/([A-Z])/g, " $1")
-      .replace(/^./, (str) => str.toUpperCase())
+      .replace(FIRST_CHAR_REGEX, (str) => str.toUpperCase())
       .trim();
 
   const generateCorrelationInsights = () => {
     const allPlayers = players;
-    const insights: CorrelationInsight[] = [];
+    const correlationInsights: CorrelationInsight[] = [];
 
     // Team-specific skills analysis (for coaches)
     if (!isClubView && allPlayers.length > 0) {
@@ -378,7 +382,7 @@ export function SmartCoachDashboard({
             ([skill, avg]) => `${formatSkillName(skill)} (${avg.toFixed(1)})`
           )
           .join(", ");
-        insights.push({
+        correlationInsights.push({
           type: "improvement",
           message: `🏆 Team strengths: ${skillList}. Build training sessions around these strong areas.`,
           severity: "success",
@@ -396,7 +400,7 @@ export function SmartCoachDashboard({
             ([skill, avg]) => `${formatSkillName(skill)} (${avg.toFixed(1)})`
           )
           .join(", ");
-        insights.push({
+        correlationInsights.push({
           type: "improvement",
           message: `📊 Focus areas for development: ${skillList}. Consider dedicating practice time to these skills.`,
           severity: "warning",
@@ -425,7 +429,7 @@ export function SmartCoachDashboard({
         lowAttendance.length;
       const diff = highAvg - lowAvg;
 
-      insights.push({
+      correlationInsights.push({
         type: "attendance",
         message: `📊 Players with 90%+ attendance average ${diff.toFixed(1)} points higher in skills (${highAttendance.length} players) vs <60% attendance (${lowAttendance.length} players).`,
         severity: diff > 1.0 ? "warning" : "info",
@@ -461,20 +465,20 @@ export function SmartCoachDashboard({
       }
       message += `. Review completion rate: ${reviewRate.toFixed(0)}%.`;
 
-      insights.push({
+      correlationInsights.push({
         type: "attendance",
         message,
         severity: "warning",
       });
     } else if (reviewRate >= 80) {
-      insights.push({
+      correlationInsights.push({
         type: "attendance",
         message: `✅ Excellent review completion rate: ${reviewRate.toFixed(0)}%. All players are on track with regular assessments.`,
         severity: "success",
       });
     }
 
-    setInsights(insights);
+    setInsights(correlationInsights);
   };
 
   const generateAIRecommendations = async () => {
@@ -863,8 +867,11 @@ export function SmartCoachDashboard({
                           Top Strengths
                         </div>
                         <div className="space-y-1">
-                          {team.strengths.map((s, i) => (
-                            <div className="flex items-center gap-2" key={i}>
+                          {team.strengths.map((s) => (
+                            <div
+                              className="flex items-center gap-2"
+                              key={s.skill}
+                            >
                               <div className="min-w-0 flex-1">
                                 <div className="truncate text-gray-700 text-xs">
                                   {s.skill}
@@ -900,8 +907,11 @@ export function SmartCoachDashboard({
                           Areas to Improve
                         </div>
                         <div className="space-y-1">
-                          {team.weaknesses.map((w, i) => (
-                            <div className="flex items-center gap-2" key={i}>
+                          {team.weaknesses.map((w) => (
+                            <div
+                              className="flex items-center gap-2"
+                              key={w.skill}
+                            >
                               <div className="min-w-0 flex-1">
                                 <div className="truncate text-gray-700 text-xs">
                                   {w.skill}
@@ -991,7 +1001,7 @@ export function SmartCoachDashboard({
         </CardHeader>
         <CardContent className="space-y-2 md:space-y-3">
           {insights.length > 0 ? (
-            insights.map((insight, idx) => (
+            insights.map((insight) => (
               <div
                 className={`flex items-start gap-2 rounded-lg p-3 md:gap-3 ${
                   insight.severity === "warning"
@@ -1000,7 +1010,7 @@ export function SmartCoachDashboard({
                       ? "border border-green-200 bg-green-50"
                       : "border border-blue-200 bg-blue-50"
                 }`}
-                key={idx}
+                key={`${insight.type}-${insight.message.slice(0, 50)}`}
               >
                 {insight.severity === "warning" ? (
                   <AlertCircle
@@ -1077,10 +1087,10 @@ export function SmartCoachDashboard({
           ) : (
             <div className="space-y-3 md:space-y-4">
               {aiRecommendations.length > 0 ? (
-                aiRecommendations.map((rec, idx) => (
+                aiRecommendations.map((rec) => (
                   <div
                     className="rounded-lg border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-3 md:p-4"
-                    key={idx}
+                    key={rec.title}
                   >
                     <div className="mb-3 flex items-start gap-2 md:gap-3">
                       <div
@@ -1109,10 +1119,10 @@ export function SmartCoachDashboard({
                               : "Recommended Actions:"}
                           </div>
                           <ul className="space-y-1.5">
-                            {rec.actionItems.map((action, i) => (
+                            {rec.actionItems.map((action) => (
                               <li
                                 className="flex items-start gap-2 text-gray-600 text-xs"
-                                key={i}
+                                key={action}
                               >
                                 <CheckCircle
                                   className="mt-0.5 flex-shrink-0 text-green-600"
@@ -1244,10 +1254,10 @@ export function SmartCoachDashboard({
               <div className="space-y-3">
                 {selectedTeamData.coachNotes
                   .split("\n\n")
-                  .map((note: string, idx: number) => (
+                  .map((note: string) => (
                     <div
                       className="rounded-lg border border-blue-200 bg-white p-3"
-                      key={idx}
+                      key={note.slice(0, 100)}
                     >
                       <p className="whitespace-pre-wrap text-gray-700 text-sm">
                         {note}
@@ -1308,7 +1318,10 @@ export function SmartCoachDashboard({
                     );
                   } catch (error) {
                     console.error("Error downloading PDF:", error);
-                    alert("Failed to download PDF. Please try again.");
+                    toast.error("Failed to download PDF", {
+                      description:
+                        "Please try again or contact support if the issue persists.",
+                    });
                   }
                 }}
               >
@@ -1331,9 +1344,9 @@ export function SmartCoachDashboard({
                     setShowShareModal(false);
                   } catch (error) {
                     console.error("Error sharing via email:", error);
-                    alert(
-                      "Failed to open email client. Please try downloading instead."
-                    );
+                    toast.error("Failed to open email client", {
+                      description: "Please try downloading the PDF instead.",
+                    });
                   }
                 }}
               >
@@ -1356,9 +1369,9 @@ export function SmartCoachDashboard({
                     setShowShareModal(false);
                   } catch (error) {
                     console.error("Error sharing via WhatsApp:", error);
-                    alert(
-                      "Failed to open WhatsApp. Please try another method."
-                    );
+                    toast.error("Failed to open WhatsApp", {
+                      description: "Please try another sharing method.",
+                    });
                   }
                 }}
               >
@@ -1381,9 +1394,10 @@ export function SmartCoachDashboard({
                     setShowShareModal(false);
                   } catch (error) {
                     console.error("Error using native share:", error);
-                    alert(
-                      "Native sharing not supported. Please use another method."
-                    );
+                    toast.error("Native sharing not supported", {
+                      description:
+                        "Please use email, WhatsApp, or download options.",
+                    });
                   }
                 }}
               >

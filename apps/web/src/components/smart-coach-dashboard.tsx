@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
+import { FABQuickActions } from "@/components/quick-actions/fab-variant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -548,6 +549,18 @@ export function SmartCoachDashboard({
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {/* Quick Actions - Connects header buttons to handler functions */}
+      <FABQuickActions
+        onAssessPlayers={onAssessPlayers || (() => {})}
+        onGenerateSessionPlan={handleGenerateSessionPlan}
+        onGoals={onViewGoals || (() => {})}
+        onInjuries={onViewInjuries || (() => {})}
+        onMatchDay={onViewMatchDay || (() => {})}
+        onMedical={onViewMedical || (() => {})}
+        onViewAnalytics={() => {}}
+        onVoiceNotes={onViewVoiceNotes || (() => {})}
+      />
+
       {/* My Teams Section */}
       <OrgThemedGradient
         className="rounded-lg p-4 shadow-md md:p-6"
@@ -1348,8 +1361,8 @@ export function SmartCoachDashboard({
       {/* Session Plan Modal */}
       {showSessionPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 md:p-4">
-          <Card className="max-h-[95vh] w-full max-w-3xl overflow-y-auto md:max-h-[90vh]">
-            <CardHeader className="sticky top-0 z-10 border-gray-200 border-b bg-white">
+          <Card className="max-h-[95vh] w-full max-w-3xl overflow-y-auto shadow-xl md:max-h-[90vh]">
+            <CardHeader className="sticky top-0 z-10 border-gray-200 border-b bg-white shadow-sm">
               <div className="flex items-start justify-between">
                 <div className="min-w-0 flex-1 pr-3">
                   <CardTitle className="flex items-center gap-2 leading-tight">
@@ -1375,7 +1388,7 @@ export function SmartCoachDashboard({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-3 md:p-6">
+            <CardContent className="p-4 md:p-6">
               {loadingSessionPlan ? (
                 <div className="py-8 text-center md:py-12">
                   <Brain
@@ -1391,16 +1404,16 @@ export function SmartCoachDashboard({
                 </div>
               ) : (
                 <div className="prose prose-sm max-w-none">
-                  <div className="whitespace-pre-wrap text-gray-700 text-sm leading-relaxed md:text-base">
+                  <div className="whitespace-pre-wrap text-[15px] text-gray-700 leading-relaxed md:text-base">
                     {sessionPlan}
                   </div>
                 </div>
               )}
             </CardContent>
             {!loadingSessionPlan && (
-              <div className="sticky bottom-0 z-10 flex flex-col gap-2 border-gray-200 border-t bg-gray-50 p-3 sm:flex-row md:gap-3 md:p-4">
+              <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-gray-200 border-t bg-gray-50 p-4 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] sm:flex-row md:p-4">
                 <Button
-                  className="flex flex-1 items-center justify-center gap-2 bg-blue-600 font-medium transition-colors hover:bg-blue-700"
+                  className="flex w-full items-center justify-center gap-2 bg-blue-600 font-medium transition-colors hover:bg-blue-700 sm:flex-1"
                   onClick={() => {
                     const team = teamAnalytics.find((t) => t.playerCount > 0);
                     if (team) {
@@ -1427,14 +1440,14 @@ export function SmartCoachDashboard({
                   <span>Share Plan</span>
                 </Button>
                 <Button
-                  className="flex flex-1 items-center justify-center gap-2 bg-green-600 font-medium transition-colors hover:bg-green-700"
+                  className="flex w-full items-center justify-center gap-2 bg-green-600 font-medium transition-colors hover:bg-green-700 sm:flex-1"
                   onClick={handleGenerateSessionPlan}
                 >
                   <Brain className="flex-shrink-0" size={16} />
                   <span>Regenerate Plan</span>
                 </Button>
                 <Button
-                  className="flex-1 bg-gray-600 font-medium transition-colors hover:bg-gray-700"
+                  className="w-full bg-gray-600 font-medium transition-colors hover:bg-gray-700 sm:flex-1"
                   onClick={() => setShowSessionPlan(false)}
                 >
                   Close

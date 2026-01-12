@@ -1,6 +1,8 @@
+import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-// Auth component will be imported when we add queries/mutations
+import { mutation } from "../_generated/server";
+import { authComponent } from "../auth";
 
 // ============================================================
 // HELPER FUNCTIONS
@@ -115,4 +117,139 @@ export async function logAuditEvent(
 // MUTATIONS
 // ============================================================
 
-// Mutations will be added in subsequent stories
+/**
+ * Create a direct message from a coach to parent(s) about a player
+ * Validates coach assignment and guardian-player relationships
+ * Can be sent immediately or saved as draft
+ */
+export const createDirectMessage = mutation({
+  args: {
+    organizationId: v.string(),
+    teamId: v.optional(v.string()),
+    playerIdentityId: v.id("playerIdentities"),
+    recipientGuardianIds: v.array(v.id("guardianIdentities")),
+    subject: v.string(),
+    body: v.string(),
+    context: v.optional(
+      v.object({
+        sessionType: v.optional(v.string()),
+        sessionDate: v.optional(v.string()),
+        developmentArea: v.optional(v.string()),
+      })
+    ),
+    deliveryMethod: v.union(
+      v.literal("in_app"),
+      v.literal("email"),
+      v.literal("both")
+    ),
+    priority: v.optional(v.union(v.literal("normal"), v.literal("high"))),
+    sendImmediately: v.optional(v.boolean()),
+  },
+  returns: v.id("coachParentMessages"),
+  handler: async (ctx, args) => {
+    // 1. Verify user is authenticated
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new Error("User must be authenticated to send messages");
+    }
+
+    // 2. Verify coach has assignment in this org
+    const coachAssignment = await getCoachAssignmentForOrg(
+      ctx,
+      authUser._id,
+      args.organizationId
+    );
+    if (!coachAssignment) {
+      throw new Error(
+        "You must be a coach in this organization to send messages"
+      );
+    }
+
+    // 3. Get sender name from user
+    const senderName =
+      `${authUser.firstName || ""} ${authUser.lastName || ""}`.trim() ||
+      authUser.name ||
+      "Coach";
+
+    // 4. Get player info
+    const playerIdentity = await ctx.db.get(args.playerIdentityId);
+    if (!playerIdentity) {
+      throw new Error("Player not found");
+    }
+    const playerName = `${playerIdentity.firstName} ${playerIdentity.lastName}`;
+
+    // 5. Validate each recipient is a guardian of this player
+    const guardianLinks = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .collect();
+
+    const validGuardianIds = new Set(
+      guardianLinks.map((link) => link.guardianIdentityId)
+    );
+
+    for (const guardianId of args.recipientGuardianIds) {
+      if (!validGuardianIds.has(guardianId)) {
+        throw new Error(
+          `Guardian ${guardianId} is not linked to player ${playerName}`
+        );
+      }
+    }
+
+    // 6. Determine message status
+    const status = args.sendImmediately ? "sent" : "draft";
+    const sentAt = args.sendImmediately ? Date.now() : undefined;
+
+    // 7. Insert the message
+    const messageId = await ctx.db.insert("coachParentMessages", {
+      messageType: "direct",
+      organizationId: args.organizationId,
+      teamId: args.teamId,
+      senderId: authUser._id,
+      senderName,
+      recipientGuardianIds: args.recipientGuardianIds,
+      playerIdentityId: args.playerIdentityId,
+      playerName,
+      subject: args.subject,
+      body: args.body,
+      context: args.context,
+      deliveryMethod: args.deliveryMethod,
+      priority: args.priority || "normal",
+      status,
+      createdAt: Date.now(),
+      sentAt,
+      updatedAt: Date.now(),
+    });
+
+    // 8. Create recipient records
+    for (const guardianId of args.recipientGuardianIds) {
+      // Get guardian user ID if linked
+      const guardian = await ctx.db.get(guardianId);
+      const guardianUserId = guardian?.userId;
+
+      await ctx.db.insert("messageRecipients", {
+        messageId,
+        guardianIdentityId: guardianId,
+        guardianUserId,
+        deliveryStatus: "pending",
+        deliveryMethod: args.deliveryMethod,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+
+    // 9. Log audit event
+    await logAuditEvent(ctx, {
+      messageId,
+      organizationId: args.organizationId,
+      action: "created",
+      actorId: authUser._id,
+      actorType: "coach",
+      actorName: senderName,
+    });
+
+    return messageId;
+  },
+});

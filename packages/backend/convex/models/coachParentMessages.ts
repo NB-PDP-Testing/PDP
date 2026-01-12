@@ -705,8 +705,7 @@ export const createDirectMessage = mutation({
 
 /**
  * Send a drafted message
- * Updates message status to 'sent' and marks recipients as pending delivery
- * For now just updates statuses - email scheduling will be added in US-027
+ * Updates message status to 'sent', marks recipients as pending, and schedules email delivery
  */
 export const sendMessage = mutation({
   args: {
@@ -738,17 +737,35 @@ export const sendMessage = mutation({
       updatedAt: Date.now(),
     });
 
-    // 5. Update all recipient records to pending
+    // 5. Update all recipient records to pending and schedule email delivery
     const recipients = await ctx.db
       .query("messageRecipients")
       .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
       .collect();
+
+    // Import internal from _generated/api
+    const { internal } = await import("../_generated/api");
 
     for (const recipient of recipients) {
       await ctx.db.patch(recipient._id, {
         deliveryStatus: "pending",
         updatedAt: Date.now(),
       });
+
+      // Schedule email delivery if deliveryMethod is 'email' or 'both'
+      if (
+        message.deliveryMethod === "email" ||
+        message.deliveryMethod === "both"
+      ) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.actions.messaging.sendMessageEmail,
+          {
+            messageId: args.messageId,
+            recipientId: recipient._id,
+          }
+        );
+      }
     }
 
     // 6. Log audit event

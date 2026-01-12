@@ -1397,35 +1397,35 @@ export function SmartCoachDashboard({
 
       {/* Session Plan Modal */}
       {showSessionPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 md:p-4">
-          <Card className="max-h-[95vh] w-full max-w-3xl overflow-y-auto shadow-xl md:max-h-[90vh]">
-            <CardHeader className="sticky top-0 z-10 border-gray-200 border-b bg-white shadow-sm">
-              <div className="flex items-start justify-between">
-                <div className="min-w-0 flex-1 pr-3">
-                  <CardTitle className="flex items-center gap-2 leading-tight">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 pb-20 md:p-6 md:pb-6">
+          <Card className="flex max-h-[calc(100vh-120px)] w-full max-w-3xl flex-col overflow-hidden shadow-2xl md:max-h-[90vh]">
+            <CardHeader className="flex-shrink-0 border-gray-200 border-b bg-white p-4 shadow-sm md:p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="flex items-center gap-2 text-lg leading-tight md:text-xl">
                     <FileText
                       className="flex-shrink-0 text-green-600"
-                      size={20}
+                      size={22}
                     />
                     <span className="line-clamp-2">
                       AI Training Session Plan
                     </span>
                   </CardTitle>
-                  <p className="mt-1 text-gray-600 text-xs md:text-sm">
+                  <p className="mt-1.5 text-gray-600 text-sm leading-relaxed md:text-base">
                     Personalized for your team's needs
                   </p>
                 </div>
                 <Button
-                  className="flex-shrink-0"
+                  className="h-9 w-9 flex-shrink-0 md:h-8 md:w-8"
                   onClick={() => setShowSessionPlan(false)}
                   size="icon"
                   variant="ghost"
                 >
-                  ×
+                  <X size={20} />
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-4 md:p-6">
+            <CardContent className="flex-1 overflow-y-auto p-4 md:p-6">
               {loadingSessionPlan ? (
                 <div className="py-8 text-center md:py-12">
                   <Brain
@@ -1448,9 +1448,9 @@ export function SmartCoachDashboard({
               )}
             </CardContent>
             {!loadingSessionPlan && (
-              <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-gray-200 border-t bg-gray-50 p-4 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] sm:flex-row md:p-4">
+              <div className="flex flex-shrink-0 flex-col gap-3 border-gray-200 border-t bg-white p-4 shadow-[0_-4px_12px_rgba(0,0,0,0.12)] backdrop-blur-sm sm:flex-row md:p-5">
                 <Button
-                  className="flex w-full items-center justify-center gap-2 bg-blue-600 font-medium transition-colors hover:bg-blue-700 sm:flex-1"
+                  className="flex h-11 w-full items-center justify-center gap-2 bg-blue-600 font-medium text-sm shadow-sm transition-colors hover:bg-blue-700 sm:flex-1 md:h-10 md:text-base"
                   onClick={() => {
                     const team = teamAnalytics.find((t) => t.playerCount > 0);
                     if (team) {
@@ -1473,18 +1473,18 @@ export function SmartCoachDashboard({
                     }
                   }}
                 >
-                  <Share2 className="flex-shrink-0" size={16} />
+                  <Share2 className="flex-shrink-0" size={18} />
                   <span>Share Plan</span>
                 </Button>
                 <Button
-                  className="flex w-full items-center justify-center gap-2 bg-green-600 font-medium transition-colors hover:bg-green-700 sm:flex-1"
+                  className="flex h-11 w-full items-center justify-center gap-2 bg-green-600 font-medium text-sm shadow-sm transition-colors hover:bg-green-700 sm:flex-1 md:h-10 md:text-base"
                   onClick={handleGenerateSessionPlan}
                 >
-                  <Brain className="flex-shrink-0" size={16} />
+                  <Brain className="flex-shrink-0" size={18} />
                   <span>Regenerate Plan</span>
                 </Button>
                 <Button
-                  className="w-full bg-gray-600 font-medium transition-colors hover:bg-gray-700 sm:flex-1"
+                  className="h-11 w-full bg-gray-600 font-medium text-sm shadow-sm transition-colors hover:bg-gray-700 sm:flex-1 md:h-10 md:text-base"
                   onClick={() => setShowSessionPlan(false)}
                 >
                   Close

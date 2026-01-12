@@ -13,6 +13,9 @@ type BetterAuthDb = GenericDatabaseReader<DataModel> & {
   query(tableName: "teamMember"): any;
 };
 
+/** Regex for removing trailing slashes from URLs */
+const TRAILING_SLASH_REGEX = /\/+$/;
+
 /**
  * Organization member management functions
  * These functions query the Better Auth member table to get organization members with their roles
@@ -566,14 +569,14 @@ export const syncFunctionalRolesFromBetterAuthRole = mutation({
               },
             },
           });
-          updated++;
+          updated += 1;
           details.push({
             email,
             betterAuthRole,
             functionalRolesSet: ["admin"],
           });
         } else {
-          skipped++;
+          skipped += 1;
           details.push({
             email,
             betterAuthRole,
@@ -581,7 +584,7 @@ export const syncFunctionalRolesFromBetterAuthRole = mutation({
           });
         }
       } else {
-        skipped++;
+        skipped += 1;
         details.push({
           email,
           betterAuthRole,
@@ -677,7 +680,9 @@ export const getMembersWithDetails = query({
             // Get player details for each link
             for (const link of links) {
               const player = await ctx.db.get(link.playerIdentityId);
-              if (!player) continue;
+              if (!player) {
+                continue;
+              }
 
               // Check if player is enrolled in this org
               const enrollment = await ctx.db
@@ -832,7 +837,7 @@ export const updateInvitationMetadata = mutation({
       // Get current user for audit trail
       const identity = await ctx.auth.getUserIdentity();
       let currentUser = null;
-      if (identity && identity.email) {
+      if (identity?.email) {
         currentUser = await ctx.runQuery(
           components.betterAuth.adapter.findOne,
           {
@@ -903,7 +908,7 @@ export const updateInvitationMetadata = mutation({
         if (org && inviter) {
           const siteUrl = (
             process.env.SITE_URL ?? "http://localhost:3000"
-          ).replace(/\/+$/, "");
+          ).replace(TRAILING_SLASH_REGEX, "");
           const inviteLink = `${siteUrl}/orgs/accept-invitation/${args.invitationId}`;
 
           const functionalRoles = args.metadata?.suggestedFunctionalRoles || [];
@@ -1088,7 +1093,7 @@ export const cancelInvitation = mutation({
     // Get current user for audit trail
     const identity = await ctx.auth.getUserIdentity();
     let currentUser = null;
-    if (identity && identity.email) {
+    if (identity?.email) {
       currentUser = await ctx.runQuery(components.betterAuth.adapter.findOne, {
         model: "user",
         where: [
@@ -1249,10 +1254,10 @@ export const getPendingInvitationsByEmail = query({
       isExpired: v.boolean(),
     })
   ),
-  handler: async (ctx, args) => {
+  handler: async (ctx, _args) => {
     // Get current user from auth context
     const identity = await ctx.auth.getUserIdentity();
-    if (!(identity && identity.email)) {
+    if (!identity?.email) {
       return [];
     }
 
@@ -1630,14 +1635,14 @@ export const migrateCoachParentRolesToMember = mutation({
           },
         });
 
-        migrated++;
+        migrated += 1;
         details.push({
           email,
           oldRole: betterAuthRole,
           newFunctionalRoles,
         });
       } else {
-        skipped++;
+        skipped += 1;
       }
     }
 
@@ -1948,7 +1953,7 @@ export const syncFunctionalRolesFromInvitation = mutation({
                 .query("guardianPlayerLinks")
                 .withIndex("by_guardian_and_player", (q) =>
                   q
-                    .eq("guardianIdentityId", guardian!._id)
+                    .eq("guardianIdentityId", guardian?._id)
                     .eq(
                       "playerIdentityId",
                       playerIdentityId as Id<"playerIdentities">
@@ -1961,7 +1966,7 @@ export const syncFunctionalRolesFromInvitation = mutation({
                   "[syncFunctionalRolesFromInvitation] Link already exists for player:",
                   playerIdentityId
                 );
-                playersLinked++;
+                playersLinked += 1;
                 continue;
               }
 
@@ -1978,7 +1983,7 @@ export const syncFunctionalRolesFromInvitation = mutation({
                 updatedAt: Date.now(),
               });
 
-              playersLinked++;
+              playersLinked += 1;
               console.log(
                 "[syncFunctionalRolesFromInvitation] Created guardian-player link:",
                 guardian._id,
@@ -2077,7 +2082,7 @@ export const switchActiveFunctionalRole = mutation({
   handler: async (ctx, args) => {
     // Get current user from auth context
     const identity = await ctx.auth.getUserIdentity();
-    if (!(identity && identity.email)) {
+    if (!identity?.email) {
       throw new Error("Not authenticated");
     }
 
@@ -2170,7 +2175,7 @@ export const getActiveFunctionalRole = query({
   handler: async (ctx, args) => {
     // Get current user from auth context
     const identity = await ctx.auth.getUserIdentity();
-    if (!(identity && identity.email)) {
+    if (!identity?.email) {
       return null;
     }
 
@@ -2293,7 +2298,7 @@ export const getMembersForAllOrganizations = query({
   handler: async (ctx) => {
     // Get current user from auth context
     const identity = await ctx.auth.getUserIdentity();
-    if (!(identity && identity.email)) {
+    if (!identity?.email) {
       return [];
     }
 
@@ -2429,7 +2434,7 @@ export const requestFunctionalRole = mutation({
   handler: async (ctx, args) => {
     // Get current user from auth context
     const identity = await ctx.auth.getUserIdentity();
-    if (!(identity && identity.email)) {
+    if (!identity?.email) {
       throw new Error("Not authenticated");
     }
 
@@ -2538,7 +2543,7 @@ export const cancelFunctionalRoleRequest = mutation({
   handler: async (ctx, args) => {
     // Get current user from auth context
     const identity = await ctx.auth.getUserIdentity();
-    if (!(identity && identity.email)) {
+    if (!identity?.email) {
       throw new Error("Not authenticated");
     }
 
@@ -2965,7 +2970,7 @@ export const resendInvitation = mutation({
     // Get current user for resend tracking
     const identity = await ctx.auth.getUserIdentity();
     let currentUser = null;
-    if (identity && identity.email) {
+    if (identity?.email) {
       currentUser = await ctx.runQuery(components.betterAuth.adapter.findOne, {
         model: "user",
         where: [
@@ -3006,7 +3011,7 @@ export const resendInvitation = mutation({
     // Schedule action to resend email
     // Normalize SITE_URL to remove trailing slash
     const siteUrl = (process.env.SITE_URL ?? "http://localhost:3000").replace(
-      /\/+$/,
+      TRAILING_SLASH_REGEX,
       ""
     );
     const inviteLink = `${siteUrl}/orgs/accept-invitation/${args.invitationId}`;
@@ -3166,7 +3171,7 @@ export const transferOwnership = mutation({
   handler: async (ctx, args) => {
     // Get current user from auth context
     const identity = await ctx.auth.getUserIdentity();
-    if (!(identity && identity.email)) {
+    if (!identity?.email) {
       throw new Error("Not authenticated");
     }
 
@@ -3794,7 +3799,7 @@ export const removeFromOrganization = mutation({
   handler: async (ctx, args) => {
     // Permission check: must be owner or admin
     const identity = await ctx.auth.getUserIdentity();
-    if (!(identity && identity.email)) {
+    if (!identity?.email) {
       return { success: false, error: "Not authenticated" };
     }
 

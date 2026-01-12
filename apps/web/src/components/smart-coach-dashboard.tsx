@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
+import { FABQuickActions } from "@/components/quick-actions/fab-variant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -148,6 +149,35 @@ export function SmartCoachDashboard({
     calculateTeamAnalytics();
     generateCorrelationInsights();
   }, [players, coachTeams, isClubView]);
+
+  // Stable callback wrappers for Quick Actions (prevents infinite re-registration)
+  const handleAssessPlayers = useCallback(() => {
+    onAssessPlayers?.();
+  }, [onAssessPlayers]);
+
+  const handleViewAnalytics = useCallback(() => {
+    onViewAnalytics?.();
+  }, [onViewAnalytics]);
+
+  const handleVoiceNotes = useCallback(() => {
+    onViewVoiceNotes?.();
+  }, [onViewVoiceNotes]);
+
+  const handleInjuries = useCallback(() => {
+    onViewInjuries?.();
+  }, [onViewInjuries]);
+
+  const handleGoals = useCallback(() => {
+    onViewGoals?.();
+  }, [onViewGoals]);
+
+  const handleMedical = useCallback(() => {
+    onViewMedical?.();
+  }, [onViewMedical]);
+
+  const handleMatchDay = useCallback(() => {
+    onViewMatchDay?.();
+  }, [onViewMatchDay]);
 
   // Helper to get all teams for a player
   const getPlayerTeams = (player: any): string[] => {
@@ -556,6 +586,18 @@ export function SmartCoachDashboard({
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {/* Quick Actions - Connects header buttons to handler functions */}
+      <FABQuickActions
+        onAssessPlayers={handleAssessPlayers}
+        onGenerateSessionPlan={handleGenerateSessionPlan}
+        onGoals={handleGoals}
+        onInjuries={handleInjuries}
+        onMatchDay={handleMatchDay}
+        onMedical={handleMedical}
+        onViewAnalytics={handleViewAnalytics}
+        onVoiceNotes={handleVoiceNotes}
+      />
+
       {/* My Teams Section */}
       <OrgThemedGradient
         className="rounded-lg p-4 shadow-md md:p-6"

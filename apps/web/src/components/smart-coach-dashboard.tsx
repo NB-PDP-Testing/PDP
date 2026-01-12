@@ -36,7 +36,7 @@ import {
   shareViaWhatsApp,
 } from "@/lib/pdf-generator";
 
-interface TeamAnalytics {
+type TeamAnalytics = {
   teamId: string;
   teamName: string;
   playerCount: number;
@@ -47,21 +47,21 @@ interface TeamAnalytics {
   attendanceIssues: number;
   topPerformers: string[];
   needsAttention: string[];
-}
+};
 
-interface CorrelationInsight {
+type CorrelationInsight = {
   type: "attendance" | "improvement" | "position";
   message: string;
   severity: "info" | "warning" | "success";
-}
+};
 
-interface TeamData {
+type TeamData = {
   _id: string;
   name: string;
   coachNotes?: string;
-}
+};
 
-interface SmartCoachDashboardProps {
+type SmartCoachDashboardProps = {
   players: any[];
   allPlayers?: any[]; // Unfiltered list for stat counts - if not provided, uses players
   coachTeams?: string[];
@@ -81,7 +81,7 @@ interface SmartCoachDashboardProps {
   selectedTeamData?: TeamData | null; // Team data with coachNotes
   onSaveTeamNote?: (teamId: string, note: string) => Promise<boolean>;
   isClubView?: boolean;
-}
+};
 
 export function SmartCoachDashboard({
   players,
@@ -126,7 +126,9 @@ export function SmartCoachDashboard({
 
   // Handle saving team note
   const handleSaveTeamNote = async () => {
-    if (!(selectedTeamData && newTeamNote.trim() && onSaveTeamNote)) return;
+    if (!(selectedTeamData && newTeamNote.trim() && onSaveTeamNote)) {
+      return;
+    }
 
     setSavingTeamNote(true);
     try {
@@ -146,7 +148,7 @@ export function SmartCoachDashboard({
   useEffect(() => {
     calculateTeamAnalytics();
     generateCorrelationInsights();
-  }, [players, coachTeams]);
+  }, [calculateTeamAnalytics, generateCorrelationInsights]);
 
   // Helper to get all teams for a player
   const getPlayerTeams = (player: any): string[] => {
@@ -243,7 +245,8 @@ export function SmartCoachDashboard({
       // Count attendance issues (<70%)
       const attendanceIssues = teamPlayers.filter((p) => {
         const trainPct = Number.parseInt(
-          (p.attendance?.training as string) || "100"
+          (p.attendance?.training as string) || "100",
+          10
         );
         return trainPct < 70;
       }).length;
@@ -259,7 +262,8 @@ export function SmartCoachDashboard({
         .filter((p) => {
           const avgSkill = calculatePlayerAvgSkill(p);
           const trainPct = Number.parseInt(
-            (p.attendance?.training as string) || "100"
+            (p.attendance?.training as string) || "100",
+            10
           );
           return avgSkill < 2.5 || trainPct < 70;
         })
@@ -289,7 +293,9 @@ export function SmartCoachDashboard({
   };
 
   const calculateSkillAverages = (teamPlayers: any[]) => {
-    if (teamPlayers.length === 0) return {};
+    if (teamPlayers.length === 0) {
+      return {};
+    }
     const skillKeys = Object.keys(teamPlayers[0].skills || {}).filter(
       (k) => k !== "kickingDistanceMax"
     );
@@ -311,7 +317,9 @@ export function SmartCoachDashboard({
     const skillValues = Object.values(skills).filter(
       (v) => typeof v === "number"
     ) as number[];
-    if (skillValues.length === 0) return 0;
+    if (skillValues.length === 0) {
+      return 0;
+    }
     return skillValues.reduce((a, b) => a + b, 0) / skillValues.length;
   };
 
@@ -371,12 +379,12 @@ export function SmartCoachDashboard({
     const highAttendance = allPlayers.filter(
       (p) =>
         p.attendance &&
-        Number.parseInt((p.attendance.training as string) || "100") >= 90
+        Number.parseInt((p.attendance.training as string) || "100", 10) >= 90
     );
     const lowAttendance = allPlayers.filter(
       (p) =>
         p.attendance &&
-        Number.parseInt((p.attendance.training as string) || "100") < 60
+        Number.parseInt((p.attendance.training as string) || "100", 10) < 60
     );
 
     if (highAttendance.length > 0 && lowAttendance.length > 0) {
@@ -551,14 +559,46 @@ export function SmartCoachDashboard({
     <div className="space-y-4 md:space-y-6">
       {/* Quick Actions - Connects header buttons to handler functions */}
       <FABQuickActions
-        onAssessPlayers={onAssessPlayers || (() => {})}
+        onAssessPlayers={
+          onAssessPlayers ||
+          (() => {
+            /* no-op */
+          })
+        }
         onGenerateSessionPlan={handleGenerateSessionPlan}
-        onGoals={onViewGoals || (() => {})}
-        onInjuries={onViewInjuries || (() => {})}
-        onMatchDay={onViewMatchDay || (() => {})}
-        onMedical={onViewMedical || (() => {})}
-        onViewAnalytics={() => {}}
-        onVoiceNotes={onViewVoiceNotes || (() => {})}
+        onGoals={
+          onViewGoals ||
+          (() => {
+            /* no-op */
+          })
+        }
+        onInjuries={
+          onViewInjuries ||
+          (() => {
+            /* no-op */
+          })
+        }
+        onMatchDay={
+          onViewMatchDay ||
+          (() => {
+            /* no-op */
+          })
+        }
+        onMedical={
+          onViewMedical ||
+          (() => {
+            /* no-op */
+          })
+        }
+        onViewAnalytics={() => {
+          /* no-op */
+        }}
+        onVoiceNotes={
+          onViewVoiceNotes ||
+          (() => {
+            /* no-op */
+          })
+        }
       />
 
       {/* My Teams Section */}
@@ -759,7 +799,7 @@ export function SmartCoachDashboard({
       <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
         {teamAnalytics
           .filter((team) => !selectedTeam || team.teamName === selectedTeam)
-          .map((team, idx) => (
+          .map((team, _idx) => (
             <Card
               className={`cursor-pointer transition-all duration-300 hover:shadow-xl ${
                 selectedTeam === team.teamName

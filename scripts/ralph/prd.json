@@ -1,0 +1,506 @@
+{
+  "project": "Coach-Parent Messaging",
+  "branchName": "ralph/coach-parent-messaging",
+  "description": "Secure, auditable coach-to-parent messaging system with voice note insight integration. See docs/features/PRD_COACH_PARENT_MESSAGING.md for full specification.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add coachParentMessages table to schema",
+      "description": "As a developer, I need the main message storage table.",
+      "acceptanceCriteria": [
+        "Add coachParentMessages table to packages/backend/convex/schema.ts after the voiceNotes table (around line 900)",
+        "Fields: messageType (v.union direct/insight), organizationId (v.string), teamId (v.optional string), senderId (v.string), senderName (v.string), recipientGuardianIds (v.array of v.id guardianIdentities), playerIdentityId (v.id playerIdentities), playerName (v.string), subject (v.string), body (v.string), context (v.optional object with sessionType/sessionDate/developmentArea), sourceVoiceNoteId (v.optional id voiceNotes), sourceInsightId (v.optional string), originalInsight (v.optional object), discussionPrompts (v.optional array string), actionItems (v.optional array string), deliveryMethod (v.union in_app/email/both), priority (v.union normal/high), status (v.union draft/pending_approval/sent/delivered/failed), createdAt (v.number), sentAt (v.optional number), updatedAt (v.number)",
+        "Add indexes: by_org, by_sender, by_player, by_status, by_org_and_status, by_sender_and_createdAt, by_voiceNote",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Follow index naming pattern from invitationEvents table. Use v.id() for foreign keys, v.string() for Better Auth IDs."
+    },
+    {
+      "id": "US-002",
+      "title": "Add messageRecipients table to schema",
+      "description": "As a developer, I need per-recipient delivery tracking.",
+      "acceptanceCriteria": [
+        "Add messageRecipients table to packages/backend/convex/schema.ts after coachParentMessages",
+        "Fields: messageId (v.id coachParentMessages), guardianIdentityId (v.id guardianIdentities), guardianUserId (v.optional string for Better Auth user), deliveryStatus (v.union pending/sent/delivered/failed/bounced), deliveryMethod (v.union in_app/email), emailSentAt/emailDeliveredAt/emailOpenedAt/emailBouncedAt (all v.optional number), emailBounceReason (v.optional string), inAppNotifiedAt/inAppViewedAt (v.optional number), acknowledgedAt (v.optional number), acknowledgmentNote (v.optional string), createdAt/updatedAt (v.number)",
+        "Add indexes: by_message, by_guardian, by_guardianUser, by_status, by_guardian_and_viewed",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "This tracks delivery per recipient since a message can go to multiple guardians."
+    },
+    {
+      "id": "US-003",
+      "title": "Add messageAuditLog table to schema",
+      "description": "As a developer, I need compliance audit logging for messages.",
+      "acceptanceCriteria": [
+        "Add messageAuditLog table to packages/backend/convex/schema.ts after messageRecipients",
+        "Fields: messageId (v.id coachParentMessages), organizationId (v.string), action (v.union created/edited/sent/viewed/acknowledged/deleted/exported/flagged/reviewed), actorId (v.string), actorType (v.union coach/parent/admin/system), actorName (v.string), details (v.optional object with previousContent/newContent/reason/ipAddress/userAgent), timestamp (v.number)",
+        "Add indexes: by_message, by_org, by_actor, by_org_and_timestamp, by_action",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Follow the invitationEvents audit pattern from schema.ts lines 1210-1250."
+    },
+    {
+      "id": "US-004",
+      "title": "Add orgMessagingSettings table to schema",
+      "description": "As a developer, I need organization-level messaging configuration.",
+      "acceptanceCriteria": [
+        "Add orgMessagingSettings table to packages/backend/convex/schema.ts after messageAuditLog",
+        "Fields: organizationId (v.string), messagingEnabled (v.boolean), voiceNoteInsightsEnabled (v.boolean), defaultDeliveryMethod (v.union in_app/email/both), allowCoachToChangeDelivery (v.boolean), requireSubject (v.boolean), maxMessageLength (v.optional number), requireAdminApproval (v.boolean), retentionDays (v.optional number), enableDetailedAuditLog (v.boolean), createdAt/updatedAt (v.number)",
+        "Add index: by_org",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Default values will be set when org first sends a message if settings don't exist."
+    },
+    {
+      "id": "US-005",
+      "title": "Create coachParentMessages.ts with helper functions",
+      "description": "As a developer, I need the base file with auth helpers.",
+      "acceptanceCriteria": [
+        "Create new file: packages/backend/convex/models/coachParentMessages.ts",
+        "Add imports: v from convex/values, query/mutation from _generated/server, authComponent from auth, components from _generated/api",
+        "Add helper function getCoachAssignmentForOrg(ctx, userId, orgId) that queries coachAssignments with by_user_and_org index",
+        "Add helper function getGuardiansForPlayer(ctx, playerIdentityId) that queries guardianPlayerLinks with by_playerIdentityId index and fetches full guardian identities",
+        "Add helper function logAuditEvent(ctx, data) that inserts into messageAuditLog table",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Reference models/members.ts and models/guardianPlayerLinks.ts for auth patterns."
+    },
+    {
+      "id": "US-006",
+      "title": "Implement createDirectMessage mutation",
+      "description": "As a coach, I want to create a direct message to a parent.",
+      "acceptanceCriteria": [
+        "Add createDirectMessage mutation to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: organizationId, teamId (optional), playerIdentityId, recipientGuardianIds (array), subject, body, context (optional object), deliveryMethod, priority (default normal), sendImmediately (optional boolean)",
+        "Verify user is authenticated via authComponent.safeGetAuthUser",
+        "Verify coach has assignment in this org using getCoachAssignmentForOrg helper",
+        "Validate each recipient is a guardian of the player using guardianPlayerLinks table",
+        "Insert message with status 'draft' or 'sent' based on sendImmediately flag",
+        "Insert messageRecipients record for each guardian with status 'pending'",
+        "Call logAuditEvent with action 'created'",
+        "Return the message ID (v.id coachParentMessages)",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Get senderName and playerName by fetching user and playerIdentities records."
+    },
+    {
+      "id": "US-007",
+      "title": "Implement sendMessage mutation",
+      "description": "As a coach, I want to send a drafted message.",
+      "acceptanceCriteria": [
+        "Add sendMessage mutation to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: messageId (v.id coachParentMessages)",
+        "Verify user is authenticated and is the sender of this message",
+        "Update message: status to 'sent', sentAt to Date.now()",
+        "Update all messageRecipients: deliveryStatus to 'pending'",
+        "Call logAuditEvent with action 'sent'",
+        "Return v.null()",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Email scheduling will be added in a later story. For now just update statuses."
+    },
+    {
+      "id": "US-008",
+      "title": "Implement getMyMessages query for coaches",
+      "description": "As a coach, I want to see messages I've sent.",
+      "acceptanceCriteria": [
+        "Add getMyMessages query to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: organizationId (v.string), status (v.optional string), limit (v.optional number, default 50)",
+        "Get current user ID from authComponent.safeGetAuthUser",
+        "Query coachParentMessages with by_sender_and_createdAt index filtered by senderId and organizationId",
+        "If status arg provided, filter by status",
+        "Order by createdAt descending, take limit",
+        "For each message, count recipients and how many have inAppViewedAt set",
+        "Return array of messages with recipientCount and viewedCount fields added",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Use by_sender_and_createdAt index. The recipient stats come from messageRecipients table."
+    },
+    {
+      "id": "US-009",
+      "title": "Implement getMessagesForParent query",
+      "description": "As a parent, I want to see messages from coaches about my children.",
+      "acceptanceCriteria": [
+        "Add getMessagesForParent query to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: organizationId (v.optional string), unreadOnly (v.optional boolean), limit (v.optional number, default 50)",
+        "Get current user and find their guardianIdentity by matching userId in guardianIdentities table with by_userId index",
+        "Query messageRecipients with by_guardian index for this guardianIdentityId",
+        "If unreadOnly, filter where inAppViewedAt is undefined",
+        "For each recipient record, fetch the full message from coachParentMessages",
+        "If organizationId provided, filter messages by that org",
+        "Order by message createdAt descending",
+        "Return array with message, recipient record, and isUnread boolean",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Parent must have a guardianIdentity linked to their Better Auth userId."
+    },
+    {
+      "id": "US-010",
+      "title": "Implement markMessageViewed mutation",
+      "description": "As a parent, viewing a message should update the read status.",
+      "acceptanceCriteria": [
+        "Add markMessageViewed mutation to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: messageId (v.id coachParentMessages)",
+        "Get current user and their guardianIdentityId",
+        "Find the messageRecipient record using by_message_and_recipient composite or by_message then filter",
+        "If inAppViewedAt is already set, return early (no double-logging)",
+        "Patch the recipient: inAppViewedAt = Date.now()",
+        "Call logAuditEvent with action 'viewed', actorType 'parent'",
+        "Return v.null()",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Add by_message_and_recipient index to messageRecipients if needed for efficient lookup."
+    },
+    {
+      "id": "US-011",
+      "title": "Implement acknowledgeMessage mutation",
+      "description": "As a parent, I want to acknowledge a message from a coach.",
+      "acceptanceCriteria": [
+        "Add acknowledgeMessage mutation to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: messageId (v.id coachParentMessages), note (v.optional string)",
+        "Get current user and their guardianIdentityId",
+        "Find the messageRecipient record for this message and guardian",
+        "Patch: acknowledgedAt = Date.now(), acknowledgmentNote = note if provided",
+        "Call logAuditEvent with action 'acknowledged', actorType 'parent'",
+        "Return v.null()",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "Acknowledgment is optional - parent can view without acknowledging."
+    },
+    {
+      "id": "US-012",
+      "title": "Implement getUnreadCount query",
+      "description": "As a parent, I want to see how many unread messages I have for badge display.",
+      "acceptanceCriteria": [
+        "Add getUnreadCount query to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: organizationId (v.optional string)",
+        "Get current user and their guardianIdentityId",
+        "Query messageRecipients with by_guardian index",
+        "Filter where inAppViewedAt is undefined",
+        "If organizationId provided, fetch each message and filter by org",
+        "Return count as v.number()",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "This powers the unread badge in navigation. Keep it efficient."
+    },
+    {
+      "id": "US-013",
+      "title": "Create coach message history page",
+      "description": "As a coach, I want to see all messages I've sent.",
+      "acceptanceCriteria": [
+        "Create folder: apps/web/src/app/orgs/[orgId]/coach/messages/",
+        "Create page.tsx in that folder",
+        "Use useQuery with api.models.coachParentMessages.getMyMessages",
+        "Display list of messages with: subject, player name, recipient count, date, status badge",
+        "Add filter dropdown for status (All, Draft, Sent, Delivered)",
+        "Add New Message button linking to ./compose",
+        "Click on message row navigates to ./[messageId]",
+        "Use Card component for each message row",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "Reference apps/web/src/app/orgs/[orgId]/coach/voice-notes/page.tsx for page structure patterns."
+    },
+    {
+      "id": "US-014",
+      "title": "Create coach message composer page",
+      "description": "As a coach, I want a page to compose new messages to parents.",
+      "acceptanceCriteria": [
+        "Create page: apps/web/src/app/orgs/[orgId]/coach/messages/compose/page.tsx",
+        "Player selector: fetch players from coach's assigned teams using existing queries",
+        "When player selected, fetch their guardians using getGuardiansForPlayer",
+        "Recipient checkboxes showing guardian name and relationship (e.g. 'Mary Smith (Mother)')",
+        "Subject input (required), Body textarea with placeholder",
+        "Optional context section: session type dropdown, date picker, development area dropdown",
+        "Delivery method radio: In-app only, Email only, Both (default)",
+        "Submit calls createDirectMessage mutation with sendImmediately: true",
+        "On success, redirect to ../messages with success toast",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "Use existing hooks: useQuery for player data. Reference voice-notes-dashboard.tsx for form patterns."
+    },
+    {
+      "id": "US-015",
+      "title": "Create parent message inbox page",
+      "description": "As a parent, I want to see all messages from coaches.",
+      "acceptanceCriteria": [
+        "Update existing file: apps/web/src/app/orgs/[orgId]/parents/messages/page.tsx (replace placeholder)",
+        "Use useQuery with api.models.coachParentMessages.getMessagesForParent",
+        "Display list with: subject, coach name (senderName), player name, date, unread indicator (blue dot)",
+        "Unread messages have blue dot or highlighted background",
+        "Add toggle filter for 'Unread only'",
+        "Click on message navigates to ./[messageId]",
+        "Empty state if no messages: 'No messages yet. Coaches will send updates about your children here.'",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "This file already exists with placeholder. MVP pattern: Use MessageSquare icon, blue left border (border-l-4 border-blue-500) for message items, card with shadow-md. See PRD MVP Mockup Reference section."
+    },
+    {
+      "id": "US-016",
+      "title": "Create parent message detail page",
+      "description": "As a parent, I want to read a message and acknowledge it.",
+      "acceptanceCriteria": [
+        "Create page: apps/web/src/app/orgs/[orgId]/parents/messages/[messageId]/page.tsx",
+        "Fetch message by ID (add getMessageById query if needed)",
+        "Call markMessageViewed mutation in useEffect on mount",
+        "Display: subject as heading, body content, coach name, player name, date, context info",
+        "If discussionPrompts array exists, display in a highlighted section with purple background (bg-purple-50)",
+        "If actionItems array exists, display as checklist",
+        "Acknowledgment section: optional textarea for note, 'Acknowledge' button",
+        "Button calls acknowledgeMessage mutation, shows success toast",
+        "Back button to ../messages",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "Mark as viewed immediately on page load. MVP design: Discussion prompts use purple gradient like AI Practice Assistant. Card with shadow-md, header with gradient. See PRD MVP Mockup Reference."
+    },
+    {
+      "id": "US-017",
+      "title": "Add unread badge to parent navigation",
+      "description": "As a parent, I want to see unread message count in navigation.",
+      "acceptanceCriteria": [
+        "Find parent navigation component (likely in parents layout or dashboard)",
+        "Add Messages link to navigation if not present, using MessageSquare icon from lucide-react",
+        "Use useQuery with api.models.coachParentMessages.getUnreadCount",
+        "Display red badge with count next to Messages link when count > 0",
+        "Badge hidden when count is 0",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "Check apps/web/src/app/orgs/[orgId]/parents/ for layout.tsx or navigation component."
+    },
+    {
+      "id": "US-018",
+      "title": "Add Messages link to coach navigation",
+      "description": "As a coach, I want quick access to messaging from navigation.",
+      "acceptanceCriteria": [
+        "Find coach navigation component (likely in coach layout or dashboard quick actions)",
+        "Add Messages link using MessageSquare icon from lucide-react",
+        "Links to /orgs/[orgId]/coach/messages",
+        "Position near Voice Notes link for consistency",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "Check apps/web/src/app/orgs/[orgId]/coach/ for layout.tsx or SmartCoachDashboard component."
+    },
+    {
+      "id": "US-019",
+      "title": "Add Share with Parent button to voice notes insight panel",
+      "description": "As a coach, I want to share an insight with a parent directly from voice notes.",
+      "acceptanceCriteria": [
+        "Edit file: apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx",
+        "Find the insight action buttons section (near Apply/Dismiss buttons)",
+        "Add new button: 'Share with Parent' with Send icon from lucide-react",
+        "Button only appears if insight has a playerIdentityId (player was identified)",
+        "OnClick navigates to: /orgs/${orgId}/coach/messages/compose?type=insight&voiceNoteId=${noteId}&insightId=${insight.id}&playerIdentityId=${insight.playerIdentityId}",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "The compose page will read these URL params and pre-fill the form (next story)."
+    },
+    {
+      "id": "US-020",
+      "title": "Update compose page to handle insight pre-fill from URL params",
+      "description": "As a coach, the compose page should pre-fill when coming from voice notes.",
+      "acceptanceCriteria": [
+        "Edit: apps/web/src/app/orgs/[orgId]/coach/messages/compose/page.tsx",
+        "Read URL search params: type, voiceNoteId, insightId, playerIdentityId",
+        "If type=insight, fetch the voice note by ID",
+        "Find the matching insight in the voiceNote.insights array by insightId",
+        "Pre-select the player from playerIdentityId",
+        "Pre-fill subject with insight.title",
+        "Pre-fill body with insight.description plus insight.recommendedUpdate if present",
+        "Show read-only card displaying original insight for reference",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "Use useSearchParams from next/navigation. Add a query to fetch voice note by ID if needed."
+    },
+    {
+      "id": "US-021",
+      "title": "Implement getOrganizationMessages admin query",
+      "description": "As an admin, I want to see all messages in my organization.",
+      "acceptanceCriteria": [
+        "Add getOrganizationMessages query to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: organizationId (v.string), limit (v.optional number, default 100)",
+        "Verify current user has admin or owner role in this org via member.functionalRoles or Better Auth role",
+        "Query coachParentMessages with by_org index",
+        "Order by createdAt descending, take limit",
+        "Return array of messages with sender and recipient summary info",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "Admin check: member.role === 'owner' || member.role === 'admin' || member.functionalRoles?.includes('admin')"
+    },
+    {
+      "id": "US-022",
+      "title": "Implement getMessageAuditLog admin query",
+      "description": "As an admin, I want to see the audit trail for messages.",
+      "acceptanceCriteria": [
+        "Add getMessageAuditLog query to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: organizationId (v.string), messageId (v.optional id), limit (v.optional number, default 200)",
+        "Verify current user is org admin/owner",
+        "If messageId provided, query messageAuditLog with by_message index",
+        "Otherwise query with by_org_and_timestamp index for all org audit entries",
+        "Order by timestamp descending, take limit",
+        "Return array of audit log entries",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "This is for compliance review. Admins need to see who sent what and when."
+    },
+    {
+      "id": "US-023",
+      "title": "Create admin messaging dashboard page",
+      "description": "As an admin, I want an overview of all messaging activity.",
+      "acceptanceCriteria": [
+        "Create folder: apps/web/src/app/orgs/[orgId]/admin/messaging/",
+        "Create page.tsx in that folder",
+        "Use useQuery with api.models.coachParentMessages.getOrganizationMessages",
+        "Show stats cards: Total Messages, Messages This Week (calculate from createdAt)",
+        "Display table of messages with columns: Coach, Player, Recipient(s), Date, Status",
+        "Link to audit log view: ./audit",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "Reference apps/web/src/app/orgs/[orgId]/admin/ for existing admin page patterns."
+    },
+    {
+      "id": "US-024",
+      "title": "Create admin audit log page",
+      "description": "As an admin, I want to review the message audit trail.",
+      "acceptanceCriteria": [
+        "Create page: apps/web/src/app/orgs/[orgId]/admin/messaging/audit/page.tsx",
+        "Use useQuery with api.models.coachParentMessages.getMessageAuditLog",
+        "Display table: Timestamp, Action, Actor, Message Subject",
+        "Click on row shows full audit entry details in a sheet or dialog",
+        "Back link to ../messaging",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "Format timestamp nicely. Action types: created, sent, viewed, acknowledged."
+    },
+    {
+      "id": "US-025",
+      "title": "Add email template for coach messages",
+      "description": "As a parent, I want to receive nicely formatted email notifications.",
+      "acceptanceCriteria": [
+        "Edit file: packages/backend/convex/utils/email.ts",
+        "Add new function: buildCoachMessageEmailHtml(data) following sendOrganizationInvitation pattern",
+        "Template includes: subject, body, coach name, player name, context info if present",
+        "Include 'View in PlayerARC' CTA button linking to message detail page",
+        "Include organization name in footer",
+        "Add corresponding buildCoachMessageEmailText() for plain text version",
+        "Add sendCoachMessageNotification() function that calls Resend API",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": "Follow exact pattern from sendOrganizationInvitation() around line 72. Use RESEND_API_KEY env var."
+    },
+    {
+      "id": "US-026",
+      "title": "Create messaging action for email delivery",
+      "description": "As a system, I need to send email notifications for messages.",
+      "acceptanceCriteria": [
+        "Create new file: packages/backend/convex/actions/messaging.ts",
+        "Add sendMessageEmail action with args: messageId, recipientId (messageRecipients ID)",
+        "Fetch the message and recipient records",
+        "Fetch the guardian's email from guardianIdentities table",
+        "If guardian has no email, skip and log warning",
+        "Call sendCoachMessageNotification from utils/email.ts",
+        "Update messageRecipient: emailSentAt = Date.now(), deliveryStatus = 'sent'",
+        "If email fails, set deliveryStatus = 'failed' and log error",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": "Actions can't access ctx.db directly - use ctx.runQuery and ctx.runMutation. Reference actions/invitations.ts."
+    },
+    {
+      "id": "US-027",
+      "title": "Schedule email delivery when message is sent",
+      "description": "As a system, sending a message should trigger email delivery.",
+      "acceptanceCriteria": [
+        "Edit sendMessage mutation in packages/backend/convex/models/coachParentMessages.ts",
+        "After updating message status to 'sent', get the message's deliveryMethod",
+        "If deliveryMethod is 'email' or 'both', for each recipient record:",
+        "Use ctx.scheduler.runAfter(0, internal.actions.messaging.sendMessageEmail, { messageId, recipientId })",
+        "Import internal from _generated/api at top of file",
+        "Make the sendMessageEmail action internal (export const sendMessageEmail = internalAction)",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": "Use internal.actions.messaging.sendMessageEmail pattern. The action must be exported as internalAction."
+    },
+    {
+      "id": "US-028",
+      "title": "Add Messaging link to admin navigation",
+      "description": "As an admin, I want quick access to messaging dashboard.",
+      "acceptanceCriteria": [
+        "Find admin navigation component (likely in admin layout.tsx)",
+        "Add Messaging link using MessageSquare icon from lucide-react",
+        "Links to /orgs/[orgId]/admin/messaging",
+        "Position in management section of navigation",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": "Check apps/web/src/app/orgs/[orgId]/admin/ for layout.tsx or sidebar component."
+    }
+  ]
+}

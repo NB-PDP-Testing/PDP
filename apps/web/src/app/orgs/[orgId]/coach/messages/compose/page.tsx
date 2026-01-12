@@ -48,10 +48,12 @@ export default function ComposeMessagePage() {
 
   // Get URL params for insight pre-fill (US-020)
   const urlType = searchParams?.get("type");
-  // TODO US-020: These will be used for voice note insight pre-fill
-  const _urlVoiceNoteId = searchParams?.get("voiceNoteId");
-  const _urlInsightId = searchParams?.get("insightId");
-  const urlPlayerIdentityId = searchParams?.get("playerIdentityId");
+  const urlVoiceNoteId = searchParams?.get(
+    "voiceNoteId"
+  ) as Id<"voiceNotes"> | null;
+  const urlInsightId = searchParams?.get("insightId");
+  // Not currently used - player is pre-selected from insight data
+  const _urlPlayerIdentityId = searchParams?.get("playerIdentityId");
 
   // Form state
   const [selectedPlayerId, setSelectedPlayerId] =
@@ -86,6 +88,14 @@ export default function ComposeMessagePage() {
     selectedPlayerId ? { playerIdentityId: selectedPlayerId } : "skip"
   );
 
+  // Fetch voice note for insight pre-fill (US-020)
+  const voiceNoteData = useQuery(
+    api.models.voiceNotes.getVoiceNoteById,
+    urlType === "insight" && urlVoiceNoteId
+      ? { noteId: urlVoiceNoteId }
+      : "skip"
+  );
+
   // Create message mutation
   const createDirectMessage = useMutation(
     api.models.coachParentMessages.createDirectMessage
@@ -93,16 +103,32 @@ export default function ComposeMessagePage() {
 
   // Handle URL param pre-fill for insight sharing (US-020)
   useEffect(() => {
-    if (
-      urlType === "insight" &&
-      urlPlayerIdentityId &&
-      !selectedPlayerId &&
-      allPlayersData
-    ) {
-      // Pre-select the player
-      setSelectedPlayerId(urlPlayerIdentityId as Id<"playerIdentities">);
+    if (urlType === "insight" && voiceNoteData && urlInsightId) {
+      // Find the matching insight
+      const insight = voiceNoteData.insights.find((i) => i.id === urlInsightId);
+
+      if (insight) {
+        // Pre-fill subject
+        if (!subject) {
+          setSubject(insight.title);
+        }
+
+        // Pre-fill body with description and recommended update
+        if (!body) {
+          let bodyText = insight.description;
+          if (insight.recommendedUpdate) {
+            bodyText += `\n\n${insight.recommendedUpdate}`;
+          }
+          setBody(bodyText);
+        }
+
+        // Pre-select the player
+        if (insight.playerIdentityId && !selectedPlayerId) {
+          setSelectedPlayerId(insight.playerIdentityId);
+        }
+      }
     }
-  }, [urlType, urlPlayerIdentityId, selectedPlayerId, allPlayersData]);
+  }, [urlType, voiceNoteData, urlInsightId, subject, body, selectedPlayerId]);
 
   // Handle guardian selection
   const toggleGuardian = (guardianId: Id<"guardianIdentities">) => {
@@ -327,6 +353,63 @@ export default function ComposeMessagePage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Insight Reference Card (US-020) */}
+        {urlType === "insight" &&
+          voiceNoteData &&
+          urlInsightId &&
+          voiceNoteData.insights.find((i) => i.id === urlInsightId) && (
+            <Card className="border-purple-200 bg-purple-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-purple-900">
+                  <MessageSquare size={20} />
+                  Voice Note Insight Reference
+                </CardTitle>
+                <CardDescription className="text-purple-700">
+                  This message was pre-filled from a voice note insight
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const insight = voiceNoteData.insights.find(
+                    (i) => i.id === urlInsightId
+                  );
+                  return insight ? (
+                    <div className="space-y-3">
+                      <div>
+                        <p className="mb-1 font-semibold text-purple-900">
+                          {insight.title}
+                        </p>
+                        <p className="text-purple-800 text-sm">
+                          {insight.description}
+                        </p>
+                      </div>
+                      {insight.recommendedUpdate && (
+                        <div className="rounded-lg border-2 border-purple-300 bg-white p-3">
+                          <p className="mb-1 font-medium text-purple-900 text-xs uppercase">
+                            Recommended Action
+                          </p>
+                          <p className="text-purple-800 text-sm">
+                            {insight.recommendedUpdate}
+                          </p>
+                        </div>
+                      )}
+                      {insight.category && (
+                        <div className="flex gap-2">
+                          <Badge
+                            className="bg-purple-200 text-purple-900"
+                            variant="outline"
+                          >
+                            {insight.category}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
+              </CardContent>
+            </Card>
+          )}
 
         {/* Message Content */}
         {selectedPlayerId && guardiansData && guardiansData.length > 0 && (

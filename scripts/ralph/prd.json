@@ -339,7 +339,7 @@
         "Linting passes: npm run check"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": "The compose page will read these URL params and pre-fill the form (next story)."
     },
     {

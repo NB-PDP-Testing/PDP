@@ -891,3 +891,57 @@ Started: Mon 12 Jan 2026 15:45:51 GMT
 - Linter removed components import when it wasn't used yet - had to add back
 
 ---
+## 2026-01-12 23:30 - US-022 - Implement getMessageAuditLog admin query
+**Iteration**: 7
+**Commit**: fb61dd2b8426d5ac4780aaa7ea24b9d08c087196
+**Session**: a1f2748c-4c06-4a63-bb3b-ef95b220313b
+**Status**: Complete
+
+### What was implemented
+- Added getMessageAuditLog query to coachParentMessages.ts
+- Full authentication check using authComponent.safeGetAuthUser
+- Admin authorization using isOrgAdmin helper function (reused from US-021)
+- Conditional query logic: uses by_message index if messageId provided, otherwise by_org_and_timestamp index
+- Default limit of 200 entries, configurable via args
+- Orders results by timestamp descending
+- Returns full audit log entries matching the messageAuditLog schema
+
+### Files changed
+- packages/backend/convex/models/coachParentMessages.ts (+97, -1)
+- scripts/ralph/prd.json (US-022 passes: false → true)
+
+### Quality checks
+- ✅ Type check: passed (npm run check-types)
+- ✅ Linting: passed (pre-commit hooks, only pre-existing warning in isOrgAdmin from US-021)
+- ✅ Not applicable for backend query
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Conditional index usage pattern: if/else for different indexes based on optional parameter
+- Type narrowing for optional ID parameters: use `args.messageId !== undefined` then assign to const
+- Direct return pattern avoids implicit any type issues: return query result directly instead of intermediate variable
+- Admin queries follow same pattern: auth check → admin check → query with indexes → return results
+
+**Gotchas encountered:**
+- Optional v.id parameters cause TypeScript errors when passed directly to .eq()
+- Must use explicit type check (args.messageId !== undefined) and assign to const for type narrowing
+- Using intermediate `let` variable without explicit type causes linting errors (noImplicitAnyLet)
+- Direct return from conditional branches is cleaner and avoids type issues
+
+**Dependencies found:**
+- Uses isOrgAdmin helper function from US-021 (reusable for all admin queries)
+- Uses authComponent.safeGetAuthUser for authentication
+- Queries messageAuditLog table with by_message and by_org_and_timestamp indexes
+- Return validator matches full messageAuditLog schema from US-003
+
+**What to do next**:
+- US-023: Create admin messaging dashboard page (frontend)
+- US-024: Create admin audit log page (frontend)
+- Both pages will use getOrganizationMessages and getMessageAuditLog queries
+
+**Mistakes made**:
+- Initially passed args.messageId directly to .eq() causing TypeScript error
+- Initially used intermediate variable causing linting error - refactored to direct return pattern
+
+---

@@ -915,26 +915,67 @@ export const updateInvitationMetadata = mutation({
           const rawTeams = args.metadata?.roleSpecificData?.teams || [];
           const rawPlayers = args.metadata?.suggestedPlayerLinks || [];
 
-          // Clean teams/players: remove undefined fields (Convex validators don't accept undefined, only omitted fields)
-          const teams = rawTeams.map((team: any) => {
-            const cleaned: any = {
-              id: team.id,
-              name: team.name,
-            };
-            if (team.sport !== undefined) cleaned.sport = team.sport;
-            if (team.ageGroup !== undefined) cleaned.ageGroup = team.ageGroup;
-            return cleaned;
-          });
+          // Fetch team details - metadata may store teams as IDs (strings) or full objects
+          const teams = await Promise.all(
+            rawTeams.map(async (team: any) => {
+              // If team is a string (ID), fetch the full team details
+              if (typeof team === "string") {
+                const teamData = await ctx.runQuery(
+                  components.betterAuth.adapter.findOne,
+                  {
+                    model: "team",
+                    where: [{ field: "_id", value: team, operator: "eq" }],
+                  }
+                );
+                if (teamData) {
+                  const cleaned: any = {
+                    id: teamData._id,
+                    name: teamData.name,
+                  };
+                  if (teamData.sport) cleaned.sport = teamData.sport;
+                  if (teamData.ageGroup) cleaned.ageGroup = teamData.ageGroup;
+                  return cleaned;
+                }
+                return null;
+              }
+              // Team is already an object with details
+              const cleaned: any = {
+                id: team.id,
+                name: team.name,
+              };
+              if (team.sport !== undefined) cleaned.sport = team.sport;
+              if (team.ageGroup !== undefined) cleaned.ageGroup = team.ageGroup;
+              return cleaned;
+            })
+          ).then((results) => results.filter(Boolean));
 
-          const players = rawPlayers.map((player: any) => {
-            const cleaned: any = {
-              id: player.id,
-              name: player.name,
-            };
-            if (player.ageGroup !== undefined)
-              cleaned.ageGroup = player.ageGroup;
-            return cleaned;
-          });
+          // Fetch player details - metadata may store players as IDs (strings) or full objects
+          const players = await Promise.all(
+            rawPlayers.map(async (player: any) => {
+              // If player is a string (ID), fetch the full player details
+              if (typeof player === "string") {
+                const playerData = await ctx.db.get(player as any);
+                if (playerData) {
+                  const cleaned: any = {
+                    id: playerData._id,
+                    name: `${(playerData as any).firstName} ${(playerData as any).lastName}`,
+                  };
+                  if ((playerData as any).ageGroup)
+                    cleaned.ageGroup = (playerData as any).ageGroup;
+                  return cleaned;
+                }
+                return null;
+              }
+              // Player is already an object with details
+              const cleaned: any = {
+                id: player.id,
+                name: player.name,
+              };
+              if (player.ageGroup !== undefined)
+                cleaned.ageGroup = player.ageGroup;
+              return cleaned;
+            })
+          ).then((results) => results.filter(Boolean));
 
           // Schedule action to send email
           const actionRef = (internal.actions as any).invitations
@@ -3040,8 +3081,69 @@ export const resendInvitation = mutation({
     // Extract metadata for email context (teams, players, functional roles)
     const metadata = invitationResult.metadata || {};
     const functionalRoles = metadata.suggestedFunctionalRoles || [];
-    const teams = metadata.roleSpecificData?.teams || [];
-    const players = metadata.suggestedPlayerLinks || [];
+    const rawTeams = metadata.roleSpecificData?.teams || [];
+    const rawPlayers = metadata.suggestedPlayerLinks || [];
+
+    // Fetch team details - metadata may store teams as IDs (strings) or full objects
+    const teams = await Promise.all(
+      rawTeams.map(async (team: any) => {
+        // If team is a string (ID), fetch the full team details
+        if (typeof team === "string") {
+          const teamData = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "team",
+              where: [{ field: "_id", value: team, operator: "eq" }],
+            }
+          );
+          if (teamData) {
+            const cleaned: any = {
+              id: teamData._id,
+              name: teamData.name,
+            };
+            if (teamData.sport) cleaned.sport = teamData.sport;
+            if (teamData.ageGroup) cleaned.ageGroup = teamData.ageGroup;
+            return cleaned;
+          }
+          return null;
+        }
+        // Team is already an object with details
+        const cleaned: any = {
+          id: team.id,
+          name: team.name,
+        };
+        if (team.sport !== undefined) cleaned.sport = team.sport;
+        if (team.ageGroup !== undefined) cleaned.ageGroup = team.ageGroup;
+        return cleaned;
+      })
+    ).then((results) => results.filter(Boolean));
+
+    // Fetch player details - metadata may store players as IDs (strings) or full objects
+    const players = await Promise.all(
+      rawPlayers.map(async (player: any) => {
+        // If player is a string (ID), fetch the full player details
+        if (typeof player === "string") {
+          const playerData = await ctx.db.get(player as any);
+          if (playerData) {
+            const cleaned: any = {
+              id: playerData._id,
+              name: `${(playerData as any).firstName} ${(playerData as any).lastName}`,
+            };
+            if ((playerData as any).ageGroup)
+              cleaned.ageGroup = (playerData as any).ageGroup;
+            return cleaned;
+          }
+          return null;
+        }
+        // Player is already an object with details
+        const cleaned: any = {
+          id: player.id,
+          name: player.name,
+        };
+        if (player.ageGroup !== undefined) cleaned.ageGroup = player.ageGroup;
+        return cleaned;
+      })
+    ).then((results) => results.filter(Boolean));
 
     // Schedule the action to resend email
     const actionRef = (internal.actions as any).invitations
@@ -3054,9 +3156,9 @@ export const resendInvitation = mutation({
         invitedByEmail: inviterResult?.email || "",
         organizationName: orgResult?.name || "Organization",
         inviteLink,
-        functionalRoles, // Pass functional roles from metadata
-        teams, // Pass team details for coach role
-        players, // Pass player details for parent role
+        functionalRoles,
+        teams,
+        players,
       });
     } else {
       console.warn(

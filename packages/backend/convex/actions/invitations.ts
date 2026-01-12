@@ -16,8 +16,25 @@ export const resendInvitationEmail = internalAction({
     organizationName: v.string(),
     inviteLink: v.string(),
     functionalRoles: v.optional(v.array(v.string())),
-    teams: v.optional(v.any()),
-    players: v.optional(v.any()),
+    teams: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          sport: v.optional(v.string()),
+          ageGroup: v.optional(v.string()),
+        })
+      )
+    ),
+    players: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          ageGroup: v.optional(v.string()),
+        })
+      )
+    ),
   },
   returns: v.null(),
   handler: async (_ctx, args) => {
@@ -25,7 +42,17 @@ export const resendInvitationEmail = internalAction({
       email: args.email,
       organizationName: args.organizationName,
       functionalRoles: args.functionalRoles,
+      teamsCount: args.teams?.length || 0,
+      playersCount: args.players?.length || 0,
     });
+
+    // Debug: Log full team/player data to verify serialization
+    if (args.teams && args.teams.length > 0) {
+      console.log("📧 Teams data:", JSON.stringify(args.teams, null, 2));
+    }
+    if (args.players && args.players.length > 0) {
+      console.log("📧 Players data:", JSON.stringify(args.players, null, 2));
+    }
 
     try {
       await sendOrganizationInvitation({

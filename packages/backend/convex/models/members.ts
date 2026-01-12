@@ -912,8 +912,29 @@ export const updateInvitationMetadata = mutation({
           const inviteLink = `${siteUrl}/orgs/accept-invitation/${args.invitationId}`;
 
           const functionalRoles = args.metadata?.suggestedFunctionalRoles || [];
-          const teams = args.metadata?.roleSpecificData?.teams || [];
-          const players = args.metadata?.suggestedPlayerLinks || [];
+          const rawTeams = args.metadata?.roleSpecificData?.teams || [];
+          const rawPlayers = args.metadata?.suggestedPlayerLinks || [];
+
+          // Clean teams/players: remove undefined fields (Convex validators don't accept undefined, only omitted fields)
+          const teams = rawTeams.map((team: any) => {
+            const cleaned: any = {
+              id: team.id,
+              name: team.name,
+            };
+            if (team.sport !== undefined) cleaned.sport = team.sport;
+            if (team.ageGroup !== undefined) cleaned.ageGroup = team.ageGroup;
+            return cleaned;
+          });
+
+          const players = rawPlayers.map((player: any) => {
+            const cleaned: any = {
+              id: player.id,
+              name: player.name,
+            };
+            if (player.ageGroup !== undefined)
+              cleaned.ageGroup = player.ageGroup;
+            return cleaned;
+          });
 
           // Schedule action to send email
           const actionRef = (internal.actions as any).invitations

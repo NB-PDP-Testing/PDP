@@ -18,9 +18,8 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
-import { FABQuickActions } from "@/components/quick-actions/fab-variant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -148,7 +147,7 @@ export function SmartCoachDashboard({
   useEffect(() => {
     calculateTeamAnalytics();
     generateCorrelationInsights();
-  }, [calculateTeamAnalytics, generateCorrelationInsights]);
+  }, [players, coachTeams, isClubView]);
 
   // Helper to get all teams for a player
   const getPlayerTeams = (player: any): string[] => {
@@ -508,7 +507,7 @@ export function SmartCoachDashboard({
     }
   };
 
-  const handleGenerateSessionPlan = async () => {
+  const handleGenerateSessionPlan = useCallback(async () => {
     setLoadingSessionPlan(true);
     setShowSessionPlan(true);
 
@@ -553,54 +552,10 @@ export function SmartCoachDashboard({
     } finally {
       setLoadingSessionPlan(false);
     }
-  };
+  }, [teamAnalytics, players]);
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* Quick Actions - Connects header buttons to handler functions */}
-      <FABQuickActions
-        onAssessPlayers={
-          onAssessPlayers ||
-          (() => {
-            /* no-op */
-          })
-        }
-        onGenerateSessionPlan={handleGenerateSessionPlan}
-        onGoals={
-          onViewGoals ||
-          (() => {
-            /* no-op */
-          })
-        }
-        onInjuries={
-          onViewInjuries ||
-          (() => {
-            /* no-op */
-          })
-        }
-        onMatchDay={
-          onViewMatchDay ||
-          (() => {
-            /* no-op */
-          })
-        }
-        onMedical={
-          onViewMedical ||
-          (() => {
-            /* no-op */
-          })
-        }
-        onViewAnalytics={() => {
-          /* no-op */
-        }}
-        onVoiceNotes={
-          onViewVoiceNotes ||
-          (() => {
-            /* no-op */
-          })
-        }
-      />
-
       {/* My Teams Section */}
       <OrgThemedGradient
         className="rounded-lg p-4 shadow-md md:p-6"

@@ -108,6 +108,10 @@ test.describe("AUTH - Login Tests", () => {
 
     // Should navigate to signup page
     await expect(page).toHaveURL(/\/signup/);
+
+    // Dismiss PWA prompt if it appears on the new page
+    await dismissPWAPrompt(page);
+
     await expect(
       page.getByRole("heading", { name: "Sign Up" })
     ).toBeVisible();

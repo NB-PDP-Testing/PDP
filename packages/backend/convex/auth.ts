@@ -155,6 +155,8 @@ export function createAuth(
            * Better Auth hooks run in a query context (read-only). By using
            * beforeAddMember, we can modify the member data before it's created.
            */
+          // biome-ignore lint/suspicious/useAwait: Better Auth hook API requires async signature even when no await is used
+          // biome-ignore lint/nursery/noShadow: Better Auth hook parameters (member, user, organization) necessarily shadow module imports
           beforeAddMember: async ({ member, user, organization }) => {
             const betterAuthRole = member.role;
 
@@ -206,6 +208,8 @@ export function createAuth(
            * This hook logs the completion and can trigger async operations
            * like parent-player linking that don't need to block the response.
            */
+          // biome-ignore lint/suspicious/useAwait: Better Auth hook API requires async signature even when no await is used
+          // biome-ignore lint/nursery/noShadow: Better Auth hook parameters (member, user, organization) necessarily shadow module imports
           afterAddMember: async ({ member, user, organization }) => {
             console.log("[afterAddMember] Member added successfully:", {
               userId: member.userId,
@@ -239,10 +243,14 @@ export function createAuth(
            * TODO: When Better Auth adds mutation support in hooks, implement
            * auto-assignment here instead.
            */
+          // biome-ignore lint/suspicious/useAwait: Better Auth hook API requires async signature even when no await is used
           afterAcceptInvitation: async ({
             invitation,
+            // biome-ignore lint/nursery/noShadow: Better Auth hook parameter necessarily shadows module import
             member,
+            // biome-ignore lint/correctness/noUnusedFunctionParameters: user parameter required by Better Auth hook API signature
             user,
+            // biome-ignore lint/nursery/noShadow: Better Auth hook parameter necessarily shadows module import
             organization,
           }) => {
             // Log for debugging

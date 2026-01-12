@@ -135,7 +135,7 @@ export function createAuth(
         // NOTE: Email sending is handled by updateInvitationMetadata mutation
         // This callback fires before metadata (functional roles, teams, players) exists.
         // See: packages/backend/convex/models/members.ts updateInvitationMetadata
-        async sendInvitationEmail(data) {
+        async sendInvitationEmail(_data) {
           // Email will be sent after metadata is added by the UI
           // No action needed here
         },

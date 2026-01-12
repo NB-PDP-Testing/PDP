@@ -1097,3 +1097,91 @@ export const getMessageAuditLog = query({
       .take(limit);
   },
 });
+
+// ============================================================
+// INTERNAL HELPERS FOR EMAIL ACTIONS
+// ============================================================
+
+import { internalMutation, internalQuery } from "../_generated/server";
+
+/**
+ * Internal query to fetch message data for email delivery
+ * Used by the email action to get all necessary data
+ */
+export const getMessageForEmail = internalQuery({
+  args: {
+    messageId: v.id("coachParentMessages"),
+    recipientId: v.id("messageRecipients"),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    // 1. Fetch message
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      return null;
+    }
+
+    // 2. Fetch recipient
+    const recipient = await ctx.db.get(args.recipientId);
+    if (!recipient) {
+      return null;
+    }
+
+    // 3. Fetch guardian identity
+    const guardian = await ctx.db.get(recipient.guardianIdentityId);
+    if (!guardian) {
+      return null;
+    }
+
+    // 4. Fetch organization to get name
+    const org = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "organization",
+      where: [{ field: "id", value: message.organizationId }],
+    });
+
+    const organizationName = org?.name || "Your Organization";
+
+    return {
+      message,
+      recipient,
+      guardian,
+      organizationName,
+    };
+  },
+});
+
+/**
+ * Internal mutation to update recipient email status after delivery attempt
+ * Used by the email action to record delivery results
+ */
+export const updateRecipientEmailStatus = internalMutation({
+  args: {
+    recipientId: v.id("messageRecipients"),
+    status: v.union(v.literal("sent"), v.literal("failed")),
+    bounceReason: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    if (args.status === "sent") {
+      // Email sent successfully
+      await ctx.db.patch(args.recipientId, {
+        deliveryStatus: "sent",
+        deliveryMethod: "email",
+        emailSentAt: now,
+        updatedAt: now,
+      });
+    } else {
+      // Email failed
+      await ctx.db.patch(args.recipientId, {
+        deliveryStatus: "failed",
+        emailBouncedAt: now,
+        emailBounceReason: args.bounceReason,
+        updatedAt: now,
+      });
+    }
+
+    return null;
+  },
+});

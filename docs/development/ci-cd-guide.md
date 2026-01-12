@@ -1,430 +1,420 @@
-# CI/CD Pipeline Status & Technical Debt
+# CI/CD Pipeline & Code Quality Guide
 
-> **Last Updated:** January 2, 2026
-> **Status:** ✅ Passing (improved - linting re-enabled)
-> **Priority:** 🟡 Medium - Gradual improvement in progress
-
----
-
-## 📊 Current Pipeline Status
-
-All 7 CI/CD checks are currently **passing**. TypeScript and linting protection fully restored.
-
-| Check | Status | Blocking | Quality Level |
-|-------|--------|----------|---------------|
-| TypeScript Type Check | ✅ Passing | YES | 🟢 Strong |
-| Build Check | ✅ Passing | YES | 🟢 Strong |
-| **Linting (Changed Files)** | ✅ **RE-ENABLED** | YES | 🟢 **Good** |
-| Security Scan | ⚠️ Passing (non-blocking) | NO | 🟡 Weak |
-| Bundle Size Check | ✅ Passing | YES | 🟢 Good |
-| Convex Schema Validation | ⚠️ Passing (non-blocking) | NO | 🟢 Good (acceptable) |
-
-**Recent Improvements:**
-- ✅ **Jan 2, 2026:** Linting re-enabled for changed files only
-- ✅ **Jan 1, 2026:** TypeScript errors completely resolved (35 errors fixed)
-- ✅ **Jan 1, 2026:** TypeScript workarounds removed
+> **Last Updated:** January 12, 2026
+> **Status:** All checks passing
+> **Recent:** Husky + lint-staged added for team-wide pre-commit hooks
 
 ---
 
-## ✅ Recent Improvements
+## Quick Reference
 
-### 1. Linting Re-Enabled (Completed: ✅ Jan 2, 2026)
+| Check | Where | Blocks? | What It Does |
+|-------|-------|---------|--------------|
+| **Pre-commit Hook** | Local (Husky) | YES | Lints staged files before commit |
+| **TypeScript** | CI | YES | Type checking across all packages |
+| **Linting** | CI | YES | Biome check on changed files only |
+| **Build** | CI | YES | Next.js production build |
+| **Security Scan** | CI | NO | npm audit (non-blocking) |
+| **Bundle Size** | CI | YES | Build analysis |
+| **Convex Validation** | CI | NO | Schema validation (non-blocking) |
 
-**Status:** ✅ COMPLETE - Protects against new issues
+---
 
-**What was done:**
-- Created new `lint` job in `.github/workflows/ci.yml`
-- Configured to check only changed files (`--changed` flag)
-- Uses Biome's VCS integration
-- Prevents new linting issues without blocking existing work
+## How Code Quality Is Enforced
 
-**Current setup:**
-```yaml
-lint:
-  name: Lint Check (Changed Files)
-  runs-on: ubuntu-latest
-  steps:
-    - name: Run linting (changed files only)
-      run: |
-        if [ "${{ github.event_name }}" == "pull_request" ]; then
-          npx biome check --changed --diagnostic-level=error .
-        else
-          npx biome check --changed --since=HEAD~1 --diagnostic-level=error .
-        fi
+### Layer 1: Claude Code Hooks (Immediate Feedback)
+
+When using Claude Code CLI, hooks run automatically after file edits:
+
+```
+Edit/Write file → ultracite formats → biome checks → errors shown
 ```
 
-**Result:**
-- ✅ New linting issues are prevented
-- ✅ Existing issues don't block development
-- ✅ Gradual improvement through "fix as you go" approach
+**Configuration:** `.claude/settings.json`
 
-**See:** `LINTING_COMPREHENSIVE_PLAN.md` for full details
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Edit|Write",
+      "hooks": [
+        { "command": "npx ultracite fix $CLAUDE_FILE_PATH" },
+        { "command": "npx biome check --max-diagnostics=10 $CLAUDE_FILE_PATH" }
+      ]
+    }]
+  }
+}
+```
+
+**What this does:**
+- Auto-formats the edited file
+- Shows up to 10 linting issues for that specific file
+- Provides immediate feedback without checking entire codebase
 
 ---
 
-## 🔄 Active Improvements
+### Layer 2: Pre-commit Hook (Husky + lint-staged)
 
-### 1. Linting Technical Debt (Priority: 🟡 MEDIUM - In Progress)
+**NEW (Jan 12, 2026):** All developers now have pre-commit hooks via Husky.
 
-**Current State:**
-- **Total Issues:** 1,727 (971 errors, 745 warnings, 11 infos)
-- **Files Affected:** 237 files
-- **CI Protection:** ✅ Enabled (prevents new issues)
+**How it works:**
+1. Developer runs `git commit`
+2. Husky triggers `.husky/pre-commit`
+3. lint-staged runs `biome check` on staged `.ts/.tsx/.js/.jsx` files
+4. If errors found → commit blocked
+5. If clean → commit proceeds
 
-**Top Issues:**
-1. `noExplicitAny` - 352 issues (20%)
-2. `useBlockStatements` - 299 issues (17%)
-3. `noIncrementDecrement` - 226 issues (13%)
-4. `noExcessiveCognitiveComplexity` - 130 issues (8%)
-5. `useConsistentTypeDefinitions` - 98 issues (6%)
+**Configuration files:**
+- `.husky/pre-commit` - Hook script
+- `.lintstagedrc.json` - lint-staged config
 
-**Strategy:** Manual "fix as you go" approach
-- Developers fix linting issues when modifying files
-- Focus on high-impact fixes (remove `any` types, reduce complexity)
-- Expected: 10-15% reduction per month (170-260 issues)
+**What blocks commits:**
+- Error-level linting rules (e.g., `noVar`, `noParameterAssign`)
+- Formatting issues
 
-**What Developers Should Do:**
+**What does NOT block commits:**
+- Warning-level rules (e.g., `noExplicitAny`, `noNestedTernary`)
+- Files not staged for commit
+
+**Setup for new developers:**
 ```bash
-# Before committing
-npx biome check --changed .
-
-# Fix issues in modified files
-npx biome check --write path/to/file.ts
-
-# See LINTING_QUICK_REFERENCE.md for details
+npm install  # Husky auto-installs hooks
 ```
 
-**Progress Tracking:**
-- Monthly issue count reviews
-- Update this file with current counts
-- Optional cleanup sprints when time allows
-
-**Why Not Mass Auto-Fix:**
-- Biome marks most fixes as "unsafe"
-- Auto-fixes cause TypeScript errors (tested on Jan 2, 2026)
-- Manual approach is safer and more sustainable
-
-**See:** `LINTING_COMPREHENSIVE_PLAN.md` and `LINTING_QUICK_REFERENCE.md`
+**Bypass (NOT recommended):**
+```bash
+git commit --no-verify
+```
 
 ---
 
-## 🚨 Remaining Concerns
-
----
-
-### 2. Security Scan Non-Blocking (Priority: 🟡 MEDIUM)
+### Layer 3: CI Pipeline (GitHub Actions)
 
 **File:** `.github/workflows/ci.yml`
 
-**Status:** ⚠️ Still non-blocking
+**Triggers:** Push to `main`, Pull requests to `main`
 
-**What changed:**
+#### Jobs Detail
+
+##### 1. TypeScript Type Check (Blocking)
+```yaml
+- name: Run type check
+  run: npm run check-types
+```
+- Runs `tsc --noEmit` across all packages
+- Catches type errors before merge
+- **Must pass to merge**
+
+##### 2. Lint Check (Blocking)
+```yaml
+- name: Run linting (changed files only)
+  run: |
+    CHANGED_FILES=$(git diff --name-only ... | grep -E '\.(ts|tsx|js|jsx)$')
+    echo "$CHANGED_FILES" | xargs npx biome check --diagnostic-level=error
+```
+- Only checks files changed in the PR/commit
+- Does NOT check entire codebase (2400+ existing issues)
+- Prevents NEW linting issues
+- **Must pass to merge**
+
+##### 3. Build Check (Blocking)
+```yaml
+- name: Build
+  run: npm run build
+```
+- Full Next.js production build
+- Catches build-time errors
+- **Must pass to merge**
+
+##### 4. Security Scan (Non-blocking)
 ```yaml
 - name: Run npm audit
   run: npm audit --audit-level=moderate
-  continue-on-error: true  # ← Makes failures non-blocking
-
-- name: Check for known vulnerabilities
-  run: npx audit-ci --moderate
-  continue-on-error: true  # ← Makes failures non-blocking
+  continue-on-error: true
 ```
+- Checks for known vulnerabilities
+- Currently non-blocking (see recommendations)
+- Review output manually
 
-**Current risk:**
-- Security vulnerabilities in dependencies won't block deployment
-- Known moderate+ severity issues may go unnoticed
-- Compliance/security posture weakened
+##### 5. Bundle Size Check (Blocking)
+```yaml
+- name: Build for production
+  run: npm run build
+- name: Analyze bundle
+  # Reports bundle size
+```
+- Ensures build succeeds
+- Reports bundle metrics
 
-**TODO:**
-- [ ] Review current security vulnerabilities
-- [ ] Assess which vulnerabilities are acceptable
-- [ ] Fix or document exceptions
-- [ ] Re-enable as blocking check
+##### 6. Convex Schema Validation (Non-blocking)
+```yaml
+- name: Validate Convex schema
+  run: npx convex dev --once --configure=skip
+  continue-on-error: true
+```
+- Validates Convex schema
+- Non-blocking (requires live connection)
 
 ---
 
-### 3. Linting Rules Configured as Warnings (Priority: 🟢 LOW - Acceptable)
+## Current Linting State
 
-**File:** `biome.json`
+**As of January 12, 2026:**
 
-**Status:** ✅ Intentional configuration for gradual improvement
+| Severity | Count | Blocks Commit? | Blocks CI? |
+|----------|-------|----------------|------------|
+| Errors | 1,261 | YES | YES (if in changed files) |
+| Warnings | 1,149 | NO | NO |
+| Infos | 15 | NO | NO |
+| **Total** | **2,425** | - | - |
 
-**Rules configured as warnings:**
-- `noExplicitAny` - Warns about `any` types (not blocking)
-- `noEvolvingTypes` - Warns about type inference issues
-- `noExcessiveCognitiveComplexity` - Warns about complex functions
-- `useButtonType` - Warns about accessibility issues
+**Top Issues:**
 
-**Why warnings not errors:**
-- 1,727 existing issues across codebase
-- Warnings allow gradual fixes without blocking development
+| Rule | Count | Severity | Description |
+|------|-------|----------|-------------|
+| `noExplicitAny` | ~350 | Warning | Using `any` type |
+| `useBlockStatements` | ~300 | Warning | Missing braces |
+| `noIncrementDecrement` | ~225 | Warning | Using `++`/`--` |
+| `noExcessiveCognitiveComplexity` | ~130 | Warning | Complex functions |
+| `noNestedTernary` | ~80 | Warning | Nested ternaries |
+
+**Why warnings don't block:**
+- 2400+ existing issues would halt all development
+- Gradual "fix as you go" approach is safer
 - CI still prevents NEW issues in changed files
-- High-impact issues (any types, complexity) are prioritized
-
-**Current approach:**
-- ✅ CI blocks new issues in changed files
-- ✅ Developers fix warnings when modifying files
-- ✅ Gradual reduction of warning count
-- ✅ Can elevate to errors once count is low enough
-
-**No action needed** - This is the intended configuration
 
 ---
 
-## ✅ Successful Fixes
+## Developer Workflow
 
-### 1. Convex Generated Files Committed
+### Before Committing
 
-**What was done:**
-- Committed `convex/_generated/` files to repository
-- Updated `.gitignore` to stop ignoring these files
-- Removed codegen steps from CI workflow
-
-**Why this works:**
-- CI no longer needs live Convex deployment connection
-- Type checking works without deployment secrets
-- Standard practice for Convex projects
-
-**Maintenance required:**
-- ⚠️ Must regenerate types when schema changes
-- ⚠️ Pre-commit hook checks for generated files
-- ⚠️ Remember to commit updated generated files
-
-### 2. Turbo.json Outputs Fixed
-
-**What was done:**
-- Added `.next/**` to turbo outputs
-- Fixed "no output files found" warnings
-
-**Files changed:**
-```json
-// turbo.json line 8
-"outputs": [".next/**", "dist/**", "build/**"]
-```
-
----
-
-## 📋 Action Plan
-
-### ✅ Phase 1: Completed (Jan 2, 2026)
-
-#### Task 1: Re-enable Linting for New Code ✅
-- ✅ Configured Biome VCS mode in CI
-- ✅ Only lint changed files: `npx biome check --changed`
-- ✅ Prevent NEW code from adding to tech debt
-- ✅ Keep existing issues for gradual cleanup
-
-**Completed:**
-- Added `lint` job to `.github/workflows/ci.yml`
-- Uses `--changed` flag to check only modified files
-- Prevents new linting issues from being introduced
-
-**See:** `LINTING_COMPREHENSIVE_PLAN.md` for full details
-
----
-
-### 🔄 Phase 2: Active (Ongoing)
-
-#### Task 2: Gradual Linting Cleanup 🔄
-
-**Status:** Active - "Fix as you go" approach
-
-**Current state:** 1,727 errors across codebase
-
-**Approach:**
-- ✅ Developers fix linting issues when modifying files
-- ✅ Focus on high-impact fixes (remove `any` types, reduce complexity)
-- ✅ Monthly progress tracking
-- ✅ Optional cleanup sprints when time allows
-
-**Expected progress:**
-- 10-15% reduction per month (170-260 issues)
-- Through natural file modifications
-- No dedicated linting time required
-
-**What developers should do:**
 ```bash
-# Before committing
+# Check your changed files
 npx biome check --changed .
 
-# Fix issues in modified files
-npx biome check --write path/to/file.ts
+# Fix auto-fixable issues
+npx biome check --write path/to/your/file.tsx
+
+# Check TypeScript
+npm run check-types
 ```
 
-**See:** `LINTING_QUICK_REFERENCE.md` for developer guide
+### When Commit Is Blocked
 
-**Progress tracking:**
+If you see:
+```
+❌ COMMIT BLOCKED: Linting errors found in staged files
+```
+
+1. Look at the error output
+2. Fix the issues:
+   ```bash
+   npx biome check --write path/to/file.tsx  # Auto-fix safe issues
+   npx biome check path/to/file.tsx          # See remaining issues
+   ```
+3. Stage fixes and retry commit
+
+### When CI Fails
+
+1. Check which job failed in GitHub Actions
+2. For linting failures:
+   ```bash
+   # Reproduce locally
+   npx biome check path/to/changed/files.tsx
+   ```
+3. For TypeScript failures:
+   ```bash
+   npm run check-types
+   ```
+
+---
+
+## Configuration Files Reference
+
+| File | Purpose |
+|------|---------|
+| `biome.json` | Linting rules and formatting config |
+| `.lintstagedrc.json` | Files to check on pre-commit |
+| `.husky/pre-commit` | Pre-commit hook script |
+| `.claude/settings.json` | Claude Code CLI hooks |
+| `.github/workflows/ci.yml` | CI pipeline definition |
+| `turbo.json` | Monorepo build config |
+
+### biome.json Key Settings
+
+```json
+{
+  "linter": {
+    "rules": {
+      "suspicious": {
+        "noExplicitAny": "warn",    // Warning, not error
+        "noEvolvingTypes": "warn"
+      },
+      "style": {
+        "noParameterAssign": "error", // Error - blocks commits
+        "noNestedTernary": "warn"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "warn"
+      }
+    }
+  }
+}
+```
+
+---
+
+## Recommendations for Future Improvements
+
+### High Priority
+
+#### 1. Elevate Critical Rules to Error Level
+**When:** Once warning count drops below 500
+**What:** Change these from `warn` to `error` in `biome.json`:
+- `noExplicitAny` - Type safety is critical
+- `useExhaustiveDependencies` - Prevents React bugs
+
+**How:**
+```json
+{
+  "suspicious": {
+    "noExplicitAny": "error"  // Change from "warn"
+  }
+}
+```
+
+#### 2. Make Security Scan Blocking
+**When:** After security audit is completed
+**What:** Remove `continue-on-error: true` from security job
+**Risk if not done:** Vulnerabilities may ship to production
+
+**How:**
+```yaml
+- name: Run npm audit
+  run: npm audit --audit-level=moderate
+  # Remove: continue-on-error: true
+```
+
+#### 3. Add TypeScript Strict Mode
+**When:** During a dedicated cleanup sprint
+**What:** Enable stricter TypeScript options
+**Benefit:** Catches more errors at compile time
+
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true
+  }
+}
+```
+
+### Medium Priority
+
+#### 4. Add Test Coverage Checks
+**What:** Require minimum test coverage for PRs
+**Benefit:** Ensures new code is tested
+
+```yaml
+- name: Run tests with coverage
+  run: npm test -- --coverage
+- name: Check coverage threshold
+  run: npx coverage-check --threshold 80
+```
+
+#### 5. Add PR Size Limits
+**What:** Warn or block very large PRs
+**Benefit:** Encourages smaller, reviewable changes
+
+#### 6. Add Dependency Review
+**What:** Check for license issues and deprecated packages
+**How:** Use GitHub's dependency review action
+
+```yaml
+- name: Dependency Review
+  uses: actions/dependency-review-action@v3
+```
+
+### Lower Priority
+
+#### 7. Consider Prettier for Markdown/JSON
+**What:** Add formatting for non-code files
+**Benefit:** Consistent documentation formatting
+
+#### 8. Add Performance Budgets
+**What:** Fail CI if bundle size exceeds threshold
+**Benefit:** Prevents performance regressions
+
+#### 9. Add E2E Tests to CI
+**What:** Run Playwright tests on PRs
+**Consideration:** Adds CI time, needs test stability
+
+---
+
+## Troubleshooting
+
+### "Pre-commit hook not running"
+
 ```bash
-# Get current count (run monthly)
+# Reinstall Husky
+npm install
+npx husky install
+```
+
+### "Linting passes locally but fails in CI"
+
+CI only checks changed files against the base branch:
+```bash
+# Simulate CI check locally
+git diff --name-only origin/main...HEAD | grep -E '\.(ts|tsx)$' | xargs npx biome check
+```
+
+### "Too many linting errors"
+
+Don't fix everything at once. Focus on:
+1. Files you're already modifying
+2. Error-level issues (they block commits)
+3. High-impact warnings (`noExplicitAny`)
+
+### "Commit blocked but I need to push WIP"
+
+```bash
+git commit --no-verify -m "WIP: description"
+```
+**Note:** CI will still catch issues. Use sparingly.
+
+---
+
+## Monthly Review Checklist
+
+Run monthly to track progress:
+
+```bash
+# Get current linting count
 npx biome check . 2>&1 | tail -5
 
-# Update this file with counts
-```
-
----
-
-### ⏸️ Phase 3: Short-term (When Time Allows)
-
-#### Task 3: Security Audit
-- [ ] Run `npm audit` and review results
-- [ ] Document acceptable vs. unacceptable vulnerabilities
-- [ ] Fix critical vulnerabilities
-- [ ] Create exceptions list for accepted risks
-
-**Command to run:**
-```bash
-npm audit --audit-level=moderate
-```
-
-**Priority:** 🟡 Medium - Should be done but not blocking
-
----
-
-### 🎯 Phase 4: Long-term Goals (3-6 Months)
-
-#### Task 4: Reduce Linting Issues to < 500 (71% reduction)
-- Through ongoing "fix as you go" approach
-- Optional cleanup sprints
-- No dedicated time required
-
-#### Task 5: Elevate Rules to Error Level
-- Once issue count is manageable
-- Gradually increase enforcement
-- Full quality gate restoration
-
-#### Task 6: Re-enable Security as Blocking
-- After security audit complete
-- Fix critical vulnerabilities
-- Document accepted risks
-
----
-
-## 🔍 How to Check Current Status
-
-### View All Linting Errors
-```bash
-npx biome check .
-```
-
-### View Security Vulnerabilities
-```bash
+# Check security vulnerabilities
 npm audit
+
+# Review bundle size
+npm run build && ls -la apps/web/.next/static/chunks/
 ```
 
-### Run Type Check
-```bash
-npm run check-types
-```
-
-### Test Full CI Locally
-```bash
-# Type check
-npm run check-types
-
-# Build
-npm run build
-
-# Linting (currently disabled in CI)
-npx biome check --changed
-```
+**Update this document with:**
+- Current issue counts
+- Any new rules added
+- Progress toward goals
 
 ---
 
-## 📝 Maintenance Notes
+## Related Documentation
 
-### When Making Schema Changes
-
-1. Update `convex/schema.ts`
-2. Run `npx convex codegen` locally
-3. Commit the updated `_generated/` files
-4. Pre-commit hook will verify files exist
-
-### When Adding Dependencies
-
-1. Check for security vulnerabilities: `npm audit`
-2. Review and fix before committing
-3. Document any accepted risks
-
-### When Writing New Code
-
-**Linting is now enabled in CI** - Follow these guidelines:
-- ✅ CI will check your changed files automatically
-- ✅ Fix linting issues before committing
-- Run `npx biome check --changed .` locally before pushing
-- See `LINTING_QUICK_REFERENCE.md` for quick help
-- Follow existing code style
-- Avoid adding `any` types where possible
-- Keep functions simple (low complexity)
+- [Linting Guide](./linting-guide.md) - Comprehensive linting plan
+- [Biome Configuration](../../biome.json) - Rule definitions
+- [CI Workflow](../../.github/workflows/ci.yml) - Pipeline definition
 
 ---
 
-## 🎯 Success Criteria
-
-**Linting Re-enabled:**
-- ✅ Zero NEW errors on changed files (achieved - CI enforces this)
-- ✅ No new `any` types introduced (achieved - CI enforces this)
-- 🔄 Gradual reduction of existing issues (in progress)
-- 🎯 Target: 10-15% reduction per month
-
-**Security Hardened:**
-- [ ] Zero critical vulnerabilities
-- [ ] Documented exceptions for moderate issues
-- [ ] Security scan blocking enabled
-
-**Full Quality Enforcement:**
-- [ ] All 6 CI checks passing
-- [ ] All checks are blocking
-- [ ] No regressions from original standards
-
----
-
-## 📚 Related Documentation
-
-- [GitHub Actions Workflow](.github/workflows/ci.yml) - CI configuration with lint job
-- [Biome Configuration](biome.json) - Linting rules and settings
-- [Turbo Configuration](turbo.json) - Monorepo build configuration
-- [Pre-commit Hook](.git/hooks/pre-commit) - Local validation before commit
-
-**Linting Documentation:**
-- [LINTING_COMPREHENSIVE_PLAN.md](LINTING_COMPREHENSIVE_PLAN.md) - Full implementation plan and analysis
-- [LINTING_QUICK_REFERENCE.md](LINTING_QUICK_REFERENCE.md) - **Quick guide for developers**
-- [TYPESCRIPT_FIXES_COMPLETE.md](TYPESCRIPT_FIXES_COMPLETE.md) - TypeScript cleanup (completed)
-
----
-
-## ⚠️ Important Reminders
-
-1. **Linting is now ENABLED in CI** ✅ - Checks changed files automatically
-2. **Fix linting issues when modifying files** - See `LINTING_QUICK_REFERENCE.md`
-3. **Security failures don't block** ⚠️ - Check `npm audit` manually
-4. **Generated files must be committed** - Don't gitignore `_generated/`
-5. **Gradual improvement is the goal** - Fix as you go, 10-15% per month
-
----
-
-## 📞 Questions?
-
-If you're unsure about:
-- **How to fix a linting error** → Check `LINTING_QUICK_REFERENCE.md`
-- **Why linting failed in CI** → Run `npx biome check --changed .` locally
-- **If a security vulnerability is acceptable** → Discuss with team
-- **How to handle complex migrations** → Create GitHub issue
-
-**For quick linting help:** See `LINTING_QUICK_REFERENCE.md` in the repo root
-
----
-
-## 📊 Monthly Review Tracking
-
-**Current Count (Jan 2, 2026):** 1,727 issues
-- 971 Errors
-- 745 Warnings
-- 11 Infos
-
-**Next Review:** February 1, 2026
-**Expected:** 1,470-1,557 issues (10-15% reduction)
-
----
-
-**Last reviewed:** January 2, 2026
-**Next review due:** February 1, 2026
-**Status:** ✅ Linting re-enabled, TypeScript complete
+**Questions?** Check the linting guide or ask in the team channel.

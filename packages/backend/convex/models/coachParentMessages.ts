@@ -575,3 +575,75 @@ export const sendMessage = mutation({
     return null;
   },
 });
+
+/**
+ * Mark a message as viewed by the current parent
+ * Updates the recipient record with view timestamp and logs audit event
+ */
+export const markMessageViewed = mutation({
+  args: {
+    messageId: v.id("coachParentMessages"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // 1. Get current user
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new Error("User must be authenticated to view messages");
+    }
+
+    // 2. Find guardian identity
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", authUser._id))
+      .first();
+
+    if (!guardianIdentity) {
+      throw new Error("User is not a guardian");
+    }
+
+    // 3. Get message
+    const message = await ctx.db.get(args.messageId);
+    if (!message) {
+      throw new Error("Message not found");
+    }
+
+    // 4. Find the recipient record for this guardian and message
+    const allRecipients = await ctx.db
+      .query("messageRecipients")
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .collect();
+
+    const recipient = allRecipients.find(
+      (r) => r.guardianIdentityId === guardianIdentity._id
+    );
+
+    if (!recipient) {
+      throw new Error("You are not a recipient of this message");
+    }
+
+    // 5. If already viewed, return early (no double-logging)
+    if (recipient.inAppViewedAt !== undefined) {
+      return null;
+    }
+
+    // 6. Update recipient with view timestamp
+    await ctx.db.patch(recipient._id, {
+      inAppViewedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    // 7. Log audit event
+    const guardianName = `${guardianIdentity.firstName} ${guardianIdentity.lastName}`;
+    await logAuditEvent(ctx, {
+      messageId: args.messageId,
+      organizationId: message.organizationId,
+      action: "viewed",
+      actorId: authUser._id,
+      actorType: "parent",
+      actorName: guardianName,
+    });
+
+    return null;
+  },
+});

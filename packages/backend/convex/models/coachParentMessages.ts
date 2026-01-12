@@ -1001,3 +1001,99 @@ export const getOrganizationMessages = query({
     return messagesWithStats;
   },
 });
+
+/**
+ * Get audit log entries for messages (Admin only)
+ * Returns audit trail for compliance review
+ *
+ * @param organizationId - Organization ID to query logs for
+ * @param messageId - Optional specific message ID to filter by
+ * @param limit - Maximum number of entries to return (default 200)
+ * @returns Array of audit log entries sorted by timestamp descending
+ *
+ * @security Admin/Owner access only
+ */
+export const getMessageAuditLog = query({
+  args: {
+    organizationId: v.string(),
+    messageId: v.optional(v.id("coachParentMessages")),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("messageAuditLog"),
+      messageId: v.id("coachParentMessages"),
+      organizationId: v.string(),
+      action: v.union(
+        v.literal("created"),
+        v.literal("edited"),
+        v.literal("sent"),
+        v.literal("viewed"),
+        v.literal("acknowledged"),
+        v.literal("deleted"),
+        v.literal("exported"),
+        v.literal("flagged"),
+        v.literal("reviewed")
+      ),
+      actorId: v.string(),
+      actorType: v.union(
+        v.literal("coach"),
+        v.literal("parent"),
+        v.literal("admin"),
+        v.literal("system")
+      ),
+      actorName: v.string(),
+      details: v.optional(
+        v.object({
+          previousContent: v.optional(v.string()),
+          newContent: v.optional(v.string()),
+          reason: v.optional(v.string()),
+          ipAddress: v.optional(v.string()),
+          userAgent: v.optional(v.string()),
+        })
+      ),
+      timestamp: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // 1. Verify user is authenticated
+    const authUser = await authComponent.safeGetAuthUser(ctx);
+    if (!authUser) {
+      throw new Error("Authentication required to view audit logs");
+    }
+
+    // 2. Verify user is org admin/owner
+    const hasAdminAccess = await isOrgAdmin(
+      ctx,
+      authUser._id,
+      args.organizationId
+    );
+    if (!hasAdminAccess) {
+      throw new Error(
+        "Only organization admins and owners can view audit logs"
+      );
+    }
+
+    // 3. Query audit logs based on whether messageId is provided
+    const limit = args.limit || 200;
+
+    if (args.messageId !== undefined) {
+      // Query by specific message
+      const messageId = args.messageId; // Type narrowing
+      return await ctx.db
+        .query("messageAuditLog")
+        .withIndex("by_message", (q) => q.eq("messageId", messageId))
+        .order("desc")
+        .take(limit);
+    }
+
+    // Query all org audit entries
+    return await ctx.db
+      .query("messageAuditLog")
+      .withIndex("by_org_and_timestamp", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .order("desc")
+      .take(limit);
+  },
+});

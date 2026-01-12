@@ -394,7 +394,7 @@
         "Type checking passes: npm run check-types"
       ],
       "priority": 22,
-      "passes": false,
+      "passes": true,
       "notes": "This is for compliance review. Admins need to see who sent what and when."
     },
     {

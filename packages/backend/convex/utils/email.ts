@@ -607,6 +607,297 @@ Reply to: ${email}
 }
 
 /**
+ * Coach message email data
+ */
+type CoachMessageEmailData = {
+  email: string;
+  recipientName: string; // Guardian's name
+  coachName: string;
+  playerName: string;
+  subject: string;
+  body: string;
+  organizationName: string;
+  messageDetailUrl: string;
+  // Optional context
+  sessionType?: string;
+  sessionDate?: string;
+  developmentArea?: string;
+  // Optional insight data
+  discussionPrompts?: string[];
+  actionItems?: string[];
+};
+
+/**
+ * Build HTML email template for coach-to-parent messages
+ */
+function buildCoachMessageEmailHtml(data: CoachMessageEmailData): string {
+  const {
+    recipientName,
+    coachName,
+    playerName,
+    subject,
+    body,
+    organizationName,
+    messageDetailUrl,
+    sessionType,
+    sessionDate,
+    developmentArea,
+    discussionPrompts,
+    actionItems,
+  } = data;
+
+  const logoUrl = getLogoUrl();
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 0 auto;">
+            <tr>
+              <td style="text-align: center; padding-bottom: 4px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                  <tr>
+                    <td style="vertical-align: middle; padding-right: 12px;">
+                      <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 80px; height: auto; display: block;" />
+                    </td>
+                    <td style="vertical-align: middle;">
+                      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold; line-height: 1.2;">PlayerARC</h1>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: center; padding-top: 0;">
+                <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic;">As many as possible, for as long as possible…</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
+          <h2 style="color: #1E3A5F; margin-top: 0;">Message from ${coachName}</h2>
+          <p>Hi ${recipientName},</p>
+          <p>
+            <strong>${coachName}</strong> has sent you a message about <strong>${playerName}</strong> at ${organizationName}.
+          </p>
+
+          <div style="background-color: white; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+            <h3 style="color: #1E3A5F; margin: 0 0 15px 0; font-size: 18px;">${subject}</h3>
+            <p style="white-space: pre-wrap; color: #333; line-height: 1.6;">${body}</p>
+          </div>
+
+          ${
+            sessionType || sessionDate || developmentArea
+              ? `
+          <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h4 style="color: #1E3A5F; margin: 0 0 10px 0; font-size: 14px;">Session Details</h4>
+            ${sessionType ? `<p style="margin: 5px 0; color: #666;"><strong>Type:</strong> ${sessionType}</p>` : ""}
+            ${sessionDate ? `<p style="margin: 5px 0; color: #666;"><strong>Date:</strong> ${sessionDate}</p>` : ""}
+            ${developmentArea ? `<p style="margin: 5px 0; color: #666;"><strong>Focus Area:</strong> ${developmentArea}</p>` : ""}
+          </div>
+          `
+              : ""
+          }
+
+          ${
+            discussionPrompts && discussionPrompts.length > 0
+              ? `
+          <div style="background-color: #faf5ff; padding: 15px; border-radius: 5px; margin: 20px 0; border: 2px solid #c084fc;">
+            <h4 style="color: #7c3aed; margin: 0 0 10px 0; font-size: 14px;">Discussion Points</h4>
+            <ul style="margin: 5px 0; padding-left: 20px; color: #4c1d95;">
+              ${discussionPrompts.map((prompt) => `<li style="margin: 5px 0;">${prompt}</li>`).join("")}
+            </ul>
+          </div>
+          `
+              : ""
+          }
+
+          ${
+            actionItems && actionItems.length > 0
+              ? `
+          <div style="background-color: #eff6ff; padding: 15px; border-radius: 5px; margin: 20px 0; border: 2px solid #60a5fa;">
+            <h4 style="color: #1e40af; margin: 0 0 10px 0; font-size: 14px;">Action Items</h4>
+            <ul style="margin: 5px 0; padding-left: 20px; color: #1e3a8a;">
+              ${actionItems.map((item) => `<li style="margin: 5px 0;">${item}</li>`).join("")}
+            </ul>
+          </div>
+          `
+              : ""
+          }
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a
+              href="${messageDetailUrl}"
+              style="background-color: #22c55e; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;"
+              onmouseover="this.style.backgroundColor='#16a34a'"
+              onmouseout="this.style.backgroundColor='#22c55e'"
+            >
+              View in PlayerARC
+            </a>
+          </div>
+
+          <p style="font-size: 13px; color: #666;">
+            You can respond or acknowledge this message by viewing it in PlayerARC.
+          </p>
+
+          <p style="font-size: 12px; color: #999; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            <a href="${messageDetailUrl}" style="color: #1E3A5F; word-break: break-all;">${messageDetailUrl}</a>
+          </p>
+        </div>
+        <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+          <p>© ${new Date().getFullYear()} ${organizationName} via PlayerARC. All rights reserved.</p>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+/**
+ * Build plain text email for coach-to-parent messages
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Email template generation requires conditional logic for optional fields (context, prompts, action items). Similar to invitation email pattern, this is necessary for clean template structure.
+function buildCoachMessageEmailText(data: CoachMessageEmailData): string {
+  const {
+    recipientName,
+    coachName,
+    playerName,
+    subject,
+    body,
+    organizationName,
+    messageDetailUrl,
+    sessionType,
+    sessionDate,
+    developmentArea,
+    discussionPrompts,
+    actionItems,
+  } = data;
+
+  let text = `Message from ${coachName}\n\n`;
+  text += `Hi ${recipientName},\n\n`;
+  text += `${coachName} has sent you a message about ${playerName} at ${organizationName}.\n\n`;
+  text += "---\n";
+  text += `${subject}\n`;
+  text += "---\n\n";
+  text += `${body}\n\n`;
+
+  if (sessionType || sessionDate || developmentArea) {
+    text += "SESSION DETAILS\n";
+    if (sessionType) {
+      text += `Type: ${sessionType}\n`;
+    }
+    if (sessionDate) {
+      text += `Date: ${sessionDate}\n`;
+    }
+    if (developmentArea) {
+      text += `Focus Area: ${developmentArea}\n`;
+    }
+    text += "\n";
+  }
+
+  if (discussionPrompts && discussionPrompts.length > 0) {
+    text += "DISCUSSION POINTS\n";
+    for (const prompt of discussionPrompts) {
+      text += `  • ${prompt}\n`;
+    }
+    text += "\n";
+  }
+
+  if (actionItems && actionItems.length > 0) {
+    text += "ACTION ITEMS\n";
+    for (const item of actionItems) {
+      text += `  • ${item}\n`;
+    }
+    text += "\n";
+  }
+
+  text += `View in PlayerARC:\n${messageDetailUrl}\n\n`;
+  text +=
+    "You can respond or acknowledge this message by viewing it in PlayerARC.\n\n";
+  text += "---\n";
+  text += `© ${new Date().getFullYear()} ${organizationName} via PlayerARC. All rights reserved.\n`;
+
+  return text.trim();
+}
+
+/**
+ * Send coach-to-parent message notification email
+ */
+export async function sendCoachMessageNotification(
+  data: CoachMessageEmailData
+): Promise<void> {
+  const { email, subject } = data;
+
+  const emailSubject = `Message from ${data.coachName} about ${data.playerName}`;
+  const htmlBody = buildCoachMessageEmailHtml(data);
+  const textBody = buildCoachMessageEmailText(data);
+
+  // Log email details (for development/debugging)
+  console.log("📧 Coach Message Notification Email:", {
+    to: email,
+    subject: emailSubject,
+    messageSubject: subject,
+    coachName: data.coachName,
+    playerName: data.playerName,
+    organizationName: data.organizationName,
+  });
+
+  // Send email via Resend API
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Coach message email will not be sent. Set RESEND_API_KEY in Convex dashboard."
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject: emailSubject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ Failed to send coach message email via Resend:", {
+        status: response.status,
+        error: errorData,
+      });
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log(
+      "✅ Coach message email sent successfully via Resend:",
+      result.id
+    );
+  } catch (error) {
+    console.error("❌ Error sending coach message email:", error);
+    throw error; // Re-throw so the action can handle the failure
+  }
+}
+
+/**
  * Send acknowledgement email to the demo request requester
  */
 export async function sendDemoRequestAcknowledgement(data: {

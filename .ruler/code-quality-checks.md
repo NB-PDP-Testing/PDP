@@ -5,20 +5,20 @@
 After writing ANY code (Edit or Write tools), you MUST:
 
 1. **Review PostToolUse hook output** - The hooks automatically run after every edit showing:
-   - TypeScript errors (first 30 lines)
-   - Linting issues (last 50 lines with summary)
-   - If you see errors, FIX THEM before proceeding
+   - Ultracite auto-formats the file
+   - Linting issues for THE SPECIFIC FILE you edited (max 10 diagnostics)
+   - If you see errors in YOUR file, FIX THEM before proceeding
 
 2. **If errors shown in hook output:**
    ```bash
-   # Check TypeScript errors
-   npm run check-types
-
    # Check linting issues in specific file
    npx biome check path/to/file.tsx
 
    # Auto-fix safe issues
    npx biome check --write path/to/file.tsx
+
+   # Check TypeScript errors (if needed)
+   npm run check-types
    ```
 
 3. **Verify formatting:**
@@ -31,10 +31,17 @@ After writing ANY code (Edit or Write tools), you MUST:
 - Linting errors in files you modified
 - Unformatted code
 
+## Local Pre-commit Hook:
+
+A git pre-commit hook is installed at `.git/hooks/pre-commit` that:
+- Runs `biome check` on staged TypeScript/JavaScript files
+- **BLOCKS commits** if linting errors are found in staged files
+- Can be bypassed with `git commit --no-verify` (NOT recommended)
+
 ## Before Using Bash Tool to Commit:
 
-1. PreToolUse hook will show current errors - READ IT
-2. If errors shown, STOP and fix them first
+1. PreToolUse hook will warn if trying to commit
+2. Pre-commit hook will block if staged files have errors
 3. Only proceed with commit after fixing issues
 
 ## The "Fix as You Go" Rule:

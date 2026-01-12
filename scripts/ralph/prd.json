@@ -447,7 +447,7 @@
         "Type checking passes: npm run check-types"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": "Follow exact pattern from sendOrganizationInvitation() around line 72. Use RESEND_API_KEY env var."
     },
     {
@@ -466,7 +466,7 @@
         "Type checking passes: npm run check-types"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "notes": "Actions can't access ctx.db directly - use ctx.runQuery and ctx.runMutation. Reference actions/invitations.ts."
     },
     {
@@ -483,7 +483,7 @@
         "Type checking passes: npm run check-types"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": "Use internal.actions.messaging.sendMessageEmail pattern. The action must be exported as internalAction."
     },
     {

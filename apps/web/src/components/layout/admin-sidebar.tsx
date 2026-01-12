@@ -10,6 +10,7 @@ import {
   Key,
   LineChart,
   Megaphone,
+  MessageSquare,
   Settings,
   Shield,
   ShieldAlert,
@@ -138,6 +139,11 @@ export function getAdminNavGroups(orgId: string): NavGroup[] {
           href: `/orgs/${orgId}/admin/settings`,
           label: "Settings",
           icon: Settings,
+        },
+        {
+          href: `/orgs/${orgId}/admin/messaging`,
+          label: "Messaging",
+          icon: MessageSquare,
         },
         {
           href: `/orgs/${orgId}/admin/announcements`,

@@ -499,7 +499,7 @@
         "Linting passes: npm run check"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "notes": "Check apps/web/src/app/orgs/[orgId]/admin/ for layout.tsx or sidebar component."
     }
   ]

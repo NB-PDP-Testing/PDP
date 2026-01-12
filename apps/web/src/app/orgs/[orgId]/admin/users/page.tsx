@@ -493,31 +493,81 @@ export default function ManageUsersPage() {
 
       // Build invitation metadata with functional roles and role-specific data
       // These will be auto-assigned when the user accepts via syncFunctionalRolesFromInvitation
+      type TeamInfo = {
+        id: string;
+        name: string;
+        sport?: string;
+        ageGroup?: string;
+      };
+
+      type PlayerInfo = {
+        id: string;
+        name: string;
+        ageGroup?: string;
+      };
+
       type InviteMetadata = {
         suggestedFunctionalRoles: ("coach" | "parent" | "admin")[];
         roleSpecificData?: {
-          teams?: string[]; // Team IDs for coach role
+          teams?: TeamInfo[]; // Full team details for coach role
         };
-        suggestedPlayerLinks?: string[]; // Player IDs for parent role
+        suggestedPlayerLinks?: PlayerInfo[]; // Full player details for parent role
       };
 
       const metadata: InviteMetadata = {
         suggestedFunctionalRoles: inviteFunctionalRoles,
       };
 
-      // Add coach-specific data (teams)
+      // Add coach-specific data (teams with full details for email)
       if (inviteFunctionalRoles.includes("coach") && inviteTeams.length > 0) {
+        const teamDetails = inviteTeams
+          .map((teamId) => {
+            const team = teams?.find((t) => t._id === teamId);
+            if (!team) {
+              return null;
+            }
+            const teamInfo: TeamInfo = {
+              id: teamId,
+              name: team.name,
+            };
+            if (team.sport) {
+              teamInfo.sport = team.sport;
+            }
+            if (team.ageGroup) {
+              teamInfo.ageGroup = team.ageGroup;
+            }
+            return teamInfo;
+          })
+          .filter((t): t is TeamInfo => t !== null);
+
         metadata.roleSpecificData = {
-          teams: inviteTeams,
+          teams: teamDetails,
         };
       }
 
-      // Add parent-specific data (player links)
+      // Add parent-specific data (player details with names for email)
       if (
         inviteFunctionalRoles.includes("parent") &&
         invitePlayerIds.length > 0
       ) {
-        metadata.suggestedPlayerLinks = invitePlayerIds;
+        const playerDetails = invitePlayerIds
+          .map((playerId) => {
+            const player = allPlayers?.find((p) => p._id === playerId);
+            if (!player) {
+              return null;
+            }
+            const playerInfo: PlayerInfo = {
+              id: playerId,
+              name: player.name,
+            };
+            if (player.ageGroup) {
+              playerInfo.ageGroup = player.ageGroup;
+            }
+            return playerInfo;
+          })
+          .filter((p): p is PlayerInfo => p !== null);
+
+        metadata.suggestedPlayerLinks = playerDetails;
       }
 
       const inviteOptions = {

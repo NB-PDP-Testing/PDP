@@ -79,6 +79,7 @@ import type * as scripts_previewOrgCleanup from "../scripts/previewOrgCleanup.js
 import type * as scripts_queryExisting from "../scripts/queryExisting.js";
 import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSportRules.js";
 import type * as scripts_seedUATData from "../scripts/seedUATData.js";
+import type * as scripts_setCurrentOrg from "../scripts/setCurrentOrg.js";
 import type * as scripts_stagedReset from "../scripts/stagedReset.js";
 import type * as scripts_validateTeamAssignments from "../scripts/validateTeamAssignments.js";
 import type * as scripts_verifyUATSetup from "../scripts/verifyUATSetup.js";
@@ -163,6 +164,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/queryExisting": typeof scripts_queryExisting;
   "scripts/seedDefaultSportRules": typeof scripts_seedDefaultSportRules;
   "scripts/seedUATData": typeof scripts_seedUATData;
+  "scripts/setCurrentOrg": typeof scripts_setCurrentOrg;
   "scripts/stagedReset": typeof scripts_stagedReset;
   "scripts/validateTeamAssignments": typeof scripts_validateTeamAssignments;
   "scripts/verifyUATSetup": typeof scripts_verifyUATSetup;

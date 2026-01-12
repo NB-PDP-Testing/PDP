@@ -189,7 +189,8 @@ const customInvitationTable = defineTable({
   .index("inviterId", ["inviterId"])
   .index("email_status", ["email", "status"])
   .index("organizationId_status", ["organizationId", "status"])
-  .index("inviterId_organizationId", ["inviterId", "organizationId"]);
+  .index("inviterId_organizationId", ["inviterId", "organizationId"])
+  .index("email_organizationId_status", ["email", "organizationId", "status"]);
 
 export const tables = {
   ...generatedTables,

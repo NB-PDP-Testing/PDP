@@ -1,0 +1,464 @@
+{
+  "project": "URL Authorization & Access Control System",
+  "branchName": "ralph/url-authorization",
+  "description": "Implement comprehensive URL authorization and access control to close critical security gaps. Coach and parent portals lack route-level authorization, allowing any authenticated member to access restricted areas. See docs/features/PRD_URL_AUTHORIZATION_ACCESS_CONTROL.md for full specification. Compliance: OWASP Top 10 2025, NIST SP 800-53, ISO 27001, SOC 2, COPPA, GDPR-K.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create useAuthorization hook for role verification",
+      "description": "As a developer, I need a reusable hook to check user authorization in components.",
+      "acceptanceCriteria": [
+        "Create new file: apps/web/src/hooks/useAuthorization.ts",
+        "Hook takes orgId (string) and options object with requiredBetterAuthRoles and requiredFunctionalRoles arrays",
+        "Returns AuthorizationResult: isLoading, isAuthorized, denialReason, user, member, functionalRoles",
+        "Uses useCurrentUser hook to get authenticated user",
+        "Uses useQuery with api.members.getMemberByUserId to get member record",
+        "Checks Better Auth roles (owner/admin/member) if requiredBetterAuthRoles specified",
+        "Checks functional roles (coach/parent/admin/player) if requiredFunctionalRoles specified",
+        "Returns isAuthorized: false with appropriate denialReason if checks fail",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "This is the foundation for all route guards. Reference apps/web/src/hooks/useCurrentUser.ts for hook patterns."
+    },
+    {
+      "id": "US-002",
+      "title": "Create AccessDenied component for graceful error display",
+      "description": "As a user, I want a clear message when I can't access a page instead of a generic error.",
+      "acceptanceCriteria": [
+        "Create new file: apps/web/src/components/auth/AccessDenied.tsx",
+        "Component accepts props: title, message, reason, backUrl, showContactSupport (boolean)",
+        "Displays ShieldX icon from lucide-react in a red circle",
+        "Shows title as h1 heading, message as description",
+        "Shows reason in a gray info box if provided",
+        "Includes 'Go Back' button linking to backUrl (defaults to /orgs)",
+        "Includes 'Contact Support' button if showContactSupport is true",
+        "Uses Card, Button components from shadcn/ui",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Use 'use client' directive. Design should be neutral and helpful, not accusatory."
+    },
+    {
+      "id": "US-003",
+      "title": "Create RouteGuard component for layout protection",
+      "description": "As a developer, I need a reusable wrapper component that checks authorization before rendering children.",
+      "acceptanceCriteria": [
+        "Create new file: apps/web/src/components/auth/RouteGuard.tsx",
+        "Component accepts props: children, requiredBetterAuthRoles, requiredFunctionalRoles, redirectTo, denialMessage, showDenialUI",
+        "Uses useAuthorization hook internally with orgId from useParams",
+        "Shows loading spinner with 'Checking access...' while authorization is loading",
+        "If not authorized and showDenialUI is true, renders AccessDenied component",
+        "If not authorized and redirectTo is set, uses router.replace to redirect",
+        "Replaces [orgId] placeholder in redirectTo with actual orgId",
+        "If authorized, renders children",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Use 'use client' directive. This component wraps layout children to enforce authorization."
+    },
+    {
+      "id": "US-004",
+      "title": "Create auth component barrel export file",
+      "description": "As a developer, I need a clean import path for auth components.",
+      "acceptanceCriteria": [
+        "Create new file: apps/web/src/components/auth/index.ts",
+        "Export RouteGuard from './RouteGuard'",
+        "Export AccessDenied from './AccessDenied'",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Simple re-export file for cleaner imports."
+    },
+    {
+      "id": "US-005",
+      "title": "Add RouteGuard to coach layout for authorization",
+      "description": "As a platform, I need to ensure only users with coach functional role can access coach routes.",
+      "acceptanceCriteria": [
+        "Edit file: apps/web/src/app/orgs/[orgId]/coach/layout.tsx",
+        "Import RouteGuard from '@/components/auth'",
+        "Wrap existing layout content with RouteGuard component",
+        "Set requiredFunctionalRoles to ['coach', 'admin'] - admins can also access coach area",
+        "Set denialMessage to 'You need coach access to view this page. Please contact your organization administrator if you believe this is an error.'",
+        "Set showDenialUI to true",
+        "Set redirectTo to '/orgs/[orgId]' as fallback",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check",
+        "Verify: User without coach role sees Access Denied page when navigating to /orgs/[orgId]/coach"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "This closes the CRITICAL security gap for coach routes. Test with a user who has member role but no coach functional role."
+    },
+    {
+      "id": "US-006",
+      "title": "Add RouteGuard to parent layout for authorization",
+      "description": "As a platform, I need to ensure only users with parent functional role can access parent routes.",
+      "acceptanceCriteria": [
+        "Edit file: apps/web/src/app/orgs/[orgId]/parents/layout.tsx",
+        "Import RouteGuard from '@/components/auth'",
+        "Wrap existing layout content with RouteGuard component",
+        "Set requiredFunctionalRoles to ['parent', 'admin'] - admins can also access parent area",
+        "Set denialMessage to 'You need parent/guardian access to view this page. Please contact your organization administrator if you believe this is an error.'",
+        "Set showDenialUI to true",
+        "Set redirectTo to '/orgs/[orgId]' as fallback",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check",
+        "Verify: User without parent role sees Access Denied page when navigating to /orgs/[orgId]/parents"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "This closes the CRITICAL security gap for parent routes. Test with a user who has coach role but no parent functional role."
+    },
+    {
+      "id": "US-007",
+      "title": "Create route-permissions configuration file",
+      "description": "As a developer, I need a centralized configuration for route-permission mappings.",
+      "acceptanceCriteria": [
+        "Create new file: apps/web/src/lib/authorization/route-permissions.ts",
+        "Define RoutePermission type with fields: pattern (string), betterAuthRoles (optional array), functionalRoles (optional array), redirectTo (optional string), denialMessage (optional string)",
+        "Export routePermissions array with configurations for: /orgs/*/admin/*, /orgs/*/coach/*, /orgs/*/parents/*, /orgs/*/players/*",
+        "Admin routes require betterAuthRoles: ['owner', 'admin']",
+        "Coach routes require functionalRoles: ['coach', 'admin']",
+        "Parent routes require functionalRoles: ['parent', 'admin']",
+        "Player routes require functionalRoles: ['coach', 'parent', 'admin']",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "This configuration is the single source of truth for route permissions per OWASP/NIST requirements."
+    },
+    {
+      "id": "US-008",
+      "title": "Create backend authorization helper functions",
+      "description": "As a developer, I need server-side helpers to verify caller authorization in mutations.",
+      "acceptanceCriteria": [
+        "Create new file: packages/backend/convex/lib/authorization.ts",
+        "Define AuthorizationContext type with userId, organizationId, betterAuthRole, functionalRoles, isPlatformStaff",
+        "Create getAuthContext function that takes ctx and organizationId, returns AuthorizationContext",
+        "Function gets user from authComponent.safeGetAuthUser and throws 'Unauthorized' if not found",
+        "Function queries member table using by_userId_organizationId index",
+        "Function throws 'Forbidden: Not a member' if member not found",
+        "Create assertFunctionalRole function that checks if authCtx has any of required roles",
+        "Create assertBetterAuthRole function that checks if authCtx has required Better Auth role",
+        "Both assert functions throw 'Forbidden: [action] requires [roles]' on failure",
+        "Platform staff bypass both assert functions (return early)",
+        "Admin functional role bypasses assertFunctionalRole (can access everything)",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Reference packages/backend/convex/lib/ for helper patterns. Import authComponent from auth, Query/MutationCtx from _generated/server."
+    },
+    {
+      "id": "US-009",
+      "title": "Add authorization check to createSkillAssessment mutation",
+      "description": "As a platform, I need to verify the caller has coach role before creating assessments.",
+      "acceptanceCriteria": [
+        "Edit file: packages/backend/convex/models/skillAssessments.ts",
+        "Find createSkillAssessment or createAssessment mutation",
+        "Import getAuthContext, assertFunctionalRole from '../lib/authorization'",
+        "At start of handler, call getAuthContext with ctx and organizationId from args",
+        "Call assertFunctionalRole with authCtx, ['coach'], 'Create skill assessment'",
+        "Remove any frontend-provided assessorRole and derive it from authCtx.functionalRoles instead",
+        "Set assessedBy from the authenticated user if not already doing so",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "This implements Zero Trust principle - verify every mutation. The caller must prove they have coach role."
+    },
+    {
+      "id": "US-010",
+      "title": "Add authorization check to voice note mutations",
+      "description": "As a platform, I need to verify the caller has coach role before creating/editing voice notes.",
+      "acceptanceCriteria": [
+        "Edit file: packages/backend/convex/models/voiceNotes.ts",
+        "Find create and update voice note mutations",
+        "Import getAuthContext, assertFunctionalRole from '../lib/authorization'",
+        "Add authorization check: getAuthContext then assertFunctionalRole with ['coach']",
+        "Apply to: createVoiceNote, updateVoiceNote, deleteVoiceNote (or equivalent mutation names)",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Check the actual mutation names in the file. Apply auth check to any mutation that creates or modifies voice note data."
+    },
+    {
+      "id": "US-011",
+      "title": "Add authorization check to development goal mutations",
+      "description": "As a platform, I need to verify the caller has coach role before managing goals.",
+      "acceptanceCriteria": [
+        "Edit file: packages/backend/convex/models/developmentGoals.ts",
+        "Find create, update, delete goal mutations",
+        "Import getAuthContext, assertFunctionalRole from '../lib/authorization'",
+        "Add authorization check requiring ['coach', 'admin'] role",
+        "Apply to all mutations that modify goal data",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "Goals can be managed by coaches and admins. Check actual mutation names in the file."
+    },
+    {
+      "id": "US-012",
+      "title": "Add authorization check to injury mutations",
+      "description": "As a platform, I need to verify the caller has coach role before logging injuries.",
+      "acceptanceCriteria": [
+        "Edit file: packages/backend/convex/models/injuries.ts",
+        "Find create, update injury mutations",
+        "Import getAuthContext, assertFunctionalRole from '../lib/authorization'",
+        "Add authorization check requiring ['coach', 'admin'] role",
+        "Apply to all mutations that create or modify injury records",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "Injury data is sensitive. Only coaches and admins should be able to create/modify."
+    },
+    {
+      "id": "US-013",
+      "title": "Create authorizationLogs table in schema",
+      "description": "As a platform, I need to log all authorization decisions for compliance (SOC 2 requirement).",
+      "acceptanceCriteria": [
+        "Edit file: packages/backend/convex/schema.ts",
+        "Add authorizationLogs table after existing tables",
+        "Fields: timestamp (v.number), eventType (v.union of 'access_granted', 'access_denied', 'permission_check', 'role_change')",
+        "Fields: userId (v.optional string), sessionId (v.optional string)",
+        "Fields: organizationId (v.optional string), resourceType (v.optional string), resourceId (v.optional string)",
+        "Fields: decision (v.union of 'allow', 'deny'), reason (v.optional string)",
+        "Fields: requiredRoles (v.optional array string), userRoles (v.optional array string)",
+        "Fields: ipAddress (v.optional string), userAgent (v.optional string)",
+        "Add indexes: by_userId, by_organizationId, by_timestamp, by_decision_timestamp",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "This table is required for SOC 2 compliance. Retention should be 90+ days per SOC 2 requirements."
+    },
+    {
+      "id": "US-014",
+      "title": "Create logAuthDecision helper function",
+      "description": "As a developer, I need a helper to easily log authorization decisions.",
+      "acceptanceCriteria": [
+        "Edit file: packages/backend/convex/lib/authorization.ts",
+        "Add logAuthDecision function that takes ctx and log data object",
+        "Function inserts into authorizationLogs table",
+        "Log data includes: eventType, userId, organizationId, resourceType, resourceId, decision, reason, requiredRoles, userRoles",
+        "Sets timestamp to Date.now() automatically",
+        "Function is async and returns the inserted log ID",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "This helper makes it easy to add audit logging to authorization checks."
+    },
+    {
+      "id": "US-015",
+      "title": "Add audit logging to assertFunctionalRole",
+      "description": "As a platform, I need to log when authorization checks deny access.",
+      "acceptanceCriteria": [
+        "Edit file: packages/backend/convex/lib/authorization.ts",
+        "Update assertFunctionalRole to accept ctx parameter",
+        "When authorization fails, call logAuthDecision before throwing error",
+        "Log eventType: 'access_denied', decision: 'deny', reason: the denial reason",
+        "Include userId, organizationId, requiredRoles, userRoles in log",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "This creates the audit trail required by SOC 2 for access denials."
+    },
+    {
+      "id": "US-016",
+      "title": "Hide coach navigation for users without coach role",
+      "description": "As a user, I should not see navigation links to areas I cannot access.",
+      "acceptanceCriteria": [
+        "Find the main navigation component for organization pages",
+        "Identify where coach portal link is rendered",
+        "Add conditional check: only show coach link if user has coach or admin functional role",
+        "Use existing member data or create query to check functional roles",
+        "Link hidden but route still protected - defense in depth",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "Navigation hiding is UX improvement, not security. RouteGuard is the security layer."
+    },
+    {
+      "id": "US-017",
+      "title": "Hide parent navigation for users without parent role",
+      "description": "As a user, I should not see navigation links to parent area if I'm not a parent.",
+      "acceptanceCriteria": [
+        "Find the main navigation component for organization pages",
+        "Identify where parent portal link is rendered",
+        "Add conditional check: only show parent link if user has parent or admin functional role",
+        "Use existing member data or create query to check functional roles",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "Same pattern as coach navigation hiding. Both should be updated together if in same component."
+    },
+    {
+      "id": "US-018",
+      "title": "Add authentication check to API recommendations route",
+      "description": "As a platform, I need to secure the API route that generates recommendations.",
+      "acceptanceCriteria": [
+        "Edit file: apps/web/src/app/api/recommendations/route.ts (if exists)",
+        "Add authentication check at start of POST handler",
+        "Verify user is authenticated using auth client or session",
+        "Return 401 Unauthorized if not authenticated",
+        "Return 403 Forbidden if user doesn't have appropriate role",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "Check if this file exists. If not, skip this story. API routes need the same protection as pages."
+    },
+    {
+      "id": "US-019",
+      "title": "Add authentication check to API session-plan route",
+      "description": "As a platform, I need to secure the API route that generates session plans.",
+      "acceptanceCriteria": [
+        "Edit file: apps/web/src/app/api/session-plan/route.ts (if exists)",
+        "Add authentication check at start of POST handler",
+        "Verify user is authenticated using auth client or session",
+        "Return 401 Unauthorized if not authenticated",
+        "Return 403 Forbidden if user doesn't have appropriate role",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "Check if this file exists. If not, skip this story. Follow same pattern as recommendations route."
+    },
+    {
+      "id": "US-020",
+      "title": "Create PermissionGate component for conditional UI rendering",
+      "description": "As a developer, I need a component to conditionally show UI elements based on permissions.",
+      "acceptanceCriteria": [
+        "Create new file: apps/web/src/components/auth/PermissionGate.tsx",
+        "Component accepts props: children, requiredFunctionalRoles, fallback (optional ReactNode)",
+        "Uses useAuthorization hook to check if user has required roles",
+        "If authorized, renders children",
+        "If not authorized, renders fallback or nothing",
+        "Does NOT redirect or show errors - just conditionally renders",
+        "Export from apps/web/src/components/auth/index.ts",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "This is for hiding buttons, sections, or features within a page based on role. Different from RouteGuard."
+    },
+    {
+      "id": "US-021",
+      "title": "Create admin authorization audit log viewer page",
+      "description": "As an admin, I want to view the authorization audit log for compliance.",
+      "acceptanceCriteria": [
+        "Create folder: apps/web/src/app/orgs/[orgId]/admin/security/",
+        "Create page.tsx in that folder",
+        "Create backend query getAuthorizationLogs in packages/backend/convex/models/authorization.ts",
+        "Query accepts organizationId, limit (default 100), filter by decision (optional)",
+        "Verify caller is admin/owner before returning logs",
+        "Page displays table: Timestamp, User, Resource, Decision, Reason",
+        "Add filter for 'All', 'Denied only', 'Granted only'",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "This satisfies SOC 2 requirement for audit log visibility. Format timestamps nicely."
+    },
+    {
+      "id": "US-022",
+      "title": "Add Security link to admin navigation",
+      "description": "As an admin, I want quick access to security audit logs.",
+      "acceptanceCriteria": [
+        "Find admin navigation component in apps/web/src/app/orgs/[orgId]/admin/",
+        "Add Security link using Shield icon from lucide-react",
+        "Links to /orgs/[orgId]/admin/security",
+        "Position in appropriate section of admin navigation",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "Check admin layout.tsx for navigation structure."
+    },
+    {
+      "id": "US-023",
+      "title": "Write integration tests for coach route authorization",
+      "description": "As a developer, I need tests to verify coach route protection works.",
+      "acceptanceCriteria": [
+        "Create test file for coach authorization (location depends on existing test structure)",
+        "Test case 1: User with coach role can access /orgs/[orgId]/coach - should render",
+        "Test case 2: User without coach role accessing /orgs/[orgId]/coach - should see Access Denied",
+        "Test case 3: Admin without coach role can access /orgs/[orgId]/coach - should render (admin bypass)",
+        "Test case 4: Unauthenticated user redirected to login",
+        "Tests pass: npm test (or equivalent test command)"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "Check existing test patterns in the codebase. May need to mock auth state."
+    },
+    {
+      "id": "US-024",
+      "title": "Write integration tests for parent route authorization",
+      "description": "As a developer, I need tests to verify parent route protection works.",
+      "acceptanceCriteria": [
+        "Create test file for parent authorization",
+        "Test case 1: User with parent role can access /orgs/[orgId]/parents - should render",
+        "Test case 2: User without parent role accessing /orgs/[orgId]/parents - should see Access Denied",
+        "Test case 3: Admin without parent role can access /orgs/[orgId]/parents - should render (admin bypass)",
+        "Test case 4: Coach without parent role cannot access - should see Access Denied",
+        "Tests pass: npm test (or equivalent test command)"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "Follow same pattern as coach route tests."
+    },
+    {
+      "id": "US-025",
+      "title": "Write integration tests for backend mutation authorization",
+      "description": "As a developer, I need tests to verify backend mutations check authorization.",
+      "acceptanceCriteria": [
+        "Create test file for mutation authorization",
+        "Test case 1: Coach can create skill assessment - should succeed",
+        "Test case 2: Member without coach role creating assessment - should throw Forbidden",
+        "Test case 3: Unauthenticated caller - should throw Unauthorized",
+        "Test case 4: Verify authorization denial is logged in authorizationLogs",
+        "Tests pass: npm test (or equivalent test command)"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": "Check existing Convex test patterns. May need to set up test fixtures."
+    },
+    {
+      "id": "US-026",
+      "title": "Document authorization architecture in CLAUDE.md",
+      "description": "As a developer, I need documentation on the authorization system.",
+      "acceptanceCriteria": [
+        "Edit file: CLAUDE.md",
+        "Add new section '## Authorization Architecture' after 'Authorization Model'",
+        "Document the multi-layer approach: middleware, layout guards, component gates, backend checks",
+        "List the key files: useAuthorization hook, RouteGuard component, authorization.ts helpers",
+        "Document the pattern for adding auth to new routes and mutations",
+        "Reference the full PRD for detailed specifications",
+        "Ensure documentation follows existing CLAUDE.md formatting style"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": "Keep it concise - CLAUDE.md is a quick reference. Point to PRD for details."
+    }
+  ]
+}

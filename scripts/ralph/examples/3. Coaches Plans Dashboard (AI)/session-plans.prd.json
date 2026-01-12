@@ -1,0 +1,645 @@
+{
+  "project": "AI-Powered Session Plans Management",
+  "branchName": "ralph/session-plans",
+  "description": "Comprehensive Session Plans management system enabling coaches to generate, store, organize, search, and learn from AI-powered training session plans with simplified A/B testable feedback. See docs/features/PRD_SESSION_PLANS.md for full specification.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add sessionPlans table to schema",
+      "description": "As a developer, I need the main session plans storage table with structured sections and activities.",
+      "acceptanceCriteria": [
+        "Add sessionPlans table to packages/backend/convex/schema.ts after the voiceNotes table",
+        "Add sectionActivityValidator object with fields: id (string), name (string), description (string), duration (optional number), order (number), activityType (union: drill/game/exercise/demonstration/discussion/rest), skillsFocused (optional array string), equipment (optional array string), playerGrouping (optional string), intensity (optional union: low/medium/high)",
+        "Add sessionSectionValidator object with fields: id (string), type (union: warmup/technical/tactical/games/cooldown/custom), title (string), duration (number), order (number), activities (array sectionActivityValidator)",
+        "Table fields: organizationId (string), coachId (string), coachName (string), teamId (optional string), teamName (string), ageGroup (optional string), sport (optional string), playerCount (number), title (string), rawContent (string), focusArea (optional string), duration (number), sections (array sessionSectionValidator)",
+        "Add fields: generationPrompt (optional string), teamStrengths (array object with skill string and avg number), teamWeaknesses (array object with skill string and avg number)",
+        "Add status field: v.union(draft/saved/archived_success/archived_failed/deleted), usedInSession (boolean), usedDate (optional number)",
+        "Add feedback fields: overallRating (optional 1-5), overallNotes (optional string), whatWorkedWell (optional string), whatToImprove (optional string), feedbackSubmitted (boolean), feedbackUsedForTraining (boolean)",
+        "Add simplified feedback object: simplifiedFeedback (optional object with sessionFeedback, sessionFeedbackAt, negativeReason, drillFeedback array, feedbackVariant, feedbackCompletionTime)",
+        "Add timestamps: createdAt (number), updatedAt (number), archivedAt (optional number)",
+        "Add indexes: by_org, by_coach, by_org_and_coach, by_org_and_status, by_org_and_team, by_coach_and_status, by_org_and_createdAt, by_focusArea",
+        "Add search indexes: search_content on rawContent with filters [organizationId, coachId, status], search_title on title with same filters",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Follow the nested validator pattern from other tables. The sections array contains activities which enables granular drill feedback."
+    },
+    {
+      "id": "US-002",
+      "title": "Add drillLibrary table to schema",
+      "description": "As a developer, I need a table to aggregate drill feedback across all coaches for AI learning.",
+      "acceptanceCriteria": [
+        "Add drillLibrary table to packages/backend/convex/schema.ts after sessionPlans",
+        "Fields: organizationId (string), name (string), normalizedName (string for matching), description (string), activityType (string), skillsFocused (array string), equipment (array string)",
+        "Aggregation fields: timesUsed (number), totalRatingSum (number), ratingCount (number), successCount (number), failureCount (number)",
+        "Context fields: effectiveAgeGroups (array string), ineffectiveAgeGroups (array string), effectiveFocusAreas (array string), commonModifications (array string)",
+        "Source tracking: sourceSessionPlanIds (array string)",
+        "Timestamps: createdAt (number), updatedAt (number)",
+        "Add indexes: by_org, by_org_and_name, by_org_and_type",
+        "Add search index: search_drills on name with filters [organizationId, activityType]",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "This table aggregates feedback from all sessions to build a drill effectiveness library."
+    },
+    {
+      "id": "US-003",
+      "title": "Add sessionPlanTags table to schema",
+      "description": "As a developer, I need a table for categorizing session plans with custom tags.",
+      "acceptanceCriteria": [
+        "Add sessionPlanTags table to packages/backend/convex/schema.ts after drillLibrary",
+        "Fields: organizationId (string), name (string), color (string), createdAt (number)",
+        "Add index: by_org",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Simple tagging system for organizing session plans."
+    },
+    {
+      "id": "US-004",
+      "title": "Create sessionPlans.ts model with helper functions",
+      "description": "As a developer, I need the base file with auth and utility helpers.",
+      "acceptanceCriteria": [
+        "Create new file: packages/backend/convex/models/sessionPlans.ts",
+        "Add imports: v from convex/values, query/mutation/internalMutation from _generated/server, authComponent from auth, components from _generated/api",
+        "Add helper function getCoachForOrg(ctx, userId, orgId) that verifies coach assignment using coachAssignments table with by_user_and_org index",
+        "Add helper function normalizedrillName(name: string) that returns lowercase trimmed name for matching",
+        "Add helper function parseStructuredSections(rawContent: string) that parses AI markdown into sections/activities structure",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Reference models/voiceNotes.ts for auth patterns. The parseStructuredSections helper will be used to convert AI output."
+    },
+    {
+      "id": "US-005",
+      "title": "Implement generateAndSave mutation",
+      "description": "As a coach, I want to generate a session plan and have it automatically saved.",
+      "acceptanceCriteria": [
+        "Add generateAndSave mutation to packages/backend/convex/models/sessionPlans.ts",
+        "Args: organizationId (string), teamId (optional string), teamName (string), ageGroup (optional string), sport (optional string), playerCount (number), focusArea (optional string), duration (optional number default 90), teamStrengths (array), teamWeaknesses (array), customPrompt (optional string)",
+        "Verify user is authenticated via authComponent.safeGetAuthUser",
+        "Verify coach has assignment in this org using getCoachForOrg helper",
+        "Get coach name from user record",
+        "Insert session plan record with status 'draft', empty sections array, rawContent placeholder",
+        "Schedule AI generation action using ctx.scheduler.runAfter(0, internal.actions.sessionPlans.generatePlanContent, { planId })",
+        "Return the session plan ID",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "The mutation creates a draft record immediately, then schedules async AI generation."
+    },
+    {
+      "id": "US-006",
+      "title": "Create sessionPlans action for AI generation",
+      "description": "As a system, I need to call Claude AI to generate session plan content.",
+      "acceptanceCriteria": [
+        "Create new file: packages/backend/convex/actions/sessionPlans.ts",
+        "Add generatePlanContent internalAction with args: planId (id sessionPlans)",
+        "Fetch the plan record using ctx.runQuery",
+        "Build prompt including: team name, age group, player count, focus area, strengths, weaknesses, duration",
+        "Add structured output instructions requesting JSON with sections and activities",
+        "Call Claude API (claude-3-5-haiku-20241022) with the prompt",
+        "Parse response to extract title and structured sections",
+        "Call internal mutation to update plan with content and status 'saved'",
+        "Handle errors gracefully - update status to 'draft' with error in notes field",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Reference apps/web/src/app/api/session-plan/route.ts for existing Claude API patterns. Use ANTHROPIC_API_KEY env var."
+    },
+    {
+      "id": "US-007",
+      "title": "Implement updatePlanContent internal mutation",
+      "description": "As a system, I need to update plan content after AI generation completes.",
+      "acceptanceCriteria": [
+        "Add updatePlanContent internalMutation to packages/backend/convex/models/sessionPlans.ts",
+        "Args: planId (id sessionPlans), title (string), rawContent (string), sections (array sessionSectionValidator), status (union saved/draft)",
+        "Update the plan record with provided fields",
+        "Set updatedAt to Date.now()",
+        "Return v.null()",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Internal mutation called by the action after AI generation."
+    },
+    {
+      "id": "US-008",
+      "title": "Implement getMyPlans query",
+      "description": "As a coach, I want to see all my session plans.",
+      "acceptanceCriteria": [
+        "Add getMyPlans query to packages/backend/convex/models/sessionPlans.ts",
+        "Args: organizationId (string), status (optional string), teamId (optional string), focusArea (optional string), limit (optional number default 50)",
+        "Get current user ID from authComponent.safeGetAuthUser",
+        "Query sessionPlans with by_coach_and_status index if status provided, otherwise by_org_and_coach",
+        "Filter by teamId and focusArea if provided",
+        "Exclude status 'deleted' by default",
+        "Order by createdAt descending, take limit",
+        "Return array of plans with essential fields (exclude full rawContent for list view)",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Use indexes for efficient queries. Consider pagination for future."
+    },
+    {
+      "id": "US-009",
+      "title": "Implement getPlan query",
+      "description": "As a coach, I want to view a single session plan with full details.",
+      "acceptanceCriteria": [
+        "Add getPlan query to packages/backend/convex/models/sessionPlans.ts",
+        "Args: planId (id sessionPlans)",
+        "Get current user from auth",
+        "Fetch plan by ID",
+        "Verify user is the coach who created it OR is org admin",
+        "Return full plan record including rawContent, sections, and all feedback",
+        "Return null if not found or not authorized",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Include access control - coaches can only see their own plans."
+    },
+    {
+      "id": "US-010",
+      "title": "Implement markAsUsed mutation",
+      "description": "As a coach, I want to mark a session plan as used in training.",
+      "acceptanceCriteria": [
+        "Add markAsUsed mutation to packages/backend/convex/models/sessionPlans.ts",
+        "Args: planId (id sessionPlans), usedDate (optional number, default Date.now())",
+        "Verify user is authenticated and owns this plan",
+        "Update plan: usedInSession = true, usedDate = provided or now, updatedAt = now",
+        "Return v.null()",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "This triggers the feedback prompt on next visit to generate page."
+    },
+    {
+      "id": "US-011",
+      "title": "Implement submitQuickFeedback mutation (A/B Variant A)",
+      "description": "As a coach, I want to give quick thumbs up/down feedback on a session.",
+      "acceptanceCriteria": [
+        "Add submitQuickFeedback mutation to packages/backend/convex/models/sessionPlans.ts",
+        "Args: planId (id sessionPlans), sessionFeedback (union positive/negative), negativeReason (optional string), variant (union one_click/two_click_highlights)",
+        "Verify user owns this plan",
+        "Update simplifiedFeedback object: sessionFeedback, sessionFeedbackAt = now, negativeReason if provided, feedbackVariant",
+        "If positive, update status to 'archived_success'; if negative, update to 'archived_failed'",
+        "Set feedbackSubmitted = true",
+        "Return v.null()",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "This is the one-click feedback variant. Simple thumbs up/down."
+    },
+    {
+      "id": "US-012",
+      "title": "Implement submitDrillFeedback mutation (A/B Variant B)",
+      "description": "As a coach, I want to rate individual drills after giving session feedback.",
+      "acceptanceCriteria": [
+        "Add submitDrillFeedback mutation to packages/backend/convex/models/sessionPlans.ts",
+        "Args: planId (id sessionPlans), drillId (string), drillName (string), feedback (union positive/negative), negativeReason (optional string), note (optional string)",
+        "Verify user owns this plan",
+        "Append new entry to simplifiedFeedback.drillFeedback array",
+        "Each entry: drillId, drillName, feedback, negativeReason, note, feedbackAt = now",
+        "Update updatedAt timestamp",
+        "Return v.null()",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "Drill feedback is optional and can be added incrementally."
+    },
+    {
+      "id": "US-013",
+      "title": "Implement getPendingFeedbackSession query",
+      "description": "As a system, I need to find the most recent session awaiting feedback.",
+      "acceptanceCriteria": [
+        "Add getPendingFeedbackSession query to packages/backend/convex/models/sessionPlans.ts",
+        "Args: organizationId (string)",
+        "Get current user from auth",
+        "Query sessionPlans where: coachId = user, usedInSession = true, feedbackSubmitted = false",
+        "Filter to sessions used in last 7 days",
+        "Order by usedDate descending, take first",
+        "Return object with planId, title, teamName, usedDate OR null if none pending",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "This powers the 'return visit' feedback prompt on generate page."
+    },
+    {
+      "id": "US-014",
+      "title": "Implement deletePlan mutation (soft delete)",
+      "description": "As a coach, I want to delete broken or unwanted session plans.",
+      "acceptanceCriteria": [
+        "Add deletePlan mutation to packages/backend/convex/models/sessionPlans.ts",
+        "Args: planId (id sessionPlans)",
+        "Verify user owns this plan",
+        "Update status to 'deleted', set updatedAt = now",
+        "Return v.null()",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "Soft delete preserves data for audit. Can add restore mutation later."
+    },
+    {
+      "id": "US-015",
+      "title": "Implement duplicatePlan mutation",
+      "description": "As a coach, I want to reuse a successful session plan as a template.",
+      "acceptanceCriteria": [
+        "Add duplicatePlan mutation to packages/backend/convex/models/sessionPlans.ts",
+        "Args: planId (id sessionPlans), newTeamId (optional string), newTeamName (optional string)",
+        "Verify user has access to original plan",
+        "Create new plan with copied content: title + ' (Copy)', rawContent, sections, focusArea, duration",
+        "Reset: status = 'saved', usedInSession = false, all feedback fields cleared",
+        "Set new coachId, teamId/teamName if provided",
+        "Return new plan ID",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "Allows reuse of successful sessions for similar teams."
+    },
+    {
+      "id": "US-016",
+      "title": "Implement searchPlans query",
+      "description": "As a coach, I want to search my session plans by content.",
+      "acceptanceCriteria": [
+        "Add searchPlans query to packages/backend/convex/models/sessionPlans.ts",
+        "Args: organizationId (string), searchTerm (string), status (optional string), limit (optional number default 20)",
+        "Get current user from auth",
+        "Use search index search_content or search_title with searchTerm",
+        "Filter by organizationId, coachId = current user, exclude deleted",
+        "Apply status filter if provided",
+        "Return matching plans sorted by relevance",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "Uses Convex search indexes for full-text search."
+    },
+    {
+      "id": "US-017",
+      "title": "Implement getStats query for dashboard",
+      "description": "As a coach, I want to see statistics about my session plans.",
+      "acceptanceCriteria": [
+        "Add getStats query to packages/backend/convex/models/sessionPlans.ts",
+        "Args: organizationId (string), coachId (optional string), dateFrom (optional number), dateTo (optional number)",
+        "Calculate: totalPlans, usedPlans, successfulPlans (archived_success), failedPlans (archived_failed)",
+        "Calculate avgRating from simplifiedFeedback.sessionFeedback (positive = 1, negative = 0)",
+        "Aggregate topFocusAreas with count and success rate",
+        "Calculate feedbackRate (plans with feedback / used plans)",
+        "Return stats object",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "Powers the dashboard insights widget."
+    },
+    {
+      "id": "US-018",
+      "title": "Implement updateDrillLibrary internal mutation",
+      "description": "As a system, I need to aggregate drill feedback into the library.",
+      "acceptanceCriteria": [
+        "Add updateDrillLibrary internalMutation to packages/backend/convex/models/sessionPlans.ts",
+        "Args: organizationId (string), drillName (string), feedback (positive/negative), ageGroup (optional string), modification (optional string), planId (string)",
+        "Normalize drill name using normalizedrillName helper",
+        "Query drillLibrary by_org_and_name to find existing entry",
+        "If exists: increment timesUsed, update successCount/failureCount based on feedback, add to effectiveAgeGroups/ineffectiveAgeGroups, append modification if new",
+        "If not exists: create new entry with initial values",
+        "Update updatedAt timestamp",
+        "Return v.null()",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "Called after drill feedback is submitted to build the library over time."
+    },
+    {
+      "id": "US-019",
+      "title": "Implement getTopDrills query",
+      "description": "As a coach, I want to see which drills work best.",
+      "acceptanceCriteria": [
+        "Add getTopDrills query to packages/backend/convex/models/sessionPlans.ts",
+        "Args: organizationId (string), activityType (optional string), skillFocus (optional string), ageGroup (optional string), limit (optional number default 10)",
+        "Query drillLibrary by_org index",
+        "Filter by activityType, skillFocus in skillsFocused array, ageGroup in effectiveAgeGroups",
+        "Calculate avgRating as totalRatingSum / ratingCount",
+        "Calculate successRate as successCount / (successCount + failureCount)",
+        "Sort by successRate descending, then avgRating",
+        "Return top drills with aggregated metrics",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "Powers the 'Top Performing Drills' section in dashboard."
+    },
+    {
+      "id": "US-020",
+      "title": "Create session plans library page",
+      "description": "As a coach, I want a page to view all my session plans.",
+      "acceptanceCriteria": [
+        "Create folder: apps/web/src/app/orgs/[orgId]/coach/session-plans/",
+        "Create page.tsx in that folder",
+        "Use useQuery with api.models.sessionPlans.getMyPlans",
+        "Display list of plans with: title, team name, focus area, date, status badge (color-coded)",
+        "Add filter dropdowns: Team, Status (All/Draft/Saved/Archived), Focus Area",
+        "Add search input that filters locally or calls searchPlans",
+        "Add 'Generate New Plan' button linking to ./new",
+        "Click on plan row navigates to ./[planId]",
+        "Use Card component for each plan with appropriate icons",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "Reference apps/web/src/app/orgs/[orgId]/coach/voice-notes/page.tsx for page structure."
+    },
+    {
+      "id": "US-021",
+      "title": "Create quick stats widget for session plans list",
+      "description": "As a coach, I want to see my session plan stats at a glance.",
+      "acceptanceCriteria": [
+        "Add stats section to session plans list page (US-020)",
+        "Use useQuery with api.models.sessionPlans.getStats",
+        "Display 4 stat cards: Total Plans, Used Plans, Success Rate %, Avg Rating",
+        "Cards use consistent styling with rest of dashboard",
+        "Stats are for current coach only",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "Stat cards go above the plans list."
+    },
+    {
+      "id": "US-022",
+      "title": "Create session plan detail page",
+      "description": "As a coach, I want to view a session plan with full content.",
+      "acceptanceCriteria": [
+        "Create page: apps/web/src/app/orgs/[orgId]/coach/session-plans/[planId]/page.tsx",
+        "Use useQuery with api.models.sessionPlans.getPlan",
+        "Display: title, team info, focus area, date, status badge",
+        "Render rawContent as markdown OR display structured sections with activities",
+        "Show generation context: team strengths, weaknesses",
+        "Show feedback if submitted (rating, notes)",
+        "Add action buttons: Mark as Used, Duplicate, Delete",
+        "Show inline thumbs up/down buttons next to each drill for quick feedback",
+        "Back link to ../session-plans",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "Use react-markdown or similar for rendering. Activities show with subtle feedback buttons."
+    },
+    {
+      "id": "US-023",
+      "title": "Create generate new plan page",
+      "description": "As a coach, I want a page to generate new session plans.",
+      "acceptanceCriteria": [
+        "Create page: apps/web/src/app/orgs/[orgId]/coach/session-plans/new/page.tsx",
+        "Team selector dropdown: fetch teams from coach assignments",
+        "When team selected, auto-populate: age group, player count, strengths, weaknesses",
+        "Duration selector: 60, 75, 90, 120 minutes (default 90)",
+        "Focus area: dropdown from team weaknesses OR custom text input",
+        "Optional custom prompt textarea for specific requests",
+        "Submit calls generateAndSave mutation",
+        "Show loading state with 'Generating plan...' message",
+        "On success, redirect to ./[planId] to view generated plan",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "Reference SmartCoachDashboard for team data loading patterns."
+    },
+    {
+      "id": "US-024",
+      "title": "Add feedback prompt banner to generate page",
+      "description": "As a coach, I should see a feedback prompt when I have a recent unused session.",
+      "acceptanceCriteria": [
+        "Update apps/web/src/app/orgs/[orgId]/coach/session-plans/new/page.tsx",
+        "Use useQuery with api.models.sessionPlans.getPendingFeedbackSession",
+        "If pending session exists, show banner at top of page",
+        "Banner displays: session title, date used, thumbs up/down buttons, skip link",
+        "Clicking thumbs calls submitQuickFeedback mutation with variant='one_click'",
+        "If thumbs down, show popover with reason options (boring, too_complex, etc)",
+        "After feedback or skip, hide banner and continue to generate form",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "This is the 'return visit' feedback touchpoint. Keep it non-blocking."
+    },
+    {
+      "id": "US-025",
+      "title": "Add A/B variant B drill highlights to feedback",
+      "description": "As a coach using variant B, I should see drill-level feedback options.",
+      "acceptanceCriteria": [
+        "Update feedback banner to support variant B (two_click_highlights)",
+        "After session thumbs up/down, expand to show drills from the session",
+        "Display drills as tappable chips: neutral (white), positive (green), negative (red)",
+        "Tapping toggles through: neutral -> positive -> negative -> neutral",
+        "For negative drills, allow optional reason selection",
+        "Save all drill feedback when clicking 'Done - Save Feedback' button",
+        "Track feedbackCompletionTime for A/B analysis",
+        "A/B variant assigned based on user ID hash or feature flag",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": "Variant B gives more detail but takes longer. Track completion times."
+    },
+    {
+      "id": "US-026",
+      "title": "Add inline drill feedback to plan detail page",
+      "description": "As a coach, I want to rate drills directly on the plan detail page.",
+      "acceptanceCriteria": [
+        "Update session plan detail page (US-022)",
+        "Next to each activity in sections, show subtle [thumbs up] [thumbs down] buttons",
+        "Buttons are small/muted when not rated, colored when rated",
+        "Clicking calls submitDrillFeedback mutation",
+        "If already rated, show current rating with option to change",
+        "If negative, show note field inline for optional comment",
+        "Optimistic UI update while mutation runs",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": "This allows feedback at any time, not just on return visit."
+    },
+    {
+      "id": "US-027",
+      "title": "Add drill aggregation popover",
+      "description": "As a coach, I want to see how other coaches rated a drill.",
+      "acceptanceCriteria": [
+        "When clicking on a drill's feedback status, show popover/tooltip",
+        "Popover shows: your rating, aggregated org stats (X thumbs up / Y thumbs down)",
+        "Show percentage bar visualization",
+        "List recent notes from other coaches (anonymized)",
+        "Show common modifications if any exist",
+        "Query drillLibrary for aggregated data",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": "Shows value of collective feedback. Keep anonymous unless coach opts in."
+    },
+    {
+      "id": "US-028",
+      "title": "Add session plans insights widget to coach dashboard",
+      "description": "As a coach, I want to see session plan insights on my main dashboard.",
+      "acceptanceCriteria": [
+        "Edit apps/web/src/app/orgs/[orgId]/coach/coach-dashboard.tsx or smart-coach-dashboard.tsx",
+        "Add new card/section: 'Session Plan Insights'",
+        "Show: plans created this month, success rate, pending feedback count",
+        "Show top 3 performing drills with ratings",
+        "Show 1-2 drills to reconsider with issues",
+        "Add 'View All Plans' link to session-plans page",
+        "Add 'Provide Feedback' link if pending feedback exists",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": "Integrate with existing dashboard layout. Keep compact."
+    },
+    {
+      "id": "US-029",
+      "title": "Update Generate Session Plan quick action",
+      "description": "As a coach, the quick action should route to the new session plans flow.",
+      "acceptanceCriteria": [
+        "Edit apps/web/src/app/orgs/[orgId]/coach/layout.tsx",
+        "Update 'session-plan' quick action onClick to route to /orgs/${orgId}/coach/session-plans/new",
+        "Update icon to ClipboardList if needed for consistency",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": "Currently routes to coach page, should route to dedicated generate page."
+    },
+    {
+      "id": "US-030",
+      "title": "Add Session Plans to coach navigation",
+      "description": "As a coach, I want Session Plans in my sidebar navigation.",
+      "acceptanceCriteria": [
+        "Edit apps/web/src/components/layout/coach-sidebar.tsx or equivalent",
+        "Add 'Session Plans' link with ClipboardList icon from lucide-react",
+        "Links to /orgs/[orgId]/coach/session-plans",
+        "Position after Players or near Voice Notes for consistency",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": "Check coach-sidebar.tsx for navigation structure."
+    },
+    {
+      "id": "US-031",
+      "title": "Create drill library page",
+      "description": "As a coach, I want to browse the drill library built from feedback.",
+      "acceptanceCriteria": [
+        "Create page: apps/web/src/app/orgs/[orgId]/coach/session-plans/drills/page.tsx",
+        "Use useQuery with api.models.sessionPlans.getTopDrills",
+        "Display list of drills sorted by success rate",
+        "Each drill card shows: name, type, avg rating, success %, times used",
+        "Show effective age groups as badges",
+        "Show common modifications if any",
+        "Add filters: activity type, skill focus, age group",
+        "Add search input",
+        "Color-code: green for high success (>70%), yellow for medium (40-70%), red for low (<40%)",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": "This is the aggregated drill effectiveness library."
+    },
+    {
+      "id": "US-032",
+      "title": "Enhance AI prompt with drill library data",
+      "description": "As a system, AI should use drill feedback to generate better plans.",
+      "acceptanceCriteria": [
+        "Update packages/backend/convex/actions/sessionPlans.ts generatePlanContent",
+        "Before calling Claude, query top drills and underperforming drills from drillLibrary",
+        "Add 'PROVEN DRILLS' section to prompt with high-rated, age-appropriate drills",
+        "Add 'DRILLS TO AVOID' section with low-rated or age-inappropriate drills",
+        "Add 'SUGGESTED MODIFICATIONS' section with common improvements",
+        "Include recent coach insights if available",
+        "Update prompt instructions to prefer proven drills and avoid problematic ones",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": "This is the AI learning mechanism. Improves plan quality over time."
+    },
+    {
+      "id": "US-033",
+      "title": "Add export/print functionality",
+      "description": "As a coach, I want to print or export a session plan.",
+      "acceptanceCriteria": [
+        "Add 'Print' button to session plan detail page",
+        "Opens print-friendly view or triggers browser print dialog",
+        "Print view includes: title, team, date, full structured content, equipment list",
+        "Excludes: navigation, feedback buttons, stats",
+        "Optional: Add 'Export as PDF' using browser print-to-PDF or client-side PDF generation",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": "Coaches often print plans for field-side use. Keep simple with CSS @media print."
+    },
+    {
+      "id": "US-034",
+      "title": "Add empty states and onboarding hints",
+      "description": "As a new coach, I should understand how to use session plans.",
+      "acceptanceCriteria": [
+        "Add empty state to session plans list when no plans exist",
+        "Empty state: illustration, 'No session plans yet' message, 'Generate Your First Plan' CTA",
+        "Add onboarding tooltip/callout on first visit to generate page",
+        "Add contextual hints near feedback buttons explaining their purpose",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": "Good UX for new users. Keep hints dismissible."
+    },
+    {
+      "id": "US-035",
+      "title": "Add feedback reminder toast",
+      "description": "As a coach, I should be reminded to provide feedback after using a plan.",
+      "acceptanceCriteria": [
+        "When markAsUsed is called, show toast notification",
+        "Toast: 'Plan marked as used! Come back after training to share how it went.'",
+        "Toast is informational, not blocking",
+        "Include small thumbs icons as visual hint",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": "Gentle reminder without being intrusive."
+    }
+  ]
+}

@@ -322,7 +322,7 @@
         "Linting passes: npm run check"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "Check apps/web/src/app/orgs/[orgId]/coach/ for layout.tsx or SmartCoachDashboard component."
     },
     {

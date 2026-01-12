@@ -5,20 +5,20 @@
  * Currently supports basic email sending - can be extended with Resend, SendGrid, etc.
  */
 
-interface TeamInfo {
+type TeamInfo = {
   id: string;
   name: string;
   sport?: string;
   ageGroup?: string;
-}
+};
 
-interface PlayerInfo {
+type PlayerInfo = {
   id: string;
   name: string;
   ageGroup?: string;
-}
+};
 
-interface InvitationEmailData {
+type InvitationEmailData = {
   email: string;
   invitedByUsername: string;
   invitedByEmail: string;
@@ -28,7 +28,7 @@ interface InvitationEmailData {
   // Role-specific context for email
   teams?: TeamInfo[]; // For coach role - shows which teams they'll manage
   players?: PlayerInfo[]; // For parent role - shows which players they're linked to
-}
+};
 
 /**
  * Send an organization invitation email
@@ -69,6 +69,7 @@ function getRoleCapabilities(role: string): string[] {
   }
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Email template generation requires complex conditional logic for role-specific content (teams for coaches, players for parents, capabilities for all roles). Refactoring would reduce readability of the template structure.
 export async function sendOrganizationInvitation(
   data: InvitationEmailData
 ): Promise<void> {
@@ -450,7 +451,7 @@ function getLogoUrl(): string {
 /**
  * Demo request notification email data
  */
-interface DemoRequestNotificationData {
+type DemoRequestNotificationData = {
   name: string;
   email: string;
   phone?: string;
@@ -458,7 +459,7 @@ interface DemoRequestNotificationData {
   message?: string;
   requestedAt: number;
   adminEmails: string[]; // Email addresses to send notification to
-}
+};
 
 /**
  * Send email notification when a new demo request is submitted

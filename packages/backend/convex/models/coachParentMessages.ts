@@ -40,9 +40,7 @@ export async function getGuardiansForPlayer(
   // Get all guardian-player links for this player
   const links = await ctx.db
     .query("guardianPlayerLinks")
-    .withIndex("by_playerIdentityId", (q) =>
-      q.eq("playerIdentityId", playerIdentityId)
-    )
+    .withIndex("by_player", (q) => q.eq("playerIdentityId", playerIdentityId))
     .collect();
 
   // Fetch full guardian identity for each link
@@ -399,11 +397,14 @@ export const getMessagesForParent = query({
     );
 
     // Filter out any null messages (shouldn't happen but be safe)
+    type MessageDoc = NonNullable<
+      Awaited<ReturnType<typeof ctx.db.get<"coachParentMessages">>>
+    >;
     const validMessages = messagesWithRecipients.filter(
       (item) => item.message !== null
     ) as Array<{
       recipient: (typeof recipients)[0];
-      message: NonNullable<Awaited<ReturnType<typeof ctx.db.get>>>;
+      message: MessageDoc;
     }>;
 
     // Filter by organization if provided
@@ -508,7 +509,7 @@ export const createDirectMessage = mutation({
     // 5. Validate each recipient is a guardian of this player
     const guardianLinks = await ctx.db
       .query("guardianPlayerLinks")
-      .withIndex("by_playerIdentityId", (q) =>
+      .withIndex("by_player", (q) =>
         q.eq("playerIdentityId", args.playerIdentityId)
       )
       .collect();
@@ -551,6 +552,8 @@ export const createDirectMessage = mutation({
     });
 
     // 8. Create recipient records
+    // Note: messageRecipients.deliveryMethod is "in_app" | "email", not "both"
+    // For "both", we create a single record with deliveryMethod: "in_app" (primary channel)
     for (const guardianId of args.recipientGuardianIds) {
       // Get guardian user ID if linked
       const guardian = await ctx.db.get(guardianId);
@@ -561,7 +564,8 @@ export const createDirectMessage = mutation({
         guardianIdentityId: guardianId,
         guardianUserId,
         deliveryStatus: "pending",
-        deliveryMethod: args.deliveryMethod,
+        deliveryMethod:
+          args.deliveryMethod === "both" ? "in_app" : args.deliveryMethod,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });

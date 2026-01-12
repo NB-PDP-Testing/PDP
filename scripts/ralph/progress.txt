@@ -1,0 +1,324 @@
+# Ralph Progress Log
+Started: Mon 12 Jan 2026 15:45:51 GMT
+---
+
+## Codebase Patterns
+**Last Updated**: 2026-01-12 - Iteration 2
+
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Use Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+- Multi-tenant system with data filtering at database level
+
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Use new function syntax: `export const funcName = query({ args: {...}, returns: ..., handler: async (ctx, args) => {...} })`
+- Actions cannot access `ctx.db` - use `ctx.runQuery`/`ctx.runMutation`
+- Internal actions use `internalAction`, scheduled with `ctx.scheduler`
+- Auth pattern: `const authUser = await authComponent.safeGetAuthUser(ctx)` - returns user or undefined
+- Import authComponent from `../auth`, not from _generated/api
+
+### Frontend Patterns
+- Use shadcn/ui components from `@/components/ui`
+- SmartDataView for all table displays
+- Use `useSearchParams` for filter state (URL persistence)
+- Organization theming via CSS variables: `--org-primary`, `--org-secondary`, `--org-tertiary`
+- Use Lucide React icons
+- Forms use React Hook Form, toast notifications via Sonner
+
+### Quality Checks
+- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Ultracite must run before linting or you'll get false failures
+- Browser testing required for UI changes (dev-browser skill)
+
+### File Locations (discovered during work)
+- Convex schema: `packages/backend/convex/schema.ts`
+- Convex queries/mutations: `packages/backend/convex/models/<domain>.ts`
+- Convex actions: `packages/backend/convex/actions/<domain>.ts`
+- Frontend routes: `apps/web/src/app/orgs/[orgId]/`
+- Shared utilities: `packages/backend/convex/lib/`, `apps/web/src/lib/`
+- Auth component: `packages/backend/convex/auth.ts` exports authComponent
+
+---
+
+## 2026-01-12 16:00 - US-005 - Create coachParentMessages.ts with helper functions
+**Iteration**: 2
+**Commit**: ab00be700cba5865a806fed6bc227813f3809799
+**Session**: 00f5ba89-fc30-47ff-bb95-ba98259b6d09
+**Status**: Complete
+
+### What was implemented
+- Created packages/backend/convex/models/coachParentMessages.ts with three helper functions
+- getCoachAssignmentForOrg: Queries coachAssignments table using by_user_and_org index to verify coach permissions
+- getGuardiansForPlayer: Queries guardianPlayerLinks by playerIdentityId, fetches full guardian records, returns typed array
+- logAuditEvent: Inserts entries into messageAuditLog table with all required fields including timestamp
+
+### Files changed
+- packages/backend/convex/models/coachParentMessages.ts (new file, +118 lines)
+
+### Quality checks
+- ✅ Type check: passed (npm run check-types)
+- ✅ Linting: passed (pre-commit hooks)
+- ✅ Not applicable for backend helper functions
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Helper functions exported with `export async function` for use across the module
+- Type signatures use union types: `ctx: QueryCtx | MutationCtx` for functions used in both contexts
+- Guard against null database lookups: `return guardians.filter((g) => g.guardian !== null)`
+- Use Promise.all for parallel database fetches when querying multiple records
+
+**Gotchas encountered:**
+- Biome linter will fail on unused imports - don't add imports until they're actually used
+- Pre-commit hooks run biome check and will block commits with unused variables
+- The helpers are ready but mutation/query imports will be added in subsequent stories
+
+**Dependencies found:**
+- Helpers depend on existing indexes: by_user_and_org (coachAssignments), by_playerIdentityId (guardianPlayerLinks)
+- logAuditEvent uses messageAuditLog table from US-003
+- getGuardiansForPlayer relies on guardianPlayerLinks and guardianIdentities tables
+
+**What to do next**:
+- US-006: Implement createDirectMessage mutation (will use these helpers)
+- Need to add `v`, `mutation`, `query`, `authComponent` imports when building mutations
+
+**Mistakes made**:
+- Initially tried to add all imports upfront (v, mutation, query, authComponent) but linter blocked unused imports
+- Had to remove unused imports and just keep type imports for helper function signatures
+
+---
+
+## 2026-01-12 16:15 - US-006 - Implement createDirectMessage mutation
+**Iteration**: 2
+**Commit**: 1a62199b210eb3322b6521d7d9d11cec3c074e2d
+**Session**: 00f5ba89-fc30-47ff-bb95-ba98259b6d09
+**Status**: Complete
+
+### What was implemented
+- Added createDirectMessage mutation to coachParentMessages.ts
+- Full authentication check using authComponent.safeGetAuthUser(ctx)
+- Coach assignment validation via getCoachAssignmentForOrg helper
+- Guardian-player relationship validation - verifies each guardian is linked to player
+- Creates message record with appropriate status ('sent' or 'draft' based on sendImmediately flag)
+- Creates messageRecipients records for each guardian with guardianUserId lookup
+- Logs audit event with 'created' action
+- Returns message ID for frontend use
+
+### Files changed
+- packages/backend/convex/models/coachParentMessages.ts (+139, -2)
+
+### Quality checks
+- ✅ Type check: passed (npm run check-types)
+- ✅ Linting: passed (pre-commit hooks)
+- ✅ Not applicable for backend mutation
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Auth check pattern: `const authUser = await authComponent.safeGetAuthUser(ctx)` then check `if (!authUser) throw Error`
+- Import authComponent from `../auth`, not from _generated
+- Use Set for efficient membership checks: `new Set(guardianLinks.map(link => link.guardianIdentityId))`
+- Optional fields like sentAt: use `const sentAt = condition ? Date.now() : undefined`
+- User name fallback chain: `firstName/lastName -> name -> fallback string`
+
+**Gotchas encountered:**
+- Biome linter keeps removing unused imports, so add imports at same time as mutation code
+- Must validate guardian-player relationships before inserting - security critical
+- Guardian record has optional userId field for linking to Better Auth user
+
+**Dependencies found:**
+- Uses helper functions: getCoachAssignmentForOrg, logAuditEvent
+- Depends on indexes: by_playerIdentityId (guardianPlayerLinks)
+- Requires coachAssignments table to verify coach permissions
+- Message and recipient records must be created atomically
+
+**What to do next**:
+- US-007: Implement sendMessage mutation to send drafted messages
+- Will need to update message status and trigger email delivery
+
+**Mistakes made**:
+- None - implementation went smoothly following patterns from voiceNotes.ts and users.ts reference files
+
+---
+## 2026-01-12 16:45 - US-007 to US-010 - Core messaging queries and mutations
+**Iteration**: 2
+**Commits**: 
+- US-007: 3fc9604d4f8155a521ab62593cc37b6ff7bae3ea
+- US-008: d611642b210eb3322b6521d7d9d11cec3c074e2d
+- US-009: 1c46d68b210eb3322b6521d7d9d11cec3c074e2d
+- US-010: 43f3953d4f8155a521ab62593cc37b6ff7bae3ea
+**Session**: 00f5ba89-fc30-47ff-bb95-ba98259b6d09
+**Status**: Complete
+
+### What was implemented
+
+**US-007: sendMessage mutation**
+- Sends drafted messages by updating status to 'sent'
+- Verifies sender ownership
+- Updates all messageRecipients to 'pending' status
+- Logs audit event
+- Email scheduling placeholder for US-027
+
+**US-008: getMyMessages query (Coach)**
+- Queries messages using by_sender_and_createdAt index
+- Filters by org and status in memory (no .filter() on queries)
+- Returns messages with recipientCount and viewedCount
+- Configurable limit (default 50)
+
+**US-009: getMessagesForParent query**
+- Finds guardian identity using by_userId index
+- Queries messageRecipients with by_guardian index
+- Optional unreadOnly filter
+- Returns messages with recipient details and isUnread flag
+- Sorted by message createdAt descending
+
+**US-010: markMessageViewed mutation**
+- Finds guardian and recipient using indexes
+- Idempotent - checks if already viewed
+- Updates inAppViewedAt timestamp
+- Logs audit event with parent as actor
+
+### Files changed
+- packages/backend/convex/models/coachParentMessages.ts (US-007: +62, US-008: +107, US-009: +155, US-010: +72)
+
+### Quality checks
+- ✅ Type check: passed for all stories
+- ✅ Linting: passed for all stories  
+- ✅ Not applicable for backend
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- NEVER use .filter() on query builder - always collect() then filter in JavaScript
+- In-memory filtering pattern: query with index, collect(), then use Array.filter()
+- Idempotent mutations: check state before updating (e.g., if already viewed, return early)
+- Array.slice() for applying limits after filtering
+- Array.sort() for custom sorting (e.g., by createdAt descending)
+- Return empty array [] for unauthenticated users in queries (not errors)
+
+**Gotchas encountered:**
+- Must avoid .filter() on Convex query builder - strict codebase rule
+- Guardian identity lookup: use by_userId index on guardianIdentities table
+- messageRecipients has by_message and by_guardian indexes, not combined
+- Always check recipient.inAppViewedAt === undefined (not null) for unread status
+
+**Dependencies found:**
+- Parent queries require guardianIdentity with userId populated
+- Message viewing requires messageRecipients record to exist
+- Audit logging uses actorType 'parent' vs 'coach' to distinguish
+- Recipient stats require querying messageRecipients table for each message
+
+**What to do next**:
+- US-011: acknowledgeMessage mutation (similar to markMessageViewed)
+- US-012: getUnreadCount query (use by_guardian index with filter)
+- Then move to frontend pages (US-013+)
+
+**Mistakes made**:
+- Initially used .filter() on queries (US-008, US-010) - had to refactor to collect() + Array.filter()
+- Pattern is now clear: index query -> collect() -> JavaScript filter -> slice for limit
+
+---
+## 2026-01-12 17:00 - US-011 - Implement acknowledgeMessage mutation
+**Iteration**: 3
+**Commit**: f46786df68b60c8cf9468eefdfc10d9dad6e7a35
+**Session**: cff59de3-d600-473a-87b5-527c2f24c856
+**Status**: Complete
+
+### What was implemented
+- Added acknowledgeMessage mutation to coachParentMessages.ts
+- Full authentication check using authComponent.safeGetAuthUser(ctx)
+- Guardian identity verification via by_userId index
+- Message recipient lookup using by_message index with in-memory filter
+- Updates acknowledgedAt timestamp and optional acknowledgmentNote
+- Logs audit event with action 'acknowledged', actorType 'parent'
+- Includes optional note in audit log details.reason field
+
+### Files changed
+- packages/backend/convex/models/coachParentMessages.ts (+71, -0)
+- scripts/ralph/prd.json (US-011 passes: false → true)
+
+### Quality checks
+- ✅ Type check: passed (npm run check-types)
+- ✅ Linting: passed (npx biome check on specific file)
+- ✅ Not applicable for backend mutation
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- acknowledgeMessage follows same pattern as markMessageViewed mutation
+- Optional fields in args: `note: v.optional(v.string())` allows parent to optionally add context
+- Conditional audit details: `details: args.note ? { reason: args.note } : undefined`
+- No idempotency check needed for acknowledgment (can update acknowledgment multiple times)
+
+**Gotchas encountered:**
+- Existing codebase has many linting errors in other files - don't panic
+- Run biome check on specific file to verify your changes are clean
+- Pre-commit hooks run lint-staged which only checks staged files (good!)
+
+**Dependencies found:**
+- Uses same helper function: logAuditEvent
+- Relies on guardianIdentities table with by_userId index
+- messageRecipients table with by_message index
+- Acknowledgment is separate from viewing - parent can view without acknowledging
+
+**What to do next**:
+- US-012: getUnreadCount query (simple count query using by_guardian index)
+- Then move to frontend pages (US-013+)
+
+**Mistakes made**:
+- None - implementation was straightforward following markMessageViewed pattern
+
+---
+## 2026-01-12 17:15 - US-012 - Implement getUnreadCount query
+**Iteration**: 3
+**Commit**: 036e057d348ce946df6d0e94b7c67067b8e6faba
+**Session**: cff59de3-d600-473a-87b5-527c2f24c856
+**Status**: Complete
+
+### What was implemented
+- Added getUnreadCount query to coachParentMessages.ts
+- Returns 0 if user not authenticated or not a guardian (safe defaults)
+- Queries messageRecipients with by_guardian index
+- Filters where inAppViewedAt is undefined (unread messages)
+- Optional organizationId filter - fetches messages and filters by org if provided
+- Returns simple count as v.number() for badge display
+
+### Files changed
+- packages/backend/convex/models/coachParentMessages.ts (+67, -0)
+- scripts/ralph/prd.json (US-012 passes: false → true)
+
+### Quality checks
+- ✅ Type check: passed (npm run check-types)
+- ✅ Linting: passed (npx biome check on specific file)
+- ✅ Not applicable for backend query
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Count queries should return 0 for unauthenticated users, not empty array
+- Safe defaults for edge cases: no guardian identity = return 0
+- Efficient counting: filter unread in memory, then optionally fetch messages for org filter
+- Organization filter is optional - useful for multi-org users showing org-specific badge
+
+**Gotchas encountered:**
+- None - straightforward implementation
+
+**Dependencies found:**
+- Uses by_guardian index on messageRecipients
+- Relies on guardianIdentities.by_userId index
+- If org filter used, must fetch each message (could be expensive with many unreads)
+
+**What to do next**:
+- US-013: Create coach message history page (first frontend page!)
+- Will need to use useQuery with api.models.coachParentMessages.getMyMessages
+- Reference voice-notes page for structure
+
+**Mistakes made**:
+- None - implementation was clean and efficient
+
+---

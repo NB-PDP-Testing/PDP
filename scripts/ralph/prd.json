@@ -306,7 +306,7 @@
         "Linting passes: npm run check"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Check apps/web/src/app/orgs/[orgId]/parents/ for layout.tsx or navigation component."
     },
     {

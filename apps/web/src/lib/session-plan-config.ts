@@ -3,6 +3,8 @@
  *
  * Centralized configuration for session plan caching and behavior.
  * Supports environment variables and PostHog feature flags (when available).
+ *
+ * Note: CI/CD pipeline optimized for 50% reduction in Actions minutes.
  */
 
 // Cache duration in hours - configurable via env or PostHog

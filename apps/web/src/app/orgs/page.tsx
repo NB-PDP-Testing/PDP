@@ -10,14 +10,15 @@ import {
   useQuery,
 } from "convex/react";
 import {
-  BarChart3,
   Building2,
   Check,
   ChevronRight,
   Globe,
+  LayoutGrid,
+  List,
   Plus,
+  Search,
   Settings,
-  Target,
   Trash2,
   Users,
   X,
@@ -41,7 +42,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 
@@ -65,6 +75,39 @@ export default function OrganizationsPage() {
 
   // Use Convex query to get user with custom fields
   const user = useCurrentUser();
+
+  // View mode and search state - load from localStorage
+  const [yourOrgsView, setYourOrgsView] = useState<"cards" | "table">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("yourOrgsView");
+      return (saved as "cards" | "table") || "cards";
+    }
+    return "cards";
+  });
+  const [platformOrgsView, setPlatformOrgsView] = useState<"cards" | "table">(
+    () => {
+      if (typeof window !== "undefined") {
+        const saved = localStorage.getItem("platformOrgsView");
+        return (saved as "cards" | "table") || "cards";
+      }
+      return "cards";
+    }
+  );
+  const [yourOrgsSearch, setYourOrgsSearch] = useState("");
+  const [platformOrgsSearch, setPlatformOrgsSearch] = useState("");
+
+  // Save view preferences to localStorage when they change
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("yourOrgsView", yourOrgsView);
+    }
+  }, [yourOrgsView]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("platformOrgsView", platformOrgsView);
+    }
+  }, [platformOrgsView]);
 
   // Debug logging for platform staff check
   useEffect(() => {
@@ -109,6 +152,24 @@ export default function OrganizationsPage() {
     user?.isPlatformStaff ? {} : "skip"
   );
 
+  // Filter your organizations based on search
+  const filteredYourOrgs = yourOrgsSearch
+    ? organizations?.filter(
+        (org: Organization) =>
+          org.name.toLowerCase().includes(yourOrgsSearch.toLowerCase()) ||
+          org.slug.toLowerCase().includes(yourOrgsSearch.toLowerCase())
+      )
+    : organizations;
+
+  // Filter platform organizations based on search
+  const filteredPlatformOrgs = platformOrgsSearch
+    ? allOrganizations?.filter(
+        (org) =>
+          org.name.toLowerCase().includes(platformOrgsSearch.toLowerCase()) ||
+          org.slug.toLowerCase().includes(platformOrgsSearch.toLowerCase())
+      )
+    : allOrganizations;
+
   const approveDeletion = useMutation(
     api.models.organizations.approveDeletionRequest
   );
@@ -138,6 +199,7 @@ export default function OrganizationsPage() {
     orgName: string
   ) => {
     if (
+      // biome-ignore lint/suspicious/noAlert: Critical confirmation for destructive action
       !confirm(
         `Are you sure you want to PERMANENTLY DELETE "${orgName}" and ALL associated data? This cannot be undone.`
       )
@@ -205,109 +267,104 @@ export default function OrganizationsPage() {
         <div className="min-h-screen bg-gradient-to-b from-[#1E3A5F] via-[#1E3A5F] to-white p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-7xl">
             {/* PlayerARC Welcome Section */}
-            <div className="mb-12 text-center text-white">
-              <div className="mb-6 flex justify-center">
-                <div className="relative h-20 w-20 sm:h-24 sm:w-24">
+            <div className="mb-6 text-center text-white sm:mb-12">
+              <div className="mb-3 flex justify-center sm:mb-6">
+                <div className="relative h-16 w-16 sm:h-24 sm:w-24">
                   <Image
                     alt="PlayerARC Logo"
                     className="object-contain drop-shadow-lg"
                     fill
                     priority
-                    sizes="(max-width: 640px) 80px, 96px"
+                    sizes="(max-width: 640px) 64px, 96px"
                     src="/logos-landing/PDP-Logo-OffWhiteOrbit_GreenHuman.png"
                   />
                 </div>
               </div>
-              <h1 className="mb-4 font-bold text-4xl tracking-tight sm:text-5xl">
+              <h1 className="mb-2 font-bold text-3xl tracking-tight sm:mb-4 sm:text-5xl">
                 Welcome to PlayerARC
               </h1>
-              <p className="mx-auto mb-8 max-w-2xl text-lg text-white/90 sm:text-xl">
-                Your comprehensive platform for managing youth sports
-                development. Connect coaches, parents, and players in one
-                unified ecosystem.
+              <p className="mx-auto mb-4 max-w-2xl text-base text-white/90 sm:mb-8 sm:text-xl">
+                <span className="hidden sm:block">
+                  Your comprehensive platform for managing youth sports
+                  development. Connect coaches, parents, and players in one
+                  unified ecosystem.
+                </span>
+                <span className="block sm:hidden">
+                  Manage your sports clubs, teams, and player development.
+                </span>
               </p>
-
-              {/* Summary Cards */}
-              <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-3">
-                <Card className="border-white/20 bg-white/10 backdrop-blur-sm">
-                  <CardContent className="pt-6">
-                    <div className="mb-3 flex justify-center">
-                      <div className="rounded-full bg-green-500/20 p-3">
-                        <Users className="h-6 w-6 text-green-400" />
-                      </div>
-                    </div>
-                    <h3 className="mb-2 font-semibold text-white">
-                      Team Management
-                    </h3>
-                    <p className="text-sm text-white/80">
-                      Organize teams, track players, and manage rosters with
-                      ease
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card className="border-white/20 bg-white/10 backdrop-blur-sm">
-                  <CardContent className="pt-6">
-                    <div className="mb-3 flex justify-center">
-                      <div className="rounded-full bg-blue-500/20 p-3">
-                        <Target className="h-6 w-6 text-blue-400" />
-                      </div>
-                    </div>
-                    <h3 className="mb-2 font-semibold text-white">
-                      Player Development
-                    </h3>
-                    <p className="text-sm text-white/80">
-                      Track progress, set goals, and support athlete growth
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card className="border-white/20 bg-white/10 backdrop-blur-sm">
-                  <CardContent className="pt-6">
-                    <div className="mb-3 flex justify-center">
-                      <div className="rounded-full bg-purple-500/20 p-3">
-                        <BarChart3 className="h-6 w-6 text-purple-400" />
-                      </div>
-                    </div>
-                    <h3 className="mb-2 font-semibold text-white">
-                      Analytics & Insights
-                    </h3>
-                    <p className="text-sm text-white/80">
-                      Make data-driven decisions with comprehensive reporting
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
             </div>
 
             {/* Organizations Section */}
             <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <h2 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
-                    Your Organizations
-                  </h2>
-                  <p className="mt-2 text-muted-foreground">
-                    Manage your sports clubs and organizations
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Link href={"/orgs/join"}>
-                    <Button variant="outline">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Join Organization
-                    </Button>
-                  </Link>
-                  {user?.isPlatformStaff && (
-                    <Link href="/orgs/create">
-                      <Button className="bg-[#22c55e] hover:bg-[#16a34a]">
+              {/* Header and Actions */}
+              <div className="mb-6 flex flex-col gap-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-purple-100 p-2">
+                      <Building2 className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
+                        Your Organisations
+                      </h2>
+                      <p className="mt-1 text-muted-foreground text-sm">
+                        Manage your sports clubs and organisations
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                    <Link className="w-full sm:w-auto" href={"/orgs/join"}>
+                      <Button className="w-full sm:w-auto" variant="outline">
                         <Plus className="mr-2 h-4 w-4" />
-                        Create Organization
+                        Join Organisation
                       </Button>
                     </Link>
-                  )}
+                    {user?.isPlatformStaff && (
+                      <Link className="w-full sm:w-auto" href="/orgs/create">
+                        <Button className="w-full bg-[#22c55e] hover:bg-[#16a34a] sm:w-auto">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create Organisation
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* Organizations Grid */}
+              {/* Search and View Toggle */}
+              <div className="mb-4 flex items-center gap-3">
+                <div className="relative max-w-sm flex-1">
+                  <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    onChange={(e) => setYourOrgsSearch(e.target.value)}
+                    placeholder="Search your organisations..."
+                    type="search"
+                    value={yourOrgsSearch}
+                  />
+                </div>
+                <div className="inline-flex rounded-md border">
+                  <Button
+                    className="rounded-r-none"
+                    onClick={() => setYourOrgsView("cards")}
+                    size="sm"
+                    variant={yourOrgsView === "cards" ? "default" : "ghost"}
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    className="rounded-l-none"
+                    onClick={() => setYourOrgsView("table")}
+                    size="sm"
+                    variant={yourOrgsView === "table" ? "default" : "ghost"}
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Organizations Grid/Table */}
               {loading ? (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                   {[1, 2, 3].map((i) => (
@@ -323,77 +380,166 @@ export default function OrganizationsPage() {
                     </Card>
                   ))}
                 </div>
-              ) : organizations && organizations.length > 0 ? (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {organizations.map((org: Organization) => (
-                    <Card
-                      className="group transition-all hover:shadow-lg"
-                      key={org.id}
-                    >
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                              {org.logo ? (
-                                <img
-                                  alt={org.name}
-                                  className="h-12 w-12 rounded-lg object-cover"
-                                  src={org.logo}
-                                />
-                              ) : (
-                                <Building2 className="h-6 w-6 text-primary" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <CardTitle className="truncate text-xl">
-                                {org.name}
-                              </CardTitle>
-                              <CardDescription className="mt-1">
-                                <span className="font-mono text-xs">
-                                  {org.slug}
-                                </span>
-                              </CardDescription>
+              ) : filteredYourOrgs && filteredYourOrgs.length > 0 ? (
+                yourOrgsView === "cards" ? (
+                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredYourOrgs.map((org: Organization) => (
+                      <Card
+                        className="group transition-all hover:shadow-lg"
+                        key={org.id}
+                      >
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                                {org.logo ? (
+                                  <img
+                                    alt={org.name}
+                                    className="h-12 w-12 rounded-lg object-cover"
+                                    src={org.logo}
+                                  />
+                                ) : (
+                                  <Building2 className="h-6 w-6 text-primary" />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <CardTitle className="truncate text-xl">
+                                  {org.name}
+                                </CardTitle>
+                                <CardDescription className="mt-1">
+                                  <span className="font-mono text-xs">
+                                    {org.slug}
+                                  </span>
+                                </CardDescription>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <Button
-                          asChild
-                          className="w-full justify-between"
-                          variant="outline"
-                        >
-                          <Link href={`/orgs/${org.id}/coach`}>
-                            <span className="flex items-center gap-2">
-                              <Settings className="h-4 w-4" />
-                              Coach Panel
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <Button
+                            asChild
+                            className="w-full justify-between"
+                            variant="outline"
+                          >
+                            <Link href={`/orgs/${org.id}/coach`}>
+                              <span className="flex items-center gap-2">
+                                <Settings className="h-4 w-4" />
+                                Coach Panel
+                              </span>
+                              <ChevronRight className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button
+                            asChild
+                            className="w-full justify-between"
+                            variant="outline"
+                          >
+                            <Link href={`/orgs/${org.id}/admin`}>
+                              <span className="flex items-center gap-2">
+                                <Settings className="h-4 w-4" />
+                                Admin Panel
+                              </span>
+                              <ChevronRight className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <div className="flex items-center justify-between pt-2 text-muted-foreground text-xs">
+                            <span>
+                              Created{" "}
+                              {new Date(org.createdAt).toLocaleDateString()}
                             </span>
-                            <ChevronRight className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button
-                          asChild
-                          className="w-full justify-between"
-                          variant="outline"
-                        >
-                          <Link href={`/orgs/${org.id}/admin`}>
-                            <span className="flex items-center gap-2">
-                              <Settings className="h-4 w-4" />
-                              Admin Panel
-                            </span>
-                            <ChevronRight className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <div className="flex items-center justify-between pt-2 text-muted-foreground text-xs">
-                          <span>
-                            Created{" "}
-                            {new Date(org.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Organization</TableHead>
+                          <TableHead className="hidden md:table-cell">
+                            Slug
+                          </TableHead>
+                          <TableHead className="hidden lg:table-cell">
+                            Created
+                          </TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredYourOrgs.map((org: Organization) => (
+                          <TableRow key={org.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 sm:h-10 sm:w-10">
+                                  {org.logo ? (
+                                    <img
+                                      alt={org.name}
+                                      className="h-8 w-8 rounded-lg object-cover sm:h-10 sm:w-10"
+                                      src={org.logo}
+                                    />
+                                  ) : (
+                                    <Building2 className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
+                                  )}
+                                </div>
+                                <div className="min-w-0 font-medium text-sm">
+                                  {org.name}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                              <code className="text-xs">{org.slug}</code>
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell">
+                              {new Date(org.createdAt).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {/* Desktop: side-by-side buttons */}
+                              <div className="hidden justify-end gap-2 sm:flex">
+                                <Button asChild size="sm" variant="outline">
+                                  <Link href={`/orgs/${org.id}/coach`}>
+                                    Coach
+                                  </Link>
+                                </Button>
+                                <Button asChild size="sm" variant="outline">
+                                  <Link href={`/orgs/${org.id}/admin`}>
+                                    Admin
+                                  </Link>
+                                </Button>
+                              </div>
+                              {/* Mobile: stacked buttons */}
+                              <div className="flex flex-col gap-1.5 sm:hidden">
+                                <Button
+                                  asChild
+                                  className="h-8 w-full"
+                                  size="sm"
+                                  variant="outline"
+                                >
+                                  <Link href={`/orgs/${org.id}/coach`}>
+                                    <Users className="mr-1 h-3 w-3" />
+                                    Coach
+                                  </Link>
+                                </Button>
+                                <Button
+                                  asChild
+                                  className="h-8 w-full"
+                                  size="sm"
+                                  variant="outline"
+                                >
+                                  <Link href={`/orgs/${org.id}/admin`}>
+                                    <Settings className="mr-1 h-3 w-3" />
+                                    Admin
+                                  </Link>
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )
               ) : (
                 <Card className="border-dashed">
                   <CardContent className="flex flex-col items-center justify-center py-16 text-center">
@@ -401,25 +547,25 @@ export default function OrganizationsPage() {
                       <Building2 className="h-8 w-8 text-muted-foreground" />
                     </div>
                     <h3 className="mb-2 font-semibold text-lg">
-                      No Organizations Yet
+                      No Organisations Yet
                     </h3>
                     <p className="mb-6 max-w-sm text-muted-foreground">
                       {user?.isPlatformStaff
-                        ? "Create your first organization to start managing your sports club or team"
-                        : "You don't have access to any organizations yet. Join an existing organization or contact platform staff."}
+                        ? "Create your first organisation to start managing your sports club or team"
+                        : "You don't have access to any organisations yet. Join an existing organisation or contact platform staff."}
                     </p>
                     <div className="flex gap-2">
                       <Link href="/orgs/join">
                         <Button variant="outline">
                           <Plus className="mr-2 h-4 w-4" />
-                          Join Organization
+                          Join Organisation
                         </Button>
                       </Link>
                       {user?.isPlatformStaff && (
                         <Link href="/orgs/create">
                           <Button>
                             <Plus className="mr-2 h-4 w-4" />
-                            Create Your First Organization
+                            Create Your First Organisation
                           </Button>
                         </Link>
                       )}
@@ -439,26 +585,65 @@ export default function OrganizationsPage() {
             {/* All Platform Organizations - Only visible to platform staff */}
             {user?.isPlatformStaff && (
               <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
-                <div className="mb-6 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="mb-6 flex flex-col gap-4">
+                  <div className="flex items-start gap-3">
                     <div className="rounded-full bg-blue-100 p-2">
                       <Globe className="h-6 w-6 text-blue-600" />
                     </div>
-                    <div>
-                      <h2 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
-                        All Platform Organizations
-                      </h2>
-                      <p className="mt-1 text-muted-foreground">
-                        View and manage all organizations on the platform
-                      </p>
+                    <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h2 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
+                            All Platform Organisations
+                          </h2>
+                          {allOrganizations && (
+                            <Badge className="text-sm" variant="secondary">
+                              {allOrganizations.length} Org
+                              {allOrganizations.length !== 1 ? "s" : ""}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="mt-1 text-muted-foreground text-sm">
+                          View and manage all organisations on the platform
+                        </p>
+                      </div>
                     </div>
                   </div>
-                  {allOrganizations && (
-                    <Badge className="text-sm" variant="secondary">
-                      {allOrganizations.length} organization
-                      {allOrganizations.length !== 1 ? "s" : ""}
-                    </Badge>
-                  )}
+                  {/* Search and View Toggle */}
+                  <div className="flex items-center gap-3">
+                    <div className="relative max-w-sm flex-1">
+                      <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        className="pl-9"
+                        onChange={(e) => setPlatformOrgsSearch(e.target.value)}
+                        placeholder="Search organisations..."
+                        type="search"
+                        value={platformOrgsSearch}
+                      />
+                    </div>
+                    <div className="inline-flex rounded-md border">
+                      <Button
+                        className="rounded-r-none"
+                        onClick={() => setPlatformOrgsView("cards")}
+                        size="sm"
+                        variant={
+                          platformOrgsView === "cards" ? "default" : "ghost"
+                        }
+                      >
+                        <LayoutGrid className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        className="rounded-l-none"
+                        onClick={() => setPlatformOrgsView("table")}
+                        size="sm"
+                        variant={
+                          platformOrgsView === "table" ? "default" : "ghost"
+                        }
+                      >
+                        <List className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 {allOrganizations === undefined ? (
@@ -476,93 +661,250 @@ export default function OrganizationsPage() {
                       </Card>
                     ))}
                   </div>
-                ) : allOrganizations.length > 0 ? (
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {allOrganizations.map((org) => {
-                      // Check if current user is a member
-                      const isMember = organizations?.some(
-                        (userOrg: Organization) => userOrg.id === org._id
-                      );
-                      return (
-                        <Card
-                          className={`transition-all hover:shadow-md ${
-                            isMember
-                              ? "border-green-200 bg-green-50/30"
-                              : "border-gray-200"
-                          }`}
-                          key={org._id}
-                        >
-                          <CardHeader className="pb-3">
-                            <div className="flex items-start gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                                {org.logo ? (
-                                  <img
-                                    alt={org.name}
-                                    className="h-10 w-10 rounded-lg object-cover"
-                                    src={org.logo}
-                                  />
-                                ) : (
-                                  <Building2 className="h-5 w-5 text-primary" />
+                ) : filteredPlatformOrgs && filteredPlatformOrgs.length > 0 ? (
+                  platformOrgsView === "cards" ? (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {filteredPlatformOrgs.map((org) => {
+                        // Check if current user is a member
+                        const isMember = organizations?.some(
+                          (userOrg: Organization) => userOrg.id === org._id
+                        );
+                        return (
+                          <Card
+                            className={`transition-all hover:shadow-md ${
+                              isMember
+                                ? "border-green-200 bg-green-50/30"
+                                : "border-gray-200"
+                            }`}
+                            key={org._id}
+                          >
+                            <CardHeader className="pb-3">
+                              <div className="flex items-start gap-3">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                  {org.logo ? (
+                                    <img
+                                      alt={org.name}
+                                      className="h-10 w-10 rounded-lg object-cover"
+                                      src={org.logo}
+                                    />
+                                  ) : (
+                                    <Building2 className="h-5 w-5 text-primary" />
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <CardTitle className="truncate text-base">
+                                    {org.name}
+                                  </CardTitle>
+                                  <CardDescription className="mt-0.5 font-mono text-xs">
+                                    {org.slug}
+                                  </CardDescription>
+                                </div>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                              <div className="mb-3 flex items-center justify-between text-xs">
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Users className="h-3 w-3" />
+                                  {org.memberCount} member
+                                  {org.memberCount !== 1 ? "s" : ""}
+                                </span>
+                                {isMember && (
+                                  <Badge
+                                    className="border-green-300 bg-green-100 text-green-700"
+                                    variant="outline"
+                                  >
+                                    Member
+                                  </Badge>
                                 )}
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <CardTitle className="truncate text-base">
-                                  {org.name}
-                                </CardTitle>
-                                <CardDescription className="mt-0.5 font-mono text-xs">
-                                  {org.slug}
-                                </CardDescription>
-                              </div>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="pt-0">
-                            <div className="mb-3 flex items-center justify-between text-xs">
-                              <span className="flex items-center gap-1 text-muted-foreground">
-                                <Users className="h-3 w-3" />
-                                {org.memberCount} member
-                                {org.memberCount !== 1 ? "s" : ""}
-                              </span>
-                              {isMember && (
-                                <Badge
-                                  className="border-green-300 bg-green-100 text-green-700"
+                              <div className="flex gap-2">
+                                <Button
+                                  asChild
+                                  className="flex-1"
+                                  size="sm"
                                   variant="outline"
                                 >
-                                  Member
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                asChild
-                                className="flex-1"
-                                size="sm"
-                                variant="outline"
-                              >
-                                <Link href={`/orgs/${org._id}/admin`}>
-                                  <Settings className="mr-1 h-3 w-3" />
-                                  Admin
-                                </Link>
-                              </Button>
-                              <Button
-                                asChild
-                                className="flex-1"
-                                size="sm"
-                                variant="outline"
-                              >
-                                <Link href={`/orgs/${org._id}/coach`}>
-                                  Coach
-                                </Link>
-                              </Button>
-                            </div>
-                            <p className="mt-2 text-muted-foreground text-xs">
-                              Created{" "}
-                              {new Date(org.createdAt).toLocaleDateString()}
-                            </p>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
+                                  <Link href={`/orgs/${org._id}/admin`}>
+                                    <Settings className="mr-1 h-3 w-3" />
+                                    Admin
+                                  </Link>
+                                </Button>
+                                <Button
+                                  asChild
+                                  className="flex-1"
+                                  size="sm"
+                                  variant="outline"
+                                >
+                                  <Link href={`/orgs/${org._id}/coach`}>
+                                    Coach
+                                  </Link>
+                                </Button>
+                              </div>
+                              <p className="mt-2 text-muted-foreground text-xs">
+                                Created{" "}
+                                {new Date(org.createdAt).toLocaleDateString()}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="overflow-x-auto rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Organization</TableHead>
+                              <TableHead className="hidden md:table-cell">
+                                Slug
+                              </TableHead>
+                              <TableHead className="hidden sm:table-cell">
+                                Members
+                              </TableHead>
+                              <TableHead className="hidden lg:table-cell">
+                                Created
+                              </TableHead>
+                              <TableHead className="text-right">
+                                Actions
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredPlatformOrgs.map((org) => {
+                              const isMember = organizations?.some(
+                                (userOrg: Organization) =>
+                                  userOrg.id === org._id
+                              );
+                              return (
+                                <TableRow
+                                  className={
+                                    isMember ? "bg-green-50/50" : undefined
+                                  }
+                                  key={org._id}
+                                >
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                                        {org.logo ? (
+                                          <img
+                                            alt={org.name}
+                                            className="h-8 w-8 rounded-lg object-cover"
+                                            src={org.logo}
+                                          />
+                                        ) : (
+                                          <Building2 className="h-4 w-4 text-primary" />
+                                        )}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5">
+                                          {isMember && (
+                                            <Check className="h-4 w-4 shrink-0 text-green-600" />
+                                          )}
+                                          <span className="truncate font-medium text-sm">
+                                            {org.name}
+                                          </span>
+                                        </div>
+                                        {isMember && (
+                                          <Badge
+                                            className="mt-0.5 border-green-300 bg-green-100 text-green-700 text-xs"
+                                            variant="outline"
+                                          >
+                                            Member
+                                          </Badge>
+                                        )}
+                                        {/* Show meta info on mobile */}
+                                        <div className="mt-1 flex items-center gap-2 text-muted-foreground text-xs sm:hidden">
+                                          <span className="flex items-center gap-1">
+                                            <Users className="h-3 w-3" />
+                                            {org.memberCount}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="hidden md:table-cell">
+                                    <code className="text-xs">{org.slug}</code>
+                                  </TableCell>
+                                  <TableCell className="hidden sm:table-cell">
+                                    <span className="flex items-center gap-1 text-sm">
+                                      <Users className="h-3 w-3" />
+                                      {org.memberCount}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="hidden lg:table-cell">
+                                    <span className="text-sm">
+                                      {new Date(
+                                        org.createdAt
+                                      ).toLocaleDateString()}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {/* Desktop: side-by-side buttons */}
+                                    <div className="hidden justify-end gap-2 sm:flex">
+                                      <Button
+                                        asChild
+                                        size="sm"
+                                        variant="outline"
+                                      >
+                                        <Link href={`/orgs/${org._id}/coach`}>
+                                          Coach
+                                        </Link>
+                                      </Button>
+                                      <Button
+                                        asChild
+                                        size="sm"
+                                        variant="outline"
+                                      >
+                                        <Link href={`/orgs/${org._id}/admin`}>
+                                          Admin
+                                        </Link>
+                                      </Button>
+                                    </div>
+                                    {/* Mobile: stacked buttons */}
+                                    <div className="flex flex-col gap-1.5 sm:hidden">
+                                      <Button
+                                        asChild
+                                        className="h-8 w-full"
+                                        size="sm"
+                                        variant="outline"
+                                      >
+                                        <Link href={`/orgs/${org._id}/coach`}>
+                                          <Users className="mr-1 h-3 w-3" />
+                                          Coach
+                                        </Link>
+                                      </Button>
+                                      <Button
+                                        asChild
+                                        className="h-8 w-full"
+                                        size="sm"
+                                        variant="outline"
+                                      >
+                                        <Link href={`/orgs/${org._id}/admin`}>
+                                          <Settings className="mr-1 h-3 w-3" />
+                                          Admin
+                                        </Link>
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      {/* Table Legend */}
+                      <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50/30 px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <Check className="h-3.5 w-3.5 text-green-600" />
+                          <span className="text-muted-foreground text-xs">
+                            Green highlight indicates organisations you're a
+                            member of
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
                 ) : (
                   <Card className="border-dashed">
                     <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -570,15 +912,15 @@ export default function OrganizationsPage() {
                         <Building2 className="h-8 w-8 text-muted-foreground" />
                       </div>
                       <h3 className="mb-2 font-semibold text-lg">
-                        No Organizations Yet
+                        No Organisations Yet
                       </h3>
                       <p className="mb-4 text-muted-foreground">
-                        No organizations have been created on the platform.
+                        No organisations have been created on the platform.
                       </p>
                       <Link href="/orgs/create">
                         <Button>
                           <Plus className="mr-2 h-4 w-4" />
-                          Create First Organization
+                          Create First Organisation
                         </Button>
                       </Link>
                     </CardContent>

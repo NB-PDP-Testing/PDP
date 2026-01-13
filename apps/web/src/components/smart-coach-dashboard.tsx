@@ -493,10 +493,14 @@ export function SmartCoachDashboard({
     formatSkillName,
   ]);
 
+  // Run analytics when data dependencies change (not when callbacks change)
   useEffect(() => {
     calculateTeamAnalytics();
     generateCorrelationInsights();
-  }, [calculateTeamAnalytics, generateCorrelationInsights]);
+    // Intentionally only depend on data, not on the callback functions themselves
+    // The callbacks are stable enough and recreating them doesn't mean we need to rerun analytics
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players, coachTeams, isClubView]);
 
   // Stable callback wrappers for Quick Actions (prevents infinite re-registration)
   const handleAssessPlayers = useCallback(() => {

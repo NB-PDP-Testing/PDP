@@ -1,0 +1,219 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: TypeScript Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full git history for --changed to work
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Convex generated files are now committed to repo (not generated in CI)
+      # This avoids needing a live Convex deployment for CI
+
+      - name: Run type check
+        run: npm run check-types
+
+  lint:
+    name: Lint Check (Changed Files)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full git history for --changed to work
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Phase 0: Re-enabled linting for changed files only
+      # This prevents new linting issues while allowing gradual fixes
+      # FIXED: Now properly fails when linting errors are found
+      # Note: We pass explicit file list instead of --changed flag because
+      # --changed relies on git staged changes which don't exist in CI
+      - name: Run linting (changed files only)
+        run: |
+          echo "Checking linting on changed files..."
+
+          # Get list of changed TypeScript/JavaScript files
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT origin/main...HEAD | grep -E '\.(ts|tsx|js|jsx)$' || true)
+          else
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT HEAD~1 | grep -E '\.(ts|tsx|js|jsx)$' || true)
+          fi
+
+          # If no TypeScript/JavaScript files changed, exit success
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "✅ No TypeScript/JavaScript files changed - skipping lint"
+            exit 0
+          fi
+
+          echo "Files to lint:"
+          echo "$CHANGED_FILES"
+          echo ""
+
+          # Run biome check on specific changed files (not --changed flag)
+          echo "Running biome check..."
+          echo "$CHANGED_FILES" | xargs npx biome check --diagnostic-level=error
+
+          LINT_EXIT_CODE=$?
+
+          if [ $LINT_EXIT_CODE -ne 0 ]; then
+            echo ""
+            echo "❌ LINTING FAILED!"
+            echo "Found linting errors in changed files."
+            echo ""
+            echo "To fix locally:"
+            echo "1. Check errors: npx biome check <file>"
+            echo "2. Auto-fix safe issues: npx biome check --write <file>"
+            echo "3. Manually fix remaining issues"
+            echo ""
+            exit 1
+          fi
+
+          echo "✅ Linting passed!"
+
+  build:
+    name: Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # Add dummy values for build (real values in Vercel)
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY || 'dummy-key-for-ci' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || 'dummy-key-for-ci' }}
+          NEXT_PUBLIC_CONVEX_URL: 'https://dummy-url-for-ci.convex.cloud'
+          BETTER_AUTH_SECRET: 'dummy-secret-for-ci'
+          BETTER_AUTH_URL: 'http://localhost:3000'
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    # Temporarily disabled during sprint to save Actions minutes
+    if: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # TODO: Make blocking once vulnerabilities are reviewed and addressed
+      # See CI_CD_STATUS.md for security audit action plan
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Check for known vulnerabilities
+        run: npx audit-ci --moderate
+        continue-on-error: true
+
+  bundle-size:
+    name: Bundle Size Check
+    runs-on: ubuntu-latest
+    # Temporarily disabled during sprint to save Actions minutes (duplicates build job)
+    if: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for production
+        run: npm run build
+        env:
+          CONVEX_DEPLOY_KEY: 'dummy-key-for-ci'
+          ANTHROPIC_API_KEY: 'dummy-key-for-ci'
+          NEXT_PUBLIC_CONVEX_URL: 'https://dummy-url-for-ci.convex.cloud'
+          BETTER_AUTH_SECRET: 'dummy-secret-for-ci'
+          BETTER_AUTH_URL: 'http://localhost:3000'
+
+      - name: Analyze bundle
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const buildManifest = path.join(process.cwd(), 'apps/web/.next/build-manifest.json');
+            if (fs.existsSync(buildManifest)) {
+              const size = fs.statSync(buildManifest).size;
+              console.log(`Build manifest size: ${(size / 1024).toFixed(2)} KB`);
+            }
+
+  convex-validate:
+    name: Convex Schema Validation
+    runs-on: ubuntu-latest
+    # Temporarily disabled during sprint to save Actions minutes
+    if: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Convex schema
+        working-directory: packages/backend
+        run: npx convex dev --once --configure=skip || echo "Convex validation completed"
+        continue-on-error: true

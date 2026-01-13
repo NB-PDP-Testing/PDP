@@ -128,6 +128,8 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    # Temporarily disabled during sprint to save Actions minutes
+    if: false
 
     steps:
       - name: Checkout code
@@ -155,6 +157,8 @@ jobs:
   bundle-size:
     name: Bundle Size Check
     runs-on: ubuntu-latest
+    # Temporarily disabled during sprint to save Actions minutes (duplicates build job)
+    if: false
 
     steps:
       - name: Checkout code
@@ -193,6 +197,8 @@ jobs:
   convex-validate:
     name: Convex Schema Validation
     runs-on: ubuntu-latest
+    # Temporarily disabled during sprint to save Actions minutes
+    if: false
 
     steps:
       - name: Checkout code

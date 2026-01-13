@@ -4,13 +4,9 @@ import {
   AlertCircle,
   CheckSquare,
   Edit,
-  FileText,
-  Heart,
   Home,
   Menu,
   Mic,
-  Stethoscope,
-  Target,
   Users,
   Zap,
 } from "lucide-react";
@@ -54,75 +50,36 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
     useQuickActionsContext();
 
   // Define default quick actions for all coach pages
+  // Reduced to 3 primary actions that create/record (not just navigate)
   useEffect(() => {
     // Only set default actions if no actions are currently registered
     // This allows individual pages to override
     if (actions.length === 0) {
       const defaultActions = [
         {
-          id: "assess",
-          icon: Edit,
-          label: "Assess Players",
-          title: "Rate player skills & performance",
-          onClick: () => router.push(`/orgs/${orgId}/coach/assess` as Route),
-          color: "bg-blue-600 hover:bg-blue-700",
-        },
-        {
-          id: "session-plan",
-          icon: Target,
-          label: "Generate Session Plan",
-          title: "AI-powered training session",
-          onClick: () => router.push(`/orgs/${orgId}/coach` as Route),
-          color: "bg-purple-600 hover:bg-purple-700",
-        },
-        {
-          id: "analytics",
-          icon: FileText,
-          label: "View Analytics",
-          title: "Team performance insights",
-          onClick: () => router.push(`/orgs/${orgId}/coach` as Route),
-          color: "bg-cyan-600 hover:bg-cyan-700",
-        },
-        {
           id: "voice-notes",
           icon: Mic,
-          label: "Record Voice Note",
-          title: "Quick audio observations",
+          label: "Voice Note",
+          title: "Record observation",
           onClick: () =>
             router.push(`/orgs/${orgId}/coach/voice-notes` as Route),
           color: "bg-green-600 hover:bg-green-700",
         },
         {
+          id: "assess",
+          icon: Edit,
+          label: "Assess",
+          title: "Rate player skills",
+          onClick: () => router.push(`/orgs/${orgId}/coach/assess` as Route),
+          color: "bg-blue-600 hover:bg-blue-700",
+        },
+        {
           id: "injuries",
           icon: AlertCircle,
-          label: "Report Injury",
-          title: "Track player injuries",
+          label: "Injury",
+          title: "Report injury",
           onClick: () => router.push(`/orgs/${orgId}/coach/injuries` as Route),
           color: "bg-red-600 hover:bg-red-700",
-        },
-        {
-          id: "goals",
-          icon: Heart,
-          label: "Manage Goals",
-          title: "Development objectives",
-          onClick: () => router.push(`/orgs/${orgId}/coach/goals` as Route),
-          color: "bg-pink-600 hover:bg-pink-700",
-        },
-        {
-          id: "medical",
-          icon: Stethoscope,
-          label: "View Medical Info",
-          title: "Health & emergency details",
-          onClick: () => router.push(`/orgs/${orgId}/coach/medical` as Route),
-          color: "bg-amber-600 hover:bg-amber-700",
-        },
-        {
-          id: "match-day",
-          icon: Target,
-          label: "View Match Day",
-          title: "Emergency contacts & info",
-          onClick: () => router.push(`/orgs/${orgId}/coach/match-day` as Route),
-          color: "bg-orange-600 hover:bg-orange-700",
         },
       ];
 

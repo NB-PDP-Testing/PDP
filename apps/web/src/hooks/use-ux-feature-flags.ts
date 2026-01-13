@@ -266,13 +266,15 @@ export function useUXFeatureFlags(): UXFeatureFlags {
 
 /**
  * Get the admin navigation style based on feature flags
- * Supports A/B testing different approaches
+ * Defaults to "sidebar" for better mobile UX
+ * Use "ux_admin_nav_legacy" flag to revert to old horizontal nav
  */
 function getAdminNavStyle(
   isFeatureEnabled: (flag: string) => boolean
 ): AdminNavStyle {
-  if (isFeatureEnabled("ux_admin_nav_sidebar")) {
-    return "sidebar";
+  // Legacy flag allows reverting to old behavior if needed
+  if (isFeatureEnabled("ux_admin_nav_legacy")) {
+    return "current";
   }
   if (isFeatureEnabled("ux_admin_nav_bottomsheet")) {
     return "bottomsheet";
@@ -280,7 +282,8 @@ function getAdminNavStyle(
   if (isFeatureEnabled("ux_admin_nav_tabs")) {
     return "tabs";
   }
-  return "current";
+  // Default to sidebar for better mobile UX
+  return "sidebar";
 }
 
 /**

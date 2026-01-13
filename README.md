@@ -21,6 +21,12 @@ First, install the dependencies:
 npm install
 ```
 
+## Ruler Setup
+
+```bash
+npm run ruler:apply
+```
+
 ## Convex Setup
 
 This project uses Convex as a backend. You'll need to set up Convex before running the app:
@@ -78,6 +84,7 @@ pdp/
 **Status:** ✅ Passing (with regressions)
 
 The project uses GitHub Actions for continuous integration. See [CI_CD_STATUS.md](./CI_CD_STATUS.md) for:
+
 - Current pipeline status
 - Known quality regressions
 - Technical debt tracking

@@ -59,8 +59,15 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
 
+    console.log("[PostHog] Initializing...", {
+      hasKey: !!key,
+      hasHost: !!host,
+      keyPrefix: key?.substring(0, 10),
+    });
+
     // Only initialize PostHog if both key and host are provided
     if (key && host && key !== "phc_your_key_here") {
+      console.log("[PostHog] Starting initialization with", { host });
       // Get bootstrapped flags and distinct ID from cookies (set by middleware)
       const bootstrappedFlags = getBootstrappedFlags();
       const distinctId = getDistinctId();
@@ -75,6 +82,7 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
           featureFlags: bootstrappedFlags,
         },
         loaded: (ph) => {
+          console.log("[PostHog] Successfully initialized!");
           // Refresh flags in background for next navigation
           // This ensures we have fresh flags without blocking render
           ph.reloadFeatureFlags();
@@ -84,6 +92,10 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
           maskTextSelector: ".sensitive", // Mask elements with 'sensitive' class
         },
       });
+    } else {
+      console.log(
+        "[PostHog] Not initialized - missing config or placeholder key"
+      );
     }
   }, []);
 

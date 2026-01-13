@@ -1,6 +1,12 @@
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
-export interface PassportPDFData {
+// Regex constants for performance
+const HEADING_REGEX = /^#+\s*/;
+const BULLET_REGEX = /^[-•]\s*/;
+const MOBILE_DEVICE_REGEX =
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+
+export type PassportPDFData = {
   // Player Info
   playerName: string;
   dateOfBirth?: string;
@@ -37,7 +43,7 @@ export interface PassportPDFData {
 
   // Performance
   overallScore?: number;
-}
+};
 
 export async function generatePassportPDF(
   data: PassportPDFData
@@ -486,15 +492,19 @@ export async function generatePassportPDF(
     });
     yPosition -= 20;
 
-    const medicalItems = [];
-    if (data.hasAllergies)
+    const medicalItems: string[] = [];
+    if (data.hasAllergies) {
       medicalItems.push("[!] Has allergies - check medical record");
-    if (data.hasMedications)
+    }
+    if (data.hasMedications) {
       medicalItems.push("[Rx] Taking medications - check medical record");
-    if (data.hasConditions)
+    }
+    if (data.hasConditions) {
       medicalItems.push("[+] Medical conditions - check medical record");
-    if (data.emergencyContact)
+    }
+    if (data.emergencyContact) {
       medicalItems.push(`[ICE] Emergency: ${data.emergencyContact}`);
+    }
 
     for (const item of medicalItems) {
       page.drawText(item, {
@@ -559,13 +569,16 @@ export function previewPDF(pdfBytes: Uint8Array): string {
 
 // ============ SESSION PLAN PDF ============
 
-export interface SessionPlanPDFData {
+export type SessionPlanPDFData = {
   teamName: string;
   sessionPlan: string;
   sport?: string;
   ageGroup?: string;
   playerCount?: number;
-}
+  organizationName?: string;
+  coachName?: string;
+  generatedBy?: "ai" | "manual";
+};
 
 export async function generateSessionPlanPDF(
   data: SessionPlanPDFData
@@ -577,7 +590,7 @@ export async function generateSessionPlanPDF(
   const pageWidth = 595;
   const pageHeight = 842;
   const margin = 50;
-  const contentWidth = pageWidth - margin * 2;
+  const _contentWidth = pageWidth - margin * 2;
 
   let page = pdfDoc.addPage([pageWidth, pageHeight]);
   let yPosition = pageHeight - margin;
@@ -587,29 +600,43 @@ export async function generateSessionPlanPDF(
   const textColor = rgb(0.2, 0.2, 0.2);
   const lightGray = rgb(0.6, 0.6, 0.6);
 
-  // Header
+  // Header with gradient effect
   page.drawRectangle({
     x: 0,
-    y: pageHeight - 80,
+    y: pageHeight - 100,
     width: pageWidth,
-    height: 80,
-    color: accentColor,
+    height: 100,
+    color: primaryColor,
   });
 
+  // Organization name (top-right if provided)
+  if (data.organizationName) {
+    const orgWidth = helveticaBold.widthOfTextAtSize(data.organizationName, 12);
+    page.drawText(data.organizationName, {
+      x: pageWidth - margin - orgWidth,
+      y: pageHeight - 30,
+      font: helveticaBold,
+      size: 12,
+      color: rgb(0.9, 0.9, 0.9),
+    });
+  }
+
+  // Main title
   page.drawText("TRAINING SESSION PLAN", {
     x: margin,
-    y: pageHeight - 35,
+    y: pageHeight - 40,
     font: helveticaBold,
-    size: 20,
+    size: 22,
     color: rgb(1, 1, 1),
   });
 
+  // Team name (emphasized)
   page.drawText(data.teamName, {
     x: margin,
-    y: pageHeight - 55,
-    font: helvetica,
-    size: 14,
-    color: rgb(0.9, 0.9, 0.9),
+    y: pageHeight - 62,
+    font: helveticaBold,
+    size: 16,
+    color: accentColor,
   });
 
   const generatedDate = new Date().toLocaleDateString("en-IE", {
@@ -617,21 +644,46 @@ export async function generateSessionPlanPDF(
     month: "long",
     year: "numeric",
   });
-  page.drawText(`Generated: ${generatedDate}`, {
+
+  // Generation info
+  const generatedInfo =
+    data.generatedBy === "ai"
+      ? `AI-Generated: ${generatedDate}`
+      : `Generated: ${generatedDate}`;
+  page.drawText(generatedInfo, {
     x: margin,
-    y: pageHeight - 70,
+    y: pageHeight - 82,
     font: helvetica,
     size: 9,
     color: rgb(0.8, 0.8, 0.8),
   });
 
-  yPosition = pageHeight - 110;
+  // Coach name (if provided)
+  if (data.coachName) {
+    const coachText = `Coach: ${data.coachName}`;
+    const coachWidth = helvetica.widthOfTextAtSize(coachText, 9);
+    page.drawText(coachText, {
+      x: pageWidth - margin - coachWidth,
+      y: pageHeight - 82,
+      font: helvetica,
+      size: 9,
+      color: rgb(0.8, 0.8, 0.8),
+    });
+  }
+
+  yPosition = pageHeight - 130;
 
   // Info row
-  const infoItems = [];
-  if (data.sport) infoItems.push(`Sport: ${data.sport}`);
-  if (data.ageGroup) infoItems.push(`Age Group: ${data.ageGroup}`);
-  if (data.playerCount) infoItems.push(`Players: ${data.playerCount}`);
+  const infoItems: string[] = [];
+  if (data.sport) {
+    infoItems.push(`Sport: ${data.sport}`);
+  }
+  if (data.ageGroup) {
+    infoItems.push(`Age Group: ${data.ageGroup}`);
+  }
+  if (data.playerCount) {
+    infoItems.push(`Players: ${data.playerCount}`);
+  }
 
   if (infoItems.length > 0) {
     page.drawText(infoItems.join("  •  "), {
@@ -657,7 +709,7 @@ export async function generateSessionPlanPDF(
     // Check for headers (lines starting with #)
     if (line.startsWith("##")) {
       yPosition -= 10;
-      page.drawText(line.replace(/^#+\s*/, ""), {
+      page.drawText(line.replace(HEADING_REGEX, ""), {
         x: margin,
         y: yPosition,
         font: helveticaBold,
@@ -667,7 +719,7 @@ export async function generateSessionPlanPDF(
       yPosition -= lineHeight + 5;
     } else if (line.startsWith("#")) {
       yPosition -= 15;
-      page.drawText(line.replace(/^#+\s*/, ""), {
+      page.drawText(line.replace(HEADING_REGEX, ""), {
         x: margin,
         y: yPosition,
         font: helveticaBold,
@@ -683,7 +735,7 @@ export async function generateSessionPlanPDF(
         size: 10,
         color: accentColor,
       });
-      page.drawText(line.replace(/^[-•]\s*/, ""), {
+      page.drawText(line.replace(BULLET_REGEX, ""), {
         x: margin + 15,
         y: yPosition,
         font: helvetica,
@@ -705,12 +757,56 @@ export async function generateSessionPlanPDF(
     }
   }
 
-  // Footer
-  page.drawText("Generated by Player Development Passport (PDP)", {
+  // Footer with branding
+  const footerY = 40;
+  page.drawRectangle({
+    x: 0,
+    y: 0,
+    width: pageWidth,
+    height: footerY + 10,
+    color: rgb(0.98, 0.98, 0.98),
+  });
+
+  page.drawText("Powered by PlayerARC", {
     x: margin,
-    y: 30,
+    y: footerY,
+    font: helveticaBold,
+    size: 9,
+    color: primaryColor,
+  });
+
+  const aiText =
+    data.generatedBy === "ai"
+      ? "AI-powered coaching insights"
+      : "Professional training platform";
+  page.drawText(aiText, {
+    x: margin,
+    y: footerY - 12,
     font: helvetica,
-    size: 8,
+    size: 7,
+    color: lightGray,
+  });
+
+  // Organization name in footer (if provided)
+  if (data.organizationName) {
+    const orgFooterWidth = helvetica.widthOfTextAtSize(
+      data.organizationName,
+      8
+    );
+    page.drawText(data.organizationName, {
+      x: pageWidth - margin - orgFooterWidth,
+      y: footerY,
+      font: helvetica,
+      size: 8,
+      color: textColor,
+    });
+  }
+
+  page.drawText("Confidential - For authorized use only", {
+    x: pageWidth - margin - 135,
+    y: footerY - 12,
+    font: helvetica,
+    size: 7,
     color: lightGray,
   });
 
@@ -721,14 +817,14 @@ export async function generateSessionPlanPDF(
 
 // Detect if user is on mobile device
 function isMobileDevice(): boolean {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-    navigator.userAgent
-  );
+  return MOBILE_DEVICE_REGEX.test(navigator.userAgent);
 }
 
 // Check if Web Share API is supported with file sharing
-async function canUseWebShare(file?: File): Promise<boolean> {
-  if (!navigator.share) return false;
+function canUseWebShare(file?: File): boolean {
+  if (!navigator.share) {
+    return false;
+  }
 
   // Check if we can share files (not all browsers support this)
   if (file && navigator.canShare) {

@@ -17,7 +17,7 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import {
   BottomNav,
   type BottomNavItem,
@@ -53,11 +53,18 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
   const { actions, isMenuOpen, setIsMenuOpen, setActions } =
     useQuickActionsContext();
 
+  // Track if we've already set default actions (prevents feedback loop)
+  const defaultActionsSet = useRef(false);
+
   // Define default quick actions for all coach pages
+  // This runs ONCE on mount and only sets defaults if no page-specific actions exist
+  // FABQuickActions from individual pages will override these defaults
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Intentionally omitting actions.length to prevent feedback loop
   useEffect(() => {
-    // Only set default actions if no actions are currently registered
-    // This allows individual pages to override
-    if (actions.length === 0) {
+    // Only set defaults if:
+    // 1. We haven't already set them (prevents re-triggering)
+    // 2. No actions are currently registered (allows page overrides)
+    if (!defaultActionsSet.current && actions.length === 0) {
       const defaultActions = [
         {
           id: "assess",
@@ -127,8 +134,18 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
       ];
 
       setActions(defaultActions);
+      defaultActionsSet.current = true;
     }
-  }, [actions.length, orgId, router, setActions]);
+
+    // Reset flag when orgId changes (navigation to different org)
+    return () => {
+      if (orgId) {
+        defaultActionsSet.current = false;
+      }
+    };
+    // Removed actions.length from dependencies to prevent feedback loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, router, setActions]);
 
   // Debug: Log feature flag values
   console.log("[Coach Layout] Feature flags:", {

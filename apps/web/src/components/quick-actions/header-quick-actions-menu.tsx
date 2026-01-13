@@ -38,24 +38,35 @@ export function HeaderQuickActionsMenu() {
     setIsMenuOpen(false);
   };
 
-  if (actions.length === 0) return null;
+  if (actions.length === 0) {
+    return null;
+  }
 
   return (
     <>
-      {/* Backdrop when menu is open */}
+      {/* Backdrop - closes menu when clicked */}
       {isMenuOpen && (
+        // biome-ignore lint/a11y/useSemanticElements: Full-screen overlay cannot be a button element
         <div
+          aria-label="Close menu"
           className="fixed inset-0 z-40 bg-black/20 transition-opacity"
           onClick={() => setIsMenuOpen(false)}
           onKeyDown={(e) => {
-            if (e.key === "Escape") setIsMenuOpen(false);
+            if (e.key === "Escape") {
+              setIsMenuOpen(false);
+            }
           }}
+          role="button"
+          tabIndex={0}
         />
       )}
 
-      {/* Action Menu - appears below header button when open */}
+      {/* Action Menu - positioned above backdrop with higher z-index */}
       {isMenuOpen && (
-        <div className="fixed top-16 right-4 z-50 w-64 space-y-2 rounded-lg bg-white p-3 shadow-2xl">
+        <div
+          className="fixed top-16 right-4 z-50 w-64 space-y-2 rounded-lg bg-white p-3 shadow-2xl"
+          role="menu"
+        >
           <div className="mb-2 flex items-center justify-between border-b pb-2">
             <span className="flex items-center gap-2 font-semibold text-gray-900 text-sm">
               <Zap className="h-4 w-4 text-yellow-600" />
@@ -70,12 +81,12 @@ export function HeaderQuickActionsMenu() {
               <X className="h-4 w-4" />
             </Button>
           </div>
-          {actions.map((action, idx) => {
+          {actions.map((action) => {
             const Icon = action.icon;
             return (
               <button
                 className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-gray-100"
-                key={idx}
+                key={action.id}
                 onClick={() => handleActionClick(action)}
                 type="button"
               >

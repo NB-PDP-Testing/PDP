@@ -63,6 +63,8 @@ jobs:
   code-quality:
     name: Code Quality Report
     runs-on: ubuntu-latest
+    # Temporarily disabled during sprint - CI workflow handles these checks
+    if: false
 
     steps:
       - name: Checkout code

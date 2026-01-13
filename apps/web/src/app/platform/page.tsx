@@ -12,7 +12,7 @@ export default function PlatformDashboard() {
         <div className="mb-6 flex items-center justify-between">
           <Link href="/">
             <button
-              className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-white text-sm transition-all hover:bg-white/20"
+              className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-sm text-white transition-all hover:bg-white/20"
               type="button"
             >
               <Home className="h-4 w-4" />
@@ -35,7 +35,7 @@ export default function PlatformDashboard() {
                   <div className="rounded-lg bg-amber-500/20 p-2.5 transition-colors group-hover:bg-amber-500/30">
                     <Trophy className="h-5 w-5 text-amber-400" />
                   </div>
-                  <CardTitle className="text-white text-base">Sports</CardTitle>
+                  <CardTitle className="text-base text-white">Sports</CardTitle>
                 </div>
               </CardHeader>
             </Card>
@@ -49,7 +49,7 @@ export default function PlatformDashboard() {
                   <div className="rounded-lg bg-blue-500/20 p-2.5 transition-colors group-hover:bg-blue-500/30">
                     <Target className="h-5 w-5 text-blue-400" />
                   </div>
-                  <CardTitle className="text-white text-base">Skills</CardTitle>
+                  <CardTitle className="text-base text-white">Skills</CardTitle>
                 </div>
               </CardHeader>
             </Card>
@@ -63,7 +63,7 @@ export default function PlatformDashboard() {
                   <div className="rounded-lg bg-purple-500/20 p-2.5 transition-colors group-hover:bg-purple-500/30">
                     <Shield className="h-5 w-5 text-purple-400" />
                   </div>
-                  <CardTitle className="text-white text-base">Staff</CardTitle>
+                  <CardTitle className="text-base text-white">Staff</CardTitle>
                 </div>
               </CardHeader>
             </Card>
@@ -77,7 +77,7 @@ export default function PlatformDashboard() {
                   <div className="rounded-lg bg-green-500/20 p-2.5 transition-colors group-hover:bg-green-500/30">
                     <Megaphone className="h-5 w-5 text-green-400" />
                   </div>
-                  <CardTitle className="text-white text-base">Flows</CardTitle>
+                  <CardTitle className="text-base text-white">Flows</CardTitle>
                 </div>
               </CardHeader>
             </Card>

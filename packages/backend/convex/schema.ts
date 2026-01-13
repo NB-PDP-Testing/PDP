@@ -1717,4 +1717,58 @@ export default defineSchema({
     .index("by_flow", ["flowId"])
     .index("by_user_and_flow", ["userId", "flowId"])
     .index("by_status", ["status"]),
+
+  // ============================================================
+  // AI COACHING FEATURES
+  // ============================================================
+
+  // Session Plans - AI-generated training session plans with caching
+  sessionPlans: defineTable({
+    // Who and what
+    organizationId: v.string(), // Better Auth organization ID
+    teamId: v.string(), // Better Auth team ID (not Convex ID since teams are in Better Auth)
+    coachId: v.string(), // Better Auth user ID who generated it
+
+    // Plan content
+    teamName: v.string(),
+    sessionPlan: v.string(), // The full AI-generated plan text
+    focus: v.optional(v.string()), // Optional focus area (e.g., "Tackling")
+
+    // Team context (snapshot at generation time)
+    teamData: v.object({
+      playerCount: v.number(),
+      ageGroup: v.string(),
+      avgSkillLevel: v.number(),
+      strengths: v.array(v.object({ skill: v.string(), avg: v.number() })),
+      weaknesses: v.array(v.object({ skill: v.string(), avg: v.number() })),
+      attendanceIssues: v.number(),
+      overdueReviews: v.number(),
+    }),
+
+    // AI metadata
+    usedRealAI: v.boolean(), // Was this real AI or simulated?
+    creationMethod: v.optional(
+      v.union(
+        v.literal("ai_generated"),
+        v.literal("manual_ui"),
+        v.literal("imported"),
+        v.literal("template")
+      )
+    ), // How the plan was created (future-proof for manual/imported plans)
+    generatedAt: v.number(), // Timestamp
+
+    // Usage tracking (no rating - phase 2)
+    viewCount: v.number(), // How many times this plan was viewed
+    shareCount: v.number(), // How many times shared
+    regenerateCount: v.number(), // How many times user clicked "regenerate"
+
+    // Metadata
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_organization", ["organizationId"])
+    .index("by_team", ["teamId"])
+    .index("by_coach", ["coachId"])
+    .index("by_team_and_date", ["teamId", "generatedAt"]) // For finding recent plans
+    .index("by_organization_and_date", ["organizationId", "generatedAt"]), // For analytics
 });

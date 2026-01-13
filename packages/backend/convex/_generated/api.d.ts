@@ -49,6 +49,7 @@ import type * as models_playerInjuries from "../models/playerInjuries.js";
 import type * as models_playerSelfAccess from "../models/playerSelfAccess.js";
 import type * as models_players from "../models/players.js";
 import type * as models_referenceData from "../models/referenceData.js";
+import type * as models_sessionPlans from "../models/sessionPlans.js";
 import type * as models_skillAssessments from "../models/skillAssessments.js";
 import type * as models_skillBenchmarks from "../models/skillBenchmarks.js";
 import type * as models_sportAgeGroupConfig from "../models/sportAgeGroupConfig.js";
@@ -134,6 +135,7 @@ declare const fullApi: ApiFromModules<{
   "models/playerSelfAccess": typeof models_playerSelfAccess;
   "models/players": typeof models_players;
   "models/referenceData": typeof models_referenceData;
+  "models/sessionPlans": typeof models_sessionPlans;
   "models/skillAssessments": typeof models_skillAssessments;
   "models/skillBenchmarks": typeof models_skillBenchmarks;
   "models/sportAgeGroupConfig": typeof models_sportAgeGroupConfig;

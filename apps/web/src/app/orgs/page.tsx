@@ -57,14 +57,14 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 
 // Type for organization from better-auth
-interface Organization {
+type Organization = {
   id: string;
   name: string;
   slug: string;
   logo?: string | null;
   metadata?: Record<string, unknown> | null;
   createdAt: Date;
-}
+};
 
 export default function OrganizationsPage() {
   const router = useRouter();
@@ -478,32 +478,52 @@ export default function OrganizationsPage() {
                           className="space-y-4"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <Button
-                            asChild
-                            className="w-full justify-between"
-                            variant="outline"
-                          >
-                            <Link href={`/orgs/${org.id}/coach`}>
-                              <span className="flex items-center gap-2">
-                                <Settings className="h-4 w-4" />
-                                Coach Panel
-                              </span>
-                              <ChevronRight className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button
-                            asChild
-                            className="w-full justify-between"
-                            variant="outline"
-                          >
-                            <Link href={`/orgs/${org.id}/admin`}>
-                              <span className="flex items-center gap-2">
-                                <Settings className="h-4 w-4" />
-                                Admin Panel
-                              </span>
-                              <ChevronRight className="h-4 w-4" />
-                            </Link>
-                          </Button>
+                          {(() => {
+                            const membership = userMemberships?.find(
+                              (m) => m.organizationId === org.id
+                            );
+                            const hasCoachRole =
+                              membership?.functionalRoles.includes("coach");
+                            const hasAdminRole =
+                              membership?.functionalRoles.includes("admin") ||
+                              membership?.betterAuthRole === "admin" ||
+                              membership?.betterAuthRole === "owner";
+
+                            return (
+                              <>
+                                {hasCoachRole && (
+                                  <Button
+                                    asChild
+                                    className="w-full justify-between"
+                                    variant="outline"
+                                  >
+                                    <Link href={`/orgs/${org.id}/coach`}>
+                                      <span className="flex items-center gap-2">
+                                        <Settings className="h-4 w-4" />
+                                        Coach Panel
+                                      </span>
+                                      <ChevronRight className="h-4 w-4" />
+                                    </Link>
+                                  </Button>
+                                )}
+                                {hasAdminRole && (
+                                  <Button
+                                    asChild
+                                    className="w-full justify-between"
+                                    variant="outline"
+                                  >
+                                    <Link href={`/orgs/${org.id}/admin`}>
+                                      <span className="flex items-center gap-2">
+                                        <Settings className="h-4 w-4" />
+                                        Admin Panel
+                                      </span>
+                                      <ChevronRight className="h-4 w-4" />
+                                    </Link>
+                                  </Button>
+                                )}
+                              </>
+                            );
+                          })()}
                           <div className="flex items-center justify-between pt-2 text-muted-foreground text-xs">
                             <span>
                               Created{" "}
@@ -565,56 +585,90 @@ export default function OrganizationsPage() {
                               {new Date(org.createdAt).toLocaleDateString()}
                             </TableCell>
                             <TableCell className="text-right">
-                              {/* Desktop: side-by-side buttons */}
-                              {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
-                              {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
-                              {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
-                              <div
-                                className="hidden justify-end gap-2 sm:flex"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Button asChild size="sm" variant="outline">
-                                  <Link href={`/orgs/${org.id}/coach`}>
-                                    Coach
-                                  </Link>
-                                </Button>
-                                <Button asChild size="sm" variant="outline">
-                                  <Link href={`/orgs/${org.id}/admin`}>
-                                    Admin
-                                  </Link>
-                                </Button>
-                              </div>
-                              {/* Mobile: stacked buttons */}
-                              {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
-                              {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
-                              {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
-                              <div
-                                className="flex flex-col gap-1.5 sm:hidden"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Button
-                                  asChild
-                                  className="h-8 w-full"
-                                  size="sm"
-                                  variant="outline"
-                                >
-                                  <Link href={`/orgs/${org.id}/coach`}>
-                                    <Users className="mr-1 h-3 w-3" />
-                                    Coach
-                                  </Link>
-                                </Button>
-                                <Button
-                                  asChild
-                                  className="h-8 w-full"
-                                  size="sm"
-                                  variant="outline"
-                                >
-                                  <Link href={`/orgs/${org.id}/admin`}>
-                                    <Settings className="mr-1 h-3 w-3" />
-                                    Admin
-                                  </Link>
-                                </Button>
-                              </div>
+                              {(() => {
+                                const membership = userMemberships?.find(
+                                  (m) => m.organizationId === org.id
+                                );
+                                const hasCoachRole =
+                                  membership?.functionalRoles.includes("coach");
+                                const hasAdminRole =
+                                  membership?.functionalRoles.includes(
+                                    "admin"
+                                  ) ||
+                                  membership?.betterAuthRole === "admin" ||
+                                  membership?.betterAuthRole === "owner";
+
+                                return (
+                                  <>
+                                    {/* Desktop: side-by-side buttons */}
+                                    {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                                    {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                                    {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                                    <div
+                                      className="hidden justify-end gap-2 sm:flex"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {hasCoachRole && (
+                                        <Button
+                                          asChild
+                                          size="sm"
+                                          variant="outline"
+                                        >
+                                          <Link href={`/orgs/${org.id}/coach`}>
+                                            Coach
+                                          </Link>
+                                        </Button>
+                                      )}
+                                      {hasAdminRole && (
+                                        <Button
+                                          asChild
+                                          size="sm"
+                                          variant="outline"
+                                        >
+                                          <Link href={`/orgs/${org.id}/admin`}>
+                                            Admin
+                                          </Link>
+                                        </Button>
+                                      )}
+                                    </div>
+                                    {/* Mobile: stacked buttons */}
+                                    {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                                    {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                                    {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                                    <div
+                                      className="flex flex-col gap-1.5 sm:hidden"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {hasCoachRole && (
+                                        <Button
+                                          asChild
+                                          className="h-8 w-full"
+                                          size="sm"
+                                          variant="outline"
+                                        >
+                                          <Link href={`/orgs/${org.id}/coach`}>
+                                            <Users className="mr-1 h-3 w-3" />
+                                            Coach
+                                          </Link>
+                                        </Button>
+                                      )}
+                                      {hasAdminRole && (
+                                        <Button
+                                          asChild
+                                          className="h-8 w-full"
+                                          size="sm"
+                                          variant="outline"
+                                        >
+                                          <Link href={`/orgs/${org.id}/admin`}>
+                                            <Settings className="mr-1 h-3 w-3" />
+                                            Admin
+                                          </Link>
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </>
+                                );
+                              })()}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -805,37 +859,65 @@ export default function OrganizationsPage() {
                                 )}
                               </div>
                               {isMember ? (
-                                <>
-                                  {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
-                                  {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
-                                  {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
-                                  <div
-                                    className="flex gap-2"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <Button
-                                      asChild
-                                      className="flex-1"
-                                      size="sm"
-                                      variant="outline"
-                                    >
-                                      <Link href={`/orgs/${org._id}/admin`}>
-                                        <Settings className="mr-1 h-3 w-3" />
-                                        Admin
-                                      </Link>
-                                    </Button>
-                                    <Button
-                                      asChild
-                                      className="flex-1"
-                                      size="sm"
-                                      variant="outline"
-                                    >
-                                      <Link href={`/orgs/${org._id}/coach`}>
-                                        Coach
-                                      </Link>
-                                    </Button>
-                                  </div>
-                                </>
+                                (() => {
+                                  const membership = userMemberships?.find(
+                                    (m) => m.organizationId === org._id
+                                  );
+                                  const hasCoachRole =
+                                    membership?.functionalRoles.includes(
+                                      "coach"
+                                    );
+                                  const hasAdminRole =
+                                    membership?.functionalRoles.includes(
+                                      "admin"
+                                    ) ||
+                                    membership?.betterAuthRole === "admin" ||
+                                    membership?.betterAuthRole === "owner";
+
+                                  return (
+                                    (hasCoachRole || hasAdminRole) && (
+                                      <>
+                                        {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                                        {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                                        {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                                        <div
+                                          className="flex gap-2"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          {hasAdminRole && (
+                                            <Button
+                                              asChild
+                                              className="flex-1"
+                                              size="sm"
+                                              variant="outline"
+                                            >
+                                              <Link
+                                                href={`/orgs/${org._id}/admin`}
+                                              >
+                                                <Settings className="mr-1 h-3 w-3" />
+                                                Admin
+                                              </Link>
+                                            </Button>
+                                          )}
+                                          {hasCoachRole && (
+                                            <Button
+                                              asChild
+                                              className="flex-1"
+                                              size="sm"
+                                              variant="outline"
+                                            >
+                                              <Link
+                                                href={`/orgs/${org._id}/coach`}
+                                              >
+                                                Coach
+                                              </Link>
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </>
+                                    )
+                                  );
+                                })()
                               ) : (
                                 <Button
                                   className="w-full"
@@ -957,74 +1039,107 @@ export default function OrganizationsPage() {
                                   </TableCell>
                                   <TableCell className="text-right">
                                     {isMember ? (
-                                      <>
-                                        {/* Desktop: side-by-side buttons */}
-                                        {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
-                                        {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
-                                        {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
-                                        <div
-                                          className="hidden justify-end gap-2 sm:flex"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          <Button
-                                            asChild
-                                            size="sm"
-                                            variant="outline"
-                                          >
-                                            <Link
-                                              href={`/orgs/${org._id}/coach`}
+                                      (() => {
+                                        const membership =
+                                          userMemberships?.find(
+                                            (m) => m.organizationId === org._id
+                                          );
+                                        const hasCoachRole =
+                                          membership?.functionalRoles.includes(
+                                            "coach"
+                                          );
+                                        const hasAdminRole =
+                                          membership?.functionalRoles.includes(
+                                            "admin"
+                                          ) ||
+                                          membership?.betterAuthRole ===
+                                            "admin" ||
+                                          membership?.betterAuthRole ===
+                                            "owner";
+
+                                        return (
+                                          <>
+                                            {/* Desktop: side-by-side buttons */}
+                                            {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                                            {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                                            {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                                            <div
+                                              className="hidden justify-end gap-2 sm:flex"
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
                                             >
-                                              Coach
-                                            </Link>
-                                          </Button>
-                                          <Button
-                                            asChild
-                                            size="sm"
-                                            variant="outline"
-                                          >
-                                            <Link
-                                              href={`/orgs/${org._id}/admin`}
+                                              {hasCoachRole && (
+                                                <Button
+                                                  asChild
+                                                  size="sm"
+                                                  variant="outline"
+                                                >
+                                                  <Link
+                                                    href={`/orgs/${org._id}/coach`}
+                                                  >
+                                                    Coach
+                                                  </Link>
+                                                </Button>
+                                              )}
+                                              {hasAdminRole && (
+                                                <Button
+                                                  asChild
+                                                  size="sm"
+                                                  variant="outline"
+                                                >
+                                                  <Link
+                                                    href={`/orgs/${org._id}/admin`}
+                                                  >
+                                                    Admin
+                                                  </Link>
+                                                </Button>
+                                              )}
+                                            </div>
+                                            {/* Mobile: stacked buttons */}
+                                            {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                                            {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                                            {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                                            <div
+                                              className="flex flex-col gap-1.5 sm:hidden"
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
                                             >
-                                              Admin
-                                            </Link>
-                                          </Button>
-                                        </div>
-                                        {/* Mobile: stacked buttons */}
-                                        {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
-                                        {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
-                                        {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
-                                        <div
-                                          className="flex flex-col gap-1.5 sm:hidden"
-                                          onClick={(e) => e.stopPropagation()}
-                                        >
-                                          <Button
-                                            asChild
-                                            className="h-8 w-full"
-                                            size="sm"
-                                            variant="outline"
-                                          >
-                                            <Link
-                                              href={`/orgs/${org._id}/coach`}
-                                            >
-                                              <Users className="mr-1 h-3 w-3" />
-                                              Coach
-                                            </Link>
-                                          </Button>
-                                          <Button
-                                            asChild
-                                            className="h-8 w-full"
-                                            size="sm"
-                                            variant="outline"
-                                          >
-                                            <Link
-                                              href={`/orgs/${org._id}/admin`}
-                                            >
-                                              <Settings className="mr-1 h-3 w-3" />
-                                              Admin
-                                            </Link>
-                                          </Button>
-                                        </div>
-                                      </>
+                                              {hasCoachRole && (
+                                                <Button
+                                                  asChild
+                                                  className="h-8 w-full"
+                                                  size="sm"
+                                                  variant="outline"
+                                                >
+                                                  <Link
+                                                    href={`/orgs/${org._id}/coach`}
+                                                  >
+                                                    <Users className="mr-1 h-3 w-3" />
+                                                    Coach
+                                                  </Link>
+                                                </Button>
+                                              )}
+                                              {hasAdminRole && (
+                                                <Button
+                                                  asChild
+                                                  className="h-8 w-full"
+                                                  size="sm"
+                                                  variant="outline"
+                                                >
+                                                  <Link
+                                                    href={`/orgs/${org._id}/admin`}
+                                                  >
+                                                    <Settings className="mr-1 h-3 w-3" />
+                                                    Admin
+                                                  </Link>
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </>
+                                        );
+                                      })()
                                     ) : (
                                       <Button
                                         className="w-full"

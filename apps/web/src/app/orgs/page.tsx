@@ -146,6 +146,11 @@ export default function OrganizationsPage() {
     user?.isPlatformStaff ? {} : "skip"
   );
 
+  // Get user memberships for role-based navigation
+  const userMemberships = useQuery(
+    api.models.members.getMembersForAllOrganizations
+  );
+
   // Get pending deletion requests for platform staff
   const pendingDeletionRequests = useQuery(
     api.models.organizations.getPendingDeletionRequests,
@@ -176,6 +181,39 @@ export default function OrganizationsPage() {
   const rejectDeletion = useMutation(
     api.models.organizations.rejectDeletionRequest
   );
+
+  // Helper function to determine navigation path based on user's highest role
+  const getOrgNavigationPath = (orgId: string): string => {
+    const membership = userMemberships?.find((m) => m.organizationId === orgId);
+
+    if (!membership) {
+      return `/orgs/${orgId}`;
+    }
+
+    // Priority 1: Check Better Auth hierarchical role (owner/admin)
+    if (
+      membership.betterAuthRole === "owner" ||
+      membership.betterAuthRole === "admin"
+    ) {
+      return `/orgs/${orgId}/admin`;
+    }
+
+    // Priority 2: Check functional roles
+    if (membership.functionalRoles.includes("admin")) {
+      return `/orgs/${orgId}/admin`;
+    }
+
+    if (membership.functionalRoles.includes("coach")) {
+      return `/orgs/${orgId}/coach`;
+    }
+
+    if (membership.functionalRoles.includes("parent")) {
+      return `/orgs/${orgId}/parent`;
+    }
+
+    // Default: org dashboard
+    return `/orgs/${orgId}`;
+  };
 
   const handleCancelRequest = async (requestId: Id<"orgJoinRequests">) => {
     try {
@@ -673,10 +711,15 @@ export default function OrganizationsPage() {
                           <Card
                             className={`transition-all hover:shadow-md ${
                               isMember
-                                ? "border-green-200 bg-green-50/30"
+                                ? "cursor-pointer border-green-200 bg-green-50/30"
                                 : "border-gray-200"
                             }`}
                             key={org._id}
+                            onClick={() => {
+                              if (isMember) {
+                                router.push(getOrgNavigationPath(org._id));
+                              }
+                            }}
                           >
                             <CardHeader className="pb-3">
                               <div className="flex items-start gap-3">
@@ -717,7 +760,13 @@ export default function OrganizationsPage() {
                                   </Badge>
                                 )}
                               </div>
-                              <div className="flex gap-2">
+                              {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                              {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                              {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                              <div
+                                className="flex gap-2"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <Button
                                   asChild
                                   className="flex-1"
@@ -779,9 +828,18 @@ export default function OrganizationsPage() {
                               return (
                                 <TableRow
                                   className={
-                                    isMember ? "bg-green-50/50" : undefined
+                                    isMember
+                                      ? "cursor-pointer bg-green-50/50"
+                                      : undefined
                                   }
                                   key={org._id}
+                                  onClick={() => {
+                                    if (isMember) {
+                                      router.push(
+                                        getOrgNavigationPath(org._id)
+                                      );
+                                    }
+                                  }}
                                 >
                                   <TableCell>
                                     <div className="flex items-center gap-2">
@@ -838,7 +896,13 @@ export default function OrganizationsPage() {
                                   </TableCell>
                                   <TableCell className="text-right">
                                     {/* Desktop: side-by-side buttons */}
-                                    <div className="hidden justify-end gap-2 sm:flex">
+                                    {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                                    {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                                    {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                                    <div
+                                      className="hidden justify-end gap-2 sm:flex"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
                                       <Button
                                         asChild
                                         size="sm"
@@ -859,7 +923,13 @@ export default function OrganizationsPage() {
                                       </Button>
                                     </div>
                                     {/* Mobile: stacked buttons */}
-                                    <div className="flex flex-col gap-1.5 sm:hidden">
+                                    {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                                    {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                                    {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                                    <div
+                                      className="flex flex-col gap-1.5 sm:hidden"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
                                       <Button
                                         asChild
                                         className="h-8 w-full"

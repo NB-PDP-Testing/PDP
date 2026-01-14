@@ -797,17 +797,19 @@ export default function OrganizationsPage() {
                                         )}
                                       </div>
                                       <div className="min-w-0 flex-1">
-                                        <span className="truncate font-medium text-sm">
-                                          {org.name}
-                                        </span>
-                                        {isMember && (
-                                          <Badge
-                                            className="mt-0.5 border-green-300 bg-green-100 text-green-700 text-xs"
-                                            variant="outline"
-                                          >
-                                            Member
-                                          </Badge>
-                                        )}
+                                        <div>
+                                          <div className="truncate font-medium text-sm">
+                                            {org.name}
+                                          </div>
+                                          {isMember && (
+                                            <Badge
+                                              className="mt-0.5 border-green-300 bg-green-100 text-green-700 text-xs"
+                                              variant="outline"
+                                            >
+                                              Member
+                                            </Badge>
+                                          )}
+                                        </div>
                                         {/* Show meta info on mobile */}
                                         <div className="mt-1 flex items-center gap-2 text-muted-foreground text-xs sm:hidden">
                                           <span className="flex items-center gap-1">

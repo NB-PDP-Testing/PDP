@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
+  AlertTriangle,
   CheckCircle,
   Copy,
   Loader2,
@@ -168,6 +169,44 @@ export default function SessionPlanDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Rejection Notice */}
+      {plan.moderatedBy && (
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <CardTitle className="text-red-900">
+                Rejected from Club Library
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <div className="mb-1 font-medium text-red-900 text-sm">
+                Reason for Rejection:
+              </div>
+              <div className="text-red-700">
+                {plan.moderationNote || "No reason provided"}
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-red-600 text-sm">
+              <span>Rejected by {plan.moderatedBy}</span>
+              {plan.moderatedAt && (
+                <span>{new Date(plan.moderatedAt).toLocaleDateString()}</span>
+              )}
+            </div>
+            <div className="rounded-md bg-white p-3 text-sm">
+              <p className="text-muted-foreground">
+                Your plan has been set back to private and is no longer visible
+                to other coaches. You can still view and use it yourself. If you
+                believe this was a mistake, please contact your club
+                administrator.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {plan.status === "draft" ? (
         <Card>

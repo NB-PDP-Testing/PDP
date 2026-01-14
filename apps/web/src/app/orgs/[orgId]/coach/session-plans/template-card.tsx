@@ -159,6 +159,21 @@ export function TemplateCard({
 
       {/* Content */}
       <CardContent className="flex flex-1 flex-col pb-4">
+        {/* Rejection Notice */}
+        {isModerated && plan.moderationNote && (
+          <div className="mb-3 rounded-md bg-red-50 p-3 text-sm">
+            <div className="mb-1 font-medium text-red-900">
+              Rejected from Club Library
+            </div>
+            <div className="text-red-700">{plan.moderationNote}</div>
+            {plan.moderatedAt && (
+              <div className="mt-1 text-red-600 text-xs">
+                {new Date(plan.moderatedAt).toLocaleDateString()}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Metadata */}
         <div className="mb-3 flex flex-wrap gap-2 text-sm">
           {plan.ageGroup && <Badge variant="outline">{plan.ageGroup}</Badge>}

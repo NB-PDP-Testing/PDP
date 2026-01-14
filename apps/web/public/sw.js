@@ -282,9 +282,10 @@ self.addEventListener("sync", (event) => {
   }
 });
 
-async function syncData() {
+function syncData() {
   // Placeholder for future background sync implementation
   console.log("[SW] Background sync triggered");
+  return Promise.resolve();
 }
 
 // Log service worker version

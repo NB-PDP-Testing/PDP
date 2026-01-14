@@ -134,7 +134,7 @@ export const cleanLegacyData = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(tp._id);
       }
-      deleted.teamPlayers++;
+      deleted.teamPlayers += 1;
     }
 
     // Delete injuries (references players)
@@ -143,7 +143,7 @@ export const cleanLegacyData = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(injury._id);
       }
-      deleted.injuries++;
+      deleted.injuries += 1;
     }
 
     // Delete developmentGoals (references players)
@@ -152,7 +152,7 @@ export const cleanLegacyData = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(goal._id);
       }
-      deleted.developmentGoals++;
+      deleted.developmentGoals += 1;
     }
 
     // Delete players
@@ -161,7 +161,7 @@ export const cleanLegacyData = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(player._id);
       }
-      deleted.players++;
+      deleted.players += 1;
     }
 
     return { dryRun, deleted };
@@ -205,7 +205,7 @@ export const cleanIdentityTestData = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(contact._id);
       }
-      deleted.playerEmergencyContacts++;
+      deleted.playerEmergencyContacts += 1;
     }
 
     // 2. Org player enrollments
@@ -214,7 +214,7 @@ export const cleanIdentityTestData = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(enrollment._id);
       }
-      deleted.orgPlayerEnrollments++;
+      deleted.orgPlayerEnrollments += 1;
     }
 
     // 3. Guardian-player links
@@ -223,7 +223,7 @@ export const cleanIdentityTestData = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(link._id);
       }
-      deleted.guardianPlayerLinks++;
+      deleted.guardianPlayerLinks += 1;
     }
 
     // 4. Org guardian profiles
@@ -232,7 +232,7 @@ export const cleanIdentityTestData = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(profile._id);
       }
-      deleted.orgGuardianProfiles++;
+      deleted.orgGuardianProfiles += 1;
     }
 
     // 5. Player identities
@@ -241,7 +241,7 @@ export const cleanIdentityTestData = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(player._id);
       }
-      deleted.playerIdentities++;
+      deleted.playerIdentities += 1;
     }
 
     // 6. Guardian identities
@@ -250,7 +250,7 @@ export const cleanIdentityTestData = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(guardian._id);
       }
-      deleted.guardianIdentities++;
+      deleted.guardianIdentities += 1;
     }
 
     return { dryRun, deleted };
@@ -312,7 +312,7 @@ export const runCleanSlateMigration = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(tp._id);
       }
-      legacy.teamPlayers++;
+      legacy.teamPlayers += 1;
     }
 
     // Delete injuries (references players)
@@ -321,7 +321,7 @@ export const runCleanSlateMigration = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(injury._id);
       }
-      legacy.injuries++;
+      legacy.injuries += 1;
     }
 
     // Delete developmentGoals (references players)
@@ -330,7 +330,7 @@ export const runCleanSlateMigration = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(goal._id);
       }
-      legacy.developmentGoals++;
+      legacy.developmentGoals += 1;
     }
 
     // Delete players
@@ -339,7 +339,7 @@ export const runCleanSlateMigration = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(player._id);
       }
-      legacy.players++;
+      legacy.players += 1;
     }
 
     // ========== CLEAN IDENTITY TEST DATA ==========
@@ -352,7 +352,7 @@ export const runCleanSlateMigration = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(contact._id);
       }
-      identity.playerEmergencyContacts++;
+      identity.playerEmergencyContacts += 1;
     }
 
     // 2. Org player enrollments
@@ -361,7 +361,7 @@ export const runCleanSlateMigration = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(enrollment._id);
       }
-      identity.orgPlayerEnrollments++;
+      identity.orgPlayerEnrollments += 1;
     }
 
     // 3. Guardian-player links
@@ -370,7 +370,7 @@ export const runCleanSlateMigration = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(link._id);
       }
-      identity.guardianPlayerLinks++;
+      identity.guardianPlayerLinks += 1;
     }
 
     // 4. Org guardian profiles
@@ -379,7 +379,7 @@ export const runCleanSlateMigration = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(profile._id);
       }
-      identity.orgGuardianProfiles++;
+      identity.orgGuardianProfiles += 1;
     }
 
     // 5. Player identities
@@ -388,7 +388,7 @@ export const runCleanSlateMigration = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(player._id);
       }
-      identity.playerIdentities++;
+      identity.playerIdentities += 1;
     }
 
     // 6. Guardian identities
@@ -397,7 +397,7 @@ export const runCleanSlateMigration = internalMutation({
       if (!dryRun) {
         await ctx.db.delete(guardian._id);
       }
-      identity.guardianIdentities++;
+      identity.guardianIdentities += 1;
     }
 
     // ========== VERIFY REFERENCE DATA PRESERVED ==========

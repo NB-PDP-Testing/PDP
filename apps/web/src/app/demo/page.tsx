@@ -16,11 +16,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NON_DIGIT_REGEX = /\D/g;
+const PHONE_REGEX = /^(\+?\d{1,4}[\s-]?)?(\(?\d{1,4}\)?[\s-]?)?[\d\s\-()]+$/;
+
 // Validation functions
-const validateEmail = (email: string): boolean => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
+const validateEmail = (email: string): boolean => EMAIL_REGEX.test(email);
 
 const validatePhone = (phone: string): boolean => {
   if (!phone || phone.trim() === "") {
@@ -28,7 +29,7 @@ const validatePhone = (phone: string): boolean => {
   }
 
   // Extract digits only - this is the primary validation
-  const digitsOnly = phone.replace(/\D/g, "");
+  const digitsOnly = phone.replace(NON_DIGIT_REGEX, "");
 
   // Must have between 7 and 15 digits (international standard)
   // This is the strict check - no phone number should have fewer than 7 digits
@@ -40,10 +41,8 @@ const validatePhone = (phone: string): boolean => {
   // UK formats: +44, 0044, 0 prefix (e.g., +44 7700 900000, 07700 900000)
   // Irish formats: +353, 00353, 0 prefix (e.g., +353 1 234 5678, 01 234 5678)
   // International: +country code (e.g., +1 555 123 4567)
-  const phoneRegex = /^(\+?\d{1,4}[\s-]?)?(\(?\d{1,4}\)?[\s-]?)?[\d\s\-()]+$/;
-
   // Both digit count (already checked above) and format must be valid
-  return phoneRegex.test(phone);
+  return PHONE_REGEX.test(phone);
 };
 
 export default function DemoPage() {

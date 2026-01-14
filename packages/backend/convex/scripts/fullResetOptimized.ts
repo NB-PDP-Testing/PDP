@@ -103,7 +103,7 @@ export const fullReset = mutation({
         }
       }
       await ctx.db.delete(record._id);
-      deleted.voiceNotes++;
+      deleted.voiceNotes += 1;
     }
 
     // Skill assessments
@@ -111,7 +111,7 @@ export const fullReset = mutation({
     const skillAssessments = await ctx.db.query("skillAssessments").collect();
     for (const record of skillAssessments) {
       await ctx.db.delete(record._id);
-      deleted.skillAssessments++;
+      deleted.skillAssessments += 1;
     }
 
     // Passport goals
@@ -119,7 +119,7 @@ export const fullReset = mutation({
     const passportGoals = await ctx.db.query("passportGoals").collect();
     for (const record of passportGoals) {
       await ctx.db.delete(record._id);
-      deleted.passportGoals++;
+      deleted.passportGoals += 1;
     }
 
     // Player injuries
@@ -127,7 +127,7 @@ export const fullReset = mutation({
     const playerInjuries = await ctx.db.query("playerInjuries").collect();
     for (const record of playerInjuries) {
       await ctx.db.delete(record._id);
-      deleted.playerInjuries++;
+      deleted.playerInjuries += 1;
     }
 
     // Medical profiles
@@ -135,7 +135,7 @@ export const fullReset = mutation({
     const medicalProfiles = await ctx.db.query("medicalProfiles").collect();
     for (const record of medicalProfiles) {
       await ctx.db.delete(record._id);
-      deleted.medicalProfiles++;
+      deleted.medicalProfiles += 1;
     }
 
     // Team player identities
@@ -145,7 +145,7 @@ export const fullReset = mutation({
       .collect();
     for (const record of teamPlayerIdentities) {
       await ctx.db.delete(record._id);
-      deleted.teamPlayerIdentities++;
+      deleted.teamPlayerIdentities += 1;
     }
 
     // Sport passports
@@ -153,7 +153,7 @@ export const fullReset = mutation({
     const sportPassports = await ctx.db.query("sportPassports").collect();
     for (const record of sportPassports) {
       await ctx.db.delete(record._id);
-      deleted.sportPassports++;
+      deleted.sportPassports += 1;
     }
 
     // Org player enrollments
@@ -161,7 +161,7 @@ export const fullReset = mutation({
     const enrollments = await ctx.db.query("orgPlayerEnrollments").collect();
     for (const record of enrollments) {
       await ctx.db.delete(record._id);
-      deleted.orgPlayerEnrollments++;
+      deleted.orgPlayerEnrollments += 1;
     }
 
     // Guardian-player links
@@ -171,7 +171,7 @@ export const fullReset = mutation({
       .collect();
     for (const record of guardianPlayerLinks) {
       await ctx.db.delete(record._id);
-      deleted.guardianPlayerLinks++;
+      deleted.guardianPlayerLinks += 1;
     }
 
     // Player identities
@@ -179,7 +179,7 @@ export const fullReset = mutation({
     const playerIdentities = await ctx.db.query("playerIdentities").collect();
     for (const record of playerIdentities) {
       await ctx.db.delete(record._id);
-      deleted.playerIdentities++;
+      deleted.playerIdentities += 1;
     }
 
     // Guardian identities
@@ -189,7 +189,7 @@ export const fullReset = mutation({
       .collect();
     for (const record of guardianIdentities) {
       await ctx.db.delete(record._id);
-      deleted.guardianIdentities++;
+      deleted.guardianIdentities += 1;
     }
 
     // Coach assignments
@@ -197,7 +197,7 @@ export const fullReset = mutation({
     const coachAssignments = await ctx.db.query("coachAssignments").collect();
     for (const record of coachAssignments) {
       await ctx.db.delete(record._id);
-      deleted.coachAssignments++;
+      deleted.coachAssignments += 1;
     }
 
     // Org join requests
@@ -205,7 +205,7 @@ export const fullReset = mutation({
     const orgJoinRequests = await ctx.db.query("orgJoinRequests").collect();
     for (const record of orgJoinRequests) {
       await ctx.db.delete(record._id);
-      deleted.orgJoinRequests++;
+      deleted.orgJoinRequests += 1;
     }
 
     // ===============================
@@ -217,7 +217,7 @@ export const fullReset = mutation({
     const skillBenchmarks = await ctx.db.query("skillBenchmarks").collect();
     for (const record of skillBenchmarks) {
       await ctx.db.delete(record._id);
-      deleted.skillBenchmarks++;
+      deleted.skillBenchmarks += 1;
     }
 
     // Skill definitions
@@ -225,7 +225,7 @@ export const fullReset = mutation({
     const skillDefinitions = await ctx.db.query("skillDefinitions").collect();
     for (const record of skillDefinitions) {
       await ctx.db.delete(record._id);
-      deleted.skillDefinitions++;
+      deleted.skillDefinitions += 1;
     }
 
     // Skill categories
@@ -233,7 +233,7 @@ export const fullReset = mutation({
     const skillCategories = await ctx.db.query("skillCategories").collect();
     for (const record of skillCategories) {
       await ctx.db.delete(record._id);
-      deleted.skillCategories++;
+      deleted.skillCategories += 1;
     }
 
     // Sports
@@ -241,7 +241,7 @@ export const fullReset = mutation({
     const sports = await ctx.db.query("sports").collect();
     for (const record of sports) {
       await ctx.db.delete(record._id);
-      deleted.sports++;
+      deleted.sports += 1;
     }
 
     // ===============================

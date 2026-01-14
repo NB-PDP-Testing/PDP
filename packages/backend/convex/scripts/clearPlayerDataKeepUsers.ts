@@ -103,21 +103,21 @@ export const clearPlayerDataKeepUsers = internalMutation({
     const assessments = await ctx.db.query("skillAssessments").collect();
     for (const assessment of assessments) {
       await ctx.db.delete(assessment._id);
-      deletedCounts.skillAssessments++;
+      deletedCounts.skillAssessments += 1;
     }
 
     console.log("Deleting player injuries...");
     const injuries = await ctx.db.query("playerInjuries").collect();
     for (const injury of injuries) {
       await ctx.db.delete(injury._id);
-      deletedCounts.playerInjuries++;
+      deletedCounts.playerInjuries += 1;
     }
 
     console.log("Deleting medical profiles...");
     const medicalProfiles = await ctx.db.query("medicalProfiles").collect();
     for (const profile of medicalProfiles) {
       await ctx.db.delete(profile._id);
-      deletedCounts.medicalProfiles++;
+      deletedCounts.medicalProfiles += 1;
     }
 
     // Emergency contacts table no longer exists in schema
@@ -132,7 +132,7 @@ export const clearPlayerDataKeepUsers = internalMutation({
     const voiceNotes = await ctx.db.query("voiceNotes").collect();
     for (const note of voiceNotes) {
       await ctx.db.delete(note._id);
-      deletedCounts.voiceNotes++;
+      deletedCounts.voiceNotes += 1;
     }
 
     // 2. Delete guardian data
@@ -140,7 +140,7 @@ export const clearPlayerDataKeepUsers = internalMutation({
     const guardianLinks = await ctx.db.query("guardianPlayerLinks").collect();
     for (const link of guardianLinks) {
       await ctx.db.delete(link._id);
-      deletedCounts.guardianPlayerLinks++;
+      deletedCounts.guardianPlayerLinks += 1;
     }
 
     console.log("Deleting guardian identities...");
@@ -149,7 +149,7 @@ export const clearPlayerDataKeepUsers = internalMutation({
       .collect();
     for (const guardian of guardianIdentities) {
       await ctx.db.delete(guardian._id);
-      deletedCounts.guardianIdentities++;
+      deletedCounts.guardianIdentities += 1;
     }
 
     // 3. Delete team memberships
@@ -159,7 +159,7 @@ export const clearPlayerDataKeepUsers = internalMutation({
       .collect();
     for (const tpi of teamPlayerIdentities) {
       await ctx.db.delete(tpi._id);
-      deletedCounts.teamPlayerIdentities++;
+      deletedCounts.teamPlayerIdentities += 1;
     }
 
     // 4. Delete player data
@@ -167,21 +167,21 @@ export const clearPlayerDataKeepUsers = internalMutation({
     const sportPassports = await ctx.db.query("sportPassports").collect();
     for (const passport of sportPassports) {
       await ctx.db.delete(passport._id);
-      deletedCounts.sportPassports++;
+      deletedCounts.sportPassports += 1;
     }
 
     console.log("Deleting org player enrollments...");
     const enrollments = await ctx.db.query("orgPlayerEnrollments").collect();
     for (const enrollment of enrollments) {
       await ctx.db.delete(enrollment._id);
-      deletedCounts.orgPlayerEnrollments++;
+      deletedCounts.orgPlayerEnrollments += 1;
     }
 
     console.log("Deleting player identities...");
     const playerIdentities = await ctx.db.query("playerIdentities").collect();
     for (const player of playerIdentities) {
       await ctx.db.delete(player._id);
-      deletedCounts.playerIdentities++;
+      deletedCounts.playerIdentities += 1;
     }
 
     // 5. Delete organization data
@@ -199,7 +199,7 @@ export const clearPlayerDataKeepUsers = internalMutation({
     const joinRequests = await ctx.db.query("orgJoinRequests").collect();
     for (const request of joinRequests) {
       await ctx.db.delete(request._id);
-      deletedCounts.orgJoinRequests++;
+      deletedCounts.orgJoinRequests += 1;
     }
 
     // coaches table no longer exists in schema
@@ -231,14 +231,14 @@ export const clearPlayerDataKeepUsers = internalMutation({
     const ageGroups = await ctx.db.query("ageGroups").collect();
     for (const ageGroup of ageGroups) {
       await ctx.db.delete(ageGroup._id);
-      deletedCounts.ageGroups++;
+      deletedCounts.ageGroups += 1;
     }
 
     console.log("Deleting sports...");
     const sports = await ctx.db.query("sports").collect();
     for (const sport of sports) {
       await ctx.db.delete(sport._id);
-      deletedCounts.sports++;
+      deletedCounts.sports += 1;
     }
 
     console.log("✅ Cleanup complete!");

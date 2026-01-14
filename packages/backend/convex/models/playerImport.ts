@@ -598,7 +598,7 @@ export const batchImportPlayersWithIdentity = mutation({
     const playersForMatching: PlayerForMatching[] = [];
     const playerIdentityMap = new Map<number, Id<"playerIdentities">>(); // index -> playerIdentityId
 
-    for (let i = 0; i < args.players.length; i++) {
+    for (let i = 0; i < args.players.length; i += 1) {
       const playerData = args.players[i];
       try {
         const existingPlayer = await ctx.db
@@ -616,7 +616,7 @@ export const batchImportPlayersWithIdentity = mutation({
 
         if (existingPlayer) {
           playerIdentityId = existingPlayer._id;
-          results.playersReused++;
+          results.playersReused += 1;
         } else {
           const playerType =
             calculateAge(playerData.dateOfBirth) >= 18 ? "adult" : "youth";
@@ -636,7 +636,7 @@ export const batchImportPlayersWithIdentity = mutation({
             updatedAt: now,
             createdFrom: "import",
           });
-          results.playersCreated++;
+          results.playersCreated += 1;
           wasCreated = true;
         }
 
@@ -669,7 +669,7 @@ export const batchImportPlayersWithIdentity = mutation({
           parentPhone: playerData.parentPhone,
         });
 
-        results.totalProcessed++;
+        results.totalProcessed += 1;
       } catch (error) {
         results.errors.push(
           `${playerData.firstName} ${playerData.lastName}: ${error instanceof Error ? error.message : "Unknown error"}`
@@ -740,7 +740,7 @@ export const batchImportPlayersWithIdentity = mutation({
 
             if (existingGuardian) {
               guardianIdentityId = existingGuardian._id;
-              results.guardiansReused++;
+              results.guardiansReused += 1;
               guardianIdsProcessed.add(guardianIdentityId);
             }
           }
@@ -769,7 +769,7 @@ export const batchImportPlayersWithIdentity = mutation({
               updatedAt: now,
               createdFrom: "import",
             });
-            results.guardiansCreated++;
+            results.guardiansCreated += 1;
             guardianIdsProcessed.add(guardianIdentityId);
           }
 
@@ -827,7 +827,7 @@ export const batchImportPlayersWithIdentity = mutation({
     // Process explicit parent info (parentFirstName, parentLastName, parentEmail/Phone)
     // This handles cases where parent info is provided in the CSV but parent isn't a member
     // Email is now optional - we can create guardians with just name + phone
-    for (let i = 0; i < args.players.length; i++) {
+    for (let i = 0; i < args.players.length; i += 1) {
       const playerData = args.players[i];
       const playerIdentityId = playerIdentityMap.get(i);
 
@@ -883,7 +883,7 @@ export const batchImportPlayersWithIdentity = mutation({
               guardianIdentityByAdultIndex.values()
             ).includes(existingGuardian._id);
             if (!wasAlreadyCounted) {
-              results.guardiansReused++;
+              results.guardiansReused += 1;
             }
             guardianIdsProcessed.add(guardianIdentityId);
           } else {
@@ -903,7 +903,7 @@ export const batchImportPlayersWithIdentity = mutation({
               updatedAt: now,
               createdFrom: "import",
             });
-            results.guardiansCreated++;
+            results.guardiansCreated += 1;
             guardianIdsProcessed.add(guardianIdentityId);
           }
 
@@ -953,7 +953,7 @@ export const batchImportPlayersWithIdentity = mutation({
 
     // ========== PHASE 4: CREATE ORG ENROLLMENTS ==========
 
-    for (let i = 0; i < args.players.length; i++) {
+    for (let i = 0; i < args.players.length; i += 1) {
       const playerData = args.players[i];
       const playerIdentityId = playerIdentityMap.get(i);
 
@@ -979,7 +979,7 @@ export const batchImportPlayersWithIdentity = mutation({
             season: playerData.season,
             updatedAt: now,
           });
-          results.enrollmentsReused++;
+          results.enrollmentsReused += 1;
         } else {
           // Phase 3: Create enrollment without sport field
           // Sport is stored in sportPassports (created below), not in enrollment
@@ -992,7 +992,7 @@ export const batchImportPlayersWithIdentity = mutation({
             enrolledAt: now,
             updatedAt: now,
           });
-          results.enrollmentsCreated++;
+          results.enrollmentsCreated += 1;
         }
 
         // Auto-create sport passport if sportCode provided
@@ -1032,9 +1032,9 @@ export const batchImportPlayersWithIdentity = mutation({
       const guardian = await ctx.db.get(guardianId);
       if (guardian) {
         if (guardian.userId) {
-          results.guardiansLinkedToVerifiedAccounts++;
+          results.guardiansLinkedToVerifiedAccounts += 1;
         } else {
-          results.guardiansAwaitingClaim++;
+          results.guardiansAwaitingClaim += 1;
         }
       }
     }

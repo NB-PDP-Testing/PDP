@@ -956,8 +956,8 @@ export const getClubBenchmarkAnalytics = query({
         exceptional: 0,
         total: 0,
       };
-      stats[a.benchmarkStatus]++;
-      stats.total++;
+      stats[a.benchmarkStatus] += 1;
+      stats.total += 1;
       skillStats.set(a.skillCode, stats);
     }
 
@@ -1089,7 +1089,7 @@ export const migrateLegacySkillsForPlayer = mutation({
     for (const [skillCode, rating] of Object.entries(skills)) {
       // Skip invalid ratings
       if (typeof rating !== "number" || rating < 1 || rating > 5) {
-        skippedCount++;
+        skippedCount += 1;
         errors.push(`Skipped invalid rating for ${skillCode}: ${rating}`);
         continue;
       }
@@ -1103,7 +1103,7 @@ export const migrateLegacySkillsForPlayer = mutation({
         .first();
 
       if (existing) {
-        skippedCount++;
+        skippedCount += 1;
         continue;
       }
 
@@ -1122,7 +1122,7 @@ export const migrateLegacySkillsForPlayer = mutation({
         createdAt: now,
       });
 
-      migratedCount++;
+      migratedCount += 1;
     }
 
     return { migratedCount, skippedCount, errors };
@@ -1210,7 +1210,7 @@ export const bulkMigrateLegacySkills = mutation({
       }
 
       if (args.dryRun) {
-        playersProcessed++;
+        playersProcessed += 1;
         totalMigrated += Object.keys(legacyPlayer.skills).length;
         continue;
       }
@@ -1221,7 +1221,7 @@ export const bulkMigrateLegacySkills = mutation({
 
       for (const [skillCode, rating] of Object.entries(legacyPlayer.skills)) {
         if (typeof rating !== "number" || rating < 1 || rating > 5) {
-          totalSkipped++;
+          totalSkipped += 1;
           continue;
         }
 
@@ -1234,7 +1234,7 @@ export const bulkMigrateLegacySkills = mutation({
           .first();
 
         if (existing) {
-          totalSkipped++;
+          totalSkipped += 1;
           continue;
         }
 
@@ -1252,10 +1252,10 @@ export const bulkMigrateLegacySkills = mutation({
           createdAt: now,
         });
 
-        totalMigrated++;
+        totalMigrated += 1;
       }
 
-      playersProcessed++;
+      playersProcessed += 1;
     }
 
     return { playersProcessed, totalMigrated, totalSkipped, errors };

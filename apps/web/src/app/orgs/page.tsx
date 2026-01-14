@@ -423,8 +423,11 @@ export default function OrganizationsPage() {
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {filteredYourOrgs.map((org: Organization) => (
                       <Card
-                        className="group transition-all hover:shadow-lg"
+                        className="group cursor-pointer transition-all hover:shadow-lg"
                         key={org.id}
+                        onClick={() => {
+                          router.push(getOrgNavigationPath(org.id));
+                        }}
                       >
                         <CardHeader>
                           <div className="flex items-start justify-between">
@@ -453,7 +456,10 @@ export default function OrganizationsPage() {
                             </div>
                           </div>
                         </CardHeader>
-                        <CardContent className="space-y-4">
+                        <CardContent
+                          className="space-y-4"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Button
                             asChild
                             className="w-full justify-between"
@@ -507,7 +513,13 @@ export default function OrganizationsPage() {
                       </TableHeader>
                       <TableBody>
                         {filteredYourOrgs.map((org: Organization) => (
-                          <TableRow key={org.id}>
+                          <TableRow
+                            className="cursor-pointer"
+                            key={org.id}
+                            onClick={() => {
+                              router.push(getOrgNavigationPath(org.id));
+                            }}
+                          >
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 sm:h-10 sm:w-10">
@@ -521,8 +533,10 @@ export default function OrganizationsPage() {
                                     <Building2 className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
                                   )}
                                 </div>
-                                <div className="min-w-0 font-medium text-sm">
-                                  {org.name}
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate font-medium text-sm">
+                                    {org.name}
+                                  </div>
                                 </div>
                               </div>
                             </TableCell>
@@ -534,7 +548,13 @@ export default function OrganizationsPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               {/* Desktop: side-by-side buttons */}
-                              <div className="hidden justify-end gap-2 sm:flex">
+                              {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                              {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                              {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                              <div
+                                className="hidden justify-end gap-2 sm:flex"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <Button asChild size="sm" variant="outline">
                                   <Link href={`/orgs/${org.id}/coach`}>
                                     Coach
@@ -547,7 +567,13 @@ export default function OrganizationsPage() {
                                 </Button>
                               </div>
                               {/* Mobile: stacked buttons */}
-                              <div className="flex flex-col gap-1.5 sm:hidden">
+                              {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                              {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                              {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                              <div
+                                className="flex flex-col gap-1.5 sm:hidden"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <Button
                                   asChild
                                   className="h-8 w-full"

@@ -23,7 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   ResponsiveForm,
@@ -203,6 +203,74 @@ export default function ManageUsersPage() {
     pendingInvitations === undefined ||
     teams === undefined ||
     allPlayers === undefined;
+
+  // Sync editStates when membersWithDetails changes (fixes stale cache bug)
+  useEffect(() => {
+    if (!membersWithDetails) {
+      return;
+    }
+
+    setEditStates((prev) => {
+      const updated = { ...prev };
+      let hasChanges = false;
+
+      for (const member of membersWithDetails) {
+        const userId = member.userId;
+        const existingState = prev[userId];
+
+        // Only update if:
+        // 1. State exists (user has been expanded before)
+        // 2. User hasn't modified the data (modified === false)
+        // 3. Data has actually changed
+        if (existingState && !existingState.modified) {
+          const currentFunctionalRoles = member.functionalRoles || [];
+          const currentTeams =
+            member.coachAssignments?.teams?.map((teamValue: string) => {
+              const teamByName = teams?.find((t: any) => t.name === teamValue);
+              if (teamByName) {
+                return teamByName._id;
+              }
+              return teamValue;
+            }) || [];
+          const currentAgeGroups = member.coachAssignments?.ageGroups || [];
+          const currentLinkedPlayerIds =
+            member.linkedPlayers?.map((p: any) => p._id) || [];
+
+          // Check if data has changed
+          const rolesChanged =
+            JSON.stringify(existingState.functionalRoles.sort()) !==
+            JSON.stringify(currentFunctionalRoles.sort());
+          const teamsChanged =
+            JSON.stringify(existingState.teams.sort()) !==
+            JSON.stringify(currentTeams.sort());
+          const ageGroupsChanged =
+            JSON.stringify(existingState.ageGroups.sort()) !==
+            JSON.stringify(currentAgeGroups.sort());
+          const playersChanged =
+            JSON.stringify(existingState.linkedPlayerIds.sort()) !==
+            JSON.stringify(currentLinkedPlayerIds.sort());
+
+          if (
+            rolesChanged ||
+            teamsChanged ||
+            ageGroupsChanged ||
+            playersChanged
+          ) {
+            updated[userId] = {
+              ...existingState,
+              functionalRoles: currentFunctionalRoles,
+              teams: currentTeams,
+              ageGroups: currentAgeGroups,
+              linkedPlayerIds: currentLinkedPlayerIds,
+            };
+            hasChanges = true;
+          }
+        }
+      }
+
+      return hasChanges ? updated : prev;
+    });
+  }, [membersWithDetails, teams]);
 
   // Helper to get unique age groups from teams
   const ageGroups = Array.from(

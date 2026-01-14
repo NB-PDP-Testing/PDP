@@ -283,7 +283,7 @@ export const bulkGrantOverrides = mutation({
   handler: async (ctx, args) => {
     // TODO: Verify user is admin (will add in Phase 4 with auth context)
 
-    const granted: Array<Id<"ageGroupEligibilityOverrides">> = [];
+    const granted: Id<"ageGroupEligibilityOverrides">[] = [];
     const errors: string[] = [];
 
     for (const playerIdentityId of args.playerIdentityIds) {

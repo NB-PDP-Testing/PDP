@@ -368,9 +368,8 @@ export const getSkillProgress = query({
     }
 
     const first = assessments[0];
-    const last = assessments[assessments.length - 1];
-    const secondToLast =
-      assessments.length > 1 ? assessments[assessments.length - 2] : null;
+    const last = assessments.at(-1);
+    const secondToLast = assessments.length > 1 ? assessments.at(-2) : null;
 
     return {
       currentRating: last.rating,
@@ -518,7 +517,7 @@ export const recordBatchAssessments = mutation({
     }
 
     const now = Date.now();
-    const assessmentIds: Array<Id<"skillAssessments">> = [];
+    const assessmentIds: Id<"skillAssessments">[] = [];
 
     // Get all previous assessments for this passport
     const previousAssessments = await ctx.db
@@ -750,7 +749,7 @@ export const recordAssessmentWithBenchmark = mutation({
         )
         .first();
 
-      if (benchmark && benchmark.isActive) {
+      if (benchmark?.isActive) {
         benchmarkRating = benchmark.expectedRating;
         benchmarkDelta = args.rating - benchmarkRating;
 
@@ -901,7 +900,7 @@ export const getClubBenchmarkAnalytics = query({
         validPlayerIds.has(a.playerIdentityId)
       );
       playerIds = new Set(
-        Array.from(validPlayerIds) as Array<Id<"playerIdentities">>
+        Array.from(validPlayerIds) as Id<"playerIdentities">[]
       );
     }
 
@@ -946,7 +945,9 @@ export const getClubBenchmarkAnalytics = query({
       }
     >();
     for (const a of uniqueAssessments) {
-      if (!a.benchmarkStatus) continue;
+      if (!a.benchmarkStatus) {
+        continue;
+      }
       const stats = skillStats.get(a.skillCode) ?? {
         below: 0,
         developing: 0,
@@ -1047,7 +1048,7 @@ export const migrateLegacySkillsForPlayer = mutation({
     errors: v.array(v.string()),
   }),
   handler: async (ctx, args) => {
-    const errors: Array<string> = [];
+    const errors: string[] = [];
     let migratedCount = 0;
     let skippedCount = 0;
 
@@ -1143,7 +1144,7 @@ export const bulkMigrateLegacySkills = mutation({
     errors: v.array(v.string()),
   }),
   handler: async (ctx, args) => {
-    const errors: Array<string> = [];
+    const errors: string[] = [];
     let playersProcessed = 0;
     let totalMigrated = 0;
     let totalSkipped = 0;

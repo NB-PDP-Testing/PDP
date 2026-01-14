@@ -26,9 +26,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 
-interface CoachTodosViewProps {
+type CoachTodosViewProps = {
   orgId: string;
-}
+};
 
 export function CoachTodosView({ orgId }: CoachTodosViewProps) {
   const { data: session } = authClient.useSession();
@@ -67,7 +67,9 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
   // Note: Some coach assignments may have team names instead of IDs (legacy data)
   // We need to handle both cases
   const coachTeamIds = useMemo(() => {
-    if (!(coachAssignments && teams)) return [];
+    if (!(coachAssignments && teams)) {
+      return [];
+    }
     const assignmentTeams = coachAssignments.teams || [];
 
     // Create maps for both ID and name lookup
@@ -108,7 +110,9 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
 
   // Filter to only coach's players
   const coachTeamPlayerLinks = useMemo(() => {
-    if (!teamPlayerLinks || coachTeamIds.length === 0) return [];
+    if (!teamPlayerLinks || coachTeamIds.length === 0) {
+      return [];
+    }
     return teamPlayerLinks.filter((link: any) =>
       coachTeamIds.includes(link.teamId)
     );
@@ -133,7 +137,9 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
 
   // Transform to legacy format with review status
   const allPlayers = useMemo(() => {
-    if (!enrolledPlayersData) return [];
+    if (!enrolledPlayersData) {
+      return [];
+    }
     return enrolledPlayersData.map(
       ({ enrollment, player, sportCode }: any) => ({
         _id: player._id,
@@ -155,7 +161,9 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
 
   // Filter to coach's players
   const coachPlayers = useMemo(() => {
-    if (!allPlayers || coachPlayerIds.size === 0) return [];
+    if (!allPlayers || coachPlayerIds.size === 0) {
+      return [];
+    }
     return allPlayers.filter((player: any) =>
       coachPlayerIds.has(player._id.toString())
     );
@@ -169,7 +177,9 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
 
   // Filter to coach's players' goals that are active/in progress
   const activeGoals = useMemo(() => {
-    if (!allGoals) return [];
+    if (!allGoals) {
+      return [];
+    }
     return allGoals.filter(
       (goal: any) =>
         coachPlayerIds.has(goal.playerIdentityId?.toString()) &&
@@ -185,7 +195,9 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
 
   // Filter to active injuries for coach's players
   const activeInjuries = useMemo(() => {
-    if (!allInjuries) return [];
+    if (!allInjuries) {
+      return [];
+    }
     return allInjuries.filter(
       (injury: any) =>
         coachPlayerIds.has(injury.playerIdentityId?.toString()) &&
@@ -207,7 +219,9 @@ export function CoachTodosView({ orgId }: CoachTodosViewProps) {
 
   // Handler functions
   const handleAddTask = async () => {
-    if (!(newTaskText.trim() && session?.user?.email)) return;
+    if (!(newTaskText.trim() && session?.user?.email)) {
+      return;
+    }
 
     try {
       await createTask({

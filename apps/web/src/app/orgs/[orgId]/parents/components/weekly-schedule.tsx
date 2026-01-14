@@ -11,14 +11,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-interface WeeklyScheduleProps {
+type WeeklyScheduleProps = {
   children: Array<{
     player: {
       firstName: string;
       lastName: string;
     };
   }>;
-}
+};
 
 // Mock schedule data - will be replaced with real data when schedule tables are implemented
 const generateMockSchedule = (children: WeeklyScheduleProps["children"]) => {

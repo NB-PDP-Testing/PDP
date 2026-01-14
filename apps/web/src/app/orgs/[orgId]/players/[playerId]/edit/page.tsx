@@ -78,7 +78,9 @@ export default function EditPlayerPassportPage() {
   }, [sports]);
 
   const getSportDisplayName = (sportCode: string | undefined) => {
-    if (!sportCode) return "Unknown";
+    if (!sportCode) {
+      return "Unknown";
+    }
     return sportCodeToName.get(sportCode) || sportCode;
   };
 
@@ -107,7 +109,9 @@ export default function EditPlayerPassportPage() {
 
   // Helper to format date for date input (YYYY-MM-DD)
   const formatDateForInput = (dateString: string | undefined) => {
-    if (!dateString) return "";
+    if (!dateString) {
+      return "";
+    }
     try {
       const date = new Date(dateString);
       const year = date.getFullYear();
@@ -138,7 +142,7 @@ export default function EditPlayerPassportPage() {
         coachNotes: enrollment.coachNotes || "",
       }));
     }
-  }, [playerIdentity, enrollment]);
+  }, [playerIdentity, enrollment, formatDateForInput]);
 
   // Initialize selected teams from current teams data
   useEffect(() => {

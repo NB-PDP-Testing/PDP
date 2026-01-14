@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 /**
  * Context menu action item definition
  */
-export interface ContextMenuItemDef {
+export type ContextMenuItemDef = {
   /** Unique key for the item */
   key: string;
   /** Display label */
@@ -47,22 +47,22 @@ export interface ContextMenuItemDef {
   destructive?: boolean;
   /** Submenu items */
   subItems?: ContextMenuItemDef[];
-}
+};
 
 /**
  * Context menu group definition
  */
-export interface ContextMenuGroupDef {
+export type ContextMenuGroupDef = {
   /** Group label (optional) */
   label?: string;
   /** Items in this group */
   items: ContextMenuItemDef[];
-}
+};
 
 /**
  * Props for ResponsiveContextMenu
  */
-export interface ResponsiveContextMenuProps {
+export type ResponsiveContextMenuProps = {
   /** Trigger element - must be a single element */
   children: React.ReactElement;
   /** Menu title (shown in mobile sheet header) */
@@ -83,7 +83,7 @@ export interface ResponsiveContextMenuProps {
   onOpenChange?: (open: boolean) => void;
   /** Additional class for the content container */
   contentClassName?: string;
-}
+};
 
 /**
  * ResponsiveContextMenu - Adaptive context menu

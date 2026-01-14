@@ -1,5 +1,5 @@
 // Comprehensive blog posts with research-backed content
-export interface BlogPost {
+export type BlogPost = {
   slug: string;
   title: string;
   excerpt: string;
@@ -15,7 +15,7 @@ export interface BlogPost {
   author: string;
   readTime: number;
   tags: string[];
-}
+};
 
 export const blogPosts: BlogPost[] = [
   {

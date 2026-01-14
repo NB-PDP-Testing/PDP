@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-interface CoachFeedbackProps {
+type CoachFeedbackProps = {
   children: Array<{
     player: {
       _id: Id<"playerIdentities">;
@@ -22,7 +22,7 @@ interface CoachFeedbackProps {
     };
   }>;
   orgId: string;
-}
+};
 
 export function CoachFeedback({ children, orgId }: CoachFeedbackProps) {
   // Get passport data for all children to access coach notes

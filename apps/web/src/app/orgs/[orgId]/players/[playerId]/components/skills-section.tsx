@@ -14,14 +14,14 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-interface PlayerData {
+type PlayerData = {
   sport: string;
   skills?: Record<string, number>;
-}
+};
 
-interface Props {
+type Props = {
   player: PlayerData;
-}
+};
 
 export function SkillsSection({ player }: Props) {
   const [isExpanded, setIsExpanded] = useState(true);

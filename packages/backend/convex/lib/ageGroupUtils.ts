@@ -36,22 +36,22 @@ export type AgeGroup = (typeof DEFAULT_AGE_GROUP_ORDER)[number];
 /**
  * Sport-specific eligibility rule from database
  */
-export interface SportAgeGroupEligibilityRule {
+export type SportAgeGroupEligibilityRule = {
   sportCode: string;
   fromAgeGroupCode: string;
   toAgeGroupCode: string;
   isAllowed: boolean;
   requiresApproval: boolean;
-}
+};
 
 /**
  * Result of eligibility check
  */
-export interface EligibilityResult {
+export type EligibilityResult = {
   allowed: boolean;
   requiresOverride: boolean;
   reason?: string;
-}
+};
 
 /**
  * Get numeric rank for age group comparison
@@ -296,8 +296,12 @@ export function sortTeamsByAgeGroup<T extends { ageGroup: string }>(
     const rankB = getAgeGroupRank(b.ageGroup, order);
 
     // Unknown age groups go to the end
-    if (rankA === -1) return 1;
-    if (rankB === -1) return -1;
+    if (rankA === -1) {
+      return 1;
+    }
+    if (rankB === -1) {
+      return -1;
+    }
 
     return rankA - rankB;
   });

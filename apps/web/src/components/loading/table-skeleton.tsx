@@ -4,7 +4,7 @@ import * as React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-interface TableSkeletonProps {
+type TableSkeletonProps = {
   /** Number of rows to show */
   rows?: number;
   /** Number of columns to show */
@@ -19,7 +19,7 @@ interface TableSkeletonProps {
   columnWidths?: number[];
   /** Container class name */
   className?: string;
-}
+};
 
 /**
  * TableSkeleton - Loading placeholder for data tables
@@ -42,10 +42,12 @@ export function TableSkeleton({
 }: TableSkeletonProps) {
   // Calculate default column widths if not provided
   const defaultWidths = React.useMemo(() => {
-    if (columnWidths) return columnWidths;
+    if (columnWidths) {
+      return columnWidths;
+    }
     // First column wider (name), rest equal
     const baseWidth = 100 / columns;
-    return Array(columns)
+    return new Array(columns)
       .fill(0)
       .map((_, i) => (i === 0 ? baseWidth * 1.5 : baseWidth * 0.875));
   }, [columns, columnWidths]);

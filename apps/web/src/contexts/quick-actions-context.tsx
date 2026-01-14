@@ -2,7 +2,7 @@
 
 import { createContext, type ReactNode, useContext, useState } from "react";
 
-export interface QuickAction {
+export type QuickAction = {
   id: string;
   icon: React.ElementType;
   label: string;
@@ -10,15 +10,15 @@ export interface QuickAction {
   color: string;
   /** Optional title/description for tooltip or additional context */
   title?: string;
-}
+};
 
-interface QuickActionsContextValue {
+type QuickActionsContextValue = {
   actions: QuickAction[];
   setActions: (actions: QuickAction[]) => void;
   clearActions: () => void;
   isMenuOpen: boolean;
   setIsMenuOpen: (open: boolean) => void;
-}
+};
 
 const QuickActionsContext = createContext<QuickActionsContextValue | null>(
   null

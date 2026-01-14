@@ -31,7 +31,7 @@ const guardianPlayerLinkValidator = v.object({
 });
 
 // Guardian identity validator (for joined queries)
-const guardianIdentityValidator = v.object({
+const _guardianIdentityValidator = v.object({
   _id: v.id("guardianIdentities"),
   _creationTime: v.number(),
   firstName: v.string(),
@@ -57,7 +57,7 @@ const guardianIdentityValidator = v.object({
 });
 
 // Player identity validator (for joined queries)
-const playerIdentityValidator = v.object({
+const _playerIdentityValidator = v.object({
   _id: v.id("playerIdentities"),
   _creationTime: v.number(),
   firstName: v.string(),
@@ -162,14 +162,20 @@ export const getPrimaryGuardianForPlayer = query({
     if (!primaryLink) {
       // Return first link if no primary set
       const firstLink = links[0];
-      if (!firstLink) return null;
+      if (!firstLink) {
+        return null;
+      }
       const guardian = await ctx.db.get(firstLink.guardianIdentityId);
-      if (!guardian) return null;
+      if (!guardian) {
+        return null;
+      }
       return { link: firstLink, guardian };
     }
 
     const guardian = await ctx.db.get(primaryLink.guardianIdentityId);
-    if (!guardian) return null;
+    if (!guardian) {
+      return null;
+    }
     return { link: primaryLink, guardian };
   },
 });
@@ -568,7 +574,7 @@ export const linkPlayersToGuardian = mutation({
         .query("guardianPlayerLinks")
         .withIndex("by_guardian_and_player", (q) =>
           q
-            .eq("guardianIdentityId", guardian!._id)
+            .eq("guardianIdentityId", guardian?._id)
             .eq("playerIdentityId", playerIdentityId)
         )
         .first();
@@ -717,7 +723,9 @@ export const getLinkedChildrenInOrg = query({
     for (const link of links) {
       // Get player identity
       const player = await ctx.db.get(link.playerIdentityId);
-      if (!player) continue;
+      if (!player) {
+        continue;
+      }
 
       // Check if player is enrolled in this org
       const enrollment = await ctx.db
@@ -807,19 +815,23 @@ export const autoLinkGuardianToPlayersInternal = internalMutation({
 
     for (const enrollment of enrollments) {
       const player = await ctx.db.get(enrollment.playerIdentityId);
-      if (!player) continue;
+      if (!player) {
+        continue;
+      }
 
       // Check if link already exists
       const existingLink = await ctx.db
         .query("guardianPlayerLinks")
         .withIndex("by_guardian_and_player", (q) =>
           q
-            .eq("guardianIdentityId", guardian!._id)
+            .eq("guardianIdentityId", guardian?._id)
             .eq("playerIdentityId", enrollment.playerIdentityId)
         )
         .first();
 
-      if (existingLink) continue;
+      if (existingLink) {
+        continue;
+      }
 
       // Check if player email matches guardian email (self-guardian)
       if (player.email?.toLowerCase().trim() === normalizedEmail) {
@@ -913,7 +925,7 @@ export const getSmartMatchesForGuardian = query({
     if (args.children) {
       try {
         childrenData = JSON.parse(args.children);
-      } catch (e) {
+      } catch (_e) {
         console.warn(
           "[getSmartMatchesForGuardian] Failed to parse children JSON"
         );
@@ -952,7 +964,9 @@ export const getSmartMatchesForGuardian = query({
 
     for (const enrollment of enrollments) {
       const player = await ctx.db.get(enrollment.playerIdentityId);
-      if (!player) continue;
+      if (!player) {
+        continue;
+      }
 
       let score = 0;
       const matchReasons: string[] = [];
@@ -987,8 +1001,7 @@ export const getSmartMatchesForGuardian = query({
         for (const child of childrenData) {
           const nameParts = child.name.trim().toLowerCase().split(/\s+/);
           const childFirstName = nameParts[0] || "";
-          const childLastName =
-            nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+          const childLastName = nameParts.length > 1 ? nameParts.at(-1) : "";
 
           // Exact first + last name match
           if (
@@ -1009,7 +1022,7 @@ export const getSmartMatchesForGuardian = query({
                     score += 20;
                     matchReasons.push(`Age confirmed: ~${playerAge} years`);
                   }
-                } catch (e) {
+                } catch (_e) {
                   // Invalid date
                 }
               }

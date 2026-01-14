@@ -156,16 +156,24 @@ export const getActiveInjuriesForOrg = query({
     // Filter to active/recovering and visible to this org
     return injuries.filter((injury) => {
       // Only show non-healed injuries
-      if (injury.status === "healed") return false;
+      if (injury.status === "healed") {
+        return false;
+      }
 
       // Check visibility
-      if (injury.isVisibleToAllOrgs) return true;
+      if (injury.isVisibleToAllOrgs) {
+        return true;
+      }
 
       // Check if this org is in the restricted list
-      if (injury.restrictedToOrgIds?.includes(args.organizationId)) return true;
+      if (injury.restrictedToOrgIds?.includes(args.organizationId)) {
+        return true;
+      }
 
       // Check if this org is where it occurred
-      if (injury.occurredAtOrgId === args.organizationId) return true;
+      if (injury.occurredAtOrgId === args.organizationId) {
+        return true;
+      }
 
       return false;
     });
@@ -203,12 +211,18 @@ export const getAllActiveInjuriesForOrg = query({
 
       // Filter to active/recovering injuries visible to this org
       const activeInjuries = injuries.filter((injury) => {
-        if (injury.status === "healed" || injury.status === "cleared")
+        if (injury.status === "healed" || injury.status === "cleared") {
           return false;
-        if (injury.isVisibleToAllOrgs) return true;
-        if (injury.restrictedToOrgIds?.includes(args.organizationId))
+        }
+        if (injury.isVisibleToAllOrgs) {
           return true;
-        if (injury.occurredAtOrgId === args.organizationId) return true;
+        }
+        if (injury.restrictedToOrgIds?.includes(args.organizationId)) {
+          return true;
+        }
+        if (injury.occurredAtOrgId === args.organizationId) {
+          return true;
+        }
         return false;
       });
 
@@ -266,13 +280,20 @@ export const getAllInjuriesForOrg = query({
       // Filter by status if provided, otherwise return all visible to this org
       const filteredInjuries = injuries.filter((injury) => {
         // Status filter
-        if (args.status && injury.status !== args.status) return false;
+        if (args.status && injury.status !== args.status) {
+          return false;
+        }
 
         // Visibility filter
-        if (injury.isVisibleToAllOrgs) return true;
-        if (injury.restrictedToOrgIds?.includes(args.organizationId))
+        if (injury.isVisibleToAllOrgs) {
           return true;
-        if (injury.occurredAtOrgId === args.organizationId) return true;
+        }
+        if (injury.restrictedToOrgIds?.includes(args.organizationId)) {
+          return true;
+        }
+        if (injury.occurredAtOrgId === args.organizationId) {
+          return true;
+        }
         return false;
       });
 
@@ -531,13 +552,18 @@ export const updateInjuryDetails = mutation({
       updatedAt: Date.now(),
     };
 
-    if (args.treatment !== undefined) updates.treatment = args.treatment;
-    if (args.medicalProvider !== undefined)
+    if (args.treatment !== undefined) {
+      updates.treatment = args.treatment;
+    }
+    if (args.medicalProvider !== undefined) {
       updates.medicalProvider = args.medicalProvider;
-    if (args.medicalNotes !== undefined)
+    }
+    if (args.medicalNotes !== undefined) {
       updates.medicalNotes = args.medicalNotes;
-    if (args.expectedReturn !== undefined)
+    }
+    if (args.expectedReturn !== undefined) {
       updates.expectedReturn = args.expectedReturn;
+    }
 
     await ctx.db.patch(args.injuryId, updates);
     return null;

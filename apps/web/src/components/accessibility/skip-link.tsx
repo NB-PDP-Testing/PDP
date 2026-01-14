@@ -6,14 +6,14 @@ import { cn } from "@/lib/utils";
 /**
  * Props for SkipLink
  */
-export interface SkipLinkProps {
+export type SkipLinkProps = {
   /** Target element ID to skip to */
   targetId: string;
   /** Link text */
   children?: React.ReactNode;
   /** Custom class name */
   className?: string;
-}
+};
 
 /**
  * SkipLink - Accessibility skip link for keyboard users
@@ -64,15 +64,15 @@ export function SkipLink({
 /**
  * SkipLinks - Multiple skip links for complex layouts
  */
-export interface SkipLinksItem {
+export type SkipLinksItem = {
   targetId: string;
   label: string;
-}
+};
 
-export interface SkipLinksProps {
+export type SkipLinksProps = {
   links: SkipLinksItem[];
   className?: string;
-}
+};
 
 export function SkipLinks({ links, className }: SkipLinksProps) {
   return (

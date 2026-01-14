@@ -5,7 +5,7 @@ import * as React from "react";
 /**
  * Web Vitals metrics
  */
-export interface WebVitals {
+export type WebVitals = {
   /** First Contentful Paint */
   fcp: number | null;
   /** Largest Contentful Paint */
@@ -18,7 +18,7 @@ export interface WebVitals {
   ttfb: number | null;
   /** Interaction to Next Paint */
   inp: number | null;
-}
+};
 
 /**
  * Hook to monitor Web Vitals
@@ -69,7 +69,7 @@ export function useWebVitals(
     try {
       const lcpObserver = new PerformanceObserver((entryList) => {
         const entries = entryList.getEntries();
-        const lastEntry = entries[entries.length - 1];
+        const lastEntry = entries.at(-1);
         if (lastEntry) {
           const value = lastEntry.startTime;
           setVitals((prev) => ({ ...prev, lcp: value }));
@@ -168,7 +168,9 @@ export function useIntersectionObserver(
   const ref = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (!ref.current || typeof IntersectionObserver === "undefined") return;
+    if (!ref.current || typeof IntersectionObserver === "undefined") {
+      return;
+    }
 
     const observer = new IntersectionObserver(([entry]) => {
       setIsIntersecting(entry.isIntersecting);
@@ -219,7 +221,7 @@ export function useLazyVisible(
  * Hook to defer non-critical effects
  */
 export function useDeferredEffect(
-  effect: () => void | (() => void),
+  effect: () => undefined | (() => void),
   deps: React.DependencyList,
   delay = 0
 ) {
@@ -234,12 +236,12 @@ export function useDeferredEffect(
  * Hook to run effect during idle time
  */
 export function useIdleEffect(
-  effect: () => void | (() => void),
+  effect: () => undefined | (() => void),
   deps: React.DependencyList,
   timeout = 2000
 ) {
   React.useEffect(() => {
-    let cleanup: void | (() => void);
+    let cleanup: undefined | (() => void);
 
     const idleCallback =
       typeof window !== "undefined" && "requestIdleCallback" in window
@@ -279,7 +281,9 @@ export function useLongTaskMonitor(threshold = 50) {
   const [longTasks, setLongTasks] = React.useState<number[]>([]);
 
   React.useEffect(() => {
-    if (typeof PerformanceObserver === "undefined") return;
+    if (typeof PerformanceObserver === "undefined") {
+      return;
+    }
 
     try {
       const observer = new PerformanceObserver((entryList) => {

@@ -7,10 +7,10 @@ import ReactMarkdown from "react-markdown";
 import { PDPLogo } from "./pdp-logo";
 import { Button } from "./ui/button";
 
-interface FlowPageProps {
+type FlowPageProps = {
   flow: any;
   step: any;
-}
+};
 
 export function FlowPage({ flow, step }: FlowPageProps) {
   const completeStep = useMutation(api.models.flows.completeFlowStep);

@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   description: "View and manage your team players",
 };
 
-interface CoachPlayersPageProps {
+type CoachPlayersPageProps = {
   params: Promise<{ orgId: string }>;
-}
+};
 
 export default async function CoachPlayersPage({
   params,

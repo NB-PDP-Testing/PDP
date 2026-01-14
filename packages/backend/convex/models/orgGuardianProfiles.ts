@@ -23,7 +23,7 @@ const orgGuardianProfileValidator = v.object({
 });
 
 // Guardian identity validator (for joined queries)
-const guardianIdentityValidator = v.object({
+const _guardianIdentityValidator = v.object({
   _id: v.id("guardianIdentities"),
   _creationTime: v.number(),
   firstName: v.string(),

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-interface SwipeAction {
+type SwipeAction = {
   /** Action label */
   label: string;
   /** Action icon */
@@ -14,9 +14,9 @@ interface SwipeAction {
   textColor?: string;
   /** Action handler */
   onClick: () => void;
-}
+};
 
-interface SwipeableCardProps {
+type SwipeableCardProps = {
   /** Card content */
   children: React.ReactNode;
   /** Left swipe actions (revealed when swiping left) */
@@ -29,7 +29,7 @@ interface SwipeableCardProps {
   className?: string;
   /** Whether swipe is disabled */
   disabled?: boolean;
-}
+};
 
 /**
  * SwipeableCard - Mobile card with swipe-to-reveal actions
@@ -56,14 +56,18 @@ export function SwipeableCard({
   const maxRightSwipe = rightActions.length * 80;
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (disabled) return;
+    if (disabled) {
+      return;
+    }
     startXRef.current = e.touches[0].clientX;
     currentXRef.current = translateX;
     setIsDragging(true);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (disabled || !isDragging) return;
+    if (disabled || !isDragging) {
+      return;
+    }
     const diff = e.touches[0].clientX - startXRef.current;
     let newTranslate = currentXRef.current + diff;
 
@@ -79,7 +83,9 @@ export function SwipeableCard({
   };
 
   const handleTouchEnd = () => {
-    if (disabled) return;
+    if (disabled) {
+      return;
+    }
     setIsDragging(false);
 
     const cardWidth = cardRef.current?.offsetWidth || 300;

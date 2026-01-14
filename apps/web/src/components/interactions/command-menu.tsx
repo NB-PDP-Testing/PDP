@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
 /**
  * Command item definition
  */
-export interface CommandItemDef {
+export type CommandItemDef = {
   id: string;
   label: string;
   icon?: React.ReactNode;
@@ -39,12 +39,12 @@ export interface CommandItemDef {
   onSelect: () => void;
   group?: string;
   keywords?: string[];
-}
+};
 
 /**
  * Props for CommandMenu
  */
-export interface CommandMenuProps {
+export type CommandMenuProps = {
   /** Additional command items */
   items?: CommandItemDef[];
   /** Callback when menu opens */
@@ -55,7 +55,7 @@ export interface CommandMenuProps {
   orgId?: string;
   /** Whether to show default navigation items */
   showDefaultItems?: boolean;
-}
+};
 
 /**
  * CommandMenu - Global search and command palette (Cmd+K)

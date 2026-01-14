@@ -99,7 +99,9 @@ export const getForOrganization = query({
 
     for (const enrollment of enrollments) {
       const player = await ctx.db.get(enrollment.playerIdentityId);
-      if (!player || player.playerType !== "adult") continue;
+      if (!player || player.playerType !== "adult") {
+        continue;
+      }
 
       const contacts = await ctx.db
         .query("playerEmergencyContacts")
@@ -201,13 +203,24 @@ export const update = mutation({
       updatedAt: Date.now(),
     };
 
-    if (args.firstName !== undefined) updates.firstName = args.firstName;
-    if (args.lastName !== undefined) updates.lastName = args.lastName;
-    if (args.phone !== undefined) updates.phone = args.phone;
-    if (args.email !== undefined) updates.email = args.email;
-    if (args.relationship !== undefined)
+    if (args.firstName !== undefined) {
+      updates.firstName = args.firstName;
+    }
+    if (args.lastName !== undefined) {
+      updates.lastName = args.lastName;
+    }
+    if (args.phone !== undefined) {
+      updates.phone = args.phone;
+    }
+    if (args.email !== undefined) {
+      updates.email = args.email;
+    }
+    if (args.relationship !== undefined) {
       updates.relationship = args.relationship;
-    if (args.notes !== undefined) updates.notes = args.notes;
+    }
+    if (args.notes !== undefined) {
+      updates.notes = args.notes;
+    }
 
     await ctx.db.patch(args.contactId, updates);
 

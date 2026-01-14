@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
-interface ChildCardProps {
+type ChildCardProps = {
   child: {
     player: {
       _id: Id<"playerIdentities">;
@@ -36,17 +36,21 @@ interface ChildCardProps {
     };
   };
   orgId: string;
-}
+};
 
 // Calculate average rating from skills
 const calculateAverageRating = (
   skills: Record<string, number> | undefined
 ): number => {
-  if (!skills) return 0;
+  if (!skills) {
+    return 0;
+  }
   const values = Object.values(skills).filter(
     (v) => typeof v === "number" && v > 0
   );
-  if (values.length === 0) return 0;
+  if (values.length === 0) {
+    return 0;
+  }
   return values.reduce((a, b) => a + b, 0) / values.length;
 };
 
@@ -54,7 +58,9 @@ const calculateAverageRating = (
 const getTopSkills = (
   skills: Record<string, number> | undefined
 ): Array<{ name: string; rating: number }> => {
-  if (!skills) return [];
+  if (!skills) {
+    return [];
+  }
   return Object.entries(skills)
     .filter(([_, value]) => typeof value === "number" && value > 0)
     .map(([key, value]) => ({
@@ -67,8 +73,12 @@ const getTopSkills = (
 
 // Get attendance color
 const getAttendanceColor = (percentage: number): string => {
-  if (percentage >= 80) return "text-green-600";
-  if (percentage >= 60) return "text-yellow-600";
+  if (percentage >= 80) {
+    return "text-green-600";
+  }
+  if (percentage >= 60) {
+    return "text-yellow-600";
+  }
   return "text-red-600";
 };
 
@@ -127,21 +137,27 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
   }, [passportData]);
 
   const activeInjuries = useMemo(() => {
-    if (!injuries) return [];
+    if (!injuries) {
+      return [];
+    }
     return injuries.filter(
       (i: any) => i.status === "active" || i.status === "recovering"
     );
   }, [injuries]);
 
   const activeGoals = useMemo(() => {
-    if (!goals) return [];
+    if (!goals) {
+      return [];
+    }
     return goals.filter(
       (g: any) => g.status === "in_progress" || g.status === "not_started"
     );
   }, [goals]);
 
   const visibleGoals = useMemo(() => {
-    if (!goals) return [];
+    if (!goals) {
+      return [];
+    }
     return goals.filter((g: any) => g.parentCanView !== false);
   }, [goals]);
 
@@ -205,7 +221,7 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
               Top Strengths
             </h4>
             <div className="space-y-2">
-              {topSkills.map((skill, idx) => (
+              {topSkills.map((skill, _idx) => (
                 <div
                   className="flex items-center justify-between text-sm"
                   key={skill.name}

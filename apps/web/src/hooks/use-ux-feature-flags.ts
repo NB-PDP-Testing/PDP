@@ -74,7 +74,7 @@ import { useAnalytics } from "@/lib/analytics";
 export type AdminNavStyle = "current" | "sidebar" | "bottomsheet" | "tabs";
 export type QuickActionsVariant = "control" | "fab" | "horizontal" | "two-tier";
 
-export interface UXFeatureFlags {
+export type UXFeatureFlags = {
   // Phase 1 - Navigation Foundation
   /** Enable bottom navigation on mobile */
   useBottomNav: boolean;
@@ -180,7 +180,7 @@ export interface UXFeatureFlags {
   // Quick Actions A/B/C Testing
   /** Which quick actions variant to display: control (collapsible grid), fab (floating button), horizontal (icon scroll), two-tier (3 primary + more) */
   quickActionsVariant: QuickActionsVariant;
-}
+};
 
 /**
  * Hook to access UX feature flags

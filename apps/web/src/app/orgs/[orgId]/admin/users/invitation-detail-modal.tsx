@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-interface EnrichedInvitation {
+type EnrichedInvitation = {
   _id: string;
   email: string;
   role: string | null;
@@ -35,15 +35,15 @@ interface EnrichedInvitation {
     resentAt: number;
     resentByName: string;
   }>;
-}
+};
 
-interface InvitationDetailModalProps {
+type InvitationDetailModalProps = {
   invitation: EnrichedInvitation | null;
   onResend: () => Promise<void>;
   onCancel: () => Promise<void>;
   onClose: () => void;
   isOpen: boolean;
-}
+};
 
 export function InvitationDetailModal({
   invitation,
@@ -52,7 +52,9 @@ export function InvitationDetailModal({
   onClose,
   isOpen,
 }: InvitationDetailModalProps) {
-  if (!invitation) return null;
+  if (!invitation) {
+    return null;
+  }
 
   const daysUntilExpiry = Math.ceil(
     (invitation.expiresAt - Date.now()) / (1000 * 60 * 60 * 24)

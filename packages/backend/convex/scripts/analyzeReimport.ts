@@ -61,7 +61,7 @@ export const analyzeReimport = query({
     );
 
     // Group players by DOB for duplicate detection
-    const playersByKey = playerIdentities.reduce(
+    const _playersByKey = playerIdentities.reduce(
       (acc, p) => {
         const key = `${p.firstName.toLowerCase()}_${p.lastName.toLowerCase()}_${p.dateOfBirth}`;
         acc[key] = p;

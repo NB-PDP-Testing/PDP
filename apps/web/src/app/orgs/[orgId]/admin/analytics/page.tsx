@@ -60,7 +60,7 @@ const COLORS = {
   exceptional: "#8b5cf6",
 };
 
-const STATUS_COLORS = ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#8b5cf6"];
+const _STATUS_COLORS = ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#8b5cf6"];
 
 export default function AnalyticsDashboard() {
   const params = useParams();
@@ -83,18 +83,21 @@ export default function AnalyticsDashboard() {
 
   // Get all assessments for trend data
   const startDate = useMemo(() => {
-    if (dateRange === "7d")
+    if (dateRange === "7d") {
       return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0];
-    if (dateRange === "30d")
+    }
+    if (dateRange === "30d") {
       return new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0];
-    if (dateRange === "90d")
+    }
+    if (dateRange === "90d") {
       return new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0];
+    }
     return;
   }, [dateRange]);
 
@@ -107,7 +110,7 @@ export default function AnalyticsDashboard() {
   );
 
   // Get teams for filter dropdown
-  const teams = useQuery(api.models.teams.getTeamsByOrganization, {
+  const _teams = useQuery(api.models.teams.getTeamsByOrganization, {
     organizationId: orgId,
   });
 
@@ -116,7 +119,9 @@ export default function AnalyticsDashboard() {
 
   // Calculate additional metrics including unique player count
   const metrics = useMemo(() => {
-    if (!allAssessments) return null;
+    if (!allAssessments) {
+      return null;
+    }
 
     const thisMonth = new Date();
     thisMonth.setDate(1);
@@ -175,7 +180,9 @@ export default function AnalyticsDashboard() {
 
   // Prepare chart data
   const statusDistributionData = useMemo(() => {
-    if (!analyticsData?.statusDistribution) return [];
+    if (!analyticsData?.statusDistribution) {
+      return [];
+    }
     return [
       {
         name: "Below",
@@ -207,7 +214,9 @@ export default function AnalyticsDashboard() {
 
   // Progress over time (group by week)
   const progressOverTimeData = useMemo(() => {
-    if (!allAssessments) return [];
+    if (!allAssessments) {
+      return [];
+    }
 
     const weeklyData = new Map<
       string,
@@ -247,7 +256,9 @@ export default function AnalyticsDashboard() {
 
   // Skills needing attention bar chart
   const skillsBarData = useMemo(() => {
-    if (!analyticsData?.skillsNeedingAttention) return [];
+    if (!analyticsData?.skillsNeedingAttention) {
+      return [];
+    }
     return analyticsData.skillsNeedingAttention
       .slice(0, 8)
       .map(
@@ -267,7 +278,9 @@ export default function AnalyticsDashboard() {
 
   // Radar chart for skill categories (aggregate by category)
   const skillRadarData = useMemo(() => {
-    if (!analyticsData?.skillStats) return [];
+    if (!analyticsData?.skillStats) {
+      return [];
+    }
 
     const categories = new Map<string, { total: number; onTrack: number }>();
 

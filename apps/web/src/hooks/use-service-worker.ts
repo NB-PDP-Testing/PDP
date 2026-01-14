@@ -5,7 +5,7 @@ import * as React from "react";
 /**
  * Service Worker registration state
  */
-export interface ServiceWorkerState {
+export type ServiceWorkerState = {
   /** Whether the service worker is supported */
   isSupported: boolean;
   /** Whether the service worker is registered */
@@ -18,12 +18,12 @@ export interface ServiceWorkerState {
   registration: ServiceWorkerRegistration | null;
   /** Error if registration failed */
   error: Error | null;
-}
+};
 
 /**
  * Service Worker registration options
  */
-export interface UseServiceWorkerOptions {
+export type UseServiceWorkerOptions = {
   /** Path to the service worker file */
   path?: string;
   /** Scope of the service worker */
@@ -38,7 +38,7 @@ export interface UseServiceWorkerOptions {
   onOfflineReady?: () => void;
   /** Callback on registration error */
   onError?: (error: Error) => void;
-}
+};
 
 /**
  * Hook to manage service worker registration
@@ -105,7 +105,9 @@ export function useServiceWorker(
       // Listen for updates
       registration.addEventListener("updatefound", () => {
         const newWorker = registration.installing;
-        if (!newWorker) return;
+        if (!newWorker) {
+          return;
+        }
 
         newWorker.addEventListener("statechange", () => {
           if (newWorker.state === "installed") {
@@ -140,7 +142,9 @@ export function useServiceWorker(
   // Unregister service worker
   const unregister = React.useCallback(async () => {
     const registration = registrationRef.current;
-    if (!registration) return false;
+    if (!registration) {
+      return false;
+    }
 
     try {
       const success = await registration.unregister();
@@ -163,7 +167,9 @@ export function useServiceWorker(
   // Check for updates
   const update = React.useCallback(async () => {
     const registration = registrationRef.current;
-    if (!registration) return;
+    if (!registration) {
+      return;
+    }
 
     try {
       await registration.update();
@@ -175,7 +181,9 @@ export function useServiceWorker(
   // Skip waiting and activate new service worker
   const skipWaiting = React.useCallback(() => {
     const registration = registrationRef.current;
-    if (!registration?.waiting) return;
+    if (!registration?.waiting) {
+      return;
+    }
 
     registration.waiting.postMessage({ type: "SKIP_WAITING" });
 
@@ -192,7 +200,9 @@ export function useServiceWorker(
 
   // Listen for controller changes (new service worker took over)
   React.useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
+    if (!("serviceWorker" in navigator)) {
+      return;
+    }
 
     const handleControllerChange = () => {
       window.location.reload();
@@ -271,7 +281,9 @@ export function useCanInstallPWA(): {
 
   const promptInstall = React.useCallback(async () => {
     const deferredPrompt = deferredPromptRef.current;
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      return;
+    }
 
     await deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;

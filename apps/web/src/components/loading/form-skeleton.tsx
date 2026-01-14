@@ -3,14 +3,14 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-interface FormFieldSkeletonProps {
+type FormFieldSkeletonProps = {
   /** Show label */
   showLabel?: boolean;
   /** Field type affects height */
   type?: "input" | "textarea" | "select" | "checkbox" | "radio" | "switch";
   /** Container class name */
   className?: string;
-}
+};
 
 /**
  * Single form field skeleton
@@ -46,7 +46,7 @@ export function FormFieldSkeleton({
   );
 }
 
-interface FormSkeletonProps {
+type FormSkeletonProps = {
   /** Number of fields */
   fields?: number;
   /** Field configuration */
@@ -59,7 +59,7 @@ interface FormSkeletonProps {
   layout?: "stacked" | "two-column" | "inline";
   /** Container class name */
   className?: string;
-}
+};
 
 /**
  * FormSkeleton - Loading placeholder for forms
@@ -80,7 +80,7 @@ export function FormSkeleton({
   // Generate field types if not provided
   const types =
     fieldTypes ||
-    Array(fields)
+    new Array(fields)
       .fill("input")
       .map((_, i) => (i === fields - 1 ? "textarea" : "input"));
 

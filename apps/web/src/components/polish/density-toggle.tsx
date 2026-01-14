@@ -79,12 +79,12 @@ const DENSITY_STORAGE_KEY = "pdp-ui-density";
 /**
  * Density context
  */
-interface DensityContextValue {
+type DensityContextValue = {
   density: DensityLevel;
   setDensity: (density: DensityLevel) => void;
   cycleDensity: () => void;
   config: (typeof DENSITY_CONFIG)[DensityLevel];
-}
+};
 
 const DensityContext = createContext<DensityContextValue | null>(null);
 
@@ -109,14 +109,14 @@ export function useDensityOptional(): DensityContextValue | null {
 /**
  * Props for DensityProvider
  */
-export interface DensityProviderProps {
+export type DensityProviderProps = {
   /** Initial density (defaults to comfortable or stored preference) */
   defaultDensity?: DensityLevel;
   /** Whether to persist preference in localStorage */
   persist?: boolean;
   /** Children */
   children: React.ReactNode;
-}
+};
 
 /**
  * DensityProvider - Provides density context to the app
@@ -166,9 +166,11 @@ export function DensityProvider({
 
   // Set CSS custom properties based on density
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
-    const config = DENSITY_CONFIG[density];
+    const _config = DENSITY_CONFIG[density];
     document.documentElement.setAttribute("data-density", density);
 
     // Optional: Set CSS variables for use in styles
@@ -201,14 +203,14 @@ export function DensityProvider({
 /**
  * Props for DensityToggle
  */
-export interface DensityToggleProps {
+export type DensityToggleProps = {
   /** Show as dropdown or cycle button */
   variant?: "dropdown" | "cycle";
   /** Additional class name */
   className?: string;
   /** Size of the toggle */
   size?: "sm" | "default" | "lg";
-}
+};
 
 /**
  * DensityToggle - Button to change density

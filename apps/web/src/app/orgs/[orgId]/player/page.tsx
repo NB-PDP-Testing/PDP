@@ -30,7 +30,7 @@ import { SkillsSection } from "../players/[playerId]/components/skills-section";
 
 export default function PlayerDashboardPage() {
   const params = useParams();
-  const router = useRouter();
+  const _router = useRouter();
   const orgId = params.orgId as string;
 
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);

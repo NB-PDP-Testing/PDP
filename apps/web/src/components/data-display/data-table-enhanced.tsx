@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
 /**
  * Enhanced column definition with visibility and width controls
  */
-export interface EnhancedColumn<T> {
+export type EnhancedColumn<T> = {
   /** Unique column ID */
   id: string;
   /** Header label */
@@ -60,12 +60,12 @@ export interface EnhancedColumn<T> {
     value: unknown,
     onChange: (value: unknown) => void
   ) => React.ReactNode;
-}
+};
 
 /**
  * Bulk action definition
  */
-export interface BulkAction<T> {
+export type BulkAction<T> = {
   /** Action label */
   label: string;
   /** Action icon */
@@ -76,12 +76,12 @@ export interface BulkAction<T> {
   destructive?: boolean;
   /** Whether action is disabled */
   disabled?: boolean;
-}
+};
 
 /**
  * Row action definition
  */
-export interface RowAction<T> {
+export type RowAction<T> = {
   /** Action label */
   label: string;
   /** Action icon */
@@ -92,9 +92,9 @@ export interface RowAction<T> {
   destructive?: boolean;
   /** Whether action is disabled for this item */
   disabled?: (item: T) => boolean;
-}
+};
 
-interface DataTableEnhancedProps<T> {
+type DataTableEnhancedProps<T> = {
   /** Data to display */
   data: T[];
   /** Column definitions */
@@ -141,7 +141,7 @@ interface DataTableEnhancedProps<T> {
   stickyHeader?: boolean;
   /** Container class name */
   className?: string;
-}
+};
 
 /**
  * DataTableEnhanced - Desktop-optimized data table with power features
@@ -259,9 +259,13 @@ export function DataTableEnhanced<T>({
 
   // Handle sort
   const handleSort = (columnId: string) => {
-    if (!onSortChange) return;
+    if (!onSortChange) {
+      return;
+    }
     const column = columns.find((c) => c.id === columnId);
-    if (!column?.sortable) return;
+    if (!column?.sortable) {
+      return;
+    }
 
     if (sortColumn === columnId) {
       onSortChange(columnId, sortDirection === "asc" ? "desc" : "asc");

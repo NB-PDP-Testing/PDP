@@ -20,9 +20,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 
-interface CoachPlayersViewProps {
+type CoachPlayersViewProps = {
   orgId: string;
-}
+};
 
 export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
   const router = useRouter();
@@ -284,6 +284,7 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
     sportFilter,
     genderFilter,
     reviewStatusFilter,
+    getPlayerTeams,
   ]);
 
   // Sort players
@@ -315,7 +316,7 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
     });
 
     return sorted;
-  }, [filteredPlayers, sortColumn, sortDirection]);
+  }, [filteredPlayers, sortColumn, sortDirection, getPlayerTeams]);
 
   // Handle column sort
   const handleSort = (column: "name" | "team" | "ageGroup" | "lastReview") => {
@@ -637,10 +638,12 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
                                   new Date(player.lastReviewDate).getTime()) /
                                   (1000 * 60 * 60 * 24)
                               );
-                              if (days <= 60)
+                              if (days <= 60) {
                                 return "bg-green-100 text-green-700";
-                              if (days <= 90)
+                              }
+                              if (days <= 90) {
                                 return "bg-orange-100 text-orange-700";
+                              }
                               return "bg-red-100 text-red-700";
                             })()}`}
                           >

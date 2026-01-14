@@ -18,20 +18,20 @@ import {
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
 
-interface Child {
+type Child = {
   playerIdentityId: Id<"playerIdentities">;
   firstName: string;
   lastName: string;
   dateOfBirth: string;
   relationship: string;
-}
+};
 
-interface Organization {
+type Organization = {
   organizationId: string;
   organizationName?: string;
-}
+};
 
-interface GuardianIdentityClaimDialogProps {
+type GuardianIdentityClaimDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   guardianIdentityId: Id<"guardianIdentities">;
@@ -40,7 +40,7 @@ interface GuardianIdentityClaimDialogProps {
   organizations: Organization[];
   userId: string;
   onClaimComplete: () => void;
-}
+};
 
 export function GuardianIdentityClaimDialog({
   open,

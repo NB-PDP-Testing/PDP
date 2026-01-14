@@ -50,7 +50,7 @@ export default function SignUpForm({ redirect }: { redirect?: string | null }) {
           name: value.name,
         },
         {
-          onSuccess: async (ctx) => {
+          onSuccess: async (_ctx) => {
             // Track signup event
             track(AnalyticsEvents.USER_SIGNED_UP, {
               method: "email",

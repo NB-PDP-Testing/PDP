@@ -143,15 +143,18 @@ export default function ManageCoachesPage() {
 
   // Helper functions to calculate player counts using teamPlayerLinks
   const getCoachPlayerCount = (coachTeamIds: string[]) => {
-    if (!coachTeamIds || coachTeamIds.length === 0 || !teamPlayerLinks)
+    if (!coachTeamIds || coachTeamIds.length === 0 || !teamPlayerLinks) {
       return 0;
+    }
     return teamPlayerLinks.filter((link: any) =>
       coachTeamIds.includes(link.teamId)
     ).length;
   };
 
   const getTeamPlayerCount = (teamId: string) => {
-    if (!teamPlayerLinks) return 0;
+    if (!teamPlayerLinks) {
+      return 0;
+    }
     return teamPlayerLinks.filter((link: any) => link.teamId === teamId).length;
   };
 

@@ -8,10 +8,10 @@ import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
 
-interface FlowBannerProps {
+type FlowBannerProps = {
   flow: any;
   step: any;
-}
+};
 
 export function FlowBanner({ flow, step }: FlowBannerProps) {
   const startFlow = useMutation(api.models.flows.startFlow);

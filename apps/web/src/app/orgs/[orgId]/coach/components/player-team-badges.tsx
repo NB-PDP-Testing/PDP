@@ -1,13 +1,13 @@
 import { Shield } from "lucide-react";
 
-interface PlayerTeamBadgesProps {
+type PlayerTeamBadgesProps = {
   /** List of team names the player belongs to */
   teams: string[];
   /** The core team name (matches player's sport + ageGroup) */
   coreTeamName?: string;
   /** Optional size variant */
   size?: "sm" | "md";
-}
+};
 
 /**
  * Displays team badges for a player with core team highlighted

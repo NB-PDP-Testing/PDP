@@ -19,7 +19,7 @@ import {
 /**
  * SmartDataView Props - Unified interface for both components
  */
-export interface SmartDataViewProps<T> {
+export type SmartDataViewProps<T> = {
   /** Data to display */
   data: T[];
   /** Get unique key for each row */
@@ -68,7 +68,7 @@ export interface SmartDataViewProps<T> {
   className?: string;
   /** Pull-to-refresh handler (mobile only, requires ux_pull_to_refresh flag) */
   onRefresh?: () => Promise<void>;
-}
+};
 
 /**
  * SmartDataView - Automatically selects between ResponsiveDataView and DataTableEnhanced
@@ -132,7 +132,9 @@ export function SmartDataView<T>({
 
   // Convert actions to row actions format
   const rowActions: RowAction<T>[] | undefined = React.useMemo(() => {
-    if (!actions) return;
+    if (!actions) {
+      return;
+    }
     return actions.map((action) => ({
       label: action.label,
       icon: action.icon,

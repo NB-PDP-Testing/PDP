@@ -19,12 +19,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-interface EditInvitationModalProps {
+type EditInvitationModalProps = {
   invitation: any;
   organizationId: string;
   onClose: () => void;
   onSuccess: () => void;
-}
+};
 
 export function EditInvitationModal({
   invitation,

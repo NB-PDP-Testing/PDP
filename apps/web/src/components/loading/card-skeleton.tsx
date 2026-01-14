@@ -3,7 +3,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-interface CardSkeletonProps {
+type CardSkeletonProps = {
   /** Show avatar/image placeholder */
   showAvatar?: boolean;
   /** Avatar size */
@@ -18,7 +18,7 @@ interface CardSkeletonProps {
   variant?: "default" | "horizontal" | "compact";
   /** Container class name */
   className?: string;
-}
+};
 
 /**
  * CardSkeleton - Loading placeholder for card components

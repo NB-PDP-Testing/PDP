@@ -247,9 +247,9 @@ export const seedTeamEnforcementLevels = internalMutation({
     errors: v.array(v.string()),
     dryRun: v.boolean(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     const dryRun = args.dryRun ?? false;
-    const requireOverrideReason = args.requireOverrideReason ?? true;
+    const _requireOverrideReason = args.requireOverrideReason ?? true;
     const errors: string[] = [];
     const teamsProcessed = 0;
     const settingsCreated = 0;

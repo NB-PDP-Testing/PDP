@@ -17,16 +17,16 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-interface PlayerData {
+type PlayerData = {
   coachNotes?: string;
   parentNotes?: string;
   playerNotes?: string;
-}
+};
 
-interface Props {
+type Props = {
   player: PlayerData;
   isCoach: boolean;
-}
+};
 
 export function NotesSection({ player, isCoach }: Props) {
   const hasNotes = Boolean(
@@ -123,12 +123,12 @@ export function NotesSection({ player, isCoach }: Props) {
   );
 }
 
-interface NoteCardProps {
+type NoteCardProps = {
   title: string;
   content: string;
   icon: React.ReactNode;
   variant: "coach" | "parent" | "player";
-}
+};
 
 function NoteCard({ title, content, icon, variant }: NoteCardProps) {
   const getVariantClasses = () => {

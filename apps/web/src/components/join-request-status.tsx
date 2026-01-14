@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 
 // Join request type matching the Convex schema
-export interface JoinRequest {
+export type JoinRequest = {
   _id: Id<"orgJoinRequests">;
   organizationId: string;
   organizationName: string;
@@ -24,12 +24,12 @@ export interface JoinRequest {
   requestedAt: number;
   reviewedAt?: number;
   rejectionReason?: string;
-}
+};
 
-interface JoinRequestCardProps {
+type JoinRequestCardProps = {
   request: JoinRequest;
   onCancel?: (requestId: Id<"orgJoinRequests">) => void;
-}
+};
 
 /**
  * Card displaying a single pending join request
@@ -158,11 +158,11 @@ export function RejectedRequestCard({ request }: JoinRequestCardProps) {
   );
 }
 
-interface JoinRequestSectionProps {
+type JoinRequestSectionProps = {
   pendingRequests: JoinRequest[];
   rejectedRequests: JoinRequest[];
   onCancelRequest?: (requestId: Id<"orgJoinRequests">) => void;
-}
+};
 
 /**
  * Full section displaying both pending and rejected join requests

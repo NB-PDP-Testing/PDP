@@ -56,7 +56,9 @@ function ParentDashboardContent() {
 
   // Check if user has parent functional role or is admin/owner
   const hasParentRole = useMemo(() => {
-    if (!roleDetails) return false;
+    if (!roleDetails) {
+      return false;
+    }
     return (
       roleDetails.functionalRoles.includes("parent") ||
       roleDetails.functionalRoles.includes("admin") ||
@@ -76,9 +78,13 @@ function ParentDashboardContent() {
 
     identityChildren.forEach((child) => {
       const status = child.enrollment?.reviewStatus?.toLowerCase();
-      if (status === "completed") completedReviews++;
-      else if (status === "due soon" || status === "due_soon") dueSoon++;
-      else if (status === "overdue") overdue++;
+      if (status === "completed") {
+        completedReviews++;
+      } else if (status === "due soon" || status === "due_soon") {
+        dueSoon++;
+      } else if (status === "overdue") {
+        overdue++;
+      }
     });
 
     return { completedReviews, dueSoon, overdue };

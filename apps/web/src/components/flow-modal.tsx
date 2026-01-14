@@ -10,10 +10,10 @@ import { toast } from "sonner";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 
-interface FlowModalProps {
+type FlowModalProps = {
   flow: any;
   step: any;
-}
+};
 
 export function FlowModal({ flow, step }: FlowModalProps) {
   const router = useRouter();

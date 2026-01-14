@@ -77,7 +77,9 @@ export const getAllForOrganization = query({
       enrollments.map(async (enrollment) => {
         // Get player identity
         const playerIdentity = await ctx.db.get(enrollment.playerIdentityId);
-        if (!playerIdentity) return null;
+        if (!playerIdentity) {
+          return null;
+        }
 
         // Get sport passport for sport info
         const passport = await ctx.db
@@ -161,7 +163,9 @@ export const getOrganizationStats = query({
 
     for (const enrollment of enrollments) {
       const playerIdentity = await ctx.db.get(enrollment.playerIdentityId);
-      if (!playerIdentity) continue;
+      if (!playerIdentity) {
+        continue;
+      }
 
       // Try to find legacy player for medical profile
       const fullName = `${playerIdentity.firstName} ${playerIdentity.lastName}`;
@@ -183,10 +187,18 @@ export const getOrganizationStats = query({
 
       if (profile) {
         playersWithProfiles++;
-        if (profile.allergies.length > 0) playersWithAllergies++;
-        if (profile.medications.length > 0) playersWithMedications++;
-        if (profile.conditions.length > 0) playersWithConditions++;
-        if (!profile.emergencyContact1Name) playersWithoutEmergencyContacts++;
+        if (profile.allergies.length > 0) {
+          playersWithAllergies++;
+        }
+        if (profile.medications.length > 0) {
+          playersWithMedications++;
+        }
+        if (profile.conditions.length > 0) {
+          playersWithConditions++;
+        }
+        if (!profile.emergencyContact1Name) {
+          playersWithoutEmergencyContacts++;
+        }
       } else {
         playersWithoutEmergencyContacts++;
       }

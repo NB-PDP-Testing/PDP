@@ -88,7 +88,9 @@ export function ResponsiveForm({
 
   // Keyboard shortcuts
   useEffect(() => {
-    if (!enableShortcuts || isMobile) return;
+    if (!enableShortcuts || isMobile) {
+      return;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Cmd/Ctrl + S to submit
@@ -213,7 +215,7 @@ export function ResponsiveForm({
 /**
  * ResponsiveFormSection - Section within a form with optional title
  */
-export interface ResponsiveFormSectionProps {
+export type ResponsiveFormSectionProps = {
   /** Section title */
   title?: string;
   /** Section description */
@@ -224,7 +226,7 @@ export interface ResponsiveFormSectionProps {
   className?: string;
   /** Whether to show as a card on desktop */
   cardOnDesktop?: boolean;
-}
+};
 
 export function ResponsiveFormSection({
   title,
@@ -258,14 +260,14 @@ export function ResponsiveFormSection({
 /**
  * ResponsiveFormRow - Row for side-by-side fields on desktop
  */
-export interface ResponsiveFormRowProps {
+export type ResponsiveFormRowProps = {
   /** Children (form fields) */
   children: React.ReactNode;
   /** Number of columns on desktop */
   columns?: 2 | 3 | 4;
   /** Additional class name */
   className?: string;
-}
+};
 
 export function ResponsiveFormRow({
   children,

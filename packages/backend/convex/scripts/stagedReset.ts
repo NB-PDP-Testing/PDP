@@ -46,7 +46,7 @@ export const stage1AppData = mutation({
       if (record.audioStorageId) {
         try {
           await ctx.storage.delete(record.audioStorageId);
-        } catch (e) {
+        } catch (_e) {
           /* ignore */
         }
       }

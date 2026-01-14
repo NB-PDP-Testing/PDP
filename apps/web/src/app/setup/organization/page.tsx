@@ -32,7 +32,7 @@ export default function SetupOrganizationPage() {
 
   const currentUser = useQuery(api.models.users.getCurrentUser);
   const availableSports = useQuery(api.models.referenceData.getSports, {});
-  const updateOrganizationColors = useMutation(
+  const _updateOrganizationColors = useMutation(
     api.models.organizations.updateOrganizationColors
   );
   const updateOrganizationSports = useMutation(

@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   description: "Your coaching tasks, action items, and insights",
 };
 
-interface CoachTodosPageProps {
+type CoachTodosPageProps = {
   params: Promise<{ orgId: string }>;
-}
+};
 
 export default async function CoachTodosPage({ params }: CoachTodosPageProps) {
   const { orgId } = await params;

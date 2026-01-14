@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-interface ActionCardProps {
+type ActionCardProps = {
   /** Icon component from lucide-react */
   icon: LucideIcon;
   /** Label text (keep short, 1-2 words) */
@@ -22,7 +22,7 @@ interface ActionCardProps {
     | "orange";
   /** Optional disabled state */
   disabled?: boolean;
-}
+};
 
 /**
  * Compact action card for grid layouts

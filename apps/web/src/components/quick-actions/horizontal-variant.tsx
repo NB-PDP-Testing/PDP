@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
 import { useAnalytics } from "@/lib/analytics";
 
-interface HorizontalScrollQuickActionsProps {
+type HorizontalScrollQuickActionsProps = {
   onAssessPlayers: () => void;
   onGenerateSessionPlan: () => void;
   onViewAnalytics: () => void;
@@ -25,14 +25,14 @@ interface HorizontalScrollQuickActionsProps {
   onGoals: () => void;
   onMedical: () => void;
   onMatchDay: () => void;
-}
+};
 
-interface QuickAction {
+type QuickAction = {
   icon: React.ElementType;
   label: string;
   onClick: () => void;
   color: string;
-}
+};
 
 /**
  * Horizontal Scroll Quick Actions Variant

@@ -14,7 +14,7 @@ import { useRef, useState } from "react";
  * - Rating visualization
  */
 
-interface Player {
+type Player = {
   id: string;
   name: string;
   initials: string;
@@ -22,7 +22,7 @@ interface Player {
   team: string;
   position: string;
   rating: number;
-}
+};
 
 const samplePlayers: Player[] = [
   {

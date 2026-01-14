@@ -26,7 +26,9 @@ export function useReducedMotion(): boolean {
 
   React.useEffect(() => {
     // Check if window is available (SSR safety)
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") {
+      return;
+    }
 
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
@@ -76,7 +78,9 @@ export function getReducedMotionClass(
   animationClass: string,
   fallbackClass = ""
 ): string {
-  if (typeof window === "undefined") return animationClass;
+  if (typeof window === "undefined") {
+    return animationClass;
+  }
 
   const prefersReducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)"

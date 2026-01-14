@@ -6,7 +6,7 @@ import { CardGridSkeleton, StatGridSkeleton } from "./card-skeleton";
 import { FormSkeleton } from "./form-skeleton";
 import { TableSkeleton } from "./table-skeleton";
 
-interface PageSkeletonProps {
+type PageSkeletonProps = {
   /** Page type determines layout */
   variant?: "dashboard" | "list" | "detail" | "form" | "settings";
   /** Show page header (title + actions) */
@@ -17,7 +17,7 @@ interface PageSkeletonProps {
   showTabs?: boolean;
   /** Container class name */
   className?: string;
-}
+};
 
 /**
  * PageSkeleton - Full page loading placeholder

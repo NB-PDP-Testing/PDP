@@ -132,10 +132,15 @@ export const update = mutation({
     }
 
     const updates: Record<string, string | undefined> = {};
-    if (args.name !== undefined) updates.name = args.name;
-    if (args.governingBody !== undefined)
+    if (args.name !== undefined) {
+      updates.name = args.name;
+    }
+    if (args.governingBody !== undefined) {
       updates.governingBody = args.governingBody;
-    if (args.description !== undefined) updates.description = args.description;
+    }
+    if (args.description !== undefined) {
+      updates.description = args.description;
+    }
 
     await ctx.db.patch(sport._id, updates);
 

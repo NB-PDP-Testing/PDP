@@ -12,9 +12,9 @@ import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 import { ChildCard } from "../../components/child-card";
 
-interface ParentChildrenViewProps {
+type ParentChildrenViewProps = {
   orgId: string;
-}
+};
 
 export function ParentChildrenView({ orgId }: ParentChildrenViewProps) {
   const router = useRouter();
@@ -38,7 +38,9 @@ export function ParentChildrenView({ orgId }: ParentChildrenViewProps) {
 
   // Check if user has parent functional role or is admin/owner
   const hasParentRole = useMemo(() => {
-    if (!roleDetails) return false;
+    if (!roleDetails) {
+      return false;
+    }
     return (
       roleDetails.functionalRoles.includes("parent") ||
       roleDetails.functionalRoles.includes("admin") ||

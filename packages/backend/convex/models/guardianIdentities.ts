@@ -154,7 +154,7 @@ export const searchGuardiansByName = query({
     if (args.firstName) {
       return all
         .filter(
-          (g) => g.firstName.toLowerCase() === args.firstName!.toLowerCase()
+          (g) => g.firstName.toLowerCase() === args.firstName?.toLowerCase()
         )
         .slice(0, limit);
     }
@@ -503,8 +503,8 @@ export const findMatchingGuardian = query({
         .query("guardianIdentities")
         .withIndex("by_name", (q) =>
           q
-            .eq("lastName", args.lastName!.trim())
-            .eq("firstName", args.firstName!.trim())
+            .eq("lastName", args.lastName?.trim())
+            .eq("firstName", args.firstName?.trim())
         )
         .first();
 

@@ -415,7 +415,9 @@ export const migrateTeamGenderValues = mutation({
     let teamsUpdated = 0;
 
     for (const team of teams) {
-      if (!team.gender) continue;
+      if (!team.gender) {
+        continue;
+      }
 
       // Check if gender is an old value
       const newGender = genderMapping[team.gender];
@@ -577,7 +579,9 @@ export const migrateSportNamesToCodes = mutation({
     let teamsUpdated = 0;
 
     for (const team of teams) {
-      if (!team.sport) continue;
+      if (!team.sport) {
+        continue;
+      }
 
       // Check if sport is a NAME (not a code)
       const sportCode = sportNameToCode[team.sport];

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 /**
  * Props for FocusRing
  */
-export interface FocusRingProps {
+export type FocusRingProps = {
   /** Content to wrap with focus ring */
   children: React.ReactNode;
   /** Whether the focus ring is currently visible */
@@ -17,7 +17,7 @@ export interface FocusRingProps {
   offset?: "none" | "sm" | "md";
   /** Custom class name */
   className?: string;
-}
+};
 
 /**
  * FocusRing - Visible focus indicator wrapper
@@ -185,15 +185,19 @@ export function useFocusTrap(enabled = true) {
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (!(enabled && containerRef.current)) return;
+    if (!(enabled && containerRef.current)) {
+      return;
+    }
 
     const container = containerRef.current;
     const focusableElements = getFocusableElements(container);
     const firstFocusable = focusableElements[0];
-    const lastFocusable = focusableElements[focusableElements.length - 1];
+    const lastFocusable = focusableElements.at(-1);
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
+      if (e.key !== "Tab") {
+        return;
+      }
 
       if (e.shiftKey) {
         if (document.activeElement === firstFocusable) {

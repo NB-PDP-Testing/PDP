@@ -14,7 +14,7 @@ interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
-interface PWAInstallPromptProps {
+type PWAInstallPromptProps = {
   /** Custom class name */
   className?: string;
   /** Called when user dismisses the prompt */
@@ -23,7 +23,7 @@ interface PWAInstallPromptProps {
   onInstall?: () => void;
   /** Force show the prompt (for testing/debugging) */
   forceShow?: boolean;
-}
+};
 
 /**
  * PWAInstallPrompt - Prompt users to install the app on their device
@@ -55,7 +55,9 @@ export function PWAInstallPrompt({
     const standalone = window.matchMedia("(display-mode: standalone)").matches;
     setIsStandalone(standalone);
 
-    if (standalone && !debugMode) return;
+    if (standalone && !debugMode) {
+      return;
+    }
 
     // Check if iOS
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -69,16 +71,18 @@ export function PWAInstallPrompt({
 
     // Check if user has dismissed before
     const dismissed = localStorage.getItem("pwa-install-dismissed");
-    const dismissedTime = dismissed ? Number.parseInt(dismissed) : 0;
+    const dismissedTime = dismissed ? Number.parseInt(dismissed, 10) : 0;
     const daysSinceDismissed =
       (Date.now() - dismissedTime) / (1000 * 60 * 60 * 24);
 
     // Don't show if dismissed in last 7 days
-    if (daysSinceDismissed < 7) return;
+    if (daysSinceDismissed < 7) {
+      return;
+    }
 
     // Track visits
     const visits =
-      Number.parseInt(localStorage.getItem("pwa-visits") || "0") + 1;
+      Number.parseInt(localStorage.getItem("pwa-visits") || "0", 10) + 1;
     localStorage.setItem("pwa-visits", visits.toString());
 
     // Show prompt after 3+ visits
@@ -152,7 +156,9 @@ export function PWAInstallPrompt({
   };
 
   // Don't render if already standalone or no prompt to show (unless forceShow)
-  if (isStandalone || !(showPrompt || forceShow)) return null;
+  if (isStandalone || !(showPrompt || forceShow)) {
+    return null;
+  }
 
   return (
     <div

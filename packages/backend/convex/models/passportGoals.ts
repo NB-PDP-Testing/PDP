@@ -263,10 +263,18 @@ export const updateGoal = mutation({
       updatedAt: Date.now(),
     };
 
-    if (args.title !== undefined) updates.title = args.title;
-    if (args.description !== undefined) updates.description = args.description;
-    if (args.category !== undefined) updates.category = args.category;
-    if (args.priority !== undefined) updates.priority = args.priority;
+    if (args.title !== undefined) {
+      updates.title = args.title;
+    }
+    if (args.description !== undefined) {
+      updates.description = args.description;
+    }
+    if (args.category !== undefined) {
+      updates.category = args.category;
+    }
+    if (args.priority !== undefined) {
+      updates.priority = args.priority;
+    }
     if (args.status !== undefined) {
       updates.status = args.status;
       // Auto-set completed date when marking as completed
@@ -274,16 +282,27 @@ export const updateGoal = mutation({
         updates.completedDate = new Date().toISOString().split("T")[0];
       }
     }
-    if (args.progress !== undefined) updates.progress = args.progress;
-    if (args.targetDate !== undefined) updates.targetDate = args.targetDate;
-    if (args.linkedSkills !== undefined)
+    if (args.progress !== undefined) {
+      updates.progress = args.progress;
+    }
+    if (args.targetDate !== undefined) {
+      updates.targetDate = args.targetDate;
+    }
+    if (args.linkedSkills !== undefined) {
       updates.linkedSkills = args.linkedSkills;
-    if (args.parentActions !== undefined)
+    }
+    if (args.parentActions !== undefined) {
       updates.parentActions = args.parentActions;
-    if (args.parentCanView !== undefined)
+    }
+    if (args.parentCanView !== undefined) {
       updates.parentCanView = args.parentCanView;
-    if (args.coachNotes !== undefined) updates.coachNotes = args.coachNotes;
-    if (args.playerNotes !== undefined) updates.playerNotes = args.playerNotes;
+    }
+    if (args.coachNotes !== undefined) {
+      updates.coachNotes = args.coachNotes;
+    }
+    if (args.playerNotes !== undefined) {
+      updates.playerNotes = args.playerNotes;
+    }
 
     await ctx.db.patch(args.goalId, updates);
     return null;

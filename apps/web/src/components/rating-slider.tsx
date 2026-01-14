@@ -45,10 +45,18 @@ const RATING_CONFIG: Record<
 
 // Helper functions
 export function getColorForRating(rating: number): string {
-  if (rating <= 1) return "#dc2626"; // red-600
-  if (rating <= 2) return "#ea580c"; // orange-600
-  if (rating <= 3) return "#ca8a04"; // yellow-600
-  if (rating <= 4) return "#65a30d"; // lime-600
+  if (rating <= 1) {
+    return "#dc2626"; // red-600
+  }
+  if (rating <= 2) {
+    return "#ea580c"; // orange-600
+  }
+  if (rating <= 3) {
+    return "#ca8a04"; // yellow-600
+  }
+  if (rating <= 4) {
+    return "#65a30d"; // lime-600
+  }
   return "#16a34a"; // green-600
 }
 
@@ -60,7 +68,7 @@ export function getRatingConfig(rating: number) {
   return RATING_CONFIG[rating] ?? RATING_CONFIG[3];
 }
 
-interface RatingSliderProps {
+type RatingSliderProps = {
   /** Label for the skill being rated */
   label: string;
   /** Current rating value (1-5) */
@@ -81,7 +89,7 @@ interface RatingSliderProps {
   showLabels?: boolean;
   /** Custom class name */
   className?: string;
-}
+};
 
 export function RatingSlider({
   label,
@@ -226,13 +234,13 @@ export function RatingSlider({
 }
 
 // Alternative visual rating display (dots/stars)
-interface RatingDotsProps {
+type RatingDotsProps = {
   value: number;
   max?: number;
   size?: "sm" | "md" | "lg";
   showLabel?: boolean;
   className?: string;
-}
+};
 
 export function RatingDots({
   value,
@@ -269,14 +277,14 @@ export function RatingDots({
 }
 
 // Progress bar style rating display
-interface RatingBarProps {
+type RatingBarProps = {
   value: number;
   max?: number;
   showPercentage?: boolean;
   showLabel?: boolean;
   height?: "sm" | "md" | "lg";
   className?: string;
-}
+};
 
 export function RatingBar({
   value,

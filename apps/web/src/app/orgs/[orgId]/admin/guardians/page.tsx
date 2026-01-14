@@ -80,7 +80,9 @@ export default function GuardianManagementPage() {
 
   // Generate insights and recommendations
   const getInsights = () => {
-    if (!(stats && relationships && guardians)) return [];
+    if (!(stats && relationships && guardians)) {
+      return [];
+    }
 
     const insights = [];
 
@@ -206,7 +208,9 @@ export default function GuardianManagementPage() {
 
   // Group guardians by family (same last name or shared players)
   const getGroupedGuardians = () => {
-    if (!guardians) return [];
+    if (!guardians) {
+      return [];
+    }
 
     const familyGroups: Map<string, any[]> = new Map();
 
@@ -215,7 +219,7 @@ export default function GuardianManagementPage() {
       if (!familyGroups.has(familyKey)) {
         familyGroups.set(familyKey, []);
       }
-      familyGroups.get(familyKey)!.push(guardian);
+      familyGroups.get(familyKey)?.push(guardian);
     });
 
     // Convert to array and filter by search
@@ -223,7 +227,9 @@ export default function GuardianManagementPage() {
       .map(([lastName, members]) => ({
         familyName: lastName,
         members: members.filter((guardian: any) => {
-          if (searchQuery === "") return true;
+          if (searchQuery === "") {
+            return true;
+          }
           return (
             `${guardian.firstName} ${guardian.lastName}`
               .toLowerCase()
@@ -291,10 +297,14 @@ export default function GuardianManagementPage() {
 
     if (viewMode === "status") {
       if (statusFilter === "missing") {
-        if (!playersWithoutGuardians) return [];
+        if (!playersWithoutGuardians) {
+          return [];
+        }
         // Apply search filter to missing guardians
         return playersWithoutGuardians.filter((player: any) => {
-          if (searchQuery === "") return true;
+          if (searchQuery === "") {
+            return true;
+          }
           return player.playerName
             .toLowerCase()
             .includes(searchQuery.toLowerCase());

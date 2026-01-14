@@ -43,7 +43,7 @@ export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type TeamGender = "Male" | "Female" | "Mixed" | "Boys" | "Girls";
 
 // Parent/Guardian information
-export interface ParentGuardian {
+export type ParentGuardian = {
   id: string;
   firstName: string;
   surname: string;
@@ -51,71 +51,71 @@ export interface ParentGuardian {
   phone?: string;
   relationship?: string;
   isPrimary?: boolean;
-}
+};
 
 // Attendance tracking
-export interface Attendance {
+export type Attendance = {
   training: string;
   matches: string;
-}
+};
 
 // Review tracking
-export interface ReviewedWith {
+export type ReviewedWith = {
   coach: boolean;
   parent: boolean;
   player: boolean;
   forum: boolean;
-}
+};
 
 // Positions
-export interface Positions {
+export type Positions = {
   favourite: string;
   leastFavourite: string;
   coachesPref: string;
   dominantSide: string;
   goalkeeper: string;
-}
+};
 
 // Fitness
-export interface Fitness {
+export type Fitness = {
   pushPull: string;
   core: string;
   endurance: string;
   speed: string;
   broncoBeep: string;
-}
+};
 
 // Return to Play Step
-export interface ReturnToPlayStep {
+export type ReturnToPlayStep = {
   id: string;
   description: string;
   completed: boolean;
   completedDate?: string;
-}
+};
 
 // Goal Milestone
-export interface GoalMilestone {
+export type GoalMilestone = {
   id: string;
   description: string;
   completed: boolean;
   completedDate?: string;
-}
+};
 
 // Coach Note
-export interface CoachNote {
+export type CoachNote = {
   date: string;
   note: string;
   coachId?: string;
-}
+};
 
 // Player Note
-export interface PlayerNote {
+export type PlayerNote = {
   date: string;
   note: string;
-}
+};
 
 // Development Goal
-export interface DevelopmentGoal {
+export type DevelopmentGoal = {
   id: string;
   playerId: string;
   title: string;
@@ -132,10 +132,10 @@ export interface DevelopmentGoal {
   parentActions: string[];
   coachNotes: CoachNote[];
   playerNotes: PlayerNote[];
-}
+};
 
 // Injury
-export interface Injury {
+export type Injury = {
   id: string;
   playerId: string;
   injuryType: string;
@@ -153,10 +153,10 @@ export interface Injury {
   coachNotes: CoachNote[];
   relatedToTraining: boolean;
   relatedToMatch: boolean;
-}
+};
 
 // Medical Profile
-export interface MedicalProfile {
+export type MedicalProfile = {
   bloodType?: string;
   allergies: string[];
   medications: string[];
@@ -170,10 +170,10 @@ export interface MedicalProfile {
   lastMedicalCheck?: string;
   insuranceCovered: boolean;
   notes?: string;
-}
+};
 
 // Voice Insight
-export interface VoiceInsight {
+export type VoiceInsight = {
   id: string;
   type: InsightType;
   playerIds: string[];
@@ -185,10 +185,10 @@ export interface VoiceInsight {
   status: InsightStatus;
   appliedDate?: string;
   editedDescription?: string;
-}
+};
 
 // Voice Note
-export interface VoiceNote {
+export type VoiceNote = {
   id: string;
   teamId?: string;
   coachId?: string;
@@ -204,10 +204,10 @@ export interface VoiceNote {
   processingError?: string;
   insights: VoiceInsight[];
   createdAt?: number;
-}
+};
 
 // Player
-export interface Player {
+export type Player = {
   _id: string;
   name: string;
   ageGroup: string;
@@ -250,10 +250,10 @@ export interface Player {
   inferredParentEmail?: string;
   inferredParentPhone?: string;
   inferredFromSource?: string;
-}
+};
 
 // User (Better Auth user with custom fields)
-export interface User {
+export type User = {
   _id: string;
   name: string;
   email: string;
@@ -270,10 +270,10 @@ export interface User {
   approvedBy?: string;
   approvedAt?: number;
   rejectionReason?: string;
-}
+};
 
 // Team (Better Auth team with sports fields)
-export interface Team {
+export type Team = {
   _id: string;
   name: string;
   organizationId: string;
@@ -287,10 +287,10 @@ export interface Team {
   trainingSchedule?: string;
   homeVenue?: string;
   isActive?: boolean;
-}
+};
 
 // Team Goal
-export interface TeamGoal {
+export type TeamGoal = {
   _id: string;
   teamId: string;
   organizationId: string;
@@ -305,10 +305,10 @@ export interface TeamGoal {
   completedDate?: string;
   linkedInsightIds?: string[];
   coachNotes: CoachNote[];
-}
+};
 
 // Coach Insight Preferences
-export interface CoachInsightPreferences {
+export type CoachInsightPreferences = {
   _id: string;
   coachId: string;
   autoApproveEnabled: boolean;
@@ -324,10 +324,10 @@ export interface CoachInsightPreferences {
     count: number;
   }>;
   updatedAt: number;
-}
+};
 
 // Approval Action (Audit Trail)
-export interface ApprovalAction {
+export type ApprovalAction = {
   _id: string;
   userId: string;
   userEmail: string;
@@ -346,4 +346,4 @@ export interface ApprovalAction {
     ageGroup: string;
   }>;
   organizationId: string;
-}
+};

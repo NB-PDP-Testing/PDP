@@ -90,7 +90,9 @@ export default function EditPlayerPage() {
 
   // Helper to format date for date input (YYYY-MM-DD)
   const formatDateForInput = (dateString: string | undefined) => {
-    if (!dateString) return "";
+    if (!dateString) {
+      return "";
+    }
     try {
       const date = new Date(dateString);
       const year = date.getFullYear();
@@ -116,7 +118,7 @@ export default function EditPlayerPage() {
         adminNotes: enrollment.adminNotes || "",
       });
     }
-  }, [playerIdentity, enrollment]);
+  }, [playerIdentity, enrollment, formatDateForInput]);
 
   // Initialize selected teams
   useEffect(() => {

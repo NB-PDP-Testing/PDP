@@ -160,7 +160,9 @@ export default function DevToolsPage() {
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      return;
+    }
 
     setIsClearing(true);
     setError(null);

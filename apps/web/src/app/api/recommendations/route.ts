@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     console.log(
       "✅ API key found, calling Claude API...",
-      apiKey.substring(0, 10) + "..."
+      `${apiKey.substring(0, 10)}...`
     );
 
     // Get request body (team data)

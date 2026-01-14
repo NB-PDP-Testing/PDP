@@ -9,7 +9,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-interface Goal {
+type Goal = {
   id: string;
   type: string;
   title: string;
@@ -30,16 +30,16 @@ interface Goal {
   coachNotes?: string;
   playerNotes?: string;
   createdAt: number;
-}
+};
 
-interface PlayerData {
+type PlayerData = {
   actions?: string;
   goals?: Goal[];
-}
+};
 
-interface Props {
+type Props = {
   player: PlayerData;
-}
+};
 
 export function GoalsSection({ player }: Props) {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -64,7 +64,9 @@ export function GoalsSection({ player }: Props) {
     }
 
     // Legacy MVP format: actions field with "🎯 GOAL..."
-    if (!player.actions) return [];
+    if (!player.actions) {
+      return [];
+    }
 
     return player.actions
       .split("🎯")
@@ -80,7 +82,9 @@ export function GoalsSection({ player }: Props) {
 
         // Extract progress if available
         const progressMatch = goalContent.match(/Progress:\s*(\d+)%/);
-        const progress = progressMatch ? Number.parseInt(progressMatch[1]) : 0;
+        const progress = progressMatch
+          ? Number.parseInt(progressMatch[1], 10)
+          : 0;
 
         // Extract target date
         const targetDateMatch = goalContent.match(/Target Date:([^|]+)/);

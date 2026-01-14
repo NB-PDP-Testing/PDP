@@ -60,10 +60,18 @@ export const ResponsiveInput = React.forwardRef<
 
     // Determine input mode for mobile keyboards
     const inputMode = React.useMemo(() => {
-      if (type === "email") return "email";
-      if (type === "tel") return "tel";
-      if (type === "url") return "url";
-      if (type === "number") return "numeric";
+      if (type === "email") {
+        return "email";
+      }
+      if (type === "tel") {
+        return "tel";
+      }
+      if (type === "url") {
+        return "url";
+      }
+      if (type === "number") {
+        return "numeric";
+      }
       return;
     }, [type]);
 
@@ -265,7 +273,7 @@ ResponsiveTextarea.displayName = "ResponsiveTextarea";
 /**
  * Props for ResponsiveSelect wrapper
  */
-export interface ResponsiveSelectProps {
+export type ResponsiveSelectProps = {
   /** Field label */
   label?: string;
   /** Error message */
@@ -278,7 +286,7 @@ export interface ResponsiveSelectProps {
   children: React.ReactNode;
   /** Additional class name */
   className?: string;
-}
+};
 
 /**
  * ResponsiveSelect - Wrapper for Select component with label/error

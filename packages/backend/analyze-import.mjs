@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,7 +56,9 @@ const sampleYouth = [];
 const sampleAdult = [];
 
 for (let i = 1; i < lines.length; i++) {
-  if (!lines[i].trim()) continue;
+  if (!lines[i].trim()) {
+    continue;
+  }
 
   const cols = lines[i].split(",");
   stats.totalRecords++;
@@ -107,7 +109,7 @@ for (let i = 1; i < lines.length; i++) {
   }
 
   // Email
-  if (email && email.includes("@")) {
+  if (email?.includes("@")) {
     stats.withEmail++;
   } else {
     stats.withoutEmail++;
@@ -121,8 +123,12 @@ for (let i = 1; i < lines.length; i++) {
   }
 
   // Gender
-  if (gender === "MALE") stats.male++;
-  if (gender === "FEMALE") stats.female++;
+  if (gender === "MALE") {
+    stats.male++;
+  }
+  if (gender === "FEMALE") {
+    stats.female++;
+  }
 }
 
 console.log("📋 MEMBERSHIP BREAKDOWN:");
@@ -202,7 +208,7 @@ sampleAdult.forEach((p, i) => {
   );
 });
 
-console.log("\n" + "=".repeat(70));
+console.log(`\n${"=".repeat(70)}`);
 console.log("✅ Analysis complete!");
 console.log("\n💡 KEY FINDINGS:");
 console.log(

@@ -4,10 +4,10 @@ import Image from "next/image";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
-interface PDPLogoProps {
+type PDPLogoProps = {
   size?: "sm" | "md" | "lg" | "xl";
   className?: string;
-}
+};
 
 const sizeMap = {
   sm: 40,

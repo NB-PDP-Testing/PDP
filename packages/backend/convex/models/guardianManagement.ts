@@ -40,7 +40,9 @@ export const getGuardianRelationshipsForOrg = query({
     for (const enrollment of enrollments) {
       // Get player identity
       const player = await ctx.db.get(enrollment.playerIdentityId);
-      if (!player) continue;
+      if (!player) {
+        continue;
+      }
 
       // Get guardian links for this player
       const guardianLinks = await ctx.db
@@ -52,7 +54,9 @@ export const getGuardianRelationshipsForOrg = query({
       const guardians = [];
       for (const link of guardianLinks) {
         const guardian = await ctx.db.get(link.guardianIdentityId);
-        if (!guardian) continue;
+        if (!guardian) {
+          continue;
+        }
 
         // Check if guardian has a user account
         let userAccount = null;
@@ -153,7 +157,9 @@ export const getGuardianStatsForOrg = query({
 
       for (const link of guardianLinks) {
         const guardian = await ctx.db.get(link.guardianIdentityId);
-        if (!guardian) continue;
+        if (!guardian) {
+          continue;
+        }
 
         // Only count each unique guardian once for stats
         if (!processedGuardians.has(guardian._id)) {
@@ -213,7 +219,9 @@ export const getGuardiansForOrg = query({
 
     for (const enrollment of enrollments) {
       const player = await ctx.db.get(enrollment.playerIdentityId);
-      if (!player) continue;
+      if (!player) {
+        continue;
+      }
 
       const guardianLinks = await ctx.db
         .query("guardianPlayerLinks")
@@ -222,7 +230,9 @@ export const getGuardiansForOrg = query({
 
       for (const link of guardianLinks) {
         const guardian = await ctx.db.get(link.guardianIdentityId);
-        if (!guardian) continue;
+        if (!guardian) {
+          continue;
+        }
 
         if (!guardianMap.has(guardian._id)) {
           guardianMap.set(guardian._id, {
@@ -274,7 +284,9 @@ export const getPlayersWithoutGuardians = query({
 
     for (const enrollment of enrollments) {
       const player = await ctx.db.get(enrollment.playerIdentityId);
-      if (!player) continue;
+      if (!player) {
+        continue;
+      }
 
       const guardianLinks = await ctx.db
         .query("guardianPlayerLinks")

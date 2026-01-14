@@ -23,7 +23,9 @@ const validateEmail = (email: string): boolean => {
 };
 
 const validatePhone = (phone: string): boolean => {
-  if (!phone || phone.trim() === "") return true; // Optional field
+  if (!phone || phone.trim() === "") {
+    return true; // Optional field
+  }
 
   // Extract digits only - this is the primary validation
   const digitsOnly = phone.replace(/\D/g, "");

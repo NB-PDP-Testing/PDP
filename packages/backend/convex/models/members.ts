@@ -932,8 +932,12 @@ export const updateInvitationMetadata = mutation({
                     id: teamData._id,
                     name: teamData.name,
                   };
-                  if (teamData.sport) cleaned.sport = teamData.sport;
-                  if (teamData.ageGroup) cleaned.ageGroup = teamData.ageGroup;
+                  if (teamData.sport) {
+                    cleaned.sport = teamData.sport;
+                  }
+                  if (teamData.ageGroup) {
+                    cleaned.ageGroup = teamData.ageGroup;
+                  }
                   return cleaned;
                 }
                 return null;
@@ -943,8 +947,12 @@ export const updateInvitationMetadata = mutation({
                 id: team.id,
                 name: team.name,
               };
-              if (team.sport !== undefined) cleaned.sport = team.sport;
-              if (team.ageGroup !== undefined) cleaned.ageGroup = team.ageGroup;
+              if (team.sport !== undefined) {
+                cleaned.sport = team.sport;
+              }
+              if (team.ageGroup !== undefined) {
+                cleaned.ageGroup = team.ageGroup;
+              }
               return cleaned;
             })
           ).then((results) => results.filter(Boolean));
@@ -960,8 +968,9 @@ export const updateInvitationMetadata = mutation({
                     id: playerData._id,
                     name: `${(playerData as any).firstName} ${(playerData as any).lastName}`,
                   };
-                  if ((playerData as any).ageGroup)
+                  if ((playerData as any).ageGroup) {
                     cleaned.ageGroup = (playerData as any).ageGroup;
+                  }
                   return cleaned;
                 }
                 return null;
@@ -971,8 +980,9 @@ export const updateInvitationMetadata = mutation({
                 id: player.id,
                 name: player.name,
               };
-              if (player.ageGroup !== undefined)
+              if (player.ageGroup !== undefined) {
                 cleaned.ageGroup = player.ageGroup;
+              }
               return cleaned;
             })
           ).then((results) => results.filter(Boolean));
@@ -3101,8 +3111,12 @@ export const resendInvitation = mutation({
               id: teamData._id,
               name: teamData.name,
             };
-            if (teamData.sport) cleaned.sport = teamData.sport;
-            if (teamData.ageGroup) cleaned.ageGroup = teamData.ageGroup;
+            if (teamData.sport) {
+              cleaned.sport = teamData.sport;
+            }
+            if (teamData.ageGroup) {
+              cleaned.ageGroup = teamData.ageGroup;
+            }
             return cleaned;
           }
           return null;
@@ -3112,8 +3126,12 @@ export const resendInvitation = mutation({
           id: team.id,
           name: team.name,
         };
-        if (team.sport !== undefined) cleaned.sport = team.sport;
-        if (team.ageGroup !== undefined) cleaned.ageGroup = team.ageGroup;
+        if (team.sport !== undefined) {
+          cleaned.sport = team.sport;
+        }
+        if (team.ageGroup !== undefined) {
+          cleaned.ageGroup = team.ageGroup;
+        }
         return cleaned;
       })
     ).then((results) => results.filter(Boolean));
@@ -3129,8 +3147,9 @@ export const resendInvitation = mutation({
               id: playerData._id,
               name: `${(playerData as any).firstName} ${(playerData as any).lastName}`,
             };
-            if ((playerData as any).ageGroup)
+            if ((playerData as any).ageGroup) {
               cleaned.ageGroup = (playerData as any).ageGroup;
+            }
             return cleaned;
           }
           return null;
@@ -3140,7 +3159,9 @@ export const resendInvitation = mutation({
           id: player.id,
           name: player.name,
         };
-        if (player.ageGroup !== undefined) cleaned.ageGroup = player.ageGroup;
+        if (player.ageGroup !== undefined) {
+          cleaned.ageGroup = player.ageGroup;
+        }
         return cleaned;
       })
     ).then((results) => results.filter(Boolean));

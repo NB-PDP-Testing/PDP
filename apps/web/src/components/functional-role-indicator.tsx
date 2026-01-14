@@ -13,10 +13,10 @@ import { cn } from "@/lib/utils";
 
 export type FunctionalRole = "coach" | "parent" | "admin" | "player";
 
-interface FunctionalRoleIndicatorProps {
+type FunctionalRoleIndicatorProps = {
   functionalRoles?: FunctionalRole[];
   className?: string;
-}
+};
 
 // Exported for use in other components that display role badges
 export function getRoleIcon(role: FunctionalRole) {

@@ -19,7 +19,7 @@ import * as React from "react";
  * ```
  */
 
-export interface UseLongPressOptions {
+export type UseLongPressOptions = {
   /** Duration in ms to detect long press (default: 500ms) */
   threshold?: number;
   /** Callback when long press starts (before threshold) */
@@ -30,16 +30,16 @@ export interface UseLongPressOptions {
   preventDefault?: boolean;
   /** Disable long press detection */
   disabled?: boolean;
-}
+};
 
-export interface UseLongPressResult {
+export type UseLongPressResult = {
   onMouseDown: (e: React.MouseEvent) => void;
   onMouseUp: (e: React.MouseEvent) => void;
   onMouseLeave: (e: React.MouseEvent) => void;
   onTouchStart: (e: React.TouchEvent) => void;
   onTouchEnd: (e: React.TouchEvent) => void;
   onTouchCancel: (e: React.TouchEvent) => void;
-}
+};
 
 export function useLongPress(
   callback: () => void,
@@ -58,7 +58,7 @@ export function useLongPress(
   const startPositionRef = React.useRef<{ x: number; y: number } | null>(null);
 
   // Movement threshold to cancel long press (in pixels)
-  const MOVE_THRESHOLD = 10;
+  const _MOVE_THRESHOLD = 10;
 
   const clear = React.useCallback(() => {
     if (timerRef.current) {
@@ -69,7 +69,9 @@ export function useLongPress(
 
   const start = React.useCallback(
     (clientX: number, clientY: number) => {
-      if (disabled) return;
+      if (disabled) {
+        return;
+      }
 
       isLongPressRef.current = false;
       startPositionRef.current = { x: clientX, y: clientY };
@@ -103,7 +105,9 @@ export function useLongPress(
   // Mouse handlers
   const onMouseDown = React.useCallback(
     (e: React.MouseEvent) => {
-      if (e.button !== 0) return; // Only left click
+      if (e.button !== 0) {
+        return; // Only left click
+      }
       if (preventDefault) {
         e.preventDefault();
       }
@@ -196,7 +200,9 @@ export function useLongPressWithMove(
 
   const start = React.useCallback(
     (clientX: number, clientY: number) => {
-      if (disabled) return;
+      if (disabled) {
+        return;
+      }
 
       isLongPressRef.current = false;
       startPositionRef.current = { x: clientX, y: clientY };
@@ -228,7 +234,9 @@ export function useLongPressWithMove(
 
   const onMouseDown = React.useCallback(
     (e: React.MouseEvent) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       if (preventDefault) {
         e.preventDefault();
       }
@@ -267,10 +275,14 @@ export function useLongPressWithMove(
 
   const onTouchMove = React.useCallback(
     (e: React.TouchEvent) => {
-      if (!startPositionRef.current) return;
+      if (!startPositionRef.current) {
+        return;
+      }
 
       const touch = e.touches[0];
-      if (!touch) return;
+      if (!touch) {
+        return;
+      }
 
       const deltaX = Math.abs(touch.clientX - startPositionRef.current.x);
       const deltaY = Math.abs(touch.clientY - startPositionRef.current.y);

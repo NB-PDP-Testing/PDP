@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 
-export interface BottomNavItem {
+export type BottomNavItem = {
   /** Unique identifier */
   id: string;
   /** Icon component from lucide-react */
@@ -21,16 +21,16 @@ export interface BottomNavItem {
   isAction?: boolean;
   /** Optional badge count */
   badge?: number;
-}
+};
 
-interface BottomNavProps {
+type BottomNavProps = {
   /** Navigation items (max 5 recommended) */
   items: BottomNavItem[];
   /** Custom class name */
   className?: string;
   /** Callback when action button is clicked (for items with isAction=true) */
   onActionClick?: (item: BottomNavItem) => void;
-}
+};
 
 /**
  * Mobile bottom navigation component
@@ -52,7 +52,9 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
 
   // Determine which item is active based on pathname
   const getIsActive = (item: BottomNavItem) => {
-    if (item.href === "/") return pathname === "/";
+    if (item.href === "/") {
+      return pathname === "/";
+    }
 
     // For overview/dashboard buttons (id="overview"), only match exact pathname
     if (item.id === "overview") {
@@ -60,8 +62,10 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
     }
 
     // For all other routes, check exact match or child routes
-    if (pathname === item.href) return true;
-    return pathname.startsWith(item.href + "/");
+    if (pathname === item.href) {
+      return true;
+    }
+    return pathname.startsWith(`${item.href}/`);
   };
 
   const navContent = (
@@ -71,7 +75,6 @@ export function BottomNav({ items, className, onActionClick }: BottomNavProps) {
         "fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80 md:hidden",
         className
       )}
-      role="navigation"
     >
       <div className="safe-area-pb flex h-16 items-center justify-around px-2">
         {items.map((item) => {

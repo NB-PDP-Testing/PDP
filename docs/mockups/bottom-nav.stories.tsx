@@ -13,12 +13,12 @@ import { useState } from "react";
  * - Task completion rates improve by 60% with bottom nav
  */
 
-interface NavItem {
+type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   id: string;
   isAction?: boolean;
-}
+};
 
 const defaultItems: NavItem[] = [
   { icon: Home, label: "Home", id: "home" },

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 /**
  * Props for LazyComponent
  */
-export interface LazyComponentProps {
+export type LazyComponentProps = {
   /** Children to render when visible */
   children: React.ReactNode;
   /** Root margin for intersection observer */
@@ -20,7 +20,7 @@ export interface LazyComponentProps {
   className?: string;
   /** Whether to keep mounted after becoming visible */
   keepMounted?: boolean;
-}
+};
 
 /**
  * LazyComponent - Render children only when visible in viewport
@@ -161,14 +161,14 @@ export function LazyImage({
 /**
  * Props for DeferredRender
  */
-export interface DeferredRenderProps {
+export type DeferredRenderProps = {
   /** Children to render after delay */
   children: React.ReactNode;
   /** Delay in milliseconds */
   delay?: number;
   /** Placeholder to show during delay */
   placeholder?: React.ReactNode;
-}
+};
 
 /**
  * DeferredRender - Defer rendering to prevent blocking
@@ -183,7 +183,9 @@ export function DeferredRender({
   const [shouldRender, setShouldRender] = React.useState(delay === 0);
 
   React.useEffect(() => {
-    if (delay === 0) return;
+    if (delay === 0) {
+      return;
+    }
 
     const timeoutId = setTimeout(() => {
       setShouldRender(true);
@@ -192,20 +194,20 @@ export function DeferredRender({
     return () => clearTimeout(timeoutId);
   }, [delay]);
 
-  return shouldRender ? <>{children}</> : <>{placeholder}</>;
+  return shouldRender ? children : placeholder;
 }
 
 /**
  * Props for IdleRender
  */
-export interface IdleRenderProps {
+export type IdleRenderProps = {
   /** Children to render during idle time */
   children: React.ReactNode;
   /** Placeholder to show before idle */
   placeholder?: React.ReactNode;
   /** Timeout for requestIdleCallback */
   timeout?: number;
-}
+};
 
 /**
  * IdleRender - Render during browser idle time
@@ -237,5 +239,5 @@ export function IdleRender({
     return () => cancelCallback(handle as number);
   }, [timeout]);
 
-  return shouldRender ? <>{children}</> : <>{placeholder}</>;
+  return shouldRender ? children : placeholder;
 }

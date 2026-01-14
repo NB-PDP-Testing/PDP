@@ -10,7 +10,7 @@ const MAX_WIDTH = 400;
 const DEFAULT_WIDTH = 260;
 const COLLAPSED_WIDTH = 60;
 
-interface ResizableSidebarProps {
+type ResizableSidebarProps = {
   /** Sidebar content */
   children: React.ReactNode;
   /** Default width in pixels */
@@ -31,7 +31,7 @@ interface ResizableSidebarProps {
   onCollapsedChange?: (collapsed: boolean) => void;
   /** Container class name */
   className?: string;
-}
+};
 
 /**
  * ResizableSidebar - Desktop sidebar with drag-to-resize and collapse
@@ -65,8 +65,12 @@ export function ResizableSidebar({
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (parsed.width) setWidth(parsed.width);
-      if (parsed.collapsed !== undefined) setIsCollapsed(parsed.collapsed);
+      if (parsed.width) {
+        setWidth(parsed.width);
+      }
+      if (parsed.collapsed !== undefined) {
+        setIsCollapsed(parsed.collapsed);
+      }
     }
   }, [storageKey]);
 

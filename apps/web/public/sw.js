@@ -7,7 +7,7 @@
  * - HTML pages: Network-first with cache fallback
  */
 
-const CACHE_NAME = "playerarc-v3";
+const _CACHE_NAME = "playerarc-v3";
 const STATIC_CACHE = "playerarc-static-v3";
 const DYNAMIC_CACHE = "playerarc-dynamic-v3";
 
@@ -193,7 +193,7 @@ async function networkFirstWithOffline(request, cacheName) {
     }
 
     return response;
-  } catch (error) {
+  } catch (_error) {
     // Try cache first
     const cached = await cache.match(request);
     if (cached) {
@@ -237,7 +237,9 @@ async function fetchAndCache(request, cache) {
 
 // Handle push notifications (for future use)
 self.addEventListener("push", (event) => {
-  if (!event.data) return;
+  if (!event.data) {
+    return;
+  }
 
   const data = event.data.json();
 

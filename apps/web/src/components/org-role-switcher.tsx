@@ -4,14 +4,14 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 
 // Type for organization from better-auth
-interface Organization {
+type Organization = {
   id: string;
   name: string;
   slug: string;
   logo?: string | null;
   metadata?: Record<string, unknown> | null;
   createdAt: Date;
-}
+};
 
 import {
   Building2,
@@ -63,14 +63,14 @@ import { cn } from "@/lib/utils";
 
 type FunctionalRole = "coach" | "parent" | "admin" | "player";
 
-interface OrgRoleItem {
+type OrgRoleItem = {
   org: Organization;
   // biome-ignore lint/suspicious/noExplicitAny: Membership type is complex
   membership: any;
   roles: FunctionalRole[];
   activeRole: FunctionalRole | null;
   pendingRequests: Array<{ role: FunctionalRole; requestedAt: string }>;
-}
+};
 
 function getRoleIcon(role: FunctionalRole) {
   switch (role) {
@@ -132,9 +132,9 @@ function getRoleDashboardRoute(orgId: string, role: FunctionalRole): Route {
   }
 }
 
-interface OrgRoleSwitcherProps {
+type OrgRoleSwitcherProps = {
   className?: string;
-}
+};
 
 export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   const router = useRouter();
@@ -241,7 +241,13 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
 
     syncRoleFromURL();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlOrgId, pathname, currentMembership?.activeFunctionalRole]);
+  }, [
+    urlOrgId,
+    pathname,
+    currentMembership?.activeFunctionalRole,
+    currentMembership,
+    switchActiveRole,
+  ]);
 
   // Set default org for request dialog when it opens
   useEffect(() => {

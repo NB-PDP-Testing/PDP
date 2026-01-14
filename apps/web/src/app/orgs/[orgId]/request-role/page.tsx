@@ -124,7 +124,9 @@ export default function RequestRolePage() {
   }, [currentRoles, pendingRequests]);
 
   const handleSubmitRequest = async () => {
-    if (!selectedRole) return;
+    if (!selectedRole) {
+      return;
+    }
 
     setIsSubmitting(true);
     try {

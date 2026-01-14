@@ -55,7 +55,7 @@ import { BottomNav, type BottomNavItem, BottomNavSpacer } from "./bottom-nav";
  * ```
  */
 
-export interface AppShellProps {
+export type AppShellProps = {
   children: ReactNode;
   /** Current user role for navigation items */
   role?: "admin" | "coach" | "parent" | "player";
@@ -83,7 +83,7 @@ export interface AppShellProps {
   hideBottomNav?: boolean;
   /** Additional className for main content */
   className?: string;
-}
+};
 
 // Default navigation items by role
 const getDefaultBottomNavItems = (
@@ -349,12 +349,12 @@ export function AppShell({
 /**
  * AppShellSidebar - Standard sidebar wrapper for AppShell
  */
-export interface AppShellSidebarProps {
+export type AppShellSidebarProps = {
   children: ReactNode;
   header?: ReactNode;
   footer?: ReactNode;
   className?: string;
-}
+};
 
 export function AppShellSidebar({
   children,
@@ -374,11 +374,11 @@ export function AppShellSidebar({
 /**
  * AppShellNavGroup - Navigation group with collapsible items
  */
-export interface AppShellNavGroupProps {
+export type AppShellNavGroupProps = {
   title: string;
   children: ReactNode;
   defaultOpen?: boolean;
-}
+};
 
 export function AppShellNavGroup({
   title,
@@ -409,14 +409,14 @@ export function AppShellNavGroup({
 /**
  * AppShellNavItem - Single navigation item
  */
-export interface AppShellNavItemProps {
+export type AppShellNavItemProps = {
   icon?: ComponentType<{ className?: string }>;
   label: string;
   href: string;
   isActive?: boolean;
   badge?: string | number;
   onClick?: () => void;
-}
+};
 
 export function AppShellNavItem({
   icon: Icon,

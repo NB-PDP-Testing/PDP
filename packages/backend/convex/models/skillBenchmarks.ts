@@ -135,7 +135,7 @@ export const getBenchmarkForContext = query({
       )
       .first();
 
-    if (benchmark && benchmark.isActive) {
+    if (benchmark?.isActive) {
       return benchmark;
     }
 
@@ -153,7 +153,7 @@ export const getBenchmarkForContext = query({
         )
         .first();
 
-      if (benchmark && benchmark.isActive) {
+      if (benchmark?.isActive) {
         return benchmark;
       }
     }
@@ -269,7 +269,7 @@ export const compareRatingToBenchmark = query({
       .first();
 
     // Fallback to gender = "all"
-    if (!(benchmark && benchmark.isActive)) {
+    if (!benchmark?.isActive) {
       benchmark = await ctx.db
         .query("skillBenchmarks")
         .withIndex("by_context", (q) =>
@@ -283,7 +283,7 @@ export const compareRatingToBenchmark = query({
         .first();
     }
 
-    if (!(benchmark && benchmark.isActive)) {
+    if (!benchmark?.isActive) {
       return null;
     }
 
@@ -407,7 +407,7 @@ export const createBenchmark = mutation({
       )
       .first();
 
-    if (existing && existing.isActive) {
+    if (existing?.isActive) {
       throw new Error("Active benchmark already exists for this context");
     }
 
@@ -587,7 +587,7 @@ export const bulkImportBenchmarks = mutation({
           )
           .first();
 
-        if (existing && existing.isActive) {
+        if (existing?.isActive) {
           skipped++;
           continue;
         }

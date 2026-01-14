@@ -1083,7 +1083,7 @@ function normalizeNameForMatching(name: string): {
     return { normalized: "", firstName: "", lastName: "" };
   }
   const firstName = parts[0];
-  const lastName = parts.length > 1 ? parts[parts.length - 1] : "";
+  const lastName = parts.length > 1 ? parts.at(-1) : "";
   return {
     normalized: `${firstName} ${lastName}`.trim(),
     firstName,
@@ -1178,7 +1178,7 @@ export const getSmartMatchesForParent = query({
     if (args.children) {
       try {
         childrenData = JSON.parse(args.children);
-      } catch (e) {
+      } catch (_e) {
         console.warn(
           "[getSmartMatchesForParent] Failed to parse children JSON"
         );
@@ -1268,7 +1268,7 @@ export const getSmartMatchesForParent = query({
                   score += 20;
                   matchReasons.push(`Age confirmed: ~${playerAge} years`);
                 }
-              } catch (e) {
+              } catch (_e) {
                 // Invalid date, skip age bonus
               }
             }

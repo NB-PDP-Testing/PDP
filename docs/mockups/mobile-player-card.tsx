@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-interface Player {
+type Player = {
   id: string;
   name: string;
   avatarUrl?: string;
@@ -25,14 +25,14 @@ interface Player {
   team: string;
   position: string;
   rating: number;
-}
+};
 
-interface MobilePlayerCardProps {
+type MobilePlayerCardProps = {
   player: Player;
   orgId: string;
   onEdit?: (player: Player) => void;
   onViewStats?: (player: Player) => void;
-}
+};
 
 /**
  * Individual Player Card with Swipe Actions
@@ -92,7 +92,7 @@ export function MobilePlayerCard({
 
     return (
       <div className="flex items-center gap-0.5">
-        {[...Array(5)].map((_, i) => (
+        {[...new Array(5)].map((_, i) => (
           <Star
             className={cn(
               "h-3 w-3",
@@ -232,12 +232,12 @@ export function MobilePlayerCard({
 /**
  * Player List with Search and Pull-to-Refresh
  */
-interface MobilePlayerListProps {
+type MobilePlayerListProps = {
   players: Player[];
   orgId: string;
   isLoading?: boolean;
   onRefresh?: () => Promise<void>;
-}
+};
 
 export function MobilePlayerList({
   players,
@@ -315,7 +315,7 @@ export function MobilePlayerList({
       >
         {isLoading ? (
           // Skeleton loading state
-          [...Array(5)].map((_, i) => (
+          [...new Array(5)].map((_, i) => (
             <div
               className="flex animate-pulse items-center gap-4 rounded-lg border bg-card p-4"
               key={i}

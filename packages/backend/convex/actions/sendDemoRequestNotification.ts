@@ -21,7 +21,7 @@ export const sendNotification = internalAction({
     requestedAt: v.number(),
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     console.log("📧 Demo request notification action started", {
       name: args.name,
       email: args.email,

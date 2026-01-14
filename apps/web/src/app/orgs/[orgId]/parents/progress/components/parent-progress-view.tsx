@@ -20,9 +20,9 @@ import { Progress } from "@/components/ui/progress";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 
-interface ParentProgressViewProps {
+type ParentProgressViewProps = {
   orgId: string;
-}
+};
 
 export function ParentProgressView({ orgId }: ParentProgressViewProps) {
   const router = useRouter();
@@ -43,7 +43,9 @@ export function ParentProgressView({ orgId }: ParentProgressViewProps) {
 
   // Check if user has parent role
   const hasParentRole = useMemo(() => {
-    if (!roleDetails) return false;
+    if (!roleDetails) {
+      return false;
+    }
     return (
       roleDetails.functionalRoles.includes("parent") ||
       roleDetails.functionalRoles.includes("admin") ||
@@ -54,7 +56,9 @@ export function ParentProgressView({ orgId }: ParentProgressViewProps) {
 
   // Auto-select first child if none selected
   const selectedChild = useMemo(() => {
-    if (identityChildren.length === 0) return null;
+    if (identityChildren.length === 0) {
+      return null;
+    }
     if (!selectedChildId) {
       const firstChild = identityChildren[0];
       setSelectedChildId(firstChild.player._id);
@@ -73,7 +77,7 @@ export function ParentProgressView({ orgId }: ParentProgressViewProps) {
   );
 
   // For now, we don't query skill assessments (would require passport ID)
-  const latestSkills = null;
+  const _latestSkills = null;
 
   // Show loading state
   if (roleDetails === undefined || identityLoading) {

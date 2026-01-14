@@ -3,7 +3,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-interface ListSkeletonProps {
+type ListSkeletonProps = {
   /** Number of items to show */
   items?: number;
   /** Show icon/avatar on left */
@@ -16,7 +16,7 @@ interface ListSkeletonProps {
   variant?: "default" | "separated" | "bordered";
   /** Container class name */
   className?: string;
-}
+};
 
 /**
  * ListSkeleton - Loading placeholder for list items

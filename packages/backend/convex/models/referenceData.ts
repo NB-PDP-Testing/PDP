@@ -145,11 +145,18 @@ export const updateSport = mutation({
 
     // Update the sport itself
     const updates: Record<string, unknown> = {};
-    if (args.code !== undefined) updates.code = args.code;
-    if (args.name !== undefined) updates.name = args.name;
-    if (args.governingBody !== undefined)
+    if (args.code !== undefined) {
+      updates.code = args.code;
+    }
+    if (args.name !== undefined) {
+      updates.name = args.name;
+    }
+    if (args.governingBody !== undefined) {
       updates.governingBody = args.governingBody;
-    if (args.description !== undefined) updates.description = args.description;
+    }
+    if (args.description !== undefined) {
+      updates.description = args.description;
+    }
 
     await ctx.db.patch(args.sportId, updates);
     return null;
@@ -350,9 +357,15 @@ export const updateSkillCategory = mutation({
     }
 
     const updates: Record<string, unknown> = {};
-    if (args.name !== undefined) updates.name = args.name;
-    if (args.description !== undefined) updates.description = args.description;
-    if (args.sortOrder !== undefined) updates.sortOrder = args.sortOrder;
+    if (args.name !== undefined) {
+      updates.name = args.name;
+    }
+    if (args.description !== undefined) {
+      updates.description = args.description;
+    }
+    if (args.sortOrder !== undefined) {
+      updates.sortOrder = args.sortOrder;
+    }
 
     await ctx.db.patch(args.categoryId, updates);
     return null;
@@ -543,22 +556,36 @@ export const updateSkillDefinition = mutation({
     }
 
     const updates: Record<string, unknown> = {};
-    if (args.name !== undefined) updates.name = args.name;
-    if (args.description !== undefined) updates.description = args.description;
-    if (args.level1Descriptor !== undefined)
+    if (args.name !== undefined) {
+      updates.name = args.name;
+    }
+    if (args.description !== undefined) {
+      updates.description = args.description;
+    }
+    if (args.level1Descriptor !== undefined) {
       updates.level1Descriptor = args.level1Descriptor;
-    if (args.level2Descriptor !== undefined)
+    }
+    if (args.level2Descriptor !== undefined) {
       updates.level2Descriptor = args.level2Descriptor;
-    if (args.level3Descriptor !== undefined)
+    }
+    if (args.level3Descriptor !== undefined) {
       updates.level3Descriptor = args.level3Descriptor;
-    if (args.level4Descriptor !== undefined)
+    }
+    if (args.level4Descriptor !== undefined) {
       updates.level4Descriptor = args.level4Descriptor;
-    if (args.level5Descriptor !== undefined)
+    }
+    if (args.level5Descriptor !== undefined) {
       updates.level5Descriptor = args.level5Descriptor;
-    if (args.ageGroupRelevance !== undefined)
+    }
+    if (args.ageGroupRelevance !== undefined) {
       updates.ageGroupRelevance = args.ageGroupRelevance;
-    if (args.sortOrder !== undefined) updates.sortOrder = args.sortOrder;
-    if (args.categoryId !== undefined) updates.categoryId = args.categoryId;
+    }
+    if (args.sortOrder !== undefined) {
+      updates.sortOrder = args.sortOrder;
+    }
+    if (args.categoryId !== undefined) {
+      updates.categoryId = args.categoryId;
+    }
 
     await ctx.db.patch(args.skillId, updates);
     return null;
@@ -3506,7 +3533,9 @@ export const getAgeGroupFromDOB = query({
     ageGroups.sort((a, b) => a.sortOrder - b.sortOrder);
 
     for (const ag of ageGroups) {
-      if (ag.code === "senior") continue; // Handle senior separately
+      if (ag.code === "senior") {
+        continue; // Handle senior separately
+      }
 
       if (
         ag.minAge !== undefined &&
@@ -3577,21 +3606,37 @@ export const getBenchmarksForPlayer = query({
 
     // Determine age group code
     let ageGroupCode: string;
-    if (age < 6) ageGroupCode = "u6";
-    else if (age < 7) ageGroupCode = "u7";
-    else if (age < 8) ageGroupCode = "u8";
-    else if (age < 9) ageGroupCode = "u9";
-    else if (age < 10) ageGroupCode = "u10";
-    else if (age < 11) ageGroupCode = "u11";
-    else if (age < 12) ageGroupCode = "u12";
-    else if (age < 13) ageGroupCode = "u13";
-    else if (age < 14) ageGroupCode = "u14";
-    else if (age < 15) ageGroupCode = "u15";
-    else if (age < 16) ageGroupCode = "u16";
-    else if (age < 17) ageGroupCode = "u17";
-    else if (age < 18) ageGroupCode = "u18";
-    else if (age < 21) ageGroupCode = "u21";
-    else ageGroupCode = "senior";
+    if (age < 6) {
+      ageGroupCode = "u6";
+    } else if (age < 7) {
+      ageGroupCode = "u7";
+    } else if (age < 8) {
+      ageGroupCode = "u8";
+    } else if (age < 9) {
+      ageGroupCode = "u9";
+    } else if (age < 10) {
+      ageGroupCode = "u10";
+    } else if (age < 11) {
+      ageGroupCode = "u11";
+    } else if (age < 12) {
+      ageGroupCode = "u12";
+    } else if (age < 13) {
+      ageGroupCode = "u13";
+    } else if (age < 14) {
+      ageGroupCode = "u14";
+    } else if (age < 15) {
+      ageGroupCode = "u15";
+    } else if (age < 16) {
+      ageGroupCode = "u16";
+    } else if (age < 17) {
+      ageGroupCode = "u17";
+    } else if (age < 18) {
+      ageGroupCode = "u18";
+    } else if (age < 21) {
+      ageGroupCode = "u21";
+    } else {
+      ageGroupCode = "senior";
+    }
 
     const level = args.level ?? "recreational";
 
@@ -3760,7 +3805,7 @@ export const exportCompleteSkillsData = query({
       if (!sportsMap.has(category.sportCode)) {
         sportsMap.set(category.sportCode, []);
       }
-      sportsMap.get(category.sportCode)!.push(category);
+      sportsMap.get(category.sportCode)?.push(category);
     }
 
     // Build structured export

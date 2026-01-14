@@ -17,7 +17,7 @@ type TemplateCardProps = {
   plan: {
     _id: Id<"sessionPlans">;
     title?: string;
-    coachName: string;
+    coachName?: string;
     duration?: number;
     ageGroup?: string;
     sport?: string;
@@ -218,7 +218,7 @@ export function TemplateCard({
 
         {/* Creator & Usage */}
         <div className="mt-auto mb-3 flex items-center justify-between text-muted-foreground text-sm">
-          <span>By {plan.coachName}</span>
+          <span>By {plan.coachName || "Unknown Coach"}</span>
           {plan.timesUsed !== undefined && plan.timesUsed > 0 && (
             <span>{plan.timesUsed} uses</span>
           )}

@@ -110,7 +110,6 @@ export default function SessionPlansPage() {
           categories:
             filters.categories.length > 0 ? filters.categories : undefined,
           skills: filters.skills.length > 0 ? filters.skills : undefined,
-          favoriteOnly: filters.favoriteOnly || undefined,
           sortBy: "recent",
         }
       : "skip"

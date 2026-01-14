@@ -23,6 +23,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -183,11 +184,11 @@ export default function OrganizationsPage() {
   );
 
   // Helper function to determine navigation path based on user's highest role
-  const getOrgNavigationPath = (orgId: string): string => {
+  const getOrgNavigationPath = (orgId: string): Route => {
     const membership = userMemberships?.find((m) => m.organizationId === orgId);
 
     if (!membership) {
-      return `/orgs/${orgId}`;
+      return `/orgs/${orgId}` as Route;
     }
 
     // Priority 1: Check Better Auth hierarchical role (owner/admin)
@@ -195,24 +196,24 @@ export default function OrganizationsPage() {
       membership.betterAuthRole === "owner" ||
       membership.betterAuthRole === "admin"
     ) {
-      return `/orgs/${orgId}/admin`;
+      return `/orgs/${orgId}/admin` as Route;
     }
 
     // Priority 2: Check functional roles
     if (membership.functionalRoles.includes("admin")) {
-      return `/orgs/${orgId}/admin`;
+      return `/orgs/${orgId}/admin` as Route;
     }
 
     if (membership.functionalRoles.includes("coach")) {
-      return `/orgs/${orgId}/coach`;
+      return `/orgs/${orgId}/coach` as Route;
     }
 
     if (membership.functionalRoles.includes("parent")) {
-      return `/orgs/${orgId}/parent`;
+      return `/orgs/${orgId}/parent` as Route;
     }
 
     // Default: org dashboard
-    return `/orgs/${orgId}`;
+    return `/orgs/${orgId}` as Route;
   };
 
   const handleCancelRequest = async (requestId: Id<"orgJoinRequests">) => {

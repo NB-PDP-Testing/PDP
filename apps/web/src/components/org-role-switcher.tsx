@@ -26,9 +26,13 @@ import {
   X,
 } from "lucide-react";
 import type { Route } from "next";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+
+// Regex for extracting role from pathname (Issue #226)
+const ROLE_PATHNAME_REGEX = /\/orgs\/[^/]+\/(admin|coach|parents|player)/;
+
 import { ResponsiveDialog } from "@/components/interactions";
 import { Button } from "@/components/ui/button";
 import {
@@ -135,6 +139,7 @@ interface OrgRoleSwitcherProps {
 export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   const router = useRouter();
   const params = useParams();
+  const pathname = usePathname();
   const urlOrgId = params.orgId as string | undefined;
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -175,6 +180,68 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   const currentMembership = allMemberships?.find(
     (m) => m.organizationId === urlOrgId
   );
+
+  // Fix for Issue #226: Sync activeFunctionalRole with URL pathname
+  // When user navigates to a role page via links/back/forward/URL,
+  // automatically update the database to match the current page
+  useEffect(() => {
+    const syncRoleFromURL = async () => {
+      console.log("[Role Sync] useEffect fired", {
+        urlOrgId,
+        pathname,
+        hasCurrentMembership: !!currentMembership,
+        currentRole: currentMembership?.activeFunctionalRole,
+      });
+
+      if (!(urlOrgId && currentMembership && pathname)) {
+        return;
+      }
+
+      // Extract role from URL pathname
+      const roleMatch = pathname.match(ROLE_PATHNAME_REGEX);
+      if (!roleMatch) {
+        console.log("[Role Sync] Not on a role page");
+        return; // Not on a role page
+      }
+
+      const urlRole = (
+        roleMatch[1] === "parents" ? "parent" : roleMatch[1]
+      ) as FunctionalRole;
+      const currentRole = currentMembership.activeFunctionalRole;
+
+      console.log("[Role Sync] URL role vs Current role:", {
+        urlRole,
+        currentRole,
+        needsSync: urlRole !== currentRole,
+      });
+
+      // Only sync if there's a mismatch
+      if (urlRole !== currentRole) {
+        // Check if user has this role
+        const hasRole = currentMembership.functionalRoles?.includes(urlRole);
+
+        console.log("[Role Sync] User has role:", { urlRole, hasRole });
+
+        if (hasRole) {
+          console.log(
+            `[Role Sync] Syncing role from URL: ${urlRole} (was: ${currentRole})`
+          );
+          try {
+            await switchActiveRole({
+              organizationId: urlOrgId,
+              functionalRole: urlRole,
+            });
+            console.log("[Role Sync] ✅ Successfully synced role");
+          } catch (error) {
+            console.error("[Role Sync] ❌ Failed to sync role:", error);
+          }
+        }
+      }
+    };
+
+    syncRoleFromURL();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlOrgId, pathname, currentMembership?.activeFunctionalRole]);
 
   // Set default org for request dialog when it opens
   useEffect(() => {
@@ -319,19 +386,28 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   }
 
   // Build org-role structure for display
-  const orgRoleStructure = organizations.map((org: Organization) => {
-    const membership = allMemberships?.find((m) => m.organizationId === org.id);
-    return {
-      org,
-      membership,
-      roles: (membership?.functionalRoles || []) as FunctionalRole[],
-      activeRole: membership?.activeFunctionalRole || null,
-      pendingRequests: (membership?.pendingRoleRequests || []) as Array<{
-        role: FunctionalRole;
-        requestedAt: string;
-      }>,
-    };
-  });
+  // Fix for Issue #224: Filter out organizations with no roles
+  // Only show orgs where user has at least one role OR pending role request
+  const orgRoleStructure = organizations
+    .map((org: Organization) => {
+      const membership = allMemberships?.find(
+        (m) => m.organizationId === org.id
+      );
+      return {
+        org,
+        membership,
+        roles: (membership?.functionalRoles || []) as FunctionalRole[],
+        activeRole: membership?.activeFunctionalRole || null,
+        pendingRequests: (membership?.pendingRoleRequests || []) as Array<{
+          role: FunctionalRole;
+          requestedAt: string;
+        }>,
+      };
+    })
+    .filter(
+      ({ roles, pendingRequests }) =>
+        roles.length > 0 || pendingRequests.length > 0
+    );
 
   const triggerButton = (
     <Button

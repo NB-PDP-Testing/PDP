@@ -1,10 +1,19 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
-import { FileText, Loader2, Plus } from "lucide-react";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+import { useMutation, useQuery } from "convex/react";
+import {
+  FileText,
+  Grid3x3,
+  List,
+  Loader2,
+  Plus,
+  TrendingUp,
+} from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,6 +24,12 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
+import {
+  type AvailableFilters,
+  FilterSidebar,
+  type FilterState,
+} from "./filter-sidebar";
+import { TemplateCard } from "./template-card";
 
 type ExtendedUser = {
   isPlatformStaff?: boolean;
@@ -25,21 +40,11 @@ type ExtendedUser = {
 
 export default function SessionPlansPage() {
   const params = useParams();
+  const router = useRouter();
   const orgId = params.orgId as string;
 
   const { data: session } = authClient.useSession();
   const userId = session?.user?.id;
-
-  // Fetch coach's private plans
-  const myPlans = useQuery(
-    api.models.sessionPlans.listForCoach,
-    userId ? { organizationId: orgId, coachId: userId } : "skip"
-  );
-
-  // Fetch club library
-  const clubLibrary = useQuery(api.models.sessionPlans.listClubLibrary, {
-    organizationId: orgId,
-  });
 
   // Check if user is admin
   const user = session?.user as ExtendedUser | undefined;
@@ -48,13 +53,200 @@ export default function SessionPlansPage() {
   const isOrgAdmin = activeOrg?.role === "admin" || activeOrg?.role === "owner";
   const isAdmin = isPlatformStaff || isOrgAdmin;
 
+  // Filter state
+  const [filters, setFilters] = useState<FilterState>({
+    search: "",
+    ageGroups: [],
+    sports: [],
+    intensities: [],
+    skills: [],
+    categories: [],
+    favoriteOnly: false,
+    templateOnly: false,
+  });
+
+  // View mode (gallery or list)
+  const [viewMode, setViewMode] = useState<"gallery" | "list">("gallery");
+
+  // Active tab
+  const [activeTab, setActiveTab] = useState<
+    "my-plans" | "club-library" | "admin"
+  >("my-plans");
+
+  // Fetch filtered plans for "My Plans" tab
+  const myPlans = useQuery(
+    api.models.sessionPlans.getFilteredPlans,
+    userId && activeTab === "my-plans"
+      ? {
+          organizationId: orgId,
+          search: filters.search || undefined,
+          ageGroups:
+            filters.ageGroups.length > 0 ? filters.ageGroups : undefined,
+          sports: filters.sports.length > 0 ? filters.sports : undefined,
+          intensities:
+            filters.intensities.length > 0 ? filters.intensities : undefined,
+          categories:
+            filters.categories.length > 0 ? filters.categories : undefined,
+          skills: filters.skills.length > 0 ? filters.skills : undefined,
+          favoriteOnly: filters.favoriteOnly || undefined,
+          templateOnly: filters.templateOnly || undefined,
+        }
+      : "skip"
+  );
+
+  // Fetch club library with filters
+  const clubLibrary = useQuery(
+    api.models.sessionPlans.getClubLibrary,
+    activeTab === "club-library"
+      ? {
+          organizationId: orgId,
+          search: filters.search || undefined,
+          ageGroups:
+            filters.ageGroups.length > 0 ? filters.ageGroups : undefined,
+          sports: filters.sports.length > 0 ? filters.sports : undefined,
+          intensities:
+            filters.intensities.length > 0 ? filters.intensities : undefined,
+          categories:
+            filters.categories.length > 0 ? filters.categories : undefined,
+          skills: filters.skills.length > 0 ? filters.skills : undefined,
+          favoriteOnly: filters.favoriteOnly || undefined,
+          sortBy: "recent",
+        }
+      : "skip"
+  );
+
   // Fetch admin plans if admin
   const adminPlans = useQuery(
     api.models.sessionPlans.listForAdmin,
-    isAdmin ? { organizationId: orgId } : "skip"
+    isAdmin && activeTab === "admin" ? { organizationId: orgId } : "skip"
   );
 
-  if (myPlans === undefined || clubLibrary === undefined) {
+  // Fetch all plans for filter aggregation
+  const allMyPlans = useQuery(
+    api.models.sessionPlans.listForCoach,
+    userId && activeTab === "my-plans"
+      ? { organizationId: orgId, coachId: userId }
+      : "skip"
+  );
+
+  const allClubPlans = useQuery(
+    api.models.sessionPlans.listClubLibrary,
+    activeTab === "club-library" ? { organizationId: orgId } : "skip"
+  );
+
+  // Fetch stats
+  const stats = useQuery(
+    api.models.sessionPlans.getStats,
+    userId ? { organizationId: orgId, coachId: userId } : "skip"
+  );
+
+  // Mutations
+  const toggleFavorite = useMutation(api.models.sessionPlans.toggleFavorite);
+  const incrementTimesUsed = useMutation(
+    api.models.sessionPlans.incrementTimesUsed
+  );
+  const duplicatePlan = useMutation(api.models.sessionPlans.duplicatePlan);
+
+  // Calculate available filters from all plans
+  const availableFilters: AvailableFilters = useMemo(() => {
+    const plans =
+      activeTab === "my-plans"
+        ? allMyPlans
+        : activeTab === "club-library"
+          ? allClubPlans
+          : [];
+
+    if (!plans) {
+      return {
+        ageGroups: [],
+        sports: [],
+        categories: [],
+        skills: [],
+      };
+    }
+
+    const ageGroupsMap = new Map<string, number>();
+    const sportsMap = new Map<string, number>();
+    const categoriesMap = new Map<string, number>();
+    const skillsMap = new Map<string, number>();
+
+    for (const plan of plans) {
+      if (plan.ageGroup) {
+        ageGroupsMap.set(
+          plan.ageGroup,
+          (ageGroupsMap.get(plan.ageGroup) || 0) + 1
+        );
+      }
+      if (plan.sport) {
+        sportsMap.set(plan.sport, (sportsMap.get(plan.sport) || 0) + 1);
+      }
+      if (plan.extractedTags?.categories) {
+        for (const category of plan.extractedTags.categories) {
+          categoriesMap.set(category, (categoriesMap.get(category) || 0) + 1);
+        }
+      }
+      if (plan.extractedTags?.skills) {
+        for (const skill of plan.extractedTags.skills) {
+          skillsMap.set(skill, (skillsMap.get(skill) || 0) + 1);
+        }
+      }
+    }
+
+    return {
+      ageGroups: Array.from(ageGroupsMap.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count),
+      sports: Array.from(sportsMap.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count),
+      categories: Array.from(categoriesMap.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count),
+      skills: Array.from(skillsMap.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count),
+    };
+  }, [allMyPlans, allClubPlans, activeTab]);
+
+  // Handlers
+  const handlePreview = (planId: Id<"sessionPlans">) => {
+    router.push(`/orgs/${orgId}/coach/session-plans/${planId}`);
+  };
+
+  const handleUseTemplate = async (planId: Id<"sessionPlans">) => {
+    try {
+      // Increment usage counter
+      await incrementTimesUsed({ planId });
+
+      // Duplicate the plan
+      const newPlanId = await duplicatePlan({ planId });
+
+      // Navigate to the new plan
+      router.push(`/orgs/${orgId}/coach/session-plans/${newPlanId}`);
+    } catch (error) {
+      console.error("Failed to use template:", error);
+    }
+  };
+
+  const handleToggleFavorite = async (planId: Id<"sessionPlans">) => {
+    try {
+      await toggleFavorite({ planId });
+    } catch (error) {
+      console.error("Failed to toggle favorite:", error);
+    }
+  };
+
+  // Get current plans based on active tab
+  const currentPlans =
+    activeTab === "my-plans"
+      ? myPlans
+      : activeTab === "club-library"
+        ? clubLibrary
+        : adminPlans;
+
+  const isLoading = currentPlans === undefined;
+
+  if (isLoading && activeTab !== "admin") {
     return (
       <div className="flex h-96 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -63,181 +255,322 @@ export default function SessionPlansPage() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="font-bold text-3xl">Session Plans</h1>
-          <p className="text-muted-foreground">
-            AI-powered training session plans for your teams
-          </p>
+    <div className="flex h-[calc(100vh-4rem)]">
+      {/* Filter Sidebar */}
+      <FilterSidebar
+        availableFilters={availableFilters}
+        filters={filters}
+        onFilterChange={setFilters}
+      />
+
+      {/* Main Content */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Header */}
+        <div className="border-b bg-background p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h1 className="font-bold text-3xl">Session Plans</h1>
+              <p className="text-muted-foreground">
+                AI-powered training session plans for your teams
+              </p>
+            </div>
+            <Link href={`/orgs/${orgId}/coach/session-plans/new`}>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Generate New Plan
+              </Button>
+            </Link>
+          </div>
+
+          {/* Stats Bar */}
+          {stats && activeTab === "my-plans" && (
+            <div className="grid grid-cols-4 gap-4">
+              <div className="rounded-lg border bg-card p-4">
+                <div className="text-muted-foreground text-sm">Total Plans</div>
+                <div className="mt-1 font-bold text-2xl">
+                  {stats.totalPlans}
+                </div>
+              </div>
+              <div className="rounded-lg border bg-card p-4">
+                <div className="text-muted-foreground text-sm">Used Plans</div>
+                <div className="mt-1 font-bold text-2xl">{stats.usedPlans}</div>
+              </div>
+              <div className="rounded-lg border bg-card p-4">
+                <div className="text-muted-foreground text-sm">
+                  Success Rate
+                </div>
+                <div className="mt-1 font-bold text-2xl">
+                  {stats.avgSuccessRate?.toFixed(0) ?? 0}%
+                </div>
+              </div>
+              <div className="rounded-lg border bg-card p-4">
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <TrendingUp className="h-4 w-4" />
+                  This Month
+                </div>
+                <div className="mt-1 font-bold text-2xl">
+                  {stats.recentPlans}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-        <Link href={`/orgs/${orgId}/coach/session-plans/new`}>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Generate New Plan
-          </Button>
-        </Link>
+
+        {/* Tabs */}
+        <Tabs
+          className="flex flex-1 flex-col overflow-hidden"
+          onValueChange={(value) =>
+            setActiveTab(value as "my-plans" | "club-library" | "admin")
+          }
+          value={activeTab}
+        >
+          <div className="flex items-center justify-between border-b px-6">
+            <TabsList>
+              <TabsTrigger value="my-plans">My Plans</TabsTrigger>
+              <TabsTrigger value="club-library">Club Library</TabsTrigger>
+              {isAdmin && <TabsTrigger value="admin">Admin</TabsTrigger>}
+            </TabsList>
+
+            {/* View Mode Toggle */}
+            {activeTab !== "admin" && (
+              <div className="flex gap-1">
+                <Button
+                  onClick={() => setViewMode("gallery")}
+                  size="sm"
+                  variant={viewMode === "gallery" ? "default" : "outline"}
+                >
+                  <Grid3x3 className="h-4 w-4" />
+                </Button>
+                <Button
+                  onClick={() => setViewMode("list")}
+                  size="sm"
+                  variant={viewMode === "list" ? "default" : "outline"}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Tab Content */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <TabsContent className="mt-0" value="my-plans">
+              {isLoading ? (
+                <div className="flex h-96 items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : !myPlans || myPlans.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center p-12">
+                    <FileText className="mb-4 h-16 w-16 text-muted-foreground" />
+                    <h3 className="mb-2 font-semibold text-lg">
+                      No session plans found
+                    </h3>
+                    <p className="mb-4 text-center text-muted-foreground">
+                      {filters.search ||
+                      filters.ageGroups.length > 0 ||
+                      filters.sports.length > 0 ||
+                      filters.favoriteOnly
+                        ? "Try adjusting your filters"
+                        : "Create your first AI-powered session plan to get started"}
+                    </p>
+                    {!filters.search &&
+                      filters.ageGroups.length === 0 &&
+                      filters.sports.length === 0 && (
+                        <Link href={`/orgs/${orgId}/coach/session-plans/new`}>
+                          <Button>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Generate Session Plan
+                          </Button>
+                        </Link>
+                      )}
+                  </CardContent>
+                </Card>
+              ) : viewMode === "gallery" ? (
+                <>
+                  <div className="mb-4 text-muted-foreground text-sm">
+                    {myPlans.length} plan{myPlans.length !== 1 ? "s" : ""} found
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {myPlans.map((plan) => (
+                      <TemplateCard
+                        key={plan._id}
+                        onPreview={handlePreview}
+                        onToggleFavorite={handleToggleFavorite}
+                        onUseTemplate={handleUseTemplate}
+                        plan={plan}
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mb-4 text-muted-foreground text-sm">
+                    {myPlans.length} plan{myPlans.length !== 1 ? "s" : ""} found
+                  </div>
+                  <div className="space-y-2">
+                    {myPlans.map((plan) => (
+                      <Link
+                        href={`/orgs/${orgId}/coach/session-plans/${plan._id}`}
+                        key={plan._id}
+                      >
+                        <Card className="cursor-pointer transition-shadow hover:shadow-md">
+                          <CardHeader className="py-4">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <CardTitle className="line-clamp-1 text-base">
+                                  {plan.title || "Untitled Session Plan"}
+                                </CardTitle>
+                                <CardDescription className="mt-1">
+                                  {plan.ageGroup && `${plan.ageGroup} • `}
+                                  {plan.sport && `${plan.sport} • `}
+                                  {plan.duration} min
+                                  {plan.focusArea && ` • ${plan.focusArea}`}
+                                </CardDescription>
+                              </div>
+                              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                                {plan.favorited && (
+                                  <span className="text-red-500">❤</span>
+                                )}
+                                {plan.timesUsed !== undefined &&
+                                  plan.timesUsed > 0 && (
+                                    <span>{plan.timesUsed} uses</span>
+                                  )}
+                              </div>
+                            </div>
+                          </CardHeader>
+                        </Card>
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent className="mt-0" value="club-library">
+              {isLoading ? (
+                <div className="flex h-96 items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : !clubLibrary || clubLibrary.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center p-12">
+                    <FileText className="mb-4 h-16 w-16 text-muted-foreground" />
+                    <h3 className="mb-2 font-semibold text-lg">
+                      No plans in club library
+                    </h3>
+                    <p className="text-center text-muted-foreground">
+                      {filters.search ||
+                      filters.ageGroups.length > 0 ||
+                      filters.sports.length > 0
+                        ? "Try adjusting your filters"
+                        : "Share your plans to make them available to other coaches"}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : viewMode === "gallery" ? (
+                <>
+                  <div className="mb-4 text-muted-foreground text-sm">
+                    {clubLibrary.length} plan
+                    {clubLibrary.length !== 1 ? "s" : ""} found
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {clubLibrary.map((plan) => (
+                      <TemplateCard
+                        key={plan._id}
+                        onPreview={handlePreview}
+                        onToggleFavorite={handleToggleFavorite}
+                        onUseTemplate={handleUseTemplate}
+                        plan={plan}
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mb-4 text-muted-foreground text-sm">
+                    {clubLibrary.length} plan
+                    {clubLibrary.length !== 1 ? "s" : ""} found
+                  </div>
+                  <div className="space-y-2">
+                    {clubLibrary.map((plan) => (
+                      <Card
+                        className="cursor-pointer transition-shadow hover:shadow-md"
+                        key={plan._id}
+                        onClick={() => handlePreview(plan._id)}
+                      >
+                        <CardHeader className="py-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <CardTitle className="line-clamp-1 text-base">
+                                {plan.title || "Untitled Session Plan"}
+                              </CardTitle>
+                              <CardDescription className="mt-1">
+                                {plan.ageGroup && `${plan.ageGroup} • `}
+                                {plan.sport && `${plan.sport} • `}
+                                {plan.duration} min • By {plan.coachName}
+                              </CardDescription>
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                              {plan.pinnedByAdmin && <span>📌</span>}
+                              {plan.timesUsed !== undefined &&
+                                plan.timesUsed > 0 && (
+                                  <span>{plan.timesUsed} uses</span>
+                                )}
+                            </div>
+                          </div>
+                        </CardHeader>
+                      </Card>
+                    ))}
+                  </div>
+                </>
+              )}
+            </TabsContent>
+
+            {isAdmin && (
+              <TabsContent className="mt-0" value="admin">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {(adminPlans || []).map((plan) => (
+                    <Link
+                      href={`/orgs/${orgId}/coach/session-plans/${plan._id}`}
+                      key={plan._id}
+                    >
+                      <Card className="cursor-pointer transition-shadow hover:shadow-lg">
+                        <CardHeader>
+                          <CardTitle className="line-clamp-1">
+                            {plan.title}
+                          </CardTitle>
+                          <CardDescription>
+                            {plan.teamName} • {plan.coachName}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center justify-between text-sm">
+                            <span
+                              className={`${
+                                plan.visibility === "club"
+                                  ? "text-blue-600"
+                                  : plan.visibility === "private"
+                                    ? "text-gray-600"
+                                    : "text-purple-600"
+                              }`}
+                            >
+                              {plan.visibility}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {plan.status}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </TabsContent>
+            )}
+          </div>
+        </Tabs>
       </div>
-
-      <Tabs className="w-full" defaultValue="my-plans">
-        <TabsList>
-          <TabsTrigger value="my-plans">My Plans</TabsTrigger>
-          <TabsTrigger value="club-library">Club Library</TabsTrigger>
-          {isAdmin && <TabsTrigger value="admin">Admin</TabsTrigger>}
-        </TabsList>
-
-        <TabsContent className="mt-6" value="my-plans">
-          {myPlans.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center p-12">
-                <FileText className="mb-4 h-16 w-16 text-muted-foreground" />
-                <h3 className="mb-2 font-semibold text-lg">
-                  No session plans yet
-                </h3>
-                <p className="mb-4 text-center text-muted-foreground">
-                  Create your first AI-powered session plan to get started
-                </p>
-                <Link href={`/orgs/${orgId}/coach/session-plans/new`}>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Generate Session Plan
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {myPlans.map((plan) => (
-                <Link
-                  href={`/orgs/${orgId}/coach/session-plans/${plan._id}`}
-                  key={plan._id}
-                >
-                  <Card className="cursor-pointer transition-shadow hover:shadow-lg">
-                    <CardHeader>
-                      <CardTitle className="line-clamp-1">
-                        {plan.title}
-                      </CardTitle>
-                      <CardDescription>
-                        {plan.teamName} • {plan.duration} min
-                        {plan.focusArea && ` • ${plan.focusArea}`}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between text-muted-foreground text-sm">
-                        <span>
-                          {plan.status === "draft" ? "Generating..." : "Ready"}
-                        </span>
-                        <span>
-                          {new Date(plan.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      {plan.usedInSession && (
-                        <div className="mt-2 text-green-600 text-xs">
-                          ✓ Used in session
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent className="mt-6" value="club-library">
-          {clubLibrary.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center p-12">
-                <FileText className="mb-4 h-16 w-16 text-muted-foreground" />
-                <h3 className="mb-2 font-semibold text-lg">
-                  No plans in club library
-                </h3>
-                <p className="text-center text-muted-foreground">
-                  Share your plans to make them available to other coaches
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {clubLibrary.map((plan) => (
-                <Link
-                  href={`/orgs/${orgId}/coach/session-plans/${plan._id}`}
-                  key={plan._id}
-                >
-                  <Card className="cursor-pointer transition-shadow hover:shadow-lg">
-                    <CardHeader>
-                      <CardTitle className="line-clamp-1">
-                        {plan.title}
-                      </CardTitle>
-                      <CardDescription>
-                        {plan.teamName} • {plan.duration} min
-                        {plan.focusArea && ` • ${plan.focusArea}`}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between text-muted-foreground text-sm">
-                        <span>By {plan.sharedBy || plan.coachName}</span>
-                        <span>
-                          {new Date(
-                            plan.sharedAt || plan.createdAt
-                          ).toLocaleDateString()}
-                        </span>
-                      </div>
-                      {plan.pinnedByAdmin && (
-                        <div className="mt-2 text-blue-600 text-xs">
-                          📌 Featured
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {isAdmin && (
-          <TabsContent className="mt-6" value="admin">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {(adminPlans || []).map((plan) => (
-                <Link
-                  href={`/orgs/${orgId}/coach/session-plans/${plan._id}`}
-                  key={plan._id}
-                >
-                  <Card className="cursor-pointer transition-shadow hover:shadow-lg">
-                    <CardHeader>
-                      <CardTitle className="line-clamp-1">
-                        {plan.title}
-                      </CardTitle>
-                      <CardDescription>
-                        {plan.teamName} • {plan.coachName}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center justify-between text-sm">
-                        <span
-                          className={`${
-                            plan.visibility === "club"
-                              ? "text-blue-600"
-                              : plan.visibility === "private"
-                                ? "text-gray-600"
-                                : "text-purple-600"
-                          }`}
-                        >
-                          {plan.visibility}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {plan.status}
-                        </span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          </TabsContent>
-        )}
-      </Tabs>
     </div>
   );
 }

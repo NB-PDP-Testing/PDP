@@ -658,7 +658,7 @@ export function SmartCoachDashboard({
                 ? `${ageHours} hour${ageHours > 1 ? "s" : ""}`
                 : `${ageMinutes} minute${ageMinutes > 1 ? "s" : ""}`;
 
-            setSessionPlan(cachedPlan.sessionPlan);
+            setSessionPlan(cachedPlan.sessionPlan || "");
             setCurrentPlanId(cachedPlan._id);
             setShowCachedBadge(true);
             setCachedPlanAge(ageStr);

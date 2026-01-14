@@ -10,6 +10,7 @@
 
 import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
+import type * as actions_sessionPlans from "../actions/sessionPlans.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
@@ -96,6 +97,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "actions/invitations": typeof actions_invitations;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
+  "actions/sessionPlans": typeof actions_sessionPlans;
   "actions/voiceNotes": typeof actions_voiceNotes;
   auth: typeof auth;
   crons: typeof crons;

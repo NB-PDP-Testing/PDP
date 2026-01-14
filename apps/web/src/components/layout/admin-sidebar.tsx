@@ -5,6 +5,7 @@ import {
   BarChart3,
   ChevronDown,
   Clipboard,
+  ClipboardList,
   GraduationCap,
   Home,
   Key,
@@ -34,21 +35,21 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-interface NavItem {
+type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-}
+};
 
-interface NavGroup {
+type NavGroup = {
   label: string;
   icon: LucideIcon;
   items: NavItem[];
-}
+};
 
 /**
  * Generate admin navigation structure for an organization
- * Groups 16 items into logical categories for better UX
+ * Groups items into logical categories for better UX
  */
 export function getAdminNavGroups(orgId: string): NavGroup[] {
   return [
@@ -105,6 +106,17 @@ export function getAdminNavGroups(orgId: string): NavGroup[] {
       ],
     },
     {
+      label: "Content & Training",
+      icon: Clipboard,
+      items: [
+        {
+          href: `/orgs/${orgId}/admin/session-plans`,
+          label: "Session Plans",
+          icon: ClipboardList,
+        },
+      ],
+    },
+    {
       label: "Data & Import",
       icon: BarChart3,
       items: [
@@ -154,13 +166,13 @@ export function getAdminNavGroups(orgId: string): NavGroup[] {
   ];
 }
 
-interface AdminSidebarProps {
+type AdminSidebarProps = {
   orgId: string;
   /** Primary color for active states */
   primaryColor?: string;
   /** When true, removes fixed width (for use inside ResizableSidebar) */
   isResizable?: boolean;
-}
+};
 
 /**
  * Grouped sidebar navigation for admin panel (desktop)
@@ -195,8 +207,10 @@ export function AdminSidebar({
 
   const isActive = (href: string) => {
     const adminBase = `/orgs/${orgId}/admin`;
-    if (href === adminBase) return pathname === adminBase;
-    return pathname === href || pathname.startsWith(href + "/");
+    if (href === adminBase) {
+      return pathname === adminBase;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
@@ -250,6 +264,7 @@ export function AdminSidebar({
                     hasActiveItem && "text-primary"
                   )}
                   onClick={() => toggleGroup(group.label)}
+                  type="button"
                 >
                   <div className="flex items-center gap-2">
                     <GroupIcon className="h-4 w-4" />
@@ -303,11 +318,11 @@ export function AdminSidebar({
   );
 }
 
-interface AdminMobileNavProps {
+type AdminMobileNavProps = {
   orgId: string;
   primaryColor?: string;
   trigger?: React.ReactNode;
-}
+};
 
 /**
  * Mobile navigation drawer for admin panel
@@ -340,8 +355,10 @@ export function AdminMobileNav({
 
   const isActive = (href: string) => {
     const adminBase = `/orgs/${orgId}/admin`;
-    if (href === adminBase) return pathname === adminBase;
-    return pathname === href || pathname.startsWith(href + "/");
+    if (href === adminBase) {
+      return pathname === adminBase;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
@@ -408,6 +425,7 @@ export function AdminMobileNav({
                       hasActiveItem && "text-primary"
                     )}
                     onClick={() => toggleGroup(group.label)}
+                    type="button"
                   >
                     <div className="flex items-center gap-3">
                       <GroupIcon className="h-5 w-5" />

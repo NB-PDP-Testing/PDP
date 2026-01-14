@@ -797,14 +797,9 @@ export default function OrganizationsPage() {
                                         )}
                                       </div>
                                       <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-1.5">
-                                          {isMember && (
-                                            <Check className="h-4 w-4 shrink-0 text-green-600" />
-                                          )}
-                                          <span className="truncate font-medium text-sm">
-                                            {org.name}
-                                          </span>
-                                        </div>
+                                        <span className="truncate font-medium text-sm">
+                                          {org.name}
+                                        </span>
                                         {isMember && (
                                           <Badge
                                             className="mt-0.5 border-green-300 bg-green-100 text-green-700 text-xs"
@@ -896,7 +891,7 @@ export default function OrganizationsPage() {
                       {/* Table Legend */}
                       <div className="flex items-center gap-2 rounded-md border border-green-200 bg-green-50/30 px-3 py-2">
                         <div className="flex items-center gap-2">
-                          <Check className="h-3.5 w-3.5 text-green-600" />
+                          <div className="h-3 w-3 rounded bg-green-200" />
                           <span className="text-muted-foreground text-xs">
                             Green highlight indicates organisations you're a
                             member of

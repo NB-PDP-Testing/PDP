@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -418,15 +419,30 @@ export default function SessionPlansPage() {
                           <CardHeader className="py-4">
                             <div className="flex items-center justify-between">
                               <div className="flex-1">
-                                <CardTitle className="line-clamp-1 text-base">
-                                  {plan.title || "Untitled Session Plan"}
-                                </CardTitle>
+                                <div className="mb-1 flex items-center gap-2">
+                                  <CardTitle className="line-clamp-1 text-base">
+                                    {plan.title || "Untitled Session Plan"}
+                                  </CardTitle>
+                                  {plan.moderatedBy && (
+                                    <Badge
+                                      className="bg-red-100 text-red-800"
+                                      variant="secondary"
+                                    >
+                                      REJECTED
+                                    </Badge>
+                                  )}
+                                </div>
                                 <CardDescription className="mt-1">
                                   {plan.ageGroup && `${plan.ageGroup} • `}
                                   {plan.sport && `${plan.sport} • `}
                                   {plan.duration} min
                                   {plan.focusArea && ` • ${plan.focusArea}`}
                                 </CardDescription>
+                                {plan.moderatedBy && plan.moderationNote && (
+                                  <div className="mt-2 text-red-600 text-xs">
+                                    Reason: {plan.moderationNote}
+                                  </div>
+                                )}
                               </div>
                               <div className="flex items-center gap-2 text-muted-foreground text-sm">
                                 {plan.favorited && (

@@ -132,6 +132,9 @@ export default function OrganizationsPage() {
   const cancelRequest = useMutation(
     api.models.orgJoinRequests.cancelJoinRequest
   );
+  const createJoinRequest = useMutation(
+    api.models.orgJoinRequests.createJoinRequest
+  );
 
   // Filter requests by status
   const pendingRequests = allJoinRequests?.filter(
@@ -223,6 +226,20 @@ export default function OrganizationsPage() {
     } catch (error) {
       console.error("Error cancelling request:", error);
       toast.error("Failed to cancel request");
+    }
+  };
+
+  const handleRequestAccess = async (organizationId: string) => {
+    try {
+      await createJoinRequest({
+        organizationId,
+        requestedRole: "member",
+        message: "Platform staff requesting access",
+      });
+      toast.success("Access request sent successfully");
+    } catch (error: any) {
+      console.error("Error creating join request:", error);
+      toast.error(error.message || "Failed to send access request");
     }
   };
 
@@ -787,35 +804,52 @@ export default function OrganizationsPage() {
                                   </Badge>
                                 )}
                               </div>
-                              {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
-                              {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
-                              {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
-                              <div
-                                className="flex gap-2"
-                                onClick={(e) => e.stopPropagation()}
-                              >
+                              {isMember ? (
+                                <>
+                                  {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                                  {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                                  {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                                  <div
+                                    className="flex gap-2"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Button
+                                      asChild
+                                      className="flex-1"
+                                      size="sm"
+                                      variant="outline"
+                                    >
+                                      <Link href={`/orgs/${org._id}/admin`}>
+                                        <Settings className="mr-1 h-3 w-3" />
+                                        Admin
+                                      </Link>
+                                    </Button>
+                                    <Button
+                                      asChild
+                                      className="flex-1"
+                                      size="sm"
+                                      variant="outline"
+                                    >
+                                      <Link href={`/orgs/${org._id}/coach`}>
+                                        Coach
+                                      </Link>
+                                    </Button>
+                                  </div>
+                                </>
+                              ) : (
                                 <Button
-                                  asChild
-                                  className="flex-1"
+                                  className="w-full"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRequestAccess(org._id);
+                                  }}
                                   size="sm"
-                                  variant="outline"
+                                  variant="default"
                                 >
-                                  <Link href={`/orgs/${org._id}/admin`}>
-                                    <Settings className="mr-1 h-3 w-3" />
-                                    Admin
-                                  </Link>
+                                  <Plus className="mr-1 h-3 w-3" />
+                                  Request Access
                                 </Button>
-                                <Button
-                                  asChild
-                                  className="flex-1"
-                                  size="sm"
-                                  variant="outline"
-                                >
-                                  <Link href={`/orgs/${org._id}/coach`}>
-                                    Coach
-                                  </Link>
-                                </Button>
-                              </div>
+                              )}
                               <p className="mt-2 text-muted-foreground text-xs">
                                 Created{" "}
                                 {new Date(org.createdAt).toLocaleDateString()}
@@ -922,64 +956,89 @@ export default function OrganizationsPage() {
                                     </span>
                                   </TableCell>
                                   <TableCell className="text-right">
-                                    {/* Desktop: side-by-side buttons */}
-                                    {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
-                                    {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
-                                    {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
-                                    <div
-                                      className="hidden justify-end gap-2 sm:flex"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
+                                    {isMember ? (
+                                      <>
+                                        {/* Desktop: side-by-side buttons */}
+                                        {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                                        {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                                        {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                                        <div
+                                          className="hidden justify-end gap-2 sm:flex"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <Button
+                                            asChild
+                                            size="sm"
+                                            variant="outline"
+                                          >
+                                            <Link
+                                              href={`/orgs/${org._id}/coach`}
+                                            >
+                                              Coach
+                                            </Link>
+                                          </Button>
+                                          <Button
+                                            asChild
+                                            size="sm"
+                                            variant="outline"
+                                          >
+                                            <Link
+                                              href={`/orgs/${org._id}/admin`}
+                                            >
+                                              Admin
+                                            </Link>
+                                          </Button>
+                                        </div>
+                                        {/* Mobile: stacked buttons */}
+                                        {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
+                                        {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
+                                        {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
+                                        <div
+                                          className="flex flex-col gap-1.5 sm:hidden"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <Button
+                                            asChild
+                                            className="h-8 w-full"
+                                            size="sm"
+                                            variant="outline"
+                                          >
+                                            <Link
+                                              href={`/orgs/${org._id}/coach`}
+                                            >
+                                              <Users className="mr-1 h-3 w-3" />
+                                              Coach
+                                            </Link>
+                                          </Button>
+                                          <Button
+                                            asChild
+                                            className="h-8 w-full"
+                                            size="sm"
+                                            variant="outline"
+                                          >
+                                            <Link
+                                              href={`/orgs/${org._id}/admin`}
+                                            >
+                                              <Settings className="mr-1 h-3 w-3" />
+                                              Admin
+                                            </Link>
+                                          </Button>
+                                        </div>
+                                      </>
+                                    ) : (
                                       <Button
-                                        asChild
+                                        className="w-full"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleRequestAccess(org._id);
+                                        }}
                                         size="sm"
-                                        variant="outline"
+                                        variant="default"
                                       >
-                                        <Link href={`/orgs/${org._id}/coach`}>
-                                          Coach
-                                        </Link>
+                                        <Plus className="mr-1 h-3 w-3" />
+                                        Request Access
                                       </Button>
-                                      <Button
-                                        asChild
-                                        size="sm"
-                                        variant="outline"
-                                      >
-                                        <Link href={`/orgs/${org._id}/admin`}>
-                                          Admin
-                                        </Link>
-                                      </Button>
-                                    </div>
-                                    {/* Mobile: stacked buttons */}
-                                    {/* biome-ignore lint/a11y/useKeyWithClickEvents: stopPropagation container only */}
-                                    {/* biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation container only */}
-                                    {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: stopPropagation container only */}
-                                    <div
-                                      className="flex flex-col gap-1.5 sm:hidden"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <Button
-                                        asChild
-                                        className="h-8 w-full"
-                                        size="sm"
-                                        variant="outline"
-                                      >
-                                        <Link href={`/orgs/${org._id}/coach`}>
-                                          <Users className="mr-1 h-3 w-3" />
-                                          Coach
-                                        </Link>
-                                      </Button>
-                                      <Button
-                                        asChild
-                                        className="h-8 w-full"
-                                        size="sm"
-                                        variant="outline"
-                                      >
-                                        <Link href={`/orgs/${org._id}/admin`}>
-                                          <Settings className="mr-1 h-3 w-3" />
-                                          Admin
-                                        </Link>
-                                      </Button>
-                                    </div>
+                                    )}
                                   </TableCell>
                                 </TableRow>
                               );

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import { internalMutation, mutation, query } from "../_generated/server";
 
 /**
@@ -21,12 +21,13 @@ import { internalMutation, mutation, query } from "../_generated/server";
  * Verify user has coach role in organization
  */
 async function getCoachForOrg(ctx: any, userId: string, orgId: string) {
-  const member = await ctx.db
-    .query("member" as any)
-    .withIndex("by_userId_and_organizationId", (q: any) =>
-      q.eq("userId", userId).eq("organizationId", orgId)
-    )
-    .first();
+  const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+    model: "member",
+    where: [
+      { field: "userId", value: userId, operator: "eq" },
+      { field: "organizationId", value: orgId, operator: "eq" },
+    ],
+  });
 
   if (!member) {
     throw new Error("User is not a member of this organization");
@@ -411,14 +412,13 @@ export const removeFromClubLibrary = mutation({
     }
 
     // Verify admin role
-    const member = await ctx.db
-      .query("member" as any)
-      .withIndex("by_userId_and_organizationId", (q: any) =>
-        q
-          .eq("userId", identity.subject)
-          .eq("organizationId", plan.organizationId)
-      )
-      .first();
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: plan.organizationId, operator: "eq" },
+      ],
+    });
 
     if (!member) {
       throw new Error("Not a member of this organization");
@@ -461,14 +461,13 @@ export const pinPlan = mutation({
     }
 
     // Verify admin role
-    const member = await ctx.db
-      .query("member" as any)
-      .withIndex("by_userId_and_organizationId", (q: any) =>
-        q
-          .eq("userId", identity.subject)
-          .eq("organizationId", plan.organizationId)
-      )
-      .first();
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: plan.organizationId, operator: "eq" },
+      ],
+    });
 
     if (!member) {
       throw new Error("Not a member of this organization");
@@ -503,14 +502,13 @@ export const unpinPlan = mutation({
     }
 
     // Verify admin role
-    const member = await ctx.db
-      .query("member" as any)
-      .withIndex("by_userId_and_organizationId", (q: any) =>
-        q
-          .eq("userId", identity.subject)
-          .eq("organizationId", plan.organizationId)
-      )
-      .first();
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: plan.organizationId, operator: "eq" },
+      ],
+    });
 
     if (!member) {
       throw new Error("Not a member of this organization");
@@ -694,14 +692,13 @@ export const listClubLibrary = query({
     }
 
     // Verify user is member of organization
-    const member = await ctx.db
-      .query("member" as any)
-      .withIndex("by_userId_and_organizationId", (q: any) =>
-        q
-          .eq("userId", identity.subject)
-          .eq("organizationId", args.organizationId)
-      )
-      .first();
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: args.organizationId, operator: "eq" },
+      ],
+    });
 
     if (!member) {
       throw new Error("Not a member of this organization");
@@ -743,14 +740,13 @@ export const listForAdmin = query({
     }
 
     // Verify admin role
-    const member = await ctx.db
-      .query("member" as any)
-      .withIndex("by_userId_and_organizationId", (q: any) =>
-        q
-          .eq("userId", identity.subject)
-          .eq("organizationId", args.organizationId)
-      )
-      .first();
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: args.organizationId, operator: "eq" },
+      ],
+    });
 
     if (!member) {
       throw new Error("Not a member of this organization");
@@ -795,14 +791,17 @@ export const getPlanById = query({
     // Check access - must be owner or plan must be in club library
     if (plan.coachId !== identity.subject && plan.visibility !== "club") {
       // Check if user is admin
-      const member = await ctx.db
-        .query("member" as any)
-        .withIndex("by_userId_and_organizationId", (q: any) =>
-          q
-            .eq("userId", identity.subject)
-            .eq("organizationId", plan.organizationId)
-        )
-        .first();
+      const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "member",
+        where: [
+          { field: "userId", value: identity.subject, operator: "eq" },
+          {
+            field: "organizationId",
+            value: plan.organizationId,
+            operator: "eq",
+          },
+        ],
+      });
 
       const isAdmin =
         member && (member.role === "admin" || member.role === "owner");
@@ -830,14 +829,13 @@ export const getDrillLibrary = query({
     }
 
     // Verify user is member of organization
-    const member = await ctx.db
-      .query("member" as any)
-      .withIndex("by_userId_and_organizationId", (q: any) =>
-        q
-          .eq("userId", identity.subject)
-          .eq("organizationId", args.organizationId)
-      )
-      .first();
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: args.organizationId, operator: "eq" },
+      ],
+    });
 
     if (!member) {
       throw new Error("Not a member of this organization");
@@ -875,14 +873,13 @@ export const getStats = query({
     }
 
     // Verify user is member of organization
-    const member = await ctx.db
-      .query("member" as any)
-      .withIndex("by_userId_and_organizationId", (q: any) =>
-        q
-          .eq("userId", identity.subject)
-          .eq("organizationId", args.organizationId)
-      )
-      .first();
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: args.organizationId, operator: "eq" },
+      ],
+    });
 
     if (!member) {
       throw new Error("Not a member of this organization");

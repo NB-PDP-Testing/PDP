@@ -1,3 +1,3 @@
 {
-  "*.{ts,tsx,js,jsx}": ["npx biome check --diagnostic-level=error"]
+  "*.{ts,tsx,js,jsx}": ["npx biome check --diagnostic-level=error --files-ignore-unknown=true --no-errors-on-unmatched"]
 }

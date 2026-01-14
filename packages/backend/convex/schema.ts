@@ -1779,6 +1779,25 @@ export default defineSchema({
     sport: v.optional(v.string()),
     ageGroup: v.optional(v.string()),
 
+    // AI-extracted metadata for search and filtering
+    extractedTags: v.optional(
+      v.object({
+        categories: v.array(v.string()), // e.g., ["Technical Training", "Fitness"]
+        skills: v.array(v.string()), // e.g., ["Passing", "Dribbling"]
+        equipment: v.array(v.string()), // e.g., ["Cones", "Balls"]
+        intensity: v.optional(
+          v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+        ),
+        playerCountRange: v.optional(
+          v.object({
+            min: v.number(),
+            max: v.number(),
+            optimal: v.number(),
+          })
+        ),
+      })
+    ),
+
     // Drills referenced
     drills: v.optional(
       v.array(

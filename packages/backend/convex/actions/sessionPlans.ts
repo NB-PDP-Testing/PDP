@@ -214,6 +214,11 @@ export const generatePlanContent = internalAction({
         sections,
         status: "saved",
       });
+
+      // Extract metadata tags from the generated content
+      await ctx.runAction(internal.actions.sessionPlans.extractMetadata, {
+        planId: args.planId,
+      });
     } catch (error) {
       console.error("Failed to generate session plan:", error);
 
@@ -226,6 +231,56 @@ export const generatePlanContent = internalAction({
         sections: [],
         status: "draft",
       });
+    }
+  },
+});
+
+/**
+ * Extract metadata tags from session plan content using AI
+ * Internal action - called after plan content is generated
+ */
+export const extractMetadata = internalAction({
+  args: {
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      // Fetch the plan
+      const plan = await ctx.runQuery(
+        internal.models.sessionPlans.getPlanByIdInternal,
+        { planId: args.planId }
+      );
+
+      if (!plan?.rawContent) {
+        console.error("Plan not found or has no content:", args.planId);
+        return null;
+      }
+
+      // For now, extract simple metadata from the simulated content
+      // In production, this would call Claude API to analyze the content
+      const extractedTags = {
+        categories: ["Technical Training", "Game-Based"],
+        skills: ["Passing", "Ball Control", "Game Awareness"],
+        equipment: ["Balls", "Cones", "Bibs", "Goals"],
+        intensity: "medium" as const,
+        playerCountRange: {
+          min: plan.playerCount ? Math.max(8, plan.playerCount - 4) : 12,
+          max: plan.playerCount ? plan.playerCount + 4 : 20,
+          optimal: plan.playerCount || 16,
+        },
+      };
+
+      // Update plan with extracted metadata
+      await ctx.runMutation(internal.models.sessionPlans.updatePlanMetadata, {
+        planId: args.planId,
+        extractedTags,
+      });
+
+      return null;
+    } catch (error: any) {
+      console.error("Error extracting metadata:", error);
+      return null;
     }
   },
 });

@@ -28,17 +28,17 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-interface NavItem {
+type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-}
+};
 
-interface NavGroup {
+type NavGroup = {
   label: string;
   icon: LucideIcon;
   items: NavItem[];
-}
+};
 
 /**
  * Generate coach navigation structure for an organization
@@ -80,6 +80,11 @@ export function getCoachNavGroups(orgId: string): NavGroup[] {
           label: "Voice Notes",
           icon: Mic,
         },
+        {
+          href: `/orgs/${orgId}/coach/session-plans`,
+          label: "Session Plans",
+          icon: ClipboardList,
+        },
       ],
     },
     {
@@ -106,11 +111,11 @@ export function getCoachNavGroups(orgId: string): NavGroup[] {
   ];
 }
 
-interface CoachSidebarProps {
+type CoachSidebarProps = {
   orgId: string;
   /** Primary color for active states */
   primaryColor?: string;
-}
+};
 
 /**
  * Grouped sidebar navigation for coach panel (desktop)
@@ -123,7 +128,7 @@ export function CoachSidebar({ orgId, primaryColor }: CoachSidebarProps) {
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {
       for (const item of group.items) {
-        if (pathname === item.href || pathname.startsWith(item.href + "/")) {
+        if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
           return [group.label];
         }
       }
@@ -139,8 +144,10 @@ export function CoachSidebar({ orgId, primaryColor }: CoachSidebarProps) {
 
   const isActive = (href: string) => {
     const coachBase = `/orgs/${orgId}/coach`;
-    if (href === coachBase) return pathname === coachBase;
-    return pathname === href || pathname.startsWith(href + "/");
+    if (href === coachBase) {
+      return pathname === coachBase;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
@@ -216,11 +223,11 @@ export function CoachSidebar({ orgId, primaryColor }: CoachSidebarProps) {
   );
 }
 
-interface CoachMobileNavProps {
+type CoachMobileNavProps = {
   orgId: string;
   primaryColor?: string;
   trigger?: React.ReactNode;
-}
+};
 
 /**
  * Mobile navigation drawer for coach panel
@@ -236,7 +243,7 @@ export function CoachMobileNav({
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {
       for (const item of group.items) {
-        if (pathname === item.href || pathname.startsWith(item.href + "/")) {
+        if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
           return [group.label];
         }
       }
@@ -252,8 +259,10 @@ export function CoachMobileNav({
 
   const isActive = (href: string) => {
     const coachBase = `/orgs/${orgId}/coach`;
-    if (href === coachBase) return pathname === coachBase;
-    return pathname === href || pathname.startsWith(href + "/");
+    if (href === coachBase) {
+      return pathname === coachBase;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (

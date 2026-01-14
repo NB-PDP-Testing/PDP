@@ -1259,12 +1259,15 @@ export const getDrillLibrary = query({
 export const getStats = query({
   args: {
     organizationId: v.string(),
+    coachId: v.string(),
   },
   returns: v.object({
     totalPlans: v.number(),
     usedPlans: v.number(),
     successfulPlans: v.number(),
     failedPlans: v.number(),
+    avgSuccessRate: v.optional(v.number()),
+    recentPlans: v.number(),
   }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -1285,21 +1288,41 @@ export const getStats = query({
       throw new Error("Not a member of this organization");
     }
 
+    // Fetch plans for this specific coach
     const allPlans = await ctx.db
       .query("sessionPlans")
-      .withIndex("by_org", (q: any) =>
-        q.eq("organizationId", args.organizationId)
+      .withIndex("by_org_and_coach", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("coachId", args.coachId)
       )
       .filter((q: any) => q.neq(q.field("status"), "deleted"))
       .collect();
 
+    // Calculate stats
+    const usedPlans = allPlans.filter((p) => p.usedInSession || p.timesUsed);
+    const plansWithSuccessRate = allPlans.filter(
+      (p) => p.successRate !== undefined && p.successRate !== null
+    );
+    const avgSuccessRate =
+      plansWithSuccessRate.length > 0
+        ? plansWithSuccessRate.reduce(
+            (sum, p) => sum + (p.successRate || 0),
+            0
+          ) / plansWithSuccessRate.length
+        : undefined;
+
+    // Recent plans (last 30 days)
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recentPlans = allPlans.filter((p) => p.createdAt >= thirtyDaysAgo);
+
     return {
       totalPlans: allPlans.length,
-      usedPlans: allPlans.filter((p) => p.usedInSession).length,
+      usedPlans: usedPlans.length,
       successfulPlans: allPlans.filter((p) => p.status === "archived_success")
         .length,
       failedPlans: allPlans.filter((p) => p.status === "archived_failed")
         .length,
+      avgSuccessRate,
+      recentPlans: recentPlans.length,
     };
   },
 });

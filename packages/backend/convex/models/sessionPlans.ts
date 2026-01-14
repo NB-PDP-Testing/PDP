@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import { components, internal } from "../_generated/api";
-import { internalMutation, mutation, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 
 /**
  * Session Plans - Complete Backend Implementation
@@ -177,6 +182,83 @@ export const updatePlanContent = internalMutation({
       rawContent: args.rawContent,
       sections: args.sections,
       status: args.status,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Internal query to get plan by ID (for actions)
+ */
+export const getPlanByIdInternal = internalQuery({
+  args: {
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("sessionPlans"),
+      organizationId: v.string(),
+      coachId: v.string(),
+      teamName: v.string(),
+      playerCount: v.optional(v.number()),
+      title: v.optional(v.string()),
+      rawContent: v.optional(v.string()),
+      ageGroup: v.optional(v.string()),
+      sport: v.optional(v.string()),
+      duration: v.optional(v.number()),
+      focusArea: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      return null;
+    }
+
+    return {
+      _id: plan._id,
+      organizationId: plan.organizationId,
+      coachId: plan.coachId,
+      teamName: plan.teamName,
+      playerCount: plan.playerCount,
+      title: plan.title,
+      rawContent: plan.rawContent,
+      ageGroup: plan.ageGroup,
+      sport: plan.sport,
+      duration: plan.duration,
+      focusArea: plan.focusArea,
+    };
+  },
+});
+
+/**
+ * Internal mutation to update extracted metadata tags
+ * Called by extractMetadata action after AI analysis
+ */
+export const updatePlanMetadata = internalMutation({
+  args: {
+    planId: v.id("sessionPlans"),
+    extractedTags: v.object({
+      categories: v.array(v.string()),
+      skills: v.array(v.string()),
+      equipment: v.array(v.string()),
+      intensity: v.optional(
+        v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+      ),
+      playerCountRange: v.optional(
+        v.object({
+          min: v.number(),
+          max: v.number(),
+          optimal: v.number(),
+        })
+      ),
+    }),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.planId, {
+      extractedTags: args.extractedTags,
       updatedAt: Date.now(),
     });
   },

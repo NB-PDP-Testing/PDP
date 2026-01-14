@@ -5,7 +5,7 @@ import { useQuery } from "convex/react";
 import type { Route } from "next";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import Loader from "@/components/loader";
+import { PageSkeleton } from "@/components/loading/page-skeleton";
 import { authClient } from "@/lib/auth-client";
 
 export default function Home() {
@@ -13,6 +13,7 @@ export default function Home() {
   const params = useParams();
   const orgId = params.orgId as string;
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Use Better Auth session instead of Convex auth components
   const { data: session, isPending: isSessionLoading } =
@@ -96,9 +97,56 @@ export default function Home() {
     router.push(targetRoute as Route);
   }, [router, orgId, session, isSessionLoading, member, isRedirecting]);
 
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Loader />
-    </div>
-  );
+  // Timeout protection: if page is stuck loading for >10 seconds, show error
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (member === undefined && !isRedirecting && !error) {
+        console.error(
+          "[OrgDashboard] ❌ TIMEOUT: Page stuck loading for >10 seconds"
+        );
+        console.error("[OrgDashboard] Session state:", session);
+        console.error("[OrgDashboard] Member state:", member);
+        setError(
+          "Unable to load your organization membership. This might be due to a slow network connection or a sync issue. Please try refreshing the page."
+        );
+      }
+    }, 10_000); // 10 seconds
+
+    return () => clearTimeout(timeout);
+  }, [member, isRedirecting, error, session]);
+
+  // Show error state if timeout occurred
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-6">
+            <h2 className="mb-2 font-semibold text-lg text-red-900">
+              Loading Error
+            </h2>
+            <p className="mb-4 text-red-700 text-sm">{error}</p>
+            <div className="flex gap-2">
+              <button
+                className="rounded-md bg-red-600 px-4 py-2 font-medium text-sm text-white hover:bg-red-700"
+                onClick={() => window.location.reload()}
+                type="button"
+              >
+                Refresh Page
+              </button>
+              <button
+                className="rounded-md border border-red-300 px-4 py-2 font-medium text-red-700 text-sm hover:bg-red-100"
+                onClick={() => router.push("/orgs")}
+                type="button"
+              >
+                Back to Organizations
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show skeleton loading state (matches UX mockup requirements)
+  return <PageSkeleton showBreadcrumbs={false} variant="dashboard" />;
 }

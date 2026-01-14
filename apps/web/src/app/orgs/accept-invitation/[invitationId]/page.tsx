@@ -306,12 +306,12 @@ export default function AcceptInvitationPage() {
         setStatus("error");
 
         // Check if error is likely due to email mismatch
-        const errorMessage = result.error.message || "";
+        const apiErrorMessage = result.error.message || "";
         const isEmailMismatch =
-          errorMessage.toLowerCase().includes("email") ||
-          errorMessage.toLowerCase().includes("match") ||
-          errorMessage.toLowerCase().includes("invitation") ||
-          errorMessage.toLowerCase().includes("not found");
+          apiErrorMessage.toLowerCase().includes("email") ||
+          apiErrorMessage.toLowerCase().includes("match") ||
+          apiErrorMessage.toLowerCase().includes("invitation") ||
+          apiErrorMessage.toLowerCase().includes("not found");
 
         if (isEmailMismatch) {
           setErrorMessage(
@@ -320,7 +320,7 @@ export default function AcceptInvitationPage() {
               "Please sign out and sign in with the email address that received the invitation."
           );
         } else {
-          setErrorMessage(errorMessage || "Failed to accept invitation");
+          setErrorMessage(apiErrorMessage || "Failed to accept invitation");
         }
       } else {
         setStatus("success");
@@ -404,16 +404,17 @@ export default function AcceptInvitationPage() {
               // Continue with redirect even if setting active fails (not critical)
             }
 
-            // Redirect to the organization dashboard after a short delay
+            // Redirect immediately - sync is already complete
+            // Note: Small delay kept for UX (shows success message briefly)
             setTimeout(() => {
               router.push(`/orgs/${organizationId}`);
-            }, 2000);
+            }, 1500);
           }
         } else {
           // Fallback: redirect to organizations list
           setTimeout(() => {
             router.push("/orgs");
-          }, 2000);
+          }, 1500);
         }
       }
     } catch (error: any) {

@@ -38,7 +38,7 @@ import { authClient } from "@/lib/auth-client";
 type SessionPlan = {
   _id: Id<"sessionPlans">;
   title?: string;
-  coachName: string;
+  coachName?: string;
   teamName: string;
   duration?: number;
   ageGroup?: string;
@@ -51,7 +51,7 @@ type SessionPlan = {
   createdAt: number;
   timesUsed?: number;
   successRate?: number;
-  status: string;
+  status?: string;
 };
 
 export default function AdminSessionPlansPage() {
@@ -126,7 +126,7 @@ export default function AdminSessionPlansPage() {
   };
 
   const handleViewPlan = (planId: Id<"sessionPlans">) => {
-    router.push(`/orgs/${orgId}/admin/session-plans/${planId}`);
+    router.push(`/orgs/${orgId}/admin/session-plans/${planId}` as any);
   };
 
   if (plans === undefined) {
@@ -240,7 +240,7 @@ export default function AdminSessionPlansPage() {
                     {plan.title || "Untitled Session Plan"}
                   </CardTitle>
                   <CardDescription>
-                    By {plan.coachName} • {plan.teamName}
+                    By {plan.coachName || "Unknown Coach"} • {plan.teamName}
                   </CardDescription>
                 </CardHeader>
 
@@ -346,7 +346,7 @@ export default function AdminSessionPlansPage() {
                     {plan.title || "Untitled Session Plan"}
                   </CardTitle>
                   <CardDescription>
-                    By {plan.coachName} • {plan.teamName}
+                    By {plan.coachName || "Unknown Coach"} • {plan.teamName}
                   </CardDescription>
                 </CardHeader>
 

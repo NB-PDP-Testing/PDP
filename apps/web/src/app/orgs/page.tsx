@@ -391,7 +391,7 @@ export default function OrganizationsPage() {
                         <CardHeader>
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                                 {org.logo ? (
                                   <img
                                     alt={org.name}
@@ -402,11 +402,11 @@ export default function OrganizationsPage() {
                                   <Building2 className="h-6 w-6 text-primary" />
                                 )}
                               </div>
-                              <div className="min-w-0 flex-1">
+                              <div className="min-w-0 flex-1 overflow-hidden">
                                 <CardTitle className="truncate text-xl">
                                   {org.name}
                                 </CardTitle>
-                                <CardDescription className="mt-1">
+                                <CardDescription className="mt-1 truncate">
                                   <span className="font-mono text-xs">
                                     {org.slug}
                                   </span>
@@ -691,11 +691,11 @@ export default function OrganizationsPage() {
                                     <Building2 className="h-5 w-5 text-primary" />
                                   )}
                                 </div>
-                                <div className="min-w-0 flex-1">
+                                <div className="min-w-0 flex-1 overflow-hidden">
                                   <CardTitle className="truncate text-base">
                                     {org.name}
                                   </CardTitle>
-                                  <CardDescription className="mt-0.5 font-mono text-xs">
+                                  <CardDescription className="mt-0.5 truncate font-mono text-xs">
                                     {org.slug}
                                   </CardDescription>
                                 </div>

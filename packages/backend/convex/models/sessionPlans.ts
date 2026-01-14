@@ -1259,7 +1259,7 @@ export const getDrillLibrary = query({
 export const getStats = query({
   args: {
     organizationId: v.string(),
-    coachId: v.string(),
+    coachId: v.optional(v.string()),
   },
   returns: v.object({
     totalPlans: v.number(),
@@ -1288,14 +1288,24 @@ export const getStats = query({
       throw new Error("Not a member of this organization");
     }
 
-    // Fetch plans for this specific coach
-    const allPlans = await ctx.db
-      .query("sessionPlans")
-      .withIndex("by_org_and_coach", (q: any) =>
-        q.eq("organizationId", args.organizationId).eq("coachId", args.coachId)
-      )
-      .filter((q: any) => q.neq(q.field("status"), "deleted"))
-      .collect();
+    // Fetch plans - either for specific coach or all org plans
+    const allPlans = args.coachId
+      ? await ctx.db
+          .query("sessionPlans")
+          .withIndex("by_org_and_coach", (q: any) =>
+            q
+              .eq("organizationId", args.organizationId)
+              .eq("coachId", args.coachId)
+          )
+          .filter((q: any) => q.neq(q.field("status"), "deleted"))
+          .collect()
+      : await ctx.db
+          .query("sessionPlans")
+          .withIndex("by_org", (q: any) =>
+            q.eq("organizationId", args.organizationId)
+          )
+          .filter((q: any) => q.neq(q.field("status"), "deleted"))
+          .collect();
 
     // Calculate stats
     const usedPlans = allPlans.filter((p) => p.usedInSession || p.timesUsed);

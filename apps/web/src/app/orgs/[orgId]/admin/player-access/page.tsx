@@ -99,7 +99,7 @@ export default function PlayerAccessSettingsPage() {
         description: "Player access policy has been updated.",
       });
       setHasChanges(false);
-    } catch (error) {
+    } catch (_error) {
       toast.error("Error", {
         description: "Failed to save settings. Please try again.",
       });

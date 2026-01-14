@@ -9,12 +9,12 @@ import { useSW } from "./service-worker-provider";
 /**
  * Props for PWAUpdatePrompt
  */
-export interface PWAUpdatePromptProps {
+export type PWAUpdatePromptProps = {
   /** Custom class name */
   className?: string;
   /** Position of the prompt */
   position?: "top" | "bottom";
-}
+};
 
 /**
  * PWAUpdatePrompt - Shows when a new version is available
@@ -31,7 +31,9 @@ export function PWAUpdatePrompt({
   const { hasUpdate, skipWaiting } = useSW();
   const [dismissed, setDismissed] = React.useState(false);
 
-  if (!hasUpdate || dismissed) return null;
+  if (!hasUpdate || dismissed) {
+    return null;
+  }
 
   return (
     <div
@@ -103,7 +105,9 @@ export function PWAOfflineReadyPrompt({ className }: { className?: string }) {
     }
   }, [isOfflineReady, dismissed]);
 
-  if (!show) return null;
+  if (!show) {
+    return null;
+  }
 
   return (
     <div

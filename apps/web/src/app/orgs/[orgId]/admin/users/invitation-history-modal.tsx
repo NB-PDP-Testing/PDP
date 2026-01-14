@@ -20,11 +20,11 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-interface InvitationHistoryModalProps {
+type InvitationHistoryModalProps = {
   invitationId: string;
   inviteeEmail: string;
   onClose: () => void;
-}
+};
 
 export function InvitationHistoryModal({
   invitationId,
@@ -35,7 +35,9 @@ export function InvitationHistoryModal({
     invitationId,
   });
 
-  if (!events) return null;
+  if (!events) {
+    return null;
+  }
 
   // Helper to format timestamp
   const formatTimestamp = (timestamp: number) => {
@@ -141,7 +143,7 @@ export function InvitationHistoryModal({
                 {/* Timeline line */}
                 <div className="absolute top-0 bottom-0 left-[11px] w-px bg-gray-200" />
 
-                {events.map((event, index) => (
+                {events.map((event, _index) => (
                   <div className="relative flex gap-4" key={event._id}>
                     {/* Event icon */}
                     <div className="z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white ring-2 ring-gray-200">

@@ -43,17 +43,17 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-interface NavItem {
+type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-}
+};
 
-interface NavGroup {
+type NavGroup = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   items: NavItem[];
-}
+};
 
 /**
  * GROUPED NAVIGATION STRUCTURE
@@ -305,7 +305,7 @@ function DesktopAdminNav({ orgId }: { orgId: string }) {
     group.items.some((item) => pathname?.startsWith(item.href))
   );
 
-  const toggleGroup = (label: string) => {
+  const _toggleGroup = (label: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(label)) {
@@ -317,7 +317,7 @@ function DesktopAdminNav({ orgId }: { orgId: string }) {
     });
   };
 
-  const isGroupExpanded = (label: string) =>
+  const _isGroupExpanded = (label: string) =>
     expandedGroups.has(label) || currentGroup?.label === label;
 
   return (

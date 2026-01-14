@@ -12,15 +12,15 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-export interface FavoriteItem {
+export type FavoriteItem = {
   id: string;
   label: string;
   href: string;
   icon?: React.ReactNode;
   color?: string;
-}
+};
 
-interface PinnedFavoritesProps {
+type PinnedFavoritesProps = {
   /** Maximum number of favorites */
   maxItems?: number;
   /** Storage key for persistence */
@@ -35,7 +35,7 @@ interface PinnedFavoritesProps {
   onFavoritesChange?: (favorites: FavoriteItem[]) => void;
   /** Container class name */
   className?: string;
-}
+};
 
 /**
  * PinnedFavorites - Quick access to user's pinned pages/items
@@ -92,7 +92,9 @@ export function PinnedFavorites({
   // Handle drag over
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
+    if (draggedIndex === null || draggedIndex === index) {
+      return;
+    }
 
     const newFavorites = [...favorites];
     const [removed] = newFavorites.splice(draggedIndex, 1);
@@ -233,11 +235,11 @@ export function PinnedFavorites({
 /**
  * Button to add/remove current page from favorites
  */
-interface FavoriteToggleButtonProps {
+type FavoriteToggleButtonProps = {
   item: FavoriteItem;
   storageKey?: string;
   className?: string;
-}
+};
 
 export function FavoriteToggleButton({
   item,

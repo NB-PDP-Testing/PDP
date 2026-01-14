@@ -16,26 +16,26 @@ import { SwipeableCard } from "./swipeable-card";
 /**
  * Action for card items
  */
-export interface CardAction<T> {
+export type CardAction<T> = {
   label: string;
   icon?: React.ReactNode;
   onClick: (item: T) => void;
   destructive?: boolean;
   disabled?: (item: T) => boolean;
-}
+};
 
 /**
  * Swipe action configuration
  */
-export interface SwipeAction<T> {
+export type SwipeAction<T> = {
   label: string;
   icon?: React.ReactNode;
   bgColor?: string;
   textColor?: string;
   onClick: (item: T) => void;
-}
+};
 
-interface DataCardListProps<T> {
+type DataCardListProps<T> = {
   /** Data items to display */
   data: T[];
   /** Get unique key for each item */
@@ -76,7 +76,7 @@ interface DataCardListProps<T> {
   columns?: 1 | 2 | 3 | 4;
   /** Class name for container */
   className?: string;
-}
+};
 
 /**
  * DataCardList - Mobile-optimized card list with swipe actions and virtualization
@@ -133,7 +133,9 @@ export function DataCardList<T>({
 
   // Handle selection
   const handleSelect = (key: string) => {
-    if (!onSelectionChange) return;
+    if (!onSelectionChange) {
+      return;
+    }
     const newKeys = new Set(selectedKeys);
     if (newKeys.has(key)) {
       newKeys.delete(key);
@@ -145,7 +147,9 @@ export function DataCardList<T>({
 
   // Pull-to-refresh handlers
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (!(pullToRefresh && containerRef.current) || isRefreshing) return;
+    if (!(pullToRefresh && containerRef.current) || isRefreshing) {
+      return;
+    }
     if (containerRef.current.scrollTop === 0) {
       startYRef.current = e.touches[0].clientY;
       isPullingRef.current = true;
@@ -153,7 +157,9 @@ export function DataCardList<T>({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isPullingRef.current || isRefreshing) return;
+    if (!isPullingRef.current || isRefreshing) {
+      return;
+    }
     const diff = e.touches[0].clientY - startYRef.current;
     if (diff > 0) {
       // Apply resistance
@@ -162,7 +168,9 @@ export function DataCardList<T>({
   };
 
   const handleTouchEnd = async () => {
-    if (!isPullingRef.current) return;
+    if (!isPullingRef.current) {
+      return;
+    }
     isPullingRef.current = false;
 
     if (pullDistance > 60 && onRefresh) {
@@ -180,7 +188,9 @@ export function DataCardList<T>({
   const loadMoreRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (!(onLoadMore && hasMore) || loadingMore) return;
+    if (!(onLoadMore && hasMore) || loadingMore) {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -402,7 +412,7 @@ export function DataCardList<T>({
 /**
  * Simple card template for common use cases
  */
-export interface SimpleCardData {
+export type SimpleCardData = {
   id: string;
   title: string;
   subtitle?: string;
@@ -410,7 +420,7 @@ export interface SimpleCardData {
   avatar?: React.ReactNode;
   badge?: React.ReactNode;
   metadata?: Array<{ label: string; value: React.ReactNode }>;
-}
+};
 
 export function SimpleCard({ data }: { data: SimpleCardData }) {
   return (

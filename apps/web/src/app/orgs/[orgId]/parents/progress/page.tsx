@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   description: "Track your children's development and progress",
 };
 
-interface ParentProgressPageProps {
+type ParentProgressPageProps = {
   params: Promise<{ orgId: string }>;
-}
+};
 
 export default async function ParentProgressPage({
   params,

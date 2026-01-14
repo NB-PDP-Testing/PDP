@@ -14,13 +14,13 @@ import { cn } from "@/lib/utils";
 /**
  * Keyboard shortcut category
  */
-export interface ShortcutCategory {
+export type ShortcutCategory = {
   name: string;
   shortcuts: {
     keys: string[];
     description: string;
   }[];
-}
+};
 
 /**
  * Default keyboard shortcuts
@@ -72,7 +72,7 @@ export const DEFAULT_SHORTCUTS: ShortcutCategory[] = [
 /**
  * Props for KeyboardShortcutsOverlay
  */
-export interface KeyboardShortcutsOverlayProps {
+export type KeyboardShortcutsOverlayProps = {
   /** Custom shortcuts to display */
   shortcuts?: ShortcutCategory[];
   /** Whether to show by default */
@@ -81,7 +81,7 @@ export interface KeyboardShortcutsOverlayProps {
   onOpen?: () => void;
   /** Callback when overlay closes */
   onClose?: () => void;
-}
+};
 
 /**
  * KeyboardShortcutsOverlay - Shows all keyboard shortcuts
@@ -100,7 +100,9 @@ export function KeyboardShortcutsOverlay({
 
   // Listen for ? key to open
   useEffect(() => {
-    if (isMobile) return;
+    if (isMobile) {
+      return;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only trigger on ? key when not in input
@@ -130,7 +132,9 @@ export function KeyboardShortcutsOverlay({
   }, [open, onOpen, onClose]);
 
   // Don't render on mobile
-  if (isMobile) return null;
+  if (isMobile) {
+    return null;
+  }
 
   return (
     <Dialog onOpenChange={setOpen} open={open}>

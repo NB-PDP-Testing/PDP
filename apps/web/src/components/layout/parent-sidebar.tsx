@@ -29,17 +29,17 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-interface NavItem {
+type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-}
+};
 
-interface NavGroup {
+type NavGroup = {
   label: string;
   icon: LucideIcon;
   items: NavItem[];
-}
+};
 
 /**
  * Generate parent navigation structure for an organization
@@ -107,11 +107,11 @@ export function getParentNavGroups(orgId: string): NavGroup[] {
   ];
 }
 
-interface ParentSidebarProps {
+type ParentSidebarProps = {
   orgId: string;
   /** Primary color for active states */
   primaryColor?: string;
-}
+};
 
 /**
  * Grouped sidebar navigation for parent portal (desktop)
@@ -124,7 +124,7 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {
       for (const item of group.items) {
-        if (pathname === item.href || pathname.startsWith(item.href + "/")) {
+        if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
           return [group.label];
         }
       }
@@ -140,8 +140,10 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
 
   const isActive = (href: string) => {
     const parentBase = `/orgs/${orgId}/parents`;
-    if (href === parentBase) return pathname === parentBase;
-    return pathname === href || pathname.startsWith(href + "/");
+    if (href === parentBase) {
+      return pathname === parentBase;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
@@ -217,11 +219,11 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
   );
 }
 
-interface ParentMobileNavProps {
+type ParentMobileNavProps = {
   orgId: string;
   primaryColor?: string;
   trigger?: React.ReactNode;
-}
+};
 
 /**
  * Mobile navigation drawer for parent portal
@@ -237,7 +239,7 @@ export function ParentMobileNav({
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {
       for (const item of group.items) {
-        if (pathname === item.href || pathname.startsWith(item.href + "/")) {
+        if (pathname === item.href || pathname.startsWith(`${item.href}/`)) {
           return [group.label];
         }
       }
@@ -253,8 +255,10 @@ export function ParentMobileNav({
 
   const isActive = (href: string) => {
     const parentBase = `/orgs/${orgId}/parents`;
-    if (href === parentBase) return pathname === parentBase;
-    return pathname === href || pathname.startsWith(href + "/");
+    if (href === parentBase) {
+      return pathname === parentBase;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (

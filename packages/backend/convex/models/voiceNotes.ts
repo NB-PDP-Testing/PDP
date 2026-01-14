@@ -355,8 +355,11 @@ export const updateInsightStatus = mutation({
                   insight.recommendedUpdate?.match(pattern);
                 if (match) {
                   const val = match[1].toLowerCase();
-                  newRating = wordToNum[val] || Number.parseInt(val) || null;
-                  if (newRating) break;
+                  newRating =
+                    wordToNum[val] || Number.parseInt(val, 10) || null;
+                  if (newRating) {
+                    break;
+                  }
                 }
               }
 
@@ -457,8 +460,11 @@ export const updateInsightStatus = mutation({
                 const match = textToSearch.match(pattern);
                 if (match) {
                   const val = match[1].toLowerCase();
-                  foundRating = wordToNum[val] || Number.parseInt(val) || null;
-                  if (foundRating) break;
+                  foundRating =
+                    wordToNum[val] || Number.parseInt(val, 10) || null;
+                  if (foundRating) {
+                    break;
+                  }
                 }
               }
 
@@ -547,12 +553,6 @@ export const updateInsightStatus = mutation({
             }
             break;
           }
-
-          case "behavior":
-          case "performance":
-          case "attitude":
-          case "communication":
-          case "general":
           default: {
             // Add to sport passport's coach notes (shown on player profile Development Notes)
             const passport = await ctx.db
@@ -613,7 +613,7 @@ export const updateInsightStatus = mutation({
     } else if (args.status === "applied" && !insight.playerIdentityId) {
       // This is a team-level insight (no player linked)
       // Route to team notes - since there's no player, ANY category goes to team
-      const category = insight.category?.toLowerCase() || "";
+      const _category = insight.category?.toLowerCase() || "";
 
       // Always route to team notes when there's no player linked
       // This is simpler and more intuitive - if there's no player, it's a team note

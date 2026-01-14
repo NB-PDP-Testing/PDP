@@ -71,7 +71,9 @@ export default function MatchDayPage() {
 
   // Filter players
   const filteredPlayers = useMemo(() => {
-    if (!emergencyData) return [];
+    if (!emergencyData) {
+      return [];
+    }
 
     let filtered = emergencyData;
 
@@ -100,7 +102,9 @@ export default function MatchDayPage() {
 
   // Count players without ICE contacts
   const playersWithoutICE = useMemo(() => {
-    if (!emergencyData) return 0;
+    if (!emergencyData) {
+      return 0;
+    }
     return emergencyData.filter((item) => !item.hasICE).length;
   }, [emergencyData]);
 

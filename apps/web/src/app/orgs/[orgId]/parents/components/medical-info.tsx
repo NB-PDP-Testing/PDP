@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-interface MedicalInfoProps {
+type MedicalInfoProps = {
   children: Array<{
     player: {
       _id: Id<"playerIdentities">;
@@ -59,7 +59,7 @@ interface MedicalInfoProps {
     };
   }>;
   orgId: string;
-}
+};
 
 // Medical Form Component
 function MedicalForm({
@@ -110,7 +110,9 @@ function MedicalForm({
     field: "allergies" | "medications" | "conditions",
     value: string
   ) => {
-    if (!value.trim()) return;
+    if (!value.trim()) {
+      return;
+    }
     setFormData((prev) => ({
       ...prev,
       [field]: [...prev[field], value.trim()],
@@ -506,7 +508,9 @@ export function MedicalInfo({ children, orgId }: MedicalInfoProps) {
   // Count children missing medical info
   const missingCount = childrenWithMedical.filter((c) => !c.hasProfile).length;
 
-  if (children.length === 0) return null;
+  if (children.length === 0) {
+    return null;
+  }
 
   return (
     <>

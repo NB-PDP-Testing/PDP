@@ -3092,7 +3092,7 @@ function InformationDensityMockup() {
               <div className="border-b bg-muted px-3 py-2 font-medium text-sm">
                 Players
               </div>
-              {samplePlayers.map((p, i) => (
+              {samplePlayers.map((p, _i) => (
                 <div
                   className={cn(
                     "flex items-center justify-between border-b transition-all last:border-0",

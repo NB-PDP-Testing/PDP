@@ -1047,7 +1047,7 @@ export const approveDeletionRequest = mutation({
       if (vn.audioStorageId) {
         try {
           await ctx.storage.delete(vn.audioStorageId);
-        } catch (e) {
+        } catch (_e) {
           console.warn(
             `[approveDeletionRequest] Failed to delete audio file: ${vn.audioStorageId}`
           );

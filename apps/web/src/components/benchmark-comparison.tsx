@@ -72,13 +72,13 @@ function getRatingColors(rating: number) {
   return RATING_COLORS[level as keyof typeof RATING_COLORS];
 }
 
-interface BenchmarkComparisonProps {
+type BenchmarkComparisonProps = {
   playerId: Id<"playerIdentities">;
   sportCode: string;
   dateOfBirth: string;
   level?: "recreational" | "competitive" | "development" | "elite";
   showAllSkills?: boolean;
-}
+};
 
 export function BenchmarkComparison({
   playerId,
@@ -118,18 +118,24 @@ export function BenchmarkComparison({
 
   // Create lookup maps
   const skillLookup = useMemo(() => {
-    if (!skills) return new Map<string, string>();
+    if (!skills) {
+      return new Map<string, string>();
+    }
     return new Map(skills.map((s) => [s.code, s.name]));
   }, [skills]);
 
   const benchmarkLookup = useMemo(() => {
-    if (!benchmarks) return new Map<string, BenchmarkData>();
+    if (!benchmarks) {
+      return new Map<string, BenchmarkData>();
+    }
     return new Map(benchmarks.map((b) => [b.skillCode, b]));
   }, [benchmarks]);
 
   // Get latest assessment per skill
   const latestAssessments = useMemo(() => {
-    if (!assessments) return new Map<string, number>();
+    if (!assessments) {
+      return new Map<string, number>();
+    }
     const map = new Map<string, number>();
     for (const a of assessments) {
       if (!map.has(a.skillCode)) {
@@ -141,7 +147,9 @@ export function BenchmarkComparison({
 
   // Get skills that have both benchmarks and assessments
   const comparableSkills = useMemo(() => {
-    if (!(benchmarks && assessments)) return [];
+    if (!(benchmarks && assessments)) {
+      return [];
+    }
 
     const skillsToShow = showAllSkills
       ? Array.from(benchmarkLookup.keys())
@@ -342,7 +350,7 @@ export function BenchmarkComparison({
   );
 }
 
-interface SkillBenchmarkRowProps {
+type SkillBenchmarkRowProps = {
   skillCode: string;
   skillName: string;
   rating: number;
@@ -356,7 +364,7 @@ interface SkillBenchmarkRowProps {
     | undefined;
   status: keyof typeof STATUS_COLORS;
   delta: number | null;
-}
+};
 
 function SkillBenchmarkRow({
   skillName,

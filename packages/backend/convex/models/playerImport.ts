@@ -27,7 +27,7 @@ function normalizeNameForMatching(name: string): {
     return { normalized: "", firstName: "", lastName: "" };
   }
   const firstName = parts[0];
-  const lastName = parts.length > 1 ? parts[parts.length - 1] : "";
+  const lastName = parts.length > 1 ? parts.at(-1) : "";
   return {
     normalized: `${firstName} ${lastName}`.trim(),
     firstName,
@@ -79,7 +79,9 @@ function extractTown(
   address: string | undefined,
   town: string | undefined
 ): string {
-  if (town) return town.toLowerCase().trim();
+  if (town) {
+    return town.toLowerCase().trim();
+  }
   const addressLower = (address || "").toLowerCase();
   return commonTowns.find((t) => addressLower.includes(t)) || "";
 }
@@ -385,8 +387,8 @@ export const importPlayerWithIdentity = mutation({
           .query("guardianIdentities")
           .withIndex("by_name", (q) =>
             q
-              .eq("lastName", args.parentLastName!.trim())
-              .eq("firstName", args.parentFirstName!.trim())
+              .eq("lastName", args.parentLastName?.trim())
+              .eq("firstName", args.parentFirstName?.trim())
           )
           .collect();
 
@@ -715,7 +717,9 @@ export const batchImportPlayersWithIdentity = mutation({
       );
       const adultPlayerData = args.players[match.adultPlayerIndex];
 
-      if (!(youthPlayerIdentityId && adultPlayerData)) continue;
+      if (!(youthPlayerIdentityId && adultPlayerData)) {
+        continue;
+      }
 
       try {
         // Get or create guardian identity for this adult
@@ -827,7 +831,9 @@ export const batchImportPlayersWithIdentity = mutation({
       const playerData = args.players[i];
       const playerIdentityId = playerIdentityMap.get(i);
 
-      if (!playerIdentityId) continue;
+      if (!playerIdentityId) {
+        continue;
+      }
 
       // Require at least first name, last name, and either email OR phone
       if (
@@ -857,8 +863,8 @@ export const batchImportPlayersWithIdentity = mutation({
               .query("guardianIdentities")
               .withIndex("by_name", (q) =>
                 q
-                  .eq("lastName", playerData.parentLastName!.trim())
-                  .eq("firstName", playerData.parentFirstName!.trim())
+                  .eq("lastName", playerData.parentLastName?.trim())
+                  .eq("firstName", playerData.parentFirstName?.trim())
               )
               .collect();
 
@@ -951,7 +957,9 @@ export const batchImportPlayersWithIdentity = mutation({
       const playerData = args.players[i];
       const playerIdentityId = playerIdentityMap.get(i);
 
-      if (!playerIdentityId) continue;
+      if (!playerIdentityId) {
+        continue;
+      }
 
       try {
         const existingEnrollment = await ctx.db

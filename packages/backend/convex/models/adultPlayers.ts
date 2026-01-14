@@ -252,7 +252,9 @@ export const transitionToAdult = mutation({
 
     for (const link of guardianLinks) {
       const guardian = await ctx.db.get(link.guardianIdentityId);
-      if (!guardian) continue;
+      if (!guardian) {
+        continue;
+      }
 
       // Create emergency contact from guardian
       await ctx.db.insert("playerEmergencyContacts", {
@@ -396,7 +398,9 @@ export const claimYouthProfile = mutation({
 
       for (const link of guardianLinks) {
         const guardian = await ctx.db.get(link.guardianIdentityId);
-        if (!guardian) continue;
+        if (!guardian) {
+          continue;
+        }
 
         await ctx.db.insert("playerEmergencyContacts", {
           playerIdentityId: args.playerIdentityId,

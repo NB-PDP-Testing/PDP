@@ -16,12 +16,12 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-interface DisableMemberDialogProps {
+type DisableMemberDialogProps = {
   member: { userId: string; name: string; email: string; isDisabled?: boolean };
   organizationId: string;
   onClose: () => void;
   onSuccess: () => void;
-}
+};
 
 export function DisableMemberDialog({
   member,

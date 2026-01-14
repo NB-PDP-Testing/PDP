@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 /**
  * Props for InlineEdit component
  */
-export interface InlineEditProps {
+export type InlineEditProps = {
   /** Current value */
   value: string;
   /** Callback when value is saved */
@@ -59,7 +59,7 @@ export interface InlineEditProps {
   minRows?: number;
   /** Maximum height for textarea */
   maxRows?: number;
-}
+};
 
 /**
  * InlineEdit - Responsive inline editing component
@@ -115,7 +115,9 @@ export function InlineEdit({
   }, [value, isEditing]);
 
   const startEditing = React.useCallback(() => {
-    if (disabled) return;
+    if (disabled) {
+      return;
+    }
     setEditValue(value);
     setError(null);
     setIsEditing(true);

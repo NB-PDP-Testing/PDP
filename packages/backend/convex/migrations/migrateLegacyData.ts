@@ -110,9 +110,7 @@ export const getMigrationPreview = query({
     }
 
     // Count players with coach notes
-    const playersWithNotes = players.filter(
-      (p: any) => p.coachNotes && p.coachNotes.trim()
-    );
+    const playersWithNotes = players.filter((p: any) => p.coachNotes?.trim());
 
     // Filter injuries and goals by players in scope
     const playerIds = new Set(players.map((p: any) => p._id));
@@ -516,9 +514,7 @@ export const migrateCoachNotes = mutation({
       players = await ctx.db.query("players").collect();
     }
 
-    const playersWithNotes = players.filter(
-      (p: any) => p.coachNotes && p.coachNotes.trim()
-    );
+    const playersWithNotes = players.filter((p: any) => p.coachNotes?.trim());
 
     for (const player of playersWithNotes.slice(0, batchSize)) {
       results.processed++;
@@ -557,7 +553,7 @@ export const migrateCoachNotes = mutation({
       }
 
       // Skip if enrollment already has notes
-      if (enrollment.coachNotes && enrollment.coachNotes.trim()) {
+      if (enrollment.coachNotes?.trim()) {
         results.skipped++;
         continue;
       }
@@ -589,7 +585,7 @@ export const runAllMigrations = mutation({
     organizationId: v.optional(v.string()),
     dryRun: v.boolean(),
   },
-  handler: async (ctx, args) => {
+  handler: async (_ctx, _args) => {
     // Note: This is for reference - in practice, run each migration separately
     // to avoid timeouts and allow for error correction
     return {

@@ -17,12 +17,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-interface RemoveFromOrgDialogProps {
+type RemoveFromOrgDialogProps = {
   member: { userId: string; name: string; email: string };
   organizationId: string;
   onClose: () => void;
   onSuccess: () => void;
-}
+};
 
 export function RemoveFromOrgDialog({
   member,
@@ -69,7 +69,9 @@ export function RemoveFromOrgDialog({
     }
   };
 
-  if (!preview) return null;
+  if (!preview) {
+    return null;
+  }
 
   return (
     <Dialog onOpenChange={onClose} open>

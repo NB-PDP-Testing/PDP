@@ -442,7 +442,7 @@ export const checkPlayerAccess = query({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .first();
 
-    if (!(accountLink && accountLink.isActive)) {
+    if (!accountLink?.isActive) {
       return { hasAccess: false, reason: "no_account_link" };
     }
 
@@ -473,7 +473,9 @@ export const checkPlayerAccess = query({
         .first();
 
       // If no policy or disabled, skip
-      if (!(policy && policy.isEnabled)) continue;
+      if (!policy?.isEnabled) {
+        continue;
+      }
 
       // Check age requirement
       if (player.dateOfBirth) {
@@ -487,7 +489,9 @@ export const checkPlayerAccess = query({
         ) {
           age--;
         }
-        if (age < policy.minimumAge) continue;
+        if (age < policy.minimumAge) {
+          continue;
+        }
       }
 
       // Check guardian approval if required
@@ -501,7 +505,9 @@ export const checkPlayerAccess = query({
           )
           .first();
 
-        if (!(grant && grant.isEnabled)) continue;
+        if (!grant?.isEnabled) {
+          continue;
+        }
 
         accessibleOrgs.push({
           organizationId: enrollment.organizationId,
@@ -549,7 +555,7 @@ export const getPlayerSelfViewPassport = query({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .first();
 
-    if (!(accessCheck && accessCheck.isActive)) {
+    if (!accessCheck?.isActive) {
       return { error: "No access" };
     }
 
@@ -563,7 +569,7 @@ export const getPlayerSelfViewPassport = query({
       )
       .first();
 
-    if (!(policy && policy.isEnabled)) {
+    if (!policy?.isEnabled) {
       return { error: "Player access not enabled for this organization" };
     }
 
@@ -579,7 +585,7 @@ export const getPlayerSelfViewPassport = query({
         )
         .first();
 
-      if (!(grant && grant.isEnabled)) {
+      if (!grant?.isEnabled) {
         return { error: "Guardian approval required" };
       }
 
@@ -751,7 +757,7 @@ export const getPlayerSports = query({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .first();
 
-    if (!(accountLink && accountLink.isActive)) {
+    if (!accountLink?.isActive) {
       return [];
     }
 

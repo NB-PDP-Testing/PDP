@@ -25,7 +25,7 @@ import { canPlayerJoinTeam } from "../lib/ageGroupUtils";
 /**
  * Violation record for reporting
  */
-interface Violation {
+type Violation = {
   playerName: string;
   playerIdentityId: string;
   playerAgeGroup: string;
@@ -37,7 +37,7 @@ interface Violation {
   violationType: "sport_mismatch" | "age_ineligible" | "missing_core_team";
   reason: string;
   autoFixed: boolean;
-}
+};
 
 /**
  * Query to validate team assignments for an organization
@@ -146,7 +146,9 @@ export const auditTeamAssignments = internalQuery({
 
       // Get player name
       const playerIdentity = await ctx.db.get(playerIdentityId);
-      if (!playerIdentity) continue;
+      if (!playerIdentity) {
+        continue;
+      }
       const playerName = `${playerIdentity.firstName} ${playerIdentity.lastName}`;
 
       // Get all team memberships for this player
@@ -194,7 +196,9 @@ export const auditTeamAssignments = internalQuery({
         // Validate each team membership for this sport
         for (const membership of teamMemberships) {
           const team = teamMap.get(membership.teamId);
-          if (!team) continue;
+          if (!team) {
+            continue;
+          }
 
           const teamAgeGroup = team.ageGroup || "";
           const teamSport = team.sport || "";
@@ -389,7 +393,9 @@ export const validateAndFixTeamAssignments = internalMutation({
 
       // Get player name
       const playerIdentity = await ctx.db.get(playerIdentityId);
-      if (!playerIdentity) continue;
+      if (!playerIdentity) {
+        continue;
+      }
       const playerName = `${playerIdentity.firstName} ${playerIdentity.lastName}`;
 
       // Get all team memberships for this player
@@ -432,7 +438,9 @@ export const validateAndFixTeamAssignments = internalMutation({
       // Validate each team membership
       for (const membership of teamMemberships) {
         const team = teamMap.get(membership.teamId);
-        if (!team) continue;
+        if (!team) {
+          continue;
+        }
 
         const teamAgeGroup = team.ageGroup || "";
         const teamSport = team.sport || "";

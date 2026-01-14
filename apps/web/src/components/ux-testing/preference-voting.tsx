@@ -8,7 +8,7 @@ import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
 import { useAnalytics } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
-interface PreferenceVotingProps {
+type PreferenceVotingProps = {
   /** Unique identifier for this mockup comparison */
   mockupId: string;
   /** Human-readable name for the mockup being tested */
@@ -19,7 +19,7 @@ interface PreferenceVotingProps {
   onVote?: (preference: "current" | "proposed") => void;
   /** Callback when feedback is submitted */
   onFeedback?: (feedback: string) => void;
-}
+};
 
 /**
  * A/B preference voting component for UX mockups
@@ -51,7 +51,9 @@ export function PreferenceVoting({
   };
 
   const handleFeedbackSubmit = () => {
-    if (!(feedback.trim() && vote)) return;
+    if (!(feedback.trim() && vote)) {
+      return;
+    }
 
     // Track feedback in PostHog
     track(UXAnalyticsEvents.MOCKUP_FEEDBACK_SUBMITTED, {
@@ -133,7 +135,7 @@ export function PreferenceVoting({
   );
 }
 
-interface MultiOptionVotingProps {
+type MultiOptionVotingProps = {
   /** Unique identifier for this comparison */
   comparisonId: string;
   /** Human-readable name for what's being compared */
@@ -146,7 +148,7 @@ interface MultiOptionVotingProps {
   }>;
   /** Callback when option is selected */
   onVote?: (optionId: string) => void;
-}
+};
 
 /**
  * Multi-option voting component for testing 3+ design approaches

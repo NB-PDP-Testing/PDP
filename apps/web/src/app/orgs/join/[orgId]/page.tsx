@@ -113,14 +113,18 @@ export default function JoinOrganizationRequestPage() {
 
   // Check if parent fields are valid (at least one child with name)
   const isParentDataValid = () => {
-    if (!selectedRoles.includes("parent")) return true;
+    if (!selectedRoles.includes("parent")) {
+      return true;
+    }
     // At least one child must have a name
     return children.some((child) => child.name.trim().length > 0);
   };
 
   // Check if coach fields are valid
   const isCoachDataValid = () => {
-    if (!selectedRoles.includes("coach")) return true;
+    if (!selectedRoles.includes("coach")) {
+      return true;
+    }
     // Sport is required for coaches
     return coachSport.length > 0;
   };

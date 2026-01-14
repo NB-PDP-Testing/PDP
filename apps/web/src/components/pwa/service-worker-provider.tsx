@@ -32,13 +32,13 @@ export function useSW() {
 /**
  * Props for ServiceWorkerProvider
  */
-export interface ServiceWorkerProviderProps {
+export type ServiceWorkerProviderProps = {
   children: React.ReactNode;
   /** Whether to show toast notifications */
   showToasts?: boolean;
   /** Whether to auto-register the service worker */
   autoRegister?: boolean;
-}
+};
 
 /**
  * ServiceWorkerProvider - Manages service worker lifecycle

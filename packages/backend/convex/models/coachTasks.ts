@@ -134,9 +134,15 @@ export const updateTask = mutation({
     }
 
     const updates: any = {};
-    if (args.text !== undefined) updates.text = args.text;
-    if (args.priority !== undefined) updates.priority = args.priority;
-    if (args.dueDate !== undefined) updates.dueDate = args.dueDate;
+    if (args.text !== undefined) {
+      updates.text = args.text;
+    }
+    if (args.priority !== undefined) {
+      updates.priority = args.priority;
+    }
+    if (args.dueDate !== undefined) {
+      updates.dueDate = args.dueDate;
+    }
 
     await ctx.db.patch(args.taskId, updates);
     return { success: true };

@@ -275,11 +275,15 @@ export default function CoachMedicalPage() {
 
   // Filter players - only show those with medical profiles
   const filteredPlayers = useMemo(() => {
-    if (!allProfiles) return [];
+    if (!allProfiles) {
+      return [];
+    }
 
     return allProfiles.filter((item) => {
       // Only show players WITH medical profiles
-      if (!item.hasProfile) return false;
+      if (!item.hasProfile) {
+        return false;
+      }
 
       // Search filter
       if (searchQuery) {
@@ -290,8 +294,12 @@ export default function CoachMedicalPage() {
       }
 
       // Alert filter
-      if (filterAlert === "allergies" && !item.hasAllergies) return false;
-      if (filterAlert === "conditions" && !item.hasConditions) return false;
+      if (filterAlert === "allergies" && !item.hasAllergies) {
+        return false;
+      }
+      if (filterAlert === "conditions" && !item.hasConditions) {
+        return false;
+      }
 
       return true;
     });
@@ -299,7 +307,9 @@ export default function CoachMedicalPage() {
 
   // Count players with alerts
   const alertCounts = useMemo(() => {
-    if (!allProfiles) return { allergies: 0, conditions: 0, medications: 0 };
+    if (!allProfiles) {
+      return { allergies: 0, conditions: 0, medications: 0 };
+    }
     return {
       allergies: allProfiles.filter((p) => p.hasAllergies).length,
       conditions: allProfiles.filter((p) => p.hasConditions).length,

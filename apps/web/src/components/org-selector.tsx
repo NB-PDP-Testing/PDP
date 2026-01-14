@@ -23,14 +23,14 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
-interface Organization {
+type Organization = {
   id: string;
   name: string;
   slug: string;
   logo?: string | null;
   metadata?: Record<string, unknown> | null;
   createdAt: Date;
-}
+};
 
 export function OrgSelector() {
   const router = useRouter();

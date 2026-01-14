@@ -9,9 +9,9 @@ import { FlowBanner } from "./flow-banner";
 import { FlowModal } from "./flow-modal";
 import { FlowPage } from "./flow-page";
 
-interface FlowInterceptorProps {
+type FlowInterceptorProps = {
   children: React.ReactNode;
-}
+};
 
 // Extract organization ID from path (e.g., /orgs/123/...)
 const ORG_PATH_REGEX = /\/orgs\/([^/]+)/;

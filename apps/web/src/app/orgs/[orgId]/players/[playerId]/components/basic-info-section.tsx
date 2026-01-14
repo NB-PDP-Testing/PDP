@@ -16,7 +16,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-interface Parent {
+type Parent = {
   id: string;
   firstName: string;
   surname: string;
@@ -24,17 +24,17 @@ interface Parent {
   phone?: string;
   relationship?: string;
   isPrimary?: boolean;
-}
+};
 
-interface Team {
+type Team = {
   _id: string;
   name: string;
   ageGroup?: string;
   sport?: string;
   [key: string]: any; // Allow additional properties
-}
+};
 
-interface PlayerData {
+type PlayerData = {
   _id: string;
   name: string;
   ageGroup: string;
@@ -53,11 +53,11 @@ interface PlayerData {
   address?: string;
   town?: string;
   postcode?: string;
-}
+};
 
-interface Props {
+type Props = {
   player: PlayerData;
-}
+};
 
 export function BasicInformationSection({ player }: Props) {
   const [isExpanded, setIsExpanded] = useState(true);

@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   description: "View your children's achievements and milestones",
 };
 
-interface ParentAchievementsPageProps {
+type ParentAchievementsPageProps = {
   params: Promise<{ orgId: string }>;
-}
+};
 
 export default async function ParentAchievementsPage({
   params,

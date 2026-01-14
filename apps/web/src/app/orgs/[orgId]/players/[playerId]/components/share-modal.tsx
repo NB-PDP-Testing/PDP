@@ -35,12 +35,12 @@ import {
   shareViaWhatsApp,
 } from "@/lib/pdf-generator";
 
-interface ShareModalProps {
+type ShareModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   playerData: PassportPDFData;
   playerName: string;
-}
+};
 
 export function ShareModal({
   open,
@@ -59,7 +59,7 @@ export function ShareModal({
     if (open && !pdfBytes) {
       generatePDF();
     }
-  }, [open]);
+  }, [open, generatePDF, pdfBytes]);
 
   // Clean up preview URL on unmount
   useEffect(
@@ -89,7 +89,9 @@ export function ShareModal({
   };
 
   const handleDownload = useCallback(() => {
-    if (!pdfBytes) return;
+    if (!pdfBytes) {
+      return;
+    }
 
     const filename = `${playerName.replace(/\s+/g, "_")}_Passport_${new Date().toISOString().split("T")[0]}.pdf`;
     downloadPDF(pdfBytes, filename);
@@ -97,7 +99,9 @@ export function ShareModal({
   }, [pdfBytes, playerName]);
 
   const handlePreviewInNewTab = useCallback(() => {
-    if (!previewUrl) return;
+    if (!previewUrl) {
+      return;
+    }
     window.open(previewUrl, "_blank");
   }, [previewUrl]);
 

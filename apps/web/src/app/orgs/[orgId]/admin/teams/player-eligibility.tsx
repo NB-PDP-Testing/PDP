@@ -12,12 +12,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-interface PlayerEligibilityBadgeProps {
+type PlayerEligibilityBadgeProps = {
   playerIdentityId: Id<"playerIdentities">;
   teamId: string;
   organizationId: string;
   compact?: boolean;
-}
+};
 
 export function PlayerEligibilityBadge({
   playerIdentityId,

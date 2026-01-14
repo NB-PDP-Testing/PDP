@@ -15,18 +15,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-interface NavItem {
+type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   href: string;
   isAction?: boolean;
-}
+};
 
-interface BottomNavProps {
+type BottomNavProps = {
   items?: NavItem[];
   orgId?: string;
   onActionClick?: () => void;
-}
+};
 
 /**
  * COACH BOTTOM NAV CONFIGURATION
@@ -42,7 +42,7 @@ const coachNavItems: NavItem[] = [
 /**
  * PARENT BOTTOM NAV CONFIGURATION
  */
-const parentNavItems: NavItem[] = [
+const _parentNavItems: NavItem[] = [
   { icon: Home, label: "Home", href: "/orgs/[orgId]/parents" },
   {
     icon: BarChart3,
@@ -85,7 +85,7 @@ export function BottomNav({
         {items.map((item) => {
           const href = resolveHref(item.href);
           const isActive =
-            pathname === href || pathname?.startsWith(href + "/");
+            pathname === href || pathname?.startsWith(`${href}/`);
           const Icon = item.icon;
 
           // Special handling for center action button

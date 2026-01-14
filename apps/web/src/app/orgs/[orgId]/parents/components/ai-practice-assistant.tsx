@@ -38,7 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-interface AIPracticeAssistantProps {
+type AIPracticeAssistantProps = {
   children: Array<{
     player: {
       _id: Id<"playerIdentities">;
@@ -47,7 +47,7 @@ interface AIPracticeAssistantProps {
     };
   }>;
   orgId: string;
-}
+};
 
 // Sport-specific drill database
 const DRILL_DATABASE: Record<
@@ -214,7 +214,7 @@ const DRILL_DATABASE: Record<
   ],
 };
 
-interface PracticePlan {
+type PracticePlan = {
   childName: string;
   sport: string;
   focusSkill: string;
@@ -222,7 +222,7 @@ interface PracticePlan {
   weeklyGoal: string;
   schedule: string[];
   aiTip: string;
-}
+};
 
 export function AIPracticeAssistant({
   children,
@@ -249,7 +249,9 @@ export function AIPracticeAssistant({
 
   // Generate practice plan based on weakest skills
   const generatePlan = useCallback(() => {
-    if (!(selectedChild && passportData)) return;
+    if (!(selectedChild && passportData)) {
+      return;
+    }
 
     setIsGenerating(true);
 

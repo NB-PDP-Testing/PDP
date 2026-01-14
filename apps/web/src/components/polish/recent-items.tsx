@@ -8,16 +8,16 @@ import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-export interface RecentItem {
+export type RecentItem = {
   id: string;
   label: string;
   href: string;
   icon?: React.ReactNode;
   timestamp: number;
   type?: string;
-}
+};
 
-interface RecentItemsProps {
+type RecentItemsProps = {
   /** Maximum number of recent items to show */
   maxItems?: number;
   /** Storage key for persistence */
@@ -30,7 +30,7 @@ interface RecentItemsProps {
   onItemsChange?: (items: RecentItem[]) => void;
   /** Container class name */
   className?: string;
-}
+};
 
 /**
  * RecentItems - Shows recently visited pages/items
@@ -87,21 +87,33 @@ export function RecentItems({
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-    if (minutes < 1) return "Just now";
-    if (minutes < 60) return `${minutes}m ago`;
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
+    if (minutes < 1) {
+      return "Just now";
+    }
+    if (minutes < 60) {
+      return `${minutes}m ago`;
+    }
+    if (hours < 24) {
+      return `${hours}h ago`;
+    }
+    if (days < 7) {
+      return `${days}d ago`;
+    }
     return new Date(timestamp).toLocaleDateString();
   };
 
   // Group items by type if enabled
   const groupedItems = React.useMemo(() => {
-    if (!groupByType) return { all: items };
+    if (!groupByType) {
+      return { all: items };
+    }
 
     return items.reduce(
       (acc, item) => {
         const type = item.type || "other";
-        if (!acc[type]) acc[type] = [];
+        if (!acc[type]) {
+          acc[type] = [];
+        }
         acc[type].push(item);
         return acc;
       },
@@ -179,12 +191,12 @@ export function RecentItems({
   );
 }
 
-interface RecentItemRowProps {
+type RecentItemRowProps = {
   item: RecentItem;
   isActive: boolean;
   formatTime: (timestamp: number) => string;
   onRemove: () => void;
-}
+};
 
 function RecentItemRow({
   item,
@@ -273,7 +285,9 @@ export function useRecentItems(storageKey = "recent-items", maxItems = 10) {
   // Track current page automatically
   const trackCurrentPage = React.useCallback(
     (label: string, type?: string, icon?: React.ReactNode) => {
-      if (!pathname) return;
+      if (!pathname) {
+        return;
+      }
 
       addItem({
         id: pathname,
@@ -317,12 +331,12 @@ export function useRecentItems(storageKey = "recent-items", maxItems = 10) {
  * Component to automatically track page visits
  * Place in layout to track navigation
  */
-interface PageTrackerProps {
+type PageTrackerProps = {
   label: string;
   type?: string;
   icon?: React.ReactNode;
   storageKey?: string;
-}
+};
 
 export function PageTracker({
   label,

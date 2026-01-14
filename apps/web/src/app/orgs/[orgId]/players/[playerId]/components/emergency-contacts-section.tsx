@@ -44,11 +44,11 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-interface EmergencyContactsSectionProps {
+type EmergencyContactsSectionProps = {
   playerIdentityId: Id<"playerIdentities">;
   isEditable: boolean; // Only true for adult players viewing their own profile
   playerType: "youth" | "adult";
-}
+};
 
 const RELATIONSHIP_OPTIONS = [
   { value: "spouse", label: "Spouse/Partner" },
@@ -61,14 +61,14 @@ const RELATIONSHIP_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
-interface ContactFormData {
+type ContactFormData = {
   firstName: string;
   lastName: string;
   phone: string;
   email: string;
   relationship: string;
   notes: string;
-}
+};
 
 const emptyFormData: ContactFormData = {
   firstName: "",
@@ -161,7 +161,7 @@ export function EmergencyContactsSection({
     try {
       await removeContact({ contactId });
       toast.success("Contact removed");
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to remove contact");
     } finally {
       setDeletingId(null);
@@ -174,15 +174,19 @@ export function EmergencyContactsSection({
     direction: "up" | "down"
   ) => {
     const contact = contacts?.find((c) => c._id === contactId);
-    if (!contact) return;
+    if (!contact) {
+      return;
+    }
 
     const newPriority =
       direction === "up" ? contact.priority - 1 : contact.priority + 1;
-    if (newPriority < 1 || newPriority > (contacts?.length || 0)) return;
+    if (newPriority < 1 || newPriority > (contacts?.length || 0)) {
+      return;
+    }
 
     try {
       await updatePriority({ contactId, newPriority });
-    } catch (error) {
+    } catch (_error) {
       toast.error("Failed to reorder contact");
     }
   };

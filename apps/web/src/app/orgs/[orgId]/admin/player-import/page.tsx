@@ -176,8 +176,12 @@ export default function PlayerImportPage() {
   const genderToTeamFormat = (
     gender: "male" | "female" | "other"
   ): "Male" | "Female" | "Mixed" => {
-    if (gender === "male") return "Male";
-    if (gender === "female") return "Female";
+    if (gender === "male") {
+      return "Male";
+    }
+    if (gender === "female") {
+      return "Female";
+    }
     return "Mixed";
   };
 
@@ -185,18 +189,30 @@ export default function PlayerImportPage() {
   const parseRelationship = (
     rel?: string
   ): "mother" | "father" | "guardian" | "grandparent" | "other" | undefined => {
-    if (!rel) return;
+    if (!rel) {
+      return;
+    }
     const normalized = rel.trim().toLowerCase();
-    if (normalized === "mother" || normalized === "mum" || normalized === "mom")
+    if (
+      normalized === "mother" ||
+      normalized === "mum" ||
+      normalized === "mom"
+    ) {
       return "mother";
-    if (normalized === "father" || normalized === "dad") return "father";
-    if (normalized === "guardian") return "guardian";
+    }
+    if (normalized === "father" || normalized === "dad") {
+      return "father";
+    }
+    if (normalized === "guardian") {
+      return "guardian";
+    }
     if (
       normalized === "grandparent" ||
       normalized === "grandmother" ||
       normalized === "grandfather"
-    )
+    ) {
       return "grandparent";
+    }
     return "other";
   };
 
@@ -505,7 +521,7 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
 
       const playersByTeam = new Map<
         string,
-        Array<(typeof result.playerIdentities)[0]["playerIdentityId"]>
+        (typeof result.playerIdentities)[0]["playerIdentityId"][]
       >();
 
       for (const identity of result.playerIdentities) {
@@ -633,7 +649,7 @@ Emma,Johnson,U10,GAA Football,Female,2025,Sarah,Johnson,sarah.johnson@email.com,
       setParsedPlayers(matched);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teams]);
+  }, [teams, matchPlayersToTeams, parsedPlayers]);
 
   return (
     <div className="space-y-6">

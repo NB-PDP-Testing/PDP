@@ -46,7 +46,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 
 // Types for smart match results (from guardian identity system)
-interface SmartMatch {
+type SmartMatch = {
   playerIdentityId: string;
   name: string;
   ageGroup: string;
@@ -56,7 +56,7 @@ interface SmartMatch {
   confidence: "high" | "medium" | "low" | "none";
   existingGuardianEmail: string | null;
   isAlreadyLinked: boolean;
-}
+};
 
 // Confidence badge colors
 function getConfidenceBadge(confidence: SmartMatch["confidence"]) {
@@ -156,9 +156,11 @@ export default function JoinRequestApprovalsPage() {
 
   // Extract surname from userName for better matching
   const extractSurname = (fullName: string | undefined): string | undefined => {
-    if (!fullName) return;
+    if (!fullName) {
+      return;
+    }
     const parts = fullName.trim().split(/\s+/);
-    return parts.length > 1 ? parts[parts.length - 1] : undefined;
+    return parts.length > 1 ? parts.at(-1) : undefined;
   };
 
   // Fetch smart matches for the selected parent request
@@ -182,7 +184,9 @@ export default function JoinRequestApprovalsPage() {
   const isLoading = pendingRequests === undefined;
 
   const filteredRequests = pendingRequests?.filter((request) => {
-    if (!searchTerm) return true;
+    if (!searchTerm) {
+      return true;
+    }
     const searchable = [request.userName, request.userEmail]
       .filter(Boolean)
       .join(" ")
@@ -191,7 +195,9 @@ export default function JoinRequestApprovalsPage() {
   });
 
   const handleApprove = async () => {
-    if (!selectedRequest) return;
+    if (!selectedRequest) {
+      return;
+    }
 
     setLoading(selectedRequest._id);
     try {
@@ -226,7 +232,9 @@ export default function JoinRequestApprovalsPage() {
   };
 
   const handleReject = async () => {
-    if (!(selectedRequest && rejectionReason.trim())) return;
+    if (!(selectedRequest && rejectionReason.trim())) {
+      return;
+    }
 
     setLoading(selectedRequest._id);
     try {
@@ -332,7 +340,9 @@ export default function JoinRequestApprovalsPage() {
   };
 
   const handleRejectFunctionalRole = async () => {
-    if (!selectedRoleRequest) return;
+    if (!selectedRoleRequest) {
+      return;
+    }
 
     setLoading(
       `role-${selectedRoleRequest.memberId}-${selectedRoleRequest.requestedRole}`
@@ -889,7 +899,9 @@ export default function JoinRequestApprovalsPage() {
       <Dialog
         onOpenChange={(open) => {
           setApproveDialogOpen(open);
-          if (!open) resetApprovalState();
+          if (!open) {
+            resetApprovalState();
+          }
         }}
         open={approveDialogOpen}
       >

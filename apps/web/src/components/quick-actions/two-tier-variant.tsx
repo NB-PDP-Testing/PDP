@@ -23,7 +23,7 @@ import {
 import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
 import { useAnalytics } from "@/lib/analytics";
 
-interface TwoTierQuickActionsProps {
+type TwoTierQuickActionsProps = {
   onAssessPlayers: () => void;
   onGenerateSessionPlan: () => void;
   onViewAnalytics: () => void;
@@ -32,14 +32,14 @@ interface TwoTierQuickActionsProps {
   onGoals: () => void;
   onMedical: () => void;
   onMatchDay: () => void;
-}
+};
 
-interface QuickAction {
+type QuickAction = {
   icon: React.ElementType;
   label: string;
   onClick: () => void;
   color: string;
-}
+};
 
 /**
  * Two-Tier Quick Actions Variant

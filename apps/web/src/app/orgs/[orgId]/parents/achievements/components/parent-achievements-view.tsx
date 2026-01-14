@@ -20,9 +20,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 
-interface ParentAchievementsViewProps {
+type ParentAchievementsViewProps = {
   orgId: string;
-}
+};
 
 export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
   const router = useRouter();
@@ -43,7 +43,9 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
 
   // Check if user has parent role
   const hasParentRole = useMemo(() => {
-    if (!roleDetails) return false;
+    if (!roleDetails) {
+      return false;
+    }
     return (
       roleDetails.functionalRoles.includes("parent") ||
       roleDetails.functionalRoles.includes("admin") ||
@@ -54,7 +56,9 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
 
   // Auto-select first child if none selected
   const selectedChild = useMemo(() => {
-    if (identityChildren.length === 0) return null;
+    if (identityChildren.length === 0) {
+      return null;
+    }
     if (!selectedChildId) {
       const firstChild = identityChildren[0];
       setSelectedChildId(firstChild.player._id);
@@ -141,7 +145,9 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
     () => ({
       completedGoals: completedGoals.length,
       recentReviews: identityChildren.filter((c) => {
-        if (!c.enrollment?.lastReviewDate) return false;
+        if (!c.enrollment?.lastReviewDate) {
+          return false;
+        }
         const daysSince = Math.floor(
           (Date.now() - new Date(c.enrollment.lastReviewDate).getTime()) /
             (1000 * 60 * 60 * 24)

@@ -32,7 +32,7 @@ import { SwipeableCard } from "./swipeable-card";
 /**
  * Column definition for ResponsiveDataView
  */
-export interface DataColumn<T> {
+export type DataColumn<T> = {
   /** Unique key for the column */
   key: string;
   /** Header label */
@@ -49,12 +49,12 @@ export interface DataColumn<T> {
   width?: string;
   /** Whether column can be hidden */
   hideable?: boolean;
-}
+};
 
 /**
  * Action definition for row actions
  */
-export interface DataAction<T> {
+export type DataAction<T> = {
   /** Action label */
   label: string;
   /** Action icon */
@@ -65,12 +65,12 @@ export interface DataAction<T> {
   destructive?: boolean;
   /** Whether action is disabled */
   disabled?: (item: T) => boolean;
-}
+};
 
 /**
  * Swipe action definition for mobile cards
  */
-export interface SwipeActionDef<T> {
+export type SwipeActionDef<T> = {
   /** Action label */
   label: string;
   /** Action icon */
@@ -81,12 +81,12 @@ export interface SwipeActionDef<T> {
   textColor?: string;
   /** Action handler */
   onClick: (item: T) => void;
-}
+};
 
 /**
  * Props for ResponsiveDataView
  */
-export interface ResponsiveDataViewProps<T> {
+export type ResponsiveDataViewProps<T> = {
   /** Data to display */
   data: T[];
   /** Column definitions */
@@ -123,7 +123,7 @@ export interface ResponsiveDataViewProps<T> {
   onRefresh?: () => Promise<void>;
   /** Class name for container */
   className?: string;
-}
+};
 
 /**
  * ResponsiveDataView - Shows cards on mobile, table on desktop
@@ -177,7 +177,9 @@ export function ResponsiveDataView<T>({
 
   // Pull-to-refresh handlers (touch events)
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (!enablePullToRefresh || isRefreshing) return;
+    if (!enablePullToRefresh || isRefreshing) {
+      return;
+    }
     // Check if at top of scroll (window or container)
     const scrollTop = window.scrollY || document.documentElement.scrollTop;
     if (scrollTop <= 0) {
@@ -187,7 +189,9 @@ export function ResponsiveDataView<T>({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isPullingRef.current || isRefreshing) return;
+    if (!isPullingRef.current || isRefreshing) {
+      return;
+    }
     const diff = e.touches[0].clientY - startYRef.current;
     if (diff > 0) {
       // Apply resistance (0.5x drag distance)
@@ -198,7 +202,9 @@ export function ResponsiveDataView<T>({
   };
 
   const handleTouchEnd = async () => {
-    if (!isPullingRef.current) return;
+    if (!isPullingRef.current) {
+      return;
+    }
     isPullingRef.current = false;
 
     if (pullDistance > 60 && onRefresh) {
@@ -214,7 +220,9 @@ export function ResponsiveDataView<T>({
 
   // Mouse event handlers for desktop/Chrome DevTools testing
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (!enablePullToRefresh || isRefreshing) return;
+    if (!enablePullToRefresh || isRefreshing) {
+      return;
+    }
     const scrollTop = window.scrollY || document.documentElement.scrollTop;
     if (scrollTop <= 0) {
       startYRef.current = e.clientY;
@@ -223,7 +231,9 @@ export function ResponsiveDataView<T>({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isPullingRef.current || isRefreshing) return;
+    if (!isPullingRef.current || isRefreshing) {
+      return;
+    }
     const diff = e.clientY - startYRef.current;
     if (diff > 0) {
       setPullDistance(Math.min(diff * 0.5, 100));
@@ -231,7 +241,9 @@ export function ResponsiveDataView<T>({
   };
 
   const handleMouseUp = async () => {
-    if (!isPullingRef.current) return;
+    if (!isPullingRef.current) {
+      return;
+    }
     isPullingRef.current = false;
 
     if (pullDistance > 60 && onRefresh) {
@@ -254,7 +266,9 @@ export function ResponsiveDataView<T>({
 
   // Handle select all
   const handleSelectAll = () => {
-    if (!onSelectionChange) return;
+    if (!onSelectionChange) {
+      return;
+    }
     if (selectedKeys.size === data.length) {
       onSelectionChange(new Set());
     } else {
@@ -264,7 +278,9 @@ export function ResponsiveDataView<T>({
 
   // Handle single selection
   const handleSelect = (key: string) => {
-    if (!onSelectionChange) return;
+    if (!onSelectionChange) {
+      return;
+    }
     const newKeys = new Set(selectedKeys);
     if (newKeys.has(key)) {
       newKeys.delete(key);
@@ -276,9 +292,13 @@ export function ResponsiveDataView<T>({
 
   // Handle sort click
   const handleSort = (columnKey: string) => {
-    if (!onSortChange) return;
+    if (!onSortChange) {
+      return;
+    }
     const column = columns.find((c) => c.key === columnKey);
-    if (!column?.sortable) return;
+    if (!column?.sortable) {
+      return;
+    }
 
     if (sortColumn === columnKey) {
       onSortChange(columnKey, sortDirection === "asc" ? "desc" : "asc");

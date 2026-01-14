@@ -53,7 +53,7 @@ const TEST_ORG = {
 /**
  * Test teams - MUST match apps/web/uat/test-data.json
  */
-const TEST_TEAMS = [
+const _TEST_TEAMS = [
   {
     name: "Test Club FC U12 Boys",
     ageGroup: "U12",
@@ -71,7 +71,7 @@ const TEST_TEAMS = [
 /**
  * Test players - MUST match apps/web/uat/test-data.json
  */
-const TEST_PLAYERS = [
+const _TEST_PLAYERS = [
   {
     firstName: "Liam",
     lastName: "Murphy",

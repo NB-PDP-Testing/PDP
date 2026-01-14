@@ -10,7 +10,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
-interface PlayerData {
+type PlayerData = {
   positions?: {
     favourite?: string;
     leastFavourite?: string;
@@ -25,11 +25,11 @@ interface PlayerData {
     endurance?: string;
     notes?: string;
   };
-}
+};
 
-interface Props {
+type Props = {
   player: PlayerData;
-}
+};
 
 export function PositionsFitnessSection({ player }: Props) {
   const [isPositionsExpanded, setIsPositionsExpanded] = useState(true);
@@ -71,35 +71,35 @@ export function PositionsFitnessSection({ player }: Props) {
             <CollapsibleContent>
               <CardContent>
                 <div className="space-y-4">
-                  {player.positions!.favourite && (
+                  {player.positions?.favourite && (
                     <PositionField
                       isPrimary
                       label="Favourite Position"
-                      value={player.positions!.favourite}
+                      value={player.positions?.favourite}
                     />
                   )}
-                  {player.positions!.coachesPref && (
+                  {player.positions?.coachesPref && (
                     <PositionField
                       label="Coach's Preferred Position"
-                      value={player.positions!.coachesPref}
+                      value={player.positions?.coachesPref}
                     />
                   )}
-                  {player.positions!.leastFavourite && (
+                  {player.positions?.leastFavourite && (
                     <PositionField
                       label="Least Favourite Position"
-                      value={player.positions!.leastFavourite}
+                      value={player.positions?.leastFavourite}
                     />
                   )}
-                  {player.positions!.dominantSide && (
+                  {player.positions?.dominantSide && (
                     <PositionField
                       label="Dominant Side"
-                      value={player.positions!.dominantSide}
+                      value={player.positions?.dominantSide}
                     />
                   )}
-                  {player.positions!.goalkeeper && (
+                  {player.positions?.goalkeeper && (
                     <PositionField
                       label="Goalkeeper"
-                      value={player.positions!.goalkeeper}
+                      value={player.positions?.goalkeeper}
                     />
                   )}
                 </div>
@@ -135,38 +135,38 @@ export function PositionsFitnessSection({ player }: Props) {
             <CollapsibleContent>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {player.fitness!.speed && (
+                  {player.fitness?.speed && (
                     <FitnessMetric
                       label="Speed"
-                      value={player.fitness!.speed}
+                      value={player.fitness?.speed}
                     />
                   )}
-                  {player.fitness!.agility && (
+                  {player.fitness?.agility && (
                     <FitnessMetric
                       label="Agility"
-                      value={player.fitness!.agility}
+                      value={player.fitness?.agility}
                     />
                   )}
-                  {player.fitness!.strength && (
+                  {player.fitness?.strength && (
                     <FitnessMetric
                       label="Strength"
-                      value={player.fitness!.strength}
+                      value={player.fitness?.strength}
                     />
                   )}
-                  {player.fitness!.endurance && (
+                  {player.fitness?.endurance && (
                     <FitnessMetric
                       label="Endurance"
-                      value={player.fitness!.endurance}
+                      value={player.fitness?.endurance}
                     />
                   )}
                 </div>
 
-                {player.fitness!.notes && (
+                {player.fitness?.notes && (
                   <div className="border-t pt-4">
                     <h4 className="mb-2 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
                       Fitness Notes
                     </h4>
-                    <p className="text-sm">{player.fitness!.notes}</p>
+                    <p className="text-sm">{player.fitness?.notes}</p>
                   </div>
                 )}
               </CardContent>
@@ -201,11 +201,21 @@ function FitnessMetric({ label, value }: { label: string; value: string }) {
   // Parse rating from value (e.g., "Good", "Excellent", etc.)
   const getRatingLevel = (val: string): number => {
     const lower = val.toLowerCase();
-    if (lower.includes("excellent") || lower.includes("5")) return 5;
-    if (lower.includes("very good") || lower.includes("4")) return 4;
-    if (lower.includes("good") || lower.includes("3")) return 3;
-    if (lower.includes("fair") || lower.includes("2")) return 2;
-    if (lower.includes("poor") || lower.includes("1")) return 1;
+    if (lower.includes("excellent") || lower.includes("5")) {
+      return 5;
+    }
+    if (lower.includes("very good") || lower.includes("4")) {
+      return 4;
+    }
+    if (lower.includes("good") || lower.includes("3")) {
+      return 3;
+    }
+    if (lower.includes("fair") || lower.includes("2")) {
+      return 2;
+    }
+    if (lower.includes("poor") || lower.includes("1")) {
+      return 1;
+    }
     return 3; // default
   };
 
@@ -213,10 +223,18 @@ function FitnessMetric({ label, value }: { label: string; value: string }) {
   const percentage = (level / 5) * 100;
 
   const getColor = (): string => {
-    if (level === 5) return "bg-blue-500";
-    if (level === 4) return "bg-green-500";
-    if (level === 3) return "bg-yellow-500";
-    if (level === 2) return "bg-orange-500";
+    if (level === 5) {
+      return "bg-blue-500";
+    }
+    if (level === 4) {
+      return "bg-green-500";
+    }
+    if (level === 3) {
+      return "bg-yellow-500";
+    }
+    if (level === 2) {
+      return "bg-orange-500";
+    }
     return "bg-red-500";
   };
 

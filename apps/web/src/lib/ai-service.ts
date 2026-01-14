@@ -1,4 +1,4 @@
-interface TeamData {
+type TeamData = {
   teamName: string;
   players?: any[]; // Optional - only used for recommendations
   playerCount?: number; // For session plans
@@ -8,24 +8,24 @@ interface TeamData {
   weaknesses: Array<{ skill: string; avg: number }>;
   attendanceIssues: number;
   overdueReviews: number;
-}
+};
 
-export interface AIRecommendation {
+export type AIRecommendation = {
   priority: number;
   title: string;
   description: string;
   actionItems: string[];
   playersAffected: string[];
-}
+};
 
-export interface AIResponse {
+export type AIResponse = {
   recommendations: AIRecommendation[];
   usedRealAI: boolean; // Track if real AI was used or fell back
-}
+};
 
 // Use backend proxy (API route) to keep API key secure
 // Try real AI by default - fall back to simulated if API key not configured or request fails
-const USE_REAL_AI = process.env.NEXT_PUBLIC_USE_REAL_AI !== "false"; // Default to true unless explicitly disabled
+const _USE_REAL_AI = process.env.NEXT_PUBLIC_USE_REAL_AI !== "false"; // Default to true unless explicitly disabled
 
 export async function generateCoachingRecommendations(
   teamData: TeamData
@@ -167,7 +167,8 @@ function generateSimulatedRecommendations(
     const lowAttendancePlayers = (teamData.players || [])
       .filter(
         (p) =>
-          p.attendance && Number.parseInt(p.attendance.training || "100") < 70
+          p.attendance &&
+          Number.parseInt(p.attendance.training || "100", 10) < 70
       )
       .map((p) => p.name);
 

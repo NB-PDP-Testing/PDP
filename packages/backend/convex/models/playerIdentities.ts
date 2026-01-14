@@ -146,8 +146,8 @@ export const searchPlayersByName = query({
         .query("playerIdentities")
         .withIndex("by_name_dob", (q) =>
           q
-            .eq("firstName", args.firstName!.trim())
-            .eq("lastName", args.lastName!.trim())
+            .eq("firstName", args.firstName?.trim())
+            .eq("lastName", args.lastName?.trim())
         )
         .take(limit);
       return players;
@@ -441,21 +441,51 @@ function determinePlayerType(dateOfBirth: string): "youth" | "adult" {
 export function determineAgeGroup(dateOfBirth: string): string {
   const age = calculateAge(dateOfBirth);
 
-  if (age >= 21) return "senior";
-  if (age >= 19) return "u21";
-  if (age >= 17) return "u19";
-  if (age >= 16) return "u18";
-  if (age >= 15) return "u17";
-  if (age >= 14) return "u16";
-  if (age >= 13) return "u15";
-  if (age >= 12) return "u14";
-  if (age >= 11) return "u13";
-  if (age >= 10) return "u12";
-  if (age >= 9) return "u11";
-  if (age >= 8) return "u10";
-  if (age >= 7) return "u9";
-  if (age >= 6) return "u8";
-  if (age >= 5) return "u7";
+  if (age >= 21) {
+    return "senior";
+  }
+  if (age >= 19) {
+    return "u21";
+  }
+  if (age >= 17) {
+    return "u19";
+  }
+  if (age >= 16) {
+    return "u18";
+  }
+  if (age >= 15) {
+    return "u17";
+  }
+  if (age >= 14) {
+    return "u16";
+  }
+  if (age >= 13) {
+    return "u15";
+  }
+  if (age >= 12) {
+    return "u14";
+  }
+  if (age >= 11) {
+    return "u13";
+  }
+  if (age >= 10) {
+    return "u12";
+  }
+  if (age >= 9) {
+    return "u11";
+  }
+  if (age >= 8) {
+    return "u10";
+  }
+  if (age >= 7) {
+    return "u9";
+  }
+  if (age >= 6) {
+    return "u8";
+  }
+  if (age >= 5) {
+    return "u7";
+  }
   return "u6";
 }
 
@@ -502,7 +532,7 @@ export const checkForDuplicatePlayer = query({
 
     // Partial matches are name + DOB but different gender
     const partialMatches = exactMatch
-      ? nameAndDobMatches.filter((p) => p._id !== exactMatch!._id)
+      ? nameAndDobMatches.filter((p) => p._id !== exactMatch?._id)
       : nameAndDobMatches;
 
     // Determine if this is a duplicate situation
@@ -531,7 +561,9 @@ export const getPlayerAge = query({
   returns: v.union(v.number(), v.null()),
   handler: async (ctx, args) => {
     const player = await ctx.db.get(args.playerIdentityId);
-    if (!player) return null;
+    if (!player) {
+      return null;
+    }
     return calculateAge(player.dateOfBirth);
   },
 });
@@ -542,7 +574,9 @@ export const getPlayerAgeGroup = query({
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, args) => {
     const player = await ctx.db.get(args.playerIdentityId);
-    if (!player) return null;
+    if (!player) {
+      return null;
+    }
     return determineAgeGroup(player.dateOfBirth);
   },
 });

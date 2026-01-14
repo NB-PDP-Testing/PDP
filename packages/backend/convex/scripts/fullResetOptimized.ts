@@ -98,7 +98,7 @@ export const fullReset = mutation({
       if (record.audioStorageId) {
         try {
           await ctx.storage.delete(record.audioStorageId);
-        } catch (e) {
+        } catch (_e) {
           // Storage may already be deleted
         }
       }

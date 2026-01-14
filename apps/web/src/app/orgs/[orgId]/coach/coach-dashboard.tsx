@@ -264,19 +264,19 @@ export function CoachDashboard() {
   }, [coachPlayers, teams, playerSkillsData, teamPlayerLinks]);
 
   // Get unique values for filters from coach's players
-  const uniqueAgeGroups = useMemo(() => {
+  const _uniqueAgeGroups = useMemo(() => {
     const ageGroups = new Set(
       coachPlayers.map((p) => p.ageGroup).filter(Boolean)
     );
     return Array.from(ageGroups).sort();
   }, [coachPlayers]);
 
-  const uniqueSports = useMemo(() => {
+  const _uniqueSports = useMemo(() => {
     const sports = new Set(coachPlayers.map((p) => p.sport).filter(Boolean));
     return Array.from(sports).sort();
   }, [coachPlayers]);
 
-  const uniqueGenders = useMemo(() => {
+  const _uniqueGenders = useMemo(() => {
     const genders = new Set(coachPlayers.map((p) => p.gender).filter(Boolean));
     return Array.from(genders).sort();
   }, [coachPlayers]);
@@ -590,12 +590,12 @@ export function CoachDashboard() {
   };
 
   // Handle player view/edit navigation
-  const handleViewPlayer = (player: any) => {
+  const _handleViewPlayer = (player: any) => {
     // Navigate to player passport page
     router.push(`/orgs/${orgId}/players/${player._id}`);
   };
 
-  const handleEditPlayer = (player: any) => {
+  const _handleEditPlayer = (player: any) => {
     // Navigate to player edit page
     router.push(`/orgs/${orgId}/players/${player._id}/edit`);
   };

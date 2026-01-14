@@ -32,7 +32,7 @@ export const scrapeWebsite = action({
     }),
     colorSource: v.string(), // Tells user where colors came from
   }),
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     try {
       // Normalize URL - ensure it has a protocol
       let url = args.url.trim();
@@ -616,7 +616,7 @@ function hslToRgb(
   s: number,
   l: number
 ): { r: number; g: number; b: number } {
-  h = h / 360;
+  h /= 360;
 
   let r: number;
   let g: number;

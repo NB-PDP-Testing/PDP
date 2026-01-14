@@ -19,7 +19,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
-interface GuardianSettingsProps {
+type GuardianSettingsProps = {
   guardianIdentity: {
     _id: Id<"guardianIdentities">;
     firstName: string;
@@ -28,7 +28,7 @@ interface GuardianSettingsProps {
     phone?: string;
     verificationStatus?: string;
   } | null;
-}
+};
 
 export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
@@ -48,7 +48,9 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
     playerIdentityId: Id<"playerIdentities">,
     newConsent: boolean
   ) => {
-    if (!guardianIdentity) return;
+    if (!guardianIdentity) {
+      return;
+    }
 
     const linkId = `${guardianIdentity._id}-${playerIdentityId}`;
     setProcessingLinkId(linkId);
@@ -73,7 +75,9 @@ export function GuardianSettings({ guardianIdentity }: GuardianSettingsProps) {
     }
   };
 
-  if (!guardianIdentity) return null;
+  if (!guardianIdentity) {
+    return null;
+  }
 
   return (
     <>

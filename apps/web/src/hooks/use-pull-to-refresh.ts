@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-interface UsePullToRefreshOptions {
+type UsePullToRefreshOptions = {
   /** Callback when refresh is triggered */
   onRefresh: () => Promise<void>;
   /** Minimum pull distance to trigger refresh (default: 80) */
@@ -11,9 +11,9 @@ interface UsePullToRefreshOptions {
   maxPull?: number;
   /** Whether pull-to-refresh is disabled */
   disabled?: boolean;
-}
+};
 
-interface UsePullToRefreshReturn {
+type UsePullToRefreshReturn = {
   /** Current pull distance (0 when not pulling) */
   pullDistance: number;
   /** Whether currently refreshing */
@@ -26,7 +26,7 @@ interface UsePullToRefreshReturn {
     onTouchMove: (e: React.TouchEvent) => void;
     onTouchEnd: () => void;
   };
-}
+};
 
 /**
  * usePullToRefresh - Hook for implementing pull-to-refresh gesture
@@ -65,7 +65,9 @@ export function usePullToRefresh({
 
   const handleTouchStart = useCallback(
     (e: React.TouchEvent) => {
-      if (disabled || isRefreshing) return;
+      if (disabled || isRefreshing) {
+        return;
+      }
 
       // Only allow pull-to-refresh when at top of scroll
       const scrollElement = e.currentTarget as HTMLElement;
@@ -81,7 +83,9 @@ export function usePullToRefresh({
 
   const handleTouchMove = useCallback(
     (e: React.TouchEvent) => {
-      if (disabled || isRefreshing || !isPulling) return;
+      if (disabled || isRefreshing || !isPulling) {
+        return;
+      }
 
       const scrollElement = e.currentTarget as HTMLElement;
 
@@ -113,7 +117,9 @@ export function usePullToRefresh({
   );
 
   const handleTouchEnd = useCallback(async () => {
-    if (disabled || isRefreshing) return;
+    if (disabled || isRefreshing) {
+      return;
+    }
 
     setIsPulling(false);
 

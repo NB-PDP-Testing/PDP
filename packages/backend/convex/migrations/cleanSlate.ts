@@ -309,28 +309,36 @@ export const runCleanSlateMigration = internalMutation({
     // Delete teamPlayers first (references players)
     const teamPlayers = await ctx.db.query("teamPlayers").collect();
     for (const tp of teamPlayers) {
-      if (!dryRun) await ctx.db.delete(tp._id);
+      if (!dryRun) {
+        await ctx.db.delete(tp._id);
+      }
       legacy.teamPlayers++;
     }
 
     // Delete injuries (references players)
     const injuries = await ctx.db.query("injuries").collect();
     for (const injury of injuries) {
-      if (!dryRun) await ctx.db.delete(injury._id);
+      if (!dryRun) {
+        await ctx.db.delete(injury._id);
+      }
       legacy.injuries++;
     }
 
     // Delete developmentGoals (references players)
     const goals = await ctx.db.query("developmentGoals").collect();
     for (const goal of goals) {
-      if (!dryRun) await ctx.db.delete(goal._id);
+      if (!dryRun) {
+        await ctx.db.delete(goal._id);
+      }
       legacy.developmentGoals++;
     }
 
     // Delete players
     const players = await ctx.db.query("players").collect();
     for (const player of players) {
-      if (!dryRun) await ctx.db.delete(player._id);
+      if (!dryRun) {
+        await ctx.db.delete(player._id);
+      }
       legacy.players++;
     }
 
@@ -341,42 +349,54 @@ export const runCleanSlateMigration = internalMutation({
       .query("playerEmergencyContacts")
       .collect();
     for (const contact of emergencyContacts) {
-      if (!dryRun) await ctx.db.delete(contact._id);
+      if (!dryRun) {
+        await ctx.db.delete(contact._id);
+      }
       identity.playerEmergencyContacts++;
     }
 
     // 2. Org player enrollments
     const enrollments = await ctx.db.query("orgPlayerEnrollments").collect();
     for (const enrollment of enrollments) {
-      if (!dryRun) await ctx.db.delete(enrollment._id);
+      if (!dryRun) {
+        await ctx.db.delete(enrollment._id);
+      }
       identity.orgPlayerEnrollments++;
     }
 
     // 3. Guardian-player links
     const links = await ctx.db.query("guardianPlayerLinks").collect();
     for (const link of links) {
-      if (!dryRun) await ctx.db.delete(link._id);
+      if (!dryRun) {
+        await ctx.db.delete(link._id);
+      }
       identity.guardianPlayerLinks++;
     }
 
     // 4. Org guardian profiles
     const profiles = await ctx.db.query("orgGuardianProfiles").collect();
     for (const profile of profiles) {
-      if (!dryRun) await ctx.db.delete(profile._id);
+      if (!dryRun) {
+        await ctx.db.delete(profile._id);
+      }
       identity.orgGuardianProfiles++;
     }
 
     // 5. Player identities
     const playerIdentities = await ctx.db.query("playerIdentities").collect();
     for (const player of playerIdentities) {
-      if (!dryRun) await ctx.db.delete(player._id);
+      if (!dryRun) {
+        await ctx.db.delete(player._id);
+      }
       identity.playerIdentities++;
     }
 
     // 6. Guardian identities
     const guardians = await ctx.db.query("guardianIdentities").collect();
     for (const guardian of guardians) {
-      if (!dryRun) await ctx.db.delete(guardian._id);
+      if (!dryRun) {
+        await ctx.db.delete(guardian._id);
+      }
       identity.guardianIdentities++;
     }
 

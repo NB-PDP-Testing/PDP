@@ -231,7 +231,7 @@ export const verifyReferenceData = query({
     } catch {
       // Table may not exist
     }
-    const hasBenchmarks = benchmarks.length > 0;
+    const _hasBenchmarks = benchmarks.length > 0;
 
     console.log("Reference data check:");
     console.log(`  Sports: ${sports.length}`);

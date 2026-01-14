@@ -365,7 +365,9 @@ function MedicalProfileForm({
     field: "allergies" | "medications" | "conditions",
     value: string
   ) => {
-    if (!value.trim()) return;
+    if (!value.trim()) {
+      return;
+    }
     setFormData((prev) => ({
       ...prev,
       [field]: [...prev[field], value.trim()],
@@ -779,7 +781,9 @@ export default function MedicalProfilesPage() {
 
   // Filter players
   const filteredPlayers = useMemo(() => {
-    if (!allProfiles) return [];
+    if (!allProfiles) {
+      return [];
+    }
 
     return allProfiles.filter((item) => {
       // Search filter
@@ -791,13 +795,23 @@ export default function MedicalProfilesPage() {
       }
 
       // Profile status filter
-      if (filterStatus === "has_profile" && !item.hasProfile) return false;
-      if (filterStatus === "no_profile" && item.hasProfile) return false;
+      if (filterStatus === "has_profile" && !item.hasProfile) {
+        return false;
+      }
+      if (filterStatus === "no_profile" && item.hasProfile) {
+        return false;
+      }
 
       // Alert filter
-      if (filterAlert === "allergies" && !item.hasAllergies) return false;
-      if (filterAlert === "medications" && !item.hasMedications) return false;
-      if (filterAlert === "conditions" && !item.hasConditions) return false;
+      if (filterAlert === "allergies" && !item.hasAllergies) {
+        return false;
+      }
+      if (filterAlert === "medications" && !item.hasMedications) {
+        return false;
+      }
+      if (filterAlert === "conditions" && !item.hasConditions) {
+        return false;
+      }
 
       return true;
     });

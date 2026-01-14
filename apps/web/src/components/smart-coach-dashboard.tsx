@@ -500,7 +500,7 @@ export function SmartCoachDashboard({
     // Intentionally only depend on data, not on the callback functions themselves
     // The callbacks are stable enough and recreating them doesn't mean we need to rerun analytics
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, coachTeams, isClubView]);
+  }, [calculateTeamAnalytics, generateCorrelationInsights]);
 
   // Stable callback wrappers for Quick Actions (prevents infinite re-registration)
   const handleAssessPlayers = useCallback(() => {

@@ -17,12 +17,12 @@ import type { ComponentType, ReactNode } from "react";
 /**
  * Configuration for lazy loading
  */
-export interface LazyLoadConfig {
+export type LazyLoadConfig = {
   /** Show loading skeleton while component loads */
   loading?: (props: DynamicOptionsLoadingProps) => ReactNode;
   /** Enable server-side rendering */
   ssr?: boolean;
-}
+};
 
 /**
  * Lazy load a component with optional loading state
@@ -103,7 +103,7 @@ export const ResourcePreloader = {
   /**
    * Preload multiple images
    */
-  images(srcs: string[]): Promise<void[]> {
+  images(srcs: string[]): Promise<undefined[]> {
     return Promise.all(srcs.map(this.image));
   },
 
@@ -111,7 +111,9 @@ export const ResourcePreloader = {
    * Prefetch a page (Next.js router handles this, but manual override)
    */
   page(href: string): void {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") {
+      return;
+    }
 
     const link = document.createElement("link");
     link.rel = "prefetch";
@@ -123,7 +125,9 @@ export const ResourcePreloader = {
    * Preconnect to a domain for faster subsequent requests
    */
   preconnect(href: string): void {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") {
+      return;
+    }
 
     const link = document.createElement("link");
     link.rel = "preconnect";
@@ -135,7 +139,9 @@ export const ResourcePreloader = {
    * DNS prefetch for a domain
    */
   dnsPrefetch(href: string): void {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") {
+      return;
+    }
 
     const link = document.createElement("link");
     link.rel = "dns-prefetch";
@@ -152,7 +158,9 @@ export const PerformanceMonitor = {
    * Mark a point in time for measurement
    */
   mark(name: string): void {
-    if (typeof performance === "undefined") return;
+    if (typeof performance === "undefined") {
+      return;
+    }
     performance.mark(name);
   },
 
@@ -160,7 +168,9 @@ export const PerformanceMonitor = {
    * Measure time between two marks
    */
   measure(name: string, startMark: string, endMark?: string): number | null {
-    if (typeof performance === "undefined") return null;
+    if (typeof performance === "undefined") {
+      return null;
+    }
 
     try {
       if (endMark) {

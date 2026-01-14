@@ -302,7 +302,9 @@ export default function OrgAdminBenchmarksPage() {
 
   // Group benchmarks by skill code
   const benchmarksBySkill = useMemo(() => {
-    if (!benchmarks) return new Map<string, Benchmark[]>();
+    if (!benchmarks) {
+      return new Map<string, Benchmark[]>();
+    }
     const map = new Map<string, Benchmark[]>();
     for (const b of benchmarks) {
       const existing = map.get(b.skillCode) ?? [];
@@ -314,14 +316,17 @@ export default function OrgAdminBenchmarksPage() {
 
   // Create skill lookup
   const skillLookup = useMemo(() => {
-    if (!skills) return new Map<string, string>();
+    if (!skills) {
+      return new Map<string, string>();
+    }
     return new Map(skills.map((s) => [s.code, s.name]));
   }, [skills]);
 
   // Stats
   const stats = useMemo(() => {
-    if (!benchmarks)
+    if (!benchmarks) {
       return { total: 0, skills: 0, ageGroups: new Set<string>() };
+    }
     const ageGroupSet = new Set<string>();
     for (const b of benchmarks) {
       ageGroupSet.add(b.ageGroup);

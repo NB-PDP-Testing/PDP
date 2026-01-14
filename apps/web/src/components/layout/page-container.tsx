@@ -5,14 +5,14 @@ import type { Route } from "next";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-export interface BreadcrumbItem {
+export type BreadcrumbItem = {
   /** Display label */
   label: string;
   /** Navigation href (omit for current page) */
   href?: string;
-}
+};
 
-interface PageContainerProps {
+type PageContainerProps = {
   /** Page title */
   title: string;
   /** Optional page description */
@@ -27,7 +27,7 @@ interface PageContainerProps {
   className?: string;
   /** Whether to use full width (no max-width constraint) */
   fullWidth?: boolean;
-}
+};
 
 /**
  * Consistent page container with title, description, breadcrumbs, and actions

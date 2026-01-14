@@ -8,9 +8,9 @@ export const metadata: Metadata = {
   description: "View and manage your children's profiles",
 };
 
-interface ParentChildrenPageProps {
+type ParentChildrenPageProps = {
   params: Promise<{ orgId: string }>;
-}
+};
 
 export default async function ParentChildrenPage({
   params,

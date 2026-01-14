@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 /**
  * Action item definition
  */
-export interface ActionItem {
+export type ActionItem = {
   /** Unique key for the action */
   key: string;
   /** Display label */
@@ -38,22 +38,22 @@ export interface ActionItem {
   destructive?: boolean;
   /** Description text (mobile only) */
   description?: string;
-}
+};
 
 /**
  * Action group definition
  */
-export interface ActionGroup {
+export type ActionGroup = {
   /** Group label (optional) */
   label?: string;
   /** Actions in this group */
   items: ActionItem[];
-}
+};
 
 /**
  * Props for ActionSheet
  */
-export interface ActionSheetProps {
+export type ActionSheetProps = {
   /** Trigger element */
   trigger: React.ReactNode;
   /** Sheet title */
@@ -82,7 +82,7 @@ export interface ActionSheetProps {
   contentClassName?: string;
   /** Controlled open state */
   open?: boolean;
-}
+};
 
 /**
  * ActionSheet - Responsive action menu
@@ -134,7 +134,9 @@ export function ActionSheet({
 
   const handleSelect = React.useCallback(
     (item: ActionItem) => {
-      if (item.disabled) return;
+      if (item.disabled) {
+        return;
+      }
       item.onSelect?.();
       handleOpenChange(false);
     },

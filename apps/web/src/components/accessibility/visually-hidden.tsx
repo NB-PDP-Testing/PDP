@@ -6,14 +6,14 @@ import { cn } from "@/lib/utils";
 /**
  * Props for VisuallyHidden
  */
-export interface VisuallyHiddenProps {
+export type VisuallyHiddenProps = {
   /** Content to hide visually but keep accessible to screen readers */
   children: React.ReactNode;
   /** HTML element to render as */
   as?: React.ElementType;
   /** Custom class name */
   className?: string;
-}
+};
 
 /**
  * VisuallyHidden - Hide content visually but keep it accessible

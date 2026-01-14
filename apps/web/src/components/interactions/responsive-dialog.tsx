@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 /**
  * Props for ResponsiveDialog
  */
-export interface ResponsiveDialogProps {
+export type ResponsiveDialogProps = {
   /** Whether dialog is open */
   open?: boolean;
   /** Callback when open state changes */
@@ -52,7 +52,7 @@ export interface ResponsiveDialogProps {
   forceDesktop?: boolean;
   /** Force mobile mode (sheet) */
   forceMobile?: boolean;
-}
+};
 
 /**
  * ResponsiveDialog - Sheet on mobile, modal on desktop
@@ -158,7 +158,7 @@ export function ResponsiveDialogClose({
  * Mobile: Bottom sheet with large touch targets
  * Desktop: Modal with keyboard support
  */
-export interface ConfirmationDialogProps {
+export type ConfirmationDialogProps = {
   /** Whether dialog is open */
   open: boolean;
   /** Callback when open state changes */
@@ -179,7 +179,7 @@ export interface ConfirmationDialogProps {
   destructive?: boolean;
   /** Icon to show (optional) */
   icon?: React.ReactNode;
-}
+};
 
 export function ConfirmationDialog({
   open,

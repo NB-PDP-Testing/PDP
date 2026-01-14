@@ -20,7 +20,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
 import { ScrollArea } from "./ui/scroll-area";
 
-interface ClaimableIdentity {
+type ClaimableIdentity = {
   guardianIdentity: {
     _id: Id<"guardianIdentities">;
     firstName: string;
@@ -41,15 +41,15 @@ interface ClaimableIdentity {
     organizationName?: string;
   }>;
   confidence: number;
-}
+};
 
-interface BulkGuardianClaimDialogProps {
+type BulkGuardianClaimDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   claimableIdentities: ClaimableIdentity[];
   userId: string;
   onClaimComplete: () => void;
-}
+};
 
 export function BulkGuardianClaimDialog({
   open,

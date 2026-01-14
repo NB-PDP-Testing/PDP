@@ -43,7 +43,7 @@ export function useOnlineStatus() {
 /**
  * Props for OfflineIndicator
  */
-export interface OfflineIndicatorProps {
+export type OfflineIndicatorProps = {
   /** Position of the indicator */
   position?: "top" | "bottom";
   /** Additional class name */
@@ -54,7 +54,7 @@ export interface OfflineIndicatorProps {
   offlineMessage?: string;
   /** Custom reconnected message */
   reconnectedMessage?: string;
-}
+};
 
 /**
  * OfflineIndicator - Shows when the user is offline
@@ -86,7 +86,9 @@ export function OfflineIndicator({
     }
   }, [isOnline, wasOffline, showReconnected]);
 
-  if (!showBanner) return null;
+  if (!showBanner) {
+    return null;
+  }
 
   return (
     <div
@@ -129,7 +131,9 @@ export function OfflineIndicator({
 export function OfflineBadge({ className }: { className?: string }) {
   const { isOnline } = useOnlineStatus();
 
-  if (isOnline) return null;
+  if (isOnline) {
+    return null;
+  }
 
   return (
     <div

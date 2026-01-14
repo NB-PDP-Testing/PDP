@@ -26,13 +26,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface SkillRadarChartProps {
+type SkillRadarChartProps = {
   playerId: Id<"playerIdentities">;
   sportCode: string;
   dateOfBirth?: string;
   level?: "recreational" | "competitive" | "development" | "elite";
   defaultExpanded?: boolean;
-}
+};
 
 // Colors for chart
 const CHART_COLORS = {
@@ -103,7 +103,9 @@ export function SkillRadarChart({
 
   // Create lookup maps
   const latestAssessments = useMemo(() => {
-    if (!assessments) return new Map<string, number>();
+    if (!assessments) {
+      return new Map<string, number>();
+    }
     const map = new Map<string, number>();
     // Assessments are returned in desc order, so first occurrence is latest
     for (const a of assessments) {
@@ -115,13 +117,17 @@ export function SkillRadarChart({
   }, [assessments]);
 
   const benchmarkLookup = useMemo(() => {
-    if (!benchmarks) return new Map<string, number>();
+    if (!benchmarks) {
+      return new Map<string, number>();
+    }
     return new Map(benchmarks.map((b) => [b.skillCode, b.expectedRating]));
   }, [benchmarks]);
 
   // Calculate category averages for radar chart
   const categoryRadarData = useMemo(() => {
-    if (!skillsByCategory) return [];
+    if (!skillsByCategory) {
+      return [];
+    }
 
     return skillsByCategory
       .map(({ category, skills }) => {
@@ -165,7 +171,9 @@ export function SkillRadarChart({
 
   // Individual skills radar data
   const skillsRadarData = useMemo(() => {
-    if (!skillsByCategory) return [];
+    if (!skillsByCategory) {
+      return [];
+    }
 
     const allSkills: Array<{
       skill: string;
@@ -463,7 +471,9 @@ export function SkillRadarChartCompact({
 
   // Create lookup maps
   const latestAssessments = useMemo(() => {
-    if (!assessments) return new Map<string, number>();
+    if (!assessments) {
+      return new Map<string, number>();
+    }
     const map = new Map<string, number>();
     for (const a of assessments) {
       if (!map.has(a.skillCode)) {
@@ -474,13 +484,17 @@ export function SkillRadarChartCompact({
   }, [assessments]);
 
   const benchmarkLookup = useMemo(() => {
-    if (!benchmarks) return new Map<string, number>();
+    if (!benchmarks) {
+      return new Map<string, number>();
+    }
     return new Map(benchmarks.map((b) => [b.skillCode, b.expectedRating]));
   }, [benchmarks]);
 
   // Calculate category averages
   const categoryRadarData = useMemo(() => {
-    if (!skillsByCategory) return [];
+    if (!skillsByCategory) {
+      return [];
+    }
 
     return skillsByCategory
       .map(({ category, skills }) => {

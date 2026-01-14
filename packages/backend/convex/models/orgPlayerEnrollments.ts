@@ -43,7 +43,7 @@ const enrollmentValidator = v.object({
 });
 
 // Player identity validator (for joined queries)
-const playerIdentityValidator = v.object({
+const _playerIdentityValidator = v.object({
   _id: v.id("playerIdentities"),
   _creationTime: v.number(),
   firstName: v.string(),
@@ -574,7 +574,7 @@ export const findOrCreateEnrollment = mutation({
     }
 
     return {
-      enrollmentId: enrollment!._id,
+      enrollmentId: enrollment?._id,
       wasCreated,
       passportId,
       passportWasCreated,
@@ -673,7 +673,9 @@ export const getPlayersForOrgInternal = internalQuery({
 
     for (const enrollment of enrollments) {
       const player = await ctx.db.get(enrollment.playerIdentityId);
-      if (!player) continue;
+      if (!player) {
+        continue;
+      }
 
       // Get sport from passport if available
       const passport = await ctx.db
@@ -709,7 +711,7 @@ export const updateReviewStatuses = internalMutation({
     overdue: v.number(),
     dueSoon: v.number(),
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx, _args) => {
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
 
@@ -729,7 +731,9 @@ export const updateReviewStatuses = internalMutation({
       .collect();
 
     for (const enrollment of enrollments) {
-      if (!enrollment.nextReviewDue) continue;
+      if (!enrollment.nextReviewDue) {
+        continue;
+      }
 
       const nextDue = enrollment.nextReviewDue;
       let newStatus: string | null = null;

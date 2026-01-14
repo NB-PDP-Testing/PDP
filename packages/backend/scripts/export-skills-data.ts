@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * Script to export skills data from Convex dev instance
  *
@@ -13,10 +14,10 @@
  * Output files are saved to packages/backend/data-exports/
  */
 
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ConvexHttpClient } from "convex/browser";
-import { mkdir, writeFile } from "fs/promises";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
 import { api } from "../convex/_generated/api";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -62,7 +63,7 @@ async function main() {
     console.log(`   ✅ Exported data for ${completeData.sports.length} sports`);
 
     // Generate timestamp for filenames
-    const timestamp = new Date()
+    const _timestamp = new Date()
       .toISOString()
       .replace(/[:.]/g, "-")
       .slice(0, -5);

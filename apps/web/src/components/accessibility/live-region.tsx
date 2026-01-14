@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 /**
  * Props for LiveRegion
  */
-export interface LiveRegionProps {
+export type LiveRegionProps = {
   /** Content to announce */
   children?: React.ReactNode;
   /** ARIA live politeness level */
@@ -19,7 +19,7 @@ export interface LiveRegionProps {
   className?: string;
   /** Role for the region */
   role?: "status" | "alert" | "log" | "marquee" | "timer";
-}
+};
 
 /**
  * LiveRegion - ARIA live region for dynamic announcements
@@ -59,16 +59,16 @@ export function LiveRegion({
 /**
  * Announcer context for programmatic announcements
  */
-interface AnnouncerContextValue {
+type AnnouncerContextValue = {
   announce: (message: string, options?: AnnounceOptions) => void;
   announcePolite: (message: string) => void;
   announceAssertive: (message: string) => void;
-}
+};
 
-interface AnnounceOptions {
+type AnnounceOptions = {
   politeness?: "polite" | "assertive";
   clearAfter?: number;
-}
+};
 
 const AnnouncerContext = React.createContext<AnnouncerContextValue | null>(
   null
@@ -88,9 +88,9 @@ export function useAnnouncer() {
 /**
  * Props for AnnouncerProvider
  */
-export interface AnnouncerProviderProps {
+export type AnnouncerProviderProps = {
   children: React.ReactNode;
-}
+};
 
 /**
  * AnnouncerProvider - Provides programmatic screen reader announcements

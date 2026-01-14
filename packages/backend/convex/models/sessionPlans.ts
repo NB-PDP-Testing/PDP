@@ -406,6 +406,67 @@ export const markAsUsed = mutation({
 });
 
 /**
+ * Toggle favorite status for a plan
+ */
+export const toggleFavorite = mutation({
+  args: {
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    // Verify ownership
+    if (plan.coachId !== identity.subject) {
+      throw new Error("Not authorized to modify this plan");
+    }
+
+    await ctx.db.patch(args.planId, {
+      favorited: !plan.favorited,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
+ * Increment times used counter for a plan
+ * Called when a plan is duplicated/used as a template
+ */
+export const incrementTimesUsed = mutation({
+  args: {
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    const now = Date.now();
+
+    await ctx.db.patch(args.planId, {
+      timesUsed: (plan.timesUsed || 0) + 1,
+      lastUsedDate: now,
+      updatedAt: now,
+    });
+  },
+});
+
+/**
  * Archive a plan with success/failed status
  */
 export const archivePlan = mutation({
@@ -760,7 +821,264 @@ export const listForCoach = query({
 });
 
 /**
+ * Get filtered plans for a coach with search and filter support
+ * Used for "My Plans" tab with extensive filtering
+ */
+export const getFilteredPlans = query({
+  args: {
+    organizationId: v.string(),
+    search: v.optional(v.string()),
+    ageGroups: v.optional(v.array(v.string())),
+    sports: v.optional(v.array(v.string())),
+    intensities: v.optional(v.array(v.string())),
+    categories: v.optional(v.array(v.string())),
+    skills: v.optional(v.array(v.string())),
+    favoriteOnly: v.optional(v.boolean()),
+    templateOnly: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+
+    const limit = args.limit || 100;
+
+    // Get all plans for the coach
+    const allPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_coach", (q: any) =>
+        q
+          .eq("organizationId", args.organizationId)
+          .eq("coachId", identity.subject)
+      )
+      .order("desc")
+      .collect();
+
+    // Client-side filtering (Convex doesn't support complex multi-field queries)
+    const filteredPlans = allPlans.filter((plan) => {
+      // Exclude deleted plans
+      if (plan.status === "deleted") {
+        return false;
+      }
+
+      // Search filter
+      if (args.search) {
+        const searchLower = args.search.toLowerCase();
+        const titleMatch = plan.title?.toLowerCase().includes(searchLower);
+        const teamMatch = plan.teamName.toLowerCase().includes(searchLower);
+        if (!(titleMatch || teamMatch)) {
+          return false;
+        }
+      }
+
+      // Age group filter
+      if (
+        args.ageGroups &&
+        args.ageGroups.length > 0 &&
+        !(plan.ageGroup && args.ageGroups.includes(plan.ageGroup))
+      ) {
+        return false;
+      }
+
+      // Sport filter
+      if (
+        args.sports &&
+        args.sports.length > 0 &&
+        !(plan.sport && args.sports.includes(plan.sport))
+      ) {
+        return false;
+      }
+
+      // Intensity filter
+      if (args.intensities && args.intensities.length > 0) {
+        const planIntensity = plan.extractedTags?.intensity;
+        if (!(planIntensity && args.intensities.includes(planIntensity))) {
+          return false;
+        }
+      }
+
+      // Categories filter
+      if (args.categories && args.categories.length > 0) {
+        const planCategories = plan.extractedTags?.categories || [];
+        const hasMatch = args.categories.some((cat: string) =>
+          planCategories.includes(cat)
+        );
+        if (!hasMatch) {
+          return false;
+        }
+      }
+
+      // Skills filter
+      if (args.skills && args.skills.length > 0) {
+        const planSkills = plan.extractedTags?.skills || [];
+        const hasMatch = args.skills.some((skill: string) =>
+          planSkills.includes(skill)
+        );
+        if (!hasMatch) {
+          return false;
+        }
+      }
+
+      // Favorite filter
+      if (args.favoriteOnly && !plan.favorited) {
+        return false;
+      }
+
+      // Template filter
+      if (args.templateOnly && !plan.isTemplate) {
+        return false;
+      }
+
+      return true;
+    });
+
+    return filteredPlans.slice(0, limit);
+  },
+});
+
+/**
+ * Get club library plans with search, filters, and sorting
+ * Used for "Club Library" tab - shows plans shared with the organization
+ */
+export const getClubLibrary = query({
+  args: {
+    organizationId: v.string(),
+    search: v.optional(v.string()),
+    ageGroups: v.optional(v.array(v.string())),
+    sports: v.optional(v.array(v.string())),
+    intensities: v.optional(v.array(v.string())),
+    categories: v.optional(v.array(v.string())),
+    skills: v.optional(v.array(v.string())),
+    sortBy: v.optional(
+      v.union(
+        v.literal("recent"),
+        v.literal("popular"),
+        v.literal("success_rate")
+      )
+    ),
+  },
+  returns: v.array(v.any()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify user is member of organization
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: args.organizationId, operator: "eq" },
+      ],
+    });
+
+    if (!member) {
+      throw new Error("Not a member of this organization");
+    }
+
+    // Fetch plans where visibility = "club" AND organizationId matches
+    const plans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_visibility", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("visibility", "club")
+      )
+      .filter((q: any) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    // Apply filters (same logic as getFilteredPlans)
+    const filtered = plans.filter((plan) => {
+      // Search filter
+      if (args.search) {
+        const searchLower = args.search.toLowerCase();
+        const titleMatch = plan.title?.toLowerCase().includes(searchLower);
+        const teamMatch = plan.teamName.toLowerCase().includes(searchLower);
+        const focusMatch = plan.focusArea?.toLowerCase().includes(searchLower);
+        if (!(titleMatch || teamMatch || focusMatch)) {
+          return false;
+        }
+      }
+
+      // Age group filter
+      if (
+        args.ageGroups &&
+        args.ageGroups.length > 0 &&
+        !(plan.ageGroup && args.ageGroups.includes(plan.ageGroup))
+      ) {
+        return false;
+      }
+
+      // Sport filter
+      if (
+        args.sports &&
+        args.sports.length > 0 &&
+        !(plan.sport && args.sports.includes(plan.sport))
+      ) {
+        return false;
+      }
+
+      // Intensity filter
+      if (args.intensities && args.intensities.length > 0) {
+        const planIntensity = plan.extractedTags?.intensity;
+        if (!(planIntensity && args.intensities.includes(planIntensity))) {
+          return false;
+        }
+      }
+
+      // Categories filter
+      if (args.categories && args.categories.length > 0) {
+        const planCategories = plan.extractedTags?.categories || [];
+        const hasMatch = args.categories.some((cat: string) =>
+          planCategories.includes(cat)
+        );
+        if (!hasMatch) {
+          return false;
+        }
+      }
+
+      // Skills filter
+      if (args.skills && args.skills.length > 0) {
+        const planSkills = plan.extractedTags?.skills || [];
+        const hasMatch = args.skills.some((skill: string) =>
+          planSkills.includes(skill)
+        );
+        if (!hasMatch) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    // Sort
+    if (args.sortBy === "popular") {
+      filtered.sort((a, b) => (b.timesUsed || 0) - (a.timesUsed || 0));
+    } else if (args.sortBy === "success_rate") {
+      filtered.sort((a, b) => (b.successRate || 0) - (a.successRate || 0));
+    } else {
+      // Default: recent (sort by createdAt desc), with pinned first
+      filtered.sort((a, b) => {
+        if (a.pinnedByAdmin && !b.pinnedByAdmin) {
+          return -1;
+        }
+        if (!a.pinnedByAdmin && b.pinnedByAdmin) {
+          return 1;
+        }
+        return b.createdAt - a.createdAt;
+      });
+    }
+
+    return filtered;
+  },
+});
+
+/**
  * List club library (organization-shared plans)
+ * @deprecated Use getClubLibrary instead for filtering support
+ * Kept for backward compatibility
  */
 export const listClubLibrary = query({
   args: {
@@ -794,7 +1112,7 @@ export const listClubLibrary = query({
       .filter((q: any) => q.neq(q.field("status"), "deleted"))
       .collect();
 
-    // Sort pinned first, then by shared date descending
+    // Sort pinned first, then by created date descending
     return plans.sort((a, b) => {
       if (a.pinnedByAdmin && !b.pinnedByAdmin) {
         return -1;
@@ -802,7 +1120,7 @@ export const listClubLibrary = query({
       if (!a.pinnedByAdmin && b.pinnedByAdmin) {
         return 1;
       }
-      return (b.sharedAt || 0) - (a.sharedAt || 0);
+      return b.createdAt - a.createdAt;
     });
   },
 });

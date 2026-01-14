@@ -1,7 +1,15 @@
 "use client";
 
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, Edit, Plus, Power, PowerOff, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Edit,
+  Megaphone,
+  Plus,
+  Power,
+  PowerOff,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -79,14 +87,17 @@ export default function FlowsManagementPage() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
           {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-4">
               <Link href="/platform">
                 <Button size="icon" variant="ghost">
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               </Link>
-              <div>
+              <div className="rounded-full bg-green-100 p-2">
+                <Megaphone className="h-5 w-5 text-green-600" />
+              </div>
+              <div className="min-w-0 flex-1">
                 <h1 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
                   Flow Management
                 </h1>
@@ -96,7 +107,7 @@ export default function FlowsManagementPage() {
               </div>
             </div>
             <Link href="/platform/flows/create">
-              <Button>
+              <Button className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Flow
               </Button>
@@ -104,40 +115,45 @@ export default function FlowsManagementPage() {
           </div>
 
           {/* Stats */}
-          <div className="mb-6 grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="font-medium text-sm">
-                  Total Flows
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="font-bold text-2xl">{flows.length}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="font-medium text-sm">
-                  Active Flows
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="font-bold text-2xl text-green-600">
-                  {activeFlows.length}
+          <div className="mb-6 grid gap-4 sm:grid-cols-3">
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="rounded-full bg-green-100 p-2">
+                  <Megaphone className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-2xl text-green-700">
+                    {flows.length}
+                  </p>
+                  <p className="text-green-600 text-xs">Total Flows</p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="font-medium text-sm">
-                  Inactive Flows
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="font-bold text-2xl text-gray-500">
-                  {inactiveFlows.length}
+            <Card className="border-emerald-200 bg-emerald-50">
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="rounded-full bg-emerald-100 p-2">
+                  <Power className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-2xl text-emerald-700">
+                    {activeFlows.length}
+                  </p>
+                  <p className="text-emerald-600 text-xs">Active</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-gray-200 bg-gray-50">
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="rounded-full bg-gray-100 p-2">
+                  <PowerOff className="h-5 w-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-2xl text-gray-700">
+                    {inactiveFlows.length}
+                  </p>
+                  <p className="text-gray-600 text-xs">Inactive</p>
                 </div>
               </CardContent>
             </Card>

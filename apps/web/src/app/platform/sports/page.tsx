@@ -185,6 +185,7 @@ export default function PlatformSportsManagementPage() {
   // Handle delete sport
   const handleDeleteSport = async (code: string, name: string) => {
     if (
+      // biome-ignore lint/suspicious/noAlert: Confirmation needed for destructive action
       !confirm(
         `Are you sure you want to delete ${name}? This cannot be undone.`
       )
@@ -269,7 +270,7 @@ export default function PlatformSportsManagementPage() {
     <div className="min-h-screen bg-gradient-to-b from-[#1E3A5F] via-[#1E3A5F] to-white p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <Link href="/platform">
                 <Button size="icon" variant="ghost">
@@ -289,7 +290,7 @@ export default function PlatformSportsManagementPage() {
 
             <Dialog onOpenChange={setCreateDialogOpen} open={createDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <Plus className="mr-2 h-4 w-4" />
                   Create Sport
                 </Button>

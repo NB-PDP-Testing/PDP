@@ -1722,53 +1722,264 @@ export default defineSchema({
   // AI COACHING FEATURES
   // ============================================================
 
-  // Session Plans - AI-generated training session plans with caching
+  // Session Plans - Complete implementation with sharing, moderation, and drill library
   sessionPlans: defineTable({
-    // Who and what
-    organizationId: v.string(), // Better Auth organization ID
-    teamId: v.string(), // Better Auth team ID (not Convex ID since teams are in Better Auth)
-    coachId: v.string(), // Better Auth user ID who generated it
-
-    // Plan content
+    // Identity
+    organizationId: v.string(),
+    coachId: v.string(),
+    coachName: v.optional(v.string()),
+    teamId: v.optional(v.string()),
     teamName: v.string(),
-    sessionPlan: v.string(), // The full AI-generated plan text
-    focus: v.optional(v.string()), // Optional focus area (e.g., "Tackling")
+    playerCount: v.optional(v.number()),
 
-    // Team context (snapshot at generation time)
-    teamData: v.object({
-      playerCount: v.number(),
-      ageGroup: v.string(),
-      avgSkillLevel: v.number(),
-      strengths: v.array(v.object({ skill: v.string(), avg: v.number() })),
-      weaknesses: v.array(v.object({ skill: v.string(), avg: v.number() })),
-      attendanceIssues: v.number(),
-      overdueReviews: v.number(),
+    // Content
+    title: v.optional(v.string()),
+    rawContent: v.optional(v.string()), // Full markdown/text content from AI
+    focusArea: v.optional(v.string()),
+    duration: v.optional(v.number()), // minutes
+
+    // Sections with activities structure
+    sections: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          type: v.union(
+            v.literal("warmup"),
+            v.literal("technical"),
+            v.literal("tactical"),
+            v.literal("games"),
+            v.literal("cooldown"),
+            v.literal("custom")
+          ),
+          title: v.string(),
+          duration: v.number(),
+          order: v.number(),
+          activities: v.array(
+            v.object({
+              id: v.string(),
+              name: v.string(),
+              description: v.string(),
+              duration: v.optional(v.number()),
+              order: v.number(),
+              activityType: v.union(
+                v.literal("drill"),
+                v.literal("game"),
+                v.literal("exercise"),
+                v.literal("demonstration"),
+                v.literal("discussion"),
+                v.literal("rest")
+              ),
+            })
+          ),
+        })
+      )
+    ),
+
+    // Context
+    sport: v.optional(v.string()),
+    ageGroup: v.optional(v.string()),
+
+    // AI-extracted metadata for search and filtering
+    extractedTags: v.optional(
+      v.object({
+        categories: v.array(v.string()), // e.g., ["Technical Training", "Fitness"]
+        skills: v.array(v.string()), // e.g., ["Passing", "Dribbling"]
+        equipment: v.array(v.string()), // e.g., ["Cones", "Balls"]
+        intensity: v.optional(
+          v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+        ),
+        playerCountRange: v.optional(
+          v.object({
+            min: v.number(),
+            max: v.number(),
+            optimal: v.number(),
+          })
+        ),
+      })
+    ),
+
+    // Drills referenced
+    drills: v.optional(
+      v.array(
+        v.object({
+          drillId: v.string(),
+          name: v.string(),
+          description: v.string(),
+          duration: v.optional(v.number()),
+          skillsFocused: v.array(v.string()),
+          equipment: v.array(v.string()),
+          intensity: v.optional(
+            v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
+          ),
+          playerCountRange: v.optional(
+            v.object({
+              min: v.number(),
+              max: v.number(),
+              optimal: v.number(),
+            })
+          ),
+        })
+      )
+    ),
+
+    // Template Library Features
+    isTemplate: v.optional(v.boolean()),
+    isFeatured: v.optional(v.boolean()),
+    timesUsed: v.optional(v.number()),
+    lastUsedDate: v.optional(v.number()),
+    favorited: v.optional(v.boolean()),
+    customTags: v.optional(v.array(v.string())),
+    collections: v.optional(v.array(v.string())),
+    successRate: v.optional(v.number()), // 0-100
+
+    // Sharing & Visibility (Phase 1: Club Sharing)
+    visibility: v.optional(
+      v.union(
+        v.literal("private"), // Default - coach only
+        v.literal("club"), // Shared with organization
+        v.literal("platform") // Public platform gallery (Phase 3)
+      )
+    ),
+    sharedAt: v.optional(v.number()),
+    sharedBy: v.optional(v.string()), // Coach name for attribution
+
+    // Admin Moderation (Phase 2)
+    moderatedBy: v.optional(v.string()),
+    moderatedAt: v.optional(v.number()),
+    moderationNote: v.optional(v.string()),
+    pinnedByAdmin: v.optional(v.boolean()),
+
+    // PlayerArc Marketplace (Phase 3 - Future)
+    approvedForPlatform: v.optional(v.boolean()),
+    approvedBy: v.optional(v.string()),
+    approvedAt: v.optional(v.number()),
+    platformCategory: v.optional(v.string()),
+    expertCoachProfile: v.optional(v.string()),
+
+    // Status
+    status: v.optional(
+      v.union(
+        v.literal("draft"),
+        v.literal("saved"),
+        v.literal("archived_success"),
+        v.literal("archived_failed"),
+        v.literal("deleted")
+      )
+    ),
+    usedInSession: v.optional(v.boolean()),
+    usedDate: v.optional(v.number()),
+
+    // Feedback
+    feedbackSubmitted: v.optional(v.boolean()),
+    feedbackUsedForTraining: v.optional(v.boolean()),
+    simplifiedFeedback: v.optional(
+      v.object({
+        sessionFeedback: v.optional(
+          v.union(v.literal("positive"), v.literal("negative"))
+        ),
+        sessionFeedbackAt: v.optional(v.number()),
+        negativeReason: v.optional(v.string()),
+        drillFeedback: v.optional(
+          v.array(
+            v.object({
+              drillId: v.string(),
+              drillName: v.string(),
+              feedback: v.union(v.literal("positive"), v.literal("negative")),
+              negativeReason: v.optional(v.string()),
+              note: v.optional(v.string()),
+              feedbackAt: v.number(),
+            })
+          )
+        ),
+        feedbackVariant: v.optional(
+          v.union(v.literal("one_click"), v.literal("two_click_highlights"))
+        ),
+      })
+    ),
+
+    // Legacy Quick Actions fields (for backward compatibility)
+    creationMethod: v.optional(v.string()),
+    generatedAt: v.optional(v.number()),
+    regenerateCount: v.optional(v.number()),
+    sessionPlan: v.optional(v.string()), // Old field name for rawContent
+    shareCount: v.optional(v.number()),
+    teamData: v.optional(v.any()),
+    usedRealAI: v.optional(v.boolean()),
+    viewCount: v.optional(v.number()),
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    archivedAt: v.optional(v.number()),
+  })
+    .index("by_org", ["organizationId"])
+    .index("by_coach", ["coachId"])
+    .index("by_org_and_coach", ["organizationId", "coachId"])
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_org_and_team", ["organizationId", "teamId"])
+    .index("by_coach_and_status", ["coachId", "status"])
+    .index("by_org_and_createdAt", ["organizationId", "createdAt"])
+    // Template Gallery Indexes
+    .index("by_org_and_isTemplate", ["organizationId", "isTemplate"])
+    .index("by_org_and_isFeatured", ["organizationId", "isFeatured"])
+    .index("by_org_and_favorited", ["organizationId", "favorited"])
+    .index("by_org_and_sport", ["organizationId", "sport"])
+    .index("by_org_and_ageGroup", ["organizationId", "ageGroup"])
+    // Sharing Indexes (Phase 1)
+    .index("by_org_and_visibility", ["organizationId", "visibility"])
+    .index("by_visibility", ["visibility"])
+    // PlayerArc Marketplace Indexes (Phase 3)
+    .index("by_platform_category", ["platformCategory", "approvedAt"])
+    .searchIndex("search_content", {
+      searchField: "rawContent",
+      filterFields: [
+        "organizationId",
+        "coachId",
+        "status",
+        "sport",
+        "ageGroup",
+        "isTemplate",
+        "isFeatured",
+        "favorited",
+        "visibility",
+      ],
+    })
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: [
+        "organizationId",
+        "coachId",
+        "status",
+        "sport",
+        "ageGroup",
+        "isTemplate",
+        "isFeatured",
+        "favorited",
+        "visibility",
+      ],
     }),
 
-    // AI metadata
-    usedRealAI: v.boolean(), // Was this real AI or simulated?
-    creationMethod: v.optional(
-      v.union(
-        v.literal("ai_generated"),
-        v.literal("manual_ui"),
-        v.literal("imported"),
-        v.literal("template")
-      )
-    ), // How the plan was created (future-proof for manual/imported plans)
-    generatedAt: v.number(), // Timestamp
+  // Drill Library - Aggregated effectiveness data from session plan feedback
+  drillLibrary: defineTable({
+    organizationId: v.string(),
+    name: v.string(),
+    normalizedName: v.string(), // Lowercase for matching
+    description: v.string(),
+    activityType: v.string(), // "drill", "game", "exercise", etc.
+    skillsFocused: v.array(v.string()),
+    equipment: v.array(v.string()),
 
-    // Usage tracking (no rating - phase 2)
-    viewCount: v.number(), // How many times this plan was viewed
-    shareCount: v.number(), // How many times shared
-    regenerateCount: v.number(), // How many times user clicked "regenerate"
+    // Aggregation from session plan feedback
+    totalUses: v.number(),
+    positiveCount: v.number(),
+    negativeCount: v.number(),
+    successRate: v.number(), // Calculated percentage
 
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_organization", ["organizationId"])
-    .index("by_team", ["teamId"])
-    .index("by_coach", ["coachId"])
-    .index("by_team_and_date", ["teamId", "generatedAt"]) // For finding recent plans
-    .index("by_organization_and_date", ["organizationId", "generatedAt"]), // For analytics
+    .index("by_org", ["organizationId"])
+    .index("by_org_and_name", ["organizationId", "normalizedName"])
+    .index("by_org_and_type", ["organizationId", "activityType"]),
 });

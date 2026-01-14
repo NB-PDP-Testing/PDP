@@ -707,7 +707,7 @@ export const importSkillsForSport = mutation({
             sortOrder: categoryData.sortOrder,
             isActive: true,
           });
-          categoriesUpdated++;
+          categoriesUpdated += 1;
         }
       } else {
         categoryId = await ctx.db.insert("skillCategories", {
@@ -719,7 +719,7 @@ export const importSkillsForSport = mutation({
           isActive: true,
           createdAt: Date.now(),
         });
-        categoriesCreated++;
+        categoriesCreated += 1;
       }
 
       // Process skills in this category
@@ -746,7 +746,7 @@ export const importSkillsForSport = mutation({
               sortOrder: skillData.sortOrder,
               isActive: true,
             });
-            skillsUpdated++;
+            skillsUpdated += 1;
           }
         } else {
           await ctx.db.insert("skillDefinitions", {
@@ -765,7 +765,7 @@ export const importSkillsForSport = mutation({
             isActive: true,
             createdAt: Date.now(),
           });
-          skillsCreated++;
+          skillsCreated += 1;
         }
       }
     }
@@ -878,7 +878,7 @@ export const bulkImportCompleteSkillsData = mutation({
                 sortOrder: categoryData.sortOrder,
                 isActive: true,
               });
-              categoriesUpdated++;
+              categoriesUpdated += 1;
             }
           } else {
             categoryId = await ctx.db.insert("skillCategories", {
@@ -890,7 +890,7 @@ export const bulkImportCompleteSkillsData = mutation({
               isActive: true,
               createdAt: Date.now(),
             });
-            categoriesCreated++;
+            categoriesCreated += 1;
           }
 
           // Process skills in this category
@@ -919,7 +919,7 @@ export const bulkImportCompleteSkillsData = mutation({
                   sortOrder: skillData.sortOrder,
                   isActive: true,
                 });
-                skillsUpdated++;
+                skillsUpdated += 1;
               }
             } else {
               await ctx.db.insert("skillDefinitions", {
@@ -938,7 +938,7 @@ export const bulkImportCompleteSkillsData = mutation({
                 isActive: true,
                 createdAt: Date.now(),
               });
-              skillsCreated++;
+              skillsCreated += 1;
             }
           }
         }
@@ -947,7 +947,7 @@ export const bulkImportCompleteSkillsData = mutation({
         totalCategoriesUpdated += categoriesUpdated;
         totalSkillsCreated += skillsCreated;
         totalSkillsUpdated += skillsUpdated;
-        sportsProcessed++;
+        sportsProcessed += 1;
       } catch (error) {
         errors.push({
           sportCode: sportData.sportCode,
@@ -1503,7 +1503,7 @@ export const seedSports = internalMutation({
         .first();
 
       if (existing) {
-        skipped++;
+        skipped += 1;
         continue;
       }
 
@@ -1512,7 +1512,7 @@ export const seedSports = internalMutation({
         isActive: true,
         createdAt: Date.now(),
       });
-      created++;
+      created += 1;
     }
 
     return { created, skipped };
@@ -1676,7 +1676,7 @@ export const seedAgeGroups = internalMutation({
         .first();
 
       if (existing) {
-        skipped++;
+        skipped += 1;
         continue;
       }
 
@@ -1685,7 +1685,7 @@ export const seedAgeGroups = internalMutation({
         isActive: true,
         createdAt: Date.now(),
       });
-      created++;
+      created += 1;
     }
 
     return { created, skipped };
@@ -1806,7 +1806,7 @@ export const seedGAASkills = internalMutation({
           isActive: true,
           createdAt: Date.now(),
         });
-        categoriesCreated++;
+        categoriesCreated += 1;
       }
 
       // Create skills in this category
@@ -1828,7 +1828,7 @@ export const seedGAASkills = internalMutation({
             isActive: true,
             createdAt: Date.now(),
           });
-          skillsCreated++;
+          skillsCreated += 1;
         }
       }
     }
@@ -1993,7 +1993,7 @@ export const seedSoccerSkills = internalMutation({
           isActive: true,
           createdAt: Date.now(),
         });
-        categoriesCreated++;
+        categoriesCreated += 1;
       }
 
       // Create skills in this category
@@ -2015,7 +2015,7 @@ export const seedSoccerSkills = internalMutation({
             isActive: true,
             createdAt: Date.now(),
           });
-          skillsCreated++;
+          skillsCreated += 1;
         }
       }
     }
@@ -2284,7 +2284,7 @@ export const seedRugbySkills = internalMutation({
           isActive: true,
           createdAt: Date.now(),
         });
-        categoriesCreated++;
+        categoriesCreated += 1;
       }
 
       // Create skills in this category
@@ -2306,7 +2306,7 @@ export const seedRugbySkills = internalMutation({
             isActive: true,
             createdAt: Date.now(),
           });
-          skillsCreated++;
+          skillsCreated += 1;
         }
       }
     }
@@ -2397,7 +2397,7 @@ async function seedSportsHandler(ctx: any) {
       .first();
 
     if (existing) {
-      skipped++;
+      skipped += 1;
       continue;
     }
 
@@ -2406,7 +2406,7 @@ async function seedSportsHandler(ctx: any) {
       isActive: true,
       createdAt: Date.now(),
     });
-    created++;
+    created += 1;
   }
 
   return { created, skipped };
@@ -2554,7 +2554,7 @@ async function seedAgeGroupsHandler(ctx: any) {
       .first();
 
     if (existing) {
-      skipped++;
+      skipped += 1;
       continue;
     }
 
@@ -2563,7 +2563,7 @@ async function seedAgeGroupsHandler(ctx: any) {
       isActive: true,
       createdAt: Date.now(),
     });
-    created++;
+    created += 1;
   }
 
   return { created, skipped };
@@ -2653,7 +2653,7 @@ async function seedGAASkillsHandler(ctx: any) {
         isActive: true,
         createdAt: Date.now(),
       });
-      categoriesCreated++;
+      categoriesCreated += 1;
     }
 
     for (const skill of skills) {
@@ -2672,7 +2672,7 @@ async function seedGAASkillsHandler(ctx: any) {
           isActive: true,
           createdAt: Date.now(),
         });
-        skillsCreated++;
+        skillsCreated += 1;
       }
     }
   }
@@ -2796,7 +2796,7 @@ async function seedSoccerSkillsHandler(ctx: any) {
         isActive: true,
         createdAt: Date.now(),
       });
-      categoriesCreated++;
+      categoriesCreated += 1;
     }
 
     for (const skill of skills) {
@@ -2815,7 +2815,7 @@ async function seedSoccerSkillsHandler(ctx: any) {
           isActive: true,
           createdAt: Date.now(),
         });
-        skillsCreated++;
+        skillsCreated += 1;
       }
     }
   }
@@ -3035,7 +3035,7 @@ async function seedRugbySkillsHandler(ctx: any) {
         isActive: true,
         createdAt: Date.now(),
       });
-      categoriesCreated++;
+      categoriesCreated += 1;
     }
 
     for (const skill of skills) {
@@ -3054,7 +3054,7 @@ async function seedRugbySkillsHandler(ctx: any) {
           isActive: true,
           createdAt: Date.now(),
         });
-        skillsCreated++;
+        skillsCreated += 1;
       }
     }
   }
@@ -3260,7 +3260,7 @@ async function seedSoccerBenchmarksHandler(ctx: any) {
         .first();
 
       if (existing) {
-        skipped++;
+        skipped += 1;
         continue;
       }
 
@@ -3281,7 +3281,7 @@ async function seedSoccerBenchmarksHandler(ctx: any) {
         createdAt: now,
         updatedAt: now,
       });
-      created++;
+      created += 1;
     }
   }
 
@@ -3418,7 +3418,7 @@ async function seedGAABenchmarksHandler(ctx: any) {
         .first();
 
       if (existing) {
-        skipped++;
+        skipped += 1;
         continue;
       }
 
@@ -3439,7 +3439,7 @@ async function seedGAABenchmarksHandler(ctx: any) {
         createdAt: now,
         updatedAt: now,
       });
-      created++;
+      created += 1;
     }
   }
 
@@ -3520,7 +3520,7 @@ export const getAgeGroupFromDOB = query({
       monthDiff < 0 ||
       (monthDiff === 0 && refDate.getDate() < dob.getDate())
     ) {
-      age--;
+      age -= 1;
     }
 
     // Find matching age group
@@ -3601,7 +3601,7 @@ export const getBenchmarksForPlayer = query({
     let age = today.getFullYear() - dob.getFullYear();
     const monthDiff = today.getMonth() - dob.getMonth();
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-      age--;
+      age -= 1;
     }
 
     // Determine age group code
@@ -3994,7 +3994,7 @@ export const importCompleteSkillsData = mutation({
               sortOrder: categoryData.sortOrder,
               isActive: true,
             });
-            categoriesUpdated++;
+            categoriesUpdated += 1;
           }
         } else {
           categoryId = await ctx.db.insert("skillCategories", {
@@ -4006,7 +4006,7 @@ export const importCompleteSkillsData = mutation({
             isActive: true,
             createdAt: Date.now(),
           });
-          categoriesCreated++;
+          categoriesCreated += 1;
         }
 
         // Process skills in this category
@@ -4033,7 +4033,7 @@ export const importCompleteSkillsData = mutation({
                 sortOrder: skillData.sortOrder,
                 isActive: true,
               });
-              skillsUpdated++;
+              skillsUpdated += 1;
             }
           } else {
             await ctx.db.insert("skillDefinitions", {
@@ -4052,12 +4052,12 @@ export const importCompleteSkillsData = mutation({
               isActive: true,
               createdAt: Date.now(),
             });
-            skillsCreated++;
+            skillsCreated += 1;
           }
         }
       }
 
-      results.sportsProcessed++;
+      results.sportsProcessed += 1;
       results.totalCategoriesCreated += categoriesCreated;
       results.totalCategoriesUpdated += categoriesUpdated;
       results.totalSkillsCreated += skillsCreated;

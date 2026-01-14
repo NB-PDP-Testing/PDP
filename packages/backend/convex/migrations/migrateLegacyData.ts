@@ -129,7 +129,7 @@ export const getMigrationPreview = query({
       // Limit to first 100 for preview
       const match = await findMatchingPlayerIdentity(ctx, player);
       if (match) {
-        matchedPlayers++;
+        matchedPlayers += 1;
       } else {
         unmatchedPlayers.push({
           name: player.name,
@@ -201,11 +201,11 @@ export const migrateInjuries = mutation({
     );
 
     for (const injury of injuriesToMigrate.slice(0, batchSize)) {
-      results.processed++;
+      results.processed += 1;
 
       const legacyPlayer = playerMap.get(injury.playerId);
       if (!legacyPlayer) {
-        results.skipped++;
+        results.skipped += 1;
         continue;
       }
 
@@ -221,7 +221,7 @@ export const migrateInjuries = mutation({
           playerName: legacyPlayer.name,
           error: "No matching playerIdentity found",
         });
-        results.skipped++;
+        results.skipped += 1;
         continue;
       }
 
@@ -240,7 +240,7 @@ export const migrateInjuries = mutation({
         .first();
 
       if (existing) {
-        results.skipped++;
+        results.skipped += 1;
         continue;
       }
 
@@ -300,7 +300,7 @@ export const migrateInjuries = mutation({
         });
       }
 
-      results.migrated++;
+      results.migrated += 1;
     }
 
     return {
@@ -352,11 +352,11 @@ export const migrateGoals = mutation({
     );
 
     for (const goal of goalsToMigrate.slice(0, batchSize)) {
-      results.processed++;
+      results.processed += 1;
 
       const legacyPlayer = playerMap.get(goal.playerId);
       if (!legacyPlayer) {
-        results.skipped++;
+        results.skipped += 1;
         continue;
       }
 
@@ -372,7 +372,7 @@ export const migrateGoals = mutation({
           playerName: legacyPlayer.name,
           error: "No matching playerIdentity found",
         });
-        results.skipped++;
+        results.skipped += 1;
         continue;
       }
 
@@ -390,7 +390,7 @@ export const migrateGoals = mutation({
           playerName: legacyPlayer.name,
           error: "No sportPassport found for player",
         });
-        results.skipped++;
+        results.skipped += 1;
         continue;
       }
 
@@ -404,7 +404,7 @@ export const migrateGoals = mutation({
         .first();
 
       if (existing) {
-        results.skipped++;
+        results.skipped += 1;
         continue;
       }
 
@@ -471,7 +471,7 @@ export const migrateGoals = mutation({
         });
       }
 
-      results.migrated++;
+      results.migrated += 1;
     }
 
     return {
@@ -517,7 +517,7 @@ export const migrateCoachNotes = mutation({
     const playersWithNotes = players.filter((p: any) => p.coachNotes?.trim());
 
     for (const player of playersWithNotes.slice(0, batchSize)) {
-      results.processed++;
+      results.processed += 1;
 
       // Find matching player identity
       const playerIdentityId = await findMatchingPlayerIdentity(ctx, player);
@@ -528,7 +528,7 @@ export const migrateCoachNotes = mutation({
           playerName: player.name,
           error: "No matching playerIdentity found",
         });
-        results.skipped++;
+        results.skipped += 1;
         continue;
       }
 
@@ -548,13 +548,13 @@ export const migrateCoachNotes = mutation({
           playerName: player.name,
           error: "No enrollment found in orgPlayerEnrollments",
         });
-        results.skipped++;
+        results.skipped += 1;
         continue;
       }
 
       // Skip if enrollment already has notes
       if (enrollment.coachNotes?.trim()) {
-        results.skipped++;
+        results.skipped += 1;
         continue;
       }
 
@@ -565,7 +565,7 @@ export const migrateCoachNotes = mutation({
         });
       }
 
-      results.migrated++;
+      results.migrated += 1;
     }
 
     return {

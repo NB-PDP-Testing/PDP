@@ -175,7 +175,7 @@ export const updateOrganizationColors = mutation({
         ? args.colors.slice(0, 3)
         : [...args.colors, ...new Array(3 - args.colors.length).fill("")];
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 3; i += 1) {
       const color = colorsToProcess[i];
 
       // Handle null/undefined - convert to empty string
@@ -882,7 +882,7 @@ export const approveDeletionRequest = mutation({
 
       for (const record of teamPlayers) {
         await ctx.db.delete(record._id);
-        deleted.teamPlayerIdentities++;
+        deleted.teamPlayerIdentities += 1;
       }
     }
 
@@ -894,7 +894,7 @@ export const approveDeletionRequest = mutation({
       .collect();
     for (const record of sportPassports) {
       await ctx.db.delete(record._id);
-      deleted.sportPassports++;
+      deleted.sportPassports += 1;
     }
 
     // 4. Delete org enrollments and track player IDs
@@ -908,7 +908,7 @@ export const approveDeletionRequest = mutation({
 
     for (const record of enrollments) {
       await ctx.db.delete(record._id);
-      deleted.orgPlayerEnrollments++;
+      deleted.orgPlayerEnrollments += 1;
     }
 
     // 5. Check for orphaned player identities (no enrollments in any org)
@@ -931,12 +931,12 @@ export const approveDeletionRequest = mutation({
 
         for (const link of guardianLinks) {
           await ctx.db.delete(link._id);
-          deleted.guardianPlayerLinks++;
+          deleted.guardianPlayerLinks += 1;
         }
 
         // Delete the player identity
         await ctx.db.delete(playerId);
-        deleted.playerIdentitiesOrphaned++;
+        deleted.playerIdentitiesOrphaned += 1;
       }
     }
 
@@ -953,7 +953,7 @@ export const approveDeletionRequest = mutation({
 
       if (links.length === 0) {
         await ctx.db.delete(guardian._id);
-        deleted.guardianIdentitiesOrphaned++;
+        deleted.guardianIdentitiesOrphaned += 1;
       }
     }
 
@@ -974,7 +974,7 @@ export const approveDeletionRequest = mutation({
         .collect();
       for (const injury of injuries) {
         await ctx.db.delete(injury._id);
-        deleted.injuries++;
+        deleted.injuries += 1;
       }
 
       // Delete development goals for this player
@@ -984,7 +984,7 @@ export const approveDeletionRequest = mutation({
         .collect();
       for (const goal of goals) {
         await ctx.db.delete(goal._id);
-        deleted.developmentGoals++;
+        deleted.developmentGoals += 1;
       }
 
       // Delete medical profiles for this player
@@ -994,7 +994,7 @@ export const approveDeletionRequest = mutation({
         .collect();
       for (const profile of medicalProfiles) {
         await ctx.db.delete(profile._id);
-        deleted.medicalProfiles++;
+        deleted.medicalProfiles += 1;
       }
 
       // Delete team-player associations
@@ -1004,12 +1004,12 @@ export const approveDeletionRequest = mutation({
         .collect();
       for (const tp of teamPlayers) {
         await ctx.db.delete(tp._id);
-        deleted.teamPlayers++;
+        deleted.teamPlayers += 1;
       }
 
       // Delete the player
       await ctx.db.delete(player._id);
-      deleted.players++;
+      deleted.players += 1;
     }
 
     // === ORG-SCOPED DATA CLEANUP ===
@@ -1022,7 +1022,7 @@ export const approveDeletionRequest = mutation({
       .collect();
     for (const ca of coachAssignments) {
       await ctx.db.delete(ca._id);
-      deleted.coachAssignments++;
+      deleted.coachAssignments += 1;
     }
 
     // 9. Delete team goals
@@ -1033,7 +1033,7 @@ export const approveDeletionRequest = mutation({
       .collect();
     for (const tg of teamGoals) {
       await ctx.db.delete(tg._id);
-      deleted.teamGoals++;
+      deleted.teamGoals += 1;
     }
 
     // 10. Delete voice notes (and their audio storage)
@@ -1054,7 +1054,7 @@ export const approveDeletionRequest = mutation({
         }
       }
       await ctx.db.delete(vn._id);
-      deleted.voiceNotes++;
+      deleted.voiceNotes += 1;
     }
 
     // 11. Delete join requests for this org
@@ -1065,7 +1065,7 @@ export const approveDeletionRequest = mutation({
       .collect();
     for (const jr of joinRequests) {
       await ctx.db.delete(jr._id);
-      deleted.joinRequests++;
+      deleted.joinRequests += 1;
     }
 
     // 12. Delete approval actions audit trail
@@ -1076,7 +1076,7 @@ export const approveDeletionRequest = mutation({
       .collect();
     for (const aa of approvalActions) {
       await ctx.db.delete(aa._id);
-      deleted.approvalActions++;
+      deleted.approvalActions += 1;
     }
 
     console.log("✅ Org data cleanup complete!");

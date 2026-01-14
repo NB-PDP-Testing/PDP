@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Handle GET requests (for testing)
-export async function GET() {
+export function GET() {
   return NextResponse.json({
     message: "Session Plan API",
     status: "Function is deployed and working!",

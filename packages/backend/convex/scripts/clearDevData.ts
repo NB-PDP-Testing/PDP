@@ -92,7 +92,7 @@ export const clearAllDevData = mutation({
         .collect();
       for (const record of teamPlayerIdentities) {
         await ctx.db.delete(record._id);
-        deleted.teamPlayerIdentities++;
+        deleted.teamPlayerIdentities += 1;
       }
     }
 
@@ -102,7 +102,7 @@ export const clearAllDevData = mutation({
       const sportPassports = await ctx.db.query("sportPassports").collect();
       for (const record of sportPassports) {
         await ctx.db.delete(record._id);
-        deleted.sportPassports++;
+        deleted.sportPassports += 1;
       }
     }
 
@@ -112,7 +112,7 @@ export const clearAllDevData = mutation({
       const enrollments = await ctx.db.query("orgPlayerEnrollments").collect();
       for (const record of enrollments) {
         await ctx.db.delete(record._id);
-        deleted.orgPlayerEnrollments++;
+        deleted.orgPlayerEnrollments += 1;
       }
     }
 
@@ -124,7 +124,7 @@ export const clearAllDevData = mutation({
         .collect();
       for (const record of guardianPlayerLinks) {
         await ctx.db.delete(record._id);
-        deleted.guardianPlayerLinks++;
+        deleted.guardianPlayerLinks += 1;
       }
     }
 
@@ -134,7 +134,7 @@ export const clearAllDevData = mutation({
       const playerIdentities = await ctx.db.query("playerIdentities").collect();
       for (const record of playerIdentities) {
         await ctx.db.delete(record._id);
-        deleted.playerIdentities++;
+        deleted.playerIdentities += 1;
       }
     }
 
@@ -146,7 +146,7 @@ export const clearAllDevData = mutation({
         .collect();
       for (const record of guardianIdentities) {
         await ctx.db.delete(record._id);
-        deleted.guardianIdentities++;
+        deleted.guardianIdentities += 1;
       }
     }
 
@@ -156,7 +156,7 @@ export const clearAllDevData = mutation({
       const skillAssessments = await ctx.db.query("skillAssessments").collect();
       for (const record of skillAssessments) {
         await ctx.db.delete(record._id);
-        deleted.skillAssessments++;
+        deleted.skillAssessments += 1;
       }
     }
 
@@ -166,7 +166,7 @@ export const clearAllDevData = mutation({
       const coachAssignments = await ctx.db.query("coachAssignments").collect();
       for (const record of coachAssignments) {
         await ctx.db.delete(record._id);
-        deleted.coachAssignments++;
+        deleted.coachAssignments += 1;
       }
     }
 
@@ -190,7 +190,7 @@ export const clearAllDevData = mutation({
             ],
           },
         });
-        deleted.teams++;
+        deleted.teams += 1;
       }
     }
 
@@ -218,7 +218,7 @@ export const clearAllDevData = mutation({
             },
           },
         });
-        deleted.membersRolesCleared++;
+        deleted.membersRolesCleared += 1;
       }
     }
 
@@ -228,7 +228,7 @@ export const clearAllDevData = mutation({
       const sports = await ctx.db.query("sports").collect();
       for (const record of sports) {
         await ctx.db.delete(record._id);
-        deleted.sports++;
+        deleted.sports += 1;
       }
     }
 
@@ -337,7 +337,7 @@ export const clearOrgData = mutation({
 
         for (const record of teamPlayers) {
           await ctx.db.delete(record._id);
-          deleted.teamPlayerIdentities++;
+          deleted.teamPlayerIdentities += 1;
         }
       }
     }
@@ -353,7 +353,7 @@ export const clearOrgData = mutation({
         .collect();
       for (const record of sportPassports) {
         await ctx.db.delete(record._id);
-        deleted.sportPassports++;
+        deleted.sportPassports += 1;
       }
     }
 
@@ -372,7 +372,7 @@ export const clearOrgData = mutation({
 
       for (const record of enrollments) {
         await ctx.db.delete(record._id);
-        deleted.orgPlayerEnrollments++;
+        deleted.orgPlayerEnrollments += 1;
       }
     }
 
@@ -387,7 +387,7 @@ export const clearOrgData = mutation({
         .collect();
       for (const record of skillAssessments) {
         await ctx.db.delete(record._id);
-        deleted.skillAssessments++;
+        deleted.skillAssessments += 1;
       }
     }
 
@@ -402,7 +402,7 @@ export const clearOrgData = mutation({
       );
       for (const record of coachAssignments) {
         await ctx.db.delete(record._id);
-        deleted.coachAssignments++;
+        deleted.coachAssignments += 1;
       }
     }
 
@@ -418,7 +418,7 @@ export const clearOrgData = mutation({
             ],
           },
         });
-        deleted.teams++;
+        deleted.teams += 1;
       }
     }
 
@@ -446,7 +446,7 @@ export const clearOrgData = mutation({
 
         // Delete the player identity
         await ctx.db.delete(playerId);
-        deleted.playerIdentitiesOrphaned++;
+        deleted.playerIdentitiesOrphaned += 1;
       }
     }
 
@@ -463,7 +463,7 @@ export const clearOrgData = mutation({
 
       if (links.length === 0) {
         await ctx.db.delete(guardian._id);
-        deleted.guardianIdentitiesOrphaned++;
+        deleted.guardianIdentitiesOrphaned += 1;
       }
     }
 

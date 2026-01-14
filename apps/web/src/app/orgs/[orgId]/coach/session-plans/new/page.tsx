@@ -41,8 +41,8 @@ export default function GenerateSessionPlanPage() {
 
   // Fetch coach's teams
   const coachAssignments = useQuery(
-    api.models.coaches.getCoachAssignments,
-    userId ? { userId } : "skip"
+    api.models.coaches.getCoachAssignmentsWithTeams,
+    userId ? { organizationId: orgId, userId } : "skip"
   );
 
   const generatePlan = useMutation(api.models.sessionPlans.generateAndSave);
@@ -50,9 +50,9 @@ export default function GenerateSessionPlanPage() {
   const handleTeamChange = (value: string) => {
     setTeamId(value);
     // Find team name from assignments
-    const assignment = coachAssignments?.find((a) => a.teamId === value);
-    if (assignment) {
-      setTeamName(assignment.teamName || "");
+    const team = coachAssignments?.teams?.find((t) => t.teamId === value);
+    if (team) {
+      setTeamName(team.teamName || "");
     }
   };
 
@@ -118,9 +118,9 @@ export default function GenerateSessionPlanPage() {
                 <SelectValue placeholder="Select a team" />
               </SelectTrigger>
               <SelectContent>
-                {coachAssignments?.map((assignment) => (
-                  <SelectItem key={assignment.teamId} value={assignment.teamId}>
-                    {assignment.teamName}
+                {coachAssignments?.teams?.map((team) => (
+                  <SelectItem key={team.teamId} value={team.teamId}>
+                    {team.teamName}
                   </SelectItem>
                 ))}
               </SelectContent>

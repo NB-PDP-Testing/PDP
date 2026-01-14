@@ -57,7 +57,7 @@ import { DeleteSportDialog } from "./delete-sport-dialog";
 import { EditSportDialog } from "./edit-sport-dialog";
 
 // Types
-interface Sport {
+type Sport = {
   _id: Id<"sports">;
   _creationTime: number;
   code: string;
@@ -66,9 +66,9 @@ interface Sport {
   description?: string;
   isActive: boolean;
   createdAt: number;
-}
+};
 
-interface SkillCategory {
+type SkillCategory = {
   _id: Id<"skillCategories">;
   _creationTime: number;
   sportCode: string;
@@ -78,9 +78,9 @@ interface SkillCategory {
   sortOrder: number;
   isActive: boolean;
   createdAt: number;
-}
+};
 
-interface SkillDefinition {
+type SkillDefinition = {
   _id: Id<"skillDefinitions">;
   _creationTime: number;
   categoryId: Id<"skillCategories">;
@@ -97,7 +97,7 @@ interface SkillDefinition {
   sortOrder: number;
   isActive: boolean;
   createdAt: number;
-}
+};
 
 // Add Sport Dialog
 function AddSportDialog({
@@ -634,7 +634,7 @@ function ImportSkillsDialog({
 }
 
 // Benchmark Type
-interface Benchmark {
+type Benchmark = {
   _id: Id<"skillBenchmarks">;
   _creationTime: number;
   sportCode: string;
@@ -660,7 +660,7 @@ interface Benchmark {
   isActive: boolean;
   createdAt: number;
   updatedAt: number;
-}
+};
 
 // Import Benchmarks Dialog
 function ImportBenchmarksDialog({
@@ -900,7 +900,9 @@ function BenchmarksSection({ sports }: { sports: Sport[] }) {
 
   // Group benchmarks by skill code
   const benchmarksBySkill = useMemo(() => {
-    if (!benchmarks) return new Map<string, Benchmark[]>();
+    if (!benchmarks) {
+      return new Map<string, Benchmark[]>();
+    }
     const map = new Map<string, Benchmark[]>();
     for (const b of benchmarks) {
       const existing = map.get(b.skillCode) ?? [];
@@ -912,7 +914,9 @@ function BenchmarksSection({ sports }: { sports: Sport[] }) {
 
   // Create skill lookup
   const skillLookup = useMemo(() => {
-    if (!skills) return new Map<string, string>();
+    if (!skills) {
+      return new Map<string, string>();
+    }
     return new Map(skills.map((s) => [s.code, s.name]));
   }, [skills]);
 
@@ -1035,7 +1039,9 @@ function BenchmarksSection({ sports }: { sports: Sport[] }) {
                                   ageGroups?.find(
                                     (ag) => ag.code === b.ageGroup
                                   )?.sortOrder ?? 0;
-                                if (ageA !== ageB) return ageA - ageB;
+                                if (ageA !== ageB) {
+                                  return ageA - ageB;
+                                }
                                 return a.level.localeCompare(b.level);
                               })
                               .map((b) => (
@@ -1585,8 +1591,9 @@ export default function SportsManagement() {
 
   // Create a map for quick lookup of usage stats by sport code
   const usageStatsMap = useMemo(() => {
-    if (!usageStats)
+    if (!usageStats) {
       return new Map<string, { orgCount: number; passportCount: number }>();
+    }
     return new Map(
       usageStats.map((s) => [
         s.sportCode,
@@ -1640,7 +1647,9 @@ export default function SportsManagement() {
 
   // Stats
   const stats = useMemo(() => {
-    if (!sports) return { total: 0, active: 0 };
+    if (!sports) {
+      return { total: 0, active: 0 };
+    }
     return {
       total: sports.length,
       active: sports.filter((s) => s.isActive).length,
@@ -1722,6 +1731,7 @@ export default function SportsManagement() {
     categoryName: string
   ) => {
     if (
+      // biome-ignore lint/suspicious/noAlert: Confirmation needed for destructive action
       window.confirm(
         `Are you sure you want to delete the category "${categoryName}" and all its skills? This action cannot be undone.`
       )
@@ -1742,6 +1752,7 @@ export default function SportsManagement() {
     skillName: string
   ) => {
     if (
+      // biome-ignore lint/suspicious/noAlert: Confirmation needed for destructive action
       window.confirm(
         `Are you sure you want to delete the skill "${skillName}"? This action cannot be undone.`
       )
@@ -1803,7 +1814,7 @@ export default function SportsManagement() {
         <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
           {/* Header */}
           <div className="mb-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-3">
                 <Link href="/platform">
                   <Button size="icon" variant="ghost">
@@ -1813,7 +1824,7 @@ export default function SportsManagement() {
                 <div className="rounded-full bg-emerald-100 p-2">
                   <Target className="h-6 w-6 text-emerald-600" />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <h2 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
                     Sports & Skills Management
                   </h2>
@@ -1823,7 +1834,7 @@ export default function SportsManagement() {
                   </p>
                 </div>
               </div>
-              <div className="flex gap-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:shrink-0">
                 <Card className="border-emerald-200 bg-emerald-50">
                   <CardContent className="flex items-center gap-3 p-4">
                     <div className="rounded-full bg-emerald-100 p-2">
@@ -1886,8 +1897,8 @@ export default function SportsManagement() {
                   onDeleteSport={(sportId) => {
                     setDeleteSport(sportId);
                   }}
-                  onEditSport={(sport) => {
-                    setEditSport(sport);
+                  onEditSport={(sportToEdit) => {
+                    setEditSport(sportToEdit);
                   }}
                   onImportSkills={(sportCode) => {
                     setImportSkillsForSport(sportCode);
@@ -1975,7 +1986,9 @@ export default function SportsManagement() {
                 : undefined
             }
             onOpenChange={(open) => {
-              if (!open) setEditSport(null);
+              if (!open) {
+                setEditSport(null);
+              }
             }}
             onSuccess={() => {
               toast.success("Sport updated successfully!");
@@ -1987,7 +2000,9 @@ export default function SportsManagement() {
 
           <DeleteSportDialog
             onOpenChange={(open) => {
-              if (!open) setDeleteSport(null);
+              if (!open) {
+                setDeleteSport(null);
+              }
             }}
             onSuccess={() => {
               toast.success("Sport deleted successfully!");

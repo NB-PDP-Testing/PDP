@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
-import type { OrgMemberRole } from "@/lib/types";
 
 export default function OrgAdminLayout({
   children,
@@ -45,18 +44,21 @@ export default function OrgAdminLayout({
         const { data: member } =
           await authClient.organization.getActiveMember();
 
-        if (!member?.role) {
+        if (!member) {
           setHasAccess(false);
           return;
         }
 
-        // Check if the user's role has org:admin permission
-        const canAccess = authClient.organization.checkRolePermission({
-          permissions: { organization: ["update"] },
-          role: member.role as OrgMemberRole,
-        });
+        // Check if user has admin functional role OR Better Auth admin/owner role
+        const functionalRoles = (member as any).functionalRoles || [];
+        const hasAdminFunctionalRole = functionalRoles.includes("admin");
 
-        setHasAccess(canAccess);
+        // Check Better Auth hierarchical role
+        const hasBetterAuthAdminRole =
+          member.role === "admin" || member.role === "owner";
+
+        // Grant access if either condition is met
+        setHasAccess(hasAdminFunctionalRole || hasBetterAuthAdminRole);
       } catch (error) {
         console.error("Error checking access:", error);
         setHasAccess(false);

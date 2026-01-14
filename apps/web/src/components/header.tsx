@@ -139,8 +139,14 @@ export default function Header() {
           <nav
             className={cn("flex items-center gap-4 text-lg", headerTextStyle)}
           >
-            <Link href="/">Home</Link>
-            {user?.isPlatformStaff && <Link href="/platform">Platform</Link>}
+            <Link className="py-3" href="/">
+              Home
+            </Link>
+            {user?.isPlatformStaff && (
+              <Link className="py-3" href="/platform">
+                Platform
+              </Link>
+            )}
           </nav>
         )}
 
@@ -149,7 +155,7 @@ export default function Header() {
           <>
             <div className={cn("flex items-center gap-4", headerTextStyle)}>
               <Link
-                className="flex items-center gap-2 font-semibold"
+                className="flex items-center gap-2 p-1.5 font-semibold"
                 href={`/orgs/${orgId}` as Route}
               >
                 {org.logo ? (

@@ -14,7 +14,12 @@ import {
   Users,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
-import * as React from "react";
+import {
+  type ChangeEvent,
+  type ComponentType,
+  type ReactNode,
+  useState,
+} from "react";
 import { CommandMenu } from "@/components/interactions/command-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,15 +56,15 @@ import { BottomNav, type BottomNavItem, BottomNavSpacer } from "./bottom-nav";
  */
 
 export interface AppShellProps {
-  children: React.ReactNode;
+  children: ReactNode;
   /** Current user role for navigation items */
   role?: "admin" | "coach" | "parent" | "player";
   /** Organization ID for navigation links */
   orgId?: string;
   /** Custom sidebar content (overrides default) */
-  sidebar?: React.ReactNode;
+  sidebar?: ReactNode;
   /** Custom header content */
-  header?: React.ReactNode;
+  header?: ReactNode;
   /** Page title for mobile header */
   title?: string;
   /** Show back button */
@@ -198,15 +203,14 @@ export function AppShell({
   className,
 }: AppShellProps) {
   const isMobile = useIsMobile();
-  const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Get navigation items
   const navItems = bottomNavItems || getDefaultBottomNavItems(role, orgId);
 
   // Handle search
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearch = (e: ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
     onSearch?.(query);
@@ -254,7 +258,7 @@ export function AppShell({
           <div className="relative">
             <Search className="-translate-y-1/2 absolute top-1/2 left-3 size-4 text-muted-foreground" />
             <Input
-              className="h-10 pl-9"
+              className="h-11 pl-9"
               onChange={handleSearch}
               placeholder={searchPlaceholder}
               type="search"
@@ -292,7 +296,7 @@ export function AppShell({
           <div className="relative">
             <Search className="-translate-y-1/2 absolute top-1/2 left-3 size-4 text-muted-foreground" />
             <Input
-              className="pl-9"
+              className="h-11 pl-9"
               onChange={handleSearch}
               placeholder={searchPlaceholder}
               type="search"
@@ -346,9 +350,9 @@ export function AppShell({
  * AppShellSidebar - Standard sidebar wrapper for AppShell
  */
 export interface AppShellSidebarProps {
-  children: React.ReactNode;
-  header?: React.ReactNode;
-  footer?: React.ReactNode;
+  children: ReactNode;
+  header?: ReactNode;
+  footer?: ReactNode;
   className?: string;
 }
 
@@ -372,7 +376,7 @@ export function AppShellSidebar({
  */
 export interface AppShellNavGroupProps {
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
   defaultOpen?: boolean;
 }
 
@@ -381,7 +385,7 @@ export function AppShellNavGroup({
   children,
   defaultOpen = true,
 }: AppShellNavGroupProps) {
-  const [isOpen, setIsOpen] = React.useState(defaultOpen);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
     <div className="py-2">
@@ -406,7 +410,7 @@ export function AppShellNavGroup({
  * AppShellNavItem - Single navigation item
  */
 export interface AppShellNavItemProps {
-  icon?: React.ComponentType<{ className?: string }>;
+  icon?: ComponentType<{ className?: string }>;
   label: string;
   href: string;
   isActive?: boolean;

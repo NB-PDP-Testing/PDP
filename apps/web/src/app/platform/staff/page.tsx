@@ -22,14 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
-// Platform Staff User type
-interface PlatformUser {
-  _id: string;
-  name: string | null;
-  email: string;
-  isPlatformStaff: boolean;
-  createdAt: number;
-}
+// Platform Staff User type - types inferred from Convex query
 
 export default function PlatformStaffManagementPage() {
   const user = useCurrentUser();
@@ -68,7 +61,9 @@ export default function PlatformStaffManagementPage() {
 
   // Filter users based on search query
   const filteredNonStaffUsers = useMemo(() => {
-    if (!searchQuery.trim()) return nonStaffUsers;
+    if (!searchQuery.trim()) {
+      return nonStaffUsers;
+    }
 
     const query = searchQuery.toLowerCase();
     return nonStaffUsers.filter(
@@ -121,14 +116,14 @@ export default function PlatformStaffManagementPage() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 rounded-lg bg-white p-6 shadow-lg">
           {/* Header with Stats */}
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-4">
               <Link href="/platform">
                 <Button size="icon" variant="ghost">
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
               </Link>
-              <div>
+              <div className="min-w-0 flex-1">
                 <h1 className="font-bold text-2xl text-[#1E3A5F] tracking-tight">
                   Platform Staff Management
                 </h1>
@@ -137,7 +132,7 @@ export default function PlatformStaffManagementPage() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:shrink-0">
               <Card className="border-purple-200 bg-purple-50">
                 <CardContent className="flex items-center gap-3 p-4">
                   <div className="rounded-full bg-purple-100 p-2">
@@ -195,30 +190,28 @@ export default function PlatformStaffManagementPage() {
                               key={staffUser._id}
                             >
                               <CardContent className="p-4">
-                                <div className="flex items-start justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-100">
-                                      <Shield className="h-6 w-6 text-purple-600" />
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="truncate font-semibold">
-                                        {staffUser.name || "Unknown"}
-                                      </p>
-                                      <p className="truncate text-muted-foreground text-sm">
-                                        {staffUser.email}
-                                      </p>
-                                      {isCurrentUser && (
-                                        <Badge
-                                          className="mt-1 text-xs"
-                                          variant="outline"
-                                        >
-                                          You
-                                        </Badge>
-                                      )}
-                                    </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-purple-100">
+                                    <Shield className="h-6 w-6 text-purple-600" />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate font-semibold">
+                                      {staffUser.name || "Unknown"}
+                                    </p>
+                                    <p className="truncate text-muted-foreground text-sm">
+                                      {staffUser.email}
+                                    </p>
+                                    {isCurrentUser && (
+                                      <Badge
+                                        className="mt-1 text-xs"
+                                        variant="outline"
+                                      >
+                                        You
+                                      </Badge>
+                                    )}
                                   </div>
                                 </div>
-                                <div className="mt-4 flex items-center justify-between">
+                                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
                                   <Badge className="bg-purple-100 text-purple-700">
                                     Platform Staff
                                   </Badge>
@@ -304,22 +297,22 @@ export default function PlatformStaffManagementPage() {
                             className="hover:bg-gray-50"
                             key={nonStaffUser._id}
                           >
-                            <CardContent className="flex items-center justify-between p-4">
+                            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                               <div className="flex items-center gap-3">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
                                   <Users className="h-5 w-5 text-gray-600" />
                                 </div>
-                                <div>
-                                  <p className="font-medium">
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate font-medium">
                                     {nonStaffUser.name || "Unknown"}
                                   </p>
-                                  <p className="text-muted-foreground text-sm">
+                                  <p className="truncate text-muted-foreground text-sm">
                                     {nonStaffUser.email}
                                   </p>
                                 </div>
                               </div>
                               <Button
-                                className="bg-purple-600 hover:bg-purple-700"
+                                className="w-full bg-purple-600 hover:bg-purple-700 sm:w-auto"
                                 onClick={() =>
                                   handleTogglePlatformStaff(
                                     nonStaffUser.email,

@@ -5,6 +5,7 @@ import {
   BarChart3,
   ChevronDown,
   Clipboard,
+  ClipboardList,
   GraduationCap,
   Home,
   Key,
@@ -109,9 +110,9 @@ export function getAdminNavGroups(orgId: string): NavGroup[] {
       icon: Clipboard,
       items: [
         {
-          href: `/orgs/${orgId}/coach/session-plans`,
+          href: `/orgs/${orgId}/admin/session-plans`,
           label: "Session Plans",
-          icon: Clipboard,
+          icon: ClipboardList,
         },
       ],
     },

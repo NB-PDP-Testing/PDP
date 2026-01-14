@@ -1,6 +1,11 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function StatCard({
@@ -10,6 +15,7 @@ export function StatCard({
   icon: Icon,
   href,
   variant = "primary",
+  trendData,
 }: {
   title: string;
   value: number | string;
@@ -17,6 +23,11 @@ export function StatCard({
   icon: React.ComponentType<{ className?: string }>;
   href?: Route;
   variant?: "primary" | "secondary" | "tertiary" | "warning" | "danger";
+  trendData?: {
+    description: string;
+    change?: string;
+    changeType?: "increase" | "decrease" | "neutral";
+  };
 }) {
   const variantStyles = {
     primary: "bg-[rgb(var(--org-primary-rgb)/0.1)] text-[var(--org-primary)]",
@@ -53,11 +64,41 @@ export function StatCard({
     </Card>
   );
 
+  // Wrap with progressive disclosure if trend data is provided
+  const contentWithTrend = trendData ? (
+    <HoverCard>
+      <HoverCardTrigger asChild>{content}</HoverCardTrigger>
+      <HoverCardContent className="w-80">
+        <div className="space-y-2">
+          <p className="font-medium text-sm">Trend Details</p>
+          <p className="text-muted-foreground text-sm">
+            {trendData.description}
+          </p>
+          {trendData.change && (
+            <p
+              className={`font-medium text-sm ${
+                trendData.changeType === "increase"
+                  ? "text-green-600"
+                  : trendData.changeType === "decrease"
+                    ? "text-red-600"
+                    : "text-gray-600"
+              }`}
+            >
+              {trendData.change}
+            </p>
+          )}
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  ) : (
+    content
+  );
+
   if (href) {
-    return <Link href={href}>{content}</Link>;
+    return <Link href={href}>{contentWithTrend}</Link>;
   }
 
-  return content;
+  return contentWithTrend;
 }
 
 export function StatCardSkeleton() {

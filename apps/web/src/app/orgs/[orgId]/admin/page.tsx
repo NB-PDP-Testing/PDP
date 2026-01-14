@@ -161,7 +161,7 @@ export default function OrgAdminOverviewPage() {
               </p>
             </div>
             <Link href={`/orgs/${orgId}/admin/settings` as Route}>
-              <OrgThemedButton size="sm" variant="outline">
+              <OrgThemedButton className="h-11" size="sm" variant="outline">
                 Manage Ownership
               </OrgThemedButton>
             </Link>

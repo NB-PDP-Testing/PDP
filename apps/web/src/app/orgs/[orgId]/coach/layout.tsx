@@ -17,7 +17,7 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   BottomNav,
   type BottomNavItem,
@@ -27,6 +27,7 @@ import {
   CoachMobileNav,
   CoachSidebar,
 } from "@/components/layout/coach-sidebar";
+import Loader from "@/components/loader";
 import { HeaderQuickActionsMenu } from "@/components/quick-actions/header-quick-actions-menu";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,14 +36,56 @@ import {
 } from "@/contexts/quick-actions-context";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
+import { authClient } from "@/lib/auth-client";
 
 function CoachLayoutInner({ children }: { children: React.ReactNode }) {
   const params = useParams();
   const orgId = params.orgId as string;
   const router = useRouter();
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
   // Apply organization theme colors
   const { theme } = useOrgTheme();
+
+  // Check if the user has coach functional role
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        // Set the active organization first
+        await authClient.organization.setActive({ organizationId: orgId });
+
+        // Get the user's membership in this organization
+        const { data: member } =
+          await authClient.organization.getActiveMember();
+
+        if (!member) {
+          setHasAccess(false);
+          return;
+        }
+
+        // Check if user has coach functional role
+        const functionalRoles = (member as any).functionalRoles || [];
+        const hasCoachRole = functionalRoles.includes("coach");
+
+        // Also allow if user has admin or owner Better Auth role
+        const isOrgAdmin = member.role === "admin" || member.role === "owner";
+
+        setHasAccess(hasCoachRole || isOrgAdmin);
+      } catch (error) {
+        console.error("Error checking coach access:", error);
+        setHasAccess(false);
+      }
+    };
+
+    checkAccess();
+  }, [orgId]);
+
+  // Redirect if no access
+  useEffect(() => {
+    if (hasAccess === false) {
+      router.replace("/orgs");
+    }
+  }, [hasAccess, router]);
 
   // Get UX feature flags
   const { adminNavStyle, useBottomNav, quickActionsVariant } =
@@ -181,6 +224,30 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
       href: `/orgs/${orgId}/coach/todos`,
     },
   ];
+
+  // Show loading while checking access
+  if (hasAccess === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader />
+      </div>
+    );
+  }
+
+  // Will redirect via useEffect, but show nothing while redirecting
+  if (hasAccess === false) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="space-y-4 text-center">
+          <h1 className="font-bold text-2xl">Access Denied</h1>
+          <p className="text-muted-foreground">
+            You don't have permission to access the coach panel.
+          </p>
+          <Loader />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

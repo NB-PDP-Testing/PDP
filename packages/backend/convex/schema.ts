@@ -1727,50 +1727,52 @@ export default defineSchema({
     // Identity
     organizationId: v.string(),
     coachId: v.string(),
-    coachName: v.string(),
+    coachName: v.optional(v.string()),
     teamId: v.optional(v.string()),
     teamName: v.string(),
-    playerCount: v.number(),
+    playerCount: v.optional(v.number()),
 
     // Content
-    title: v.string(),
-    rawContent: v.string(), // Full markdown/text content from AI
+    title: v.optional(v.string()),
+    rawContent: v.optional(v.string()), // Full markdown/text content from AI
     focusArea: v.optional(v.string()),
-    duration: v.number(), // minutes
+    duration: v.optional(v.number()), // minutes
 
     // Sections with activities structure
-    sections: v.array(
-      v.object({
-        id: v.string(),
-        type: v.union(
-          v.literal("warmup"),
-          v.literal("technical"),
-          v.literal("tactical"),
-          v.literal("games"),
-          v.literal("cooldown"),
-          v.literal("custom")
-        ),
-        title: v.string(),
-        duration: v.number(),
-        order: v.number(),
-        activities: v.array(
-          v.object({
-            id: v.string(),
-            name: v.string(),
-            description: v.string(),
-            duration: v.optional(v.number()),
-            order: v.number(),
-            activityType: v.union(
-              v.literal("drill"),
-              v.literal("game"),
-              v.literal("exercise"),
-              v.literal("demonstration"),
-              v.literal("discussion"),
-              v.literal("rest")
-            ),
-          })
-        ),
-      })
+    sections: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          type: v.union(
+            v.literal("warmup"),
+            v.literal("technical"),
+            v.literal("tactical"),
+            v.literal("games"),
+            v.literal("cooldown"),
+            v.literal("custom")
+          ),
+          title: v.string(),
+          duration: v.number(),
+          order: v.number(),
+          activities: v.array(
+            v.object({
+              id: v.string(),
+              name: v.string(),
+              description: v.string(),
+              duration: v.optional(v.number()),
+              order: v.number(),
+              activityType: v.union(
+                v.literal("drill"),
+                v.literal("game"),
+                v.literal("exercise"),
+                v.literal("demonstration"),
+                v.literal("discussion"),
+                v.literal("rest")
+              ),
+            })
+          ),
+        })
+      )
     ),
 
     // Context
@@ -1836,19 +1838,21 @@ export default defineSchema({
     expertCoachProfile: v.optional(v.string()),
 
     // Status
-    status: v.union(
-      v.literal("draft"),
-      v.literal("saved"),
-      v.literal("archived_success"),
-      v.literal("archived_failed"),
-      v.literal("deleted")
+    status: v.optional(
+      v.union(
+        v.literal("draft"),
+        v.literal("saved"),
+        v.literal("archived_success"),
+        v.literal("archived_failed"),
+        v.literal("deleted")
+      )
     ),
-    usedInSession: v.boolean(),
+    usedInSession: v.optional(v.boolean()),
     usedDate: v.optional(v.number()),
 
     // Feedback
-    feedbackSubmitted: v.boolean(),
-    feedbackUsedForTraining: v.boolean(),
+    feedbackSubmitted: v.optional(v.boolean()),
+    feedbackUsedForTraining: v.optional(v.boolean()),
     simplifiedFeedback: v.optional(
       v.object({
         sessionFeedback: v.optional(
@@ -1873,6 +1877,16 @@ export default defineSchema({
         ),
       })
     ),
+
+    // Legacy Quick Actions fields (for backward compatibility)
+    creationMethod: v.optional(v.string()),
+    generatedAt: v.optional(v.number()),
+    regenerateCount: v.optional(v.number()),
+    sessionPlan: v.optional(v.string()), // Old field name for rawContent
+    shareCount: v.optional(v.number()),
+    teamData: v.optional(v.any()),
+    usedRealAI: v.optional(v.boolean()),
+    viewCount: v.optional(v.number()),
 
     // Timestamps
     createdAt: v.number(),

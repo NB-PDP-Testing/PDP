@@ -1043,11 +1043,11 @@ export const getRecentPlanForTeam = query({
     v.null(),
     v.object({
       _id: v.id("sessionPlans"),
-      title: v.string(),
+      title: v.optional(v.string()),
       generatedAt: v.number(),
       teamName: v.string(),
-      duration: v.number(),
-      sessionPlan: v.string(),
+      duration: v.optional(v.number()),
+      sessionPlan: v.optional(v.string()),
       usedRealAI: v.boolean(),
     })
   ),

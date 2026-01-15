@@ -435,3 +435,104 @@ export const createPassportShareConsent = mutation({
     return consentId;
   },
 });
+
+/**
+ * Update an existing passport sharing consent
+ * US-012: Allow guardians to modify consent settings
+ *
+ * @param consentId - The consent to update
+ * @param sharedElements - Updated elements to share (optional)
+ * @param expiresAt - Updated expiry date (optional)
+ * @param sourceOrgMode - Updated source org mode (optional)
+ * @param sourceOrgIds - Updated source org IDs (optional)
+ * @returns Success boolean
+ */
+export const updatePassportShareConsent = mutation({
+  args: {
+    consentId: v.id("passportShareConsents"),
+    sharedElements: v.optional(sharedElementsValidator),
+    expiresAt: v.optional(v.number()),
+    sourceOrgMode: v.optional(
+      v.union(v.literal("all_enrolled"), v.literal("specific_orgs"))
+    ),
+    sourceOrgIds: v.optional(v.array(v.string())),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const userId = identity.subject;
+
+    // Get the existing consent
+    const consent = await ctx.db.get(args.consentId);
+    if (!consent) {
+      throw new Error("Consent not found");
+    }
+
+    // Validate that the user has parental responsibility for this player
+    const hasResponsibility = await validateGuardianHasResponsibility(
+      ctx,
+      userId,
+      consent.playerIdentityId
+    );
+
+    if (!hasResponsibility) {
+      throw new Error(
+        "You do not have parental responsibility for this player"
+      );
+    }
+
+    // Validate sourceOrgIds is provided if mode is being changed to specific_orgs
+    if (
+      args.sourceOrgMode === "specific_orgs" &&
+      !args.sourceOrgIds &&
+      !consent.sourceOrgIds
+    ) {
+      throw new Error(
+        "sourceOrgIds must be provided when sourceOrgMode is specific_orgs"
+      );
+    }
+
+    // Build update object with only provided fields
+    const updates: any = {};
+    if (args.sharedElements !== undefined) {
+      updates.sharedElements = args.sharedElements;
+    }
+    if (args.expiresAt !== undefined) {
+      updates.expiresAt = args.expiresAt;
+    }
+    if (args.sourceOrgMode !== undefined) {
+      updates.sourceOrgMode = args.sourceOrgMode;
+    }
+    if (args.sourceOrgIds !== undefined) {
+      updates.sourceOrgIds = args.sourceOrgIds;
+    }
+
+    // Update the consent
+    await ctx.db.patch(args.consentId, updates);
+
+    // Notify all guardians with parental responsibility about the change
+    // Get receiving org name for notification
+    const receivingOrg = await ctx.db
+      .query("organization")
+      .filter((q) => q.eq(q.field("id"), consent.receivingOrgId))
+      .first();
+    const receivingOrgName = receivingOrg?.name || "Unknown Organization";
+
+    await notifyGuardiansOfSharingChange(ctx, {
+      playerIdentityId: consent.playerIdentityId,
+      eventType: "guardian_change",
+      actorUserId: userId,
+      metadata: {
+        receivingOrgName,
+        consentId: args.consentId,
+      },
+    });
+
+    return true;
+  },
+});

@@ -388,12 +388,14 @@ export const importPlayerWithIdentity = mutation({
         args.parentLastName
       ) {
         const normalizedPhone = args.parentPhone.trim();
+        const parentFirstName = args.parentFirstName;
+        const parentLastName = args.parentLastName;
         const guardiansByName = await ctx.db
           .query("guardianIdentities")
           .withIndex("by_name", (q) =>
             q
-              .eq("lastName", args.parentLastName?.trim())
-              .eq("firstName", args.parentFirstName?.trim())
+              .eq("lastName", parentLastName.trim())
+              .eq("firstName", parentFirstName.trim())
           )
           .collect();
 
@@ -869,12 +871,14 @@ export const batchImportPlayersWithIdentity = mutation({
             playerData.parentLastName
           ) {
             const normalizedPhone = playerData.parentPhone.trim();
+            const parentFirstName = playerData.parentFirstName;
+            const parentLastName = playerData.parentLastName;
             const guardiansByName = await ctx.db
               .query("guardianIdentities")
               .withIndex("by_name", (q) =>
                 q
-                  .eq("lastName", playerData.parentLastName?.trim())
-                  .eq("firstName", playerData.parentFirstName?.trim())
+                  .eq("lastName", parentLastName.trim())
+                  .eq("firstName", parentFirstName.trim())
               )
               .collect();
 

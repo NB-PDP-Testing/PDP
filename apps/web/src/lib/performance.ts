@@ -91,10 +91,10 @@ export const ResourcePreloader = {
   /**
    * Preload an image
    */
-  image(src: string): Promise<void> {
+  image(src: string): Promise<undefined> {
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.onload = () => resolve();
+      img.onload = () => resolve(undefined);
       img.onerror = reject;
       img.src = src;
     });

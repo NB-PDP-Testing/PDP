@@ -1401,3 +1401,102 @@ Next iteration should focus on adding real consent data to child cards:
 
 ---
 
+## 2026-01-15 18:45 - US-028 - Enable Sharing Wizard Step 4 (Duration Selection)
+**Iteration**: 10
+**Commit**: 36831ef7fb603f6587b62367662f03229316cbdc
+**Session**: 17e69309-d5d7-4f9f-b95e-41084f656520
+**Status**: Complete
+
+### What was implemented
+**Duration Selection Step:**
+- Created step 4 of the sharing wizard with preset duration options:
+  1. **Season End**: June 30th of current year, or next year if past June
+  2. **6 Months**: 6 months from today
+  3. **1 Year**: 1 year from today
+  4. **Custom Date**: Calendar picker for specific date
+- Radio group for duration type selection with clear date displays
+- Custom date picker using Popover + Calendar components
+- Disabled past dates in calendar (only future dates allowed)
+- Mobile-responsive card layout matching previous steps
+
+**State Management:**
+- Added `expiresAt: Date | undefined` state to wizard
+- Added `durationType` local state for step tracking
+- Reset logic clears expiresAt when wizard closes
+- calculatePresetDate helper function for date calculations
+
+**Navigation:**
+- Updated handleNext to move from org-selection → duration
+- Updated handleBack to return from duration → org-selection
+- canProceed validates: expiresAt must be defined
+- Progress shows "Step 4 of 5"
+
+**Date Handling:**
+- formatDate function using toLocaleDateString with en-US locale
+- Season end calculation: June 30th with year rollover logic
+- Date arithmetic using native Date methods (setMonth, setFullYear)
+- Avoided non-null assertions (linter requirement) using IIFE pattern
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/enable-sharing-wizard.tsx (+263, -3)
+- scripts/ralph/prd.json (marked US-028 as passes: true)
+
+### Quality checks
+- ✅ Type check: passed (no new errors in wizard file)
+- ✅ Linting: passed (pre-commit hook successful)
+- ✅ Fixed non-null assertion errors using IIFE pattern
+- ✅ Pre-commit hooks: passed
+- ⚠️ Browser verification: deferred (requires parent role + guardian identity + linked children)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Calendar component usage**: Popover + PopoverTrigger + PopoverContent wrapping Calendar
+  - Pattern: `<Popover><PopoverTrigger asChild><Button>...</Button></PopoverTrigger><PopoverContent><Calendar /></PopoverContent></Popover>`
+- **Date calculations**: Use native Date methods for preset durations
+  - setMonth(current + 6) for 6 months
+  - setFullYear(current + 1) for 1 year
+  - Custom logic for season end (June 30th)
+- **Avoiding non-null assertions**: Use IIFE pattern instead of `!` operator
+  - Bad: `{date && <>{formatDate(date!)}</>`
+  - Good: `{(() => { const d = calculateDate(); return d ? formatDate(d) : null; })()}`
+- **Calendar disabled dates**: Use disabled prop with function returning boolean
+  - Pattern: `disabled={(date) => date < new Date()}` for past dates
+- **Date formatting**: Use toLocaleDateString with locale and options for consistent display
+  - Pattern: `date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })`
+
+**Gotchas encountered:**
+- Linter removes imports: Calendar, CalendarIcon, Popover components all removed after first edit
+- Had to re-add imports explicitly after linter runs
+- Non-null assertion operator (!) forbidden by linter (lint/style/noNonNullAssertion)
+- Must use safe access patterns or IIFE to avoid non-null assertions
+- CalendarIcon imported from lucide-react needs alias: `Calendar as CalendarIcon`
+
+**Dependencies found:**
+- US-029: Next step is review/confirm + success screen
+- Will need to display all wizard selections in summary format
+- Will call createPassportShareConsent mutation with all collected data
+- Success screen needs consent receipt download capability
+
+**Component architecture insights:**
+- **Duration step state**: Local durationType state tracks selection mode
+- **Preset calculation**: calculatePresetDate returns Date | undefined for each preset
+- **Custom date flow**: Select "custom" type → date picker appears → select date from calendar
+- **Date validation**: Calendar component handles disabled dates internally
+- **Step consistency**: Duration step follows same card-based selection pattern as org step
+
+**What to do next**:
+- US-029: Implement review/confirm step (step 5) and success screen (step 6)
+- Review step should show summary: child, elements, orgs, duration
+- Confirm button calls createPassportShareConsent mutation
+- Success screen shows confirmation + consent receipt download
+- After US-029: Move to revocation UI, audit log viewer, and coach dashboard features
+
+**Mistakes made** (learn from these!):
+- Initially used non-null assertion operator `!` which violated linter rules
+- Had to refactor three locations to use IIFE pattern instead
+- Forgot that linter auto-removes "unused" imports during formatting
+- Had to re-add Calendar, CalendarIcon, Popover imports after linter ran
+
+---
+

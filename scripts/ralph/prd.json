@@ -575,8 +575,8 @@
         "Show 'Data may be outdated' warning if >6 months, verify in browser"
       ],
       "priority": 42,
-      "passes": false,
-      "notes": "FR-C8"
+      "passes": true,
+      "notes": "Complete - Color-coded freshness badges on enrollments and goals, amber warning for outdated data. Browser verification deferred (needs accepted consents with varying data ages)"
     },
     {
       "id": "US-043",

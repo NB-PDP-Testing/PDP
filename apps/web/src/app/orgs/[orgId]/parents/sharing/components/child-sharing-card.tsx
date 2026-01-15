@@ -3,7 +3,8 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { useMemo } from "react";
+import { ShieldAlert } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { QuickShare } from "./quick-share";
+import { RevokeConsentModal } from "./revoke-consent-modal";
 
 type ChildSharingCardProps = {
   child: {
@@ -34,6 +36,12 @@ export function ChildSharingCard({
   child,
   onEnableSharing,
 }: ChildSharingCardProps) {
+  // Modal state for revocation
+  const [revokeModalOpen, setRevokeModalOpen] = useState(false);
+  const [selectedConsentId, setSelectedConsentId] =
+    useState<Id<"passportShareConsents"> | null>(null);
+  const [selectedOrgName, setSelectedOrgName] = useState("");
+
   // Fetch consents for this player
   const consents = useQuery(api.lib.consentGateway.getConsentsForPlayer, {
     playerIdentityId: child.player._id,
@@ -47,6 +55,20 @@ export function ChildSharingCard({
     }
   );
 
+  // Get active consents (for revocation UI)
+  const activeConsents = useMemo(() => {
+    if (!consents) {
+      return [];
+    }
+    const now = Date.now();
+    return consents.filter(
+      (c) =>
+        c.status === "active" &&
+        c.coachAcceptanceStatus === "accepted" &&
+        c.expiresAt > now
+    );
+  }, [consents]);
+
   // Calculate sharing metrics
   const sharingMetrics = useMemo(() => {
     if (!consents) {
@@ -58,13 +80,7 @@ export function ChildSharingCard({
     }
 
     // Count active shares (accepted and not expired)
-    const now = Date.now();
-    const activeSharesCount = consents.filter(
-      (c) =>
-        c.status === "active" &&
-        c.coachAcceptanceStatus === "accepted" &&
-        c.expiresAt > now
-    ).length;
+    const activeSharesCount = activeConsents.length;
 
     // Count pending requests
     const pendingRequestsCount = pendingRequests?.length || 0;
@@ -95,7 +111,7 @@ export function ChildSharingCard({
         ? new Date(lastActivityTimestamp)
         : null,
     };
-  }, [consents, pendingRequests]);
+  }, [consents, pendingRequests, activeConsents]);
 
   return (
     <Card>
@@ -155,6 +171,44 @@ export function ChildSharingCard({
           </div>
         </div>
 
+        {/* Active shares with revoke buttons */}
+        {activeConsents.length > 0 && (
+          <div className="space-y-2">
+            <p className="font-medium text-sm">Active Shares:</p>
+            {activeConsents.map((consent) => (
+              <div
+                className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-2"
+                key={consent.consentId}
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4 text-green-600" />
+                  <div>
+                    <p className="font-medium text-sm">
+                      Org: {consent.receivingOrgId.slice(0, 8)}...
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      Expires:{" "}
+                      {new Date(consent.expiresAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => {
+                    setSelectedConsentId(consent.consentId);
+                    setSelectedOrgName(consent.receivingOrgId);
+                    setRevokeModalOpen(true);
+                  }}
+                  size="sm"
+                  type="button"
+                  variant="destructive"
+                >
+                  Revoke
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Quick actions */}
         <div className="flex flex-col gap-2">
           <Button
@@ -171,6 +225,20 @@ export function ChildSharingCard({
           </Button>
         </div>
       </CardContent>
+
+      {/* Revoke Consent Modal */}
+      {selectedConsentId && (
+        <RevokeConsentModal
+          childName={`${child.player.firstName} ${child.player.lastName}`}
+          consentId={selectedConsentId}
+          onOpenChange={setRevokeModalOpen}
+          onSuccess={() => {
+            // Convex will automatically refetch consents
+          }}
+          open={revokeModalOpen}
+          organizationName={selectedOrgName}
+        />
+      )}
     </Card>
   );
 }

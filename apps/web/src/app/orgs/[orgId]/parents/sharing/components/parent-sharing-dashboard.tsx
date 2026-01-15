@@ -13,17 +13,11 @@ import {
 import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import Loader from "@/components/loader";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
+import { ChildSharingCard } from "./child-sharing-card";
 
 type ParentSharingDashboardProps = {
   orgId: string;
@@ -62,17 +56,73 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
     );
   }, [roleDetails]);
 
-  // Calculate summary stats
+  // Fetch consent data for all children
+  const consentsData = identityChildren.map((child) => ({
+    playerIdentityId: child.player._id,
+    // biome-ignore lint/correctness/useHookAtTopLevel: Dynamic children list
+    consents: useQuery(api.lib.consentGateway.getConsentsForPlayer, {
+      playerIdentityId: child.player._id,
+    }),
+    // biome-ignore lint/correctness/useHookAtTopLevel: Dynamic children list
+    requests: useQuery(api.models.passportSharing.getPendingRequestsForPlayer, {
+      playerIdentityId: child.player._id,
+    }),
+  }));
+
+  // Calculate summary stats from aggregated consent data
   const summaryStats = useMemo(() => {
-    // TODO: Fetch actual consent data for each child
-    // For now, return placeholder stats
+    let totalActiveShares = 0;
+    let totalPendingRequests = 0;
+    let latestActivityTimestamp: number | null = null;
+
+    const now = Date.now();
+
+    for (const childData of consentsData) {
+      const { consents, requests } = childData;
+
+      // Skip if data not loaded yet
+      if (!(consents && requests)) {
+        continue;
+      }
+
+      // Count active shares (accepted and not expired)
+      const activeSharesForChild = consents.filter(
+        (c) =>
+          c.status === "active" &&
+          c.coachAcceptanceStatus === "accepted" &&
+          c.expiresAt > now
+      ).length;
+      totalActiveShares += activeSharesForChild;
+
+      // Count pending requests
+      totalPendingRequests += requests.length;
+
+      // Track latest activity across all children
+      for (const consent of consents) {
+        const timestamps = [
+          consent.consentedAt,
+          consent.acceptedAt,
+          consent.declinedAt,
+          consent.revokedAt,
+        ].filter((t): t is number => t !== undefined && t !== null);
+
+        for (const timestamp of timestamps) {
+          if (!latestActivityTimestamp || timestamp > latestActivityTimestamp) {
+            latestActivityTimestamp = timestamp;
+          }
+        }
+      }
+    }
+
     return {
       childrenCount: identityChildren.length,
-      activeShares: 0,
-      pendingRequests: 0,
-      lastActivity: null as Date | null,
+      activeShares: totalActiveShares,
+      pendingRequests: totalPendingRequests,
+      lastActivity: latestActivityTimestamp
+        ? new Date(latestActivityTimestamp)
+        : null,
     };
-  }, [identityChildren]);
+  }, [identityChildren, consentsData]);
 
   // Show loading state while checking roles
   if (roleDetails === undefined || identityLoading) {
@@ -212,56 +262,7 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {identityChildren.map((child) => (
-              <Card key={child.player._id}>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>
-                      {child.player.firstName} {child.player.lastName}
-                    </span>
-                    <Badge variant="outline">
-                      {child.enrollment?.sport || "Unknown"}
-                    </Badge>
-                  </CardTitle>
-                  <CardDescription>
-                    {child.enrollment?.ageGroup || "No age group"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Sharing status placeholder */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Active Shares:
-                      </span>
-                      <Badge variant="secondary">0</Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Pending Requests:
-                      </span>
-                      <Badge variant="secondary">0</Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Last Activity:
-                      </span>
-                      <span className="text-muted-foreground text-xs">
-                        None
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Quick actions */}
-                  <div className="flex flex-col gap-2">
-                    <Button className="w-full" size="sm" variant="outline">
-                      Enable Sharing
-                    </Button>
-                    <Button className="w-full" size="sm" variant="ghost">
-                      View Audit Log
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <ChildSharingCard child={child} key={child.player._id} />
             ))}
           </div>
         </div>

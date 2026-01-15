@@ -1428,3 +1428,70 @@ export const processConsentExpiry = mutation({
     return { renewalRemindersSent, consentsExpired };
   },
 });
+
+// ============================================================
+// US-024: QUERY HELPERS FOR PARENT DASHBOARD
+// ============================================================
+
+/**
+ * Get pending access requests for a player (for parent dashboard)
+ * Shows all pending requests awaiting parent response
+ *
+ * @param playerIdentityId - Player identity ID
+ * @returns Array of pending requests for this player
+ */
+export const getPendingRequestsForPlayer = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.array(
+    v.object({
+      requestId: v.id("passportShareRequests"),
+      requestedBy: v.string(),
+      requestedByName: v.string(),
+      requestingOrgId: v.string(),
+      requestingOrgName: v.string(),
+      reason: v.optional(v.string()),
+      requestedAt: v.number(),
+      expiresAt: v.number(),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("approved"),
+        v.literal("declined"),
+        v.literal("expired")
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    // Get all pending requests for this player
+    const requests = await ctx.db
+      .query("passportShareRequests")
+      .withIndex("by_player_and_status", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId).eq("status", "pending")
+      )
+      .collect();
+
+    // Filter for unexpired requests
+    const now = Date.now();
+    const validRequests = requests.filter((req) => req.expiresAt > now);
+
+    // Map to return format
+    return validRequests.map((request) => ({
+      requestId: request._id,
+      requestedBy: request.requestedBy,
+      requestedByName: request.requestedByName,
+      requestingOrgId: request.requestingOrgId,
+      requestingOrgName: request.requestingOrgName,
+      reason: request.reason,
+      requestedAt: request.requestedAt,
+      expiresAt: request.expiresAt,
+      status: request.status,
+    }));
+  },
+});

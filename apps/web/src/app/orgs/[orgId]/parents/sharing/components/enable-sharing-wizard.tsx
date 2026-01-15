@@ -1,6 +1,10 @@
 "use client";
 
-import { AlertCircle, Shield, User } from "lucide-react";
+import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+import { useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import { AlertCircle, Building2, Shield, User } from "lucide-react";
 import { useState } from "react";
 import { ResponsiveDialog } from "@/components/interactions";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +100,12 @@ export function EnableSharingWizard({
     contactInfo: true,
   });
 
+  // Organization selection state
+  const [sourceOrgMode, setSourceOrgMode] = useState<
+    "all_enrolled" | "specific_orgs"
+  >("all_enrolled");
+  const [selectedOrgIds, setSelectedOrgIds] = useState<string[]>([]);
+
   // Reset wizard state when dialog closes
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
@@ -114,6 +124,9 @@ export function EnableSharingWizard({
         medicalSummary: true,
         contactInfo: true,
       });
+      // Reset org selection
+      setSourceOrgMode("all_enrolled");
+      setSelectedOrgIds([]);
     }
     onOpenChange(newOpen);
   };
@@ -123,8 +136,10 @@ export function EnableSharingWizard({
     if (currentStep === "child-selection") {
       setCurrentStep("element-selection");
     } else if (currentStep === "element-selection") {
-      // TODO: Move to org-selection (US-027)
-      // setCurrentStep("org-selection");
+      setCurrentStep("org-selection");
+    } else if (currentStep === "org-selection") {
+      // TODO: Move to duration (US-028)
+      // setCurrentStep("duration");
     }
   };
 
@@ -133,6 +148,8 @@ export function EnableSharingWizard({
       handleOpenChange(false);
     } else if (currentStep === "element-selection") {
       setCurrentStep("child-selection");
+    } else if (currentStep === "org-selection") {
+      setCurrentStep("element-selection");
     }
   };
 
@@ -149,6 +166,14 @@ export function EnableSharingWizard({
     if (currentStep === "element-selection") {
       // At least one element must be selected
       return Object.values(sharedElements).some((value) => value);
+    }
+    if (currentStep === "org-selection") {
+      // If specific_orgs mode, at least one org must be selected
+      if (sourceOrgMode === "specific_orgs") {
+        return selectedOrgIds.length > 0;
+      }
+      // all_enrolled mode is always valid
+      return true;
     }
     return false;
   })();
@@ -219,6 +244,16 @@ export function EnableSharingWizard({
           <ElementSelectionStep
             onUpdateElements={setSharedElements}
             sharedElements={sharedElements}
+          />
+        )}
+
+        {currentStep === "org-selection" && (
+          <OrganizationSelectionStep
+            onSelectMode={setSourceOrgMode}
+            onSelectOrgs={setSelectedOrgIds}
+            playerIdentityId={selectedChildId as Id<"playerIdentities">}
+            selectedOrgIds={selectedOrgIds}
+            sourceOrgMode={sourceOrgMode}
           />
         )}
 
@@ -489,6 +524,232 @@ function ElementSelectionStep({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Step 3: Organization Selection
+ */
+type OrganizationSelectionStepProps = {
+  playerIdentityId: Id<"playerIdentities">;
+  sourceOrgMode: "all_enrolled" | "specific_orgs";
+  onSelectMode: (mode: "all_enrolled" | "specific_orgs") => void;
+  selectedOrgIds: string[];
+  onSelectOrgs: (orgIds: string[]) => void;
+};
+
+function OrganizationSelectionStep({
+  playerIdentityId,
+  sourceOrgMode,
+  onSelectMode,
+  selectedOrgIds,
+  onSelectOrgs,
+}: OrganizationSelectionStepProps) {
+  // Fetch all enrollments for this player
+  const enrollments = useQuery(
+    api.models.orgPlayerEnrollments.getEnrollmentsForPlayer,
+    { playerIdentityId }
+  );
+
+  // Loading state
+  if (!enrollments) {
+    return (
+      <div className="space-y-4">
+        <p className="text-muted-foreground text-sm">
+          Loading organizations...
+        </p>
+      </div>
+    );
+  }
+
+  // Get unique enrolled organizations
+  // Note: We fetch org names inline below using dynamic queries
+  type Enrollment = FunctionReturnType<
+    typeof api.models.orgPlayerEnrollments.getEnrollmentsForPlayer
+  >[number];
+  const enrolledOrgs = enrollments.map((enrollment: Enrollment) => ({
+    id: enrollment.organizationId,
+    ageGroup: enrollment.ageGroup,
+    status: enrollment.status,
+  }));
+
+  // Toggle organization selection
+  const toggleOrganization = (orgId: string) => {
+    if (selectedOrgIds.includes(orgId)) {
+      onSelectOrgs(selectedOrgIds.filter((id) => id !== orgId));
+    } else {
+      onSelectOrgs([...selectedOrgIds, orgId]);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-muted-foreground text-sm">
+        Choose which organizations can view the shared data.
+      </p>
+
+      {/* Mode selection */}
+      <RadioGroup
+        onValueChange={(value) => {
+          onSelectMode(value as "all_enrolled" | "specific_orgs");
+        }}
+        value={sourceOrgMode}
+      >
+        <div className="space-y-3">
+          {/* All enrolled organizations */}
+          <Card
+            className={`cursor-pointer transition-colors hover:border-primary/50 ${
+              sourceOrgMode === "all_enrolled" ? "border-2 border-primary" : ""
+            }`}
+            onClick={() => {
+              onSelectMode("all_enrolled");
+            }}
+          >
+            <CardContent className="flex items-start gap-3 p-4">
+              <RadioGroupItem id="all_enrolled" value="all_enrolled" />
+              <Label
+                className="flex flex-1 cursor-pointer flex-col gap-2"
+                htmlFor="all_enrolled"
+              >
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  <span className="font-medium">
+                    All Enrolled Organizations
+                  </span>
+                  <Badge variant="secondary">Recommended</Badge>
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Share data from all organizations where your child is
+                  currently enrolled ({enrolledOrgs.length}{" "}
+                  {enrolledOrgs.length === 1 ? "organization" : "organizations"}
+                  ). This provides the most complete picture and is updated
+                  automatically if your child joins new organizations.
+                </p>
+              </Label>
+            </CardContent>
+          </Card>
+
+          {/* Specific organizations */}
+          <Card
+            className={`cursor-pointer transition-colors hover:border-primary/50 ${
+              sourceOrgMode === "specific_orgs" ? "border-2 border-primary" : ""
+            }`}
+            onClick={() => {
+              onSelectMode("specific_orgs");
+            }}
+          >
+            <CardContent className="flex items-start gap-3 p-4">
+              <RadioGroupItem id="specific_orgs" value="specific_orgs" />
+              <Label
+                className="flex flex-1 cursor-pointer flex-col gap-2"
+                htmlFor="specific_orgs"
+              >
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  <span className="font-medium">
+                    Specific Organizations Only
+                  </span>
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Choose exactly which organizations to share data from. This
+                  gives you more control but requires manual updates if your
+                  child changes organizations.
+                </p>
+              </Label>
+            </CardContent>
+          </Card>
+        </div>
+      </RadioGroup>
+
+      {/* Organization selection (only shown for specific_orgs mode) */}
+      {sourceOrgMode === "specific_orgs" && (
+        <div className="space-y-3">
+          <p className="font-medium text-sm">
+            Select Organizations ({selectedOrgIds.length} selected)
+          </p>
+          {enrolledOrgs.map(
+            (org: {
+              id: string;
+              ageGroup: string;
+              status: "active" | "inactive" | "pending" | "suspended";
+            }) => (
+              <OrganizationCheckbox
+                ageGroup={org.ageGroup}
+                isSelected={selectedOrgIds.includes(org.id)}
+                key={org.id}
+                onToggle={() => {
+                  toggleOrganization(org.id);
+                }}
+                organizationId={org.id}
+                status={org.status}
+              />
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Helper component to fetch and display organization checkbox
+ */
+type OrganizationCheckboxProps = {
+  organizationId: string;
+  ageGroup: string;
+  status: string;
+  isSelected: boolean;
+  onToggle: () => void;
+};
+
+function OrganizationCheckbox({
+  organizationId,
+  ageGroup,
+  status,
+  isSelected,
+  onToggle,
+}: OrganizationCheckboxProps) {
+  // biome-ignore lint/correctness/useHookAtTopLevel: Dynamic organization fetch per enrollment
+  const organization = useQuery(api.models.organizations.getOrganization, {
+    organizationId,
+  });
+
+  if (!organization) {
+    return (
+      <div className="flex items-start gap-3 rounded-lg border p-3">
+        <div className="h-4 w-4 animate-pulse rounded bg-muted" />
+        <div className="flex-1">
+          <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50">
+      <Checkbox
+        checked={isSelected}
+        className="mt-0.5"
+        id={organizationId}
+        onCheckedChange={onToggle}
+      />
+      <div className="flex-1">
+        <Label
+          className="cursor-pointer font-medium text-sm"
+          htmlFor={organizationId}
+        >
+          {organization.name}
+        </Label>
+        <div className="mt-1 flex flex-wrap gap-2">
+          <Badge className="text-xs" variant="secondary">
+            {ageGroup}
+          </Badge>
+          <Badge className="text-xs" variant="secondary">
+            {status}
+          </Badge>
+        </div>
+      </div>
     </div>
   );
 }

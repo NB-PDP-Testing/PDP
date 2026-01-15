@@ -1673,3 +1673,75 @@ Next iteration should focus on adding real consent data to child cards:
 - Forgot that pre-commit hooks are strict and block commits with errors
 
 ---
+
+## 2026-01-15 15:30 - US-031 - Revocation Flow UI
+**Iteration**: 12
+**Commit**: 25fd24873d21133cee54e50d398c071b557d49cf
+**Session**: 2ce30df7-17c4-4052-8d00-7facd295c602
+**Status**: Complete
+
+### What was implemented
+**RevokeConsentModal Component**
+- Created confirmation modal with warning and optional reason field
+- Warning box explains immediate effects: coaches lose access, guardians notified, can re-enable anytime
+- Optional textarea for revocation reason (audit trail)
+- Destructive button styling for clear action indication
+- Calls revokePassportShareConsent mutation with optional revokedReason parameter
+- Auto-closes modal and resets state after successful revocation
+
+**ChildSharingCard Enhancements**
+- Added activeConsents useMemo to filter for active, accepted, non-expired consents
+- New "Active Shares" section showing list of current shares
+- Each share displays: organization ID (abbreviated), expiry date, revoke button
+- Clicking revoke button opens modal with pre-filled child and org names
+- Modal state management: revokeModalOpen, selectedConsentId, selectedOrgName
+- Auto-refresh after revocation via Convex reactive queries
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/revoke-consent-modal.tsx (+147 lines, new file)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/child-sharing-card.tsx (+74, -9)
+
+### Quality checks
+- ✅ Type check: no new errors
+- ✅ Biome linting: passed for both files
+- ✅ Pre-commit hooks: passed
+- ⚠️ Browser verification: deferred (requires parent role + active consents)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Modal confirmation pattern**: Use Dialog component with warning box and optional reason field
+- **Destructive actions**: Use variant="destructive" for buttons that revoke/delete
+- **Active consent filtering**: Filter for status=active + coachAcceptanceStatus=accepted + not expired
+- **Organization display**: Show abbreviated org ID until organization name query is implemented
+- **Modal state management**: Track selectedConsentId and selectedOrgName separately for modal props
+
+**Gotchas encountered:**
+- Linter repeatedly removed useState and icon imports - had to re-add multiple times
+- Better Auth organization table doesn't provide name in consent query - using org ID for now
+- Must include ShieldAlert icon import even though linter tries to remove it
+
+**Dependencies found:**
+- Future enhancement: Query organization names instead of showing IDs
+- US-032-033: Audit log viewer will show full access history
+- Revocation triggers guardian notifications (US-048-049 notification system)
+- Backend mutation already exists from US-013 (revokePassportShareConsent)
+
+**Component architecture insights:**
+- **RevokeConsentModal**: Standalone confirmation dialog with reason textarea
+- **Active shares list**: Displays individual consents with per-share revoke buttons
+- **State management**: Modal state lives in ChildSharingCard, passed to modal as props
+- **Auto-refresh**: Convex reactive queries automatically update UI after mutation
+
+**What to do next**:
+- US-032-033: Audit log viewer with filters and export
+- US-034: Notification preferences UI
+- US-035: Pending coach requests view
+- Enhancement: Add organization name query to display proper names instead of IDs
+
+**Mistakes made** (learn from these!):
+- Initially forgot useState import - linter removed it immediately
+- Had to re-add imports multiple times as linter kept removing them
+- Should have tested with real consent data to verify organization name display
+
+---

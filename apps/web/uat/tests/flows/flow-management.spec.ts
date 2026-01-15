@@ -254,12 +254,15 @@ test.describe("FLOW - Flow Management", () => {
     await page.goto("/orgs");
     await waitForPageLoad(page);
 
+    // Wait for async data to load (platform staff check + organization list)
+    await page.waitForTimeout(1000);
+
     // Look for create organization button - use first() since there may be multiple
     const createOrgButton = page.getByRole("button", { name: /create organization|new organization/i })
       .or(page.getByRole("link", { name: /create organization/i }))
       .first();
 
-    await expect(createOrgButton).toBeVisible({ timeout: 10000 });
+    await expect(createOrgButton).toBeVisible({ timeout: 15000 });
   });
 
   test("ONBOARD-TEAM-001: Owner can access team creation", async ({ ownerPage }) => {

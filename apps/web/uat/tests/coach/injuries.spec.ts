@@ -1,4 +1,4 @@
-import { test, expect } from "../../fixtures/test-fixtures";
+import { test, expect, navigateToCoach, navigateToCoachPage } from "../../fixtures/test-fixtures";
 import { waitForPageLoad } from "../../fixtures/test-fixtures";
 
 /**
@@ -13,9 +13,7 @@ test.describe("COACH - Injury Tracking Tests", () => {
     test("INJURY-001: Coach can access injuries page", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await waitForPageLoad(page);
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'injuries');
       await waitForPageLoad(page);
 
       // Look for injuries link in sidebar
@@ -30,8 +28,7 @@ test.describe("COACH - Injury Tracking Tests", () => {
     test("INJURY-002: Injuries dashboard displays correctly", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'injuries');
       await waitForPageLoad(page);
 
       const injuriesLink = page.getByRole("link", { name: /injur/i }).or(page.locator('a[href*="/injuries"]'));
@@ -49,8 +46,7 @@ test.describe("COACH - Injury Tracking Tests", () => {
     test("INJURY-003: Add injury button is visible", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'injuries');
       await waitForPageLoad(page);
 
       const injuriesLink = page.getByRole("link", { name: /injur/i }).or(page.locator('a[href*="/injuries"]'));
@@ -67,8 +63,7 @@ test.describe("COACH - Injury Tracking Tests", () => {
     test("INJURY-004: Player selector is available", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'injuries');
       await waitForPageLoad(page);
 
       const injuriesLink = page.getByRole("link", { name: /injur/i }).or(page.locator('a[href*="/injuries"]'));
@@ -87,8 +82,7 @@ test.describe("COACH - Injury Tracking Tests", () => {
     test("INJURY-005: Active injuries are displayed", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'injuries');
       await waitForPageLoad(page);
 
       const injuriesLink = page.getByRole("link", { name: /injur/i }).or(page.locator('a[href*="/injuries"]'));
@@ -105,8 +99,7 @@ test.describe("COACH - Injury Tracking Tests", () => {
     test("INJURY-006: Recovery status indicators are visible", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'injuries');
       await waitForPageLoad(page);
 
       const injuriesLink = page.getByRole("link", { name: /injur/i }).or(page.locator('a[href*="/injuries"]'));
@@ -125,8 +118,7 @@ test.describe("COACH - Injury Tracking Tests", () => {
     test("INJURY-007: Coach can access medical page", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'injuries');
       await waitForPageLoad(page);
 
       const medicalLink = page.getByRole("link", { name: /medical/i }).or(page.locator('a[href*="/medical"]'));
@@ -140,8 +132,7 @@ test.describe("COACH - Injury Tracking Tests", () => {
     test("INJURY-008: Medical summary is displayed", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'injuries');
       await waitForPageLoad(page);
 
       const medicalLink = page.getByRole("link", { name: /medical/i }).or(page.locator('a[href*="/medical"]'));

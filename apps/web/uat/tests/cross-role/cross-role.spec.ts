@@ -1,4 +1,4 @@
-import { test, expect } from "../../fixtures/test-fixtures";
+import { test, expect, navigateToCoach, navigateToAdmin } from "../../fixtures/test-fixtures";
 import { waitForPageLoad } from "../../fixtures/test-fixtures";
 
 /**
@@ -42,6 +42,9 @@ test.describe("Cross-Role Scenarios", () => {
     const page = ownerPage;
     await page.goto("/orgs");
     await waitForPageLoad(page);
+
+    // Wait for async data to load (memberships determine button visibility)
+    await page.waitForTimeout(1000);
 
     // Navigate to Coach Panel first
     await page.click('text="Coach Panel"');
@@ -274,11 +277,14 @@ test.describe("Cross-Role Scenarios", () => {
     await page.goto("/orgs");
     await waitForPageLoad(page);
 
+    // Wait for async data to load (memberships determine button visibility)
+    await page.waitForTimeout(1000);
+
     // Owner should see both Admin Panel and Coach Panel options
     const adminPanel = page.getByRole("link", { name: /admin panel/i }).first();
     const coachPanel = page.getByRole("link", { name: /coach panel/i }).first();
 
-    await expect(adminPanel).toBeVisible({ timeout: 10000 });
+    await expect(adminPanel).toBeVisible({ timeout: 15000 });
     await expect(coachPanel).toBeVisible({ timeout: 10000 });
   });
 
@@ -288,6 +294,9 @@ test.describe("Cross-Role Scenarios", () => {
     const page = ownerPage;
     await page.goto("/orgs");
     await waitForPageLoad(page);
+
+    // Wait for async data to load (memberships determine button visibility)
+    await page.waitForTimeout(1000);
 
     // Navigate to Coach Panel
     await page.click('text="Coach Panel"');

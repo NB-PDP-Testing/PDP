@@ -196,7 +196,7 @@ export function SmartCoachDashboard({
   };
 
   // Helper to get all teams for a player
-  const getPlayerTeams = (player: any): string[] => {
+  const getPlayerTeams = useCallback((player: any): string[] => {
     // First check if player has explicit teams array (from updated coach dashboard)
     if (
       player.teams &&
@@ -212,9 +212,9 @@ export function SmartCoachDashboard({
       return [teamName];
     }
     return [];
-  };
+  }, []);
 
-  const calculateSkillAverages = (teamPlayers: any[]) => {
+  const calculateSkillAverages = useCallback((teamPlayers: any[]) => {
     if (teamPlayers.length === 0) {
       return {};
     }
@@ -232,9 +232,9 @@ export function SmartCoachDashboard({
     }
 
     return averages;
-  };
+  }, []);
 
-  const calculatePlayerAvgSkill = (player: any): number => {
+  const calculatePlayerAvgSkill = useCallback((player: any): number => {
     const skills = player.skills || {};
     const skillValues = Object.values(skills).filter(
       (v) => typeof v === "number"
@@ -243,13 +243,16 @@ export function SmartCoachDashboard({
       return 0;
     }
     return skillValues.reduce((a, b) => a + b, 0) / skillValues.length;
-  };
+  }, []);
 
-  const formatSkillName = (key: string): string =>
-    key
-      .replace(/([A-Z])/g, " $1")
-      .replace(FIRST_CHAR_REGEX, (str) => str.toUpperCase())
-      .trim();
+  const formatSkillName = useCallback(
+    (key: string): string =>
+      key
+        .replace(/([A-Z])/g, " $1")
+        .replace(FIRST_CHAR_REGEX, (str) => str.toUpperCase())
+        .trim(),
+    []
+  );
 
   // Main analytics calculation (wrapped with useCallback to prevent hoisting issues)
   const calculateTeamAnalytics = useCallback(() => {

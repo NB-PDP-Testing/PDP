@@ -271,7 +271,7 @@ export function SharedPassports({
                             <Button
                               onClick={() =>
                                 router.push(
-                                  `/orgs/${organizationId}/players/${passport.playerIdentityId}/shared`
+                                  `/orgs/${organizationId}/players/${passport.playerIdentityId}/shared?consentId=${passport.consentId}`
                                 )
                               }
                               size="sm"

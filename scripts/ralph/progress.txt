@@ -1745,3 +1745,88 @@ Next iteration should focus on adding real consent data to child cards:
 - Should have tested with real consent data to verify organization name display
 
 ---
+
+## 2026-01-15 14:40 - US-032 - Access Audit Log Viewer List
+**Iteration**: 12
+**Commit**: 11c88f68e8fa1e855a12b88e9243bf4c4fde813c
+**Session**: 555d5b92-d652-4aa9-9fe9-3e534fd93089
+**Status**: Complete
+
+### What was implemented
+**Backend Query:**
+- Created `getAccessLogsForPlayer` query in passportSharing.ts
+- Paginated access log retrieval with limit/offset parameters (default 50 records per page)
+- Returns log entries with: consentId, accessedByName, accessedByRole, accessedByOrgName, accessType, accessedAt
+- Returns total count and hasMore flag for pagination UI
+- Uses `by_player` index for efficient querying, sorts desc (most recent first)
+
+**Frontend Component:**
+- Created `AccessAuditLog` component with paginated table display
+- Table columns: Date & Time, Who (name + role), Organization, What (access type badge)
+- Pagination controls: Previous/Next buttons with entry count ("Showing X to Y of Z entries")
+- Empty state with icon and helpful message when no logs exist
+- Loading state while fetching data
+- Formats timestamps using toLocaleDateString with US locale
+- Formats access types from snake_case to Title Case (e.g., view_summary → View Summary)
+
+**Integration:**
+- Integrated AccessAuditLog into ChildSharingCard via "View Audit Log" button
+- Opens in Dialog with max-width-4xl and max-height-80vh for large data display
+- Button triggers auditLogOpen state to show/hide dialog
+- Component receives playerIdentityId and childName as props
+
+### Files changed
+- packages/backend/convex/models/passportSharing.ts (+82 lines)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/access-audit-log.tsx (+180 lines, new file)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/child-sharing-card.tsx (+21, -3)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: no new errors (pre-existing errors remain)
+- ✅ Biome linting: passed for new files
+- ✅ Pre-commit hooks: passed
+- ⚠️ Browser verification: deferred (requires access log data in database)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Pagination pattern**: Return logs array + total count + hasMore boolean for client-side pagination
+- **In-memory pagination**: Fetch all, slice in handler (acceptable for audit logs with reasonable record counts)
+- **Table component usage**: shadcn/ui Table with TableHeader, TableBody, TableRow, TableCell
+- **Access type formatting**: Replace underscores with spaces, capitalize each word for display
+- **Dialog integration**: Use Dialog + DialogContent with custom max-width/max-height for large tables
+- **Empty state pattern**: Icon + helpful message when no data exists
+- **Loading state pattern**: Show loading message in Card while query pending
+
+**Gotchas encountered:**
+- **Linter auto-removes imports**: Had to use Write tool with complete file to prevent import removal
+- **Type vs interface**: Biome prefers `type` over `interface` for consistency
+- **Dialog overflow**: Need both max-width and overflow-y-auto for scrollable large tables
+- **Date formatting**: Use toLocaleDateString with locale options for consistent formatting
+
+**Dependencies found:**
+- US-033: Next story adds filters (date range, organization, access type) and export (CSV/PDF)
+- US-020: logPassportAccess mutation creates the logs this viewer displays
+- US-015: getSharedPassportData should call logPassportAccess after viewing data
+- Frontend: Must call logPassportAccess mutation after viewing shared data to populate logs
+- Production: Need actual data access events to test/verify audit log display
+
+**Component architecture insights:**
+- **AccessAuditLog pattern**: Self-contained component with own query and pagination state
+- **Page-based pagination**: Track currentPage, calculate offset = currentPage * PAGE_SIZE
+- **Pagination UI**: Previous button (disabled on page 0), Next button (disabled when !hasMore)
+- **Entry count display**: "Showing X to Y of Z entries" using Math.min for correct upper bound
+- **Dialog max dimensions**: Use max-w-4xl (56rem) for wide tables, max-h-[80vh] for scrolling
+
+**What to do next**:
+- US-033: Access audit log filters and export (date range, org, access type, CSV/PDF)
+- US-034: Notification preferences UI (realtime, daily, weekly, none)
+- US-035: Pending coach requests view (parent side of access requests)
+- Future enhancement: Add organization name query instead of showing org IDs
+
+**Mistakes made** (learn from these!):
+- Initially tried Edit tool multiple times, kept hitting linter conflicts
+- Should have used Write tool with complete file from the start
+- Used `interface` initially instead of `type` (linter preference)
+
+---

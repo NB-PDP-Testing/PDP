@@ -30,34 +30,80 @@ interface TestData {
 async function loginWithEmail(
   page: any,
   email: string,
-  password: string
+  password: string,
+  userKey: string
 ): Promise<void> {
-  await page.goto("/login");
+  const startTime = Date.now();
+  console.log(`[${userKey}] 🔄 Starting login at ${new Date().toISOString()}`);
+  
+  try {
+    console.log(`[${userKey}] Step 1: Navigating to /login`);
+    await page.goto("/login");
+    console.log(`[${userKey}] ✓ Navigation complete (${Date.now() - startTime}ms)`);
 
-  // Wait for the page to fully load - the form is inside Suspense and Convex auth states
-  // Wait for either the email field OR the "Sign in with Google" button to appear
-  await page.waitForSelector(
-    '[id="email"], button:has-text("Sign in with Google")',
-    { timeout: 30000 }
-  );
+    // Wait for the page to fully load - the form is inside Suspense and Convex auth states
+    console.log(`[${userKey}] Step 2: Waiting for login form to load`);
+    await page.waitForSelector(
+      '[id="email"], button:has-text("Sign in with Google")',
+      { timeout: 30000 }
+    );
+    console.log(`[${userKey}] ✓ Login form visible (${Date.now() - startTime}ms)`);
 
-  // The form uses Tanstack Form - fields have id="email" and id="password"
-  const emailField = page.locator("#email");
-  await emailField.waitFor({ state: "visible", timeout: 30000 });
+    // The form uses Tanstack Form - fields have id="email" and id="password"
+    console.log(`[${userKey}] Step 3: Waiting for email field`);
+    const emailField = page.locator("#email");
+    await emailField.waitFor({ state: "visible", timeout: 30000 });
+    console.log(`[${userKey}] ✓ Email field ready (${Date.now() - startTime}ms)`);
 
-  // Fill email
-  await emailField.fill(email);
+    // Fill email
+    console.log(`[${userKey}] Step 4: Filling email: ${email}`);
+    await emailField.fill(email);
+    console.log(`[${userKey}] ✓ Email filled (${Date.now() - startTime}ms)`);
 
-  // Fill password
-  const passwordField = page.locator("#password");
-  await passwordField.waitFor({ state: "visible", timeout: 5000 });
-  await passwordField.fill(password);
+    // Fill password
+    console.log(`[${userKey}] Step 5: Waiting for password field`);
+    const passwordField = page.locator("#password");
+    await passwordField.waitFor({ state: "visible", timeout: 5000 });
+    console.log(`[${userKey}] ✓ Password field ready (${Date.now() - startTime}ms)`);
+    
+    console.log(`[${userKey}] Step 6: Filling password`);
+    await passwordField.fill(password);
+    console.log(`[${userKey}] ✓ Password filled (${Date.now() - startTime}ms)`);
 
-  // Click Sign In button (exact match to avoid SSO buttons)
-  await page.getByRole("button", { name: "Sign In", exact: true }).click();
+    // Small delay to ensure form validation completes
+    console.log(`[${userKey}] Step 6.5: Waiting for form to stabilize`);
+    await page.waitForTimeout(500);
+    console.log(`[${userKey}] ✓ Form ready (${Date.now() - startTime}ms)`);
 
-  // Wait for successful login - redirects to /orgs
-  await page.waitForURL(/\/orgs/, { timeout: 30000 });
+    // Click Sign In button (exact match to avoid SSO buttons)
+    console.log(`[${userKey}] Step 7: Clicking Sign In button`);
+    const signInButton = page.getByRole("button", { name: "Sign In", exact: true });
+    await signInButton.waitFor({ state: "visible" });
+    await signInButton.click();
+    console.log(`[${userKey}] ✓ Sign In clicked (${Date.now() - startTime}ms)`);
+
+    // Wait for successful login - redirects to /orgs
+    console.log(`[${userKey}] Step 8: Waiting for redirect to /orgs (timeout: 30s)`);
+    const urlBeforeWait = page.url();
+    console.log(`[${userKey}]   Current URL: ${urlBeforeWait}`);
+    
+    await page.waitForURL(/\/orgs/, { timeout: 30000 });
+    const urlAfterWait = page.url();
+    console.log(`[${userKey}] ✓ Redirected to ${urlAfterWait} (${Date.now() - startTime}ms)`);
+    
+    // Wait for network to be idle to ensure auth state is fully settled
+    console.log(`[${userKey}] Step 9: Waiting for network idle`);
+    await page.waitForLoadState('networkidle');
+    console.log(`[${userKey}] ✓ Network idle (${Date.now() - startTime}ms)`);
+    
+    console.log(`[${userKey}] ✅ Login complete in ${Date.now() - startTime}ms\n`);
+  } catch (error) {
+    const elapsed = Date.now() - startTime;
+    console.error(`[${userKey}] ❌ Login failed after ${elapsed}ms`);
+    console.error(`[${userKey}] Current URL: ${page.url()}`);
+    console.error(`[${userKey}] Error: ${error}`);
+    throw error;
+  }
 }
 
 async function globalSetup(config: FullConfig) {
@@ -95,21 +141,50 @@ async function globalSetup(config: FullConfig) {
     const user = testData.users[userKey];
     if (!user) continue;
 
-    const context = await browser.newContext({ baseURL });
-    const authPage = await context.newPage();
+    const maxRetries = 2;
+    let attempt = 0;
+    let success = false;
 
-    try {
-      await loginWithEmail(authPage, user.email, user.password);
+    while (attempt < maxRetries && !success) {
+      attempt++;
+      const retryLabel = attempt > 1 ? ` (Retry ${attempt - 1}/${maxRetries - 1})` : "";
+      
+      if (attempt > 1) {
+        console.log(`\n🔄 Retrying ${userKey} authentication...\n`);
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Extra delay before retry
+      }
 
-      // Save storage state
-      const storagePath = path.join(storageDir, `${userKey}.json`);
-      await context.storageState({ path: storagePath });
-      console.log(`✅ Created auth state for ${userKey} (${user.email})`);
-    } catch (error) {
-      console.error(`❌ Failed to create auth state for ${userKey}:`, error);
+      const context = await browser.newContext({ baseURL });
+      const authPage = await context.newPage();
+
+      try {
+        await loginWithEmail(authPage, user.email, user.password, userKey);
+
+        // Save storage state
+        console.log(`[${userKey}] Step 10: Saving storage state`);
+        const storagePath = path.join(storageDir, `${userKey}.json`);
+        await context.storageState({ path: storagePath });
+        console.log(`✅ Created auth state for ${userKey} (${user.email})${retryLabel}\n`);
+        success = true;
+      } catch (error) {
+        console.error(`❌ Failed to create auth state for ${userKey}${retryLabel}`);
+        console.error(`   Email: ${user.email}`);
+        console.error(`   Time: ${new Date().toISOString()}`);
+        
+        if (attempt >= maxRetries) {
+          console.error(`   ⚠️  Max retries reached. Continuing with other users...\n`);
+        }
+      }
+
+      await context.close();
     }
-
-    await context.close();
+    
+    // Add delay between user authentications to prevent backend contention
+    // This helps avoid race conditions with rapid sequential auth requests
+    if (userKey !== "parent") {  // Don't delay after the last user
+      console.log(`⏱️  Waiting 3 seconds before next user...\n`);
+      await new Promise(resolve => setTimeout(resolve, 3000)); // Increased to 3s
+    }
   }
 
   await browser.close();

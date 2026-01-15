@@ -1,4 +1,4 @@
-import { test, expect } from "../../fixtures/test-fixtures";
+import { test, expect, navigateToCoach, navigateToCoachPage } from "../../fixtures/test-fixtures";
 import { waitForPageLoad } from "../../fixtures/test-fixtures";
 
 /**
@@ -13,9 +13,7 @@ test.describe("COACH - Skills Assessment Tests", () => {
     test("ASSESS-001: Coach can access assessment page", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await waitForPageLoad(page);
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'assess');
       await waitForPageLoad(page);
 
       // Look for assess link in sidebar
@@ -30,8 +28,7 @@ test.describe("COACH - Skills Assessment Tests", () => {
     test("ASSESS-002: Assessment page displays team selector", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'assess');
       await waitForPageLoad(page);
 
       const assessLink = page.getByRole("link", { name: /assess/i }).or(page.locator('a[href*="/assess"]'));
@@ -48,8 +45,7 @@ test.describe("COACH - Skills Assessment Tests", () => {
     test("ASSESS-003: Assessment page displays player list", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'assess');
       await waitForPageLoad(page);
 
       const assessLink = page.getByRole("link", { name: /assess/i }).or(page.locator('a[href*="/assess"]'));
@@ -68,8 +64,7 @@ test.describe("COACH - Skills Assessment Tests", () => {
     test("ASSESS-004: Skill categories are displayed", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'assess');
       await waitForPageLoad(page);
 
       const assessLink = page.getByRole("link", { name: /assess/i }).or(page.locator('a[href*="/assess"]'));
@@ -91,8 +86,7 @@ test.describe("COACH - Skills Assessment Tests", () => {
     test("ASSESS-005: Rating scale is visible (1-5)", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'assess');
       await waitForPageLoad(page);
 
       const assessLink = page.getByRole("link", { name: /assess/i }).or(page.locator('a[href*="/assess"]'));
@@ -111,8 +105,7 @@ test.describe("COACH - Skills Assessment Tests", () => {
     test("ASSESS-006: Recent assessments are displayed", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'assess');
       await waitForPageLoad(page);
 
       const assessLink = page.getByRole("link", { name: /assess/i }).or(page.locator('a[href*="/assess"]'));
@@ -131,8 +124,7 @@ test.describe("COACH - Skills Assessment Tests", () => {
     test("ASSESS-007: Sport selector is available", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'assess');
       await waitForPageLoad(page);
 
       const assessLink = page.getByRole("link", { name: /assess/i }).or(page.locator('a[href*="/assess"]'));

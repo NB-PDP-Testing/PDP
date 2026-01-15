@@ -1,9 +1,4 @@
-import { test, expect } from "../../fixtures/test-fixtures";
-import {
-  waitForPageLoad,
-  navigateToAdmin,
-  organization,
-} from "../../fixtures/test-fixtures";
+import { test, expect, navigateToAdmin, getCurrentOrgId, waitForPageLoad, organization } from "../../fixtures/test-fixtures";
 
 /**
  * Admin Dashboard Tests
@@ -37,8 +32,7 @@ test.describe("ADMIN - Dashboard Tests", () => {
 
   test("ADMIN-002: Dashboard shows statistics cards", async ({ ownerPage }) => {
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Admin Panel"');
+    await navigateToAdmin(page);
     await waitForPageLoad(page);
 
     // Verify stat cards are visible - use first() for elements that appear multiple times
@@ -51,8 +45,7 @@ test.describe("ADMIN - Dashboard Tests", () => {
 
   test("ADMIN-003: Navigation tabs are visible", async ({ ownerPage }) => {
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Admin Panel"');
+    await navigateToAdmin(page);
     await waitForPageLoad(page);
 
     // Verify key navigation tabs exist (using first() to handle duplicates)
@@ -74,8 +67,7 @@ test.describe("ADMIN - Dashboard Tests", () => {
 
   test("ADMIN-004: Organization owner info is displayed", async ({ ownerPage }) => {
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Admin Panel"');
+    await navigateToAdmin(page);
     await waitForPageLoad(page);
 
     // Verify organization owner section - use first() for potential duplicates
@@ -84,8 +76,7 @@ test.describe("ADMIN - Dashboard Tests", () => {
 
   test("ADMIN-005: Pending membership requests section", async ({ ownerPage }) => {
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Admin Panel"');
+    await navigateToAdmin(page);
     await waitForPageLoad(page);
 
     // Verify pending requests section exists - use first()
@@ -96,8 +87,7 @@ test.describe("ADMIN - Dashboard Tests", () => {
 
   test("ADMIN-006: Grow your organization section", async ({ ownerPage }) => {
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Admin Panel"');
+    await navigateToAdmin(page);
     await waitForPageLoad(page);
 
     // Verify grow organization section - use first() for potential duplicates
@@ -106,8 +96,7 @@ test.describe("ADMIN - Dashboard Tests", () => {
 
   test("ADMIN-007: Command palette button is visible", async ({ ownerPage }) => {
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Admin Panel"');
+    await navigateToAdmin(page);
     await waitForPageLoad(page);
 
     // Verify search/command palette button
@@ -119,8 +108,7 @@ test.describe("ADMIN - Dashboard Tests", () => {
   test("ADMIN-CMD-001: Command palette opens when clicked", async ({ ownerPage }) => {
     // P1 Test - Verify command palette opens
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Admin Panel"');
+    await navigateToAdmin(page);
     await waitForPageLoad(page);
 
     // Click the search button to open command palette
@@ -142,8 +130,7 @@ test.describe("ADMIN - Dashboard Tests", () => {
   test("ADMIN-CMD-002: Command palette search works", async ({ ownerPage }) => {
     // P1 Test - Verify command palette search functionality
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Admin Panel"');
+    await navigateToAdmin(page);
     await waitForPageLoad(page);
 
     // Open command palette
@@ -176,8 +163,7 @@ test.describe("ADMIN - Dashboard Tests", () => {
   test("ADMIN-PLAYERACCESS-001: Player Access page loads", async ({ ownerPage }) => {
     // P1 Test - Verify Player Access configuration page
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Admin Panel"');
+    await navigateToAdmin(page);
     await waitForPageLoad(page);
 
     // Navigate to Settings > Player Access or look for Player Access link
@@ -209,8 +195,7 @@ test.describe("ADMIN - Dashboard Tests", () => {
   test("ADMIN-PLAYERACCESS-002: Configure self-access minimum age", async ({ ownerPage }) => {
     // P1 Test - Verify self-access age configuration
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Admin Panel"');
+    await navigateToAdmin(page);
     await waitForPageLoad(page);
 
     // Navigate to Settings
@@ -240,8 +225,7 @@ test.describe("ADMIN - Dashboard Tests", () => {
 
   test("ADMIN-009: Stat cards are clickable links", async ({ ownerPage }) => {
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Admin Panel"');
+    await navigateToAdmin(page);
     await waitForPageLoad(page);
 
     // Click on Players stat card

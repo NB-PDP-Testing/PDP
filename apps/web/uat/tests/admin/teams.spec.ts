@@ -6,7 +6,7 @@
  * Test IDs: TEAM-001 through TEAM-012
  */
 
-import { test, expect } from "../../fixtures/test-fixtures";
+import { test, expect, navigateToAdmin, getCurrentOrgId } from "../../fixtures/test-fixtures";
 
 test.describe("Team Management CRUD", () => {
   

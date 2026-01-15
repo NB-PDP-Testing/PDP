@@ -49,13 +49,15 @@ test.describe("AUTH - Signup Tests", () => {
   });
 
   test("AUTH-021: Navigate to login from signup page", async ({ page }) => {
-    // Click sign in link
-    await page.click('a:has-text("Sign in")');
+    // Wait for and click sign in link (may be "Sign in" or "Sign In")
+    const signInLink = page.getByRole("link", { name: /sign in/i });
+    await signInLink.waitFor({ state: "visible", timeout: 10000 });
+    await signInLink.click();
 
     // Should navigate to login page
-    await expect(page).toHaveURL(/\/login/);
+    await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
     await expect(
-      page.getByRole("heading", { name: "Sign In" })
+      page.getByRole("heading", { name: /Sign In/i })
     ).toBeVisible();
   });
 

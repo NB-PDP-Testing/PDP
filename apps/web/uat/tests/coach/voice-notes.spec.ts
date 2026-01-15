@@ -1,4 +1,4 @@
-import { test, expect } from "../../fixtures/test-fixtures";
+import { test, expect, navigateToCoach, navigateToCoachPage } from "../../fixtures/test-fixtures";
 import { waitForPageLoad } from "../../fixtures/test-fixtures";
 
 /**
@@ -13,9 +13,7 @@ test.describe("COACH - Voice Notes Tests", () => {
     test("VOICE-001: Coach can access voice notes page", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await waitForPageLoad(page);
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'voice-notes');
       await waitForPageLoad(page);
 
       // Look for voice notes link in sidebar
@@ -30,8 +28,7 @@ test.describe("COACH - Voice Notes Tests", () => {
     test("VOICE-002: Voice notes dashboard displays correctly", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'voice-notes');
       await waitForPageLoad(page);
 
       const voiceLink = page.getByRole("link", { name: /voice/i }).or(page.locator('a[href*="/voice"]'));
@@ -49,8 +46,7 @@ test.describe("COACH - Voice Notes Tests", () => {
     test("VOICE-003: Recording controls are visible", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'voice-notes');
       await waitForPageLoad(page);
 
       const voiceLink = page.getByRole("link", { name: /voice/i }).or(page.locator('a[href*="/voice"]'));
@@ -67,8 +63,7 @@ test.describe("COACH - Voice Notes Tests", () => {
     test("VOICE-004: Note type selector is available", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'voice-notes');
       await waitForPageLoad(page);
 
       const voiceLink = page.getByRole("link", { name: /voice/i }).or(page.locator('a[href*="/voice"]'));
@@ -85,8 +80,7 @@ test.describe("COACH - Voice Notes Tests", () => {
     test("VOICE-005: Typed note input is available", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'voice-notes');
       await waitForPageLoad(page);
 
       const voiceLink = page.getByRole("link", { name: /voice/i }).or(page.locator('a[href*="/voice"]'));
@@ -105,8 +99,7 @@ test.describe("COACH - Voice Notes Tests", () => {
     test("VOICE-006: Voice notes history is displayed", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'voice-notes');
       await waitForPageLoad(page);
 
       const voiceLink = page.getByRole("link", { name: /voice/i }).or(page.locator('a[href*="/voice"]'));
@@ -125,8 +118,7 @@ test.describe("COACH - Voice Notes Tests", () => {
     test("VOICE-007: AI insights section is visible", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'voice-notes');
       await waitForPageLoad(page);
 
       const voiceLink = page.getByRole("link", { name: /voice/i }).or(page.locator('a[href*="/voice"]'));
@@ -143,8 +135,7 @@ test.describe("COACH - Voice Notes Tests", () => {
     test("VOICE-008: Pending insights are actionable", async ({ ownerPage }) => {
       const page = ownerPage;
 
-      await page.goto("/orgs");
-      await page.click('text="Coach Panel"');
+      await navigateToCoachPage(page, undefined, 'voice-notes');
       await waitForPageLoad(page);
 
       const voiceLink = page.getByRole("link", { name: /voice/i }).or(page.locator('a[href*="/voice"]'));

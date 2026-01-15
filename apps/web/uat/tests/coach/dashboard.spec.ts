@@ -1,4 +1,4 @@
-import { test, expect } from "../../fixtures/test-fixtures";
+import { test, expect, navigateToCoach } from "../../fixtures/test-fixtures";
 import { waitForPageLoad } from "../../fixtures/test-fixtures";
 
 /**
@@ -11,12 +11,9 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
 test.describe("COACH - Dashboard Tests", () => {
   test("COACH-001: Coach dashboard loads correctly", async ({ ownerPage }) => {
     const page = ownerPage;
-    await page.goto("/orgs");
-    await waitForPageLoad(page);
 
-    // Click Coach Panel
-    await page.click('text="Coach Panel"');
-    await waitForPageLoad(page);
+    // Navigate to coach dashboard using helper
+    await navigateToCoach(page);
 
     // Verify URL contains /coach
     await expect(page).toHaveURL(/\/coach/);
@@ -24,9 +21,9 @@ test.describe("COACH - Dashboard Tests", () => {
 
   test("COACH-002: Coach dashboard header is visible", async ({ ownerPage }) => {
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Coach Panel"');
-    await waitForPageLoad(page);
+
+    // Navigate to coach dashboard using helper
+    await navigateToCoach(page);
 
     // Verify Coach Dashboard link/heading - use first() for duplicates
     await expect(
@@ -40,9 +37,9 @@ test.describe("COACH - Dashboard Tests", () => {
 
   test("COACH-010: Empty state shows when no teams assigned", async ({ ownerPage }) => {
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Coach Panel"');
-    await waitForPageLoad(page);
+
+    // Navigate to coach dashboard using helper
+    await navigateToCoach(page);
 
     // Check for empty state (may or may not be visible depending on data)
     // If no teams assigned, should show empty state
@@ -61,9 +58,9 @@ test.describe("COACH - Dashboard Tests", () => {
 
   test("COACH-004: Admin link visible for users with admin role", async ({ ownerPage }) => {
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Coach Panel"');
-    await waitForPageLoad(page);
+
+    // Navigate to coach dashboard using helper
+    await navigateToCoach(page);
 
     // For owner user who has admin role, Admin link should be visible
     await expect(
@@ -73,9 +70,9 @@ test.describe("COACH - Dashboard Tests", () => {
 
   test("COACH-005: Navigate to Admin from Coach dashboard", async ({ ownerPage }) => {
     const page = ownerPage;
-    await page.goto("/orgs");
-    await page.click('text="Coach Panel"');
-    await waitForPageLoad(page);
+
+    // Navigate to coach dashboard using helper
+    await navigateToCoach(page);
 
     // Click Admin link
     await page.click('a:has-text("Admin")');

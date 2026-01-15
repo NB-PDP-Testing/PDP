@@ -1008,3 +1008,215 @@ export const declinePassportShare = mutation({
     return true;
   },
 });
+
+// ============================================================
+// COACH REQUEST WORKFLOW
+// ============================================================
+
+/**
+ * Request access to a player's passport
+ *
+ * Coaches can request access when no active share exists.
+ * Request expires after 14 days if not responded to.
+ *
+ * @param playerIdentityId - The player to request access for
+ * @param requestingOrgId - The organization requesting access
+ * @param reason - Optional reason for the request
+ * @returns Request ID
+ */
+export const requestPassportAccess = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    requestingOrgId: v.string(),
+    reason: v.optional(v.string()),
+  },
+  returns: v.id("passportShareRequests"),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const userId = identity.subject;
+
+    // TODO: Validate coach belongs to requestingOrgId organization
+    // This requires Better Auth member table integration
+
+    // Check if there's already an active/pending request
+    const existingRequest = await ctx.db
+      .query("passportShareRequests")
+      .withIndex("by_player_and_status", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId).eq("status", "pending")
+      )
+      .filter((q) => q.eq(q.field("requestingOrgId"), args.requestingOrgId))
+      .first();
+
+    if (existingRequest) {
+      throw new Error(
+        "A pending request already exists for this player and organization"
+      );
+    }
+
+    // Check if there's already an active consent
+    const existingConsent = await ctx.db
+      .query("passportShareConsents")
+      .withIndex("by_player_and_status", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId).eq("status", "active")
+      )
+      .filter((q) => q.eq(q.field("receivingOrgId"), args.requestingOrgId))
+      .first();
+
+    if (existingConsent) {
+      throw new Error(
+        "An active consent already exists for this player and organization"
+      );
+    }
+
+    // Get requesting coach name for notification
+    const user = await ctx.db
+      .query("user")
+      .filter((q) => q.eq(q.field("id"), userId))
+      .first();
+
+    const coachName = user
+      ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
+      : "Unknown Coach";
+
+    // Get requesting org name for notification
+    const org = await ctx.db
+      .query("organization")
+      .filter((q) => q.eq(q.field("id"), args.requestingOrgId))
+      .first();
+
+    const orgName = org?.name || args.requestingOrgId;
+
+    // Create the request with 14-day expiry
+    const now = Date.now();
+    const fourteenDaysInMs = 14 * 24 * 60 * 60 * 1000;
+    const expiresAt = now + fourteenDaysInMs;
+
+    const requestId = await ctx.db.insert("passportShareRequests", {
+      playerIdentityId: args.playerIdentityId,
+      requestingCoachId: userId,
+      requestingCoachName: coachName,
+      requestingOrgId: args.requestingOrgId,
+      requestingOrgName: orgName,
+      reason: args.reason,
+      status: "pending",
+      requestedAt: now,
+      expiresAt,
+    });
+
+    // Notify all guardians with parental responsibility
+    await notifyGuardiansOfSharingChange(ctx, {
+      playerIdentityId: args.playerIdentityId,
+      eventType: "access_requested",
+      actorUserId: userId,
+      actorName: coachName,
+      metadata: {
+        requestId,
+        requestingOrgId: args.requestingOrgId,
+        requestingOrgName: orgName,
+        reason: args.reason,
+      },
+    });
+
+    console.log(
+      `[Passport Sharing] Coach ${userId} requested access to player ${args.playerIdentityId} for org ${orgName}`,
+      { requestId, reason: args.reason }
+    );
+
+    return requestId;
+  },
+});
+
+/**
+ * Respond to a passport access request
+ *
+ * Parents can approve or decline coach requests.
+ * Approval transitions to the sharing wizard.
+ *
+ * @param requestId - The request to respond to
+ * @param response - 'approved' or 'declined'
+ * @returns Success boolean
+ */
+export const respondToAccessRequest = mutation({
+  args: {
+    requestId: v.id("passportShareRequests"),
+    response: v.union(v.literal("approved"), v.literal("declined")),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const userId = identity.subject;
+
+    // Get the request
+    const request = await ctx.db.get(args.requestId);
+    if (!request) {
+      throw new Error("Request not found");
+    }
+
+    // Check if request is still pending
+    if (request.status !== "pending") {
+      throw new Error(`Request has already been ${request.status}`);
+    }
+
+    // Check if request has expired
+    if (request.expiresAt < Date.now()) {
+      // Auto-expire the request
+      await ctx.db.patch(args.requestId, {
+        status: "expired",
+      });
+      throw new Error("Request has expired");
+    }
+
+    // Validate guardian has parental responsibility
+    await validateGuardianHasResponsibility(
+      ctx,
+      userId,
+      request.playerIdentityId
+    );
+
+    const now = Date.now();
+
+    if (args.response === "approved") {
+      // Update request status to approved
+      await ctx.db.patch(args.requestId, {
+        status: "approved",
+        respondedAt: now,
+        respondedBy: userId,
+      });
+
+      // Note: The actual consent creation happens in the frontend
+      // when the parent completes the sharing wizard
+      // The wizard will reference this approved request ID
+
+      console.log(
+        `[Passport Sharing] Guardian ${userId} approved access request ${args.requestId}`
+      );
+
+      // TODO US-048: Notify coach that request was approved
+    } else {
+      // Decline the request
+      await ctx.db.patch(args.requestId, {
+        status: "declined",
+        respondedAt: now,
+        respondedBy: userId,
+      });
+
+      console.log(
+        `[Passport Sharing] Guardian ${userId} declined access request ${args.requestId}`
+      );
+
+      // TODO US-048: Notify coach that request was declined
+    }
+
+    return true;
+  },
+});

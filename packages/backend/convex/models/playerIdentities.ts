@@ -419,7 +419,7 @@ export function calculateAge(dateOfBirth: string): number {
     monthDiff < 0 ||
     (monthDiff === 0 && today.getDate() < birthDate.getDate())
   ) {
-    age--;
+    age -= 1;
   }
 
   return age;

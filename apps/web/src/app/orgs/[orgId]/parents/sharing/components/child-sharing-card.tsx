@@ -26,9 +26,13 @@ type ChildSharingCardProps = {
       ageGroup?: string;
     };
   };
+  onEnableSharing?: (childId: string) => void;
 };
 
-export function ChildSharingCard({ child }: ChildSharingCardProps) {
+export function ChildSharingCard({
+  child,
+  onEnableSharing,
+}: ChildSharingCardProps) {
   // Fetch consents for this player
   const consents = useQuery(api.lib.consentGateway.getConsentsForPlayer, {
     playerIdentityId: child.player._id,
@@ -142,10 +146,16 @@ export function ChildSharingCard({ child }: ChildSharingCardProps) {
 
         {/* Quick actions */}
         <div className="flex flex-col gap-2">
-          <Button className="w-full" size="sm" variant="outline">
+          <Button
+            className="w-full"
+            onClick={() => onEnableSharing?.(child.player._id)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
             Enable Sharing
           </Button>
-          <Button className="w-full" size="sm" variant="ghost">
+          <Button className="w-full" size="sm" type="button" variant="ghost">
             View Audit Log
           </Button>
         </div>

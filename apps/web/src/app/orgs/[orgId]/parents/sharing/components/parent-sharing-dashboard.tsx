@@ -11,13 +11,17 @@ import {
   Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 import { ChildSharingCard } from "./child-sharing-card";
+import {
+  type ChildForSharing,
+  EnableSharingWizard,
+} from "./enable-sharing-wizard";
 
 type ParentSharingDashboardProps = {
   orgId: string;
@@ -27,6 +31,12 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
   const router = useRouter();
   const { data: activeOrganization } = authClient.useActiveOrganization();
   const { data: session } = authClient.useSession();
+
+  // Wizard state
+  const [showWizard, setShowWizard] = useState(false);
+  const [_selectedChildForWizard, setSelectedChildForWizard] = useState<
+    string | null
+  >(null);
 
   // Get children from guardian identity system
   const {
@@ -262,7 +272,14 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {identityChildren.map((child) => (
-              <ChildSharingCard child={child} key={child.player._id} />
+              <ChildSharingCard
+                child={child}
+                key={child.player._id}
+                onEnableSharing={(childId) => {
+                  setSelectedChildForWizard(childId);
+                  setShowWizard(true);
+                }}
+              />
             ))}
           </div>
         </div>
@@ -289,6 +306,30 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Enable Sharing Wizard */}
+      <EnableSharingWizard
+        childrenList={prepareChildrenForWizard()}
+        onOpenChange={(open) => {
+          setShowWizard(open);
+          if (!open) {
+            setSelectedChildForWizard(null);
+          }
+        }}
+        open={showWizard}
+        orgId={orgId}
+      />
     </div>
   );
+
+  // Helper function to prepare children data for wizard
+  function prepareChildrenForWizard(): ChildForSharing[] {
+    return identityChildren.map((child) => ({
+      _id: child.player._id,
+      firstName: child.player.firstName,
+      lastName: child.player.lastName,
+      sport: child.enrollment?.sport,
+      ageGroup: child.enrollment?.ageGroup,
+    }));
+  }
 }

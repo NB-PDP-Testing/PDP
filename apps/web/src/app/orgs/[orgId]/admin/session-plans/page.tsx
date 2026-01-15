@@ -126,7 +126,7 @@ export default function AdminSessionPlansPage() {
   };
 
   const handleViewPlan = (planId: Id<"sessionPlans">) => {
-    router.push(`/orgs/${orgId}/admin/session-plans/${planId}` as any);
+    router.push(`/orgs/${orgId}/coach/session-plans/${planId}` as any);
   };
 
   if (plans === undefined) {

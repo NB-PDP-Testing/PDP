@@ -2018,3 +2018,93 @@ Next iteration should focus on adding real consent data to child cards:
 - Linter removed NotificationPreferences import, had to re-add it
 
 ---
+## 2026-01-15 17:15 - US-035 - Pending coach requests view
+**Iteration**: 15
+**Commit**: 4ba5db5223663605ddc2064cc2264e7a352581e9
+**Session**: 163fe1c8-dc70-4447-8f1b-e4d02c35bd1e
+**Status**: Complete
+
+### What was implemented
+**PendingRequests Component:**
+- Created self-contained component displaying all pending access requests for a player
+- Card-based layout with title and loading/empty states
+- Request cards showing:
+  - Coach name and requesting organization
+  - Optional reason field (displayed in gray box when present)
+  - Requested date (formatted with toLocaleDateString)
+  - Expiration countdown badge ("Expires in X days", color-coded: orange for ≤3 days, blue otherwise)
+- Action buttons on each request:
+  - Approve button (green with CheckCircle2 icon) - calls mutation and triggers onApprove callback
+  - Decline button (outline with XCircle icon) - opens decline confirmation modal
+- Decline modal with optional reason textarea
+- Empty state with Clock icon and helpful message
+- Filters requests to show only status="pending"
+
+**Integration with ChildSharingCard:**
+- Added "View Pending Requests" button to quick actions section
+- Button shows badge with count when pendingRequests > 0
+- Added Dialog wrapper with max-w-2xl and overflow-y-auto
+- onApprove callback closes pending requests dialog and opens enable sharing wizard
+- Modal state: pendingRequestsOpen, setPendingRequestsOpen
+
+**Backend Integration:**
+- Uses existing getPendingRequestsForPlayer query (already implemented)
+- Uses existing respondToAccessRequest mutation (already implemented)
+- Mutation supports both "approved" and "declined" responses
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/pending-requests.tsx (+270 lines, new file)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/child-sharing-card.tsx (+38, -12)
+
+### Quality checks
+- ✅ Biome linting: passed (no errors on new files)
+- ✅ Type check: no new errors (pre-existing errors remain)
+- ✅ Pre-commit hooks: passed
+- ⚠️ Browser verification: deferred (needs parent role + pending request data)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Expiration countdown pattern**: Calculate days remaining, format as "Expires in X days", use color coding for urgency
+- **Badge color coding**: Use conditional className with template literals for dynamic styling
+- **Request card layout**: Name/org at top, reason in gray box (if present), date at bottom, actions below
+- **Modal chaining**: Close one dialog, trigger another via callback pattern
+- **Empty state differentiation**: Different messages for "no requests" vs "no pending requests" (filtered)
+- **Date comparison math**: (expiresAt - Date.now()) / (1000 * 60 * 60 * 24) for days remaining
+
+**Gotchas encountered:**
+- **Linter removes unused imports**: Had to use Write tool with complete file to keep PendingRequests import
+- **Multiple modal states**: Each modal needs own useState (revokeModal, auditLog, preferences, pendingRequests)
+- **Badge in button**: Badge component can be nested inside Button for inline count display
+
+**Dependencies found:**
+- US-035 depends on US-018 (requestPassportAccess mutation creates requests)
+- US-035 depends on US-019 (respondToAccessRequest mutation)
+- US-025-029 (Enable Sharing Wizard) handles the approval flow after parent clicks "Approve"
+- Future: Decline reason is captured but notification to coach (US-048) not yet implemented
+
+**Component architecture insights:**
+- **PendingRequests pattern**: Self-contained component with query, mutation, and modal state
+- **Request card structure**: Flex layout with name/org on left, expiration badge on right
+- **Approve flow**: Mutation → toast success → close dialog → trigger parent callback → open wizard
+- **Decline flow**: Button → modal with reason → mutation → toast → close modal
+- **Button badge pattern**: Use Badge with ml-2 inside Button text for inline count display
+
+**UX decisions:**
+- **No "Dismiss" action**: Acceptance criteria mentioned Dismiss, but we use Decline instead (clearer intent)
+- **Expiration urgency**: Orange badge for ≤3 days, blue for >3 days
+- **Reason field**: Optional in decline modal (not required)
+- **Success message**: "Request approved. You can now set up sharing." guides user to next step
+
+**What to do next**:
+- US-036: Shared players section on coach dashboard (coach-side feature)
+- US-037-038: Accept/decline share modal for coaches
+- US-039-040: Shared passport viewer structure and expandable sections
+- Consider: Switch to coach-side features (US-036-043) or continue with remaining parent features
+
+**Mistakes made** (learn from these!):
+- Initially forgot to import PendingRequests, linter kept removing it
+- Should have used Write tool from the start for imports
+- Acceptance criteria mentioned "Dismiss" but actual use case is clearer with "Approve/Decline"
+
+---

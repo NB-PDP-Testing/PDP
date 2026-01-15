@@ -1661,3 +1661,142 @@ export const getAccessLogsForPlayer = query({
     };
   },
 });
+
+// ============================================================
+// NOTIFICATION PREFERENCES
+// ============================================================
+
+/**
+ * Get notification preferences for a guardian
+ * Returns preferences for a specific player or global defaults
+ *
+ * @param guardianIdentityId - The guardian to get preferences for
+ * @param playerIdentityId - Optional player ID for player-specific preferences
+ * @returns Notification preferences or defaults if not set
+ */
+export const getNotificationPreferences = query({
+  args: {
+    guardianIdentityId: v.id("guardianIdentities"),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+  },
+  returns: v.union(
+    v.object({
+      _id: v.id("parentNotificationPreferences"),
+      guardianIdentityId: v.id("guardianIdentities"),
+      playerIdentityId: v.optional(v.id("playerIdentities")),
+      accessNotificationFrequency: v.union(
+        v.literal("realtime"),
+        v.literal("daily"),
+        v.literal("weekly"),
+        v.literal("none")
+      ),
+      notifyOnCoachRequest: v.optional(v.boolean()),
+      notifyOnShareExpiring: v.optional(v.boolean()),
+      notifyOnGuardianChange: v.optional(v.boolean()),
+      updatedAt: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Authentication check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    // Query for preferences using by_guardian index
+    const allPreferences = await ctx.db
+      .query("parentNotificationPreferences")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", args.guardianIdentityId)
+      )
+      .collect();
+
+    // Filter by playerIdentityId if provided
+    const preferences = allPreferences.find((pref) =>
+      args.playerIdentityId
+        ? pref.playerIdentityId === args.playerIdentityId
+        : pref.playerIdentityId === undefined
+    );
+
+    return preferences || null;
+  },
+});
+
+/**
+ * Update notification preferences for a guardian
+ * Creates or updates preferences for a specific player or globally
+ *
+ * @param guardianIdentityId - The guardian updating preferences
+ * @param playerIdentityId - Optional player ID for player-specific preferences
+ * @param accessNotificationFrequency - How often to notify on data access
+ * @param notifyOnCoachRequest - Whether to notify on coach access requests
+ * @param notifyOnShareExpiring - Whether to notify when shares are expiring
+ * @param notifyOnGuardianChange - Whether to notify when other guardians make changes
+ * @returns The updated preferences ID
+ */
+export const updateNotificationPreferences = mutation({
+  args: {
+    guardianIdentityId: v.id("guardianIdentities"),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    accessNotificationFrequency: v.union(
+      v.literal("realtime"),
+      v.literal("daily"),
+      v.literal("weekly"),
+      v.literal("none")
+    ),
+    notifyOnCoachRequest: v.optional(v.boolean()),
+    notifyOnShareExpiring: v.optional(v.boolean()),
+    notifyOnGuardianChange: v.optional(v.boolean()),
+  },
+  returns: v.id("parentNotificationPreferences"),
+  handler: async (ctx, args) => {
+    // Authentication check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    // Check if preferences already exist using by_guardian index
+    const allPreferences = await ctx.db
+      .query("parentNotificationPreferences")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", args.guardianIdentityId)
+      )
+      .collect();
+
+    // Filter by playerIdentityId if provided
+    const existing = allPreferences.find((pref) =>
+      args.playerIdentityId
+        ? pref.playerIdentityId === args.playerIdentityId
+        : pref.playerIdentityId === undefined
+    );
+
+    const now = Date.now();
+
+    if (existing) {
+      // Update existing preferences
+      await ctx.db.patch(existing._id, {
+        accessNotificationFrequency: args.accessNotificationFrequency,
+        notifyOnCoachRequest: args.notifyOnCoachRequest,
+        notifyOnShareExpiring: args.notifyOnShareExpiring,
+        notifyOnGuardianChange: args.notifyOnGuardianChange,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+
+    // Create new preferences
+    const preferencesId = await ctx.db.insert("parentNotificationPreferences", {
+      guardianIdentityId: args.guardianIdentityId,
+      playerIdentityId: args.playerIdentityId,
+      accessNotificationFrequency: args.accessNotificationFrequency,
+      notifyOnCoachRequest: args.notifyOnCoachRequest,
+      notifyOnShareExpiring: args.notifyOnShareExpiring,
+      notifyOnGuardianChange: args.notifyOnGuardianChange,
+      updatedAt: now,
+    });
+
+    return preferencesId;
+  },
+});

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AccessAuditLog } from "./access-audit-log";
+import { NotificationPreferences } from "./notification-preferences";
 import { QuickShare } from "./quick-share";
 import { RevokeConsentModal } from "./revoke-consent-modal";
 
@@ -31,11 +32,13 @@ type ChildSharingCardProps = {
       ageGroup?: string;
     };
   };
+  guardianIdentityId?: Id<"guardianIdentities">;
   onEnableSharing?: (childId: string) => void;
 };
 
 export function ChildSharingCard({
   child,
+  guardianIdentityId,
   onEnableSharing,
 }: ChildSharingCardProps) {
   // Modal state for revocation
@@ -46,6 +49,9 @@ export function ChildSharingCard({
 
   // Modal state for audit log
   const [auditLogOpen, setAuditLogOpen] = useState(false);
+
+  // Modal state for preferences
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
 
   // Fetch consents for this player
   const consents = useQuery(api.lib.consentGateway.getConsentsForPlayer, {
@@ -234,6 +240,16 @@ export function ChildSharingCard({
           >
             View Audit Log
           </Button>
+          <Button
+            className="w-full"
+            disabled={!guardianIdentityId}
+            onClick={() => setPreferencesOpen(true)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Manage Preferences
+          </Button>
         </div>
       </CardContent>
 
@@ -260,6 +276,18 @@ export function ChildSharingCard({
           />
         </DialogContent>
       </Dialog>
+
+      {/* Notification Preferences Dialog */}
+      {guardianIdentityId && (
+        <Dialog onOpenChange={setPreferencesOpen} open={preferencesOpen}>
+          <DialogContent className="max-w-2xl">
+            <NotificationPreferences
+              guardianIdentityId={guardianIdentityId}
+              playerIdentityId={child.player._id}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   );
 }

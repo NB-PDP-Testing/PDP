@@ -1022,10 +1022,59 @@ export const acceptPassportShare = mutation({
       acceptedAt: now,
     });
 
-    // TODO US-048: Notify parent that share was accepted
-    // This will use the notification system once implemented
+    // Notify parent(s) that share was accepted
+    // Get coach name and org name for notification
+    const coachUser = await ctx.db
+      .query("user")
+      .filter((q) => q.eq(q.field("id"), userId))
+      .first();
+    const coachName = coachUser
+      ? `${coachUser.firstName || ""} ${coachUser.lastName || ""}`.trim() ||
+        "A coach"
+      : "A coach";
+
+    const receivingOrg = await ctx.db
+      .query("organization")
+      .filter((q) => q.eq(q.field("id"), consent.receivingOrgId))
+      .first();
+    const receivingOrgName = receivingOrg?.name || "an organization";
+
+    // Get all guardians with parental responsibility
+    const links = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", consent.playerIdentityId)
+      )
+      .collect();
+
+    const responsibleLinks = links.filter(
+      (link) => link.hasParentalResponsibility
+    );
+
+    // Create notifications for all guardians
+    await Promise.all(
+      responsibleLinks.map(async (link) => {
+        const guardian = await ctx.db.get(link.guardianIdentityId);
+        if (!guardian?.userId) {
+          return;
+        }
+
+        await ctx.db.insert("passportShareNotifications", {
+          userId: guardian.userId,
+          notificationType: "coach_accepted",
+          consentId: args.consentId,
+          playerIdentityId: consent.playerIdentityId,
+          requestId: undefined,
+          title: "Share Accepted",
+          message: `${coachName} at ${receivingOrgName} has accepted your passport share.`,
+          actionUrl: "/parents/sharing",
+          createdAt: Date.now(),
+        });
+      })
+    );
+
     console.log(
-      `[Passport Sharing] Coach ${userId} accepted share for consent ${args.consentId}`
+      `[Passport Sharing] Coach ${userId} accepted share for consent ${args.consentId}, notified ${responsibleLinks.length} guardians`
     );
 
     return true;
@@ -1097,10 +1146,63 @@ export const declinePassportShare = mutation({
       // Prevent re-sharing to same org for 30 days after 3 declines
     }
 
-    // TODO US-048: Notify parent that share was declined
-    // Include reason if provided
+    // Notify parent(s) that share was declined
+    // Get coach name and org name for notification
+    const coachUser = await ctx.db
+      .query("user")
+      .filter((q) => q.eq(q.field("id"), userId))
+      .first();
+    const coachName = coachUser
+      ? `${coachUser.firstName || ""} ${coachUser.lastName || ""}`.trim() ||
+        "A coach"
+      : "A coach";
+
+    const receivingOrg = await ctx.db
+      .query("organization")
+      .filter((q) => q.eq(q.field("id"), consent.receivingOrgId))
+      .first();
+    const receivingOrgName = receivingOrg?.name || "an organization";
+
+    // Get all guardians with parental responsibility
+    const links = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", consent.playerIdentityId)
+      )
+      .collect();
+
+    const responsibleLinks = links.filter(
+      (link) => link.hasParentalResponsibility
+    );
+
+    // Create notifications for all guardians
+    await Promise.all(
+      responsibleLinks.map(async (link) => {
+        const guardian = await ctx.db.get(link.guardianIdentityId);
+        if (!guardian?.userId) {
+          return;
+        }
+
+        const message = args.declineReason
+          ? `${coachName} at ${receivingOrgName} declined your passport share. Reason: ${args.declineReason}`
+          : `${coachName} at ${receivingOrgName} declined your passport share.`;
+
+        await ctx.db.insert("passportShareNotifications", {
+          userId: guardian.userId,
+          notificationType: "coach_declined",
+          consentId: args.consentId,
+          playerIdentityId: consent.playerIdentityId,
+          requestId: undefined,
+          title: "Share Declined",
+          message,
+          actionUrl: "/parents/sharing",
+          createdAt: Date.now(),
+        });
+      })
+    );
+
     console.log(
-      `[Passport Sharing] Coach ${userId} declined share for consent ${args.consentId}`,
+      `[Passport Sharing] Coach ${userId} declined share for consent ${args.consentId}, notified ${responsibleLinks.length} guardians`,
       { reason: args.declineReason, declineCount: newDeclineCount }
     );
 

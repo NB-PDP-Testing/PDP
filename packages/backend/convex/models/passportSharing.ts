@@ -611,3 +611,250 @@ export const revokePassportShareConsent = mutation({
     return true;
   },
 });
+
+// ============================================================
+// CROSS-ORG PASSPORT DATA QUERIES
+// US-011: Query shared passport data with consent validation
+// ============================================================
+
+/**
+ * Get shared passport data for a player from another organization
+ * US-011: Cross-org passport query with consent gateway
+ *
+ * This query MUST be called by coaches/staff at the receiving organization.
+ * It validates consent via the consent gateway before returning any data.
+ *
+ * @param consentId - The consent record authorizing access
+ * @param playerIdentityId - The player whose data is being accessed
+ * @returns Shared passport data filtered by consent permissions, or null if access denied
+ */
+export const getSharedPassportData = query({
+  args: {
+    consentId: v.id("passportShareConsents"),
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.union(
+    v.object({
+      playerIdentity: v.object({
+        firstName: v.string(),
+        lastName: v.string(),
+        dateOfBirth: v.optional(v.string()),
+        gender: v.optional(v.string()),
+      }),
+      sharedElements: v.object({
+        basicProfile: v.boolean(),
+        skillRatings: v.boolean(),
+        skillHistory: v.boolean(),
+        developmentGoals: v.boolean(),
+        coachNotes: v.boolean(),
+        benchmarkData: v.boolean(),
+        attendanceRecords: v.boolean(),
+        injuryHistory: v.boolean(),
+        medicalSummary: v.boolean(),
+        contactInfo: v.boolean(),
+      }),
+      sourceOrgs: v.array(
+        v.object({
+          organizationId: v.string(),
+          organizationName: v.string(),
+        })
+      ),
+      // Data sections (only populated if shared)
+      enrollments: v.optional(
+        v.array(
+          v.object({
+            organizationId: v.string(),
+            organizationName: v.string(),
+            sport: v.string(),
+            ageGroup: v.string(),
+            status: v.string(),
+            lastUpdated: v.number(),
+          })
+        )
+      ),
+      goals: v.optional(
+        v.array(
+          v.object({
+            goalId: v.id("passportGoals"),
+            title: v.string(),
+            description: v.optional(v.string()),
+            status: v.string(),
+            organizationId: v.string(),
+            organizationName: v.string(),
+            createdAt: v.number(),
+            updatedAt: v.number(),
+            isShareable: v.boolean(),
+          })
+        )
+      ),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    // Get the consent record to determine receiving org
+    const consent = await ctx.db.get(args.consentId);
+    if (!consent) {
+      return null;
+    }
+
+    // Call consent gateway to validate access
+    // Import from consentGateway would create circular dependency, so we inline validation
+    // Validation 1: Consent is active
+    if (consent.status !== "active") {
+      return null;
+    }
+
+    // Validation 2: Consent has not expired
+    const now = Date.now();
+    if (consent.expiresAt < now) {
+      return null;
+    }
+
+    // Validation 3: Coach acceptance is 'accepted'
+    if (consent.coachAcceptanceStatus !== "accepted") {
+      return null;
+    }
+
+    // Validation 4: Player matches
+    if (consent.playerIdentityId !== args.playerIdentityId) {
+      return null;
+    }
+
+    // Get player identity for basic profile
+    const playerIdentity = await ctx.db.get(args.playerIdentityId);
+    if (!playerIdentity) {
+      return null;
+    }
+
+    // Determine source organizations based on sourceOrgMode
+    let sourceOrgIds: string[] = [];
+    if (consent.sourceOrgMode === "all_enrolled") {
+      // Get all organizations where player is enrolled
+      const enrollments = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", args.playerIdentityId)
+        )
+        .collect();
+      sourceOrgIds = enrollments.map((e) => e.organizationId);
+    } else {
+      // Use specific org IDs from consent
+      sourceOrgIds = consent.sourceOrgIds || [];
+    }
+
+    // Fetch org names for source orgs
+    const sourceOrgs = await Promise.all(
+      sourceOrgIds.map(async (orgId) => {
+        const org = await ctx.db
+          .query("organization")
+          .filter((q) => q.eq(q.field("id"), orgId))
+          .first();
+        return {
+          organizationId: orgId,
+          organizationName: org?.name || "Unknown Organization",
+        };
+      })
+    );
+
+    // Build response object with only authorized elements
+    const response: any = {
+      playerIdentity: {
+        firstName: playerIdentity.firstName,
+        lastName: playerIdentity.lastName,
+        dateOfBirth: playerIdentity.dateOfBirth,
+        gender: playerIdentity.gender,
+      },
+      sharedElements: consent.sharedElements,
+      sourceOrgs,
+    };
+
+    // Fetch enrollments if basicProfile is shared
+    if (consent.sharedElements.basicProfile && sourceOrgIds.length > 0) {
+      const enrollments = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", args.playerIdentityId)
+        )
+        .collect();
+
+      const filteredEnrollments = enrollments.filter((e) =>
+        sourceOrgIds.includes(e.organizationId)
+      );
+
+      response.enrollments = await Promise.all(
+        filteredEnrollments.map(async (enrollment) => {
+          const org = await ctx.db
+            .query("organization")
+            .filter((q) => q.eq(q.field("id"), enrollment.organizationId))
+            .first();
+
+          return {
+            organizationId: enrollment.organizationId,
+            organizationName: org?.name || "Unknown Organization",
+            sport: enrollment.sport,
+            ageGroup: enrollment.ageGroup || "Unknown",
+            status: enrollment.status,
+            lastUpdated: enrollment.updatedAt,
+          };
+        })
+      );
+    }
+
+    // Fetch development goals if developmentGoals is shared
+    if (consent.sharedElements.developmentGoals && sourceOrgIds.length > 0) {
+      const allGoals = await ctx.db
+        .query("passportGoals")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", args.playerIdentityId)
+        )
+        .collect();
+
+      // Filter by source orgs and isShareable flag (for coach notes)
+      const shareableGoals = allGoals.filter(
+        (goal) =>
+          sourceOrgIds.includes(goal.organizationId) &&
+          (consent.sharedElements.coachNotes
+            ? true
+            : goal.isShareable !== false) // Only show if explicitly shareable or coachNotes is enabled
+      );
+
+      response.goals = await Promise.all(
+        shareableGoals.map(async (goal) => {
+          const org = await ctx.db
+            .query("organization")
+            .filter((q) => q.eq(q.field("id"), goal.organizationId))
+            .first();
+
+          return {
+            goalId: goal._id,
+            title: goal.title,
+            description: goal.description,
+            status: goal.status,
+            organizationId: goal.organizationId,
+            organizationName: org?.name || "Unknown Organization",
+            createdAt: goal.createdAt,
+            updatedAt: goal.updatedAt,
+            isShareable: goal.isShareable,
+          };
+        })
+      );
+    }
+
+    // TODO US-011 (future iterations): Add remaining data elements:
+    // - skillRatings: Query skillAssessments for latest ratings
+    // - skillHistory: Query skillAssessments for historical data
+    // - benchmarkData: Query benchmark comparisons
+    // - attendanceRecords: Query attendance tables
+    // - injuryHistory: Query injuries table (org-scoped via players)
+    // - medicalSummary: Query medicalProfiles (requires guardian consent, highly sensitive)
+    // - contactInfo: Query guardianIdentities for contact details
+
+    return response;
+  },
+});

@@ -1982,4 +1982,90 @@ export default defineSchema({
     .index("by_org", ["organizationId"])
     .index("by_org_and_name", ["organizationId", "normalizedName"])
     .index("by_org_and_type", ["organizationId", "activityType"]),
+
+  // ============================================================
+  // PASSPORT SHARING SYSTEM
+  // Cross-organization passport sharing with parent consent and coach acceptance
+  // See: docs/features/PRD-passport-sharing.md
+  // ============================================================
+
+  // Passport Share Consents
+  // Records explicit sharing consent from guardian/adult player
+  // One record per guardian-player-receiving_org combination
+  passportShareConsents: defineTable({
+    // Who is sharing
+    playerIdentityId: v.id("playerIdentities"),
+    grantedBy: v.string(), // userId of guardian or adult player
+    grantedByType: v.union(v.literal("guardian"), v.literal("self")),
+    guardianIdentityId: v.optional(v.id("guardianIdentities")), // If guardian
+
+    // Where data comes from (can be all orgs or specific)
+    sourceOrgMode: v.union(
+      v.literal("all_enrolled"), // All orgs player is enrolled in
+      v.literal("specific_orgs") // Only selected orgs
+    ),
+    sourceOrgIds: v.optional(v.array(v.string())), // If specific_orgs mode
+
+    // Who can see the data
+    receivingOrgId: v.string(), // The org receiving shared access
+
+    // What can be seen (granular element control)
+    sharedElements: v.object({
+      basicProfile: v.boolean(), // Name, age group, photo
+      skillRatings: v.boolean(), // Skill assessments
+      skillHistory: v.boolean(), // Historical ratings
+      developmentGoals: v.boolean(), // Goals & milestones
+      coachNotes: v.boolean(), // Public coach notes
+      benchmarkData: v.boolean(), // Benchmark comparisons
+      attendanceRecords: v.boolean(), // Training/match attendance
+      injuryHistory: v.boolean(), // Injury records (safety-critical)
+      medicalSummary: v.boolean(), // Medical profile summary
+      contactInfo: v.boolean(), // Guardian/coach contact for coordination
+    }),
+
+    // Consent lifecycle
+    consentedAt: v.number(), // Timestamp of consent
+    expiresAt: v.number(), // When consent expires
+    renewalReminderSent: v.boolean(), // Whether reminder was sent
+
+    // Status
+    status: v.union(
+      v.literal("active"),
+      v.literal("expired"),
+      v.literal("revoked"),
+      v.literal("suspended") // Platform intervention
+    ),
+    revokedAt: v.optional(v.number()),
+    revokedReason: v.optional(v.string()),
+
+    // Renewal tracking
+    renewalCount: v.number(), // How many times renewed
+    lastRenewedAt: v.optional(v.number()),
+
+    // Coach Acceptance
+    coachAcceptanceStatus: v.union(
+      v.literal("pending"), // Awaiting coach acceptance
+      v.literal("accepted"), // Coach accepted the share
+      v.literal("declined") // Coach declined the share
+    ),
+    acceptedByCoachId: v.optional(v.string()),
+    acceptedAt: v.optional(v.number()),
+    declinedAt: v.optional(v.number()),
+    declineReason: v.optional(v.string()),
+    declineCount: v.optional(v.number()), // Track repeated declines for cooling-off
+
+    // Age 18 Transition
+    pausedForAge18Review: v.optional(v.boolean()), // True when player turns 18
+    age18ReviewCompletedAt: v.optional(v.number()),
+
+    // Metadata
+    consentVersion: v.string(), // Version of consent terms accepted
+    ipAddress: v.optional(v.string()), // For audit purposes
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_player_and_status", ["playerIdentityId", "status"])
+    .index("by_receiving_org", ["receivingOrgId"])
+    .index("by_granted_by", ["grantedBy"])
+    .index("by_expiry", ["status", "expiresAt"])
+    .index("by_coach_acceptance", ["receivingOrgId", "coachAcceptanceStatus"]),
 });

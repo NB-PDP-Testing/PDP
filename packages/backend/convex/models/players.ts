@@ -1083,7 +1083,7 @@ function normalizeNameForMatching(name: string): {
     return { normalized: "", firstName: "", lastName: "" };
   }
   const firstName = parts[0];
-  const lastName = parts.length > 1 ? parts.at(-1) : "";
+  const lastName = parts.length > 1 ? (parts.at(-1) ?? "") : "";
   return {
     normalized: `${firstName} ${lastName}`.trim(),
     firstName,

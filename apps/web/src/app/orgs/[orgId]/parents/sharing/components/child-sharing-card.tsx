@@ -14,6 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { AccessAuditLog } from "./access-audit-log";
 import { QuickShare } from "./quick-share";
 import { RevokeConsentModal } from "./revoke-consent-modal";
 
@@ -41,6 +43,9 @@ export function ChildSharingCard({
   const [selectedConsentId, setSelectedConsentId] =
     useState<Id<"passportShareConsents"> | null>(null);
   const [selectedOrgName, setSelectedOrgName] = useState("");
+
+  // Modal state for audit log
+  const [auditLogOpen, setAuditLogOpen] = useState(false);
 
   // Fetch consents for this player
   const consents = useQuery(api.lib.consentGateway.getConsentsForPlayer, {
@@ -220,7 +225,13 @@ export function ChildSharingCard({
           >
             Enable Sharing
           </Button>
-          <Button className="w-full" size="sm" type="button" variant="ghost">
+          <Button
+            className="w-full"
+            onClick={() => setAuditLogOpen(true)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
             View Audit Log
           </Button>
         </div>
@@ -239,6 +250,16 @@ export function ChildSharingCard({
           organizationName={selectedOrgName}
         />
       )}
+
+      {/* Access Audit Log Dialog */}
+      <Dialog onOpenChange={setAuditLogOpen} open={auditLogOpen}>
+        <DialogContent className="max-h-[80vh] max-w-4xl overflow-y-auto">
+          <AccessAuditLog
+            childName={`${child.player.firstName} ${child.player.lastName}`}
+            playerIdentityId={child.player._id}
+          />
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

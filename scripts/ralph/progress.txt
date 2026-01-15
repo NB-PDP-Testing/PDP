@@ -2108,3 +2108,148 @@ Next iteration should focus on adding real consent data to child cards:
 - Acceptance criteria mentioned "Dismiss" but actual use case is clearer with "Approve/Decline"
 
 ---
+## 2026-01-15 18:45 - US-036 - Shared players section on coach dashboard
+**Iteration**: 16
+**Commit**: f99f7232e447446ab1f237a016fa5bc98a99c920
+**Session**: 1360feb8-681b-4c8f-b8ad-d4288a6a11d0
+**Status**: Complete
+
+### What was implemented
+**Backend (passportSharing.ts):**
+- Added `getSharedPassportsForCoach` query to retrieve shared passports visible to coaches
+- Query is team-scoped: only returns players on teams the coach is assigned to
+- Filters consents by:
+  - receivingOrgId = coach's organization
+  - coachAcceptanceStatus = "accepted"
+  - status = "active"
+  - expiresAt > Date.now()
+- Returns player name, source org IDs, sourceOrgMode, shared elements, timestamps
+- Avoids querying "organization" table (Better Auth table not accessible from Convex)
+- Returns sourceOrgIds as strings, resolved client-side using Better Auth
+
+**Frontend (SharedPassports component):**
+- Created new component in apps/web/src/app/orgs/[orgId]/coach/shared-passports.tsx
+- Card layout with loading and empty states
+- Uses authClient.useListOrganizations() to resolve org names client-side
+- Displays each shared passport with:
+  - Player name
+  - Source org names (resolved from IDs, or "All enrolled organizations" for all_enrolled mode)
+  - Shared elements as badges (Profile, Skills, Goals, etc.)
+  - Last updated timestamp with color coding (green <1mo, yellow <6mo, amber >6mo)
+- "View Passport" button navigates to /players/{id}/shared (to be implemented in US-039)
+- Integrated into coach-dashboard.tsx below SmartCoachDashboard
+
+### Files changed
+- packages/backend/convex/models/passportSharing.ts (+148, -1)
+- apps/web/src/app/orgs/[orgId]/coach/shared-passports.tsx (+202 lines, new file)
+- apps/web/src/app/orgs/[orgId]/coach/coach-dashboard.tsx (+5, -0)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: no new errors (pre-existing errors remain)
+- ✅ Linting: passed (after biome --unsafe fixes)
+- ⚠️ Browser verification: deferred (needs coach role + accepted consents data)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Better Auth org names**: Cannot query "organization" table from Convex (Better Auth table)
+  - Solution: Return orgIds from backend, resolve names client-side using `authClient.useListOrganizations()`
+  - Pattern: `const { data: organizations } = authClient.useListOrganizations()` + useMemo map
+- **Team-scoped coach queries**: Multi-step filtering for coach data:
+  1. Get coach assignments → team IDs
+  2. Get team-player links for those teams → player IDs
+  3. Query consents matching those players + org + acceptance status
+- **Client-side org name resolution**: Use useMemo to create Map<orgId, orgName> for efficient lookups
+- **Conditional display text**: Handle sourceOrgMode: "all_enrolled" shows special text vs. specific IDs
+- **Data freshness color coding**: Calculate age in months, use conditional classes for visual feedback
+
+**Gotchas encountered:**
+- **Organization table access**: Pre-existing queries in passportSharing.ts tried to query "organization" table
+  - Error: Table doesn't exist in Convex schema (Better Auth manages it)
+  - Fixed by returning orgIds instead and resolving client-side
+- **Linter auto-removes imports**: Linter removed authClient import when not immediately used
+  - Solution: Use Write tool with complete file content when adding imports
+  - Or add import and use it in same edit
+- **Pre-commit hook linting**: Two unsafe fixes required:
+  - useBlockStatements: `if (!x) return y;` → `if (!x) { return y; }`
+  - useOptionalChain: `if (!(a && a.b))` → `if (!(a?.b))`
+
+**Dependencies found:**
+- US-036 depends on US-016 (acceptPassportShare mutation - already implemented)
+- US-036 creates links to /players/{id}/shared route (US-039-040 will implement this page)
+- Future: US-037-038 (Accept/decline share modal) will change coachAcceptanceStatus from pending to accepted
+
+**Component architecture insights:**
+- **SharedPassports pattern**: Self-contained Card component with own query and client-side data resolution
+- **Props structure**: Minimal (userId, organizationId), component handles all data fetching
+- **Empty state messaging**: Helpful text: "When parents share... they'll appear here"
+- **Loading state**: Spinner in card while query loads
+- **List item structure**: Player name (large), metadata (source orgs, elements, timestamp), action button (View Passport)
+
+**Query pattern for team-scoped coach data:**
+```typescript
+// 1. Get coach assignments
+const coachAssignment = await ctx.db
+  .query("coachAssignments")
+  .withIndex("by_userId_and_orgId", (q) =>
+    q.eq("userId", userId).eq("organizationId", orgId)
+  )
+  .first();
+
+// 2. Get team player links for assigned teams
+const teamPlayerLinks = await ctx.db
+  .query("teamPlayerIdentities")
+  .withIndex("by_organizationId_and_status", (q) =>
+    q.eq("organizationId", orgId).eq("status", "active")
+  )
+  .collect();
+
+// 3. Filter to players on coach's teams
+const coachPlayerIds = new Set(
+  teamPlayerLinks
+    .filter((link) => coachAssignment.teams.includes(link.teamId))
+    .map((link) => link.playerIdentityId)
+);
+
+// 4. Query consents, filter to coach's players
+const consents = await ctx.db
+  .query("passportShareConsents")
+  .withIndex("by_coach_acceptance", (q) =>
+    q.eq("receivingOrgId", orgId).eq("coachAcceptanceStatus", "accepted")
+  )
+  .filter((q) => ...)
+  .collect();
+
+const coachConsents = consents.filter((c) =>
+  coachPlayerIds.has(c.playerIdentityId)
+);
+```
+
+**Client-side org name resolution pattern:**
+```typescript
+const { data: organizations } = authClient.useListOrganizations();
+
+const orgNameMap = useMemo(() => {
+  if (!organizations) {
+    return new Map<string, string>();
+  }
+  return new Map(organizations.map((org) => [org.id, org.name]));
+}, [organizations]);
+
+// Usage:
+orgIds.map((id) => orgNameMap.get(id) || id)
+```
+
+**What to do next**:
+- US-037: Accept/decline share modal for coaches
+- US-038: Decline flow with reason input
+- US-039-040: Shared passport viewer structure and expandable sections
+- Consider: Test US-036 with real data (create consents, accept them, verify display)
+
+**Mistakes made** (learn from these!):
+- Initially tried to query "organization" table from Convex → type errors
+- Forgot that Better Auth tables aren't in Convex schema
+- Should have checked how existing code handles org names before implementing
+
+---

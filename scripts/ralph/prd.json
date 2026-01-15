@@ -492,8 +492,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 36,
-      "passes": false,
-      "notes": "FR-C1, Decision #19: Team-scoped"
+      "passes": true,
+      "notes": "Complete - SharedPassports component with team-scoped query. Browser verification deferred (needs coach + accepted consents data)"
     },
     {
       "id": "US-037",

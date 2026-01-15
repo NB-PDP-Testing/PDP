@@ -36,7 +36,7 @@ export default function AdminSessionPlanDetailPage() {
 
   const { data: session } = authClient.useSession();
   const userId = session?.user?.id;
-  const userName = session?.user?.name || "Admin";
+  const userName = session?.user?.name || "Unknown Admin";
 
   const plan = useQuery(api.models.sessionPlans.getPlanById, { planId });
 

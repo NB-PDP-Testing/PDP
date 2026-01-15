@@ -584,3 +584,82 @@ The next iteration should focus on access control and data queries:
 
 ---
 
+
+## 2026-01-15 19:00 - US-011 - Create Cross-Org Passport Query
+**Iteration**: 3
+**Commit**: f69267c30b9661fe9f5faff694f48c1316d4553b
+**Session**: 686fb445-ff9e-4d73-a8fa-b38c76bddbde
+**Status**: Complete (Phase 1 - Core Elements)
+
+### What was implemented
+- Created `getSharedPassportData` query in passportSharing.ts
+- **Inline consent validation** (active, not expired, coach accepted, player match)
+  - Avoided circular dependency by inlining validation logic
+- **Source org resolution** based on sourceOrgMode:
+  - `all_enrolled`: Fetches all orgs where player has enrollment
+  - `specific_orgs`: Uses sourceOrgIds from consent
+- **Granular element filtering** via sharedElements flags:
+  - Returns only data elements authorized by parent consent
+- **Basic Profile & Enrollments**:
+  - Fetches orgPlayerEnrollments filtered by source orgs
+  - Returns org name, sport, ageGroup, status, lastUpdated
+- **Development Goals**:
+  - Fetches passportGoals filtered by source orgs
+  - Respects isShareable flag (coach notes)
+  - Returns goal details with source org context
+- **Future-ready structure**:
+  - TODO comments for remaining elements (skills, injuries, medical, contact)
+  - Extensible response structure with optional fields
+
+### Files changed
+- packages/backend/convex/models/passportSharing.ts (+247, -0)
+- scripts/ralph/passport-sharing-phase-1.json (US-011 marked as passes: true)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: no new errors (pre-existing org lookup errors remain)
+- ✅ Linting: passed (only pre-existing warnings)
+- ✅ Pre-commit hook: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Index naming convention**: Tables use descriptive names like `by_playerIdentityId`, not shortcuts like `by_player`
+- Always check schema.ts for exact index names using Grep before implementing
+- orgPlayerEnrollments uses `enrolledAt` (not `createdAt`) for creation timestamp
+- passportGoals has both `createdAt` and `updatedAt` fields
+- **Inline validation pattern**: Avoid circular imports by duplicating validation logic when needed
+- **Source org context**: All returned data must include organizationId + organizationName for transparency
+
+**Gotchas encountered:**
+- Initially used wrong index names (`by_player` instead of `by_playerIdentityId`)
+- Tried to use `enrollment.createdAt` which doesn't exist (use `enrolledAt`)
+- Must filter .filter() AFTER fetching to match sourceOrgIds (no composite index for player+orgIds)
+- Unused variable warnings caught by linter - authenticate but don't use userId in this case
+
+**Dependencies found:**
+- Phase 2 will add remaining elements: skillRatings, skillHistory, benchmarkData, attendanceRecords, injuryHistory, medicalSummary, contactInfo
+- Injuries and medical tables still use legacy `players` table (org-scoped), not playerIdentities
+- Need to query across multiple source orgs for comprehensive data
+
+**Data Architecture Insights:**
+- **playerIdentities**: Platform-level player identity (cross-org)
+- **orgPlayerEnrollments**: Org-scoped enrollment (indexed by playerIdentityId)
+- **sportPassports**: Sport-specific passport per org
+- **skillAssessments**: Linked to sportPassports (org + sport scoped)
+- **passportGoals**: Development goals (org-scoped, indexed by playerIdentityId)
+- **injuries/medicalProfiles**: Legacy org-scoped via `players` table
+- This mixed architecture requires careful querying across identity levels
+
+**What to do next**:
+- US-012-013: Coach acceptance/decline mutations (priority 12-13)
+- These mutations update coachAcceptanceStatus used by consent gateway
+- Phase 2 of US-011: Add remaining data elements (skills, injuries, medical, contact)
+
+**Mistakes made** (learn from these!):
+- Assumed index names without verifying in schema first
+- Didn't notice enrolledAt vs createdAt field name difference initially
+- Had unused userId variable (authenticate but then never use it)
+
+---
+

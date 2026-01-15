@@ -2176,4 +2176,44 @@ export default defineSchema({
       "guardianIdentityId",
       "playerIdentityId",
     ]),
+
+  // Passport Share Notifications
+  // In-app notification records for sharing events
+  passportShareNotifications: defineTable({
+    userId: v.string(), // Recipient (Better Auth user ID)
+
+    // Notification type
+    notificationType: v.union(
+      v.literal("share_enabled"), // Someone shared passport with your org
+      v.literal("share_revoked"), // Share was revoked
+      v.literal("share_expiring"), // Reminder that share is expiring
+      v.literal("share_expired"), // Share has expired
+      v.literal("coach_acceptance_pending"), // Coach needs to accept share
+      v.literal("coach_accepted"), // Coach accepted share offer
+      v.literal("coach_declined"), // Coach declined share offer
+      v.literal("share_request"), // Coach requested access to passport
+      v.literal("guardian_change"), // Another guardian modified sharing
+      v.literal("access_alert") // Someone accessed shared data (for digest notifications)
+    ),
+
+    // References
+    consentId: v.optional(v.id("passportShareConsents")),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    requestId: v.optional(v.id("passportShareRequests")),
+
+    // Content
+    title: v.string(),
+    message: v.string(),
+    actionUrl: v.optional(v.string()), // Optional URL for navigation
+
+    // Status
+    createdAt: v.number(),
+    readAt: v.optional(v.number()),
+    dismissedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_type", ["userId", "notificationType"])
+    .index("by_user_unread", ["userId", "readAt"])
+    .index("by_consent", ["consentId"])
+    .index("by_player", ["playerIdentityId"]),
 });

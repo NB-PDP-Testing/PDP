@@ -147,19 +147,74 @@ async function notifyGuardiansOfSharingChange(
     (g): g is NonNullable<typeof g> => g !== null
   );
 
-  // TODO US-047: Create notification records for each guardian
-  // TODO US-047: Schedule email notifications based on guardian preferences
-  // For now, log the notification intent
+  // Create notification records for each guardian
+  const notificationIds = await Promise.all(
+    validGuardians.map(async (guardian) => {
+      // Generate notification content based on event type
+      let title = "";
+      let message = "";
+      let actionUrl: string | undefined;
+
+      switch (eventType) {
+        case "share_enabled":
+          title = "Sharing Enabled";
+          message = `Passport sharing has been enabled for your child with ${metadata.receivingOrgName || "an organization"}.`;
+          actionUrl = "/parents/sharing";
+          break;
+        case "share_revoked":
+          title = "Sharing Revoked";
+          message = `Passport sharing with ${metadata.receivingOrgName || "an organization"} has been revoked.`;
+          actionUrl = "/parents/sharing";
+          break;
+        case "share_expired":
+          title = "Sharing Expired";
+          message = `Passport sharing with ${metadata.receivingOrgName || "an organization"} has expired.`;
+          actionUrl = "/parents/sharing";
+          break;
+        case "share_expiring":
+          title = "Sharing Expiring Soon";
+          message = `Passport sharing with ${metadata.receivingOrgName || "an organization"} will expire in 14 days. Please review and renew if needed.`;
+          actionUrl = "/parents/sharing";
+          break;
+        case "guardian_change":
+          title = "Sharing Settings Changed";
+          message = `Another guardian has modified passport sharing settings for your child with ${metadata.receivingOrgName || "an organization"}.`;
+          actionUrl = "/parents/sharing";
+          break;
+        case "access_requested":
+          title = "Access Request";
+          message = `${metadata.receivingOrgName || "An organization"} has requested access to your child's passport.`;
+          actionUrl = "/parents/sharing";
+          break;
+        default:
+          title = "Sharing Update";
+          message = "There has been an update to passport sharing.";
+          actionUrl = "/parents/sharing";
+      }
+
+      // Create notification record
+      const notificationId = await ctx.db.insert("passportShareNotifications", {
+        userId: guardian.userId,
+        notificationType: eventType,
+        consentId: metadata.consentId,
+        playerIdentityId,
+        requestId: undefined,
+        title,
+        message,
+        actionUrl,
+        createdAt: Date.now(),
+      });
+
+      return notificationId;
+    })
+  );
+
   console.log(
-    `[Passport Sharing] Would notify ${validGuardians.length} guardians about ${eventType}`,
+    `[Passport Sharing] Created ${notificationIds.length} notifications for ${eventType}`,
     {
       playerIdentityId,
       eventType,
-      guardians: validGuardians.map((g) => ({
-        userId: g.userId,
-        email: g.email,
-      })),
-      metadata,
+      notificationIds,
     }
   );
 
@@ -2642,5 +2697,157 @@ export const getOrgPendingAcceptances = query({
     );
 
     return enrichedConsents;
+  },
+});
+
+// ============================================================
+// NOTIFICATION QUERIES & MUTATIONS
+// ============================================================
+
+/**
+ * Get all notifications for a user
+ * @param userId - User ID to fetch notifications for
+ * @param includeRead - Whether to include read notifications (default: false)
+ * @returns List of notifications sorted by creation date (newest first)
+ */
+export const getUserNotifications = query({
+  args: {
+    userId: v.string(),
+    includeRead: v.optional(v.boolean()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("passportShareNotifications"),
+      notificationType: v.string(),
+      title: v.string(),
+      message: v.string(),
+      actionUrl: v.optional(v.string()),
+      createdAt: v.number(),
+      readAt: v.optional(v.number()),
+      dismissedAt: v.optional(v.number()),
+      consentId: v.optional(v.id("passportShareConsents")),
+      playerIdentityId: v.optional(v.id("playerIdentities")),
+      requestId: v.optional(v.id("passportShareRequests")),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const { userId, includeRead = false } = args;
+
+    // Query notifications for this user
+    let notifications = await ctx.db
+      .query("passportShareNotifications")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    // Filter out read notifications if includeRead is false
+    if (!includeRead) {
+      notifications = notifications.filter((n) => !n.readAt);
+    }
+
+    // Sort by creation date (newest first)
+    notifications.sort((a, b) => b.createdAt - a.createdAt);
+
+    return notifications;
+  },
+});
+
+/**
+ * Get unread notification count for a user
+ * @param userId - User ID to count notifications for
+ * @returns Count of unread notifications
+ */
+export const getUnreadNotificationCount = query({
+  args: {
+    userId: v.string(),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const notifications = await ctx.db
+      .query("passportShareNotifications")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    // Count unread notifications (readAt is undefined)
+    return notifications.filter((n) => !n.readAt).length;
+  },
+});
+
+/**
+ * Mark a notification as read
+ * @param notificationId - Notification ID to mark as read
+ * @returns Success boolean
+ */
+export const markNotificationAsRead = mutation({
+  args: {
+    notificationId: v.id("passportShareNotifications"),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const notification = await ctx.db.get(args.notificationId);
+
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+
+    // Only update if not already read
+    if (!notification.readAt) {
+      await ctx.db.patch(args.notificationId, {
+        readAt: Date.now(),
+      });
+    }
+
+    return true;
+  },
+});
+
+/**
+ * Mark all notifications as read for a user
+ * @param userId - User ID to mark all notifications as read
+ * @returns Count of notifications marked as read
+ */
+export const markAllNotificationsAsRead = mutation({
+  args: {
+    userId: v.string(),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const notifications = await ctx.db
+      .query("passportShareNotifications")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    const unreadNotifications = notifications.filter((n) => !n.readAt);
+
+    const now = Date.now();
+    await Promise.all(
+      unreadNotifications.map((n) => ctx.db.patch(n._id, { readAt: now }))
+    );
+
+    return unreadNotifications.length;
+  },
+});
+
+/**
+ * Dismiss a notification (soft delete)
+ * @param notificationId - Notification ID to dismiss
+ * @returns Success boolean
+ */
+export const dismissNotification = mutation({
+  args: {
+    notificationId: v.id("passportShareNotifications"),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const notification = await ctx.db.get(args.notificationId);
+
+    if (!notification) {
+      throw new Error("Notification not found");
+    }
+
+    await ctx.db.patch(args.notificationId, {
+      dismissedAt: Date.now(),
+    });
+
+    return true;
   },
 });

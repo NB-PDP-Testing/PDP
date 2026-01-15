@@ -1949,3 +1949,145 @@ export const getSharedPassportsForCoach = query({
     );
   },
 });
+
+/**
+ * US-037: Get pending passport shares for a coach to accept/decline
+ *
+ * Returns all pending shares (coachAcceptanceStatus = "pending") for players
+ * on teams the coach is assigned to in their organization.
+ *
+ * @param userId - Coach's user ID
+ * @param organizationId - Coach's organization ID
+ * @returns Array of pending shares with player and source org details
+ */
+export const getPendingSharesForCoach = query({
+  args: {
+    userId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      consentId: v.id("passportShareConsents"),
+      playerIdentityId: v.id("playerIdentities"),
+      playerName: v.string(),
+      sourceOrgIds: v.array(v.string()),
+      sourceOrgMode: v.union(
+        v.literal("all_enrolled"),
+        v.literal("specific_orgs")
+      ),
+      sharedElements: v.object({
+        basicProfile: v.boolean(),
+        skillRatings: v.boolean(),
+        skillHistory: v.boolean(),
+        developmentGoals: v.boolean(),
+        coachNotes: v.boolean(),
+        benchmarkData: v.boolean(),
+        attendanceRecords: v.boolean(),
+        injuryHistory: v.boolean(),
+        medicalSummary: v.boolean(),
+        contactInfo: v.boolean(),
+      }),
+      consentedAt: v.number(),
+      expiresAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get coach assignments
+    const coachAssignment = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_userId_and_orgId", (q) =>
+        q.eq("userId", args.userId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    // If coach has no assignments, return empty array
+    if (!coachAssignment?.teams.length) {
+      return [];
+    }
+
+    // Get team player links for assigned teams
+    const teamPlayerLinks = await ctx.db
+      .query("teamPlayerIdentities")
+      .withIndex("by_organizationId_and_status", (q) =>
+        q.eq("organizationId", args.organizationId).eq("status", "active")
+      )
+      .collect();
+
+    // Filter to players on coach's assigned teams
+    const coachPlayerIds = new Set(
+      teamPlayerLinks
+        .filter((link) => coachAssignment.teams.includes(link.teamId))
+        .map((link) => link.playerIdentityId)
+    );
+
+    // If coach has no players, return empty array
+    if (coachPlayerIds.size === 0) {
+      return [];
+    }
+
+    // Get pending consents for this organization
+    const consents = await ctx.db
+      .query("passportShareConsents")
+      .withIndex("by_coach_acceptance", (q) =>
+        q
+          .eq("receivingOrgId", args.organizationId)
+          .eq("coachAcceptanceStatus", "pending")
+      )
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "active"),
+          q.gt(q.field("expiresAt"), Date.now())
+        )
+      )
+      .collect();
+
+    // Filter to only players on coach's teams
+    const coachConsents = consents.filter((consent) =>
+      coachPlayerIds.has(consent.playerIdentityId)
+    );
+
+    // Enrich with player info
+    const enriched = await Promise.all(
+      coachConsents.map(async (consent) => {
+        // Get player identity
+        const player = await ctx.db.get(consent.playerIdentityId);
+        if (!player) {
+          return null;
+        }
+
+        // Get source org IDs based on mode
+        let sourceOrgIds: string[] = [];
+        if (consent.sourceOrgMode === "all_enrolled") {
+          // Get all active enrollments for this player
+          const enrollments = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_player", (q) =>
+              q.eq("playerIdentityId", consent.playerIdentityId)
+            )
+            .filter((q) => q.eq(q.field("status"), "active"))
+            .collect();
+          sourceOrgIds = enrollments.map((e) => e.organizationId);
+        } else {
+          // Use specific org IDs from consent
+          sourceOrgIds = consent.sourceOrgIds || [];
+        }
+
+        return {
+          consentId: consent._id,
+          playerIdentityId: consent.playerIdentityId,
+          playerName: `${player.firstName} ${player.lastName}`,
+          sourceOrgIds,
+          sourceOrgMode: consent.sourceOrgMode,
+          sharedElements: consent.sharedElements,
+          consentedAt: consent.consentedAt,
+          expiresAt: consent.expiresAt,
+        };
+      })
+    );
+
+    // Filter out any null results and return
+    return enriched.filter(
+      (item): item is NonNullable<typeof item> => item !== null
+    );
+  },
+});

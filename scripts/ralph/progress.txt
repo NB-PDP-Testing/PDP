@@ -2609,3 +2609,96 @@ export const getPendingSharesForCoach = query({
 - Pre-commit hook caught it, had to fix and re-commit
 
 ---
+
+## 2026-01-15 - US-040 Investigation - Blocked by backend implementation
+**Iteration**: 18
+**Commit**: N/A (investigation only, no code changes)
+**Session**: 5b53d769-15ae-4f3c-bd22-851d452ddb87
+**Status**: Blocked
+
+### What was discovered
+**Investigation Results:**
+- US-040 requires "expandable sections for each element type (skills, goals, notes, etc.)"
+- Examined getSharedPassportData query in packages/backend/convex/models/passportSharing.ts
+- **Backend limitation found:**
+  - Query currently only implements: basicProfile (enrollments) and developmentGoals
+  - TODO comment at line 851-858 documents missing elements:
+    - skillRatings: Query skillAssessments for latest ratings
+    - skillHistory: Query skillAssessments for historical data  
+    - benchmarkData: Query benchmark comparisons
+    - attendanceRecords: Query attendance tables
+    - injuryHistory: Query injuries table
+    - medicalSummary: Query medicalProfiles (highly sensitive)
+    - contactInfo: Query guardianIdentities
+- **US-040 is blocked** until backend query is expanded to return these data elements
+
+**Recommendation:**
+- Mark US-040 as blocked in PRD
+- Backend work needed: Expand getSharedPassportData query to fetch all sharedElements
+- Then frontend can implement expandable sections (Accordion component) for all element types
+- Current shared passport page (US-039) already displays all data returned by query
+- Frontend is ready - just waiting on backend data expansion
+
+### Files changed
+- scripts/ralph/prd.json (updated US-040 notes to indicate blocked status)
+
+### Quality checks
+- N/A (investigation only, no code changes)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Check backend data availability before implementing UI**: US-040 appeared implementable but requires backend work first
+- **TODO comments are important signals**: Line 851 TODO explicitly lists what's missing
+- **Query return validators show what's available**: Reading the `returns:` type shows exactly what data the query provides
+- **PRD story dependencies**: US-040 depends on US-039 (structure) but also implicitly depends on backend data expansion
+
+**Gotchas encountered:**
+- **Acceptance criteria can be misleading**: Story says "expandable sections for each element type" but backend doesn't provide all element types yet
+- **Phase 1 vs future work**: Some acceptance criteria may be aspirational (what we want) vs what's actually implemented
+- **Query structure exists but data fetching doesn't**: sharedElements flags exist for all 10 types, but query only populates 2 of them
+
+**Dependencies found:**
+- US-040 blocked by: Backend expansion of getSharedPassportData query
+- US-040 depends on: US-039 (page structure - complete)
+- Future US-040 work: Once backend returns skills/notes/etc, wrap sections in Accordion component
+- Pattern to follow: Current Basic Profile and Goals sections are good templates
+
+**Backend expansion needed:**
+```typescript
+// In getSharedPassportData handler, after goals section (line 849+):
+
+// Fetch skills if skillRatings is shared
+if (consent.sharedElements.skillRatings && sourceOrgIds.length > 0) {
+  // Query sportPassports for latest skill ratings
+  // Filter by source orgs and player identity
+  // Return skills array with org names
+}
+
+// Fetch skill history if skillHistory is shared
+if (consent.sharedElements.skillHistory && sourceOrgIds.length > 0) {
+  // Query skillAssessments for historical data
+  // Group by date, show progression over time
+}
+
+// Similar patterns for:
+// - benchmarkData
+// - attendanceRecords
+// - injuryHistory (sensitive)
+// - medicalSummary (highly sensitive, extra validation)
+// - contactInfo (guardian data, privacy considerations)
+```
+
+**What to do next**:
+- Skip US-040 (blocked by backend)
+- Move to US-041: Request access to passport flow (coach-initiated)
+- or US-043: Organization contact display (can be implemented with current data)
+- or US-044: Admin sharing contact settings (frontend CRUD for org settings)
+- Consider: Create a separate backend-focused story to expand getSharedPassportData
+
+**Mistakes made** (learn from these!):
+- Started implementing US-040 without checking if backend data was available
+- Should have read the query implementation first to understand data availability
+- Wasted context reading file and starting Accordion implementation that can't be completed
+
+---

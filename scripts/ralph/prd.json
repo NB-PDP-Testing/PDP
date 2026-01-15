@@ -549,7 +549,7 @@
       ],
       "priority": 40,
       "passes": false,
-      "notes": "Depends on US-039"
+      "notes": "Blocked: Backend getSharedPassportData only implements basicProfile and developmentGoals. Skills, notes, benchmarks, attendance, injuries, medical, contacts not yet implemented (see TODO at line 851). Need backend expansion before frontend can display."
     },
     {
       "id": "US-041",

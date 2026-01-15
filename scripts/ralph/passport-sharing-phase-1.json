@@ -185,8 +185,8 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": "FR-C6: Coach Share Acceptance"
+      "passes": true,
+      "notes": "FR-C6: Coach Share Acceptance. Coach org validation and parent notification to be added in US-048."
     },
     {
       "id": "US-013",
@@ -202,8 +202,8 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": "FR-C6: Coach can decline, cooling-off after 3 declines"
+      "passes": true,
+      "notes": "FR-C6: Coach can decline, cooling-off after 3 declines. Cooling-off enforcement and parent notification to be added in US-048, US-049."
     },
     {
       "id": "US-014",

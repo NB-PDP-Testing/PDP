@@ -3300,3 +3300,191 @@ export const updateOrganization[Feature] = mutation({
 - Pre-commit hook caught it, but wasted edit cycles
 
 ---
+
+## 2026-01-15 - US-045, US-046 - Admin sharing statistics
+**Iteration**: 21
+**Commit**: 7e4423e85343de09211918e6e955200ccbe30e13
+**Session**: 81c1da31-46b8-4f05-af52-69783a9107d8
+**Status**: Complete
+
+### What was implemented
+**Backend queries (5 new queries in passportSharing.ts):**
+- getOrgSharingStats: Aggregate statistics showing players with sharing, incoming shares count, outgoing shares count
+- getOrgOutgoingShares: Detailed report of data being shared FROM the org (player, receiving org, elements, status)
+- getOrgIncomingShares: Detailed report of data being received BY the org (player, source orgs, elements, access logs)
+- getOrgRecentSharingActivity: Recent activity feed showing consent lifecycle events (created, accepted, declined, revoked)
+- getOrgPendingAcceptances: List of incoming shares waiting for coach acceptance
+
+**Frontend admin page:**
+- Created apps/web/src/app/orgs/[orgId]/admin/sharing/page.tsx
+- Three-tab interface: Overview, Outgoing Shares, Incoming Shares
+- Summary cards showing key metrics (players with sharing, incoming/outgoing counts)
+- Pending acceptances table with "days pending" badges (red if >7 days)
+- Recent activity table with colored icons for event types
+- CSV export functionality for both incoming and outgoing shares (compliance records)
+- Navigation added to admin sidebar (Data & Import group)
+
+**Bug fix:**
+- Changed processConsentExpiry from `mutation` to `internalMutation` to fix cron job reference error
+- Cron job was already configured in crons.ts but couldn't reference the mutation
+
+### Files changed
+- packages/backend/convex/models/passportSharing.ts (+410 lines)
+- apps/web/src/app/orgs/[orgId]/admin/sharing/page.tsx (+560 lines, new file)
+- apps/web/src/components/layout/admin-sidebar.tsx (+5 lines)
+- scripts/ralph/prd.json (marked US-045, US-046 as passes: true)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passes (pre-existing errors in codebase remain, none from new code)
+- ✅ Linting: passed (replaced alert() with toast.error(), fixed block statements)
+- ⚠️ Browser verification: deferred (needs admin role + consent data to test fully)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Admin statistics pattern**: Follow analytics.tsx structure
+  - Summary cards at top with icons and metrics
+  - Tabbed interface for different views (Overview, Outgoing, Incoming)
+  - Tables for detailed data with badges for status
+  - Export buttons on each tab header
+- **CSV export pattern**: Client-side CSV generation
+  - Map data to simple Record<string, unknown> objects
+  - Join arrays with "; " separator in CSV
+  - Use Blob + URL.createObjectURL for download
+  - Filename includes orgId and ISO date
+  - Use toast.error() instead of alert() for user feedback (lint rule)
+- **Backend admin queries pattern**: Enrich data with names
+  - Query related tables to get human-readable names
+  - Use Promise.all for parallel enrichment
+  - Return arrays of enriched objects with all display data
+  - Example: consent._id → player name + org name + elements list
+- **Cron jobs and internal mutations**:
+  - Cron jobs must reference `internal.models.X.functionName`
+  - Functions called by crons must use `internalMutation` not `mutation`
+  - Import `internalMutation` from `../_generated/server`
+  - Already had cron configured in crons.ts, just needed the function type changed
+
+**Gotchas encountered:**
+- **Linter removes unused imports aggressively**: When adding `internalMutation` to imports
+  - Linter kept removing it before I could use it
+  - Solution: Add import and usage in same operation using sed or large edit block
+  - Pattern: sed for multiple related changes at once
+- **Alert() blocks pre-commit**: lint/suspicious/noAlert is an error-level rule
+  - Must use toast.error() or other UI component instead
+  - Import { toast } from "sonner"
+  - Pre-commit hook checks diagnostic-level=error only
+- **Block statements required**: lint/style/useBlockStatements (fixable with --unsafe)
+  - All if statements must have braces even for single-line bodies
+  - Run `npx biome check --write --unsafe` to auto-fix
+  - Many if statements in element mapping code needed fixing
+- **Organization queries in Convex**: Better Auth organization table
+  - Query via `.query("organization").filter((q) => q.eq(q.field("id"), orgId))`
+  - Not `.withIndex()` because it's a Better Auth table
+  - Returns null if not found, need `|| "Unknown Organization"` pattern
+
+**Dependencies found:**
+- US-045/046 depends on all previous passport sharing backend work (US-001 through US-022)
+- Admin sidebar navigation requires Share2 icon from lucide-react
+- CSV export requires access to all consent, player, and org data
+- Recent activity query is expensive (queries 50 recent consents, enriches each)
+
+**UI/UX decisions:**
+- **Tabbed interface over single scrolling page**: Better organization for 3 distinct views
+  - Overview: High-level stats + recent activity
+  - Outgoing: Detailed report of what we're sharing
+  - Incoming: Detailed report of what we're receiving
+  - Each tab can have its own export button
+- **Export on tab headers**: Accessible where the data is displayed
+  - Overview: No export (high-level only)
+  - Outgoing: Export outgoing shares CSV
+  - Incoming: Export incoming shares CSV
+  - Separate exports allow targeted compliance records
+- **Days pending badge colors**: Visual priority indicator
+  - Green/secondary: <7 days (normal)
+  - Red/destructive: >7 days (needs attention)
+  - Helps admins prioritize coach follow-ups
+- **Activity icons with colors**: Quick visual scanning
+  - Share2 (blue): consent created
+  - UserCheck (green): accepted
+  - Clock (amber): declined
+  - Clock (red): revoked
+  - Consistent with coach dashboard patterns
+
+**Admin query patterns:**
+```typescript
+// Pattern: Aggregate stats (counts and unique sets)
+const uniqueIds = new Set<Id<"table">>();
+for (const item of items) {
+  if (condition) uniqueIds.add(item.id);
+}
+return { metric: uniqueIds.size };
+
+// Pattern: Enriched list for reports
+const enrichedItems = await Promise.all(
+  items.map(async (item) => {
+    const relatedRecord = await ctx.db.get(item.relatedId);
+    const name = relatedRecord ? `${relatedRecord.firstName} ${relatedRecord.lastName}` : "Unknown";
+    return { ...item, name, /* other enrichments */ };
+  })
+);
+
+// Pattern: Recent activity feed
+const recentRecords = await ctx.db.query("table").order("desc").take(50);
+for (const record of recentRecords) {
+  // Filter/transform records
+  if (condition) {
+    activities.push({ type, timestamp, /* ... */ });
+  }
+}
+activities.sort((a, b) => b.timestamp - a.timestamp);
+return activities.slice(0, limit);
+```
+
+**CSV export helper function:**
+```typescript
+function exportToCSV(data: Record<string, unknown>[], filename: string): void {
+  if (data.length === 0) {
+    toast.error("No data to export");
+    return;
+  }
+  const allKeys = Array.from(new Set(data.flatMap((item) => Object.keys(item))));
+  const header = allKeys.join(",");
+  const rows = data.map((item) =>
+    allKeys.map((key) => {
+      const value = item[key];
+      if (Array.isArray(value)) return `"${value.join("; ")}"`;
+      if (typeof value === "string" && value.includes(",")) return `"${value}"`;
+      return value;
+    }).join(",")
+  );
+  const csv = [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.setAttribute("href", URL.createObjectURL(blob));
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+```
+
+**What to do next**:
+- US-047: Consent event notifications (share_enabled, share_revoked, share_expired, share_expiring)
+- US-048: Coach acceptance notifications (notify parent when coach accepts/declines)
+- US-049: Multi-guardian change notifications (notify other guardians when one makes changes)
+- These notification stories require understanding the notification system in the codebase
+- Should review how notifications are currently generated and displayed
+
+**Mistakes made** (learn from these!):
+- Initially tried to commit with alert() which is blocked by lint rules
+  - Should have checked lint rules before using alert()
+  - Always use toast for user feedback in this codebase
+- Linter kept removing internalMutation import
+  - Should have added import and usage together in one operation
+  - Used sed to make both changes atomically
+- Forgot to run `--unsafe` fixes for block statements
+  - Pre-commit hook caught it but wasted time
+  - Should run `npx biome check --write --unsafe` proactively for style fixes
+
+---

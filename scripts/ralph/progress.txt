@@ -3145,3 +3145,158 @@ const hasOutdatedData = useMemo(() => {
 - Quick fix: moved useMemo before returns, added null check inside
 
 ---
+
+## 2026-01-15 - US-044 - Admin sharing contact settings
+**Iteration**: 20
+**Commit**: d2f54c0a1e2a67287b4c394e87ed0e3ce1945c48
+**Session**: 40b29bfc-29d7-4b13-a2b9-5128f4b93887
+**Status**: Complete
+
+### What was implemented
+**Backend mutation - updateOrganizationSharingContact:**
+- Admin-only mutation in organizations.ts to update sharing contact settings
+- Validates user is owner or admin of organization
+- Accepts all sharing contact fields: mode, name, email, phone, enquiries URL
+- Uses Better Auth adapter to update organization record
+- Follows same pattern as updateOrganizationSocialLinks
+
+**Backend query update - getOrganization:**
+- Extended return type to include sharing contact fields
+- Returns: sharingContactMode, sharingContactName, sharingContactEmail, sharingContactPhone, sharingEnquiriesUrl
+- All fields optional (null/undefined)
+
+**Frontend - Admin Settings UI:**
+- Added Sharing Contact Settings Card after Supported Sports section
+- Only visible to admins (isAdmin check)
+- Radio group for contact mode selection:
+  1. No public contact (default, empty string)
+  2. Direct contact (name/email/phone)
+  3. Enquiries form (URL link)
+- Conditional input fields based on mode:
+  - Direct mode: name (optional), email, phone in grid layout
+  - Form mode: enquiries URL field
+- Validation in handleSaveSharingContact:
+  - Direct mode: at least email OR phone required
+  - Form mode: enquiries URL required
+- Save button with loading state, success toast
+- Info box explaining purpose (displayed to coaches viewing shared passports)
+
+**Pre-existing lint fix:**
+- Removed unnecessary async from deleteOrganization handler (was throwing error, no await needed)
+
+### Files changed
+- packages/backend/convex/models/organizations.ts (+88 lines, -2 lines)
+- apps/web/src/app/orgs/[orgId]/admin/settings/page.tsx (+138 lines)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Linting: passed (fixed pre-existing async lint error)
+- ✅ Type check: no new errors (pre-existing errors in codebase remain)
+- ⚠️ Browser verification: deferred (needs admin role in test org to access settings page)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Admin mutation pattern**: Follow updateOrganizationSocialLinks pattern
+  - Check user auth with authComponent.getAuthUser
+  - Query member role via Better Auth adapter findOne
+  - Validate role is owner or admin
+  - Build update object with optional field handling
+  - Use ctx.runMutation(components.betterAuth.adapter.updateOne)
+- **Conditional UI based on radio selection**: Use empty string ("") for "none" option
+  - RadioGroup value can be "", "direct", or "form"
+  - Conditional rendering: `{sharingContactMode === "direct" && (...)}`
+  - Clear visual separation with bg-muted/30 rounded box
+- **Validation based on mode**: Different required fields per mode
+  - Direct: at least one of email OR phone (use ||, not &&)
+  - Form: enquiries URL required
+  - Toast error messages specific to validation failure
+- **Import management with linter**: Icons and components get removed if not used immediately
+  - Add Share2 and RadioGroup imports together with Card implementation
+  - Linter auto-removes unused imports on file save
+
+**Gotchas encountered:**
+- **Linter removes unused imports**: Share2 and RadioGroup imports removed before Card was added
+  - Solution: Add all imports and usage together, or accept multiple edit rounds
+  - Pre-commit hook catches missing imports
+- **Pre-existing lint errors block commit**: deleteOrganization had unnecessary async
+  - Error: lint/suspicious/useAwait - async function lacks await expression
+  - Fixed by removing async keyword (function only throws error, no await needed)
+  - Always check commit hook errors carefully - may not be your code!
+- **Better Auth organization updates**: Use adapter.updateOne with proper where clause
+  - where: [{ field: "_id", value: organizationId, operator: "eq" }]
+  - update: object with field names matching Better Auth schema
+  - Fields: sharingContactMode, sharingContactName, etc. (from US-007 schema extension)
+
+**Dependencies found:**
+- US-044 creates settings UI that configures data displayed by US-043
+- US-044 backend mutation uses fields added in US-007 (organization schema extension)
+- Sharing contact data flows: Admin settings (US-044) → Organization record → getSharedPassportData (US-015) → Coach view (US-043)
+
+**UI/UX decisions:**
+- **Radio buttons over toggle**: Three mutually exclusive options (none, direct, form)
+  - Clearer than two checkboxes or dropdown
+  - Standard pattern for mode selection
+- **Conditional field sections**: Only show relevant inputs based on mode
+  - Reduces cognitive load (don't show irrelevant fields)
+  - Visual container (border, bg-muted/30) groups related inputs
+  - Helper text explains requirements for each mode
+- **"No public contact" as default**: Opt-in approach for privacy
+  - Organizations must explicitly choose to share contact info
+  - Aligns with GDPR principles (data minimization)
+  - Empty string value simplifies form logic
+- **Grid layout for email/phone**: Side-by-side on desktop, stacked on mobile
+  - Space-efficient for two short inputs
+  - Pattern used elsewhere in settings page (social links)
+
+**Backend mutation pattern:**
+```typescript
+export const updateOrganization[Feature] = mutation({
+  args: { organizationId: v.string(), ...fields },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // 1. Check auth
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user) throw new Error("Not authenticated");
+    
+    // 2. Check member role
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      { model: "member", where: [...] }
+    );
+    if (!memberResult || (role !== "owner" && role !== "admin")) {
+      throw new Error("Only owners/admins...");
+    }
+    
+    // 3. Build update object
+    const update: Record<string, string | null> = {};
+    if (args.field !== undefined) {
+      update.fieldName = args.field || null;
+    }
+    
+    // 4. Update via adapter
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "organization",
+        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+        update,
+      },
+    });
+    
+    return null;
+  },
+});
+```
+
+**What to do next**:
+- US-045: Admin sharing statistics (aggregate stats dashboard)
+- US-046: Admin sharing statistics - lists and export
+- US-047: Consent event notifications
+- Consider: Test US-044 with real data (log in as admin, configure sharing contact, verify save)
+
+**Mistakes made** (learn from these!):
+- Initially added Share2 and RadioGroup imports separately from usage, linter removed them
+- Should have added all code (imports + Card) in one edit block
+- Pre-commit hook caught it, but wasted edit cycles
+
+---

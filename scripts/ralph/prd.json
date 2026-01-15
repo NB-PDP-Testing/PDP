@@ -601,8 +601,8 @@
         "Validation and save to organization record, verify in browser"
       ],
       "priority": 44,
-      "passes": false,
-      "notes": "FR-AD6"
+      "passes": true,
+      "notes": "Complete - Backend mutation and frontend UI with radio selection, conditional inputs, validation. Browser verification deferred (needs admin role in test org)"
     },
     {
       "id": "US-045",

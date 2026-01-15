@@ -1304,3 +1304,100 @@ Next iteration should focus on adding real consent data to child cards:
 
 ---
 
+## 2026-01-15 17:30 - US-027 - Enable Sharing Wizard Step 3 (Organization Selection)
+**Iteration**: 9
+**Commit**: e2333ca69bdc8b77e5dad1e8abeac94e4d9c1bda
+**Session**: 83ac4c66-567e-4cba-8546-790db752bb07
+**Status**: Complete
+
+### What was implemented
+**Organization Selection Step:**
+- Created step 3 of the sharing wizard with two organization sharing modes:
+  1. **All Enrolled Organizations (recommended)**: Automatically shares from all orgs where child is enrolled
+  2. **Specific Organizations Only**: Manual selection with checkboxes per org
+- Radio group for mode selection with clear explanations of each option
+- Dynamic organization name fetching using OrganizationCheckbox helper component
+- Shows organization count for all_enrolled mode (e.g., "3 organizations")
+- Checkbox list for specific_orgs mode with count of selected orgs
+- Each org card displays: name, age group, enrollment status badges
+- Loading states for organization data fetching
+
+**State Management:**
+- Added sourceOrgMode state: "all_enrolled" | "specific_orgs" (default: "all_enrolled")
+- Added selectedOrgIds state: string[] for specific org selection
+- Reset logic clears org selection state when wizard closes
+
+**Navigation:**
+- Updated handleNext to move from element-selection → org-selection
+- Updated handleBack to return from org-selection → element-selection
+- canProceed validates: all_enrolled always valid, specific_orgs needs at least 1 org selected
+- Progress shows "Step 3 of 5"
+
+**Type Safety:**
+- Used FunctionReturnType from convex/server for enrollment types
+- Explicit type annotations on map functions to satisfy TypeScript
+- Proper imports: @pdp/backend/convex/_generated/api
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/enable-sharing-wizard.tsx (+266, -5)
+- scripts/ralph/prd.json (marked US-027 as passes: true)
+
+### Quality checks
+- ✅ Type check: passed (no new errors in enable-sharing-wizard.tsx)
+- ✅ Linting: passed (pre-commit hook successful)
+- ✅ Pre-commit hooks: passed
+- ⚠️ Browser verification: deferred (requires parent role + guardian identity + linked children)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Dynamic hook calls in .map()**: Use biome-ignore comment for dynamic useQuery calls per item
+  - Pattern: `// biome-ignore lint/correctness/useHookAtTopLevel: Dynamic organization fetch per enrollment`
+- **FunctionReturnType usage**: Import from "convex/server" to extract query return types
+  - Pattern: `type Enrollment = FunctionReturnType<typeof api.models.X.query>[number]`
+- **Organization data fetching**: No bulk getOrganizations query exists, must fetch individually
+  - Use getOrganization(organizationId) per org, or create helper component
+- **Wizard mode selection**: Use radio group with full card clickability for better UX
+- **Import paths**: Always use `@pdp/backend/convex/_generated/api`, not `@/convex/...`
+
+**Gotchas encountered:**
+- **Linter removes imports**: After edits, linter may remove "unused" imports
+  - Had to re-add FunctionReturnType, Building2, api imports multiple times
+  - Solution: Run ultracite fix or commit to trigger pre-commit formatting
+- **TypeScript map parameter types**: Must explicitly type parameters in .map() callbacks
+  - Even with inferred parent type, TS still needs explicit annotation on callback parameter
+- **Organization table**: Better Auth organization table uses different query patterns
+  - Not a standard Convex table, accessed via Better Auth adapter or getOrganization query
+- **Enrollment status type**: Must use exact union type: "active" | "inactive" | "pending" | "suspended"
+
+**Dependencies found:**
+- US-028: Next step is duration selection (season end, 6 months, 1 year, custom)
+- US-029: Review and confirm will need to display selected orgs and mode
+- Backend: createPassportShareConsent will receive sourceOrgMode and sourceOrgIds
+- Data: orgPlayerEnrollments.getEnrollmentsForPlayer provides enrollments per child
+- Data: organizations.getOrganization provides org name per organizationId
+
+**Component architecture insights:**
+- **OrganizationCheckbox pattern**: Separate component for dynamic data fetching per item
+  - Each checkbox fetches its own organization data independently
+  - Shows loading skeleton while fetching
+  - Avoids complex parent-level data coordination
+- **Wizard step isolation**: Each step is self-contained function component
+  - Step receives props: current values, onChange handlers
+  - Step manages local display logic only
+  - Parent wizard component manages overall state and navigation
+
+**What to do next**:
+- US-028: Implement duration selection step (season end, 6mo, 1yr, custom date picker)
+- Will need date calculation logic for preset options
+- Calendar picker for custom date selection
+- Validation: expiresAt must be future date
+
+**Mistakes made** (learn from these!):
+- Initially used wrong import path: `@/convex/_generated/api` instead of `@pdp/backend/convex/_generated/api`
+- Tried to create non-existent getOrganizations() bulk query - doesn't exist
+- Forgot that linter removes imports during formatting - had to re-add several times
+- Initially didn't add explicit type annotations on map callback parameters
+
+---
+

@@ -661,6 +661,17 @@ export const getSharedPassportData = query({
           organizationName: v.string(),
         })
       ),
+      orgSharingContacts: v.array(
+        v.object({
+          organizationId: v.string(),
+          organizationName: v.string(),
+          sharingContactMode: v.union(v.literal("direct"), v.literal("form")),
+          sharingContactName: v.optional(v.string()),
+          sharingContactEmail: v.optional(v.string()),
+          sharingContactPhone: v.optional(v.string()),
+          sharingEnquiriesUrl: v.optional(v.string()),
+        })
+      ),
       // Data sections (only populated if shared)
       enrollments: v.optional(
         v.array(
@@ -764,6 +775,36 @@ export const getSharedPassportData = query({
       })
     );
 
+    // Fetch sharing contact info for all source orgs
+    const orgSharingContacts = await Promise.all(
+      sourceOrgIds.map(async (orgId) => {
+        const org = await ctx.db
+          .query("organization")
+          .filter((q) => q.eq(q.field("id"), orgId))
+          .first();
+
+        // Only include orgs that have configured sharing contact
+        if (!org?.sharingContactMode) {
+          return null;
+        }
+
+        return {
+          organizationId: orgId,
+          organizationName: org.name || "Unknown Organization",
+          sharingContactMode: org.sharingContactMode,
+          sharingContactName: org.sharingContactName,
+          sharingContactEmail: org.sharingContactEmail,
+          sharingContactPhone: org.sharingContactPhone,
+          sharingEnquiriesUrl: org.sharingEnquiriesUrl,
+        };
+      })
+    );
+
+    // Filter out null values (orgs without sharing contact)
+    const validOrgContacts = orgSharingContacts.filter(
+      (contact): contact is NonNullable<typeof contact> => contact !== null
+    );
+
     // Build response object with only authorized elements
     const response: any = {
       playerIdentity: {
@@ -774,6 +815,7 @@ export const getSharedPassportData = query({
       },
       sharedElements: consent.sharedElements,
       sourceOrgs,
+      orgSharingContacts: validOrgContacts,
     };
 
     // Fetch enrollments if basicProfile is shared

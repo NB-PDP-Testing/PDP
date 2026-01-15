@@ -101,7 +101,9 @@ async function notifyGuardiansOfSharingChange(
       | "share_enabled"
       | "share_revoked"
       | "share_expired"
-      | "guardian_change";
+      | "share_expiring"
+      | "guardian_change"
+      | "access_requested";
     actorUserId: string;
     metadata: {
       receivingOrgName?: string;
@@ -1314,5 +1316,115 @@ export const logPassportAccess = mutation({
     );
 
     return logId;
+  },
+});
+
+// ============================================================
+// SCHEDULED JOBS
+// ============================================================
+
+/**
+ * Process consent expiry and renewal reminders
+ *
+ * Runs daily to:
+ * 1. Find consents expiring in 14 days and send renewal reminders
+ * 2. Find expired consents and set status to 'expired'
+ *
+ * This is an internal mutation called by cron job.
+ */
+export const processConsentExpiry = mutation({
+  args: {},
+  returns: v.object({
+    renewalRemindersSent: v.number(),
+    consentsExpired: v.number(),
+  }),
+  handler: async (ctx) => {
+    const now = Date.now();
+    const fourteenDaysInMs = 14 * 24 * 60 * 60 * 1000;
+    const fourteenDaysFromNow = now + fourteenDaysInMs;
+
+    let renewalRemindersSent = 0;
+    let consentsExpired = 0;
+
+    // 1. Find consents expiring in 14 days that need renewal reminders
+    const consentsNearExpiry = await ctx.db
+      .query("passportShareConsents")
+      .withIndex("by_expiry")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "active"),
+          // Expires between now and 14 days from now
+          q.gte(q.field("expiresAt"), now),
+          q.lte(q.field("expiresAt"), fourteenDaysFromNow),
+          // Hasn't already sent renewal reminder
+          q.eq(q.field("renewalReminderSent"), false)
+        )
+      )
+      .collect();
+
+    // Send renewal reminders
+    for (const consent of consentsNearExpiry) {
+      // Mark reminder as sent
+      await ctx.db.patch(consent._id, {
+        renewalReminderSent: true,
+      });
+
+      // Notify guardians
+      await notifyGuardiansOfSharingChange(ctx, {
+        playerIdentityId: consent.playerIdentityId,
+        eventType: "share_expiring",
+        actorUserId: "system",
+        actorName: "System",
+        metadata: {
+          consentId: consent._id,
+          receivingOrgId: consent.receivingOrgId,
+          expiresAt: consent.expiresAt,
+          daysUntilExpiry: Math.ceil(
+            (consent.expiresAt - now) / (24 * 60 * 60 * 1000)
+          ),
+        },
+      });
+
+      renewalRemindersSent += 1;
+    }
+
+    // 2. Find expired consents
+    const expiredConsents = await ctx.db
+      .query("passportShareConsents")
+      .withIndex("by_expiry")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "active"),
+          q.lt(q.field("expiresAt"), now)
+        )
+      )
+      .collect();
+
+    // Set status to expired
+    for (const consent of expiredConsents) {
+      await ctx.db.patch(consent._id, {
+        status: "expired",
+      });
+
+      // Notify guardians
+      await notifyGuardiansOfSharingChange(ctx, {
+        playerIdentityId: consent.playerIdentityId,
+        eventType: "share_expired",
+        actorUserId: "system",
+        actorName: "System",
+        metadata: {
+          consentId: consent._id,
+          receivingOrgId: consent.receivingOrgId,
+        },
+      });
+
+      consentsExpired += 1;
+    }
+
+    console.log(
+      `[Passport Sharing] Consent expiry job completed: ${renewalRemindersSent} renewal reminders sent, ${consentsExpired} consents expired`
+    );
+
+    return { renewalRemindersSent, consentsExpired };
   },
 });

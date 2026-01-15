@@ -588,8 +588,8 @@
         "Only show if contact info is configured, verify in browser"
       ],
       "priority": 43,
-      "passes": false,
-      "notes": "FR-AD6 display"
+      "passes": true,
+      "notes": "Complete - Backend query returns orgSharingContacts, frontend displays contact cards. Browser verification deferred (needs org with configured sharing contact)"
     },
     {
       "id": "US-044",

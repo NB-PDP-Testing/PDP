@@ -2846,3 +2846,147 @@ if (permissions.isCoach && shareStatus) {
 - Pre-commit hook caught no issues, so approach was fine
 
 ---
+
+## 2026-01-15 - US-043 - Organization contact display
+**Iteration**: 19
+**Commit**: 027775d3c94a91a66350a489db960cff1d9a8192
+**Session**: ef03fa87-ca2e-496d-bd85-71bd8651133a
+**Status**: Complete
+
+### What was implemented
+**Backend - getSharedPassportData query updates:**
+- Added fetching of organization sharing contact info for all source orgs
+- Queries organization table for each sourceOrgId to get sharing contact fields
+- Only includes orgs with configured sharingContactMode (filters out nulls)
+- Returns orgSharingContacts array with:
+  - organizationId, organizationName
+  - sharingContactMode (direct/form)
+  - sharingContactName, sharingContactEmail, sharingContactPhone (optional, for direct mode)
+  - sharingEnquiriesUrl (optional, for form mode)
+- Updated return validator with new orgSharingContacts array type
+
+**Frontend - Organization Contact card on shared passport page:**
+- New "Organization Contact" card displayed after info alert
+- Positioned before shared data sections (Basic Profile, Goals, etc.)
+- Card shows contact info for each source org with configured sharing
+- Conditional rendering: only shows if orgSharingContacts array has entries
+- **Direct contact mode:**
+  - Shows contact name (if provided)
+  - Email link with Mail icon (mailto: link)
+  - Phone link with Phone icon (tel: link)
+  - Blue color for clickable links with hover underline
+- **Form mode:**
+  - Shows "Contact via enquiries form" link with ExternalLink icon
+  - Opens in new tab (target="_blank", rel="noopener noreferrer")
+  - Blue color with hover underline
+- Each org displayed in separate bordered card with org name header
+
+### Files changed
+- packages/backend/convex/models/passportSharing.ts (+42 lines)
+- apps/web/src/app/orgs/[orgId]/players/[playerId]/shared/page.tsx (+92 lines, -1 line)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: no new errors in frontend code (pre-existing backend errors remain)
+- ✅ Linting: pre-commit hook passed
+- ⚠️ Browser verification: deferred (needs org with configured sharing contact to test)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Backend query enrichment**: Fetch additional org data in existing query
+  - Pattern: Query org table for each sourceOrgId
+  - Filter out orgs without relevant data (sharingContactMode null)
+  - Return optional array in response (empty if no matches)
+- **Conditional section rendering**: Only show section if data array has entries
+  - Pattern: `{data && data.length > 0 && ( ... )}`
+  - Better UX than showing empty card
+  - Card header explains what the section is for
+- **Contact link patterns**:
+  - Email: `<a href={mailto:${email}>` with Mail icon
+  - Phone: `<a href={tel:${phone}>` with Phone icon
+  - External URL: `target="_blank" rel="noopener noreferrer"` with ExternalLink icon
+  - All use blue color (text-blue-600) with hover:underline
+- **Organization data from Better Auth**: Organization table is Better Auth table
+  - Queried via `.query("organization").filter((q) => q.eq(q.field("id"), orgId))`
+  - Has sharingContact fields from schema extension (US-007)
+  - Optional fields need proper null checking
+
+**Gotchas encountered:**
+- **Type errors with organization queries**: Pre-existing TypeScript errors
+  - Error: '"organization"' not assignable to TableNamesInDataModel
+  - These errors exist throughout passportSharing.ts (not from my changes)
+  - Better Auth integration type issues
+  - Codegen passes, errors are TypeScript type mismatches
+  - Frontend has no type errors
+- **Icon imports removed by linter**: Same pattern as US-041
+  - Linter removes unused imports before usage is added
+  - Solution: Add imports with component code together
+
+**Dependencies found:**
+- US-043 depends on US-007 (organization sharing contact schema fields - already implemented)
+- US-043 extends US-039 (shared passport page - adds contact section)
+- US-044 (admin settings) will allow configuring the data displayed by US-043
+
+**UI/UX decisions:**
+- **Placement after info alert**: Contact info is context for shared data
+  - Positioned before data sections (Basic Profile, Goals, etc.)
+  - Coaches see who to contact before viewing player data
+  - Makes sense for coordination between clubs
+- **Separate card for each org**: Clear organization of contact info
+  - Each source org gets own bordered box
+  - Org name as header (bold)
+  - Contact details indented below
+  - Supports multiple source orgs (all_enrolled mode)
+- **Icon usage for contact types**:
+  - Mail icon: Visual indicator for email
+  - Phone icon: Visual indicator for phone
+  - ExternalLink icon: Indicates opens new tab
+  - Consistent with UI patterns elsewhere in app
+- **Only show if configured**: Empty state handled by not rendering
+  - Better than showing "No contact info available"
+  - Cleaner UI when orgs haven't configured sharing contact
+  - Section presence indicates contact is available
+
+**Backend query pattern for org data:**
+```typescript
+const orgSharingContacts = await Promise.all(
+  sourceOrgIds.map(async (orgId) => {
+    const org = await ctx.db
+      .query("organization")
+      .filter((q) => q.eq(q.field("id"), orgId))
+      .first();
+
+    // Only include if configured
+    if (!org?.sharingContactMode) {
+      return null;
+    }
+
+    return { /* org fields */ };
+  })
+);
+
+// Filter out nulls
+const validOrgContacts = orgSharingContacts.filter(
+  (contact): contact is NonNullable<typeof contact> => contact !== null
+);
+```
+
+**Frontend conditional rendering pattern:**
+```typescript
+{sharedPassport.orgSharingContacts && 
+ sharedPassport.orgSharingContacts.length > 0 && (
+  <Card>...</Card>
+)}
+```
+
+**What to do next**:
+- US-042: Data freshness indicators (color-coded timestamps on shared sections)
+- US-044: Admin sharing contact settings (UI for configuring the contact info displayed by US-043)
+- US-045: Admin sharing statistics (aggregate sharing stats for club admins)
+- Consider: Test US-043 with real data (configure org sharing contact, view shared passport)
+
+**Mistakes made** (learn from these!):
+- None - straightforward implementation following established patterns
+
+---

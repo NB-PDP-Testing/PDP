@@ -274,6 +274,7 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
             {identityChildren.map((child) => (
               <ChildSharingCard
                 child={child}
+                guardianIdentityId={guardianIdentity?._id}
                 key={child.player._id}
                 onEnableSharing={(childId) => {
                   setSelectedChildForWizard(childId);

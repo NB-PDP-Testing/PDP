@@ -641,8 +641,8 @@
         "Typecheck passes"
       ],
       "priority": 47,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Complete - passportShareNotifications table created, notification generation integrated into notifyGuardiansOfSharingChange, queries for getUserNotifications, markAsRead, markAllAsRead, dismissNotification"
     },
     {
       "id": "US-048",

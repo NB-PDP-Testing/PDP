@@ -536,3 +536,78 @@ export const updatePassportShareConsent = mutation({
     return true;
   },
 });
+
+/**
+ * Revoke a passport sharing consent immediately
+ * US-013: Immediate revocation (FR-P6)
+ *
+ * @param consentId - The consent to revoke
+ * @param revokedReason - Optional reason for revocation
+ * @returns Success boolean
+ */
+export const revokePassportShareConsent = mutation({
+  args: {
+    consentId: v.id("passportShareConsents"),
+    revokedReason: v.optional(v.string()),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const userId = identity.subject;
+
+    // Get the existing consent
+    const consent = await ctx.db.get(args.consentId);
+    if (!consent) {
+      throw new Error("Consent not found");
+    }
+
+    // Validate that the user has parental responsibility for this player
+    const hasResponsibility = await validateGuardianHasResponsibility(
+      ctx,
+      userId,
+      consent.playerIdentityId
+    );
+
+    if (!hasResponsibility) {
+      throw new Error(
+        "You do not have parental responsibility for this player"
+      );
+    }
+
+    // Update consent status to revoked
+    const now = Date.now();
+    await ctx.db.patch(args.consentId, {
+      status: "revoked",
+      revokedAt: now,
+      revokedReason: args.revokedReason,
+    });
+
+    // Notify all guardians and receiving org coaches
+    // Get receiving org name for notification
+    const receivingOrg = await ctx.db
+      .query("organization")
+      .filter((q) => q.eq(q.field("id"), consent.receivingOrgId))
+      .first();
+    const receivingOrgName = receivingOrg?.name || "Unknown Organization";
+
+    // Notify guardians
+    await notifyGuardiansOfSharingChange(ctx, {
+      playerIdentityId: consent.playerIdentityId,
+      eventType: "share_revoked",
+      actorUserId: userId,
+      metadata: {
+        receivingOrgName,
+        consentId: args.consentId,
+      },
+    });
+
+    // TODO US-048: Notify coaches at receiving org that access has been revoked
+
+    return true;
+  },
+});

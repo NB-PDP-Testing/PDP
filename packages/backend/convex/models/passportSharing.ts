@@ -2091,3 +2091,59 @@ export const getPendingSharesForCoach = query({
     );
   },
 });
+
+/**
+ * Check if a player has an active share or pending request with an organization
+ * Used to determine whether to show "Request Access" button on player profile
+ *
+ * @param playerIdentityId - The player to check
+ * @param organizationId - The organization requesting access
+ * @returns Status object with hasActiveShare and hasPendingRequest flags
+ */
+export const checkPlayerShareStatus = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    hasActiveShare: v.boolean(),
+    hasPendingRequest: v.boolean(),
+    consentId: v.optional(v.id("passportShareConsents")),
+  }),
+  handler: async (ctx, args) => {
+    // Check for active consent
+    const activeConsent = await ctx.db
+      .query("passportShareConsents")
+      .withIndex("by_player_and_status", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId).eq("status", "active")
+      )
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("receivingOrgId"), args.organizationId),
+          q.gt(q.field("expiresAt"), Date.now()),
+          q.eq(q.field("coachAcceptanceStatus"), "accepted")
+        )
+      )
+      .first();
+
+    // Check for pending request
+    const pendingRequest = await ctx.db
+      .query("passportShareRequests")
+      .withIndex("by_player_and_status", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId).eq("status", "pending")
+      )
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("requestingOrgId"), args.organizationId),
+          q.gt(q.field("expiresAt"), Date.now())
+        )
+      )
+      .first();
+
+    return {
+      hasActiveShare: !!activeConsent,
+      hasPendingRequest: !!pendingRequest,
+      consentId: activeConsent?._id,
+    };
+  },
+});

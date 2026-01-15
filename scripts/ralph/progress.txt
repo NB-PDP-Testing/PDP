@@ -2990,3 +2990,158 @@ const validOrgContacts = orgSharingContacts.filter(
 - None - straightforward implementation following established patterns
 
 ---
+
+## 2026-01-15 - US-042 - Data freshness indicators
+**Iteration**: 20
+**Commit**: 1ce983a3978b8ee50a32b3cd320ff2285b53ce7b
+**Session**: 40b29bfc-29d7-4b13-a2b9-5128f4b93887
+**Status**: Complete
+
+### What was implemented
+**Helper function - getDataFreshness():**
+- Calculates data age from timestamp and returns category, colors, and label
+- Categories:
+  - fresh (<1 month): Green badge "Up to date"
+  - recent (1-6 months): Yellow badge "Recent"
+  - outdated (>6 months): Amber badge "May be outdated"
+- Returns object with: category, color (text class), bgColor (background class), label (display text)
+- Used by enrollment and goal rendering to show freshness badges
+
+**Outdated data detection - hasOutdatedData:**
+- useMemo hook calculates if any data is >6 months old
+- Checks enrollment lastUpdated and goal updatedAt timestamps
+- Returns boolean for conditional warning alert rendering
+- Must be placed BEFORE early returns (React hooks rule)
+- Handles null/undefined sharedPassport gracefully
+
+**Amber warning alert:**
+- Displays after info alert when hasOutdatedData is true
+- Styled with amber colors (border-amber-300, bg-amber-50, text-amber-900)
+- Message: "Data may be outdated: Some information hasn't been updated in over 6 months. Contact the source organization if you need current information."
+- Uses Info icon with amber color (text-amber-700)
+- Only shows when detected, not always visible
+
+**Freshness badges on enrollments:**
+- Each enrollment card shows freshness badge in top-right
+- Badge styled with getDataFreshness() returned colors
+- Replaces simple "Updated: [date]" Badge with:
+  - Colored badge with label ("Up to date", "Recent", "May be outdated")
+  - Small text below with actual date: "Updated: [date]"
+- Layout: flex-col items-end gap-1 for vertical stacking
+
+**Freshness badges on goals:**
+- Each goal card shows freshness badge with status and org badges
+- Badge added to existing badge row (flex-wrap gap-2)
+- Uses same getDataFreshness() styling pattern
+- Positioned alongside status and org name badges
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/players/[playerId]/shared/page.tsx (+151 lines, -47 lines)
+
+### Quality checks
+- ✅ Linting: passed (pre-commit hook with Biome check)
+- ✅ Type check: no new errors (pre-existing errors in codebase remain)
+- ⚠️ Browser verification: deferred (needs accepted consents with varying data ages to test all color states)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Data freshness calculation pattern**: Pure function returning category + styling
+  - Takes timestamp, returns object with category, colors, label
+  - Reusable across different data types (enrollments, goals, etc.)
+  - Categories based on business rules (<1m, 1-6m, >6m thresholds)
+- **Color-coded badge pattern**: Combine bgColor + color for visual distinction
+  - Green: bg-green-100 border-green-300 text-green-700
+  - Yellow: bg-yellow-100 border-yellow-300 text-yellow-700
+  - Amber: bg-amber-100 border-amber-300 text-amber-700
+  - Border important for accessibility (not just color)
+- **Outdated data detection pattern**: Single useMemo checks all data sources
+  - More efficient than checking in each render
+  - Returns boolean for conditional rendering
+  - Checks all relevant timestamps (enrollments, goals)
+- **Hook placement rule violation**: useMemo after early returns causes lint error
+  - Error: "This hook is being called conditionally"
+  - Solution: Move all hooks BEFORE any early returns
+  - Check for null/undefined inside hook, not before it
+  - Pattern: `if (!data) return false;` inside useMemo
+
+**Gotchas encountered:**
+- **React hooks must be unconditional**: Cannot call hooks after early returns
+  - Linter: "lint/correctness/useHookAtTopLevel"
+  - Hooks must be called in same order every render
+  - Early returns break this guarantee
+  - Fix: Move useMemo before if statements that return JSX
+  - Add null check inside useMemo instead
+- **Pre-commit hook runs on staged files only**: Doesn't check whole codebase
+  - Only checks diagnostic-level=error (not warnings)
+  - Pre-existing errors in other files don't block commit
+  - Focus on fixing errors in changed files
+
+**Dependencies found:**
+- US-042 extends US-039 (shared passport page - adds freshness indicators)
+- US-042 prepares for US-040 when implemented (will need freshness on all sections)
+- Freshness calculation assumes lastUpdated/updatedAt fields exist (they do)
+
+**UI/UX decisions:**
+- **3-tier color system**: Green/Yellow/Amber matches traffic light metaphor
+  - Intuitive: Green = good, Yellow = caution, Amber/Red = warning
+  - Color-blind friendly when combined with text labels
+  - Border ensures visibility beyond color alone
+- **Explicit warning alert**: Don't rely only on badge colors
+  - Amber alert at top catches attention
+  - Provides actionable guidance ("Contact the source organization")
+  - Only shows when relevant (hasOutdatedData = true)
+- **Badge placement consistency**:
+  - Enrollments: Top-right corner (vertical stack with date)
+  - Goals: Inline with other badges (horizontal row)
+  - Both approaches clear and scannable
+- **Date still visible**: Freshness badge supplements, doesn't replace date
+  - Coaches can see both category ("Recent") and exact date
+  - Best of both worlds: quick glance + detail on demand
+
+**Freshness thresholds business logic:**
+```typescript
+// < 1 month = Fresh (green)
+// 1-6 months = Recent (yellow)
+// > 6 months = Outdated (amber)
+// Calculation: (now - timestamp) / (1000 * 60 * 60 * 24 * 30)
+```
+
+**hasOutdatedData pattern:**
+```typescript
+const hasOutdatedData = useMemo(() => {
+  if (!sharedPassport) return false;
+  
+  const now = Date.now();
+  const sixMonthsAgo = now - (6 * 30 * 24 * 60 * 60 * 1000);
+  
+  // Check all data sources
+  if (enrollments?.some(e => e.lastUpdated < sixMonthsAgo)) return true;
+  if (goals?.some(g => g.updatedAt < sixMonthsAgo)) return true;
+  
+  return false;
+}, [sharedPassport]);
+```
+
+**Badge styling pattern:**
+```tsx
+<Badge
+  className={`${freshness.bgColor} ${freshness.color} border`}
+  variant="outline"
+>
+  {freshness.label}
+</Badge>
+```
+
+**What to do next**:
+- US-044: Admin sharing contact settings (CRUD for org sharing contact config)
+- US-045: Admin sharing statistics (aggregate stats dashboard for org admins)
+- US-047: Consent event notifications (share_enabled, share_revoked, etc.)
+- Consider: Test US-042 with real data (create consents with old/new data, verify colors)
+
+**Mistakes made** (learn from these!):
+- Initially placed useMemo after early returns (lint error)
+- Should have checked hook placement rules before implementing
+- Quick fix: moved useMemo before returns, added null check inside
+
+---

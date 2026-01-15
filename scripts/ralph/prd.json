@@ -654,8 +654,8 @@
         "Include link to sharing dashboard, typecheck passes"
       ],
       "priority": 48,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Complete - acceptPassportShare and declinePassportShare mutations now create notifications for all guardians with parental responsibility, includes coach name, org name, optional decline reason"
     },
     {
       "id": "US-049",

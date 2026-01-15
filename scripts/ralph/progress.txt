@@ -1593,3 +1593,83 @@ Next iteration should focus on adding real consent data to child cards:
 - Had to re-add imports multiple times as linter removed them
 
 ---
+
+## 2026-01-15 14:30 - US-030 - Quick Share Option
+**Iteration**: 12
+**Commit**: dd4b0a26d5cb3da2775c7743c8a1561993e7c0bb
+**Session**: 2ce30df7-17c4-4052-8d00-7facd295c602
+**Status**: Complete
+
+### What was implemented
+**Backend: getLastConsentSettings query**
+- Created query to retrieve most recent consent settings for a player
+- Returns last successful consent (active, expired, or revoked status)
+- Filters out never-accepted consents (declined or pending)
+- Calculates new expiresAt date with same duration as original
+- Returns receivingOrgId, sharedElements, sourceOrgMode, sourceOrgIds
+
+**Frontend: QuickShare component**
+- Created standalone component behind ENABLE_QUICK_SHARE feature flag (default: false)
+- Shows only if parent has previously shared for that child
+- One-click button to re-enable sharing with same settings
+- Displays previous settings summary: element count, org mode, expiry date
+- Auto-refreshes consent data after successful creation via Convex
+- Integrated into ChildSharingCard component
+
+**Feature Flag Control**:
+- ENABLE_QUICK_SHARE constant set to false
+- Component returns null if flag disabled (production-ready but inactive)
+- Can be enabled by changing constant to true when ready
+
+### Files changed
+- packages/backend/convex/models/passportSharing.ts (+86 lines)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/quick-share.tsx (+143 lines, new file)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/child-sharing-card.tsx (+9 lines)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: no new errors (pre-existing errors in other files)
+- ✅ Biome linting: passed for all new/modified files
+- ✅ Pre-commit hooks: passed
+- ⚠️ Browser verification: deferred (requires parent role + previous consent + feature flag enabled)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Feature flag pattern**: Use constant at top of component, check after hooks to avoid conditional rendering issues
+- **React hooks rules**: All hooks must be called unconditionally before any early returns
+- **Last consent selection**: Filter for "successful" consents (active/expired/revoked) not declined/pending
+- **Duration preservation**: Calculate original duration and apply to new expiresAt for consistent UX
+- **Auto-refresh pattern**: Convex automatically refetches queries after mutations, no manual refresh needed
+
+**Gotchas encountered:**
+- Initially had feature flag check before hooks - violates React rules
+- Must move all hooks to top of component before any conditional returns
+- Unused orgId parameter caused linting error - removed from props
+- Pre-commit hooks enforce strict linting on staged files only
+
+**Dependencies found:**
+- US-031-033: Revocation flow and audit log viewer (next priorities)
+- Feature flag requires manual enable in quick-share.tsx when ready for production
+- Browser testing requires: parent role + guardian-player links + at least one previous consent
+- Production checklist: Enable flag, test with real consent data, verify mutation success
+
+**Component architecture insights:**
+- **QuickShare isolation**: Self-contained component with own query and mutation
+- **Conditional rendering**: Returns null if flag disabled, loading, or no previous consent
+- **ChildSharingCard integration**: QuickShare appears above status metrics
+- **Progressive enhancement**: Existing "Enable Sharing" button still available for full wizard
+
+**What to do next**:
+- US-031: Revocation flow UI (Revoke Access button on child cards)
+- US-032-033: Audit log viewer with filters and export
+- US-034: Notification preferences UI
+- US-035: Pending coach requests view
+- Feature flag: When enabling QuickShare in production, test thoroughly with real consent data
+
+**Mistakes made** (learn from these!):
+- Initially put feature flag check before hooks (violates React rules)
+- Had unused orgId parameter that caused linting failure on commit
+- Forgot that pre-commit hooks are strict and block commits with errors
+
+---

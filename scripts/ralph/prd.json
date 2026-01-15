@@ -614,8 +614,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 45,
-      "passes": false,
-      "notes": "FR-AD1"
+      "passes": true,
+      "notes": "FR-AD1 - Complete with 3 summary cards, tabbed interface, and navigation"
     },
     {
       "id": "US-046",
@@ -627,8 +627,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 46,
-      "passes": false,
-      "notes": "FR-AD2, FR-AD3"
+      "passes": true,
+      "notes": "FR-AD2, FR-AD3 - Complete with CSV export for incoming/outgoing shares, recent activity table, pending acceptances list"
     },
     {
       "id": "US-047",

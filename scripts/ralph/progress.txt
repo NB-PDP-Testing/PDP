@@ -515,3 +515,72 @@ The next iteration should focus on access control and data queries:
 - PRD Section 6.1.2 for coach functional requirements
 
 ---
+
+## 2026-01-15 18:00 - US-010 (US-014 in PRD) - Create Consent Gateway Query
+**Iteration**: 3
+**Commit**: 8e711f135bd22fa14dbed9fc7b00ecb69bc8d6bd
+**Session**: 686fb445-ff9e-4d73-a8fa-b38c76bddbde
+**Status**: Complete
+
+### What was implemented
+- Created `consentGateway.ts` in packages/backend/convex/lib/
+- Implemented `validateShareAccess` query - core security gateway for cross-org data access:
+  - Validates consent exists, is active, not expired
+  - Checks coach acceptance status is 'accepted'
+  - Verifies receiving organization matches
+  - Returns allowed sharedElements if access granted, null otherwise
+- Added `getActiveConsentsForOrg` query for coach dashboard:
+  - Returns all active, accepted consents for an organization
+  - Uses by_coach_acceptance index for efficient querying
+  - Filters by status and expiry
+- Added `getConsentsForPlayer` query for guardian dashboard:
+  - Returns all consents for a player regardless of status
+  - Used for parent's sharing management view
+  - Shows full lifecycle (pending, accepted, declined, expired, revoked)
+
+### Files changed
+- packages/backend/convex/lib/consentGateway.ts (+246 lines, new file)
+- scripts/ralph/passport-sharing-phase-1.json (US-010 marked as passes: true)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: no consentGateway errors
+- ✅ Linting: passed (no errors in consentGateway.ts)
+- ✅ Pre-commit hook: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Consent gateway is a standalone module in lib/ not models/ (architectural separation)
+- Index names must match schema exactly - use Grep to verify before implementing
+- The index `by_coach_acceptance` has receivingOrgId + coachAcceptanceStatus
+- No index for receivingOrgId + status combo, must filter after query
+- Better Auth member table is not directly queryable from Convex (custom table)
+- For now, org membership validation is deferred to future team-scoped access implementation
+
+**Gotchas encountered:**
+- Initial attempt to use non-existent index "by_receiving_org_and_status"
+- Must check schema.ts to find actual index names and field order
+- Better Auth tables (member, organization) use filter() not withIndex() for lookups
+- Organization table lookups use .query("organization").filter() not withIndex()
+- Pre-existing lint/type errors in codebase don't block commit if new code is clean
+
+**Dependencies found:**
+- US-011 (getSharedPassportData) will call validateShareAccess before returning data
+- US-016-017 (coach acceptance/decline) will update coachAcceptanceStatus checked by gateway
+- Future team-scoped access (Decision #19) will add member role validation
+
+**What to do next**:
+- US-011: Create getSharedPassportData query (cross-org passport data retrieval)
+- This will be the first consumer of validateShareAccess gateway
+- Must fetch data from multiple sources (enrollments, goals, notes, injuries)
+- Filter by sourceOrgMode and sourceOrgIds from consent
+- Mark all returned data with source org name and last updated timestamp
+
+**Mistakes made** (learn from these!):
+- Tried to use withIndex on Better Auth member table - not possible
+- Assumed index name without checking schema first - always verify with Grep
+- Initially included full member validation but realized it's premature for current phase
+
+---
+

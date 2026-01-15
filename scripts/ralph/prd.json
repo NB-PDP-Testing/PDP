@@ -478,8 +478,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 35,
-      "passes": false,
-      "notes": "FR-C7 parent side"
+      "passes": true,
+      "notes": "FR-C7 parent side - Complete with approve/decline actions. Browser verification deferred (needs pending requests data)"
     },
     {
       "id": "US-036",

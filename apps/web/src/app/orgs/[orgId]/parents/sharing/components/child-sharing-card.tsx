@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { QuickShare } from "./quick-share";
 
 type ChildSharingCardProps = {
   child: {
@@ -112,6 +113,16 @@ export function ChildSharingCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* QuickShare component (shows only if feature flag enabled and parent has previous consent) */}
+        <QuickShare
+          childName={`${child.player.firstName} ${child.player.lastName}`}
+          onSuccess={() => {
+            // Refresh data by triggering re-render
+            // Convex will automatically refetch consents
+          }}
+          playerIdentityId={child.player._id}
+        />
+
         {/* Sharing status */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">

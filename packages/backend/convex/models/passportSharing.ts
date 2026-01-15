@@ -1495,3 +1495,88 @@ export const getPendingRequestsForPlayer = query({
     }));
   },
 });
+
+/**
+ * US-030: Get last consent settings for Quick Share feature
+ *
+ * Returns the most recent consent settings for a player so parents can
+ * quickly re-enable sharing with the same configuration.
+ *
+ * @param playerIdentityId - Player identity ID
+ * @returns Last consent settings or null if no previous consent
+ */
+export const getLastConsentSettings = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.union(
+    v.object({
+      receivingOrgId: v.string(),
+      sharedElements: v.object({
+        basicProfile: v.boolean(),
+        skillRatings: v.boolean(),
+        skillHistory: v.boolean(),
+        developmentGoals: v.boolean(),
+        coachNotes: v.boolean(),
+        benchmarkData: v.boolean(),
+        attendanceRecords: v.boolean(),
+        injuryHistory: v.boolean(),
+        medicalSummary: v.boolean(),
+        contactInfo: v.boolean(),
+      }),
+      sourceOrgMode: v.union(
+        v.literal("all_enrolled"),
+        v.literal("specific_orgs")
+      ),
+      sourceOrgIds: v.optional(v.array(v.string())),
+      expiresAt: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    // Get all consents for this player, ordered by creation date (most recent first)
+    const consents = await ctx.db
+      .query("passportShareConsents")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .order("desc")
+      .collect();
+
+    // Filter for consents that were successfully created (ignore ones that were never accepted)
+    // We want to use settings from consents that actually worked before
+    const successfulConsents = consents.filter(
+      (c) =>
+        c.status === "active" ||
+        c.status === "expired" ||
+        c.status === "revoked"
+    );
+
+    // Return null if no previous consent exists
+    if (successfulConsents.length === 0) {
+      return null;
+    }
+
+    // Get the most recent consent
+    const lastConsent = successfulConsents[0];
+
+    // Return settings suitable for creating a new consent
+    // Note: We calculate a new expiresAt date (same duration as before)
+    const originalDuration = lastConsent.expiresAt - lastConsent.consentedAt;
+    const newExpiresAt = Date.now() + originalDuration;
+
+    return {
+      receivingOrgId: lastConsent.receivingOrgId,
+      sharedElements: lastConsent.sharedElements,
+      sourceOrgMode: lastConsent.sourceOrgMode,
+      sourceOrgIds: lastConsent.sourceOrgIds,
+      expiresAt: newExpiresAt,
+    };
+  },
+});

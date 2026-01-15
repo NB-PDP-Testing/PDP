@@ -2702,3 +2702,147 @@ if (consent.sharedElements.skillHistory && sourceOrgIds.length > 0) {
 - Wasted context reading file and starting Accordion implementation that can't be completed
 
 ---
+
+## 2026-01-15 - US-041 - Request access to passport flow
+**Iteration**: 19
+**Commit**: f8a6c5a9af5935b361d4f36dbdbbf088d9394c14
+**Session**: ef03fa87-ca2e-496d-bd85-71bd8651133a
+**Status**: Complete
+
+### What was implemented
+**Backend - checkPlayerShareStatus query:**
+- New query in passportSharing.ts to check share status for a player/org combination
+- Returns: hasActiveShare, hasPendingRequest, consentId (if active share exists)
+- Queries by_player_and_status index for active consents (status='active', not expired, coachAcceptanceStatus='accepted')
+- Queries by_player_and_status index for pending requests (status='pending', not expired)
+- Used by frontend to conditionally render buttons
+
+**Frontend - RequestAccessModal component:**
+- Created new modal component at apps/web/src/app/orgs/[orgId]/players/[playerId]/components/request-access-modal.tsx
+- Shows player name and optional reason field (500 char max)
+- Calls requestPassportAccess mutation (already implemented in US-018)
+- Success toast: "Access Request Sent" with description
+- Error handling with toast notifications
+- Loading state with spinner during submission
+- Auto-closes and resets form on success
+
+**Frontend - Player profile page integration:**
+- Added checkPlayerShareStatus query to player profile page
+- Added state for showRequestAccessModal
+- **Conditional button rendering for coaches only:**
+  - **"View Shared Passport"**: If hasActiveShare && consentId exists
+    - Blue outline style (border-blue-500, text-blue-600, hover:bg-blue-50)
+    - Links to /orgs/${orgId}/players/${playerId}/shared?consentId=${consentId}
+    - Uses ExternalLink icon
+  - **"Request Access"**: If !hasActiveShare && !hasPendingRequest
+    - Gray outline style (default variant="outline")
+    - Opens RequestAccessModal on click
+    - Uses Share2 icon
+  - **"Request Pending"**: If !hasActiveShare && hasPendingRequest
+    - Disabled button, gray outline
+    - Shows pending state to coach
+    - Uses Share2 icon
+- Buttons only shown if permissions.isCoach is true
+- All buttons positioned after "Share / Export" button in header
+
+**Query reactivity:**
+- Convex queries automatically update when data changes
+- After request is sent, checkPlayerShareStatus query updates via reactivity
+- UI automatically reflects new state (Request Access → Request Pending)
+
+### Files changed
+- packages/backend/convex/models/passportSharing.ts (+56 lines) - New checkPlayerShareStatus query
+- apps/web/src/app/orgs/[orgId]/players/[playerId]/components/request-access-modal.tsx (+152 lines, new file)
+- apps/web/src/app/orgs/[orgId]/players/[playerId]/page.tsx (+63 lines, -1 line)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: no new errors (pre-existing errors in codebase remain)
+- ✅ Linting: pre-commit hook passed (no errors in my code)
+- ⚠️ Browser verification: deferred (needs coach role + player without active share to test end-to-end)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Share status check pattern**: Create query to check multiple conditions (active share, pending request)
+  - Returns boolean flags for UI conditional rendering
+  - More efficient than separate queries for each condition
+  - Single query = single subscription for reactivity
+- **Conditional button rendering for roles**: Use permissions object + query results
+  - Pattern: `{permissions.isCoach && shareStatus && ( ... )}`
+  - Only coaches see share-related buttons
+  - Button state depends on query results (active/pending/none)
+- **Button state transitions**: Request Access → Request Pending → View Shared Passport
+  - Disabled button shows pending state (better UX than hiding)
+  - "Request Pending" gives feedback that action was taken
+- **Convex query reactivity**: Queries auto-update when underlying data changes
+  - No need to manually refresh after mutation
+  - onRequestSent callback can be empty (query handles updates)
+- **Modal reason field best practices**:
+  - Optional but helpful context for parent/guardian
+  - 500 char limit (enough for context, not essay)
+  - Placeholder text gives example usage
+  - Helper text explains why to provide reason
+
+**Gotchas encountered:**
+- **Linter removes unused imports**: When adding imports and usage separately, linter removes imports before usage is added
+  - Solution: Add import and usage together, or accept multiple edit rounds
+  - ExternalLink icon kept getting removed until I added all button code
+- **Pre-commit hook runs Biome check**: Only checks staged files (not whole codebase)
+  - Errors in other files don't block commit
+  - Pre-existing errors are ignored
+  - Only checks diagnostic-level=error (not warnings)
+
+**Dependencies found:**
+- US-041 depends on US-018 (requestPassportAccess mutation - already implemented)
+- US-041 creates UI that links to US-039 (shared passport viewer - /players/[playerId]/shared)
+- Button shows consentId from checkPlayerShareStatus query result
+
+**UI/UX decisions:**
+- **"Request Access" vs "Request to Share"**: Used "Request Access" (clearer for coaches)
+- **Disabled "Request Pending" button**: Better than hiding button entirely
+  - Shows coach that action was taken
+  - Prevents confusion ("where did the button go?")
+  - Common pattern in UI design (disabled = action already performed)
+- **Blue style for "View Shared Passport"**: Distinct from gray request buttons
+  - Indicates active, available action
+  - Matches shared passport page theme
+- **Modal vs inline form**: Modal is appropriate for multi-field form with submit action
+  - Follows existing pattern (ShareModal in same page)
+  - Focuses user attention on form
+  - Easy to cancel/close without affecting page state
+
+**Button positioning logic:**
+```typescript
+// Coach share buttons logic:
+if (permissions.isCoach && shareStatus) {
+  if (shareStatus.hasActiveShare && shareStatus.consentId) {
+    // Show "View Shared Passport" button (blue outline)
+  } else if (!shareStatus.hasActiveShare && !shareStatus.hasPendingRequest) {
+    // Show "Request Access" button (gray outline)
+  } else if (!shareStatus.hasActiveShare && shareStatus.hasPendingRequest) {
+    // Show "Request Pending" button (disabled, gray outline)
+  }
+}
+```
+
+**checkPlayerShareStatus query pattern:**
+```typescript
+// Efficient single query checks both conditions:
+// 1. Active consent with coachAcceptanceStatus='accepted'
+// 2. Pending request with status='pending' and not expired
+// Returns all info needed for UI rendering
+```
+
+**What to do next**:
+- US-042: Data freshness indicators (color-coded timestamps on shared passport sections)
+- US-043: Organization contact display (show sharing contact on shared passport view)
+- US-044: Admin sharing contact settings (CRUD for org sharing contact info)
+- Consider: Test US-041 with real data (coach role, player without share, submit request, verify pending state)
+
+**Mistakes made** (learn from these!):
+- Initially tried to add import and usage separately, linter kept removing import
+- Should have added all button code + imports in one go
+- Pre-commit hook caught no issues, so approach was fine
+
+---

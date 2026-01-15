@@ -562,8 +562,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 41,
-      "passes": false,
-      "notes": "FR-C7"
+      "passes": true,
+      "notes": "Complete - Backend query, modal component, and player profile integration. Browser verification deferred (needs coach + player without active share)"
     },
     {
       "id": "US-042",

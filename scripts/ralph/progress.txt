@@ -919,3 +919,78 @@ Next iteration should focus on request workflow and notifications:
 
 ---
 
+
+## 2026-01-15 23:00 - US-023 - Parent Sharing Dashboard Page Structure
+**Iteration**: 5
+**Commit**: 82205602d9361f4c0c55d6f5734fc6c41c1501b9
+**Session**: e04796b4-a3b1-4d04-bb97-bd3fa99a7caa
+**Status**: Complete
+
+### What was implemented
+- Created `/orgs/[orgId]/parents/sharing` route with page structure
+- Created `ParentSharingDashboard` component following existing parent page patterns:
+  - Header with gradient (blue) and Shield icon
+  - Summary stats cards: Children count, Active Shares, Pending Requests, Last Activity
+  - Child cards grid showing placeholder sharing status
+  - Quick action buttons: "Enable Sharing", "View Audit Log"
+  - Mobile-responsive layout (grid with md:2 cols, lg:3 cols)
+- Added "Passport Sharing" navigation link to parent sidebar:
+  - Shield icon from lucide-react
+  - Added to "Children" group in navigation
+  - Both desktop and mobile navigation updated
+- Authentication and authorization checks:
+  - Uses `useGuardianChildrenInOrg` hook for children data
+  - Checks for parent functional role or admin/owner Better Auth role
+  - Shows access denied message if no parent role and no linked children
+  - Shows loading state while fetching data
+- Added `type="button"` to navigation buttons for accessibility (lint compliance)
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/sharing/page.tsx (+28, new file)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/parent-sharing-dashboard.tsx (+275, new file)
+- apps/web/src/components/layout/parent-sidebar.tsx (+7, -3)
+- scripts/ralph/prd.json (marked US-014-017, US-023 as passes: true)
+
+### Quality checks
+- ✅ Type check: No new errors
+- ✅ Biome linting: Passed (fixed unused variable, hook ordering, button types)
+- ✅ Pre-commit hooks: Passed
+- ✅ Browser verification: Page loads correctly, shows proper title "Passport Sharing | Parent Dashboard"
+  - Note: Test user (neil.B@blablablak.com) doesn't have parent role or guardian identity, so access is denied (expected behavior)
+  - Page properly redirects unauthorized users
+  - Need parent role or linked children to view full dashboard
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Parent pages follow consistent structure: gradient header, summary stats cards, main content grid
+- Use `useGuardianChildrenInOrg` hook for fetching children (not direct Convex query)
+- Use `useMemo` for computed values BEFORE any early returns (React hooks rules)
+- Navigation items added to parent-sidebar `getParentNavGroups()` function
+- Lucide icons sometimes get auto-removed by linter if not used - may need to re-add
+
+**Gotchas encountered:**
+- React Hook rules: `useMemo` must be called unconditionally before any early returns
+- Biome lint requires `type="button"` on button elements not in forms
+- Unused variables flagged by linter (hasIdentity was imported but not used)
+- Linter (Biome/Ultracite) auto-formats and may reorder/remove imports
+
+**Dependencies found:**
+- US-024: Next story will add real consent data by fetching from getConsentsForPlayer query
+- US-024: Will need to aggregate consent data across all children for summary stats
+- Backend queries exist but not yet called from frontend (getConsentsForPlayer, getActiveConsentsForOrg)
+- Need test data: Parent role assignment and guardian-player links for testing
+
+**What to do next**:
+- US-024: Add child cards with real sharing data (active shares, pending requests, last activity)
+- Query `api.lib.consentGateway.getConsentsForPlayer` for each child
+- Calculate aggregate stats from consent data
+- Add filtering/sorting for children list
+- Add quick action button functionality (Enable Sharing dialog, Audit Log view)
+
+**Mistakes made** (learn from these!):
+- Initially had `useMemo` after early return statements (violates React hooks rules)
+- Had unused `hasIdentity` variable (linter caught it)
+- Forgot `type="button"` on navigation buttons initially
+
+---

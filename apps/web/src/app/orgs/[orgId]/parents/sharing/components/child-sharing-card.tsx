@@ -17,6 +17,7 @@ import {
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AccessAuditLog } from "./access-audit-log";
 import { NotificationPreferences } from "./notification-preferences";
+import { PendingRequests } from "./pending-requests";
 import { QuickShare } from "./quick-share";
 import { RevokeConsentModal } from "./revoke-consent-modal";
 
@@ -52,6 +53,9 @@ export function ChildSharingCard({
 
   // Modal state for preferences
   const [preferencesOpen, setPreferencesOpen] = useState(false);
+
+  // Modal state for pending requests
+  const [pendingRequestsOpen, setPendingRequestsOpen] = useState(false);
 
   // Fetch consents for this player
   const consents = useQuery(api.lib.consentGateway.getConsentsForPlayer, {
@@ -233,6 +237,20 @@ export function ChildSharingCard({
           </Button>
           <Button
             className="w-full"
+            onClick={() => setPendingRequestsOpen(true)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            View Pending Requests
+            {sharingMetrics.pendingRequests > 0 && (
+              <Badge className="ml-2" variant="default">
+                {sharingMetrics.pendingRequests}
+              </Badge>
+            )}
+          </Button>
+          <Button
+            className="w-full"
             onClick={() => setAuditLogOpen(true)}
             size="sm"
             type="button"
@@ -288,6 +306,22 @@ export function ChildSharingCard({
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Pending Requests Dialog */}
+      <Dialog onOpenChange={setPendingRequestsOpen} open={pendingRequestsOpen}>
+        <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
+          <PendingRequests
+            childName={`${child.player.firstName} ${child.player.lastName}`}
+            onApprove={() => {
+              // Close the pending requests dialog
+              setPendingRequestsOpen(false);
+              // Open the enable sharing wizard
+              onEnableSharing?.(child.player._id);
+            }}
+            playerIdentityId={child.player._id}
+          />
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

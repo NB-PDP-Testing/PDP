@@ -1,11 +1,12 @@
 "use client";
 
-import { Shield, User } from "lucide-react";
+import { AlertCircle, Shield, User } from "lucide-react";
 import { useState } from "react";
 import { ResponsiveDialog } from "@/components/interactions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
@@ -47,6 +48,22 @@ type WizardStep =
   | "success";
 
 /**
+ * Shared passport elements structure (matches backend schema)
+ */
+export type SharedElements = {
+  basicProfile: boolean; // Name, age group, photo
+  skillRatings: boolean; // Skill assessments
+  skillHistory: boolean; // Historical ratings
+  developmentGoals: boolean; // Goals & milestones
+  coachNotes: boolean; // Public coach notes
+  benchmarkData: boolean; // Benchmark comparisons
+  attendanceRecords: boolean; // Training/match attendance
+  injuryHistory: boolean; // Injury records (safety-critical)
+  medicalSummary: boolean; // Medical profile summary
+  contactInfo: boolean; // Guardian/coach contact for coordination
+};
+
+/**
  * EnableSharingWizard - Multi-step wizard for enabling passport sharing
  *
  * Step 1 (US-025): Child selection
@@ -65,28 +82,57 @@ export function EnableSharingWizard({
   const [currentStep, setCurrentStep] = useState<WizardStep>("child-selection");
   const [selectedChildId, setSelectedChildId] = useState<string>("");
 
+  // Default: all elements selected
+  const [sharedElements, setSharedElements] = useState<SharedElements>({
+    basicProfile: true,
+    skillRatings: true,
+    skillHistory: true,
+    developmentGoals: true,
+    coachNotes: true,
+    benchmarkData: true,
+    attendanceRecords: true,
+    injuryHistory: true,
+    medicalSummary: true,
+    contactInfo: true,
+  });
+
   // Reset wizard state when dialog closes
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setCurrentStep("child-selection");
       setSelectedChildId("");
+      // Reset shared elements to all selected
+      setSharedElements({
+        basicProfile: true,
+        skillRatings: true,
+        skillHistory: true,
+        developmentGoals: true,
+        coachNotes: true,
+        benchmarkData: true,
+        attendanceRecords: true,
+        injuryHistory: true,
+        medicalSummary: true,
+        contactInfo: true,
+      });
     }
     onOpenChange(newOpen);
   };
 
   // Handle step navigation
   const handleNext = () => {
-    // For now, only child-selection step is implemented
     if (currentStep === "child-selection") {
-      // TODO: Move to next step (US-026)
-      // setCurrentStep("element-selection");
+      setCurrentStep("element-selection");
+    } else if (currentStep === "element-selection") {
+      // TODO: Move to org-selection (US-027)
+      // setCurrentStep("org-selection");
     }
   };
 
   const handleBack = () => {
-    // For now, close dialog on back from first step
     if (currentStep === "child-selection") {
       handleOpenChange(false);
+    } else if (currentStep === "element-selection") {
+      setCurrentStep("child-selection");
     }
   };
 
@@ -96,20 +142,41 @@ export function EnableSharingWizard({
   );
 
   // Determine if user can proceed
-  const canProceed =
-    currentStep === "child-selection" && selectedChildId !== "";
+  const canProceed = (() => {
+    if (currentStep === "child-selection") {
+      return selectedChildId !== "";
+    }
+    if (currentStep === "element-selection") {
+      // At least one element must be selected
+      return Object.values(sharedElements).some((value) => value);
+    }
+    return false;
+  })();
 
   // Get step number for progress indicator
   const getStepNumber = (step: WizardStep): number => {
     const stepMap: Record<WizardStep, number> = {
       "child-selection": 1,
-      "org-selection": 2,
-      "element-selection": 3,
+      "element-selection": 2,
+      "org-selection": 3,
       duration: 4,
       review: 5,
       success: 6,
     };
     return stepMap[step];
+  };
+
+  // Get step title
+  const getStepTitle = (step: WizardStep): string => {
+    const titleMap: Record<WizardStep, string> = {
+      "child-selection": "Select Child",
+      "element-selection": "What to Share",
+      "org-selection": "Who Can See",
+      duration: "How Long",
+      review: "Review & Confirm",
+      success: "Success",
+    };
+    return titleMap[step];
   };
 
   const currentStepNumber = getStepNumber(currentStep);
@@ -130,9 +197,7 @@ export function EnableSharingWizard({
               Step {currentStepNumber} of {totalSteps}
             </span>
           </div>
-          <h2 className="font-semibold text-lg">
-            {currentStep === "child-selection" && "Select Child"}
-          </h2>
+          <h2 className="font-semibold text-lg">{getStepTitle(currentStep)}</h2>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
               className="h-full bg-primary transition-all duration-300"
@@ -147,6 +212,13 @@ export function EnableSharingWizard({
             childrenList={childrenList}
             onSelectChild={setSelectedChildId}
             selectedChildId={selectedChildId}
+          />
+        )}
+
+        {currentStep === "element-selection" && (
+          <ElementSelectionStep
+            onUpdateElements={setSharedElements}
+            sharedElements={sharedElements}
           />
         )}
 
@@ -270,6 +342,153 @@ function ChildSelectionStep({
           ))}
         </div>
       </RadioGroup>
+    </div>
+  );
+}
+
+/**
+ * Step 2: Element Selection
+ */
+type ElementSelectionStepProps = {
+  sharedElements: SharedElements;
+  onUpdateElements: (elements: SharedElements) => void;
+};
+
+function ElementSelectionStep({
+  sharedElements,
+  onUpdateElements,
+}: ElementSelectionStepProps) {
+  // Element metadata with labels and descriptions
+  const elements: Array<{
+    key: keyof SharedElements;
+    label: string;
+    description: string;
+    isSensitive?: boolean;
+  }> = [
+    {
+      key: "basicProfile",
+      label: "Basic Profile",
+      description: "Name, age group, photo",
+    },
+    {
+      key: "skillRatings",
+      label: "Skill Ratings",
+      description: "Current skill assessments",
+    },
+    {
+      key: "skillHistory",
+      label: "Skill History",
+      description: "Historical skill development",
+    },
+    {
+      key: "developmentGoals",
+      label: "Development Goals",
+      description: "Goals and milestones",
+    },
+    {
+      key: "coachNotes",
+      label: "Coach Notes",
+      description: "Public coach observations",
+    },
+    {
+      key: "benchmarkData",
+      label: "Benchmark Data",
+      description: "Performance comparisons",
+    },
+    {
+      key: "attendanceRecords",
+      label: "Attendance Records",
+      description: "Training and match attendance",
+    },
+    {
+      key: "injuryHistory",
+      label: "Injury History",
+      description: "Past injuries and recovery",
+      isSensitive: true,
+    },
+    {
+      key: "medicalSummary",
+      label: "Medical Summary",
+      description: "Medical profile information",
+      isSensitive: true,
+    },
+    {
+      key: "contactInfo",
+      label: "Contact Information",
+      description: "Guardian and coach contact details",
+      isSensitive: true,
+    },
+  ];
+
+  // Check if any sensitive elements are selected
+  const hasSensitiveSelected =
+    sharedElements.injuryHistory ||
+    sharedElements.medicalSummary ||
+    sharedElements.contactInfo;
+
+  // Toggle element
+  const toggleElement = (key: keyof SharedElements) => {
+    onUpdateElements({
+      ...sharedElements,
+      [key]: !sharedElements[key],
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-muted-foreground text-sm">
+        Select which passport elements you want to share. All elements are
+        selected by default.
+      </p>
+
+      {/* Element checkboxes */}
+      <div className="space-y-3">
+        {elements.map((element) => (
+          <div
+            className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+            key={element.key}
+          >
+            <Checkbox
+              checked={sharedElements[element.key]}
+              className="mt-0.5"
+              id={element.key}
+              onCheckedChange={() => {
+                toggleElement(element.key);
+              }}
+            />
+            <div className="flex-1">
+              <Label
+                className="cursor-pointer font-medium text-sm"
+                htmlFor={element.key}
+              >
+                {element.label}
+                {element.isSensitive && (
+                  <Badge className="ml-2" variant="secondary">
+                    Sensitive
+                  </Badge>
+                )}
+              </Label>
+              <p className="mt-0.5 text-muted-foreground text-xs">
+                {element.description}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Sensitive data warning */}
+      {hasSensitiveSelected && (
+        <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="space-y-1 text-xs">
+            <p className="font-medium">Sensitive Information Selected</p>
+            <p>
+              Medical and contact information should only be shared when
+              necessary. You can revoke access at any time.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1500,3 +1500,96 @@ Next iteration should focus on adding real consent data to child cards:
 
 ---
 
+
+## 2026-01-15 21:30 - US-029 - Enable Sharing Wizard Steps 5-6 (Review and Success)
+**Iteration**: 11
+**Commit**: [pending]
+**Session**: 5a751fb4-7b94-4269-8a79-85fd9ce2077c
+**Status**: Complete
+
+### What was implemented
+**Step 5: Review Summary**
+- Created ReviewStep component displaying all wizard selections for final confirmation
+- Shows child name, selected passport elements (count + badges), source org mode, duration
+- Organized review cards with icons and clear section titles
+- Privacy notice reminder with revocation information
+- Dynamic org list display for specific_orgs mode
+
+**Step 6: Success Screen**
+- Created SuccessStep component with checkmark icon and success message
+- "What Happens Next" cards explaining workflow: coach notification → acceptance → parent notification → audit logging
+- Close button returns to dashboard
+- TODO marker for future consent receipt download feature
+
+**Backend Integration:**
+- Added useMutation hook for createPassportShareConsent
+- handleSubmit function calls mutation with all wizard state (child, elements, orgs, duration, receiving orgId)
+- Converts Date to Unix timestamp (expiresAt.getTime())
+- Error handling with console logging (TODO: replace with toast notification)
+- Success sets consentId and transitions to success screen
+- Navigation buttons conditionally show "Confirm & Enable Sharing" on review step
+
+**State Management:**
+- Added consentId and isSubmitting state
+- Reset logic clears success state on dialog close
+- handleBack extended to support review step navigation
+- handleNext updated to move from duration → review
+- Button text changes based on isSubmitting state
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/review-and-success-steps.tsx (+301 lines, new file)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/enable-sharing-wizard.tsx (+72, -16)
+- scripts/ralph/prd.json (marked US-029 as passes: true)
+
+### Quality checks
+- ✅ Type check: no errors in new files (pre-existing errors in other files)
+- ✅ Linting: passed (removed biome-ignore comments, fixed alert)
+- ✅ Pre-commit hooks: passed
+- ⚠️ Browser verification: deferred (requires parent role + guardian identity + linked children)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Separate component files**: Created review-and-success-steps.tsx to avoid file size issues
+- **Import statement organization**: Linter moves imports around - verify they're retained after formatting
+- **Error handling pattern**: Remove alert() calls, use console.error with TODO for toast notifications
+- **Biome hook warnings**: Using useQuery in .map() is acceptable pattern, no need for biome-ignore
+- **Mutation timing**: Date → Unix timestamp conversion using .getTime() for backend compatibility
+- **Navigation button logic**: Use conditional rendering based on currentStep to show different buttons/labels
+- **Success screen isolation**: Hide progress indicator and navigation buttons on success screen
+
+**Gotchas encountered:**
+- Linter removes imports like useMutation and CheckCircle initially - must re-add explicitly
+- alert() is forbidden by linter (lint/suspicious/noAlert) - remove it completely
+- biome-ignore comments for useHookAtTopLevel cause lint errors - remove them (pattern is actually fine)
+- Must use orgId (not _orgId) in function parameter to access it in mutation
+- selectedChild must not be prefixed with underscore if used in render
+
+**Dependencies found:**
+- US-030: Quick share option (uses last consent settings for one-click sharing)
+- US-031: Revocation flow UI (uses consent dashboard to revoke)
+- US-032-033: Audit log viewer (displays access logs from passportShareAccessLogs)
+- Future: Consent receipt download button (PDF generation)
+- Future: Toast notifications using sonner for error messages
+
+**Component architecture insights:**
+- **Wizard completion flow**: review → submit → mutation call → set consentId → transition to success
+- **Review step pattern**: Display all selections in organized cards with icons
+- **Success step pattern**: Checkmark icon + message + numbered workflow steps + close button
+- **Error handling**: Log to console, TODO for proper toast notification integration
+- **Mutation pattern**: async/await with try-catch, set loading state, handle errors gracefully
+
+**What to do next**:
+- US-030: Quick share option (feature flag controlled one-click sharing)
+- US-031: Revocation flow UI (from child cards on dashboard)
+- US-032-033: Audit log viewer with filters and export
+- Browser testing requires setting up test user with parent role and guardian-player links
+- Consider adding sonner toast notifications for better error UX
+
+**Mistakes made** (learn from these!):
+- Initially kept biome-ignore comments which caused lint errors
+- Used alert() which is forbidden by linter - should use console.error + TODO
+- Initially used _orgId which made orgId inaccessible in mutation
+- Had to re-add imports multiple times as linter removed them
+
+---

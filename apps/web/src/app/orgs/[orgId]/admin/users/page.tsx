@@ -1950,70 +1950,74 @@ export default function ManageUsersPage() {
           </ResponsiveForm>
         </DialogContent>
       </Dialog>
-      selectedInvitationId && pendingInvitations && (
-      <InvitationDetailModal
-        invitation={
-          pendingInvitations.find(
-            (inv: { _id: string }) => inv._id === selectedInvitationId
-          ) || null
-        }
-        isOpen={!!selectedInvitationId}
-        onCancel={async () => {
-          try {
-            await cancelInvitation({ invitationId: selectedInvitationId });
-            toast.success("Invitation cancelled successfully");
-            setSelectedInvitationId(null);
-          } catch (_error) {
-            toast.error("Failed to cancel invitation");
+      {selectedInvitationId && pendingInvitations && (
+        <InvitationDetailModal
+          invitation={
+            pendingInvitations.find(
+              (inv: { _id: string }) => inv._id === selectedInvitationId
+            ) || null
           }
-        }}
-        onClose={() => setSelectedInvitationId(null)}
-        onResend={async () => {
-          try {
-            await resendInvitation({ invitationId: selectedInvitationId });
-            toast.success("Invitation resent successfully");
-          } catch (_error) {
-            toast.error("Failed to resend invitation");
-          }
-        }}
-      />
-      )historyInvitation && (
-      <InvitationHistoryModal
-        invitationId={historyInvitation.invitationId}
-        inviteeEmail={historyInvitation.email}
-        onClose={() => setHistoryInvitation(null)}
-      />
-      )editingInvitation && (
-      <EditInvitationModal
-        invitation={editingInvitation}
-        onClose={() => setEditingInvitation(null)}
-        onSuccess={() => {
-          setEditingInvitation(null);
-          // Refresh will happen automatically via Convex reactivity
-        }}
-        organizationId={orgId}
-      />
-      )disablingMember && (
-      <DisableMemberDialog
-        member={disablingMember}
-        onClose={() => setDisablingMember(null)}
-        onSuccess={() => {
-          setDisablingMember(null);
-          // Refresh will happen automatically via Convex reactivity
-        }}
-        organizationId={orgId}
-      />
-      )removingMember && (
-      <RemoveFromOrgDialog
-        member={removingMember}
-        onClose={() => setRemovingMember(null)}
-        onSuccess={() => {
-          setRemovingMember(null);
-          // Refresh will happen automatically via Convex reactivity
-        }}
-        organizationId={orgId}
-      />
-      )
+          isOpen={!!selectedInvitationId}
+          onCancel={async () => {
+            try {
+              await cancelInvitation({ invitationId: selectedInvitationId });
+              toast.success("Invitation cancelled successfully");
+              setSelectedInvitationId(null);
+            } catch (_error) {
+              toast.error("Failed to cancel invitation");
+            }
+          }}
+          onClose={() => setSelectedInvitationId(null)}
+          onResend={async () => {
+            try {
+              await resendInvitation({ invitationId: selectedInvitationId });
+              toast.success("Invitation resent successfully");
+            } catch (_error) {
+              toast.error("Failed to resend invitation");
+            }
+          }}
+        />
+      )}
+      {historyInvitation && (
+        <InvitationHistoryModal
+          invitationId={historyInvitation.invitationId}
+          inviteeEmail={historyInvitation.email}
+          onClose={() => setHistoryInvitation(null)}
+        />
+      )}
+      {editingInvitation && (
+        <EditInvitationModal
+          invitation={editingInvitation}
+          onClose={() => setEditingInvitation(null)}
+          onSuccess={() => {
+            setEditingInvitation(null);
+            // Refresh will happen automatically via Convex reactivity
+          }}
+          organizationId={orgId}
+        />
+      )}
+      {disablingMember && (
+        <DisableMemberDialog
+          member={disablingMember}
+          onClose={() => setDisablingMember(null)}
+          onSuccess={() => {
+            setDisablingMember(null);
+            // Refresh will happen automatically via Convex reactivity
+          }}
+          organizationId={orgId}
+        />
+      )}
+      {removingMember && (
+        <RemoveFromOrgDialog
+          member={removingMember}
+          onClose={() => setRemovingMember(null)}
+          onSuccess={() => {
+            setRemovingMember(null);
+            // Refresh will happen automatically via Convex reactivity
+          }}
+          organizationId={orgId}
+        />
+      )}
     </div>
   );
 }

@@ -1580,3 +1580,84 @@ export const getLastConsentSettings = query({
     };
   },
 });
+
+// ============================================================
+// ACCESS AUDIT LOG QUERIES
+// US-032: Access audit log viewer
+// ============================================================
+
+/**
+ * Get access logs for a player
+ * Returns paginated audit trail of all data access for a player
+ *
+ * @param playerIdentityId - The player whose access logs to fetch
+ * @param limit - Number of logs to return (default 50)
+ * @param offset - Number of logs to skip for pagination (default 0)
+ * @returns Array of access log entries
+ */
+export const getAccessLogsForPlayer = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
+  returns: v.object({
+    logs: v.array(
+      v.object({
+        _id: v.id("passportShareAccessLogs"),
+        consentId: v.id("passportShareConsents"),
+        accessedByName: v.string(),
+        accessedByRole: v.string(),
+        accessedByOrgName: v.string(),
+        accessType: v.string(),
+        accessedAt: v.number(),
+        sourceOrgId: v.optional(v.string()),
+      })
+    ),
+    total: v.number(),
+    hasMore: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    // Authentication check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    // Set pagination defaults
+    const limit = args.limit || 50;
+    const offset = args.offset || 0;
+
+    // Fetch all access logs for this player
+    const allLogs = await ctx.db
+      .query("passportShareAccessLogs")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .order("desc") // Most recent first
+      .collect();
+
+    // Calculate pagination
+    const total = allLogs.length;
+    const paginatedLogs = allLogs.slice(offset, offset + limit);
+    const hasMore = offset + limit < total;
+
+    // Map to return format
+    const logs = paginatedLogs.map((log) => ({
+      _id: log._id,
+      consentId: log.consentId,
+      accessedByName: log.accessedByName,
+      accessedByRole: log.accessedByRole,
+      accessedByOrgName: log.accessedByOrgName,
+      accessType: log.accessType,
+      accessedAt: log.accessedAt,
+      sourceOrgId: log.sourceOrgId,
+    }));
+
+    return {
+      logs,
+      total,
+      hasMore,
+    };
+  },
+});

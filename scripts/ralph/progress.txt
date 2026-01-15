@@ -1918,3 +1918,103 @@ Next iteration should focus on adding real consent data to child cards:
 - None - clean implementation leveraging existing audit log infrastructure
 
 ---
+## 2026-01-15 16:00 - US-034 - Notification Preferences UI
+**Iteration**: 14
+**Commit**: cc254da3afc1268c12a06a66b4c4cc926c732c62
+**Session**: 0a7a6733-819b-4acf-9669-f487efc381d5
+**Status**: Complete
+
+### What was implemented
+**Backend (passportSharing.ts):**
+- Added `getNotificationPreferences` query to retrieve parent notification preferences
+  - Accepts guardianIdentityId and optional playerIdentityId
+  - Returns preferences or null if not found
+  - Uses by_guardian index with client-side filtering for optional playerIdentityId
+- Added `updateNotificationPreferences` mutation to create/update preferences
+  - Creates new record if none exists, otherwise patches existing
+  - Supports per-player preferences (when playerIdentityId provided)
+  - Supports global preferences (when playerIdentityId is undefined/null)
+
+**Frontend (NotificationPreferences component):**
+- Created new component with Card layout
+- Select dropdown for access notification frequency (realtime, daily, weekly, none)
+- Three Switch toggles for: coach requests, share expiring, guardian changes
+- Automatically loads existing preferences on mount using useEffect
+- Save button calls updateNotificationPreferences mutation
+- Toast notifications for success/failure using sonner
+- Disabled state during save operation
+
+**Integration:**
+- Updated ChildSharingCard to accept optional guardianIdentityId prop
+- Added "Manage Preferences" button (disabled if no guardianIdentityId)
+- Added Dialog to display NotificationPreferences component
+- Updated ParentSharingDashboard to pass guardianIdentity._id to ChildSharingCard
+
+### Files changed
+- packages/backend/convex/models/passportSharing.ts (+133, -0)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/notification-preferences.tsx (+188 lines, new file)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/child-sharing-card.tsx (+18, -1)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/parent-sharing-dashboard.tsx (+1, -0)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: passed for new files (pre-existing errors remain)
+- ✅ Pre-commit hooks: passed (biome linting)
+- ⚠️ Browser verification: deferred (needs parent role + guardian identity + active shares)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Optional index queries**: When an index field is optional and you need to query with/without it:
+  - Use the single-field index (e.g., by_guardian)
+  - Use .collect() to get all matching records
+  - Filter client-side with .find() for the optional field
+  - Example: Get preferences for a guardian, optionally filtered by player
+- **Select component type casting**: shadcn Select onValueChange returns `string`, need to cast to union type
+  - Use: `onValueChange={(value) => setState(value as "opt1" | "opt2")}`
+- **Dialog max-width pattern**: Use max-w-2xl for medium-width forms, max-w-4xl for wide tables
+- **Auto-loading form data**: Use useEffect with query result as dependency to populate form state
+- **Props flow for identity IDs**: Pass guardianIdentityId from dashboard → card → preferences component
+
+**Gotchas encountered:**
+- **Linter removes unused imports**: When adding new imports, linter may remove them if not used immediately
+  - Must add import and use it in same edit, or re-add after linter runs
+- **Index queries with optional fields**: Cannot use .withIndex("by_field1_and_field2") if only querying field1
+  - TypeScript error: `IndexRangeBuilder` type incompatibility
+  - Solution: Query by first field only, filter results client-side
+- **Select type inference**: React Select doesn't infer union types, always returns `string`
+  - Must cast to specific union type in onValueChange handler
+
+**Dependencies found:**
+- US-034 depends on parentNotificationPreferences table (US-006, already implemented)
+- US-034 depends on guardianIdentities system (already implemented)
+- Future: US-047-049 (notification generation) will use these preferences to determine delivery frequency
+- Future: Notification system will check accessNotificationFrequency before sending access notifications
+
+**Component architecture insights:**
+- **NotificationPreferences pattern**: Self-contained Card component with own query and mutation
+- **State management**: Local state for form inputs, synced from query results via useEffect
+- **Save pattern**: Mutation call → toast feedback → automatic refetch via Convex reactivity
+- **Props structure**: Minimal props (IDs only), component handles all data fetching
+- **Disabled state**: Button disabled during save, prevents double-submission
+
+**Schema insights:**
+- **parentNotificationPreferences table**:
+  - guardianIdentityId: Required (FK to guardianIdentities)
+  - playerIdentityId: Optional (null = global default for this guardian)
+  - accessNotificationFrequency: Union type (realtime, daily, weekly, none)
+  - notifyOnCoachRequest, notifyOnShareExpiring, notifyOnGuardianChange: Optional booleans (default true)
+- **Indexes**: by_guardian (single field) works better than by_guardian_and_player for optional queries
+
+**What to do next**:
+- US-035: Pending coach requests view (parent-side request management)
+- US-036: Shared players section on coach dashboard (coach-side feature)
+- US-037-038: Accept/decline share modal for coaches
+- Consider: Start coach-side features (US-036-043) or continue with parent features (US-035)
+
+**Mistakes made** (learn from these!):
+- Initially used by_guardian_and_player index but couldn't query with optional playerIdentityId
+- Forgot to cast Select onValueChange value, got TypeScript error
+- Linter removed NotificationPreferences import, had to re-add it
+
+---

@@ -831,7 +831,6 @@ export default function ManageUsersPage() {
           Invite Member
         </Button>
       </div>
-
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         <Card
@@ -943,7 +942,6 @@ export default function ManageUsersPage() {
           </CardContent>
         </Card>
       </div>
-
       {/* Pending Invitations */}
       {pendingInvitations && pendingInvitations.length > 0 && (
         <Card className="border-orange-200">
@@ -1187,7 +1185,6 @@ export default function ManageUsersPage() {
           </CardContent>
         </Card>
       )}
-
       {/* Search and Filter */}
       <div className="flex flex-col gap-4 sm:flex-row">
         <div className="relative max-w-md flex-1">
@@ -1210,7 +1207,6 @@ export default function ManageUsersPage() {
           </Button>
         )}
       </div>
-
       {/* Users List */}
       <div className="space-y-3">
         {filteredMembers && filteredMembers.length === 0 ? (
@@ -1266,86 +1262,31 @@ export default function ManageUsersPage() {
             return (
               <Card key={member.userId}>
                 <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={user.image || undefined} />
-                        <AvatarFallback>
-                          {getInitials(user.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <CardTitle className="text-base">
-                          {user.name || "Unknown"}
-                        </CardTitle>
-                        <CardDescription className="flex items-center gap-1 text-sm">
-                          <Mail className="h-3 w-3" />
-                          {user.email || "No email"}
-                        </CardDescription>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="flex flex-wrap gap-1">
-                        {/* Suspended Badge - show if member is disabled */}
-                        {member.isDisabled && (
-                          <Badge className="border-red-300 bg-red-100 text-red-700">
-                            <svg
-                              aria-hidden="true"
-                              className="mr-1 h-3 w-3"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                              viewBox="0 0 24 24"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <path
-                                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                            Suspended
-                          </Badge>
-                        )}
-                        {/* Owner Badge - show if Better Auth role is "owner" */}
-                        {member.role === "owner" && (
-                          <Badge className="border-amber-300 bg-amber-100 text-amber-700">
-                            <Crown className="mr-1 h-3 w-3" />
-                            Owner
-                          </Badge>
-                        )}
-                        {state.functionalRoles.length === 0
-                          ? member.role !== "owner" && (
-                              <Badge variant="secondary">No roles</Badge>
-                            )
-                          : state.functionalRoles.map((role) => {
-                              const roleHasWarning =
-                                (role === "coach" &&
-                                  state.teams.length === 0) ||
-                                (role === "parent" &&
-                                  state.linkedPlayerIds.length === 0);
-                              return (
-                                <span
-                                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium text-xs ${getRoleBadgeColor(role)} ${roleHasWarning ? "ring-2 ring-orange-400" : ""}`}
-                                  key={role}
-                                  title={
-                                    roleHasWarning
-                                      ? `${role} has incomplete configuration`
-                                      : ""
-                                  }
-                                >
-                                  {getRoleIcon(role)}
-                                  {role}
-                                  {roleHasWarning && (
-                                    <AlertTriangle className="h-3 w-3 text-orange-500" />
-                                  )}
-                                </span>
-                              );
-                            })}
+                  <div className="flex flex-col gap-2">
+                    {/* Row 1: Avatar, Name/Email, Action Buttons */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <Avatar className="h-10 w-10 flex-shrink-0">
+                          <AvatarImage src={user.image || undefined} />
+                          <AvatarFallback>
+                            {getInitials(user.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <CardTitle className="truncate text-base">
+                            {user.name || "Unknown"}
+                          </CardTitle>
+                          <CardDescription className="flex min-w-0 items-center gap-1 text-sm">
+                            <Mail className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">
+                              {user.email || "No email"}
+                            </span>
+                          </CardDescription>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      {/* Action buttons - always visible on right */}
+                      <div className="flex flex-shrink-0 items-center gap-2">
                         {/* Suspend/Restore button (admin/owner only) */}
                         {(currentMember?.role === "owner" ||
                           currentMember?.role === "admin") &&
@@ -1423,6 +1364,65 @@ export default function ManageUsersPage() {
                           )}
                         </Button>
                       </div>
+                    </div>
+
+                    {/* Row 2: Badges */}
+                    <div className="flex flex-wrap gap-1 pl-[52px]">
+                      {/* Suspended Badge - show if member is disabled */}
+                      {member.isDisabled && (
+                        <Badge className="border-red-300 bg-red-100 text-red-700">
+                          <svg
+                            aria-hidden="true"
+                            className="mr-1 h-3 w-3"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 715.636 5.636m12.728 12.728L5.636 5.636"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          Suspended
+                        </Badge>
+                      )}
+                      {/* Owner Badge - show if Better Auth role is "owner" */}
+                      {member.role === "owner" && (
+                        <Badge className="border-amber-300 bg-amber-100 text-amber-700">
+                          <Crown className="mr-1 h-3 w-3" />
+                          Owner
+                        </Badge>
+                      )}
+                      {state.functionalRoles.length === 0
+                        ? member.role !== "owner" && (
+                            <Badge variant="secondary">No roles</Badge>
+                          )
+                        : state.functionalRoles.map((role) => {
+                            const roleHasWarning =
+                              (role === "coach" && state.teams.length === 0) ||
+                              (role === "parent" &&
+                                state.linkedPlayerIds.length === 0);
+                            return (
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium text-xs ${getRoleBadgeColor(role)} ${roleHasWarning ? "ring-2 ring-orange-400" : ""}`}
+                                key={role}
+                                title={
+                                  roleHasWarning
+                                    ? `${role} has incomplete configuration`
+                                    : ""
+                                }
+                              >
+                                {getRoleIcon(role)}
+                                {role}
+                                {roleHasWarning && (
+                                  <AlertTriangle className="h-3 w-3 text-orange-500" />
+                                )}
+                              </span>
+                            );
+                          })}
                     </div>
                   </div>
                 </CardHeader>
@@ -1709,8 +1709,6 @@ export default function ManageUsersPage() {
           })
         )}
       </div>
-
-      {/* Invite Member Dialog */}
       <Dialog onOpenChange={setInviteDialogOpen} open={inviteDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1952,84 +1950,70 @@ export default function ManageUsersPage() {
           </ResponsiveForm>
         </DialogContent>
       </Dialog>
-
-      {/* Invitation Detail Modal */}
-      {selectedInvitationId && pendingInvitations && (
-        <InvitationDetailModal
-          invitation={
-            pendingInvitations.find(
-              (inv: { _id: string }) => inv._id === selectedInvitationId
-            ) || null
+      selectedInvitationId && pendingInvitations && (
+      <InvitationDetailModal
+        invitation={
+          pendingInvitations.find(
+            (inv: { _id: string }) => inv._id === selectedInvitationId
+          ) || null
+        }
+        isOpen={!!selectedInvitationId}
+        onCancel={async () => {
+          try {
+            await cancelInvitation({ invitationId: selectedInvitationId });
+            toast.success("Invitation cancelled successfully");
+            setSelectedInvitationId(null);
+          } catch (_error) {
+            toast.error("Failed to cancel invitation");
           }
-          isOpen={!!selectedInvitationId}
-          onCancel={async () => {
-            try {
-              await cancelInvitation({ invitationId: selectedInvitationId });
-              toast.success("Invitation cancelled successfully");
-              setSelectedInvitationId(null);
-            } catch (_error) {
-              toast.error("Failed to cancel invitation");
-            }
-          }}
-          onClose={() => setSelectedInvitationId(null)}
-          onResend={async () => {
-            try {
-              await resendInvitation({ invitationId: selectedInvitationId });
-              toast.success("Invitation resent successfully");
-            } catch (_error) {
-              toast.error("Failed to resend invitation");
-            }
-          }}
-        />
-      )}
-
-      {/* Invitation History Modal */}
-      {historyInvitation && (
-        <InvitationHistoryModal
-          invitationId={historyInvitation.invitationId}
-          inviteeEmail={historyInvitation.email}
-          onClose={() => setHistoryInvitation(null)}
-        />
-      )}
-
-      {/* Invitation Edit Modal */}
-      {editingInvitation && (
-        <EditInvitationModal
-          invitation={editingInvitation}
-          onClose={() => setEditingInvitation(null)}
-          onSuccess={() => {
-            setEditingInvitation(null);
-            // Refresh will happen automatically via Convex reactivity
-          }}
-          organizationId={orgId}
-        />
-      )}
-
-      {/* Disable/Enable Member Dialog */}
-      {disablingMember && (
-        <DisableMemberDialog
-          member={disablingMember}
-          onClose={() => setDisablingMember(null)}
-          onSuccess={() => {
-            setDisablingMember(null);
-            // Refresh will happen automatically via Convex reactivity
-          }}
-          organizationId={orgId}
-        />
-      )}
-
-      {/* Remove from Organization Dialog */}
-      {removingMember && (
-        <RemoveFromOrgDialog
-          member={removingMember}
-          onClose={() => setRemovingMember(null)}
-          onSuccess={() => {
-            setRemovingMember(null);
-            // Refresh will happen automatically via Convex reactivity
-          }}
-          organizationId={orgId}
-        />
-      )}
+        }}
+        onClose={() => setSelectedInvitationId(null)}
+        onResend={async () => {
+          try {
+            await resendInvitation({ invitationId: selectedInvitationId });
+            toast.success("Invitation resent successfully");
+          } catch (_error) {
+            toast.error("Failed to resend invitation");
+          }
+        }}
+      />
+      )historyInvitation && (
+      <InvitationHistoryModal
+        invitationId={historyInvitation.invitationId}
+        inviteeEmail={historyInvitation.email}
+        onClose={() => setHistoryInvitation(null)}
+      />
+      )editingInvitation && (
+      <EditInvitationModal
+        invitation={editingInvitation}
+        onClose={() => setEditingInvitation(null)}
+        onSuccess={() => {
+          setEditingInvitation(null);
+          // Refresh will happen automatically via Convex reactivity
+        }}
+        organizationId={orgId}
+      />
+      )disablingMember && (
+      <DisableMemberDialog
+        member={disablingMember}
+        onClose={() => setDisablingMember(null)}
+        onSuccess={() => {
+          setDisablingMember(null);
+          // Refresh will happen automatically via Convex reactivity
+        }}
+        organizationId={orgId}
+      />
+      )removingMember && (
+      <RemoveFromOrgDialog
+        member={removingMember}
+        onClose={() => setRemovingMember(null)}
+        onSuccess={() => {
+          setRemovingMember(null);
+          // Refresh will happen automatically via Convex reactivity
+        }}
+        organizationId={orgId}
+      />
+      )
     </div>
   );
 }

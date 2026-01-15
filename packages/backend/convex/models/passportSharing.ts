@@ -29,6 +29,142 @@ const guardianWithResponsibilityValidator = v.object({
 // ============================================================
 
 /**
+ * Generate a consent receipt following MyData/Kantara standards
+ * @param params - Receipt generation parameters
+ * @returns Consent receipt object
+ */
+function generateConsentReceipt(params: {
+  consentId: string;
+  consent: any;
+  playerName: string;
+  guardianName: string;
+  receivingOrgName: string;
+}) {
+  const { consentId, consent, playerName, guardianName, receivingOrgName } =
+    params;
+  return {
+    receiptId: `cr_${consentId}`,
+    version: consent.consentVersion,
+    timestamp: new Date(consent.consentedAt).toISOString(),
+
+    dataSubject: {
+      name: playerName,
+      playerId: consent.playerIdentityId,
+    },
+
+    consentGiver: {
+      name: guardianName,
+      relationship: "Parent/Guardian",
+      userId: consent.grantedBy,
+    },
+
+    dataController: {
+      name: "PlayerARC",
+      contact: "privacy@playerarc.com",
+    },
+
+    dataRecipient: {
+      organizationId: consent.receivingOrgId,
+      organizationName: receivingOrgName,
+      purpose: "Player development coaching",
+    },
+
+    consentedElements: Object.entries(consent.sharedElements)
+      .filter(([_, value]) => value === true)
+      .map(([key]) => key),
+
+    consentDuration: {
+      from: new Date(consent.consentedAt).toISOString().split("T")[0],
+      until: new Date(consent.expiresAt).toISOString().split("T")[0],
+    },
+
+    rights: {
+      revocation: "Immediate via Sharing Dashboard",
+      access: "Full audit log available",
+      complaint: "privacy@playerarc.com",
+    },
+  };
+}
+
+/**
+ * Internal helper to notify all guardians with parental responsibility
+ * about a sharing change
+ *
+ * @param ctx - Mutation context
+ * @param params - Notification parameters
+ */
+async function notifyGuardiansOfSharingChange(
+  ctx: any,
+  params: {
+    playerIdentityId: Id<"playerIdentities">;
+    eventType:
+      | "share_enabled"
+      | "share_revoked"
+      | "share_expired"
+      | "guardian_change";
+    actorUserId: string;
+    metadata: {
+      receivingOrgName?: string;
+      consentId?: string;
+      consentReceipt?: any;
+    };
+  }
+) {
+  const { playerIdentityId, eventType, actorUserId, metadata } = params;
+  // Get all guardians with parental responsibility
+  const links = await ctx.db
+    .query("guardianPlayerLinks")
+    .withIndex("by_player", (q: any) =>
+      q.eq("playerIdentityId", playerIdentityId)
+    )
+    .collect();
+
+  const responsibleLinks = links.filter(
+    (link: any) => link.hasParentalResponsibility
+  );
+
+  // Fetch guardian details for each link (except the actor)
+  const guardiansToNotify = await Promise.all(
+    responsibleLinks.map(async (link: any) => {
+      const guardian = await ctx.db.get(link.guardianIdentityId);
+      if (!guardian || guardian.userId === actorUserId) {
+        return null; // Skip the guardian who made the change
+      }
+
+      return {
+        guardianIdentityId: link.guardianIdentityId,
+        userId: guardian.userId,
+        email: guardian.email,
+        firstName: guardian.firstName,
+        lastName: guardian.lastName,
+      };
+    })
+  );
+
+  const validGuardians = guardiansToNotify.filter(
+    (g): g is NonNullable<typeof g> => g !== null
+  );
+
+  // TODO US-047: Create notification records for each guardian
+  // TODO US-047: Schedule email notifications based on guardian preferences
+  // For now, log the notification intent
+  console.log(
+    `[Passport Sharing] Would notify ${validGuardians.length} guardians about ${eventType}`,
+    {
+      playerIdentityId,
+      eventType,
+      guardians: validGuardians.map((g) => ({
+        userId: g.userId,
+        email: g.email,
+      })),
+      metadata,
+    }
+  );
+
+  return validGuardians;
+}
+
+/**
  * Internal helper to validate if a user has parental responsibility for a player
  * @param ctx - Query/Mutation context with db access
  * @param userId - Better Auth user ID
@@ -260,8 +396,41 @@ export const createPassportShareConsent = mutation({
       ipAddress: args.ipAddress,
     });
 
-    // TODO US-011: Notify all guardians with parental responsibility
-    // TODO US-011: Generate consent receipt
+    // Fetch additional data for consent receipt and notifications
+    const playerIdentity = await ctx.db.get(args.playerIdentityId);
+    const receivingOrg = await ctx.db
+      .query("organization")
+      .filter((q) => q.eq(q.field("id"), args.receivingOrgId))
+      .first();
+
+    const playerName = playerIdentity
+      ? `${playerIdentity.firstName} ${playerIdentity.lastName}`
+      : "Unknown Player";
+    const guardianName = `${guardianIdentity.firstName} ${guardianIdentity.lastName}`;
+    const receivingOrgName = receivingOrg?.name || "Unknown Organization";
+
+    // Generate consent receipt
+    const consent = await ctx.db.get(consentId);
+    const consentReceipt = generateConsentReceipt({
+      consentId,
+      consent,
+      playerName,
+      guardianName,
+      receivingOrgName,
+    });
+
+    // Notify all guardians with parental responsibility
+    // This logs the intent for now; actual notifications will be implemented in US-047
+    await notifyGuardiansOfSharingChange(ctx, {
+      playerIdentityId: args.playerIdentityId,
+      eventType: "share_enabled",
+      actorUserId: userId,
+      metadata: {
+        receivingOrgName,
+        consentId,
+        consentReceipt,
+      },
+    });
 
     return consentId;
   },

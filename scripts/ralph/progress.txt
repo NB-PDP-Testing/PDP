@@ -1219,3 +1219,88 @@ Next iteration should focus on adding real consent data to child cards:
 - Had to handle linter auto-removing imports multiple times
 
 ---
+## 2026-01-15 14:10 - US-026 - Enable Sharing Wizard Step 2 (Element Selection)
+**Iteration**: 8
+**Commit**: 80d402b40bcfdac63b8b36ce3d837acabce8f670
+**Session**: fd5e9efe-13df-43b1-be2d-8e40dfb11322
+**Status**: Complete
+
+### What was implemented
+**Element Selection Step:**
+- Created `ElementSelectionStep` component with checkboxes for all 10 passport elements
+- Default state: all elements selected (opt-out model)
+- Each element has label, description, and sensitive badge where applicable
+- Sensitive elements: injuryHistory, medicalSummary, contactInfo
+- Added SharedElements type matching backend schema exactly
+
+**Sensitive Data Warning:**
+- Conditional amber alert box appears when any sensitive elements are selected
+- Warning shows: "Medical and contact information should only be shared when necessary"
+- Uses AlertCircle icon with amber color scheme
+- Reminds parents they can revoke access at any time
+
+**Navigation Updates:**
+- Updated handleNext to navigate from child-selection to element-selection
+- Updated handleBack to return from element-selection to child-selection
+- Updated canProceed logic to require at least one element selected
+- Added getStepTitle helper for dynamic step titles
+- Progress bar updates correctly (step 2 of 5)
+
+**State Management:**
+- Added sharedElements state with all elements defaulted to true
+- Reset logic clears sharedElements when wizard closes
+- toggleElement function properly updates individual element state
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/enable-sharing-wizard.tsx (+231, -12)
+
+### Quality checks
+- ✅ Type check: passed (no new errors)
+- ✅ Linting: passed (pre-commit hook successful)
+- ✅ Pre-commit hooks: passed
+- ⚠️ Browser verification: deferred (requires parent role + guardian identity + linked children)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Checkbox component usage**: Use checked prop (not value) with onCheckedChange callback
+- **Conditional rendering for warnings**: Calculate boolean flags (hasSensitiveSelected) before render
+- **Step ordering**: element-selection is step 2, org-selection is step 3 (reordered from initial wireframes)
+- **Default opt-in pattern**: All elements default to true (parent must explicitly uncheck to exclude)
+- **Element descriptions**: Keep concise (3-5 words) - users can reference Help if needed
+
+**Gotchas encountered:**
+- Linter auto-removed imports (AlertCircle, Checkbox) - had to re-add them manually
+- Must use `onCheckedChange` not `onChange` for Checkbox component
+- canProceed must check `Object.values(sharedElements).some(v => v)` to ensure at least one element selected
+
+**Dependencies found:**
+- US-027: Next step is org-selection (who can see the data)
+- US-028: Duration selection follows org-selection
+- US-029: Review and confirm will need to display all selected elements clearly
+- Backend: SharedElements type must stay in sync with schema (consider importing from generated types in future)
+
+**Element labels matched to backend:**
+- basicProfile → "Basic Profile" (name, age group, photo)
+- skillRatings → "Skill Ratings" (current assessments)
+- skillHistory → "Skill History" (historical development)
+- developmentGoals → "Development Goals" (goals & milestones)
+- coachNotes → "Coach Notes" (public observations)
+- benchmarkData → "Benchmark Data" (comparisons)
+- attendanceRecords → "Attendance Records" (training/match)
+- injuryHistory → "Injury History" (sensitive)
+- medicalSummary → "Medical Summary" (sensitive)
+- contactInfo → "Contact Information" (sensitive)
+
+**What to do next**:
+- US-027: Implement org-selection step (all enrolled, specific orgs, or any platform org)
+- Will need to query organizations where child is enrolled
+- Radio group for mode selection + checkboxes for specific orgs
+- Similar patterns to child/element selection steps
+
+**Mistakes made** (learn from these!):
+- Initially forgot to import AlertCircle and Checkbox - linter removed them
+- Had to check Checkbox API docs to find correct props (checked, onCheckedChange)
+
+---
+

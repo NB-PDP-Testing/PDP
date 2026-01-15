@@ -1,506 +1,675 @@
 {
-  "project": "Coach-Parent Messaging",
-  "branchName": "ralph/coach-parent-messaging",
-  "description": "Secure, auditable coach-to-parent messaging system with voice note insight integration. See docs/features/PRD_COACH_PARENT_MESSAGING.md for full specification.",
+  "project": "Passport Sharing - Phase 1",
+  "branchName": "ralph/passport-sharing-phase-1",
+  "description": "Cross-organization passport sharing with parent consent and coach acceptance. Enables controlled, consent-based sharing of player development data across organizations, with parents as data controllers.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add coachParentMessages table to schema",
-      "description": "As a developer, I need the main message storage table.",
+      "title": "Create passportShareConsents table - core fields",
+      "description": "As a developer, I need the main consent storage table with core sharing fields.",
       "acceptanceCriteria": [
-        "Add coachParentMessages table to packages/backend/convex/schema.ts after the voiceNotes table (around line 900)",
-        "Fields: messageType (v.union direct/insight), organizationId (v.string), teamId (v.optional string), senderId (v.string), senderName (v.string), recipientGuardianIds (v.array of v.id guardianIdentities), playerIdentityId (v.id playerIdentities), playerName (v.string), subject (v.string), body (v.string), context (v.optional object with sessionType/sessionDate/developmentArea), sourceVoiceNoteId (v.optional id voiceNotes), sourceInsightId (v.optional string), originalInsight (v.optional object), discussionPrompts (v.optional array string), actionItems (v.optional array string), deliveryMethod (v.union in_app/email/both), priority (v.union normal/high), status (v.union draft/pending_approval/sent/delivered/failed), createdAt (v.number), sentAt (v.optional number), updatedAt (v.number)",
-        "Add indexes: by_org, by_sender, by_player, by_status, by_org_and_status, by_sender_and_createdAt, by_voiceNote",
-        "Run: npx -w packages/backend convex codegen",
-        "Type checking passes: npm run check-types"
+        "Add passportShareConsents table to schema.ts with fields: playerIdentityId, grantedBy, grantedByType, guardianIdentityId, sourceOrgMode, sourceOrgIds, receivingOrgId, sharedElements object, consentedAt, expiresAt, status, consentVersion",
+        "Add indexes: by_player, by_player_and_status, by_receiving_org, by_granted_by",
+        "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": "Follow index naming pattern from invitationEvents table. Use v.id() for foreign keys, v.string() for Better Auth IDs."
+      "passes": true,
+      "notes": "Reference: /docs/features/PRD-passport-sharing.md Section 7.3"
     },
     {
       "id": "US-002",
-      "title": "Add messageRecipients table to schema",
-      "description": "As a developer, I need per-recipient delivery tracking.",
+      "title": "Add coach acceptance fields to passportShareConsents",
+      "description": "As a developer, I need coach acceptance tracking fields on the consents table.",
       "acceptanceCriteria": [
-        "Add messageRecipients table to packages/backend/convex/schema.ts after coachParentMessages",
-        "Fields: messageId (v.id coachParentMessages), guardianIdentityId (v.id guardianIdentities), guardianUserId (v.optional string for Better Auth user), deliveryStatus (v.union pending/sent/delivered/failed/bounced), deliveryMethod (v.union in_app/email), emailSentAt/emailDeliveredAt/emailOpenedAt/emailBouncedAt (all v.optional number), emailBounceReason (v.optional string), inAppNotifiedAt/inAppViewedAt (v.optional number), acknowledgedAt (v.optional number), acknowledgmentNote (v.optional string), createdAt/updatedAt (v.number)",
-        "Add indexes: by_message, by_guardian, by_guardianUser, by_status, by_guardian_and_viewed",
-        "Run: npx -w packages/backend convex codegen",
-        "Type checking passes: npm run check-types"
+        "Add fields: coachAcceptanceStatus (pending/accepted/declined), acceptedByCoachId, acceptedAt, declinedAt, declineReason, declineCount",
+        "Add index: by_coach_acceptance",
+        "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "This tracks delivery per recipient since a message can go to multiple guardians."
+      "passes": true,
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Add messageAuditLog table to schema",
-      "description": "As a developer, I need compliance audit logging for messages.",
+      "title": "Add lifecycle fields to passportShareConsents",
+      "description": "As a developer, I need consent lifecycle and age-18 transition fields.",
       "acceptanceCriteria": [
-        "Add messageAuditLog table to packages/backend/convex/schema.ts after messageRecipients",
-        "Fields: messageId (v.id coachParentMessages), organizationId (v.string), action (v.union created/edited/sent/viewed/acknowledged/deleted/exported/flagged/reviewed), actorId (v.string), actorType (v.union coach/parent/admin/system), actorName (v.string), details (v.optional object with previousContent/newContent/reason/ipAddress/userAgent), timestamp (v.number)",
-        "Add indexes: by_message, by_org, by_actor, by_org_and_timestamp, by_action",
-        "Run: npx -w packages/backend convex codegen",
-        "Type checking passes: npm run check-types"
+        "Add fields: renewalReminderSent, renewalCount, lastRenewedAt, revokedAt, revokedReason, pausedForAge18Review, age18ReviewCompletedAt, ipAddress",
+        "Add index: by_expiry",
+        "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "Follow the invitationEvents audit pattern from schema.ts lines 1210-1250."
+      "passes": true,
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Add orgMessagingSettings table to schema",
-      "description": "As a developer, I need organization-level messaging configuration.",
+      "title": "Create passportShareAccessLogs table",
+      "description": "As a developer, I need to store immutable audit logs of all shared passport access.",
       "acceptanceCriteria": [
-        "Add orgMessagingSettings table to packages/backend/convex/schema.ts after messageAuditLog",
-        "Fields: organizationId (v.string), messagingEnabled (v.boolean), voiceNoteInsightsEnabled (v.boolean), defaultDeliveryMethod (v.union in_app/email/both), allowCoachToChangeDelivery (v.boolean), requireSubject (v.boolean), maxMessageLength (v.optional number), requireAdminApproval (v.boolean), retentionDays (v.optional number), enableDetailedAuditLog (v.boolean), createdAt/updatedAt (v.number)",
-        "Add index: by_org",
-        "Run: npx -w packages/backend convex codegen",
-        "Type checking passes: npm run check-types"
+        "Add passportShareAccessLogs table with fields per PRD Section 7.3",
+        "Include accessType enum: view_summary, view_skills, view_goals, view_notes, view_medical, view_contact, export_pdf, view_insights",
+        "Add indexes: by_consent, by_player, by_accessor, by_date",
+        "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": "Default values will be set when org first sends a message if settings don't exist."
+      "passes": true,
+      "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Create coachParentMessages.ts with helper functions",
-      "description": "As a developer, I need the base file with auth helpers.",
+      "title": "Create passportShareRequests table",
+      "description": "As a developer, I need to store coach-initiated requests for passport access.",
       "acceptanceCriteria": [
-        "Create new file: packages/backend/convex/models/coachParentMessages.ts",
-        "Add imports: v from convex/values, query/mutation from _generated/server, authComponent from auth, components from _generated/api",
-        "Add helper function getCoachAssignmentForOrg(ctx, userId, orgId) that queries coachAssignments with by_user_and_org index",
-        "Add helper function getGuardiansForPlayer(ctx, playerIdentityId) that queries guardianPlayerLinks with by_playerIdentityId index and fetches full guardian identities",
-        "Add helper function logAuditEvent(ctx, data) that inserts into messageAuditLog table",
-        "Type checking passes: npm run check-types"
+        "Add passportShareRequests table with status enum: pending, approved, declined, expired",
+        "Include expiresAt field for 14-day auto-expiry",
+        "Add indexes: by_player, by_player_and_status, by_requesting_org, by_expiry",
+        "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "Reference models/members.ts and models/guardianPlayerLinks.ts for auth patterns."
+      "passes": true,
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Implement createDirectMessage mutation",
-      "description": "As a coach, I want to create a direct message to a parent.",
+      "title": "Create parentNotificationPreferences table",
+      "description": "As a developer, I need to store parent notification preferences for sharing events.",
       "acceptanceCriteria": [
-        "Add createDirectMessage mutation to packages/backend/convex/models/coachParentMessages.ts",
-        "Args: organizationId, teamId (optional), playerIdentityId, recipientGuardianIds (array), subject, body, context (optional object), deliveryMethod, priority (default normal), sendImmediately (optional boolean)",
-        "Verify user is authenticated via authComponent.safeGetAuthUser",
-        "Verify coach has assignment in this org using getCoachAssignmentForOrg helper",
-        "Validate each recipient is a guardian of the player using guardianPlayerLinks table",
-        "Insert message with status 'draft' or 'sent' based on sendImmediately flag",
-        "Insert messageRecipients record for each guardian with status 'pending'",
-        "Call logAuditEvent with action 'created'",
-        "Return the message ID (v.id coachParentMessages)",
-        "Type checking passes: npm run check-types"
+        "Add parentNotificationPreferences table with accessNotificationFrequency enum: realtime, daily, weekly, none",
+        "Add indexes: by_guardian, by_guardian_and_player",
+        "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": "Get senderName and playerName by fetching user and playerIdentities records."
+      "passes": true,
+      "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Implement sendMessage mutation",
-      "description": "As a coach, I want to send a drafted message.",
+      "title": "Add organization sharing contact fields",
+      "description": "As a developer, I need to add sharing contact configuration to organizations.",
       "acceptanceCriteria": [
-        "Add sendMessage mutation to packages/backend/convex/models/coachParentMessages.ts",
-        "Args: messageId (v.id coachParentMessages)",
-        "Verify user is authenticated and is the sender of this message",
-        "Update message: status to 'sent', sentAt to Date.now()",
-        "Update all messageRecipients: deliveryStatus to 'pending'",
-        "Call logAuditEvent with action 'sent'",
-        "Return v.null()",
-        "Type checking passes: npm run check-types"
+        "Add to organization table: sharingContactMode (direct/form), sharingContactName, sharingContactEmail, sharingContactPhone, sharingEnquiriesUrl",
+        "All new fields are optional",
+        "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "Email scheduling will be added in a later story. For now just update statuses."
+      "passes": true,
+      "notes": "Reference: PRD Section 7.2"
     },
     {
       "id": "US-008",
-      "title": "Implement getMyMessages query for coaches",
-      "description": "As a coach, I want to see messages I've sent.",
+      "title": "Add coach notes isShareable flag",
+      "description": "As a developer, I need to flag coach notes that can be shared cross-org.",
       "acceptanceCriteria": [
-        "Add getMyMessages query to packages/backend/convex/models/coachParentMessages.ts",
-        "Args: organizationId (v.string), status (v.optional string), limit (v.optional number, default 50)",
-        "Get current user ID from authComponent.safeGetAuthUser",
-        "Query coachParentMessages with by_sender_and_createdAt index filtered by senderId and organizationId",
-        "If status arg provided, filter by status",
-        "Order by createdAt descending, take limit",
-        "For each message, count recipients and how many have inAppViewedAt set",
-        "Return array of messages with recipientCount and viewedCount fields added",
-        "Type checking passes: npm run check-types"
+        "Add isShareable, markedShareableAt, markedShareableBy fields to coachNotes or passportGoals table",
+        "isShareable defaults to false",
+        "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": "Use by_sender_and_createdAt index. The recipient stats come from messageRecipients table."
+      "passes": true,
+      "notes": "Reference: PRD Section 7.2"
     },
     {
       "id": "US-009",
-      "title": "Implement getMessagesForParent query",
-      "description": "As a parent, I want to see messages from coaches about my children.",
+      "title": "Create passportSharing.ts with base helpers",
+      "description": "As a developer, I need the base file with auth and validation helpers.",
       "acceptanceCriteria": [
-        "Add getMessagesForParent query to packages/backend/convex/models/coachParentMessages.ts",
-        "Args: organizationId (v.optional string), unreadOnly (v.optional boolean), limit (v.optional number, default 50)",
-        "Get current user and find their guardianIdentity by matching userId in guardianIdentities table with by_userId index",
-        "Query messageRecipients with by_guardian index for this guardianIdentityId",
-        "If unreadOnly, filter where inAppViewedAt is undefined",
-        "For each recipient record, fetch the full message from coachParentMessages",
-        "If organizationId provided, filter messages by that org",
-        "Order by message createdAt descending",
-        "Return array with message, recipient record, and isUnread boolean",
-        "Type checking passes: npm run check-types"
+        "Create packages/backend/convex/models/passportSharing.ts",
+        "Add helper: validateGuardianHasResponsibility(ctx, userId, playerIdentityId)",
+        "Add helper: getGuardiansWithResponsibility(ctx, playerIdentityId)",
+        "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": "Parent must have a guardianIdentity linked to their Better Auth userId."
+      "passes": true,
+      "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Implement markMessageViewed mutation",
-      "description": "As a parent, viewing a message should update the read status.",
+      "title": "Create consent mutation - core logic",
+      "description": "As a parent, I want to create a new passport sharing consent.",
       "acceptanceCriteria": [
-        "Add markMessageViewed mutation to packages/backend/convex/models/coachParentMessages.ts",
-        "Args: messageId (v.id coachParentMessages)",
-        "Get current user and their guardianIdentityId",
-        "Find the messageRecipient record using by_message_and_recipient composite or by_message then filter",
-        "If inAppViewedAt is already set, return early (no double-logging)",
-        "Patch the recipient: inAppViewedAt = Date.now()",
-        "Call logAuditEvent with action 'viewed', actorType 'parent'",
-        "Return v.null()",
-        "Type checking passes: npm run check-types"
+        "Create createPassportShareConsent mutation",
+        "Validate guardian has parental responsibility for the player",
+        "Accept sharedElements object and set coachAcceptanceStatus to 'pending'",
+        "Return consentId on success, typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "Add by_message_and_recipient index to messageRecipients if needed for efficient lookup."
+      "passes": true,
+      "notes": ""
     },
     {
       "id": "US-011",
-      "title": "Implement acknowledgeMessage mutation",
-      "description": "As a parent, I want to acknowledge a message from a coach.",
+      "title": "Create consent mutation - notifications",
+      "description": "As a system, I need to notify guardians when a consent is created.",
       "acceptanceCriteria": [
-        "Add acknowledgeMessage mutation to packages/backend/convex/models/coachParentMessages.ts",
-        "Args: messageId (v.id coachParentMessages), note (v.optional string)",
-        "Get current user and their guardianIdentityId",
-        "Find the messageRecipient record for this message and guardian",
-        "Patch: acknowledgedAt = Date.now(), acknowledgmentNote = note if provided",
-        "Call logAuditEvent with action 'acknowledged', actorType 'parent'",
-        "Return v.null()",
-        "Type checking passes: npm run check-types"
+        "After consent creation, notify all guardians with parental responsibility",
+        "Generate consent receipt per PRD Section 8.4",
+        "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": "Acknowledgment is optional - parent can view without acknowledging."
+      "passes": true,
+      "notes": "Depends on US-010"
     },
     {
       "id": "US-012",
-      "title": "Implement getUnreadCount query",
-      "description": "As a parent, I want to see how many unread messages I have for badge display.",
+      "title": "Update consent mutation",
+      "description": "As a parent, I want to update an existing consent to change what data is shared.",
       "acceptanceCriteria": [
-        "Add getUnreadCount query to packages/backend/convex/models/coachParentMessages.ts",
-        "Args: organizationId (v.optional string)",
-        "Get current user and their guardianIdentityId",
-        "Query messageRecipients with by_guardian index",
-        "Filter where inAppViewedAt is undefined",
-        "If organizationId provided, fetch each message and filter by org",
-        "Return count as v.number()",
-        "Type checking passes: npm run check-types"
+        "Create updatePassportShareConsent mutation",
+        "Allow updating sharedElements, expiresAt, sourceOrgMode, sourceOrgIds",
+        "Validate guardian has parental responsibility and log change",
+        "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": "This powers the unread badge in navigation. Keep it efficient."
+      "passes": true,
+      "notes": ""
     },
     {
       "id": "US-013",
-      "title": "Create coach message history page",
-      "description": "As a coach, I want to see all messages I've sent.",
+      "title": "Revoke consent mutation",
+      "description": "As a parent, I want to immediately revoke a sharing consent.",
       "acceptanceCriteria": [
-        "Create folder: apps/web/src/app/orgs/[orgId]/coach/messages/",
-        "Create page.tsx in that folder",
-        "Use useQuery with api.models.coachParentMessages.getMyMessages",
-        "Display list of messages with: subject, player name, recipient count, date, status badge",
-        "Add filter dropdown for status (All, Draft, Sent, Delivered)",
-        "Add New Message button linking to ./compose",
-        "Click on message row navigates to ./[messageId]",
-        "Use Card component for each message row",
-        "Type checking passes: npm run check-types",
-        "Linting passes: npm run check"
+        "Create revokePassportShareConsent mutation",
+        "Set status to 'revoked' and record revokedAt timestamp",
+        "Notify receiving org coaches and other guardians",
+        "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": "Reference apps/web/src/app/orgs/[orgId]/coach/voice-notes/page.tsx for page structure patterns."
+      "passes": true,
+      "notes": "FR-P6: Immediate Revocation"
     },
     {
       "id": "US-014",
-      "title": "Create coach message composer page",
-      "description": "As a coach, I want a page to compose new messages to parents.",
+      "title": "Create consent gateway query",
+      "description": "As a developer, I need a consent gateway that validates access before returning shared data.",
       "acceptanceCriteria": [
-        "Create page: apps/web/src/app/orgs/[orgId]/coach/messages/compose/page.tsx",
-        "Player selector: fetch players from coach's assigned teams using existing queries",
-        "When player selected, fetch their guardians using getGuardiansForPlayer",
-        "Recipient checkboxes showing guardian name and relationship (e.g. 'Mary Smith (Mother)')",
-        "Subject input (required), Body textarea with placeholder",
-        "Optional context section: session type dropdown, date picker, development area dropdown",
-        "Delivery method radio: In-app only, Email only, Both (default)",
-        "Submit calls createDirectMessage mutation with sendImmediately: true",
-        "On success, redirect to ../messages with success toast",
-        "Type checking passes: npm run check-types",
-        "Linting passes: npm run check"
+        "Create validateShareAccess query in packages/backend/convex/lib/consentGateway.ts",
+        "Check consent exists, is active, not expired, coachAcceptanceStatus is 'accepted'",
+        "Return allowed sharedElements if valid, null if not permitted",
+        "Typecheck passes"
       ],
       "priority": 14,
       "passes": false,
-      "notes": "Use existing hooks: useQuery for player data. Reference voice-notes-dashboard.tsx for form patterns."
+      "notes": "Core security component"
     },
     {
       "id": "US-015",
-      "title": "Create parent message inbox page",
-      "description": "As a parent, I want to see all messages from coaches.",
+      "title": "Create cross-org passport query",
+      "description": "As a coach, I want to query shared passport data for players with valid consent.",
       "acceptanceCriteria": [
-        "Update existing file: apps/web/src/app/orgs/[orgId]/parents/messages/page.tsx (replace placeholder)",
-        "Use useQuery with api.models.coachParentMessages.getMessagesForParent",
-        "Display list with: subject, coach name (senderName), player name, date, unread indicator (blue dot)",
-        "Unread messages have blue dot or highlighted background",
-        "Add toggle filter for 'Unread only'",
-        "Click on message navigates to ./[messageId]",
-        "Empty state if no messages: 'No messages yet. Coaches will send updates about your children here.'",
-        "Type checking passes: npm run check-types",
-        "Linting passes: npm run check"
+        "Create getSharedPassportData query that calls consent gateway first",
+        "Only return elements authorized in sharedElements",
+        "Mark data with source org name and last updated timestamp",
+        "Typecheck passes"
       ],
       "priority": 15,
       "passes": false,
-      "notes": "This file already exists with placeholder. MVP pattern: Use MessageSquare icon, blue left border (border-l-4 border-blue-500) for message items, card with shadow-md. See PRD MVP Mockup Reference section."
+      "notes": ""
     },
     {
       "id": "US-016",
-      "title": "Create parent message detail page",
-      "description": "As a parent, I want to read a message and acknowledge it.",
+      "title": "Coach acceptance mutation",
+      "description": "As a coach, I want to accept a shared passport so I can view the player's data.",
       "acceptanceCriteria": [
-        "Create page: apps/web/src/app/orgs/[orgId]/parents/messages/[messageId]/page.tsx",
-        "Fetch message by ID (add getMessageById query if needed)",
-        "Call markMessageViewed mutation in useEffect on mount",
-        "Display: subject as heading, body content, coach name, player name, date, context info",
-        "If discussionPrompts array exists, display in a highlighted section with purple background (bg-purple-50)",
-        "If actionItems array exists, display as checklist",
-        "Acknowledgment section: optional textarea for note, 'Acknowledge' button",
-        "Button calls acknowledgeMessage mutation, shows success toast",
-        "Back button to ../messages",
-        "Type checking passes: npm run check-types",
-        "Linting passes: npm run check"
+        "Create acceptPassportShare mutation",
+        "Validate coach belongs to receiving org, set status to 'accepted'",
+        "Record acceptedByCoachId, acceptedAt, and notify parent",
+        "Typecheck passes"
       ],
       "priority": 16,
       "passes": false,
-      "notes": "Mark as viewed immediately on page load. MVP design: Discussion prompts use purple gradient like AI Practice Assistant. Card with shadow-md, header with gradient. See PRD MVP Mockup Reference."
+      "notes": "FR-C6: Coach Share Acceptance"
     },
     {
       "id": "US-017",
-      "title": "Add unread badge to parent navigation",
-      "description": "As a parent, I want to see unread message count in navigation.",
+      "title": "Coach decline mutation",
+      "description": "As a coach, I want to decline a shared passport if I don't need access.",
       "acceptanceCriteria": [
-        "Find parent navigation component (likely in parents layout or dashboard)",
-        "Add Messages link to navigation if not present, using MessageSquare icon from lucide-react",
-        "Use useQuery with api.models.coachParentMessages.getUnreadCount",
-        "Display red badge with count next to Messages link when count > 0",
-        "Badge hidden when count is 0",
-        "Type checking passes: npm run check-types",
-        "Linting passes: npm run check"
+        "Create declinePassportShare mutation",
+        "Set status to 'declined', record declinedAt, optional declineReason",
+        "Increment declineCount and notify parent",
+        "Typecheck passes"
       ],
       "priority": 17,
       "passes": false,
-      "notes": "Check apps/web/src/app/orgs/[orgId]/parents/ for layout.tsx or navigation component."
+      "notes": "FR-C6: Cooling-off after 3 declines"
     },
     {
       "id": "US-018",
-      "title": "Add Messages link to coach navigation",
-      "description": "As a coach, I want quick access to messaging from navigation.",
+      "title": "Coach request-to-share mutation",
+      "description": "As a coach, I want to request access to a player's passport when no share exists.",
       "acceptanceCriteria": [
-        "Find coach navigation component (likely in coach layout or dashboard quick actions)",
-        "Add Messages link using MessageSquare icon from lucide-react",
-        "Links to /orgs/[orgId]/coach/messages",
-        "Position near Voice Notes link for consistency",
-        "Type checking passes: npm run check-types",
-        "Linting passes: npm run check"
+        "Create requestPassportAccess mutation",
+        "Create passportShareRequests record with status 'pending' and 14-day expiry",
+        "Send notification to all guardians with parental responsibility",
+        "Typecheck passes"
       ],
       "priority": 18,
       "passes": false,
-      "notes": "Check apps/web/src/app/orgs/[orgId]/coach/ for layout.tsx or SmartCoachDashboard component."
+      "notes": "FR-C7: Coach Request Access"
     },
     {
       "id": "US-019",
-      "title": "Add Share with Parent button to voice notes insight panel",
-      "description": "As a coach, I want to share an insight with a parent directly from voice notes.",
+      "title": "Parent respond to request mutation",
+      "description": "As a parent, I want to approve or decline coach requests for passport access.",
       "acceptanceCriteria": [
-        "Edit file: apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx",
-        "Find the insight action buttons section (near Apply/Dismiss buttons)",
-        "Add new button: 'Share with Parent' with Send icon from lucide-react",
-        "Button only appears if insight has a playerIdentityId (player was identified)",
-        "OnClick navigates to: /orgs/${orgId}/coach/messages/compose?type=insight&voiceNoteId=${noteId}&insightId=${insight.id}&playerIdentityId=${insight.playerIdentityId}",
-        "Type checking passes: npm run check-types",
-        "Linting passes: npm run check"
+        "Create respondToAccessRequest mutation",
+        "If approved: Set status to 'approved'. If declined: Set status to 'declined' and notify coach",
+        "Record respondedAt and respondedBy",
+        "Typecheck passes"
       ],
       "priority": 19,
       "passes": false,
-      "notes": "The compose page will read these URL params and pre-fill the form (next story)."
+      "notes": ""
     },
     {
       "id": "US-020",
-      "title": "Update compose page to handle insight pre-fill from URL params",
-      "description": "As a coach, the compose page should pre-fill when coming from voice notes.",
+      "title": "Access logging mutation",
+      "description": "As a developer, I need to log all access to shared passport data for audit compliance.",
       "acceptanceCriteria": [
-        "Edit: apps/web/src/app/orgs/[orgId]/coach/messages/compose/page.tsx",
-        "Read URL search params: type, voiceNoteId, insightId, playerIdentityId",
-        "If type=insight, fetch the voice note by ID",
-        "Find the matching insight in the voiceNote.insights array by insightId",
-        "Pre-select the player from playerIdentityId",
-        "Pre-fill subject with insight.title",
-        "Pre-fill body with insight.description plus insight.recommendedUpdate if present",
-        "Show read-only card displaying original insight for reference",
-        "Type checking passes: npm run check-types",
-        "Linting passes: npm run check"
+        "Create logPassportAccess internal mutation",
+        "Record all fields per PRD: consentId, accessedBy, accessType, accessedAt, etc.",
+        "Called automatically by cross-org passport queries",
+        "Typecheck passes"
       ],
       "priority": 20,
       "passes": false,
-      "notes": "Use useSearchParams from next/navigation. Add a query to fetch voice note by ID if needed."
+      "notes": "FR-P7: Access Audit Trail"
     },
     {
       "id": "US-021",
-      "title": "Implement getOrganizationMessages admin query",
-      "description": "As an admin, I want to see all messages in my organization.",
+      "title": "Multi-guardian notification helper",
+      "description": "As a system, I need to notify all guardians with parental responsibility of sharing changes.",
       "acceptanceCriteria": [
-        "Add getOrganizationMessages query to packages/backend/convex/models/coachParentMessages.ts",
-        "Args: organizationId (v.string), limit (v.optional number, default 100)",
-        "Verify current user has admin or owner role in this org via member.functionalRoles or Better Auth role",
-        "Query coachParentMessages with by_org index",
-        "Order by createdAt descending, take limit",
-        "Return array of messages with sender and recipient summary info",
-        "Type checking passes: npm run check-types"
+        "Create notifyGuardiansOfSharingChange internal function",
+        "Query all guardians with hasParentalResponsibility: true, notify each except the actor",
+        "Support types: share_enabled, share_revoked, share_expired, guardian_change",
+        "Typecheck passes"
       ],
       "priority": 21,
       "passes": false,
-      "notes": "Admin check: member.role === 'owner' || member.role === 'admin' || member.functionalRoles?.includes('admin')"
+      "notes": "FR-P10: Multi-Guardian Handling"
     },
     {
       "id": "US-022",
-      "title": "Implement getMessageAuditLog admin query",
-      "description": "As an admin, I want to see the audit trail for messages.",
+      "title": "Consent expiry scheduled job",
+      "description": "As a system, I need to automatically expire consents and send renewal reminders.",
       "acceptanceCriteria": [
-        "Add getMessageAuditLog query to packages/backend/convex/models/coachParentMessages.ts",
-        "Args: organizationId (v.string), messageId (v.optional id), limit (v.optional number, default 200)",
-        "Verify current user is org admin/owner",
-        "If messageId provided, query messageAuditLog with by_message index",
-        "Otherwise query with by_org_and_timestamp index for all org audit entries",
-        "Order by timestamp descending, take limit",
-        "Return array of audit log entries",
-        "Type checking passes: npm run check-types"
+        "Create scheduled cron job that runs daily",
+        "Find consents expiring in 14 days and send renewal reminder",
+        "Find expired consents and set status to 'expired'",
+        "Typecheck passes"
       ],
       "priority": 22,
       "passes": false,
-      "notes": "This is for compliance review. Admins need to see who sent what and when."
+      "notes": "FR-P5: Sharing Duration & Renewal"
     },
     {
       "id": "US-023",
-      "title": "Create admin messaging dashboard page",
-      "description": "As an admin, I want an overview of all messaging activity.",
+      "title": "Parent sharing dashboard - page structure",
+      "description": "As a parent, I want a dedicated sharing dashboard page.",
       "acceptanceCriteria": [
-        "Create folder: apps/web/src/app/orgs/[orgId]/admin/messaging/",
-        "Create page.tsx in that folder",
-        "Use useQuery with api.models.coachParentMessages.getOrganizationMessages",
-        "Show stats cards: Total Messages, Messages This Week (calculate from createdAt)",
-        "Display table of messages with columns: Coach, Player, Recipient(s), Date, Status",
-        "Link to audit log view: ./audit",
-        "Type checking passes: npm run check-types",
-        "Linting passes: npm run check"
+        "Create apps/web/src/app/parents/sharing/page.tsx",
+        "List all children with current sharing status",
+        "Mobile-responsive layout",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 23,
       "passes": false,
-      "notes": "Reference apps/web/src/app/orgs/[orgId]/admin/ for existing admin page patterns."
+      "notes": "FR-P1: Sharing Control Center"
     },
     {
       "id": "US-024",
-      "title": "Create admin audit log page",
-      "description": "As an admin, I want to review the message audit trail.",
+      "title": "Parent sharing dashboard - child cards",
+      "description": "As a parent, I want to see sharing details for each child.",
       "acceptanceCriteria": [
-        "Create page: apps/web/src/app/orgs/[orgId]/admin/messaging/audit/page.tsx",
-        "Use useQuery with api.models.coachParentMessages.getMessageAuditLog",
-        "Display table: Timestamp, Action, Actor, Message Subject",
-        "Click on row shows full audit entry details in a sheet or dialog",
-        "Back link to ../messaging",
-        "Type checking passes: npm run check-types",
-        "Linting passes: npm run check"
+        "For each child show: active shares count, pending requests, last activity",
+        "Quick action buttons: Enable sharing, View audit log, Manage preferences",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 24,
       "passes": false,
-      "notes": "Format timestamp nicely. Action types: created, sent, viewed, acknowledged."
+      "notes": "Depends on US-023"
     },
     {
       "id": "US-025",
-      "title": "Add email template for coach messages",
-      "description": "As a parent, I want to receive nicely formatted email notifications.",
+      "title": "Enable sharing wizard - step 1 child selection",
+      "description": "As a parent, I want to select which child to enable sharing for.",
       "acceptanceCriteria": [
-        "Edit file: packages/backend/convex/utils/email.ts",
-        "Add new function: buildCoachMessageEmailHtml(data) following sendOrganizationInvitation pattern",
-        "Template includes: subject, body, coach name, player name, context info if present",
-        "Include 'View in PlayerARC' CTA button linking to message detail page",
-        "Include organization name in footer",
-        "Add corresponding buildCoachMessageEmailText() for plain text version",
-        "Add sendCoachMessageNotification() function that calls Resend API",
-        "Type checking passes: npm run check-types"
+        "Create EnableSharingWizard component with step 1: child selection",
+        "Show list of children if parent has multiple",
+        "Progress indicator shows current step",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 25,
       "passes": false,
-      "notes": "Follow exact pattern from sendOrganizationInvitation() around line 72. Use RESEND_API_KEY env var."
+      "notes": "FR-P2"
     },
     {
       "id": "US-026",
-      "title": "Create messaging action for email delivery",
-      "description": "As a system, I need to send email notifications for messages.",
+      "title": "Enable sharing wizard - step 2 element selection",
+      "description": "As a parent, I want to select which passport elements to share.",
       "acceptanceCriteria": [
-        "Create new file: packages/backend/convex/actions/messaging.ts",
-        "Add sendMessageEmail action with args: messageId, recipientId (messageRecipients ID)",
-        "Fetch the message and recipient records",
-        "Fetch the guardian's email from guardianIdentities table",
-        "If guardian has no email, skip and log warning",
-        "Call sendCoachMessageNotification from utils/email.ts",
-        "Update messageRecipient: emailSentAt = Date.now(), deliveryStatus = 'sent'",
-        "If email fails, set deliveryStatus = 'failed' and log error",
-        "Type checking passes: npm run check-types"
+        "Step 2: Checkboxes for each passport element (default: all selected)",
+        "Medical/contact info shows additional confirmation warning",
+        "Back/Next navigation between steps",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 26,
       "passes": false,
-      "notes": "Actions can't access ctx.db directly - use ctx.runQuery and ctx.runMutation. Reference actions/invitations.ts."
+      "notes": "FR-P3"
     },
     {
       "id": "US-027",
-      "title": "Schedule email delivery when message is sent",
-      "description": "As a system, sending a message should trigger email delivery.",
+      "title": "Enable sharing wizard - step 3 org selection",
+      "description": "As a parent, I want to select which organizations can view shared data.",
       "acceptanceCriteria": [
-        "Edit sendMessage mutation in packages/backend/convex/models/coachParentMessages.ts",
-        "After updating message status to 'sent', get the message's deliveryMethod",
-        "If deliveryMethod is 'email' or 'both', for each recipient record:",
-        "Use ctx.scheduler.runAfter(0, internal.actions.messaging.sendMessageEmail, { messageId, recipientId })",
-        "Import internal from _generated/api at top of file",
-        "Make the sendMessageEmail action internal (export const sendMessageEmail = internalAction)",
-        "Type checking passes: npm run check-types"
+        "Step 3: Select orgs (all enrolled, specific orgs, or any platform org)",
+        "Clear explanation of each option's implications",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 27,
       "passes": false,
-      "notes": "Use internal.actions.messaging.sendMessageEmail pattern. The action must be exported as internalAction."
+      "notes": "FR-P4"
     },
     {
       "id": "US-028",
-      "title": "Add Messaging link to admin navigation",
-      "description": "As an admin, I want quick access to messaging dashboard.",
+      "title": "Enable sharing wizard - step 4 duration",
+      "description": "As a parent, I want to set how long the sharing consent lasts.",
       "acceptanceCriteria": [
-        "Find admin navigation component (likely in admin layout.tsx)",
-        "Add Messaging link using MessageSquare icon from lucide-react",
-        "Links to /orgs/[orgId]/admin/messaging",
-        "Position in management section of navigation",
-        "Type checking passes: npm run check-types",
-        "Linting passes: npm run check"
+        "Step 4: Duration options (season end, 6 months, 1 year, custom date)",
+        "Calendar picker for custom date",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 28,
       "passes": false,
-      "notes": "Check apps/web/src/app/orgs/[orgId]/admin/ for layout.tsx or sidebar component."
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "Enable sharing wizard - step 5-6 confirm and success",
+      "description": "As a parent, I want to review and confirm my sharing consent.",
+      "acceptanceCriteria": [
+        "Step 5: Review summary of all selections with Confirm button",
+        "Step 6: Success screen with consent receipt download option",
+        "Call createPassportShareConsent mutation on confirm",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Quick share option",
+      "description": "As a returning parent, I want a quick share option with minimal steps.",
+      "acceptanceCriteria": [
+        "Create QuickShare component behind ENABLE_QUICK_SHARE feature flag",
+        "Show only for parents who have previously shared",
+        "One-click to share with same elements and orgs as last time",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": "Decision #9"
+    },
+    {
+      "id": "US-031",
+      "title": "Revocation flow UI",
+      "description": "As a parent, I want to easily revoke sharing access from my dashboard.",
+      "acceptanceCriteria": [
+        "Add 'Revoke Access' button on each active share card",
+        "Confirmation modal with warning and optional reason field",
+        "Call revokePassportShareConsent and update UI immediately",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": "FR-P6"
+    },
+    {
+      "id": "US-032",
+      "title": "Access audit log viewer - list",
+      "description": "As a parent, I want to see who has accessed my child's shared data.",
+      "acceptanceCriteria": [
+        "Create AccessAuditLog component showing access events table",
+        "Show: Who, What, When, Organization",
+        "Paginated list for performance",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": "FR-P7"
+    },
+    {
+      "id": "US-033",
+      "title": "Access audit log viewer - filters and export",
+      "description": "As a parent, I want to filter and export the access audit log.",
+      "acceptanceCriteria": [
+        "Add filters: date range, organization, access type",
+        "Export to CSV/PDF button",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": "Depends on US-032"
+    },
+    {
+      "id": "US-034",
+      "title": "Notification preferences UI",
+      "description": "As a parent, I want to configure how often I'm notified about data access.",
+      "acceptanceCriteria": [
+        "Create NotificationPreferences component with frequency selector",
+        "Options: Real-time, Daily digest, Weekly digest (default), None",
+        "Call update mutation on save, verify in browser"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": "FR-P9"
+    },
+    {
+      "id": "US-035",
+      "title": "Pending coach requests view",
+      "description": "As a parent, I want to see and respond to coach requests for access.",
+      "acceptanceCriteria": [
+        "Create PendingRequests component showing all pending requests",
+        "Show: Coach name, Organization, Reason, Requested date, Expires in X days",
+        "Actions: Approve (redirects to wizard), Decline, Dismiss",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": "FR-C7 parent side"
+    },
+    {
+      "id": "US-036",
+      "title": "Shared players section on coach dashboard",
+      "description": "As a coach, I want to see players who have shared their passport with my org.",
+      "acceptanceCriteria": [
+        "Add 'Shared Passports' section to coach dashboard",
+        "Query accepted consents filtered by coach's assigned teams",
+        "Show: Player name, Source org(s), Elements shared, Last updated",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": "FR-C1, Decision #19: Team-scoped"
+    },
+    {
+      "id": "US-037",
+      "title": "Accept/decline share modal - accept flow",
+      "description": "As a coach, I want to accept incoming passport shares.",
+      "acceptanceCriteria": [
+        "Create ShareAcceptanceModal showing pending share details",
+        "Accept button calls acceptPassportShare mutation",
+        "Notification badge on dashboard when pending shares exist",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": "FR-C6"
+    },
+    {
+      "id": "US-038",
+      "title": "Accept/decline share modal - decline flow",
+      "description": "As a coach, I want to decline incoming passport shares.",
+      "acceptanceCriteria": [
+        "Decline button shows reason input field",
+        "Call declinePassportShare mutation with reason",
+        "Show 'Previously declined X times' warning if applicable",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": "Depends on US-037"
+    },
+    {
+      "id": "US-039",
+      "title": "Shared passport viewer - structure",
+      "description": "As a coach, I want to view a player's shared passport data.",
+      "acceptanceCriteria": [
+        "Create SharedPassportView component",
+        "Clear 'Shared from [Org Name]' badge on all shared sections",
+        "Read-only display with no edit buttons",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": "FR-C2"
+    },
+    {
+      "id": "US-040",
+      "title": "Shared passport viewer - expandable sections",
+      "description": "As a coach, I want to expand sections to see shared passport details.",
+      "acceptanceCriteria": [
+        "Expandable sections for each element type (skills, goals, notes, etc.)",
+        "Show 'Last updated: [date]' on each section",
+        "Filter coach notes by isShareable flag",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": "Depends on US-039"
+    },
+    {
+      "id": "US-041",
+      "title": "Request access to passport flow",
+      "description": "As a coach, I want to request access to a player's passport when no share exists.",
+      "acceptanceCriteria": [
+        "Add 'Request Access' button on player profiles without active share",
+        "Modal with: Player name, optional Reason field, Send Request button",
+        "Call requestPassportAccess mutation, show pending status",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": "FR-C7"
+    },
+    {
+      "id": "US-042",
+      "title": "Data freshness indicators",
+      "description": "As a coach, I want to see how recent the shared data is.",
+      "acceptanceCriteria": [
+        "Show 'Last updated: [date]' on shared sections with color coding",
+        "Colors: Green (<1 month), Yellow (1-6 months), Amber (>6 months)",
+        "Show 'Data may be outdated' warning if >6 months, verify in browser"
+      ],
+      "priority": 42,
+      "passes": false,
+      "notes": "FR-C8"
+    },
+    {
+      "id": "US-043",
+      "title": "Organization contact display",
+      "description": "As a coach, I want to see contact info for coordinating with other clubs.",
+      "acceptanceCriteria": [
+        "Display org sharing contact on shared passport view",
+        "If direct mode: Show name, email, phone links. If form mode: Show enquiries form link",
+        "Only show if contact info is configured, verify in browser"
+      ],
+      "priority": 43,
+      "passes": false,
+      "notes": "FR-AD6 display"
+    },
+    {
+      "id": "US-044",
+      "title": "Admin sharing contact settings",
+      "description": "As a club admin, I want to configure public contact info for passport sharing.",
+      "acceptanceCriteria": [
+        "Create SharingContactSettings component in org admin settings",
+        "Radio for mode: Direct contact (name/email/phone) or Enquiries form (URL)",
+        "Validation and save to organization record, verify in browser"
+      ],
+      "priority": 44,
+      "passes": false,
+      "notes": "FR-AD6"
+    },
+    {
+      "id": "US-045",
+      "title": "Admin sharing statistics - page and stats",
+      "description": "As a club admin, I want to see aggregate sharing statistics.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/admin/sharing/page.tsx",
+        "Show stats: Players with sharing enabled, Incoming shares, Outgoing shares",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 45,
+      "passes": false,
+      "notes": "FR-AD1"
+    },
+    {
+      "id": "US-046",
+      "title": "Admin sharing statistics - lists and export",
+      "description": "As a club admin, I want to see recent activity and export data.",
+      "acceptanceCriteria": [
+        "Lists: Recent share activity, Pending coach acceptances",
+        "Export to CSV button for compliance records",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 46,
+      "passes": false,
+      "notes": "FR-AD2, FR-AD3"
+    },
+    {
+      "id": "US-047",
+      "title": "Consent event notifications",
+      "description": "As a user, I want to receive notifications for sharing consent events.",
+      "acceptanceCriteria": [
+        "Create notification generation for: share_enabled, share_revoked, share_expired, share_expiring",
+        "Include actionUrl for one-click navigation",
+        "Respect parent notification preferences (frequency setting)",
+        "Typecheck passes"
+      ],
+      "priority": 47,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-048",
+      "title": "Coach acceptance notifications",
+      "description": "As a parent, I want to be notified when a coach accepts or declines my share.",
+      "acceptanceCriteria": [
+        "Notify on accept: 'Coach [Name] at [Org] has accepted your share'",
+        "Notify on decline: 'Coach [Name] at [Org] declined your share' with reason",
+        "Include link to sharing dashboard, typecheck passes"
+      ],
+      "priority": 48,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-049",
+      "title": "Multi-guardian change notifications",
+      "description": "As a guardian, I want to be notified when another guardian changes sharing settings.",
+      "acceptanceCriteria": [
+        "Generate notification on create, update, or revoke by any guardian",
+        "Include: what changed, who changed it, link to review/modify",
+        "Send to all guardians except the one who made the change",
+        "Typecheck passes"
+      ],
+      "priority": 49,
+      "passes": false,
+      "notes": "FR-P10"
     }
   ]
 }

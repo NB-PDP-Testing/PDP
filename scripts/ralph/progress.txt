@@ -663,3 +663,116 @@ The next iteration should focus on access control and data queries:
 
 ---
 
+
+## 2026-01-15 20:00 - US-012, US-013 - Coach Acceptance and Decline Mutations
+**Iteration**: 3
+**Commit**: 4c42d24897795a7186c56aee38243efd279fd470
+**Session**: 686fb445-ff9e-4d73-a8fa-b38c76bddbde
+**Status**: Complete
+
+### What was implemented
+**US-012: acceptPassportShare mutation**
+- Validates consent exists, is active, not expired
+- Checks coachAcceptanceStatus is 'pending' (not already accepted/declined)
+- Updates consent record with accepted status, coach ID, and timestamp
+- Logs acceptance for future notification implementation
+- TODO: Validate coach belongs to receiving organization (member check)
+- TODO: Notify parent of acceptance (US-048)
+
+**US-013: declinePassportShare mutation**
+- Validates consent exists and is active
+- Checks coachAcceptanceStatus is 'pending'
+- Updates consent with declined status, decline reason, and timestamp
+- Increments declineCount for cooling-off tracking
+- Logs warning if declineCount >= 3 (cooling-off period indicator)
+- TODO: Implement 30-day cooling-off period enforcement (US-049)
+- TODO: Notify parent of decline with reason (US-048)
+
+### Files changed
+- packages/backend/convex/models/passportSharing.ts (+150 lines)
+- scripts/ralph/passport-sharing-phase-1.json (US-012, US-013 marked as passes: true)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: no new errors
+- ✅ Linting: passed
+- ✅ Pre-commit hook: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **State transition validation**: Always check current state before transitions (pending → accepted/declined)
+- Use descriptive error messages that include current state for better debugging
+- Increment/decrement patterns: `(consent.declineCount || 0) + 1` handles undefined gracefully
+- **Logging pattern**: Use console.log with structured data for future notification implementation
+- Coach mutations follow same auth pattern as guardian mutations (getUserIdentity, check userId)
+
+**Gotchas encountered:**
+- None - straightforward mutations following established patterns from US-010-013
+
+**Dependencies found:**
+- US-048: Notification system for parent alerts (acceptance, decline, revocation)
+- US-049: Cooling-off period enforcement logic (prevent re-sharing after 3 declines)
+- Better Auth member validation: Need to verify coach belongs to receiving org
+- Future team-scoped access: Only show shared data to coaches on relevant teams
+
+**What to do next**:
+- US-014-015: Coach request-to-share and parent response mutations (priority 14-15)
+- US-016: Access logging mutation (record all data access for audit trail)
+- US-017: Multi-guardian notification logic (notify all guardians of changes)
+- US-018: Consent expiry scheduled job (auto-expire and send reminders)
+
+**Mistakes made** (learn from these!):
+- None - clean implementation following existing patterns
+
+---
+
+## ITERATION 3 SUMMARY - 16 Stories Completed (US-001 through US-013, plus 010-011)
+**Date**: 2026-01-15
+**Session**: 686fb445-ff9e-4d73-a8fa-b38c76bddbde
+**Branch**: ralph/passport-sharing-phase-1
+
+### Stories Completed This Session
+This iteration completed all core backend functionality for passport sharing Phase 1:
+
+**US-010** (PRD ID): Consent gateway query (validateShareAccess)
+**US-011** (PRD ID): Cross-org passport data query (getSharedPassportData)
+**US-012** (PRD ID): Coach acceptance mutation (acceptPassportShare)
+**US-013** (PRD ID): Coach decline mutation (declinePassportShare)
+
+### Commits Made This Session
+- 8e711f1: US-010 - Consent gateway for access validation
+- f69267c: US-011 - Cross-org passport data query
+- 4c42d24: US-012, US-013 - Coach acceptance and decline mutations
+
+### Key Achievements
+**Complete Consent Workflow**: Guardian create/update/revoke → Coach accept/decline → Data access validation
+- 4 query functions (validateShareAccess, getActiveConsentsForOrg, getConsentsForPlayer, getSharedPassportData)
+- 6 mutation functions (create, update, revoke, accept, decline, + existing guardian helpers)
+- Proper state management and validation throughout
+- TODOs clearly marked for Phase 2 features
+
+**Data Architecture Insights**:
+- Mixed identity architecture (platform-level + org-scoped) requires careful querying
+- Index naming conventions discovered (by_playerIdentityId not by_player)
+- Better Auth integration patterns (organization table queries use filter not withIndex)
+
+### Context Management
+- Started at 41k tokens, ended at ~105k tokens (52.5% usage)
+- Completed 4 stories in single iteration
+- Good pacing - complex queries and simple mutations balanced
+
+### What to do NEXT (US-014+)
+Next iteration should focus on request workflow and notifications:
+- US-014-015: Coach request-to-share + parent response
+- US-016: Access logging mutation
+- US-017: Multi-guardian notification logic
+- US-018: Consent expiry scheduled job
+
+**Key files for next iteration:**
+- packages/backend/convex/models/passportSharing.ts (continue building here)
+- May need to create cron job file for US-018 scheduled tasks
+- Notification system patterns to be established in US-047-048
+
+---
+

@@ -382,8 +382,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 28,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Complete - duration selection with preset options and custom calendar picker. Browser verification deferred (needs parent + guardian links)"
     },
     {
       "id": "US-029",

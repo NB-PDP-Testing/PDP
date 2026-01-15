@@ -776,3 +776,70 @@ Next iteration should focus on request workflow and notifications:
 
 ---
 
+## 2026-01-15 21:00 - US-018, US-019 - Coach Request-to-Share and Parent Response
+**Iteration**: 4
+**Commit**: c467f413005df1b928b5ff33e16288a2170a7a65
+**Session**: 27169c66-55da-44fd-95bf-feb825430807
+**Status**: Complete
+
+### What was implemented
+**US-018: requestPassportAccess mutation**
+- Coaches can request access to player passport when no active share exists
+- Creates passportShareRequests record with 14-day auto-expiry
+- Validates no duplicate pending requests or active consents for same player+org
+- Fetches coach and org names for notification context
+- Notifies all guardians with parental responsibility (via notifyGuardiansOfSharingChange)
+- Added new event type "access_requested" to notification system
+- Returns requestId on success
+
+**US-019: respondToAccessRequest mutation**
+- Parents can approve or decline coach access requests
+- Validates guardian has parental responsibility
+- Checks request is still pending and not expired (auto-expires if past expiresAt)
+- On approval: Sets status to 'approved', records respondedAt and respondedBy
+- On decline: Sets status to 'declined', records respondedAt and respondedBy
+- Note: Actual consent creation happens in frontend wizard (references approved requestId)
+- TODO markers for US-048 coach notification on response
+
+### Files changed
+- packages/backend/convex/models/passportSharing.ts (+212 lines)
+- scripts/ralph/prd.json (US-018, US-019 marked as passes: true)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: no new errors
+- ✅ Linting: passed (only pre-existing `any` type warnings)
+- ✅ Pre-commit hook: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Request workflow pattern**: Check for duplicates before creating (existing pending + existing active consent)
+- **Auto-expiry check**: When responding to request, check expiresAt and auto-expire if needed
+- **State transition validation**: Always validate current state before transitions (pending → approved/declined)
+- **Frontend-backend split**: Approval sets request status but actual consent creation happens in frontend wizard
+- **Event type expansion**: Added "access_requested" to notifyGuardiansOfSharingChange event types
+
+**Gotchas encountered:**
+- Must filter AFTER withIndex query to match additional fields (requestingOrgId)
+- Need to fetch user and org names for notification context (denormalization at creation time)
+- Staged files from other work caused pre-commit hook to fail - must reset and stage only relevant files
+
+**Dependencies found:**
+- US-048: Coach notifications when request is approved/declined by parent
+- US-049: Cooling-off period enforcement (may need to block requests after 3 declines)
+- Frontend: Will need to implement sharing wizard that references approved requestId
+- Better Auth member validation: Should validate coach belongs to requesting org (TODO added)
+
+**What to do next**:
+- US-020: Access logging mutation (logPassportAccess internal function)
+- US-021: Multi-guardian notification helper (enhancement to existing notifyGuardiansOfSharingChange)
+- US-022: Consent expiry scheduled job (cron job for auto-expiry and renewal reminders)
+- These complete the core backend functionality before moving to frontend (US-023+)
+
+**Mistakes made** (learn from these!):
+- Initially tried to commit with other staged files that had lint errors
+- Fixed by resetting staging area and only committing passportSharing.ts
+
+---
+

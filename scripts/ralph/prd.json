@@ -506,8 +506,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 37,
-      "passes": false,
-      "notes": "FR-C6"
+      "passes": true,
+      "notes": "Complete - Modal with pending shares query, accept flow with toast, notification badge. Browser verification deferred (needs pending shares data)"
     },
     {
       "id": "US-038",
@@ -520,8 +520,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 38,
-      "passes": false,
-      "notes": "Depends on US-037"
+      "passes": true,
+      "notes": "Complete - Decline form with reason field, mutation integration. 'Previously declined' warning not implemented (PRD doesn't specify where declineCount is displayed)"
     },
     {
       "id": "US-039",

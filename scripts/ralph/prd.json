@@ -668,8 +668,8 @@
         "Typecheck passes"
       ],
       "priority": 49,
-      "passes": false,
-      "notes": "FR-P10"
+      "passes": true,
+      "notes": "FR-P10 - Already implemented in US-047. notifyGuardiansOfSharingChange handles guardian_change event type, called by updatePassportShareConsent mutation. Filters out actor guardian, notifies all others with parental responsibility."
     }
   ]
 }

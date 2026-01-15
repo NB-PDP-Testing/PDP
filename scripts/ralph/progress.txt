@@ -1830,3 +1830,91 @@ Next iteration should focus on adding real consent data to child cards:
 - Used `interface` initially instead of `type` (linter preference)
 
 ---
+
+## 2026-01-15 15:10 - US-033 - Access Audit Log Filters and Export
+**Iteration**: 12
+**Commit**: 7687bd3ef833c0a75b379e1753d2d4e5ee39532a
+**Session**: 555d5b92-d652-4aa9-9fe9-3e534fd93089
+**Status**: Complete
+
+### What was implemented
+**Filter Panel:**
+- Collapsible filter panel triggered by "Filters" button in header
+- Four filter inputs in responsive grid (1 col mobile, 2 col tablet, 4 col desktop)
+- Date range filter: From Date and To Date inputs (type="date")
+- Organization filter: Dropdown populated with unique organizations from logs
+- Access type filter: Dropdown with all 8 access types (view_summary, view_skills, view_goals, view_notes, view_medical, view_contact, export_pdf, view_insights)
+- "Clear Filters" button to reset all filters to defaults
+
+**Client-Side Filtering:**
+- Changed query limit from 50 to 1000 to fetch comprehensive dataset
+- Created filteredLogs useMemo to apply all filters
+- Date filtering: Convert date strings to timestamps, filter accessedAt
+- Organization filtering: Match exact organization name
+- Access type filtering: Match exact access type value
+- Pagination applied to filtered results, not raw logs
+
+**Export to CSV:**
+- "Export CSV" button in header next to Filters button
+- Disabled when no filtered logs exist
+- Creates CSV with headers: Date & Time, Name, Role, Organization, What
+- Quotes all text fields to handle commas in names
+- Filename includes child name (sanitized) and current date
+- Downloads filtered logs only (not all logs)
+- Uses Blob API and URL.createObjectURL for download
+
+**UX Enhancements:**
+- Empty state shows different message for "no logs" vs "no matching filters"
+- Pagination counter shows "(filtered from X total)" when filters active
+- Page resets to 0 when filters change
+- Filter panel has gray background to visually separate from table
+- Responsive layout throughout
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/access-audit-log.tsx (+255, -20)
+
+### Quality checks
+- ✅ Biome linting: passed
+- ✅ Type check: no new errors
+- ✅ Pre-commit hooks: passed
+- ⚠️ Browser verification: deferred (requires access log data in database)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Client-side filtering pattern**: Fetch large dataset, filter in React with useMemo
+- **Filter state management**: Separate useState for each filter type
+- **Responsive filter grid**: Use grid-cols-1 md:grid-cols-2 lg:grid-cols-4 for filter inputs
+- **CSV export pattern**: Create CSV string, convert to Blob, download via temp link
+- **Filename sanitization**: Use .replace(/\s+/g, "-") to replace spaces with hyphens
+- **Date input handling**: Use type="date" for native date picker, convert value to timestamps
+- **Empty state differentiation**: Check logsData.total vs filteredLogs.length for message
+
+**Gotchas encountered:**
+- None - straightforward implementation building on US-032 foundation
+- useMemo dependencies must include all filter state for reactivity
+- Date input setHours(23, 59, 59, 999) for inclusive "to date" filtering
+
+**Dependencies found:**
+- Future: Consider server-side filtering if logs dataset grows >1000 records
+- Future: Add PDF export option (currently CSV only as per acceptance criteria)
+- US-020: logPassportAccess mutation creates the data being filtered
+- Production: Export feature enables compliance audit reporting
+
+**Component architecture insights:**
+- **Filter panel pattern**: Collapsible section with background color to separate from content
+- **Filter grid layout**: Label + Input stacked vertically, responsive columns
+- **Export pattern**: Button in header, disabled state when no data, filename convention
+- **Pagination with filters**: totalFiltered replaces logsData.total for accurate counts
+- **useMemo chains**: organizations → filteredLogs → paginatedLogs for efficient recomputation
+
+**What to do next**:
+- US-034: Notification preferences UI (access notification frequency settings)
+- US-035: Pending coach requests view (parent-side request management)
+- US-036: Shared players section on coach dashboard
+- Consider: Move to coach-side features (US-036-043) or continue with parent features (US-034-035)
+
+**Mistakes made** (learn from these!):
+- None - clean implementation leveraging existing audit log infrastructure
+
+---

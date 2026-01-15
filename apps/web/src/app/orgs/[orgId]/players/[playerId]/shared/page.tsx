@@ -3,7 +3,14 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { ArrowLeft, Info, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Info,
+  Loader2,
+  Mail,
+  Phone,
+} from "lucide-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -130,6 +137,89 @@ export default function SharedPassportPage() {
           {sourceOrgNames}. All access is logged for audit purposes.
         </AlertDescription>
       </Alert>
+
+      {/* Organization Contact Information */}
+      {sharedPassport.orgSharingContacts &&
+        sharedPassport.orgSharingContacts.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg">Organization Contact</CardTitle>
+              <CardDescription>
+                Contact information for coordinating with other clubs
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {sharedPassport.orgSharingContacts.map(
+                (contact: {
+                  organizationId: string;
+                  organizationName: string;
+                  sharingContactMode: "direct" | "form";
+                  sharingContactName?: string;
+                  sharingContactEmail?: string;
+                  sharingContactPhone?: string;
+                  sharingEnquiriesUrl?: string;
+                }) => (
+                  <div
+                    className="rounded-lg border p-4"
+                    key={contact.organizationId}
+                  >
+                    <h4 className="mb-3 font-semibold">
+                      {contact.organizationName}
+                    </h4>
+
+                    {contact.sharingContactMode === "direct" && (
+                      <div className="space-y-2">
+                        {contact.sharingContactName && (
+                          <p className="text-sm">
+                            <span className="font-medium">Contact: </span>
+                            {contact.sharingContactName}
+                          </p>
+                        )}
+                        {contact.sharingContactEmail && (
+                          <p className="text-sm">
+                            <a
+                              className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                              href={`mailto:${contact.sharingContactEmail}`}
+                            >
+                              <Mail className="h-4 w-4" />
+                              {contact.sharingContactEmail}
+                            </a>
+                          </p>
+                        )}
+                        {contact.sharingContactPhone && (
+                          <p className="text-sm">
+                            <a
+                              className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                              href={`tel:${contact.sharingContactPhone}`}
+                            >
+                              <Phone className="h-4 w-4" />
+                              {contact.sharingContactPhone}
+                            </a>
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {contact.sharingContactMode === "form" &&
+                      contact.sharingEnquiriesUrl && (
+                        <div>
+                          <a
+                            className="inline-flex items-center gap-2 text-blue-600 hover:underline"
+                            href={contact.sharingEnquiriesUrl}
+                            rel="noopener noreferrer"
+                            target="_blank"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Contact via enquiries form
+                          </a>
+                        </div>
+                      )}
+                  </div>
+                )
+              )}
+            </CardContent>
+          </Card>
+        )}
 
       {/* Shared Data Sections */}
       <div className="space-y-4">

@@ -25,6 +25,43 @@ import {
 } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
 
+/**
+ * Calculate data freshness category and styling based on last updated timestamp
+ * Returns color and label for the freshness indicator
+ */
+function getDataFreshness(lastUpdated: number): {
+  category: "fresh" | "recent" | "outdated";
+  color: string;
+  bgColor: string;
+  label: string;
+} {
+  const now = Date.now();
+  const ageInMonths = (now - lastUpdated) / (1000 * 60 * 60 * 24 * 30);
+
+  if (ageInMonths < 1) {
+    return {
+      category: "fresh",
+      color: "text-green-700",
+      bgColor: "bg-green-100 border-green-300",
+      label: "Up to date",
+    };
+  }
+  if (ageInMonths < 6) {
+    return {
+      category: "recent",
+      color: "text-yellow-700",
+      bgColor: "bg-yellow-100 border-yellow-300",
+      label: "Recent",
+    };
+  }
+  return {
+    category: "outdated",
+    color: "text-amber-700",
+    bgColor: "bg-amber-100 border-amber-300",
+    label: "May be outdated",
+  };
+}
+
 export default function SharedPassportPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -59,6 +96,36 @@ export default function SharedPassportPage() {
   }, [organizations]);
 
   const receivingOrgName = orgNameMap.get(orgId) || "Your organization";
+
+  // Check if any data is outdated (>6 months) - must be before early returns
+  const hasOutdatedData = useMemo(() => {
+    if (!sharedPassport) {
+      return false;
+    }
+
+    const now = Date.now();
+    const sixMonthsAgo = now - 6 * 30 * 24 * 60 * 60 * 1000;
+
+    // Check enrollments
+    if (
+      sharedPassport.enrollments?.some(
+        (e: { lastUpdated: number }) => e.lastUpdated < sixMonthsAgo
+      )
+    ) {
+      return true;
+    }
+
+    // Check goals
+    if (
+      sharedPassport.goals?.some(
+        (g: { updatedAt: number }) => g.updatedAt < sixMonthsAgo
+      )
+    ) {
+      return true;
+    }
+
+    return false;
+  }, [sharedPassport]);
 
   if (!consentId) {
     return (
@@ -137,6 +204,18 @@ export default function SharedPassportPage() {
           {sourceOrgNames}. All access is logged for audit purposes.
         </AlertDescription>
       </Alert>
+
+      {/* Outdated Data Warning */}
+      {hasOutdatedData && (
+        <Alert className="mb-6 border-amber-300 bg-amber-50">
+          <Info className="h-4 w-4 text-amber-700" />
+          <AlertDescription className="text-amber-900">
+            <strong>Data may be outdated:</strong> Some information hasn't been
+            updated in over 6 months. Contact the source organization if you
+            need current information.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Organization Contact Information */}
       {sharedPassport.orgSharingContacts &&
@@ -275,28 +354,41 @@ export default function SharedPassportPage() {
                           ageGroup: string;
                           status: string;
                           lastUpdated: number;
-                        }) => (
-                          <div
-                            className="flex items-center justify-between rounded-lg border p-3"
-                            key={`${enrollment.organizationId}-${enrollment.sport}`}
-                          >
-                            <div>
-                              <p className="font-medium">
-                                {enrollment.organizationName}
-                              </p>
-                              <p className="text-muted-foreground text-sm">
-                                {enrollment.sport} • {enrollment.ageGroup} •{" "}
-                                {enrollment.status}
-                              </p>
+                        }) => {
+                          const freshness = getDataFreshness(
+                            enrollment.lastUpdated
+                          );
+                          return (
+                            <div
+                              className="flex items-center justify-between rounded-lg border p-3"
+                              key={`${enrollment.organizationId}-${enrollment.sport}`}
+                            >
+                              <div>
+                                <p className="font-medium">
+                                  {enrollment.organizationName}
+                                </p>
+                                <p className="text-muted-foreground text-sm">
+                                  {enrollment.sport} • {enrollment.ageGroup} •{" "}
+                                  {enrollment.status}
+                                </p>
+                              </div>
+                              <div className="flex flex-col items-end gap-1">
+                                <Badge
+                                  className={`${freshness.bgColor} ${freshness.color} border`}
+                                  variant="outline"
+                                >
+                                  {freshness.label}
+                                </Badge>
+                                <span className="text-muted-foreground text-xs">
+                                  Updated:{" "}
+                                  {new Date(
+                                    enrollment.lastUpdated
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
                             </div>
-                            <Badge variant="outline">
-                              Updated:{" "}
-                              {new Date(
-                                enrollment.lastUpdated
-                              ).toLocaleDateString()}
-                            </Badge>
-                          </div>
-                        )
+                          );
+                        }
                       )}
                     </div>
                   </div>
@@ -336,36 +428,48 @@ export default function SharedPassportPage() {
                       createdAt: number;
                       updatedAt: number;
                       isShareable: boolean;
-                    }) => (
-                      <div className="rounded-lg border p-4" key={goal.goalId}>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-semibold">{goal.title}</h4>
-                            {goal.description && (
-                              <p className="mt-1 text-muted-foreground text-sm">
-                                {goal.description}
+                    }) => {
+                      const freshness = getDataFreshness(goal.updatedAt);
+                      return (
+                        <div
+                          className="rounded-lg border p-4"
+                          key={goal.goalId}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-semibold">{goal.title}</h4>
+                              {goal.description && (
+                                <p className="mt-1 text-muted-foreground text-sm">
+                                  {goal.description}
+                                </p>
+                              )}
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <Badge variant="outline">{goal.status}</Badge>
+                                <Badge variant="outline">
+                                  {goal.organizationName}
+                                </Badge>
+                                <Badge
+                                  className={`${freshness.bgColor} ${freshness.color} border`}
+                                  variant="outline"
+                                >
+                                  {freshness.label}
+                                </Badge>
+                              </div>
+                            </div>
+                            <div className="ml-4 text-right text-muted-foreground text-sm">
+                              <p>
+                                Created:{" "}
+                                {new Date(goal.createdAt).toLocaleDateString()}
                               </p>
-                            )}
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <Badge variant="outline">{goal.status}</Badge>
-                              <Badge variant="outline">
-                                {goal.organizationName}
-                              </Badge>
+                              <p>
+                                Updated:{" "}
+                                {new Date(goal.updatedAt).toLocaleDateString()}
+                              </p>
                             </div>
                           </div>
-                          <div className="ml-4 text-right text-muted-foreground text-sm">
-                            <p>
-                              Created:{" "}
-                              {new Date(goal.createdAt).toLocaleDateString()}
-                            </p>
-                            <p>
-                              Updated:{" "}
-                              {new Date(goal.updatedAt).toLocaleDateString()}
-                            </p>
-                          </div>
                         </div>
-                      </div>
-                    )
+                      );
+                    }
                   )}
                 </div>
               </CardContent>

@@ -4,14 +4,26 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { AlertCircle, Building2, Shield, User } from "lucide-react";
+import {
+  AlertCircle,
+  Building2,
+  Calendar as CalendarIcon,
+  Shield,
+  User,
+} from "lucide-react";
 import { useState } from "react";
 import { ResponsiveDialog } from "@/components/interactions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 /**
@@ -106,6 +118,9 @@ export function EnableSharingWizard({
   >("all_enrolled");
   const [selectedOrgIds, setSelectedOrgIds] = useState<string[]>([]);
 
+  // Duration selection state
+  const [expiresAt, setExpiresAt] = useState<Date | undefined>(undefined);
+
   // Reset wizard state when dialog closes
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
@@ -127,6 +142,8 @@ export function EnableSharingWizard({
       // Reset org selection
       setSourceOrgMode("all_enrolled");
       setSelectedOrgIds([]);
+      // Reset duration
+      setExpiresAt(undefined);
     }
     onOpenChange(newOpen);
   };
@@ -138,8 +155,10 @@ export function EnableSharingWizard({
     } else if (currentStep === "element-selection") {
       setCurrentStep("org-selection");
     } else if (currentStep === "org-selection") {
-      // TODO: Move to duration (US-028)
-      // setCurrentStep("duration");
+      setCurrentStep("duration");
+    } else if (currentStep === "duration") {
+      // TODO: Move to review (US-029)
+      // setCurrentStep("review");
     }
   };
 
@@ -150,6 +169,8 @@ export function EnableSharingWizard({
       setCurrentStep("child-selection");
     } else if (currentStep === "org-selection") {
       setCurrentStep("element-selection");
+    } else if (currentStep === "duration") {
+      setCurrentStep("org-selection");
     }
   };
 
@@ -174,6 +195,10 @@ export function EnableSharingWizard({
       }
       // all_enrolled mode is always valid
       return true;
+    }
+    if (currentStep === "duration") {
+      // Must have a valid expiry date selected
+      return expiresAt !== undefined;
     }
     return false;
   })();
@@ -254,6 +279,13 @@ export function EnableSharingWizard({
             playerIdentityId={selectedChildId as Id<"playerIdentities">}
             selectedOrgIds={selectedOrgIds}
             sourceOrgMode={sourceOrgMode}
+          />
+        )}
+
+        {currentStep === "duration" && (
+          <DurationSelectionStep
+            expiresAt={expiresAt}
+            onSelectDate={setExpiresAt}
           />
         )}
 
@@ -750,6 +782,234 @@ function OrganizationCheckbox({
           </Badge>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Step 4: Duration Selection
+ */
+type DurationSelectionStepProps = {
+  expiresAt: Date | undefined;
+  onSelectDate: (date: Date | undefined) => void;
+};
+
+function DurationSelectionStep({
+  expiresAt,
+  onSelectDate,
+}: DurationSelectionStepProps) {
+  // Preset duration options
+  type DurationType = "season_end" | "6_months" | "1_year" | "custom";
+  const [durationType, setDurationType] = useState<DurationType | undefined>(
+    undefined
+  );
+
+  // Calculate preset dates
+  const calculatePresetDate = (type: DurationType): Date | undefined => {
+    const now = new Date();
+
+    if (type === "season_end") {
+      // Default season end: June 30th of current year, or next year if we're past June
+      const currentYear = now.getFullYear();
+      const seasonEnd = new Date(currentYear, 5, 30); // June is month 5 (0-indexed)
+
+      // If we're past June 30th, use next year's June 30th
+      if (now > seasonEnd) {
+        return new Date(currentYear + 1, 5, 30);
+      }
+      return seasonEnd;
+    }
+
+    if (type === "6_months") {
+      const sixMonthsFromNow = new Date(now);
+      sixMonthsFromNow.setMonth(now.getMonth() + 6);
+      return sixMonthsFromNow;
+    }
+
+    if (type === "1_year") {
+      const oneYearFromNow = new Date(now);
+      oneYearFromNow.setFullYear(now.getFullYear() + 1);
+      return oneYearFromNow;
+    }
+
+    return;
+  };
+
+  // Handle duration type selection
+  const handleDurationTypeChange = (type: DurationType) => {
+    setDurationType(type);
+
+    if (type === "custom") {
+      // Don't set a date yet - user will pick from calendar
+      onSelectDate(undefined);
+    } else {
+      // Calculate and set preset date
+      const presetDate = calculatePresetDate(type);
+      onSelectDate(presetDate);
+    }
+  };
+
+  // Format date for display
+  const formatDate = (date: Date): string =>
+    date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+  return (
+    <div className="space-y-4">
+      <p className="text-muted-foreground text-sm">
+        How long should this sharing consent remain active?
+      </p>
+
+      {/* Duration type selection */}
+      <RadioGroup
+        onValueChange={(value) => {
+          handleDurationTypeChange(value as DurationType);
+        }}
+        value={durationType}
+      >
+        <div className="space-y-3">
+          {/* Season end option */}
+          <Card
+            className={`cursor-pointer transition-colors hover:border-primary/50 ${
+              durationType === "season_end" ? "border-2 border-primary" : ""
+            }`}
+            onClick={() => {
+              handleDurationTypeChange("season_end");
+            }}
+          >
+            <CardContent className="flex items-start gap-3 p-4">
+              <RadioGroupItem id="season_end" value="season_end" />
+              <Label
+                className="flex flex-1 cursor-pointer flex-col gap-1"
+                htmlFor="season_end"
+              >
+                <span className="font-medium">Until Season End</span>
+                <p className="text-muted-foreground text-xs">
+                  {(() => {
+                    const date = calculatePresetDate("season_end");
+                    return date ? `Expires: ${formatDate(date)}` : null;
+                  })()}
+                </p>
+              </Label>
+            </CardContent>
+          </Card>
+
+          {/* 6 months option */}
+          <Card
+            className={`cursor-pointer transition-colors hover:border-primary/50 ${
+              durationType === "6_months" ? "border-2 border-primary" : ""
+            }`}
+            onClick={() => {
+              handleDurationTypeChange("6_months");
+            }}
+          >
+            <CardContent className="flex items-start gap-3 p-4">
+              <RadioGroupItem id="6_months" value="6_months" />
+              <Label
+                className="flex flex-1 cursor-pointer flex-col gap-1"
+                htmlFor="6_months"
+              >
+                <span className="font-medium">6 Months</span>
+                <p className="text-muted-foreground text-xs">
+                  {(() => {
+                    const date = calculatePresetDate("6_months");
+                    return date ? `Expires: ${formatDate(date)}` : null;
+                  })()}
+                </p>
+              </Label>
+            </CardContent>
+          </Card>
+
+          {/* 1 year option */}
+          <Card
+            className={`cursor-pointer transition-colors hover:border-primary/50 ${
+              durationType === "1_year" ? "border-2 border-primary" : ""
+            }`}
+            onClick={() => {
+              handleDurationTypeChange("1_year");
+            }}
+          >
+            <CardContent className="flex items-start gap-3 p-4">
+              <RadioGroupItem id="1_year" value="1_year" />
+              <Label
+                className="flex flex-1 cursor-pointer flex-col gap-1"
+                htmlFor="1_year"
+              >
+                <span className="font-medium">1 Year</span>
+                <p className="text-muted-foreground text-xs">
+                  {(() => {
+                    const date = calculatePresetDate("1_year");
+                    return date ? `Expires: ${formatDate(date)}` : null;
+                  })()}
+                </p>
+              </Label>
+            </CardContent>
+          </Card>
+
+          {/* Custom date option */}
+          <Card
+            className={`cursor-pointer transition-colors hover:border-primary/50 ${
+              durationType === "custom" ? "border-2 border-primary" : ""
+            }`}
+            onClick={() => {
+              handleDurationTypeChange("custom");
+            }}
+          >
+            <CardContent className="flex items-start gap-3 p-4">
+              <RadioGroupItem id="custom" value="custom" />
+              <Label
+                className="flex flex-1 cursor-pointer flex-col gap-1"
+                htmlFor="custom"
+              >
+                <span className="font-medium">Custom Date</span>
+                <p className="text-muted-foreground text-xs">
+                  Choose a specific expiry date
+                </p>
+              </Label>
+            </CardContent>
+          </Card>
+        </div>
+      </RadioGroup>
+
+      {/* Custom date picker (only shown when custom is selected) */}
+      {durationType === "custom" && (
+        <div className="space-y-3">
+          <p className="font-medium text-sm">Select Expiry Date</p>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                className="w-full justify-start text-left font-normal"
+                type="button"
+                variant="outline"
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {expiresAt ? formatDate(expiresAt) : "Pick a date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-auto p-0">
+              <Calendar
+                disabled={(date) => {
+                  // Disable past dates (must be future)
+                  return date < new Date();
+                }}
+                mode="single"
+                onSelect={(date) => {
+                  onSelectDate(date);
+                }}
+                selected={expiresAt}
+              />
+            </PopoverContent>
+          </Popover>
+          {expiresAt && (
+            <p className="text-muted-foreground text-xs">
+              Sharing consent will expire on {formatDate(expiresAt)}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

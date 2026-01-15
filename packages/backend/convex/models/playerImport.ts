@@ -27,7 +27,7 @@ function normalizeNameForMatching(name: string): {
     return { normalized: "", firstName: "", lastName: "" };
   }
   const firstName = parts[0];
-  const lastName = parts.length > 1 ? parts.at(-1) : "";
+  const lastName = parts.length > 1 ? (parts.at(-1) ?? "") : "";
   return {
     normalized: `${firstName} ${lastName}`.trim(),
     firstName,
@@ -381,14 +381,21 @@ export const importPlayerWithIdentity = mutation({
       }
 
       // If no email match, try to find by name + phone (if phone provided)
-      if (!existingGuardian && args.parentPhone) {
+      if (
+        !existingGuardian &&
+        args.parentPhone &&
+        args.parentFirstName &&
+        args.parentLastName
+      ) {
         const normalizedPhone = args.parentPhone.trim();
+        const parentFirstName = args.parentFirstName;
+        const parentLastName = args.parentLastName;
         const guardiansByName = await ctx.db
           .query("guardianIdentities")
           .withIndex("by_name", (q) =>
             q
-              .eq("lastName", args.parentLastName?.trim())
-              .eq("firstName", args.parentFirstName?.trim())
+              .eq("lastName", parentLastName.trim())
+              .eq("firstName", parentFirstName.trim())
           )
           .collect();
 
@@ -857,14 +864,21 @@ export const batchImportPlayersWithIdentity = mutation({
           }
 
           // If no email match, try to find by name + phone (if phone provided)
-          if (!existingGuardian && playerData.parentPhone) {
+          if (
+            !existingGuardian &&
+            playerData.parentPhone &&
+            playerData.parentFirstName &&
+            playerData.parentLastName
+          ) {
             const normalizedPhone = playerData.parentPhone.trim();
+            const parentFirstName = playerData.parentFirstName;
+            const parentLastName = playerData.parentLastName;
             const guardiansByName = await ctx.db
               .query("guardianIdentities")
               .withIndex("by_name", (q) =>
                 q
-                  .eq("lastName", playerData.parentLastName?.trim())
-                  .eq("firstName", playerData.parentFirstName?.trim())
+                  .eq("lastName", parentLastName.trim())
+                  .eq("firstName", parentFirstName.trim())
               )
               .collect();
 

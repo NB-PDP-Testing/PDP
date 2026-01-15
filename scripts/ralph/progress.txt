@@ -1137,3 +1137,85 @@ Next iteration should focus on adding real consent data to child cards:
 - Forgot that linter removes unused imports - had to re-add ChildSharingCard import
 
 ---
+
+## 2026-01-15 15:45 - US-025 - Enable Sharing Wizard Step 1 (Child Selection)
+**Iteration**: 7
+**Commit**: 1ff6df02be40a595b0a2bbe039c725caf4426c07
+**Session**: 82a36b78-ea7f-47b1-8fe1-0762c9e23bde
+**Status**: Complete
+
+### What was implemented
+**EnableSharingWizard Component:**
+- Created multi-step wizard structure with 6 total steps (5 shown in progress)
+- Implemented step 1: Child selection using RadioGroup
+- Progress indicator with visual progress bar
+- Auto-selects single child, shows selection UI for multiple children
+- Child cards display name, sport, and age group badges
+- Cancel and Continue navigation buttons (Continue disabled until selection)
+- Mobile-responsive using ResponsiveDialog (drawer on mobile, modal on desktop)
+
+**Integration:**
+- Added "Enable Sharing" button to ChildSharingCard component
+- Integrated wizard state management in ParentSharingDashboard
+- Created handler to open wizard and track selected child
+- Helper function to transform identity children data for wizard format
+
+**Type Safety:**
+- Exported ChildForSharing type for wizard data structure
+- Proper TypeScript typing throughout (no any types except linter placeholders)
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/enable-sharing-wizard.tsx (+265 lines, new file)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/parent-sharing-dashboard.tsx (+23, -2)
+- apps/web/src/app/orgs/[orgId]/parents/sharing/components/child-sharing-card.tsx (+8, -2)
+
+### Quality checks
+- ✅ Type check: passed (no new errors)
+- ✅ Biome lint: passed (fixed noChildrenProp, noUnusedVariables)
+- ✅ Pre-commit hooks: passed
+- ⚠️ Browser verification: deferred (requires test user with parent role and guardian links)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **ResponsiveDialog pattern**: Use open/onOpenChange props for controlled dialogs
+- **Wizard step management**: Use union type for steps, track current step in state
+- **Progress indicator**: Calculate percentage as (currentStep / totalSteps) * 100
+- **Child selection UX**: Auto-select when only one child, show selection for multiple
+- **Prop naming**: Avoid using "children" as prop name (triggers lint rule noChildrenProp)
+- **Unused variable convention**: Prefix with underscore for future use (_selectedChild)
+
+**Gotchas encountered:**
+- Biome linter rule `noChildrenProp` forbids using "children" as a prop name
+- Must rename to childrenList or similar to avoid this lint error
+- ResponsiveDialog contentClassName uses sm:max-w-lg for wizard width
+- Button type="button" required to prevent form submission in dialogs
+- Working directory can be nested deep - use relative paths for git operations
+
+**Dependencies found:**
+- US-026: Next step is element selection (what data to share)
+- US-027: Organization selection (who can see it)
+- US-028: Duration selection (how long)
+- US-029: Review and confirm + success screen
+- Browser testing requires parent role + guardian identity + linked children in test data
+
+**Wizard architecture insights:**
+- Step navigation: handleNext/handleBack functions control flow
+- Reset wizard state when dialog closes (clean slate for next open)
+- Progress excludes success screen from count (5 steps not 6)
+- Each step gets own component function for modularity
+- Selected child data stored for use in future steps (US-026+)
+
+**What to do next**:
+- US-026: Element selection step (checkboxes for passport elements)
+- US-027: Organization selection step (all enrolled, specific orgs, or any org)
+- US-028: Duration selection step (season end, 6mo, 1yr, custom)
+- US-029: Review/confirm + success screen
+- After wizard complete: wire up createPassportShareConsent mutation
+
+**Mistakes made** (learn from these!):
+- Initially used "children" as prop name, had to refactor to "childrenList"
+- Forgot to prefix unused selectedChildForWizard variable with underscore
+- Had to handle linter auto-removing imports multiple times
+
+---

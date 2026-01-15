@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import {
   AlertCircle,
@@ -25,6 +25,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ReviewStep, SuccessStep } from "./review-and-success-steps";
 
 /**
  * Child data structure from parent dashboard
@@ -93,7 +94,7 @@ export function EnableSharingWizard({
   open,
   onOpenChange,
   childrenList,
-  orgId: _orgId,
+  orgId,
 }: EnableSharingWizardProps) {
   const [currentStep, setCurrentStep] = useState<WizardStep>("child-selection");
   const [selectedChildId, setSelectedChildId] = useState<string>("");
@@ -121,6 +122,15 @@ export function EnableSharingWizard({
   // Duration selection state
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(undefined);
 
+  // Success state
+  const [consentId, setConsentId] = useState<string | undefined>(undefined);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Mutation for creating consent
+  const createConsent = useMutation(
+    api.models.passportSharing.createPassportShareConsent
+  );
+
   // Reset wizard state when dialog closes
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
@@ -144,6 +154,9 @@ export function EnableSharingWizard({
       setSelectedOrgIds([]);
       // Reset duration
       setExpiresAt(undefined);
+      // Reset success state
+      setConsentId(undefined);
+      setIsSubmitting(false);
     }
     onOpenChange(newOpen);
   };
@@ -157,8 +170,7 @@ export function EnableSharingWizard({
     } else if (currentStep === "org-selection") {
       setCurrentStep("duration");
     } else if (currentStep === "duration") {
-      // TODO: Move to review (US-029)
-      // setCurrentStep("review");
+      setCurrentStep("review");
     }
   };
 
@@ -171,11 +183,44 @@ export function EnableSharingWizard({
       setCurrentStep("element-selection");
     } else if (currentStep === "duration") {
       setCurrentStep("org-selection");
+    } else if (currentStep === "review") {
+      setCurrentStep("duration");
     }
   };
 
-  // Get selected child data (will be used in future steps)
-  const _selectedChild = childrenList.find(
+  // Handle consent submission
+  const handleSubmit = async () => {
+    if (!expiresAt) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const id = await createConsent({
+        playerIdentityId: selectedChildId as Id<"playerIdentities">,
+        receivingOrgId: orgId,
+        sharedElements,
+        sourceOrgMode,
+        sourceOrgIds:
+          sourceOrgMode === "specific_orgs" ? selectedOrgIds : undefined,
+        expiresAt: expiresAt.getTime(),
+        // ipAddress is optional - backend will handle if not provided
+      });
+
+      setConsentId(id);
+      setCurrentStep("success");
+    } catch (error) {
+      console.error("Failed to create consent:", error);
+      // TODO: Show error toast notification using sonner
+      // For now, log to console
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Get selected child data
+  const selectedChild = childrenList.find(
     (child) => child._id === selectedChildId
   );
 
@@ -289,15 +334,48 @@ export function EnableSharingWizard({
           />
         )}
 
-        {/* Navigation buttons */}
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
-          <Button onClick={handleBack} type="button" variant="outline">
-            Cancel
-          </Button>
-          <Button disabled={!canProceed} onClick={handleNext} type="button">
-            Continue
-          </Button>
-        </div>
+        {currentStep === "review" && selectedChild && (
+          <ReviewStep
+            child={selectedChild}
+            expiresAt={expiresAt}
+            playerIdentityId={selectedChildId as Id<"playerIdentities">}
+            selectedOrgIds={selectedOrgIds}
+            sharedElements={sharedElements}
+            sourceOrgMode={sourceOrgMode}
+          />
+        )}
+
+        {currentStep === "success" && selectedChild && (
+          <SuccessStep
+            child={selectedChild}
+            consentId={consentId}
+            onClose={() => {
+              handleOpenChange(false);
+            }}
+          />
+        )}
+
+        {/* Navigation buttons (hidden on success screen) */}
+        {currentStep !== "success" && (
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+            <Button onClick={handleBack} type="button" variant="outline">
+              {currentStep === "review" ? "Back" : "Cancel"}
+            </Button>
+            {currentStep === "review" ? (
+              <Button
+                disabled={isSubmitting}
+                onClick={handleSubmit}
+                type="button"
+              >
+                {isSubmitting ? "Creating..." : "Confirm & Enable Sharing"}
+              </Button>
+            ) : (
+              <Button disabled={!canProceed} onClick={handleNext} type="button">
+                Continue
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </ResponsiveDialog>
   );
@@ -742,7 +820,6 @@ function OrganizationCheckbox({
   isSelected,
   onToggle,
 }: OrganizationCheckboxProps) {
-  // biome-ignore lint/correctness/useHookAtTopLevel: Dynamic organization fetch per enrollment
   const organization = useQuery(api.models.organizations.getOrganization, {
     organizationId,
   });

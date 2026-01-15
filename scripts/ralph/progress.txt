@@ -843,3 +843,79 @@ Next iteration should focus on request workflow and notifications:
 
 ---
 
+## 2026-01-15 22:00 - US-020, US-021, US-022 - Access Logging and Scheduled Jobs
+**Iteration**: 4
+**Commit**: c533627 (US-020), fad428f (US-022)
+**Session**: 27169c66-55da-44fd-95bf-feb825430807
+**Status**: Complete
+
+### What was implemented
+**US-020: logPassportAccess mutation**
+- Creates immutable audit log entries in passportShareAccessLogs table
+- Records: consentId, playerIdentityId, accessedBy, accessorName, accessorRole, accessorOrgId, accessType, accessedAt
+- Supports 8 access types: view_summary, view_skills, view_goals, view_notes, view_medical, view_contact, export_pdf, view_insights
+- Optional fields: ipAddress, userAgent for compliance
+- Must be called by frontend after viewing shared passport data
+- TODO: Integrate with Better Auth member table for actual role lookup
+
+**US-021: Multi-guardian notification helper**
+- ALREADY IMPLEMENTED in iteration 2 (commit 8aade15)
+- Function exists: notifyGuardiansOfSharingChange
+- Supports all required event types: share_enabled, share_revoked, share_expired, guardian_change
+- Added new event types in this iteration: share_expiring, access_requested
+- Marked as passes: true in PRD
+
+**US-022: processConsentExpiry scheduled job**
+- Daily cron job runs every 24 hours
+- Part 1: Finds consents expiring in 14 days, sends renewal reminders
+  - Marks renewalReminderSent flag to avoid duplicates
+  - Notifies guardians with "share_expiring" event
+  - Includes daysUntilExpiry in metadata
+- Part 2: Finds expired consents, sets status to 'expired'
+  - Notifies guardians with "share_expired" event
+- Returns count of reminders sent and consents expired
+- Registered in crons.ts using internal.models.passportSharing.processConsentExpiry
+
+### Files changed
+- packages/backend/convex/models/passportSharing.ts (+217 lines total)
+- packages/backend/convex/crons.ts (+8 lines)
+- scripts/ralph/prd.json (US-020, US-021, US-022 marked as passes: true)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: no new errors
+- ✅ Linting: passed (fixed ++ to += operator)
+- ✅ Pre-commit hook: passed
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Audit logging pattern**: Frontend must call logging mutation after viewing data (queries can't call mutations)
+- **Cron job pattern**: Register in crons.ts using internal API reference
+- **Event type expansion**: Added "share_expiring" and "access_requested" to notification event types
+- **Biome linting**: Use `+=` instead of `++` for increment operations
+- **Scheduled job returns**: Return statistics object for monitoring/observability
+
+**Gotchas encountered:**
+- Queries cannot call mutations in Convex - audit logging must be frontend-initiated
+- Biome lint rule forbids ++ and -- operators (use += 1 instead)
+- Need to expand event type union when adding new notification types
+
+**Dependencies found:**
+- Frontend: Must call logPassportAccess after calling getSharedPassportData
+- Better Auth member table: Should integrate for actual role lookup in audit logs
+- Notification system: Renewal reminders and expiry notifications rely on US-047 implementation
+- Cron job monitoring: Should track renewal reminder and expiry counts for observability
+
+**What to do next**:
+- US-023+: Frontend implementation starts (parent sharing dashboard, wizard, coach views)
+- These are UI-heavy stories requiring browser testing with dev-browser
+- Backend is now feature-complete for Phase 1 passport sharing
+- Consider adding query functions for frontend dashboards (get pending requests, get active consents, etc.)
+
+**Mistakes made** (learn from these!):
+- Used ++ operator initially, had to fix to += for linting
+- Almost forgot to add new event types to the union type
+
+---
+

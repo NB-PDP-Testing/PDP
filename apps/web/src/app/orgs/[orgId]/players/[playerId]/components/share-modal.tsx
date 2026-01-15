@@ -54,6 +54,23 @@ export function ShareModal({
   const [emailAddress, setEmailAddress] = useState("");
   const [copied, setCopied] = useState(false);
 
+  const generatePDF = useCallback(async () => {
+    setIsGenerating(true);
+    try {
+      const bytes = await generatePassportPDF(playerData);
+      setPdfBytes(bytes);
+      const url = previewPDF(bytes);
+      setPreviewUrl(url);
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      toast.error("Failed to generate PDF", {
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [playerData]);
+
   // Generate PDF when modal opens
   useEffect(() => {
     if (open && !pdfBytes) {
@@ -70,23 +87,6 @@ export function ShareModal({
     },
     [previewUrl]
   );
-
-  const generatePDF = async () => {
-    setIsGenerating(true);
-    try {
-      const bytes = await generatePassportPDF(playerData);
-      setPdfBytes(bytes);
-      const url = previewPDF(bytes);
-      setPreviewUrl(url);
-    } catch (error) {
-      console.error("Failed to generate PDF:", error);
-      toast.error("Failed to generate PDF", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   const handleDownload = useCallback(() => {
     if (!pdfBytes) {

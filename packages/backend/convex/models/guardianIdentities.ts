@@ -499,12 +499,12 @@ export const findMatchingGuardian = query({
 
     // 3. Name match only (lowest confidence - requires admin review)
     if (args.firstName && args.lastName) {
+      const firstName = args.firstName;
+      const lastName = args.lastName;
       const byName = await ctx.db
         .query("guardianIdentities")
         .withIndex("by_name", (q) =>
-          q
-            .eq("lastName", args.lastName?.trim())
-            .eq("firstName", args.firstName?.trim())
+          q.eq("lastName", lastName.trim()).eq("firstName", firstName.trim())
         )
         .first();
 

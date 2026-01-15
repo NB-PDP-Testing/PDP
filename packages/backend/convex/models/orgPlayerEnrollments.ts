@@ -573,8 +573,12 @@ export const findOrCreateEnrollment = mutation({
       }
     }
 
+    if (!enrollment) {
+      throw new Error("Failed to create or retrieve enrollment");
+    }
+
     return {
-      enrollmentId: enrollment?._id,
+      enrollmentId: enrollment._id,
       wasCreated,
       passportId,
       passportWasCreated,

@@ -5,7 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { AlertCircle, CheckCircle, XCircle } from "lucide-react";
 import type { Route } from "next";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +39,152 @@ export default function AcceptInvitationPage() {
   // Mutation to sync functional roles from invitation metadata
   const syncFunctionalRolesFromInvitation = useMutation(
     api.models.members.syncFunctionalRolesFromInvitation
+  );
+
+  const acceptInvitation = useCallback(
+    async (userEmail: string) => {
+      try {
+        setStatus("loading");
+        console.log("Attempting to accept invitation:", invitationId);
+        console.log("Current user email:", userEmail);
+        console.log("Invitation email:", invitation?.email);
+
+        const result = await authClient.organization.acceptInvitation({
+          invitationId,
+        });
+
+        console.log("Invitation acceptance result:", result);
+
+        if (result.error) {
+          console.error("Invitation acceptance error:", result.error);
+          setStatus("error");
+
+          // Check if error is likely due to email mismatch
+          const apiErrorMessage = result.error.message || "";
+          const isEmailMismatch =
+            apiErrorMessage.toLowerCase().includes("email") ||
+            apiErrorMessage.toLowerCase().includes("match") ||
+            apiErrorMessage.toLowerCase().includes("invitation") ||
+            apiErrorMessage.toLowerCase().includes("not found");
+
+          if (isEmailMismatch) {
+            setErrorMessage(
+              "This invitation was sent to a different email address. " +
+                `You're currently signed in as ${userEmail}. ` +
+                "Please sign out and sign in with the email address that received the invitation."
+            );
+          } else {
+            setErrorMessage(apiErrorMessage || "Failed to accept invitation");
+          }
+        } else {
+          setStatus("success");
+
+          // Get the organization ID from the result
+          const organizationId = result.data?.invitation?.organizationId;
+
+          // Clear pending invitation from sessionStorage since we've accepted it
+          if (typeof window !== "undefined") {
+            sessionStorage.removeItem("pendingInvitationId");
+          }
+
+          if (organizationId && session?.user?.id && session?.user?.email) {
+            // Sync functional roles from invitation metadata
+            // This handles:
+            // - Suggested functional roles from invitation metadata (coach, parent, admin)
+            // - Coach team assignments if specified
+            // - Parent-player links if specified
+            // Note: Auto-mapping Better Auth "admin"/"owner" → functional "admin" is done in beforeAddMember hook
+            let syncSucceeded = false;
+            try {
+              console.log("[AcceptInvitation] Starting role sync with:", {
+                invitationId,
+                organizationId,
+                userId: session.user.id,
+                userEmail: session.user.email,
+              });
+
+              const syncResult = await syncFunctionalRolesFromInvitation({
+                invitationId,
+                organizationId,
+                userId: session.user.id,
+                userEmail: session.user.email,
+              });
+
+              console.log("[AcceptInvitation] ✅ Sync completed!");
+              console.log("[AcceptInvitation] Full sync result:", syncResult);
+              console.log(
+                "[AcceptInvitation] Sync summary:",
+                `success: ${syncResult.success}`,
+                `roles: ${syncResult.functionalRolesAssigned.join(", ") || "none"}`,
+                `teams: ${syncResult.coachTeamsAssigned}`,
+                `players: ${syncResult.playersLinked}`
+              );
+
+              // Check if sync actually succeeded
+              if (!syncResult.success) {
+                console.error(
+                  "[AcceptInvitation] Sync failed:",
+                  syncResult.error || "Unknown error"
+                );
+                setErrorMessage(
+                  `Warning: Your invitation was accepted, but there was an issue assigning your roles. ${syncResult.error || "Please contact an administrator to assign your roles manually."}`
+                );
+                setStatus("error");
+                return; // Don't redirect - show error
+              }
+
+              syncSucceeded = true;
+            } catch (error) {
+              console.error(
+                "[AcceptInvitation] Error syncing functional roles:",
+                error
+              );
+              setErrorMessage(
+                `Warning: Your invitation was accepted, but there was an issue assigning your roles. ${error instanceof Error ? error.message : "Unknown error"}. Please contact an administrator to assign your roles manually.`
+              );
+              setStatus("error");
+              return; // Don't redirect - show error
+            }
+
+            // Only proceed if sync succeeded
+            if (syncSucceeded) {
+              // Set the organization as active before redirecting
+              // This ensures the user sees the correct organization context
+              try {
+                await authClient.organization.setActive({ organizationId });
+                console.log("Organization set as active:", organizationId);
+              } catch (error) {
+                console.error("Error setting active organization:", error);
+                // Continue with redirect even if setting active fails (not critical)
+              }
+
+              // Redirect immediately - sync is already complete
+              // Note: Small delay kept for UX (shows success message briefly)
+              setTimeout(() => {
+                router.push(`/orgs/${organizationId}`);
+              }, 1500);
+            }
+          } else {
+            // Fallback: redirect to organizations list
+            setTimeout(() => {
+              router.push("/orgs");
+            }, 1500);
+          }
+        }
+      } catch (error: any) {
+        setStatus("error");
+        setErrorMessage(
+          error.message || "An error occurred while accepting the invitation"
+        );
+      }
+    },
+    [
+      invitationId,
+      invitation,
+      session,
+      router,
+      syncFunctionalRolesFromInvitation,
+    ]
   );
 
   // Timeout protection: if page is stuck loading for >15 seconds, show error
@@ -287,143 +433,6 @@ export default function AcceptInvitationPage() {
 
     checkAndAcceptInvitation();
   }, [invitationId, router, invitation, session, acceptInvitation]);
-
-  const acceptInvitation = async (userEmail: string) => {
-    try {
-      setStatus("loading");
-      console.log("Attempting to accept invitation:", invitationId);
-      console.log("Current user email:", userEmail);
-      console.log("Invitation email:", invitation?.email);
-
-      const result = await authClient.organization.acceptInvitation({
-        invitationId,
-      });
-
-      console.log("Invitation acceptance result:", result);
-
-      if (result.error) {
-        console.error("Invitation acceptance error:", result.error);
-        setStatus("error");
-
-        // Check if error is likely due to email mismatch
-        const apiErrorMessage = result.error.message || "";
-        const isEmailMismatch =
-          apiErrorMessage.toLowerCase().includes("email") ||
-          apiErrorMessage.toLowerCase().includes("match") ||
-          apiErrorMessage.toLowerCase().includes("invitation") ||
-          apiErrorMessage.toLowerCase().includes("not found");
-
-        if (isEmailMismatch) {
-          setErrorMessage(
-            "This invitation was sent to a different email address. " +
-              `You're currently signed in as ${userEmail}. ` +
-              "Please sign out and sign in with the email address that received the invitation."
-          );
-        } else {
-          setErrorMessage(apiErrorMessage || "Failed to accept invitation");
-        }
-      } else {
-        setStatus("success");
-
-        // Get the organization ID from the result
-        const organizationId = result.data?.invitation?.organizationId;
-
-        // Clear pending invitation from sessionStorage since we've accepted it
-        if (typeof window !== "undefined") {
-          sessionStorage.removeItem("pendingInvitationId");
-        }
-
-        if (organizationId && session?.user?.id && session?.user?.email) {
-          // Sync functional roles from invitation metadata
-          // This handles:
-          // - Suggested functional roles from invitation metadata (coach, parent, admin)
-          // - Coach team assignments if specified
-          // - Parent-player links if specified
-          // Note: Auto-mapping Better Auth "admin"/"owner" → functional "admin" is done in beforeAddMember hook
-          let syncSucceeded = false;
-          try {
-            console.log("[AcceptInvitation] Starting role sync with:", {
-              invitationId,
-              organizationId,
-              userId: session.user.id,
-              userEmail: session.user.email,
-            });
-
-            const syncResult = await syncFunctionalRolesFromInvitation({
-              invitationId,
-              organizationId,
-              userId: session.user.id,
-              userEmail: session.user.email,
-            });
-
-            console.log("[AcceptInvitation] ✅ Sync completed!");
-            console.log("[AcceptInvitation] Full sync result:", syncResult);
-            console.log(
-              "[AcceptInvitation] Sync summary:",
-              `success: ${syncResult.success}`,
-              `roles: ${syncResult.functionalRolesAssigned.join(", ") || "none"}`,
-              `teams: ${syncResult.coachTeamsAssigned}`,
-              `players: ${syncResult.playersLinked}`
-            );
-
-            // Check if sync actually succeeded
-            if (!syncResult.success) {
-              console.error(
-                "[AcceptInvitation] Sync failed:",
-                syncResult.error || "Unknown error"
-              );
-              setErrorMessage(
-                `Warning: Your invitation was accepted, but there was an issue assigning your roles. ${syncResult.error || "Please contact an administrator to assign your roles manually."}`
-              );
-              setStatus("error");
-              return; // Don't redirect - show error
-            }
-
-            syncSucceeded = true;
-          } catch (error) {
-            console.error(
-              "[AcceptInvitation] Error syncing functional roles:",
-              error
-            );
-            setErrorMessage(
-              `Warning: Your invitation was accepted, but there was an issue assigning your roles. ${error instanceof Error ? error.message : "Unknown error"}. Please contact an administrator to assign your roles manually.`
-            );
-            setStatus("error");
-            return; // Don't redirect - show error
-          }
-
-          // Only proceed if sync succeeded
-          if (syncSucceeded) {
-            // Set the organization as active before redirecting
-            // This ensures the user sees the correct organization context
-            try {
-              await authClient.organization.setActive({ organizationId });
-              console.log("Organization set as active:", organizationId);
-            } catch (error) {
-              console.error("Error setting active organization:", error);
-              // Continue with redirect even if setting active fails (not critical)
-            }
-
-            // Redirect immediately - sync is already complete
-            // Note: Small delay kept for UX (shows success message briefly)
-            setTimeout(() => {
-              router.push(`/orgs/${organizationId}`);
-            }, 1500);
-          }
-        } else {
-          // Fallback: redirect to organizations list
-          setTimeout(() => {
-            router.push("/orgs");
-          }, 1500);
-        }
-      }
-    } catch (error: any) {
-      setStatus("error");
-      setErrorMessage(
-        error.message || "An error occurred while accepting the invitation"
-      );
-    }
-  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">

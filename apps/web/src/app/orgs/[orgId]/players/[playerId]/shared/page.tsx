@@ -96,7 +96,10 @@ export default function SharedPassportPage() {
 
   const playerName = `${sharedPassport.playerIdentity.firstName} ${sharedPassport.playerIdentity.lastName}`;
   const sourceOrgNames = sharedPassport.sourceOrgs
-    .map((org) => org.organizationName)
+    .map(
+      (org: { organizationId: string; organizationName: string }) =>
+        org.organizationName
+    )
     .join(", ");
 
   return (
@@ -174,28 +177,37 @@ export default function SharedPassportPage() {
                       Organization Enrollments
                     </h4>
                     <div className="space-y-2">
-                      {sharedPassport.enrollments.map((enrollment) => (
-                        <div
-                          className="flex items-center justify-between rounded-lg border p-3"
-                          key={`${enrollment.organizationId}-${enrollment.sport}`}
-                        >
-                          <div>
-                            <p className="font-medium">
-                              {enrollment.organizationName}
-                            </p>
-                            <p className="text-muted-foreground text-sm">
-                              {enrollment.sport} • {enrollment.ageGroup} •{" "}
-                              {enrollment.status}
-                            </p>
+                      {sharedPassport.enrollments.map(
+                        (enrollment: {
+                          organizationId: string;
+                          organizationName: string;
+                          sport: string;
+                          ageGroup: string;
+                          status: string;
+                          lastUpdated: number;
+                        }) => (
+                          <div
+                            className="flex items-center justify-between rounded-lg border p-3"
+                            key={`${enrollment.organizationId}-${enrollment.sport}`}
+                          >
+                            <div>
+                              <p className="font-medium">
+                                {enrollment.organizationName}
+                              </p>
+                              <p className="text-muted-foreground text-sm">
+                                {enrollment.sport} • {enrollment.ageGroup} •{" "}
+                                {enrollment.status}
+                              </p>
+                            </div>
+                            <Badge variant="outline">
+                              Updated:{" "}
+                              {new Date(
+                                enrollment.lastUpdated
+                              ).toLocaleDateString()}
+                            </Badge>
                           </div>
-                          <Badge variant="outline">
-                            Updated:{" "}
-                            {new Date(
-                              enrollment.lastUpdated
-                            ).toLocaleDateString()}
-                          </Badge>
-                        </div>
-                      ))}
+                        )
+                      )}
                     </div>
                   </div>
                 )}
@@ -223,36 +235,48 @@ export default function SharedPassportPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {sharedPassport.goals.map((goal) => (
-                    <div className="rounded-lg border p-4" key={goal.goalId}>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-semibold">{goal.title}</h4>
-                          {goal.description && (
-                            <p className="mt-1 text-muted-foreground text-sm">
-                              {goal.description}
+                  {sharedPassport.goals.map(
+                    (goal: {
+                      goalId: Id<"passportGoals">;
+                      title: string;
+                      description?: string;
+                      status: string;
+                      organizationId: string;
+                      organizationName: string;
+                      createdAt: number;
+                      updatedAt: number;
+                      isShareable: boolean;
+                    }) => (
+                      <div className="rounded-lg border p-4" key={goal.goalId}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-semibold">{goal.title}</h4>
+                            {goal.description && (
+                              <p className="mt-1 text-muted-foreground text-sm">
+                                {goal.description}
+                              </p>
+                            )}
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <Badge variant="outline">{goal.status}</Badge>
+                              <Badge variant="outline">
+                                {goal.organizationName}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="ml-4 text-right text-muted-foreground text-sm">
+                            <p>
+                              Created:{" "}
+                              {new Date(goal.createdAt).toLocaleDateString()}
                             </p>
-                          )}
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            <Badge variant="outline">{goal.status}</Badge>
-                            <Badge variant="outline">
-                              {goal.organizationName}
-                            </Badge>
+                            <p>
+                              Updated:{" "}
+                              {new Date(goal.updatedAt).toLocaleDateString()}
+                            </p>
                           </div>
                         </div>
-                        <div className="ml-4 text-right text-muted-foreground text-sm">
-                          <p>
-                            Created:{" "}
-                            {new Date(goal.createdAt).toLocaleDateString()}
-                          </p>
-                          <p>
-                            Updated:{" "}
-                            {new Date(goal.updatedAt).toLocaleDateString()}
-                          </p>
-                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  )}
                 </div>
               </CardContent>
             </Card>

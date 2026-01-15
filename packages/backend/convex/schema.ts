@@ -2068,4 +2068,107 @@ export default defineSchema({
     .index("by_granted_by", ["grantedBy"])
     .index("by_expiry", ["status", "expiresAt"])
     .index("by_coach_acceptance", ["receivingOrgId", "coachAcceptanceStatus"]),
+
+  // Passport Share Access Logs
+  // Immutable audit trail of all access to shared passport data
+  passportShareAccessLogs: defineTable({
+    consentId: v.id("passportShareConsents"),
+    playerIdentityId: v.id("playerIdentities"),
+
+    // Who accessed
+    accessedBy: v.string(), // userId
+    accessedByName: v.string(), // Denormalized for audit
+    accessedByRole: v.string(), // coach, admin, etc.
+    accessedByOrgId: v.string(), // Better Auth organization ID
+    accessedByOrgName: v.string(), // Denormalized for audit
+
+    // What was accessed
+    accessType: v.union(
+      v.literal("view_summary"), // Viewed shared passport overview
+      v.literal("view_skills"), // Viewed skill details
+      v.literal("view_goals"), // Viewed development goals
+      v.literal("view_notes"), // Viewed coach notes
+      v.literal("view_medical"), // Viewed medical/injury info
+      v.literal("view_contact"), // Viewed contact information
+      v.literal("export_pdf"), // Exported shared data as PDF
+      v.literal("view_insights") // Viewed AI insights
+    ),
+
+    // Context
+    accessedAt: v.number(),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+
+    // Source information
+    sourceOrgId: v.optional(v.string()), // Which org's data was viewed
+  })
+    .index("by_consent", ["consentId"])
+    .index("by_player", ["playerIdentityId"])
+    .index("by_accessor", ["accessedBy"])
+    .index("by_date", ["accessedAt"]),
+
+  // Passport Share Requests
+  // Coach-initiated requests for passport access
+  passportShareRequests: defineTable({
+    // Target player
+    playerIdentityId: v.id("playerIdentities"),
+
+    // Requesting coach/org
+    requestedBy: v.string(), // userId of coach
+    requestedByName: v.string(), // Denormalized for display
+    requestedByRole: v.string(), // e.g., "Head Coach"
+    requestingOrgId: v.string(), // Better Auth organization ID
+    requestingOrgName: v.string(), // Denormalized for display
+
+    // Request details
+    reason: v.optional(v.string()), // Why coach wants access
+
+    // Request lifecycle
+    status: v.union(
+      v.literal("pending"), // Awaiting parent response
+      v.literal("approved"), // Parent approved, consent flow started
+      v.literal("declined"), // Parent declined
+      v.literal("expired") // Auto-expired after 14 days
+    ),
+
+    // Timestamps
+    requestedAt: v.number(),
+    respondedAt: v.optional(v.number()),
+    respondedBy: v.optional(v.string()), // userId of responding guardian
+    expiresAt: v.number(), // Auto-expire timestamp (14 days)
+
+    // Resulting consent (if approved)
+    resultingConsentId: v.optional(v.id("passportShareConsents")),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_player_and_status", ["playerIdentityId", "status"])
+    .index("by_requesting_org", ["requestingOrgId"])
+    .index("by_expiry", ["status", "expiresAt"]),
+
+  // Parent Notification Preferences
+  // Customizable notification settings for parents
+  parentNotificationPreferences: defineTable({
+    guardianIdentityId: v.id("guardianIdentities"),
+    playerIdentityId: v.optional(v.id("playerIdentities")), // null = global default
+
+    // Access notification frequency
+    accessNotificationFrequency: v.union(
+      v.literal("realtime"), // Immediate notification on every access
+      v.literal("daily"), // Daily digest
+      v.literal("weekly"), // Weekly digest (default)
+      v.literal("none") // No access notifications
+    ),
+
+    // Other notification preferences
+    notifyOnCoachRequest: v.optional(v.boolean()), // Default: true
+    notifyOnShareExpiring: v.optional(v.boolean()), // Default: true
+    notifyOnGuardianChange: v.optional(v.boolean()), // Default: true
+
+    updatedAt: v.number(),
+  })
+    .index("by_guardian", ["guardianIdentityId"])
+    .index("by_guardian_and_player", [
+      "guardianIdentityId",
+      "playerIdentityId",
+    ]),
 });

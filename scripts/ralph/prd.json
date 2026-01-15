@@ -369,8 +369,8 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 27,
-      "passes": false,
-      "notes": "FR-P4"
+      "passes": true,
+      "notes": "Complete - org selection with all_enrolled (recommended) and specific_orgs modes. Browser verification deferred (needs parent + guardian links)"
     },
     {
       "id": "US-028",

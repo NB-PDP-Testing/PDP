@@ -1220,3 +1220,99 @@ export const respondToAccessRequest = mutation({
     return true;
   },
 });
+
+// ============================================================
+// ACCESS AUDIT LOGGING
+// ============================================================
+
+/**
+ * Log access to shared passport data
+ *
+ * Creates immutable audit trail of all data access for compliance.
+ * Must be called by frontend after viewing shared passport data.
+ *
+ * @param consentId - The consent authorizing this access
+ * @param accessType - What was accessed (view_summary, view_skills, etc.)
+ * @param ipAddress - Optional IP address of accessor
+ * @param userAgent - Optional user agent string
+ * @returns Log ID
+ */
+export const logPassportAccess = mutation({
+  args: {
+    consentId: v.id("passportShareConsents"),
+    accessType: v.union(
+      v.literal("view_summary"),
+      v.literal("view_skills"),
+      v.literal("view_goals"),
+      v.literal("view_notes"),
+      v.literal("view_medical"),
+      v.literal("view_contact"),
+      v.literal("export_pdf"),
+      v.literal("view_insights")
+    ),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+  },
+  returns: v.id("passportShareAccessLogs"),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    const userId = identity.subject;
+
+    // Get the consent to validate and fetch context
+    const consent = await ctx.db.get(args.consentId);
+    if (!consent) {
+      throw new Error("Consent not found");
+    }
+
+    // Get accessor details
+    const user = await ctx.db
+      .query("user")
+      .filter((q) => q.eq(q.field("id"), userId))
+      .first();
+
+    const accessorName = user
+      ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
+      : "Unknown User";
+
+    // Get accessor's current role/org context
+    // For now, we'll use the receiving org from consent
+    // TODO: Get actual role from Better Auth member table
+    const accessorRole = "Coach"; // Default - should be fetched from member table
+
+    // Get receiving org name
+    const receivingOrg = await ctx.db
+      .query("organization")
+      .filter((q) => q.eq(q.field("id"), consent.receivingOrgId))
+      .first();
+
+    const accessorOrgName = receivingOrg?.name || consent.receivingOrgId;
+
+    // Create immutable audit log entry
+    const logId = await ctx.db.insert("passportShareAccessLogs", {
+      consentId: args.consentId,
+      playerIdentityId: consent.playerIdentityId,
+      accessedBy: userId,
+      accessorName,
+      accessorRole,
+      accessorOrgId: consent.receivingOrgId,
+      accessorOrgName,
+      sourceOrgId: consent.receivingOrgId, // TODO: Track which source org was viewed
+      accessType: args.accessType,
+      accessedAt: Date.now(),
+      ipAddress: args.ipAddress,
+      userAgent: args.userAgent,
+    });
+
+    console.log(
+      `[Passport Sharing] Access logged: ${userId} (${accessorRole} at ${accessorOrgName}) accessed ${args.accessType} for player ${consent.playerIdentityId}`,
+      { consentId: args.consentId, logId }
+    );
+
+    return logId;
+  },
+});

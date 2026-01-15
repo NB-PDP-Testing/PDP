@@ -965,19 +965,21 @@ export default function ManageUsersPage() {
 
                 return (
                   <div
-                    className={`flex items-center justify-between rounded-lg border p-3 ${
+                    className={`flex items-center justify-between gap-2 rounded-lg border p-3 ${
                       isExpired
                         ? "border-red-200 bg-red-50"
                         : "border-orange-200 bg-orange-50"
                     }`}
                     key={invitation._id}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-orange-100">
                         <Mail className="h-5 w-5 text-orange-600" />
                       </div>
-                      <div>
-                        <p className="font-medium">{invitation.email}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">
+                          {invitation.email}
+                        </p>
                         <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-sm">
                           <span>
                             Invited by {invitation.inviter?.name || "Unknown"}
@@ -1089,7 +1091,7 @@ export default function ManageUsersPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
                       <Button
                         onClick={() => setEditingInvitation(invitation)}
                         size="sm"

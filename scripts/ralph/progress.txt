@@ -2449,3 +2449,163 @@ export const getPendingSharesForCoach = query({
 - Should have reviewed all functions for usage before committing
 
 ---
+
+## 2026-01-15 - US-039 - Shared passport viewer structure
+**Iteration**: 18
+**Commit**: 273c6bb92c79341289db5dda30dff77509429644
+**Session**: 5b53d769-15ae-4f3c-bd22-851d452ddb87
+**Status**: Complete
+
+### What was implemented
+**Frontend - Shared Passport Page:**
+- Created new page at `/orgs/[orgId]/players/[playerId]/shared/page.tsx` for viewing shared passport data
+- Query `getSharedPassportData` with consentId from URL query parameter
+- **Header:**
+  - Player name as page title
+  - "Shared from [Org Names]" badge (blue bg)
+  - "Read-Only" badge
+  - Back button to return to previous page
+- **Info Alert:**
+  - Explains data is shared by parent/guardian
+  - Notes audit logging for compliance
+  - Shows source org names and receiving org name
+- **Basic Profile Section (if shared):**
+  - Date of birth and gender fields
+  - Organization enrollments list with sport, age group, status
+  - "Shared from [Org Name]" badge on section header
+  - "Updated: [date]" badge on each enrollment
+  - Unique key for enrollments: `${orgId}-${sport}`
+- **Development Goals Section (if shared):**
+  - List of goals with title, description, status
+  - Organization name badge for each goal
+  - Created/Updated timestamps
+  - Only shows goals where `isShareable: true` (filtered by backend)
+  - "Shared from [Org Name]" badge on section header
+- **Empty State:**
+  - Shows "Limited Data Shared" card when no elements shared
+- **Client-side org name resolution:**
+  - Uses authClient.useListOrganizations() + useMemo Map pattern
+  - Same pattern as SharedPassports component (from US-036)
+
+**Updated SharedPassports component:**
+- Modified "View Passport" button to include consentId query parameter
+- URL format: `/orgs/${orgId}/players/${playerId}/shared?consentId=${consentId}`
+- Enables shared passport page to validate access via getSharedPassportData
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/players/[playerId]/shared/page.tsx (+281 lines, new file)
+- apps/web/src/app/orgs/[orgId]/coach/shared-passports.tsx (+1, -1)
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Type check: no new errors (pre-existing errors remain)
+- ✅ Linting: passed (fixed unused session variable, fixed array index key)
+- ✅ Pre-commit hook: passed
+- ⚠️ Browser verification: deferred (needs coach role + accepted consents data to test end-to-end)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- **Read-only passport page structure**: Similar to regular passport page but without edit buttons
+  - Header with player name + badges (source org, read-only status)
+  - Info alert for context (who shared, audit trail notice)
+  - Card-based sections for each passport element type
+  - Conditional rendering based on sharedElements flags
+- **Query parameter pattern for consent access**: Pass consentId in URL query string
+  - Page extracts: `searchParams.get("consentId") as Id<"passportShareConsents"> | null`
+  - Backend query validates: consent exists, active, not expired, coach accepted, player matches
+  - Returns null if any validation fails → shows "Not Available" error page
+- **Error states for shared passport view**:
+  - Missing consentId → "Missing Consent Information"
+  - Query returns null → "Shared Passport Not Available" (expired/no access)
+  - Loading state → spinner
+- **Unique keys for enrollments**: Can't use array index (linter error)
+  - Solution: `key={${enrollment.organizationId}-${enrollment.sport}}`
+  - Combination of org + sport is unique per enrollment
+- **Audit notice**: Remind coaches that all access is logged
+  - Builds trust with parents (transparency)
+  - Compliance requirement (GDPR audit trail)
+
+**Gotchas encountered:**
+- **Unused variable linting**: Initially imported authClient.useSession() but didn't use it
+  - Pre-commit hook caught: `lint/correctness/noUnusedVariables`
+  - Fixed: Removed unused session variable, added comment that auth is in backend query
+  - Actually still need authClient for useListOrganizations() to resolve org names
+- **Array index key linting**: `key={idx}` triggers `lint/suspicious/noArrayIndexKey`
+  - Error: "The order of the items may change, affects performance and component state"
+  - Solution: Use composite key from data fields instead of index
+  - Pattern: `key={${uniqueField1}-${uniqueField2}}`
+- **Pre-commit hook runs Biome check**: Must fix ALL linting errors before commit succeeds
+  - Can't bypass unless use `--no-verify` (not recommended)
+  - Quick fix cycle: edit file → stage → commit → fix errors → repeat
+
+**Dependencies found:**
+- US-039 depends on US-015 (getSharedPassportData query - already implemented)
+- US-039 creates route that US-036 links to (SharedPassports "View Passport" button)
+- US-040 will expand this page with more sections (skills, notes, benchmarks, etc.)
+- Future: US-042 (Data freshness indicators) will add color-coded timestamps to sections
+
+**Component architecture insights:**
+- **Shared passport page pattern**: Full-page view (not a component/modal)
+  - Route: `/orgs/[orgId]/players/[playerId]/shared?consentId=...`
+  - Uses Next.js App Router with dynamic params + search params
+  - Self-contained: handles own query, loading, error states
+- **Section conditional rendering**: Based on sharedElements flags
+  - `if (sharedPassport.sharedElements.basicProfile) { render section }`
+  - Backend returns data ONLY for shared elements (security by design)
+  - Frontend checks flags to decide what to display
+- **Shared data badge placement**: On section header (CardHeader)
+  - Consistent visual indicator across all sections
+  - Uses blue bg (different from amber pending badges)
+  - Shows source org name(s) for context
+
+**UI/UX decisions:**
+- **Read-only emphasis**: Multiple indicators that this is view-only
+  - "Read-Only" badge in header
+  - No edit buttons (unlike regular passport page)
+  - Info alert explains data is shared (not owned by receiving org)
+- **Source org transparency**: Always show where data came from
+  - Badge in header with all source org names
+  - Badge on each section header
+  - Organization name on individual items (enrollments, goals)
+- **Audit trail notice**: Proactive transparency about logging
+  - Info alert mentions "All access is logged for audit purposes"
+  - Builds trust with parents that access is tracked
+  - Compliance requirement for GDPR (Article 30 - Records of Processing)
+- **Empty state messaging**: Helpful when limited data shared
+  - "The parent has not shared additional passport elements with your organization yet"
+  - Not an error, just informational
+  - Sets expectation that more elements could be added later
+
+**Backend query pattern (getSharedPassportData):**
+```typescript
+// Already implemented in US-015, but key points:
+// 1. Validates consent gateway (status, expiry, coach acceptance)
+// 2. Returns only data for elements where sharedElements flag is true
+// 3. Filters goals to only isShareable: true (coaches can mark goals as shareable)
+// 4. Returns org names for source orgs (denormalized for performance)
+// 5. Returns null if any validation fails (secure by default)
+```
+
+**URL pattern for shared passports:**
+```
+/orgs/${orgId}/players/${playerId}/shared?consentId=${consentId}
+```
+- orgId: receiving organization (coach's org)
+- playerId: player identity ID
+- consentId: specific consent record to validate access
+
+**What to do next**:
+- US-040: Shared passport viewer - expandable sections
+  - Add more sections: skills, skill history, benchmarks, attendance, injuries, medical, contacts
+  - Implement expandable/collapsible sections (Accordion component?)
+  - Add "Last updated" timestamps with color coding (US-042 data freshness)
+  - Filter coach notes by isShareable flag
+- Consider: Test US-039 with real data (create consent, accept as coach, view shared passport)
+
+**Mistakes made** (learn from these!):
+- Initially imported authClient.useSession() but didn't use the session variable
+- Should have removed unused variable before first commit attempt
+- Pre-commit hook caught it, had to fix and re-commit
+
+---

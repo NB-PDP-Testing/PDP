@@ -25,7 +25,21 @@ import {
 /**
  * Verify user has coach role in organization
  */
-async function getCoachForOrg(ctx: any, userId: string, orgId: string) {
+async function getCoachForOrg(
+  ctx: {
+    runQuery: (
+      component: unknown,
+      args: {
+        model: string;
+        where: Array<{ field: string; value: string; operator: string }>;
+      }
+    ) => Promise<{
+      functionalRoles?: string[];
+    } | null>;
+  },
+  userId: string,
+  orgId: string
+) {
   const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
     model: "member",
     where: [
@@ -294,7 +308,12 @@ export const updateVisibility = mutation({
     }
 
     const now = Date.now();
-    const updates: any = {
+    const updates: {
+      visibility: "private" | "club" | "platform";
+      updatedAt: number;
+      sharedAt?: number;
+      sharedBy?: string;
+    } = {
       visibility: args.visibility,
       updatedAt: now,
     };
@@ -338,9 +357,11 @@ export const duplicatePlan = mutation({
 
     const now = Date.now();
 
-    // Create duplicate
+    // Create duplicate - exclude _id and _creationTime as they are managed by Convex
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _id, _creationTime, ...planData } = originalPlan;
     const newPlanId = await ctx.db.insert("sessionPlans", {
-      ...originalPlan,
+      ...planData,
       coachId: identity.subject,
       coachName:
         `${identity.given_name || ""} ${identity.family_name || ""}`.trim() ||
@@ -834,6 +855,7 @@ export const getFilteredPlans = query({
     categories: v.optional(v.array(v.string())),
     skills: v.optional(v.array(v.string())),
     favoriteOnly: v.optional(v.boolean()),
+    featuredOnly: v.optional(v.boolean()),
     templateOnly: v.optional(v.boolean()),
     limit: v.optional(v.number()),
   },
@@ -927,6 +949,11 @@ export const getFilteredPlans = query({
         return false;
       }
 
+      // Featured filter
+      if (args.featuredOnly && !plan.pinnedByAdmin) {
+        return false;
+      }
+
       // Template filter
       if (args.templateOnly && !plan.isTemplate) {
         return false;
@@ -952,6 +979,7 @@ export const getClubLibrary = query({
     intensities: v.optional(v.array(v.string())),
     categories: v.optional(v.array(v.string())),
     skills: v.optional(v.array(v.string())),
+    featuredOnly: v.optional(v.boolean()),
     sortBy: v.optional(
       v.union(
         v.literal("recent"),
@@ -1050,6 +1078,11 @@ export const getClubLibrary = query({
         }
       }
 
+      // Featured filter
+      if (args.featuredOnly && !plan.pinnedByAdmin) {
+        return false;
+      }
+
       return true;
     });
 
@@ -1131,6 +1164,15 @@ export const listClubLibrary = query({
 export const listForAdmin = query({
   args: {
     organizationId: v.string(),
+    search: v.optional(v.string()),
+    ageGroups: v.optional(v.array(v.string())),
+    sports: v.optional(v.array(v.string())),
+    intensities: v.optional(
+      v.array(v.union(v.literal("low"), v.literal("medium"), v.literal("high")))
+    ),
+    categories: v.optional(v.array(v.string())),
+    skills: v.optional(v.array(v.string())),
+    featuredOnly: v.optional(v.boolean()),
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
@@ -1157,12 +1199,90 @@ export const listForAdmin = query({
       throw new Error("Not authorized - admin role required");
     }
 
-    const plans = await ctx.db
+    let plans = await ctx.db
       .query("sessionPlans")
       .withIndex("by_org", (q: any) =>
         q.eq("organizationId", args.organizationId)
       )
       .collect();
+
+    // Apply filters
+    plans = plans.filter((plan) => {
+      // Search filter
+      if (args.search) {
+        const searchLower = args.search.toLowerCase();
+        const matchesSearch =
+          plan.title?.toLowerCase().includes(searchLower) ||
+          plan.coachName?.toLowerCase().includes(searchLower) ||
+          plan.teamName?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) {
+          return false;
+        }
+      }
+
+      // Age group filter
+      if (
+        args.ageGroups &&
+        args.ageGroups.length > 0 &&
+        !(plan.ageGroup && args.ageGroups.includes(plan.ageGroup))
+      ) {
+        return false;
+      }
+
+      // Sport filter
+      if (
+        args.sports &&
+        args.sports.length > 0 &&
+        !(plan.sport && args.sports.includes(plan.sport))
+      ) {
+        return false;
+      }
+
+      // Intensity filter
+      if (
+        args.intensities &&
+        args.intensities.length > 0 &&
+        !(
+          plan.extractedTags?.intensity &&
+          args.intensities.includes(plan.extractedTags.intensity)
+        )
+      ) {
+        return false;
+      }
+
+      // Category filter
+      if (args.categories && args.categories.length > 0) {
+        if (!plan.extractedTags?.categories) {
+          return false;
+        }
+        const hasCategory = args.categories.some((cat) =>
+          plan.extractedTags?.categories.includes(cat)
+        );
+        if (!hasCategory) {
+          return false;
+        }
+      }
+
+      // Skills filter
+      if (args.skills && args.skills.length > 0) {
+        if (!plan.extractedTags?.skills) {
+          return false;
+        }
+        const hasSkill = args.skills.some((skill) =>
+          plan.extractedTags?.skills.includes(skill)
+        );
+        if (!hasSkill) {
+          return false;
+        }
+      }
+
+      // Featured filter
+      if (args.featuredOnly && !plan.pinnedByAdmin) {
+        return false;
+      }
+
+      return true;
+    });
 
     // Sort by creation date descending
     return plans.sort((a, b) => b.createdAt - a.createdAt);

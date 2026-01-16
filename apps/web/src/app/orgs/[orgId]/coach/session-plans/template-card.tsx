@@ -1,14 +1,7 @@
 "use client";
 
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import {
-  AlertTriangle,
-  Eye,
-  Heart,
-  Play,
-  Star,
-  TrendingUp,
-} from "lucide-react";
+import { AlertTriangle, Eye, Star, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,15 +30,13 @@ type TemplateCardProps = {
     moderatedAt?: number;
     moderationNote?: string;
   };
-  onPreview: (planId: Id<"sessionPlans">) => void;
-  onUseTemplate: (planId: Id<"sessionPlans">) => void;
+  onView: (planId: Id<"sessionPlans">) => void;
   onToggleFavorite: (planId: Id<"sessionPlans">) => void;
 };
 
 export function TemplateCard({
   plan,
-  onPreview,
-  onUseTemplate,
+  onView,
   onToggleFavorite,
 }: TemplateCardProps) {
   const isNew = Date.now() - plan.createdAt < 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -135,17 +126,17 @@ export function TemplateCard({
 
           {/* Favorite button */}
           <button
-            className="ml-auto transition-colors hover:text-red-500"
+            className="ml-auto transition-colors hover:text-yellow-500"
             onClick={(e) => {
               e.stopPropagation();
               onToggleFavorite(plan._id);
             }}
             type="button"
           >
-            <Heart
+            <Star
               className={`h-5 w-5 ${
                 plan.favorited
-                  ? "fill-red-500 text-red-500"
+                  ? "fill-yellow-500 text-yellow-500"
                   : "text-muted-foreground"
               }`}
             />
@@ -243,27 +234,15 @@ export function TemplateCard({
         {/* Actions */}
         <div className="flex gap-2">
           <Button
-            className="flex-1"
+            className="w-full"
             onClick={(e) => {
               e.stopPropagation();
-              onPreview(plan._id);
+              onView(plan._id);
             }}
             size="sm"
-            variant="outline"
           >
             <Eye className="mr-1.5 h-4 w-4" />
-            Preview
-          </Button>
-          <Button
-            className="flex-1"
-            onClick={(e) => {
-              e.stopPropagation();
-              onUseTemplate(plan._id);
-            }}
-            size="sm"
-          >
-            <Play className="mr-1.5 h-4 w-4" />
-            Use
+            View
           </Button>
         </div>
       </CardContent>

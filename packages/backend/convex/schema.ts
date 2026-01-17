@@ -585,6 +585,9 @@ export default defineSchema({
     // Parent involvement
     parentActions: v.optional(v.array(v.string())),
     parentCanView: v.boolean(),
+    isShareable: v.optional(v.boolean()), // Legacy field - remove after prod data cleaned
+    markedShareableAt: v.optional(v.number()), // Legacy field - remove after prod data cleaned
+    markedShareableBy: v.optional(v.string()), // Legacy field - remove after prod data cleaned
 
     // Notes
     coachNotes: v.optional(v.string()),
@@ -1144,7 +1147,8 @@ export default defineSchema({
 
   // Medical Profiles table
   medicalProfiles: defineTable({
-    playerId: v.id("players"),
+    playerId: v.optional(v.id("players")),
+    playerIdentityId: v.optional(v.string()), // Legacy field
     bloodType: v.optional(v.string()),
     allergies: v.array(v.string()),
     medications: v.array(v.string()),
@@ -1158,6 +1162,8 @@ export default defineSchema({
     lastMedicalCheck: v.optional(v.string()),
     insuranceCovered: v.boolean(),
     notes: v.optional(v.string()),
+    createdAt: v.optional(v.number()), // Legacy field
+    updatedAt: v.optional(v.number()), // Legacy field
   }).index("by_playerId", ["playerId"]),
 
   // Approval Actions Audit Trail

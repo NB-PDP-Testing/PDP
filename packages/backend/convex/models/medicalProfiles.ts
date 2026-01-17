@@ -8,7 +8,8 @@ import { mutation, query } from "../_generated/server";
 const medicalProfileValidator = v.object({
   _id: v.id("medicalProfiles"),
   _creationTime: v.number(),
-  playerId: v.id("players"),
+  playerId: v.optional(v.id("players")), // Made optional for legacy data compatibility
+  playerIdentityId: v.optional(v.string()), // Legacy field - will be removed after prod cleanup
   bloodType: v.optional(v.string()),
   allergies: v.array(v.string()),
   medications: v.array(v.string()),
@@ -22,6 +23,8 @@ const medicalProfileValidator = v.object({
   lastMedicalCheck: v.optional(v.string()),
   insuranceCovered: v.boolean(),
   notes: v.optional(v.string()),
+  createdAt: v.optional(v.number()), // Legacy field - will be removed after prod cleanup
+  updatedAt: v.optional(v.number()), // Legacy field - will be removed after prod cleanup
 });
 
 // ============ QUERIES ============

@@ -358,7 +358,9 @@ export function EmergencyContactsGrid({
     );
   }
 
-  const playersWithProfiles = allProfiles.filter((p) => p.hasProfile);
+  const playersWithProfiles = allProfiles.filter(
+    (p: NonNullable<typeof allProfiles>[0]) => p.hasProfile
+  );
 
   if (playersWithProfiles.length === 0) {
     return (
@@ -376,7 +378,7 @@ export function EmergencyContactsGrid({
 
   return (
     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-      {playersWithProfiles.map((player) => (
+      {playersWithProfiles.map((player: NonNullable<typeof allProfiles>[0]) => (
         <EmergencyContactCard
           allergies={player.profile?.allergies}
           conditions={player.profile?.conditions}

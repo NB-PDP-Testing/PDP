@@ -585,9 +585,11 @@ export default defineSchema({
     // Parent involvement
     parentActions: v.optional(v.array(v.string())),
     parentCanView: v.boolean(),
-    isShareable: v.optional(v.boolean()), // Legacy field - remove after prod data cleaned
-    markedShareableAt: v.optional(v.number()), // Legacy field - remove after prod data cleaned
-    markedShareableBy: v.optional(v.string()), // Legacy field - remove after prod data cleaned
+
+    // Cross-org sharing control (Passport Sharing Feature)
+    isShareable: v.optional(v.boolean()), // Can this goal be shared cross-org, default false
+    markedShareableAt: v.optional(v.number()), // When marked shareable
+    markedShareableBy: v.optional(v.string()), // userId who marked shareable
 
     // Notes
     coachNotes: v.optional(v.string()),

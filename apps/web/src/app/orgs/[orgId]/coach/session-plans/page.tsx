@@ -454,11 +454,15 @@ export default function SessionPlansPage() {
           {/* Search Bar */}
           <div className="mt-6">
             <SearchBar
+              availableFilters={availableFilters}
+              filters={filters}
               isSearching={isLoading}
               onChange={(value: string) =>
                 setFilters((prev) => ({ ...prev, search: value }))
               }
+              onFilterChange={setFilters}
               placeholder="Search by title, description, or drill names..."
+              planCount={filteredPlans?.length ?? 0}
               resultsCount={filteredPlans?.length}
               value={filters.search}
             />

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 
 type WeeklyScheduleProps = {
-  children: Array<{
+  playerData: Array<{
     player: {
       firstName: string;
       lastName: string;
@@ -21,7 +21,9 @@ type WeeklyScheduleProps = {
 };
 
 // Mock schedule data - will be replaced with real data when schedule tables are implemented
-const generateMockSchedule = (children: WeeklyScheduleProps["children"]) => {
+const generateMockSchedule = (
+  playerData: WeeklyScheduleProps["playerData"]
+) => {
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const today = new Date();
   const startOfWeek = new Date(today);
@@ -48,7 +50,7 @@ const generateMockSchedule = (children: WeeklyScheduleProps["children"]) => {
 
     // Add mock training sessions (Tue, Thu for each child)
     if (idx === 1 || idx === 3) {
-      children.forEach((child) => {
+      playerData.forEach((child) => {
         dayEvents.push({
           childName: child.player.firstName,
           type: "training",
@@ -58,9 +60,9 @@ const generateMockSchedule = (children: WeeklyScheduleProps["children"]) => {
     }
 
     // Add mock match (Sat for first child)
-    if (idx === 5 && children.length > 0) {
+    if (idx === 5 && playerData.length > 0) {
       dayEvents.push({
-        childName: children[0].player.firstName,
+        childName: playerData[0].player.firstName,
         type: "match",
         time: "10:30",
       });
@@ -79,8 +81,11 @@ const generateMockSchedule = (children: WeeklyScheduleProps["children"]) => {
   return events;
 };
 
-export function WeeklySchedule({ children }: WeeklyScheduleProps) {
-  const schedule = useMemo(() => generateMockSchedule(children), [children]);
+export function WeeklySchedule({ playerData }: WeeklyScheduleProps) {
+  const schedule = useMemo(
+    () => generateMockSchedule(playerData),
+    [playerData]
+  );
 
   const totalTraining = schedule.reduce(
     (acc, day) => acc + day.events.filter((e) => e.type === "training").length,

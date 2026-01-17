@@ -56,7 +56,8 @@ export function FilterModal({
     (localFilters.minDuration !== undefined &&
       localFilters.minDuration !== 30) ||
     (localFilters.maxDuration !== undefined &&
-      localFilters.maxDuration !== 120);
+      localFilters.maxDuration !== 120) ||
+    localFilters.minSuccessRate !== undefined;
 
   const clearAllFilters = () => {
     setLocalFilters({
@@ -71,6 +72,7 @@ export function FilterModal({
       templateOnly: false,
       minDuration: undefined,
       maxDuration: undefined,
+      minSuccessRate: undefined,
     });
   };
 
@@ -173,6 +175,27 @@ export function FilterModal({
                   htmlFor="templates-modal"
                 >
                   Templates Only
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  checked={
+                    localFilters.minSuccessRate !== undefined &&
+                    localFilters.minSuccessRate >= 80
+                  }
+                  id="highly-rated-modal"
+                  onCheckedChange={(checked) =>
+                    setLocalFilters({
+                      ...localFilters,
+                      minSuccessRate: checked === true ? 80 : undefined,
+                    })
+                  }
+                />
+                <label
+                  className="cursor-pointer font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  htmlFor="highly-rated-modal"
+                >
+                  Only show highly rated plans (80%+)
                 </label>
               </div>
             </div>

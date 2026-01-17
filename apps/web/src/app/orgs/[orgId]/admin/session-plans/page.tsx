@@ -42,6 +42,7 @@ import type {
   FilterState,
 } from "../../coach/session-plans/filter-sidebar";
 import { FilterSidebar } from "../../coach/session-plans/filter-sidebar";
+import { QualityScoreDisplay } from "./quality-score-display";
 
 type SessionPlan = {
   _id: Id<"sessionPlans">;
@@ -531,6 +532,9 @@ export default function AdminSessionPlansPage() {
                             )}
                         </div>
                       )}
+
+                      {/* Quality Score */}
+                      <QualityScoreDisplay planId={plan._id} />
 
                       {/* Actions */}
                       <div className="flex gap-2">

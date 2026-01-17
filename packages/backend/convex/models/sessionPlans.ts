@@ -2007,3 +2007,118 @@ export const getAdminMetrics = query({
     };
   },
 });
+
+/**
+ * Calculate quality score for a session plan (0-100)
+ * Used by admins to identify high-value content for featuring
+ *
+ * Scoring breakdown:
+ * - Sections count (20pts): More comprehensive plans with multiple sections
+ * - Tags (15pts): Better categorized plans with tags
+ * - Usage (20pts): Plans that are actually used by coaches
+ * - Success rate (25pts): Plans that work well in practice
+ * - Feedback (20pts): Plans with coach feedback
+ */
+export const getQualityScore = query({
+  args: {
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.object({
+    score: v.number(), // 0-100
+    breakdown: v.object({
+      sections: v.number(), // 0-20
+      tags: v.number(), // 0-15
+      usage: v.number(), // 0-20
+      successRate: v.number(), // 0-25
+      feedback: v.number(), // 0-20
+    }),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    // Calculate individual scores
+
+    // 1. Sections count (20pts max)
+    // 0 sections = 0pts, 1-2 = 10pts, 3-4 = 15pts, 5+ = 20pts
+    const sectionsCount = plan.sections?.length ?? 0;
+    let sectionsScore = 0;
+    if (sectionsCount >= 5) {
+      sectionsScore = 20;
+    } else if (sectionsCount >= 3) {
+      sectionsScore = 15;
+    } else if (sectionsCount >= 1) {
+      sectionsScore = 10;
+    }
+
+    // 2. Tags (15pts max)
+    // Combine customTags and extractedTags.categories
+    const customTagsCount = plan.customTags?.length ?? 0;
+    const extractedCategoriesCount =
+      plan.extractedTags?.categories?.length ?? 0;
+    const totalTags = customTagsCount + extractedCategoriesCount;
+    // 0 tags = 0pts, 1-2 = 5pts, 3-4 = 10pts, 5+ = 15pts
+    let tagsScore = 0;
+    if (totalTags >= 5) {
+      tagsScore = 15;
+    } else if (totalTags >= 3) {
+      tagsScore = 10;
+    } else if (totalTags >= 1) {
+      tagsScore = 5;
+    }
+
+    // 3. Usage (20pts max)
+    // 0 uses = 0pts, 1-2 = 5pts, 3-5 = 10pts, 6-10 = 15pts, 11+ = 20pts
+    const timesUsed = plan.timesUsed ?? 0;
+    let usageScore = 0;
+    if (timesUsed >= 11) {
+      usageScore = 20;
+    } else if (timesUsed >= 6) {
+      usageScore = 15;
+    } else if (timesUsed >= 3) {
+      usageScore = 10;
+    } else if (timesUsed >= 1) {
+      usageScore = 5;
+    }
+
+    // 4. Success rate (25pts max)
+    // 0-20% = 0pts, 21-40% = 5pts, 41-60% = 10pts, 61-80% = 15pts, 81-100% = 25pts
+    const successRate = plan.successRate ?? 0;
+    let successRateScore = 0;
+    if (successRate >= 81) {
+      successRateScore = 25;
+    } else if (successRate >= 61) {
+      successRateScore = 15;
+    } else if (successRate >= 41) {
+      successRateScore = 10;
+    } else if (successRate >= 21) {
+      successRateScore = 5;
+    }
+
+    // 5. Feedback (20pts max)
+    // No feedback = 0pts, Feedback submitted = 20pts
+    const feedbackScore = plan.feedbackSubmitted ? 20 : 0;
+
+    // Calculate total score
+    const totalScore =
+      sectionsScore + tagsScore + usageScore + successRateScore + feedbackScore;
+
+    return {
+      score: totalScore,
+      breakdown: {
+        sections: sectionsScore,
+        tags: tagsScore,
+        usage: usageScore,
+        successRate: successRateScore,
+        feedback: feedbackScore,
+      },
+    };
+  },
+});

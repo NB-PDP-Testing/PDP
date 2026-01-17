@@ -225,7 +225,7 @@
         "Typecheck passes"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "Phase 4: Masonry + Admin (6 hours effort for backend + metrics cards + tabs)"
     },
     {

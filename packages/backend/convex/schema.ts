@@ -2171,6 +2171,7 @@ export default defineSchema({
     notifyOnCoachRequest: v.optional(v.boolean()), // Default: true
     notifyOnShareExpiring: v.optional(v.boolean()), // Default: true
     notifyOnGuardianChange: v.optional(v.boolean()), // Default: true
+    allowEnrollmentVisibility: v.optional(v.boolean()), // Legacy field - will be removed after production cleanup
 
     updatedAt: v.number(),
   })

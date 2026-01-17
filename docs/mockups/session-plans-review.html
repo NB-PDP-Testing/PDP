@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Session Plans UX Review - Interactive Mockups</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.6;
+        color: #1a202c;
+        background: #f7fafc;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .header h1 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+      }
+      .header p {
+        opacity: 0.9;
+        font-size: 1.1rem;
+      }
+
+      .nav {
+        background: white;
+        padding: 1rem 2rem;
+        position: sticky;
+        top: 100px;
+        z-index: 99;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        display: flex;
+        gap: 1rem;
+        overflow-x: auto;
+      }
+
+      .nav a {
+        padding: 0.5rem 1rem;
+        text-decoration: none;
+        color: #4a5568;
+        border-radius: 6px;
+        white-space: nowrap;
+        transition: all 0.2s;
+      }
+
+      .nav a:hover {
+        background: #edf2f7;
+        color: #667eea;
+      }
+      .nav a.active {
+        background: #667eea;
+        color: white;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      .section {
+        margin-bottom: 4rem;
+        scroll-margin-top: 150px;
+      }
+
+      .section-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 3px solid #667eea;
+      }
+
+      .section-header h2 {
+        font-size: 2rem;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+      }
+      .section-header .subtitle {
+        color: #718096;
+        font-size: 1.1rem;
+      }
+
+      .comparison-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 2rem;
+      }
+
+      .mockup-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+        transition: transform 0.2s;
+      }
+
+      .mockup-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .mockup-card.recommended {
+        border: 3px solid #48bb78;
+        position: relative;
+      }
+
+      .mockup-card.recommended::before {
+        content: "✓ RECOMMENDED";
+        position: absolute;
+        top: -12px;
+        left: 20px;
+        background: #48bb78;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: bold;
+      }
+
+      .mockup-header h3 {
+        font-size: 1.3rem;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+      }
+      .mockup-header .philosophy {
+        color: #718096;
+        font-size: 0.95rem;
+        font-style: italic;
+      }
+
+      .mockup-preview {
+        background: #f7fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        min-height: 300px;
+      }
+
+      .pros-cons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+      .pros {
+        background: #f0fff4;
+        border-left: 3px solid #48bb78;
+        padding: 1rem;
+        border-radius: 6px;
+      }
+      .cons {
+        background: #fff5f5;
+        border-left: 3px solid #f56565;
+        padding: 1rem;
+        border-radius: 6px;
+      }
+      .pros h4 {
+        color: #22543d;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+      }
+      .cons h4 {
+        color: #742a2a;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+      }
+      .pros ul,
+      .cons ul {
+        list-style: none;
+        font-size: 0.9rem;
+      }
+      .pros li::before {
+        content: "✓ ";
+        color: #48bb78;
+        font-weight: bold;
+      }
+      .cons li::before {
+        content: "✗ ";
+        color: #f56565;
+        font-weight: bold;
+      }
+
+      .session-plan-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s;
+        cursor: pointer;
+      }
+
+      .session-plan-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+      }
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 0.5rem;
+      }
+      .card-title {
+        font-weight: 600;
+        color: #2d3748;
+      }
+      .card-meta {
+        display: flex;
+        gap: 0.75rem;
+        font-size: 0.85rem;
+        color: #718096;
+        flex-wrap: wrap;
+      }
+      .card-stats {
+        display: flex;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: #718096;
+        margin-top: 0.5rem;
+      }
+
+      .card-actions {
+        display: flex;
+        gap: 0.5rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+
+      .session-plan-card:hover .card-actions {
+        opacity: 1;
+      }
+
+      .action-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 1.2rem;
+        transition: background 0.2s;
+      }
+
+      .action-btn:hover {
+        background: #edf2f7;
+      }
+
+      .quick-access-section {
+        display: flex;
+        gap: 1rem;
+        overflow-x: auto;
+        padding: 1rem 0;
+        margin-bottom: 2rem;
+      }
+
+      .quick-access-card {
+        flex: 0 0 200px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: transform 0.2s;
+      }
+
+      .quick-access-card:hover {
+        transform: scale(1.05);
+      }
+      .quick-access-card .icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+      }
+      .quick-access-card .title {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+      }
+      .quick-access-card .subtitle {
+        font-size: 0.85rem;
+        opacity: 0.9;
+      }
+
+      .toast {
+        position: fixed;
+        top: 120px;
+        right: 20px;
+        background: #48bb78;
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        opacity: 0;
+        transform: translateX(400px);
+        transition: all 0.3s;
+        z-index: 1000;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      .priority-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .priority-p0 {
+        background: #fc8181;
+        color: #742a2a;
+      }
+      .priority-p1 {
+        background: #f6ad55;
+        color: #7c2d12;
+      }
+      .priority-p2 {
+        background: #68d391;
+        color: #22543d;
+      }
+
+      .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      }
+
+      .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+      }
+      .stat-label {
+        color: #4a5568;
+      }
+      .stat-note {
+        font-size: 0.85rem;
+        color: #718096;
+        margin-top: 0.5rem;
+      }
+
+      @media (max-width: 768px) {
+        .comparison-grid {
+          grid-template-columns: 1fr;
+        }
+        .pros-cons {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="toast" class="toast"></div>
+
+    <div class="header">
+      <h1>🎯 Session Plans Feature - UX Review</h1>
+      <p>Interactive mockups showcasing all recommended improvements</p>
+    </div>
+
+    <nav class="nav">
+      <a href="#overview" class="active">Overview</a>
+      <a href="#library-view">Library Views</a>
+      <a href="#card-design">Card Designs</a>
+      <a href="#interactions">Interactions</a>
+      <a href="#discovery">Discovery</a>
+      <a href="#quick-wins">Quick Wins</a>
+      <a href="#timeline">Timeline</a>
+    </nav>
+
+    <div class="container">
+      <!-- Overview -->
+      <section id="overview" class="section">
+        <div class="section-header">
+          <h2>📊 Review Overview</h2>
+          <p class="subtitle">Current state assessment and key findings</p>
+        </div>
+
+        <div
+          style="
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+          "
+        >
+          <div class="stat-card">
+            <div class="stat-value" style="color: #667eea">6.6/10</div>
+            <div class="stat-label">Overall Usability Score</div>
+            <div class="stat-note">Good foundation, needs polish</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color: #f56565">5/10</div>
+            <div class="stat-label">Mobile UX Score</div>
+            <div class="stat-note">Functional but not optimized</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color: #ed8936">3.6/5</div>
+            <div class="stat-label">Industry Gap Score</div>
+            <div class="stat-note">Moderate gap vs competitors</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" style="color: #48bb78">15+</div>
+            <div class="stat-label">Prioritized Actions</div>
+            <div class="stat-note">Across 4 priority levels</div>
+          </div>
+        </div>
+
+        <div
+          style="
+            background: #fffaf0;
+            border-left: 4px solid #ed8936;
+            padding: 1.5rem;
+            border-radius: 8px;
+          "
+        >
+          <h3 style="color: #7c2d12; margin-bottom: 0.5rem">
+            🎯 Recommended Focus
+          </h3>
+          <p style="color: #744210">
+            Priority: <strong>Discovery UX improvements</strong> and
+            <strong>Mobile optimization</strong> as quick wins with high impact.
+          </p>
+        </div>
+      </section>
+
+      <!-- Library Views -->
+      <section id="library-view" class="section">
+        <div class="section-header">
+          <h2>📚 Library View Options</h2>
+          <p class="subtitle">Three approaches to displaying session plans</p>
+        </div>
+
+        <div class="comparison-grid">
+          <div class="mockup-card recommended">
+            <div class="mockup-header">
+              <h3>Option 1: Pinterest-Style Masonry</h3>
+              <p class="philosophy">Visual browsing with variable heights</p>
+            </div>
+            <div class="mockup-preview">
+              <div class="quick-access-section">
+                <div
+                  class="quick-access-card"
+                  onclick="showToast('Quick Access clicked!')"
+                >
+                  <div class="icon">🕐</div>
+                  <div class="title">Used Today</div>
+                  <div class="subtitle">U12 Technical</div>
+                </div>
+                <div
+                  class="quick-access-card"
+                  style="
+                    background: linear-gradient(
+                      135deg,
+                      #f093fb 0%,
+                      #f5576c 100%
+                    );
+                  "
+                >
+                  <div class="icon">⭐</div>
+                  <div class="title">Most Popular</div>
+                  <div class="subtitle">Passing Drills</div>
+                </div>
+              </div>
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: repeat(2, 1fr);
+                  gap: 0.75rem;
+                "
+              >
+                <div
+                  class="session-plan-card"
+                  onclick="showToast('Card clicked!')"
+                >
+                  <div class="card-header">
+                    <div class="card-title">❤️ U12 Passing</div>
+                    <div class="card-actions">
+                      <button
+                        class="action-btn"
+                        onclick="event.stopPropagation(); showToast('Favorited!')"
+                      >
+                        ❤️
+                      </button>
+                    </div>
+                  </div>
+                  <div class="card-meta"><span>60 min • 🟢 Low</span></div>
+                  <div class="card-stats"><span>Used 3x • 95% ⭐</span></div>
+                </div>
+                <div class="session-plan-card">
+                  <div class="card-header">
+                    <div class="card-title">U10 Ball Mastery</div>
+                  </div>
+                  <div class="card-meta"><span>60 min • 🟡 Med</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="pros-cons">
+              <div class="pros">
+                <h4>PROS</h4>
+                <ul>
+                  <li>Quick visual scanning</li>
+                  <li>Efficient space usage</li>
+                  <li>Preview snippets visible</li>
+                </ul>
+              </div>
+              <div class="cons">
+                <h4>CONS</h4>
+                <ul>
+                  <li>Hard to scan systematically</li>
+                  <li>Unpredictable layout</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="mockup-card">
+            <div class="mockup-header">
+              <h3>Option 2: Spotify-Style List</h3>
+              <p class="philosophy">Dense information with clear hierarchy</p>
+            </div>
+            <div class="mockup-preview">
+              <input
+                type="text"
+                placeholder="🔍 Search plans..."
+                style="
+                  width: 100%;
+                  padding: 0.5rem;
+                  border: 1px solid #e2e8f0;
+                  border-radius: 6px;
+                  margin-bottom: 1rem;
+                "
+              />
+              <div class="session-plan-card">
+                <div class="card-header">
+                  <div>
+                    <div class="card-title">📋 U12 Technical Session</div>
+                    <div class="card-meta">
+                      <span>U12 • Soccer • 60 min • Medium</span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #718096">
+                      Created Mar 15 • Used 3 times • 95% success
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="pros-cons">
+              <div class="pros">
+                <h4>PROS</h4>
+                <ul>
+                  <li>Easy to scan linearly</li>
+                  <li>All metadata visible</li>
+                  <li>Good for comparison</li>
+                </ul>
+              </div>
+              <div class="cons">
+                <h4>CONS</h4>
+                <ul>
+                  <li>Verbose on mobile</li>
+                  <li>Requires scrolling</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="mockup-card">
+            <div class="mockup-header">
+              <h3>Option 3: Notion-Style Database</h3>
+              <p class="philosophy">Power-user data manipulation</p>
+            </div>
+            <div class="mockup-preview">
+              <div
+                style="
+                  display: flex;
+                  gap: 0.5rem;
+                  margin-bottom: 1rem;
+                  font-size: 0.85rem;
+                "
+              >
+                <button
+                  style="
+                    padding: 0.25rem 0.75rem;
+                    border: 1px solid #e2e8f0;
+                    background: white;
+                    border-radius: 4px;
+                  "
+                >
+                  Table 📊
+                </button>
+                <button
+                  style="
+                    padding: 0.25rem 0.75rem;
+                    border: 1px solid #e2e8f0;
+                    background: white;
+                    border-radius: 4px;
+                  "
+                >
+                  Gallery 🖼️
+                </button>
+              </div>
+              <table
+                style="
+                  width: 100%;
+                  font-size: 0.85rem;
+                  border-collapse: collapse;
+                "
+              >
+                <tr style="background: #f7fafc">
+                  <th
+                    style="
+                      padding: 0.5rem;
+                      text-align: left;
+                      border-bottom: 2px solid #e2e8f0;
+                    "
+                  >
+                    Name
+                  </th>
+                  <th
+                    style="
+                      padding: 0.5rem;
+                      text-align: left;
+                      border-bottom: 2px solid #e2e8f0;
+                    "
+                  >
+                    Duration
+                  </th>
+                  <th
+                    style="
+                      padding: 0.5rem;
+                      text-align: left;
+                      border-bottom: 2px solid #e2e8f0;
+                    "
+                  >
+                    Rating
+                  </th>
+                </tr>
+                <tr>
+                  <td style="padding: 0.5rem; border-bottom: 1px solid #e2e8f0">
+                    💛 Ball Mastery
+                  </td>
+                  <td style="padding: 0.5rem; border-bottom: 1px solid #e2e8f0">
+                    60 min
+                  </td>
+                  <td style="padding: 0.5rem; border-bottom: 1px solid #e2e8f0">
+                    95% ⭐
+                  </td>
+                </tr>
+              </table>
+            </div>
+            <div class="pros-cons">
+              <div class="pros">
+                <h4>PROS</h4>
+                <ul>
+                  <li>Extreme flexibility</li>
+                  <li>Multiple view modes</li>
+                  <li>Bulk operations</li>
+                </ul>
+              </div>
+              <div class="cons">
+                <h4>CONS</h4>
+                <ul>
+                  <li>Steeper learning curve</li>
+                  <li>May intimidate users</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Wins -->
+      <section id="quick-wins" class="section">
+        <div class="section-header">
+          <h2>⚡ Quick Wins (Week 1)</h2>
+          <p class="subtitle">Low effort, high impact improvements</p>
+        </div>
+
+        <div style="display: grid; gap: 1.5rem">
+          <div style="background: white; padding: 2rem; border-radius: 12px">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: start;
+                margin-bottom: 1rem;
+              "
+            >
+              <div>
+                <h3 style="color: #2d3748; margin-bottom: 0.5rem">
+                  1. Quick Access Section
+                </h3>
+                <p style="color: #718096; font-size: 0.95rem">
+                  Add horizontal scroll of 4 cards at top
+                </p>
+              </div>
+              <div>
+                <span class="priority-badge priority-p0">P0</span>
+                <div
+                  style="font-size: 0.85rem; color: #718096; margin-top: 0.5rem"
+                >
+                  4 hours
+                </div>
+              </div>
+            </div>
+            <p style="color: #4a5568; margin-bottom: 1rem">
+              <strong>Impact:</strong> Reduces time-to-find by 80%
+            </p>
+            <div style="background: #f7fafc; padding: 1rem; border-radius: 6px">
+              Categories: "Recently Used", "Most Popular", "Your Best", "Top
+              Rated"
+            </div>
+          </div>
+
+          <div style="background: white; padding: 2rem; border-radius: 12px">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: start;
+                margin-bottom: 1rem;
+              "
+            >
+              <div>
+                <h3 style="color: #2d3748; margin-bottom: 0.5rem">
+                  2. Visual Feedback System
+                </h3>
+                <p style="color: #718096; font-size: 0.95rem">
+                  Toast notifications and animations
+                </p>
+              </div>
+              <div>
+                <span class="priority-badge priority-p0">P0</span>
+                <div
+                  style="font-size: 0.85rem; color: #718096; margin-top: 0.5rem"
+                >
+                  3 hours
+                </div>
+              </div>
+            </div>
+            <p style="color: #4a5568; margin-bottom: 1rem">
+              <strong>Impact:</strong> Confirms actions, reduces anxiety
+            </p>
+            <button
+              style="
+                padding: 0.75rem 1.5rem;
+                background: #667eea;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+              "
+              onclick="showToast('Plan favorited! ✓')"
+            >
+              Try Toast Notification
+            </button>
+          </div>
+
+          <div style="background: white; padding: 2rem; border-radius: 12px">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: start;
+                margin-bottom: 1rem;
+              "
+            >
+              <div>
+                <h3 style="color: #2d3748; margin-bottom: 0.5rem">
+                  3. Loading States
+                </h3>
+                <p style="color: #718096; font-size: 0.95rem">
+                  Progress indicators during AI generation
+                </p>
+              </div>
+              <div>
+                <span class="priority-badge priority-p1">P1</span>
+                <div
+                  style="font-size: 0.85rem; color: #718096; margin-top: 0.5rem"
+                >
+                  2 hours
+                </div>
+              </div>
+            </div>
+            <p style="color: #4a5568">
+              <strong>Impact:</strong> Manages expectations, reduces perceived
+              wait
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Timeline -->
+      <section id="timeline" class="section">
+        <div class="section-header">
+          <h2>📅 Implementation Timeline</h2>
+          <p class="subtitle">Phased rollout plan</p>
+        </div>
+
+        <div style="background: white; padding: 2rem; border-radius: 12px">
+          <div style="margin-bottom: 2rem">
+            <div style="display: flex; gap: 1.5rem; margin-bottom: 2rem">
+              <div
+                style="
+                  flex-shrink: 0;
+                  width: 40px;
+                  height: 40px;
+                  background: #667eea;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: white;
+                  font-weight: bold;
+                "
+              >
+                1
+              </div>
+              <div style="flex: 1">
+                <h3 style="color: #2d3748; margin-bottom: 0.5rem">
+                  Phase 1: Foundation (Weeks 1-4)
+                </h3>
+                <p style="color: #718096; margin-bottom: 1rem">
+                  Polish existing features, fix UX issues
+                </p>
+                <ul style="list-style: none; color: #4a5568">
+                  <li style="padding: 0.25rem 0">→ Quick Access section</li>
+                  <li style="padding: 0.25rem 0">→ Visual feedback system</li>
+                  <li style="padding: 0.25rem 0">→ Mobile bottom action bar</li>
+                  <li style="padding: 0.25rem 0">
+                    → Browse-first Club Library
+                  </li>
+                </ul>
+                <div
+                  style="
+                    margin-top: 1rem;
+                    padding: 0.75rem;
+                    background: #f0fff4;
+                    border-radius: 6px;
+                    color: #22543d;
+                  "
+                >
+                  <strong>Success Metric:</strong> 40% increase in time-to-find,
+                  30% reduction in support tickets
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 1.5rem; margin-bottom: 2rem">
+              <div
+                style="
+                  flex-shrink: 0;
+                  width: 40px;
+                  height: 40px;
+                  background: #667eea;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: white;
+                  font-weight: bold;
+                "
+              >
+                2
+              </div>
+              <div style="flex: 1">
+                <h3 style="color: #2d3748; margin-bottom: 0.5rem">
+                  Phase 2: Engagement (Weeks 5-12)
+                </h3>
+                <p style="color: #718096; margin-bottom: 1rem">
+                  Build community, increase sharing
+                </p>
+                <ul style="list-style: none; color: #4a5568">
+                  <li style="padding: 0.25rem 0">→ Comments & reactions</li>
+                  <li style="padding: 0.25rem 0">→ Onboarding tour</li>
+                  <li style="padding: 0.25rem 0">→ Attribution & provenance</li>
+                  <li style="padding: 0.25rem 0">→ AI recommendations</li>
+                </ul>
+                <div
+                  style="
+                    margin-top: 1rem;
+                    padding: 0.75rem;
+                    background: #f0fff4;
+                    border-radius: 6px;
+                    color: #22543d;
+                  "
+                >
+                  <strong>Success Metric:</strong> 3x increase in plans shared
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 1.5rem">
+              <div
+                style="
+                  flex-shrink: 0;
+                  width: 40px;
+                  height: 40px;
+                  background: #667eea;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  color: white;
+                  font-weight: bold;
+                "
+              >
+                3
+              </div>
+              <div style="flex: 1">
+                <h3 style="color: #2d3748; margin-bottom: 0.5rem">
+                  Phase 3: Intelligence (Months 4-6)
+                </h3>
+                <p style="color: #718096; margin-bottom: 1rem">
+                  Data-driven optimization
+                </p>
+                <ul style="list-style: none; color: #4a5568">
+                  <li style="padding: 0.25rem 0">
+                    → Success metrics dashboard
+                  </li>
+                  <li style="padding: 0.25rem 0">→ Bulk operations</li>
+                  <li style="padding: 0.25rem 0">→ Plan templates system</li>
+                </ul>
+                <div
+                  style="
+                    margin-top: 1rem;
+                    padding: 0.75rem;
+                    background: #f0fff4;
+                    border-radius: 6px;
+                    color: #22543d;
+                  "
+                >
+                  <strong>Success Metric:</strong> 60% of coaches use templates
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.classList.add("show");
+        setTimeout(() => {
+          toast.classList.remove("show");
+        }, 3000);
+      }
+
+      // Update active nav on scroll
+      const sections = document.querySelectorAll(".section");
+      const navLinks = document.querySelectorAll(".nav a");
+
+      window.addEventListener("scroll", () => {
+        let current = "";
+        sections.forEach((section) => {
+          const sectionTop = section.offsetTop;
+          const sectionHeight = section.clientHeight;
+          if (pageYOffset >= sectionTop - 200) {
+            current = section.getAttribute("id");
+          }
+        });
+
+        navLinks.forEach((link) => {
+          link.classList.remove("active");
+          if (link.getAttribute("href").slice(1) === current) {
+            link.classList.add("active");
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

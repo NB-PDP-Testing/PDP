@@ -368,9 +368,8 @@ export const getSkillProgress = query({
     }
 
     const first = assessments[0];
-    const last = assessments[assessments.length - 1];
-    const secondToLast =
-      assessments.length > 1 ? assessments[assessments.length - 2] : null;
+    const last = assessments.at(-1);
+    const secondToLast = assessments.length > 1 ? assessments.at(-2) : null;
 
     if (!last) {
       throw new Error("Failed to get last assessment");

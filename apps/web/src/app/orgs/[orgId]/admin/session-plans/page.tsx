@@ -28,6 +28,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { authClient } from "@/lib/auth-client";
@@ -85,7 +94,6 @@ export default function AdminSessionPlansPage() {
 
   const { data: session } = authClient.useSession();
   const userId = session?.user?.id;
-  const userName = session?.user?.name || "Admin";
 
   const getIntensityColor = (intensity?: "low" | "medium" | "high") => {
     switch (intensity) {
@@ -163,7 +171,17 @@ export default function AdminSessionPlansPage() {
   // State for rejection dialog
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SessionPlan | null>(null);
-  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectionReason, setRejectionReason] = useState<
+    | "inappropriate"
+    | "safety"
+    | "poor-quality"
+    | "duplicate"
+    | "violates-guidelines"
+    | "other"
+    | ""
+  >("");
+  const [rejectionMessage, setRejectionMessage] = useState("");
+  const [notifyCoach, setNotifyCoach] = useState(true);
 
   // Fetch admin metrics
   const metrics = useQuery(
@@ -251,8 +269,8 @@ export default function AdminSessionPlansPage() {
   }
 
   // Mutations
-  const removeFromClubLibrary = useMutation(
-    api.models.sessionPlans.removeFromClubLibrary
+  const removeFromClubLibraryEnhanced = useMutation(
+    api.models.sessionPlans.removeFromClubLibraryEnhanced
   );
   const pinPlan = useMutation(api.models.sessionPlans.pinPlan);
   const unpinPlan = useMutation(api.models.sessionPlans.unpinPlan);
@@ -260,6 +278,8 @@ export default function AdminSessionPlansPage() {
   const handleRejectClick = (plan: SessionPlan) => {
     setSelectedPlan(plan);
     setRejectionReason("");
+    setRejectionMessage("");
+    setNotifyCoach(true);
     setRejectDialogOpen(true);
   };
 
@@ -268,18 +288,26 @@ export default function AdminSessionPlansPage() {
       return;
     }
 
+    // Validate reason is selected
+    if (!rejectionReason) {
+      toast.error("Please select a reason for removal");
+      return;
+    }
+
     try {
-      await removeFromClubLibrary({
+      await removeFromClubLibraryEnhanced({
         planId: selectedPlan._id,
-        moderatorId: userId,
-        moderatorName: userName,
-        reason: rejectionReason || "No reason provided",
+        reason: rejectionReason,
+        message: rejectionMessage || undefined,
+        notifyCoach,
       });
 
       toast.success("Plan removed from club library");
       setRejectDialogOpen(false);
       setSelectedPlan(null);
       setRejectionReason("");
+      setRejectionMessage("");
+      setNotifyCoach(true);
     } catch (error) {
       console.error("Failed to reject plan:", error);
       toast.error("Failed to remove plan");
@@ -748,7 +776,7 @@ export default function AdminSessionPlansPage() {
 
               <div className="space-y-4">
                 {selectedPlan && (
-                  <div>
+                  <div className="rounded-lg bg-muted p-3">
                     <div className="font-medium">
                       {selectedPlan.title || "Untitled Session Plan"}
                     </div>
@@ -759,23 +787,72 @@ export default function AdminSessionPlansPage() {
                 )}
 
                 <div>
-                  <label
-                    className="mb-2 block font-medium text-sm"
-                    htmlFor="rejection-reason"
+                  <Label
+                    className="mb-2 block"
+                    htmlFor="rejection-reason-dropdown"
                   >
-                    Reason for Rejection
-                  </label>
-                  <Textarea
-                    id="rejection-reason"
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    placeholder="Please provide a reason for rejecting this plan..."
-                    rows={4}
+                    Reason for Removal{" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    onValueChange={(value) =>
+                      setRejectionReason(value as typeof rejectionReason)
+                    }
                     value={rejectionReason}
+                  >
+                    <SelectTrigger id="rejection-reason-dropdown">
+                      <SelectValue placeholder="Select a reason..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="inappropriate">
+                        Inappropriate Content
+                      </SelectItem>
+                      <SelectItem value="safety">Safety Concern</SelectItem>
+                      <SelectItem value="poor-quality">Poor Quality</SelectItem>
+                      <SelectItem value="duplicate">
+                        Duplicate Content
+                      </SelectItem>
+                      <SelectItem value="violates-guidelines">
+                        Violates Guidelines
+                      </SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-muted-foreground text-xs">
+                    Required - Select the primary reason for removing this plan.
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="mb-2 block" htmlFor="rejection-message">
+                    Additional Message (Optional)
+                  </Label>
+                  <Textarea
+                    id="rejection-message"
+                    onChange={(e) => setRejectionMessage(e.target.value)}
+                    placeholder="Provide additional context or instructions..."
+                    rows={3}
+                    value={rejectionMessage}
                   />
                   <p className="mt-1 text-muted-foreground text-xs">
-                    This message will be visible to the coach who created the
-                    plan.
+                    Optional - Add extra details if needed.
                   </p>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={notifyCoach}
+                    id="notify-coach"
+                    onCheckedChange={(checked) =>
+                      setNotifyCoach(checked === true)
+                    }
+                  />
+                  <Label
+                    className="cursor-pointer font-normal text-sm"
+                    htmlFor="notify-coach"
+                  >
+                    Notify coach about this removal
+                  </Label>
                 </div>
               </div>
 
@@ -786,8 +863,12 @@ export default function AdminSessionPlansPage() {
                 >
                   Cancel
                 </Button>
-                <Button onClick={handleRejectConfirm} variant="destructive">
-                  Reject Plan
+                <Button
+                  disabled={!rejectionReason}
+                  onClick={handleRejectConfirm}
+                  variant="destructive"
+                >
+                  Remove Plan
                 </Button>
               </DialogFooter>
             </DialogContent>

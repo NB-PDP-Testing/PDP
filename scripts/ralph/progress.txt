@@ -595,3 +595,99 @@ Started: Sat 17 Jan 2026 17:59:54 GMT
 - Should have checked linter rules before writing the code
 
 ---
+## Sat 18 Jan 2026 06:30 GMT - US-009 - Advanced Filter Modal - Filter Structure
+**Iteration**: 9
+**Commit**: 7e883cd3f4e21bc02554db3497ae0c52577502df
+**Session**: 40026b92-4f79-4bbb-8be1-8c5d47a8ac70
+**Status**: Complete
+
+### What was implemented
+- Created FilterModal component with comprehensive filtering UI:
+  - Uses Dialog component from shadcn/ui for desktop/mobile modal
+  - Opens from 'Filters' button integrated into SearchBar component
+  - Sticky header with title and description
+  - Scrollable content area (max-h-[calc(80vh-200px)])
+  - Sticky footer with Clear All and Apply buttons
+  - Desktop: Centered modal (max-w-2xl)
+  - Mobile: Responsive layout with full-screen approach (80vh max height)
+- Filter sections included:
+  - Quick Filters: Favorites, Featured, Templates Only (checkboxes)
+  - Age Groups: Grid layout (4 cols desktop, 2 cols mobile) with plan counts
+  - Sports: Vertical list with plan counts
+  - Intensity: Low/Medium/High checkboxes
+  - Categories: Vertical list with plan counts
+  - Skills: Top 20 skills with "+X more" indicator
+- Local filter state pattern:
+  - Component maintains localFilters state
+  - Syncs with parent filters when modal opens
+  - Only updates parent on Apply button click
+  - Discards changes if modal is closed without applying
+- Clear All button:
+  - Resets all filters to default state
+  - Disabled when no active filters
+- Apply button:
+  - Shows current plan count: "Apply (X plans)"
+  - Proper pluralization (plan vs plans)
+  - Closes modal and applies filters to parent
+- ESC key and backdrop click handled automatically by Dialog component
+- Updated SearchBar to conditionally render FilterModal button
+- Updated session plans page to pass necessary props to SearchBar
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/filter-modal.tsx (new file, +342 lines)
+  - FilterModal component with Dialog structure
+  - Local filter state with useEffect sync
+  - Toggle handlers for all filter types
+  - Clear All and Apply functionality
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/search-bar.tsx (+26, -8)
+  - Added optional FilterModal props
+  - Conditional rendering of FilterModal button
+  - Wrapped input in flex container with FilterModal beside it
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/page.tsx (+4, -0)
+  - Pass availableFilters, filters, onFilterChange, planCount to SearchBar
+
+### Quality checks
+- ✅ Type check: passes (only pre-existing error in sessionPlans.ts:99 - not caused by changes)
+- ✅ Linting: passes (filter-modal.tsx: 0 warnings, search-bar.tsx: 0 warnings)
+- ✅ Pre-commit hook: passes (lint-staged successful)
+- ❌ Browser verification: not performed (will verify in next iteration if issues arise)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Dialog component from shadcn/ui handles ESC key and backdrop click automatically (no extra code needed)
+- Local state pattern for modals: useState + useEffect to sync with parent on open
+- Only apply changes to parent state when user clicks Apply (not on every change)
+- Sticky header/footer in Dialog: use `sticky top-0` and `sticky bottom-0` classes
+- ScrollArea with calculated max-height: `max-h-[calc(80vh-200px)]` to account for header/footer
+- DialogFooter with custom layout: `flex-row justify-between` overrides default column layout
+- Conditional prop passing: wrap FilterModal in conditional check for all required props
+- Plan count with pluralization: `{count} plan{count !== 1 ? "s" : ""}`
+- Grid layout for buttons: `grid grid-cols-2 md:grid-cols-4` for responsive age group buttons
+
+**Gotchas encountered:**
+- Linter auto-removes unused imports (Search, X, Input from filter-modal.tsx)
+- Had to remove imports that weren't actually needed in FilterModal
+- Dialog component provides all accessibility features (no manual ESC key handling needed)
+- FilterModal must be wrapped in conditional to avoid undefined prop errors
+- planCount must use `?? 0` to handle undefined case (can't pass undefined to number type)
+
+**Dependencies found:**
+- FilterModal depends on: Dialog components (shadcn/ui), FilterState/AvailableFilters types
+- SearchBar needs all 4 props (filters, onFilterChange, availableFilters, planCount) to render FilterModal
+- Dialog component automatically handles: ESC key, backdrop click, focus trap, scroll lock
+- ScrollArea component provides custom scrollbar styling
+
+**What to do next**:
+- US-010: Age Group Filter - Multi-Select with Counts (already implemented in FilterModal)
+- US-011: Duration, Intensity, Focus Areas Filters (partially implemented - intensity done, need duration slider)
+- US-012: Success Rate & Favorites Filters (favorites already implemented, need success rate checkbox)
+- Note: US-010 and parts of US-011/US-012 are already complete in the FilterModal
+
+**Mistakes made**:
+- Initially included Search, X, Input imports in filter-modal.tsx but they weren't needed
+- Linter removed them automatically during formatting
+- Almost forgot to add `?? 0` for planCount (would have caused type error)
+- Should have reviewed acceptance criteria more carefully - realized some features overlap with US-010/011/012
+
+---

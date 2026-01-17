@@ -177,6 +177,12 @@ export type UXFeatureFlags = {
   /** Hide header nav links (Home, Platform, Coach, Parent, Admin) - users should use the switcher */
   useMinimalHeaderNav: boolean;
 
+  // Phase 15 - Enhanced User Profile
+  /** Enhanced user menu consolidating UserMenu + ModeToggle */
+  useEnhancedUserMenu: boolean;
+  /** Track organization/role usage patterns for smart defaults */
+  useOrgUsageTracking: boolean;
+
   // Quick Actions A/B/C Testing
   /** Which quick actions variant to display: control (collapsible grid), fab (floating button), horizontal (icon scroll), two-tier (3 primary + more) */
   quickActionsVariant: QuickActionsVariant;

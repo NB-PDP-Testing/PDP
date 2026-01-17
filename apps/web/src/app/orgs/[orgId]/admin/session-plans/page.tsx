@@ -6,10 +6,12 @@ import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   Eye,
+  Layers,
   Loader2,
   Pin,
   PinOff,
   Shield,
+  Star,
   X,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -32,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { authClient } from "@/lib/auth-client";
 import type {
@@ -100,10 +103,21 @@ export default function AdminSessionPlansPage() {
     templateOnly: false,
   });
 
+  // Status tab state
+  const [activeTab, setActiveTab] = useState<
+    "all" | "pending" | "featured" | "high-usage"
+  >("all");
+
   // State for rejection dialog
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<SessionPlan | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+
+  // Fetch admin metrics
+  const metrics = useQuery(
+    api.models.sessionPlans.getAdminMetrics,
+    userId ? { organizationId: orgId } : "skip"
+  );
 
   // Fetch all plans for admin review
   const plans = useQuery(
@@ -239,7 +253,7 @@ export default function AdminSessionPlansPage() {
     router.push(`/orgs/${orgId}/admin/session-plans/${planId}`);
   };
 
-  if (plans === undefined) {
+  if (plans === undefined || metrics === undefined) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -252,6 +266,27 @@ export default function AdminSessionPlansPage() {
   const rejectedPlans = plans.filter(
     (p) => p.visibility === "private" && p.moderatedBy
   );
+
+  // Filter plans based on active tab
+  const getFilteredPlans = () => {
+    switch (activeTab) {
+      case "pending": {
+        return sharedPlans.filter((p) => !(p.moderatedBy || p.pinnedByAdmin));
+      }
+      case "featured": {
+        return sharedPlans.filter((p) => p.pinnedByAdmin);
+      }
+      case "high-usage": {
+        // Plans with 5+ uses
+        return sharedPlans.filter((p) => (p.timesUsed || 0) >= 5);
+      }
+      default: {
+        return sharedPlans;
+      }
+    }
+  };
+
+  const filteredSharedPlans = getFilteredPlans();
 
   return (
     <div className="flex h-screen">
@@ -275,65 +310,125 @@ export default function AdminSessionPlansPage() {
             </p>
           </div>
 
-          {/* Stats */}
-          <div className="mb-6 grid grid-cols-3 gap-4">
-            <Card>
+          {/* Enhanced Metrics Cards */}
+          <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {/* Total Plans - Default border */}
+            <Card className="transition-shadow hover:shadow-md">
               <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="font-bold text-3xl">{sharedPlans.length}</div>
-                  <div className="text-muted-foreground text-sm">
-                    Shared Plans
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-bold text-3xl">{metrics.total}</div>
+                    <div className="text-muted-foreground text-sm">
+                      Total Shared
+                    </div>
                   </div>
+                  <Layers className="h-8 w-8 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
-            <Card>
+
+            {/* Pending Review - Blue border */}
+            <Card className="border-blue-500 transition-shadow hover:shadow-md">
               <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="font-bold text-3xl">
-                    {sharedPlans.filter((p) => p.pinnedByAdmin).length}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-bold text-3xl">
+                      {metrics.pendingReview}
+                    </div>
+                    <div className="text-muted-foreground text-sm">
+                      Pending Review
+                    </div>
                   </div>
-                  <div className="text-muted-foreground text-sm">
-                    Featured Plans
-                  </div>
+                  <Eye className="h-8 w-8 text-blue-500" />
                 </div>
               </CardContent>
             </Card>
-            <Card>
+
+            {/* Flagged - Red border */}
+            <Card className="border-red-500 transition-shadow hover:shadow-md">
               <CardContent className="pt-6">
-                <div className="text-center">
-                  <div className="font-bold text-3xl">
-                    {rejectedPlans.length}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-bold text-3xl">{metrics.flagged}</div>
+                    <div className="text-muted-foreground text-sm">Flagged</div>
                   </div>
-                  <div className="text-muted-foreground text-sm">
-                    Rejected Plans
+                  <AlertTriangle className="h-8 w-8 text-red-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Featured - Green border */}
+            <Card className="border-green-500 transition-shadow hover:shadow-md">
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-bold text-3xl">{metrics.featured}</div>
+                    <div className="text-muted-foreground text-sm">
+                      Featured
+                    </div>
                   </div>
+                  <Star className="h-8 w-8 text-green-500" />
                 </div>
               </CardContent>
             </Card>
           </div>
 
+          {/* Status Tabs */}
+          <div className="mb-6">
+            <Tabs
+              onValueChange={(v) => setActiveTab(v as typeof activeTab)}
+              value={activeTab}
+            >
+              <TabsList>
+                <TabsTrigger value="all">
+                  All ({sharedPlans.length})
+                </TabsTrigger>
+                <TabsTrigger value="pending">
+                  Pending ({metrics.pendingReview})
+                </TabsTrigger>
+                <TabsTrigger value="featured">
+                  Featured ({metrics.featured})
+                </TabsTrigger>
+                <TabsTrigger value="high-usage">
+                  High Usage (
+                  {sharedPlans.filter((p) => (p.timesUsed || 0) >= 5).length})
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
           {/* Shared Plans Section */}
           <div className="mb-8">
             <h2 className="mb-4 font-semibold text-xl">
-              Shared Plans ({sharedPlans.length})
+              {activeTab === "all" &&
+                `All Plans (${filteredSharedPlans.length})`}
+              {activeTab === "pending" &&
+                `Pending Review (${filteredSharedPlans.length})`}
+              {activeTab === "featured" &&
+                `Featured Plans (${filteredSharedPlans.length})`}
+              {activeTab === "high-usage" &&
+                `High Usage Plans (${filteredSharedPlans.length})`}
             </h2>
-            {sharedPlans.length === 0 ? (
+            {filteredSharedPlans.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center p-12">
                   <Shield className="mb-4 h-16 w-16 text-muted-foreground" />
                   <h3 className="mb-2 font-semibold text-lg">
-                    No shared plans to review
+                    No plans in this category
                   </h3>
                   <p className="text-center text-muted-foreground">
-                    When coaches share their session plans with the
-                    organization, they will appear here for review.
+                    {activeTab === "pending" && "No plans are pending review."}
+                    {activeTab === "featured" &&
+                      "No plans have been featured yet."}
+                    {activeTab === "high-usage" && "No plans have 5+ uses yet."}
+                    {activeTab === "all" &&
+                      "When coaches share their session plans with the organization, they will appear here for review."}
                   </p>
                 </CardContent>
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {sharedPlans.map((plan) => (
+                {filteredSharedPlans.map((plan) => (
                   <Card
                     className="relative transition-shadow hover:shadow-lg"
                     key={plan._id}

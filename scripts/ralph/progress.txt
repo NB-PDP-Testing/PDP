@@ -848,3 +848,66 @@ All acceptance criteria met:
 - Initially missed removing the old Skills section after adding Focus Areas pills
 
 ---
+## Sun 18 Jan 2026 11:15 GMT - US-012 - Success Rate & Favorites Filters
+**Iteration**: 10
+**Commit**: dbe9f4c8dff3601e404e9f93f09847a8ac08ef43
+**Session**: 9efddd2c-d238-4afd-aff6-e5cde79ef524
+**Status**: Complete
+
+### What was implemented
+Added "Only show highly rated plans (80%+)" checkbox to FilterModal:
+
+- Added new checkbox in Quick Filters section (after Templates Only checkbox)
+- Checkbox sets FilterState.minSuccessRate to 80 when checked, undefined when unchecked
+- Updated hasActiveFilters to include minSuccessRate check
+- Updated clearAllFilters to reset minSuccessRate to undefined
+- Label text: "Only show highly rated plans (80%+)"
+- Checkbox ID: "highly-rated-modal"
+
+Note: "Only favorites" checkbox was already implemented in US-009 (favoriteOnly field, lines 122-140).
+
+All acceptance criteria met:
+- ✅ Checkbox: 'Only show highly rated plans (80%+)' (added)
+- ✅ Checkbox: 'Only favorites' (already implemented in US-009)
+- ✅ Checkboxes keyboard accessible (Checkbox component is keyboard accessible)
+- ✅ Labels are clickable (htmlFor attribute connects label to checkbox)
+- ✅ Clear visual feedback for checked state (Checkbox component provides visual state)
+- ✅ Typecheck passes (only pre-existing error in sessionPlans.ts:99)
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/filter-modal.tsx (+15, -1)
+  - Added highly-rated checkbox (lines 178-195)
+  - Updated hasActiveFilters to check minSuccessRate (line 60)
+  - Updated clearAllFilters to reset minSuccessRate (line 75)
+
+### Quality checks
+- ✅ Type check: passes (only pre-existing backend error in sessionPlans.ts:99 - not caused by changes)
+- ✅ Linting: passes (filter-modal.tsx has 0 errors/warnings)
+- ✅ Pre-commit hook: passes (lint-staged successful)
+- ❌ Browser verification: not performed (will verify in later iteration if issues arise)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Success rate filter uses FilterState.minSuccessRate (optional number field)
+- Set to 80 when checked (80%+), undefined when unchecked
+- Checkbox checked state logic: `localFilters.minSuccessRate !== undefined && localFilters.minSuccessRate >= 80`
+- This allows for flexibility if we want different thresholds in the future
+
+**Gotchas encountered:**
+- Favorites filter was already implemented in US-009 (didn't need to add it)
+- Should always check existing implementation before starting work
+- minSuccessRate is optional field, so must check !== undefined
+
+**Dependencies found:**
+- Uses FilterState.minSuccessRate field (already defined in filter-sidebar.tsx)
+- Checkbox component from shadcn/ui (keyboard accessible by default)
+- Must update hasActiveFilters and clearAllFilters when adding new filter fields
+
+**What to do next**:
+- US-013: Pinterest-Style Masonry Grid Layout (next priority story)
+
+**Mistakes made**:
+- N/A - Story was straightforward, favorites filter was already implemented
+
+---

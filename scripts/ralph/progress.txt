@@ -295,3 +295,80 @@ Started: Sat 17 Jan 2026 17:59:54 GMT
 - Almost missed checking all filter fields (initially only checked search, ageGroups, sports)
 
 ---
+## Sun 18 Jan 2026 01:00 GMT - US-005 - Full-Text Search - Debounced Search Bar
+**Iteration**: 5
+**Commit**: d83cdc144594a6535431465c8f7b80f7254aceb5
+**Session**: 8c86094f-6866-406b-9503-9a05f75c48a4
+**Status**: Complete
+
+### What was implemented
+- Created searchPlans query in backend using Convex search indexes
+  - Uses existing search_title and search_content indexes from schema
+  - Searches both title and rawContent fields, combines and deduplicates results
+  - Title matches prioritized over content matches
+  - Filters by visibility (private/club/all) and status (excludes deleted)
+  - Returns { plans: array, count: number } structure
+- Created SearchBar component with debouncing:
+  - 300ms debounce using useEffect and setTimeout
+  - Local state for immediate UI updates, parent state updates after debounce
+  - Loading indicator (Loader2 spinner) while searching
+  - Clear button (X icon) when search has text
+  - Results count displayed below search input
+  - Fully keyboard accessible
+- Integrated SearchBar into session plans page:
+  - Placed below Quick Access Cards, above Tabs
+  - Connected to existing filters.search state
+  - Shows results count from filteredPlans
+  - isSearching prop tied to isLoading state
+
+### Files changed
+- packages/backend/convex/models/sessionPlans.ts (+97 lines)
+  - Added searchPlans query (lines 1666-1761)
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/search-bar.tsx (new file, +87 lines)
+  - SearchBar component with debouncing, loading, clear button
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/page.tsx (+11 lines)
+  - Import SearchBar component
+  - Add SearchBar to UI between Quick Access and Tabs
+
+### Quality checks
+- ✅ Type check: passes (only pre-existing backend error in sessionPlans.ts:99 - getCoachForOrg type mismatch, not caused by changes)
+- ✅ Linting: passes (search-bar.tsx has 0 warnings, page.tsx has pre-existing complexity warnings, backend has pre-existing `any` type warnings)
+- ✅ Pre-commit hook: passes (lint-staged successful)
+- ❌ Browser verification: not performed (will verify in next iteration if issues arise)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Convex search indexes use `.withSearchIndex("index_name", (q) => q.search("field", query).eq("filterField", value))`
+- Search queries should combine multiple indexes (title + content) for better results
+- Deduplicate results using Set and checking _id field
+- Prioritize title matches over content matches by iterating title results first
+- Debouncing pattern: local state + useEffect with setTimeout cleanup
+- SearchBar needs two states: localValue (immediate UI) and parent value (debounced callback)
+- Must sync localValue when parent value changes externally (useEffect with [value] dependency)
+- Biome prefers `type` over `interface` (use type alias for props)
+
+**Gotchas encountered:**
+- Linter auto-removes imports if not used immediately - must add import and usage together
+- Linter auto-reformats props alphabetically, breaking exact string match for edits
+- Must explicitly type inline arrow function parameters (value: string) or TypeScript complains
+- Search indexes in schema already existed (search_title, search_content) - didn't need to create new ones
+- filterFields in search index schema allow .eq() calls on those fields
+- Must use .take(limit) with search queries, not .collect()
+
+**Dependencies found:**
+- SearchBar component depends on: Input (shadcn/ui), Button (shadcn/ui), Loader2, Search, X (lucide-react)
+- searchPlans query uses search_title and search_content indexes defined in schema
+- Search bar connected to filters.search state (existing filter state pattern)
+- Results count comes from filteredPlans.length (after all filters applied)
+
+**What to do next**:
+- US-006: Quick Filter Pills - Common Filters
+
+**Mistakes made**:
+- Initially considered creating new search index, but realized schema already had search_title and search_content
+- Forgot to add type annotation to value parameter in onChange callback (TypeScript error)
+- Used `interface` instead of `type` for SearchBarProps (linter warning)
+- Almost added SearchBar in wrong location (was going to put after tabs instead of before)
+
+---

@@ -606,6 +606,90 @@ export const removeFromClubLibrary = mutation({
 });
 
 /**
+ * Enhanced admin mutation to remove plan from club library with detailed reason and optional notification
+ */
+export const removeFromClubLibraryEnhanced = mutation({
+  args: {
+    planId: v.id("sessionPlans"),
+    reason: v.union(
+      v.literal("inappropriate"),
+      v.literal("safety"),
+      v.literal("poor-quality"),
+      v.literal("duplicate"),
+      v.literal("violates-guidelines"),
+      v.literal("other")
+    ),
+    message: v.optional(v.string()),
+    notifyCoach: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    // Verify admin role
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: plan.organizationId, operator: "eq" },
+      ],
+    });
+
+    if (!member) {
+      throw new Error("Not a member of this organization");
+    }
+
+    const isAdmin = member.role === "admin" || member.role === "owner";
+    if (!isAdmin) {
+      throw new Error("Not authorized - admin role required");
+    }
+
+    const now = Date.now();
+
+    // Map reason to human-readable text
+    const reasonText: Record<typeof args.reason, string> = {
+      inappropriate: "Inappropriate Content",
+      safety: "Safety Concern",
+      "poor-quality": "Poor Quality",
+      duplicate: "Duplicate Content",
+      "violates-guidelines": "Violates Guidelines",
+      other: "Other",
+    };
+
+    const fullReason = args.message
+      ? `${reasonText[args.reason]}: ${args.message}`
+      : reasonText[args.reason];
+
+    // Update plan to private with moderation note
+    await ctx.db.patch(args.planId, {
+      visibility: "private",
+      moderatedBy: identity.subject,
+      moderatedAt: now,
+      moderationNote: fullReason,
+      updatedAt: now,
+    });
+
+    // TODO: Implement coach notification system
+    // If args.notifyCoach is true, send notification to plan.coachId
+    // Notification content: "Your session plan was removed from the club library. Reason: ${fullReason}"
+    if (args.notifyCoach) {
+      // Placeholder for future notification implementation
+      console.log(
+        `Would notify coach ${plan.coachId} about plan removal: ${fullReason}`
+      );
+    }
+  },
+});
+
+/**
  * Admin: Pin/unpin a featured plan
  */
 export const pinPlan = mutation({

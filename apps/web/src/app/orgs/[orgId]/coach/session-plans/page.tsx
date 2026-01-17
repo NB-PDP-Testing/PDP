@@ -322,6 +322,39 @@ export default function SessionPlansPage() {
     });
   }
 
+  // Calculate active filter count
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.search) {
+      count += 1;
+    }
+    if (filters.ageGroups.length > 0) {
+      count += 1;
+    }
+    if (filters.sports.length > 0) {
+      count += 1;
+    }
+    if (filters.intensities.length > 0) {
+      count += 1;
+    }
+    if (filters.skills.length > 0) {
+      count += 1;
+    }
+    if (filters.categories.length > 0) {
+      count += 1;
+    }
+    if (filters.favoriteOnly) {
+      count += 1;
+    }
+    if (filters.featuredOnly) {
+      count += 1;
+    }
+    if (filters.templateOnly) {
+      count += 1;
+    }
+    return count;
+  }, [filters]);
+
   const isLoading = currentPlans === undefined;
 
   if (isLoading && activeTab !== "admin") {
@@ -535,9 +568,17 @@ export default function SessionPlansPage() {
                 viewMode === "gallery" && (
                   <>
                     <div className="mb-4 flex items-center justify-between">
-                      <div className="text-muted-foreground text-sm">
-                        {filteredPlans.length} plan
-                        {filteredPlans.length !== 1 ? "s" : ""} found
+                      <div className="flex items-center gap-3 text-muted-foreground text-sm">
+                        <span>
+                          {filteredPlans.length} plan
+                          {filteredPlans.length !== 1 ? "s" : ""} found
+                        </span>
+                        {activeFilterCount > 0 && (
+                          <Badge variant="secondary">
+                            {activeFilterCount} filter
+                            {activeFilterCount !== 1 ? "s" : ""} active
+                          </Badge>
+                        )}
                       </div>
                       <SortDropdown onChange={setSortBy} value={sortBy} />
                     </div>
@@ -559,9 +600,17 @@ export default function SessionPlansPage() {
                 viewMode === "list" && (
                   <>
                     <div className="mb-4 flex items-center justify-between">
-                      <div className="text-muted-foreground text-sm">
-                        {filteredPlans.length} plan
-                        {filteredPlans.length !== 1 ? "s" : ""} found
+                      <div className="flex items-center gap-3 text-muted-foreground text-sm">
+                        <span>
+                          {filteredPlans.length} plan
+                          {filteredPlans.length !== 1 ? "s" : ""} found
+                        </span>
+                        {activeFilterCount > 0 && (
+                          <Badge variant="secondary">
+                            {activeFilterCount} filter
+                            {activeFilterCount !== 1 ? "s" : ""} active
+                          </Badge>
+                        )}
                       </div>
                       <SortDropdown onChange={setSortBy} value={sortBy} />
                     </div>
@@ -650,9 +699,17 @@ export default function SessionPlansPage() {
                 viewMode === "gallery" && (
                   <>
                     <div className="mb-4 flex items-center justify-between">
-                      <div className="text-muted-foreground text-sm">
-                        {filteredPlans.length} plan
-                        {filteredPlans.length !== 1 ? "s" : ""} found
+                      <div className="flex items-center gap-3 text-muted-foreground text-sm">
+                        <span>
+                          {filteredPlans.length} plan
+                          {filteredPlans.length !== 1 ? "s" : ""} found
+                        </span>
+                        {activeFilterCount > 0 && (
+                          <Badge variant="secondary">
+                            {activeFilterCount} filter
+                            {activeFilterCount !== 1 ? "s" : ""} active
+                          </Badge>
+                        )}
                       </div>
                       <SortDropdown onChange={setSortBy} value={sortBy} />
                     </div>
@@ -674,9 +731,17 @@ export default function SessionPlansPage() {
                 viewMode === "list" && (
                   <>
                     <div className="mb-4 flex items-center justify-between">
-                      <div className="text-muted-foreground text-sm">
-                        {filteredPlans.length} plan
-                        {filteredPlans.length !== 1 ? "s" : ""} found
+                      <div className="flex items-center gap-3 text-muted-foreground text-sm">
+                        <span>
+                          {filteredPlans.length} plan
+                          {filteredPlans.length !== 1 ? "s" : ""} found
+                        </span>
+                        {activeFilterCount > 0 && (
+                          <Badge variant="secondary">
+                            {activeFilterCount} filter
+                            {activeFilterCount !== 1 ? "s" : ""} active
+                          </Badge>
+                        )}
                       </div>
                       <SortDropdown onChange={setSortBy} value={sortBy} />
                     </div>

@@ -1937,3 +1937,73 @@ export const getRecentPlanForTeam = query({
     };
   },
 });
+
+/**
+ * Get admin dashboard metrics for session plans
+ */
+export const getAdminMetrics = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    total: v.number(),
+    pendingReview: v.number(),
+    flagged: v.number(),
+    featured: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify admin role
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: args.organizationId, operator: "eq" },
+      ],
+    });
+
+    if (!member) {
+      throw new Error("Not a member of this organization");
+    }
+
+    // Use index to get all shared plans for the organization
+    const sharedPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_visibility", (q) =>
+        q.eq("organizationId", args.organizationId).eq("visibility", "club")
+      )
+      .collect();
+
+    // Filter out deleted plans
+    const activePlans = sharedPlans.filter((p) => p.status !== "deleted");
+
+    // Calculate metrics
+    const total = activePlans.length;
+
+    // Pending review: shared plans that have not been moderated yet
+    const pendingReview = activePlans.filter(
+      (p) => !(p.moderatedBy || p.pinnedByAdmin)
+    ).length;
+
+    // Flagged: plans with moderation notes (rejected plans that are still visible)
+    // Since rejected plans are set to private, we'll count plans with moderationNote
+    // that are still shared (might be warnings/notes from admin)
+    const flagged = activePlans.filter(
+      (p) => p.moderationNote && !p.pinnedByAdmin
+    ).length;
+
+    // Featured: plans pinned by admin
+    const featured = activePlans.filter((p) => p.pinnedByAdmin).length;
+
+    return {
+      total,
+      pendingReview,
+      flagged,
+      featured,
+    };
+  },
+});

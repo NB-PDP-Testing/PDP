@@ -13,6 +13,7 @@ import type { OrgMemberRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "./mode-toggle";
 import { OrgRoleSwitcher } from "./org-role-switcher";
+import { EnhancedUserMenu } from "./profile/enhanced-user-menu";
 import UserMenu from "./user-menu";
 
 function OrgNav({ member }: { member: Member }) {
@@ -80,7 +81,7 @@ export default function Header() {
   const { theme } = useOrgTheme({ skip: isPlatformLevelRoute });
 
   // Get UX feature flags
-  const { useMinimalHeaderNav } = useUXFeatureFlags();
+  const { useMinimalHeaderNav, useEnhancedUserMenu } = useUXFeatureFlags();
 
   // Track current org in user profile
   // Skip this on platform-level pages - user isn't in a specific org context
@@ -193,9 +194,15 @@ export default function Header() {
           {/* Only show on org-specific routes, not platform-level routes */}
           {!isPlatformLevelRoute && <OrgRoleSwitcher />}
 
-          {/* User Menu and Mode Toggle */}
-          <UserMenu />
-          <ModeToggle />
+          {/* Enhanced User Menu (consolidates UserMenu + ModeToggle) */}
+          {useEnhancedUserMenu ? (
+            <EnhancedUserMenu />
+          ) : (
+            <>
+              <UserMenu />
+              <ModeToggle />
+            </>
+          )}
         </div>
       </div>
       <hr />

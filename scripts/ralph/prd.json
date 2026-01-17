@@ -47,7 +47,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Phase 1: Foundation & Quick Wins (2 hours effort)"
     },
     {

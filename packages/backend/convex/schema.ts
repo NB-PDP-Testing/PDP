@@ -595,11 +595,6 @@ export default defineSchema({
     coachNotes: v.optional(v.string()),
     playerNotes: v.optional(v.string()),
 
-    // Cross-org sharing flags
-    isShareable: v.optional(v.boolean()), // Can be shared cross-org, default false
-    markedShareableAt: v.optional(v.number()), // When marked shareable
-    markedShareableBy: v.optional(v.string()), // userId who marked shareable
-
     // Metadata
     createdBy: v.optional(v.string()),
     createdAt: v.number(),

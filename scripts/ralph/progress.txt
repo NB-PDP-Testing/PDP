@@ -372,3 +372,73 @@ Started: Sat 17 Jan 2026 17:59:54 GMT
 - Almost added SearchBar in wrong location (was going to put after tabs instead of before)
 
 ---
+## Sun 18 Jan 2026 03:30 GMT - US-006 - Quick Filter Pills - Common Filters
+**Iteration**: 6
+**Commit**: b66bc46a398f0fedc2991e39a0025f9d2f549c19
+**Session**: 6ed807e1-ccd0-4fa9-b2d4-7bcd3c785b18
+**Status**: Complete
+
+### What was implemented
+- Created FilterPills component with 5 quick filter pills:
+  - Favorites (Heart icon) - toggles favoriteOnly filter
+  - U12 (age group) - toggles U12 in ageGroups filter
+  - U14 (age group) - toggles U14 in ageGroups filter
+  - 60 min (Clock icon) - duration filter (UI only, not yet connected to backend)
+  - High Intensity (Zap icon) - toggles "high" in intensities filter
+- Horizontal scrolling layout with overflow-x-auto for mobile responsiveness
+- Active pills have filled background (variant="default"), inactive use outline (variant="outline")
+- Touch-friendly 48px height (h-12) with padding
+- Pills support multi-select (clicking toggles on/off)
+- Integrated into session plans page between SearchBar and Tabs
+- Connected to existing filter state (favoriteOnly, ageGroups, intensities)
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/filter-pills.tsx (new file, +118 lines)
+  - FilterPills component with 5 pills
+  - Type guards for intensity union type ("low" | "medium" | "high")
+  - isPillActive and handlePillClick helper functions
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/page.tsx (+46 lines)
+  - Import FilterPills component
+  - Add FilterPills to UI below SearchBar (line 377-406)
+  - Toggle handlers for favoriteOnly, ageGroups, intensities
+
+### Quality checks
+- ✅ Type check: passes (only pre-existing backend error in sessionPlans.ts:99 - not caused by changes)
+- ✅ Linting: passes (filter-pills.tsx has 0 warnings, page.tsx has pre-existing complexity warnings)
+- ✅ Pre-commit hook: passes (lint-staged successful)
+- ❌ Browser verification: not performed (will verify in next iteration if issues arise)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Filter pills use Button component with size="sm" and variant switching (default/outline)
+- Horizontal scroll pattern: `className="flex gap-2 overflow-x-auto pb-2"`
+- Touch-friendly height: h-12 (48px minimum touch target)
+- Multi-select toggle pattern: check if array includes value, filter out or add
+- Button min-width pattern: min-w-fit to prevent button shrinking on small screens
+- Icons from lucide-react: Heart (favorites), Clock (duration), Zap (intensity)
+
+**Gotchas encountered:**
+- FilterState intensities field is typed as `Array<"low" | "medium" | "high">`, not string[]
+- Must use lowercase "high" not "High" to match type
+- Need type guards when passing pill.value to typed callbacks
+- Linter wants collapsed if statements (useCollapsedIf) instead of nested ifs
+- Combine conditions with && instead of nesting if statements
+- Duration filter pill is UI-only (not yet implemented in backend FilterState)
+
+**Dependencies found:**
+- FilterPills depends on: Button (shadcn/ui), lucide-react icons (Heart, Clock, Zap)
+- Connected to existing FilterState type from filter-sidebar.tsx
+- intensities type must match: Array<"low" | "medium" | "high">
+- Pills positioned between SearchBar and Tabs in page layout
+
+**What to do next**:
+- US-007: Sort Dropdown - Result Ordering (next priority story)
+
+**Mistakes made**:
+- Initially used "High" (capitalized) instead of "high" (lowercase) for intensity value
+- Initially used string type for intensity parameter instead of union type
+- Initially nested if statements which triggered useCollapsedIf linter warning
+- Forgot to add type guards when checking pill.value against union types
+
+---

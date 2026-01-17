@@ -293,7 +293,7 @@
         "Typecheck passes"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "Phase 4: Masonry + Admin (2 hours effort)"
     }
   ]

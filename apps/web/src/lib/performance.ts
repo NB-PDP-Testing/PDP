@@ -103,7 +103,7 @@ export const ResourcePreloader = {
   /**
    * Preload multiple images
    */
-  images(srcs: string[]): Promise<undefined[]> {
+  images(srcs: string[]): Promise<void[]> {
     return Promise.all(srcs.map(this.image));
   },
 

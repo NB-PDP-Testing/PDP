@@ -142,12 +142,12 @@ export const searchPlayersByName = query({
     if (args.firstName && args.lastName) {
       // Note: This won't work as partial match, just exact
       // For partial matching, we'd need a search index
+      const firstName = args.firstName.trim();
+      const lastName = args.lastName.trim();
       const players = await ctx.db
         .query("playerIdentities")
         .withIndex("by_name_dob", (q) =>
-          q
-            .eq("firstName", args.firstName?.trim())
-            .eq("lastName", args.lastName?.trim())
+          q.eq("firstName", firstName).eq("lastName", lastName)
         )
         .take(limit);
       return players;

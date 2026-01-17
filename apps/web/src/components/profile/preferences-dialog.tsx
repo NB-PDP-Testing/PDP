@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useDefaultPreference } from "@/hooks/use-default-preference";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
@@ -43,12 +44,28 @@ export function PreferencesDialog({
   const { preferences, setDefault, clearDefault, isLoading } =
     useDefaultPreference();
   const { data: organizations } = authClient.useListOrganizations();
-  const { data: user } = authClient.useSession();
+  const currentUser = useCurrentUser();
   const { useOrgUsageTracking } = useUXFeatureFlags();
   const usageInsights = useQuery(
     api.models.userPreferences.getUsageInsights,
-    user?.user?.id ? { userId: user.user.id } : "skip"
-  );
+    currentUser?._id ? { userId: currentUser._id } : "skip"
+  ) as
+    | {
+        mostUsedOrgs: Array<{
+          orgId: string;
+          orgName: string;
+          role: FunctionalRole;
+          accessCount: number;
+          totalMinutesSpent: number;
+        }>;
+        recentOrgs: Array<{
+          orgId: string;
+          orgName: string;
+          lastAccessedAt: number;
+        }>;
+      }
+    | null
+    | undefined;
 
   // Local state for form
   const [preferenceMode, setPreferenceMode] = useState<"smart" | "manual">(
@@ -153,7 +170,7 @@ export function PreferencesDialog({
                     Smart default (based on my role)
                   </Label>
                   <p className="mt-1 text-muted-foreground text-sm">
-                    {user?.user?.isPlatformStaff ? (
+                    {currentUser?.isPlatformStaff ? (
                       <>
                         As platform staff, you'll land on the{" "}
                         <strong>organization listing page</strong>.
@@ -258,74 +275,79 @@ export function PreferencesDialog({
         </Card>
 
         {/* Usage Insights Card - Phase 2B (feature flagged) */}
-        {useOrgUsageTracking && usageInsights && usageInsights.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Your Usage Patterns
-              </CardTitle>
-              <p className="text-muted-foreground text-sm">
-                We track which org/role combinations you use most to help
-                suggest better defaults
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {usageInsights.slice(0, 5).map((insight, index) => {
-                  const org = organizations?.find(
-                    (o) => o.id === insight.orgId
-                  );
-                  const isTopUsed = index === 0;
+        {useOrgUsageTracking &&
+          (usageInsights?.mostUsedOrgs?.length ?? 0) > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Your Usage Patterns
+                </CardTitle>
+                <p className="text-muted-foreground text-sm">
+                  We track which org/role combinations you use most to help
+                  suggest better defaults
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {usageInsights?.mostUsedOrgs
+                    ?.slice(0, 5)
+                    .map((insight, index) => {
+                      const org = organizations?.find(
+                        (o) => o.id === insight.orgId
+                      );
+                      const isTopUsed = index === 0;
 
-                  return (
-                    <div
-                      className="flex items-center justify-between rounded-lg border p-3"
-                      key={`${insight.orgId}-${insight.role}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {isTopUsed && (
-                          <TrendingUp className="h-4 w-4 flex-shrink-0 text-green-600" />
-                        )}
-                        <div>
-                          <p className="font-medium">
-                            {org?.name || "Unknown Org"} -{" "}
-                            {getRoleLabel(insight.role)}
-                          </p>
-                          <p className="text-muted-foreground text-xs">
-                            {insight.accessCount} visits •{" "}
-                            {Math.round(insight.totalMinutesSpent)} min total
-                          </p>
+                      return (
+                        <div
+                          className="flex items-center justify-between rounded-lg border p-3"
+                          key={`${insight.orgId}-${insight.role}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {isTopUsed && (
+                              <TrendingUp className="h-4 w-4 flex-shrink-0 text-green-600" />
+                            )}
+                            <div>
+                              <p className="font-medium">
+                                {org?.name || "Unknown Org"} -{" "}
+                                {getRoleLabel(insight.role)}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                {insight.accessCount} visits •{" "}
+                                {Math.round(insight.totalMinutesSpent)} min
+                                total
+                              </p>
+                            </div>
+                          </div>
+                          {isTopUsed &&
+                            preferences?.preferredDefaultOrg !==
+                              insight.orgId && (
+                              <Button
+                                onClick={() => {
+                                  setPreferenceMode("manual");
+                                  setSelectedOrg(insight.orgId);
+                                  setSelectedRole(insight.role);
+                                }}
+                                size="sm"
+                                variant="outline"
+                              >
+                                Set as default
+                              </Button>
+                            )}
                         </div>
-                      </div>
-                      {isTopUsed &&
-                        preferences?.preferredDefaultOrg !== insight.orgId && (
-                          <Button
-                            onClick={() => {
-                              setPreferenceMode("manual");
-                              setSelectedOrg(insight.orgId);
-                              setSelectedRole(insight.role);
-                            }}
-                            size="sm"
-                            variant="outline"
-                          >
-                            Set as default
-                          </Button>
-                        )}
-                    </div>
-                  );
-                })}
-              </div>
-              <Alert className="mt-4">
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  These patterns update automatically as you use the app. Your
-                  most-used combination appears at the top.
-                </AlertDescription>
-              </Alert>
-            </CardContent>
-          </Card>
-        )}
+                      );
+                    })}
+                </div>
+                <Alert className="mt-4">
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    These patterns update automatically as you use the app. Your
+                    most-used combination appears at the top.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
+          )}
 
         {/* Display Preferences Card - Placeholder for Phase 2B */}
         <Card className="opacity-60">

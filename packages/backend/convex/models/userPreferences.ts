@@ -7,7 +7,7 @@
  */
 
 import { v } from "convex/values";
-import { query } from "../_generated/server";
+import { mutation, query } from "../_generated/server";
 
 /**
  * Get usage insights for a user
@@ -21,7 +21,14 @@ export const getUsageInsights = query({
         v.object({
           orgId: v.string(),
           orgName: v.string(),
+          role: v.union(
+            v.literal("admin"),
+            v.literal("coach"),
+            v.literal("parent"),
+            v.literal("player")
+          ),
           accessCount: v.number(),
+          totalMinutesSpent: v.number(),
         })
       ),
       recentOrgs: v.array(
@@ -45,7 +52,7 @@ export const getUsageInsights = query({
  * Update user profile
  * TODO: Implement when users table updates are added
  */
-export const updateProfile = query({
+export const updateProfile = mutation({
   args: {
     userId: v.string(),
     firstName: v.optional(v.string()),

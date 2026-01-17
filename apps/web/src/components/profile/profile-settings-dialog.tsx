@@ -38,13 +38,19 @@ export function ProfileSettingsDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const user = useCurrentUser();
-  const updateProfile = useMutation(api.models.users.updateProfile);
+  const updateProfile = useMutation(api.models.userPreferences.updateProfile);
 
   // Check if user has OAuth account
   const authMethod = useQuery(
-    api.models.users.getUserAuthMethod,
+    api.models.userPreferences.getUserAuthMethod,
     user?._id ? { userId: user._id } : "skip"
-  );
+  ) as
+    | {
+        hasOAuthAccount: boolean;
+        oauthProvider?: "google" | "microsoft";
+      }
+    | null
+    | undefined;
 
   // Form state
   const [firstName, setFirstName] = useState(user?.firstName || "");

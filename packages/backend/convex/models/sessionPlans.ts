@@ -1664,6 +1664,101 @@ export const getTopRated = query({
 });
 
 /**
+ * Full-text search across session plans
+ * Searches title, description, focus areas, and tags
+ * Returns matching plans with relevance ranking
+ */
+export const searchPlans = query({
+  args: {
+    organizationId: v.string(),
+    searchQuery: v.string(),
+    visibility: v.optional(
+      v.union(v.literal("private"), v.literal("club"), v.literal("all"))
+    ),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    plans: v.array(v.any()),
+    count: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { plans: [], count: 0 };
+    }
+
+    const userId = identity.subject;
+    const limit = args.limit || 50;
+    const searchQuery = args.searchQuery.trim();
+
+    if (!searchQuery) {
+      return { plans: [], count: 0 };
+    }
+
+    // Search using both title and content indexes, then deduplicate
+    const titleResults = await ctx.db
+      .query("sessionPlans")
+      .withSearchIndex("search_title", (q) =>
+        q.search("title", searchQuery).eq("organizationId", args.organizationId)
+      )
+      .take(limit);
+
+    const contentResults = await ctx.db
+      .query("sessionPlans")
+      .withSearchIndex("search_content", (q) =>
+        q
+          .search("rawContent", searchQuery)
+          .eq("organizationId", args.organizationId)
+      )
+      .take(limit);
+
+    // Combine and deduplicate results (title matches have higher priority)
+    const seenIds = new Set<string>();
+    const combinedResults = [];
+
+    for (const plan of titleResults) {
+      if (!seenIds.has(plan._id)) {
+        seenIds.add(plan._id);
+        combinedResults.push(plan);
+      }
+    }
+
+    for (const plan of contentResults) {
+      if (!seenIds.has(plan._id)) {
+        seenIds.add(plan._id);
+        combinedResults.push(plan);
+      }
+    }
+
+    // Filter by visibility and status
+    const filteredPlans = combinedResults.filter((plan) => {
+      // Never show deleted plans
+      if (plan.status === "deleted") {
+        return false;
+      }
+
+      // Filter by visibility if specified
+      if (args.visibility === "private") {
+        return plan.visibility === "private" && plan.coachId === userId;
+      }
+      if (args.visibility === "club") {
+        return plan.visibility === "club";
+      }
+      // "all" or undefined: show both private (if owned) and club plans
+      if (plan.visibility === "private" && plan.coachId !== userId) {
+        return false; // Hide other coaches' private plans
+      }
+      return true;
+    });
+
+    return {
+      plans: filteredPlans.slice(0, limit),
+      count: filteredPlans.length,
+    };
+  },
+});
+
+/**
  * Save a pre-generated plan (for Quick Actions compatibility)
  */
 export const savePlan = mutation({

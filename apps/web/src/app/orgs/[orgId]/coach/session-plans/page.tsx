@@ -26,6 +26,7 @@ import {
   type FilterState,
 } from "./filter-sidebar";
 import { QuickAccessCards } from "./quick-access-cards";
+import { SearchBar } from "./search-bar";
 import { SessionPlanSkeleton } from "./session-plan-skeleton";
 import { TemplateCard } from "./template-card";
 
@@ -358,6 +359,19 @@ export default function SessionPlansPage() {
               />
             </div>
           )}
+
+          {/* Search Bar */}
+          <div className="mt-6">
+            <SearchBar
+              isSearching={isLoading}
+              onChange={(value: string) =>
+                setFilters((prev) => ({ ...prev, search: value }))
+              }
+              placeholder="Search by title, description, or drill names..."
+              resultsCount={filteredPlans?.length}
+              value={filters.search}
+            />
+          </div>
         </div>
 
         {/* Tabs */}

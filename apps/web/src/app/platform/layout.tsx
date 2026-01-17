@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import Header from "@/components/header";
 import Loader from "@/components/loader";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
@@ -45,5 +46,10 @@ export default function PlatformLayout({
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <Header />
+      {children}
+    </>
+  );
 }

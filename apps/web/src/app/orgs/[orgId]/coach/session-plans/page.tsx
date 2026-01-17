@@ -20,6 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
 import { EmptyState } from "./empty-state";
+import { FilterPills } from "./filter-pills";
 import {
   type AvailableFilters,
   FilterSidebar,
@@ -370,6 +371,37 @@ export default function SessionPlansPage() {
               placeholder="Search by title, description, or drill names..."
               resultsCount={filteredPlans?.length}
               value={filters.search}
+            />
+          </div>
+
+          {/* Filter Pills */}
+          <div className="mt-4">
+            <FilterPills
+              ageGroups={filters.ageGroups}
+              favoriteOnly={filters.favoriteOnly}
+              intensities={filters.intensities}
+              onToggleAgeGroup={(ageGroup: string) => {
+                setFilters((prev) => ({
+                  ...prev,
+                  ageGroups: prev.ageGroups.includes(ageGroup)
+                    ? prev.ageGroups.filter((ag) => ag !== ageGroup)
+                    : [...prev.ageGroups, ageGroup],
+                }));
+              }}
+              onToggleFavorite={() => {
+                setFilters((prev) => ({
+                  ...prev,
+                  favoriteOnly: !prev.favoriteOnly,
+                }));
+              }}
+              onToggleIntensity={(intensity: "low" | "medium" | "high") => {
+                setFilters((prev) => ({
+                  ...prev,
+                  intensities: prev.intensities.includes(intensity)
+                    ? prev.intensities.filter((i) => i !== intensity)
+                    : [...prev.intensities, intensity],
+                }));
+              }}
             />
           </div>
         </div>

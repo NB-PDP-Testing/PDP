@@ -21,6 +21,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCurrentUser } from "@/hooks/use-current-user";
 
+// Phone validation regex (top-level for performance)
+const PHONE_REGEX = /^[\d\s\-+()]+$/;
+
 /**
  * Profile Settings Dialog
  *
@@ -72,7 +75,9 @@ export function ProfileSettingsDialog({
 
   // Get user initials for avatar
   const getInitials = () => {
-    if (!user?.name) return "U";
+    if (!user?.name) {
+      return "U";
+    }
     const nameParts = user.name.split(" ");
     if (nameParts.length >= 2) {
       return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
@@ -95,12 +100,9 @@ export function ProfileSettingsDialog({
       }
     }
 
-    if (phone.length > 0) {
-      const phoneRegex = /^[\d\s\-+()]+$/;
-      if (!phoneRegex.test(phone) || phone.length < 10) {
-        newErrors.phone =
-          "Phone must be at least 10 characters and contain only digits and formatting characters";
-      }
+    if (phone.length > 0 && (!PHONE_REGEX.test(phone) || phone.length < 10)) {
+      newErrors.phone =
+        "Phone must be at least 10 characters and contain only digits and formatting characters";
     }
 
     setErrors(newErrors);
@@ -154,7 +156,9 @@ export function ProfileSettingsDialog({
 
   // Format member since date
   const formatMemberSince = () => {
-    if (!user?.createdAt) return "Unknown";
+    if (!user?.createdAt) {
+      return "Unknown";
+    }
     const date = new Date(user.createdAt);
     return date.toLocaleDateString("en-US", {
       year: "numeric",

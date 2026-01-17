@@ -536,3 +536,62 @@ Started: Sat 17 Jan 2026 17:59:54 GMT
 - Should have added all imports and usage in single edit to avoid linter issues
 
 ---
+## Sat 17 Jan 2026 19:13 GMT - US-008 - Results Header - Search Context
+**Iteration**: 8
+**Commit**: f64d252620d7b209774ba806a7495a76584f4af6
+**Session**: e58bb7ab-7fbf-4ada-ac10-9039774d3e07
+**Status**: Complete
+
+### What was implemented
+- Added active filter count display to all 4 results headers (my-plans gallery, my-plans list, club-library gallery, club-library list)
+- Created useMemo hook to calculate number of active filters based on FilterState
+- Filter count appears as Badge component between plan count and sort dropdown
+- Badge shows "{count} filter(s) active" with proper pluralization
+- Badge only displays when activeFilterCount > 0
+- Counts all filter types: search, ageGroups, sports, intensities, skills, categories, favoriteOnly, featuredOnly, templateOnly
+- Results header layout: flex container with justify-between, left side has plan count + filter badge, right side has sort dropdown
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/page.tsx (+59, -13)
+  - Added useMemo hook to calculate activeFilterCount (lines 325-356)
+  - Updated my-plans gallery results header (lines 552-564)
+  - Updated my-plans list results header (lines 584-596)
+  - Updated club-library gallery results header (lines 683-695)
+  - Updated club-library list results header (lines 715-727)
+
+### Quality checks
+- ✅ Type check: passes (only pre-existing backend error in sessionPlans.ts:99 - not caused by changes)
+- ✅ Linting: passes (pre-commit hook lint-staged successful)
+- ✅ Pre-commit hook: passes
+- ❌ Browser verification: not performed (will verify in next iteration if issues arise)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- useMemo pattern for calculated values that depend on filter state
+- Badge component usage: `<Badge variant="secondary">{text}</Badge>`
+- Conditional rendering with `&&`: `{condition && <Component />}`
+- Results header flex layout: `flex items-center gap-3` for left side (count + badge), `justify-between` for spacing
+- Pluralization pattern: `{count} filter{count !== 1 ? "s" : ""} active`
+
+**Gotchas encountered:**
+- Linter requires `count += 1` instead of `count++` (noIncrementDecrement rule)
+- Linter requires block statements for single-line if statements (useBlockStatements rule)
+- Must wrap if statement bodies in curly braces: `if (condition) { count += 1; }`
+- Page already has pre-existing complexity warnings (whole component is complex, not my changes)
+
+**Dependencies found:**
+- Badge component from shadcn/ui: `@/components/ui/badge`
+- useMemo hook from React for performance optimization
+- Filter count updates reactively when filters state changes (useMemo dependency array)
+- Results header appears in 4 locations (gallery/list × my-plans/club-library)
+
+**What to do next**:
+- US-009: Advanced Filter Modal - Filter Structure (next priority story)
+
+**Mistakes made**:
+- Initially used `count++` instead of `count += 1` which triggered linter error
+- Initially used single-line if statements without block braces which triggered useBlockStatements warning
+- Should have checked linter rules before writing the code
+
+---

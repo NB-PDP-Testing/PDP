@@ -6,7 +6,7 @@ import { useMutation, useQuery } from "convex/react";
 import { Grid3x3, List, Loader2, Plus, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ import {
 import { QuickAccessCards } from "./quick-access-cards";
 import { SearchBar } from "./search-bar";
 import { SessionPlanSkeleton } from "./session-plan-skeleton";
+import { SortDropdown, type SortOption } from "./sort-dropdown";
 import { TemplateCard } from "./template-card";
 
 type ExtendedUser = {
@@ -92,6 +93,33 @@ export default function SessionPlansPage() {
     type: string | null;
     planIds: string[] | null;
   }>({ type: null, planIds: null });
+
+  // Sort state with localStorage persistence
+  const [sortBy, setSortBy] = useState<SortOption>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sessionPlans_sortBy");
+      if (
+        saved &&
+        [
+          "mostUsed",
+          "highestRated",
+          "recent",
+          "duration",
+          "alphabetical",
+        ].includes(saved)
+      ) {
+        return saved as SortOption;
+      }
+    }
+    return "recent";
+  });
+
+  // Persist sort preference to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sessionPlans_sortBy", sortBy);
+    }
+  }, [sortBy]);
 
   // Fetch filtered plans for "My Plans" tab
   const myPlans = useQuery(
@@ -263,6 +291,35 @@ export default function SessionPlansPage() {
     filteredPlans = currentPlans.filter((p) =>
       quickAccessFilter.planIds?.includes(p._id)
     );
+  }
+
+  // Apply sorting
+  if (filteredPlans && filteredPlans.length > 0) {
+    filteredPlans = [...filteredPlans].sort((a, b) => {
+      switch (sortBy) {
+        case "mostUsed":
+          return (b.timesUsed || 0) - (a.timesUsed || 0);
+        case "highestRated": {
+          const aRate = a.successRate || 0;
+          const bRate = b.successRate || 0;
+          return bRate - aRate;
+        }
+        case "recent": {
+          const aTime = a._creationTime || 0;
+          const bTime = b._creationTime || 0;
+          return bTime - aTime;
+        }
+        case "duration":
+          return (a.duration || 0) - (b.duration || 0);
+        case "alphabetical": {
+          const aTitle = a.title || "";
+          const bTitle = b.title || "";
+          return aTitle.localeCompare(bTitle);
+        }
+        default:
+          return 0;
+      }
+    });
   }
 
   const isLoading = currentPlans === undefined;
@@ -477,9 +534,12 @@ export default function SessionPlansPage() {
                 filteredPlans.length > 0 &&
                 viewMode === "gallery" && (
                   <>
-                    <div className="mb-4 text-muted-foreground text-sm">
-                      {filteredPlans.length} plan
-                      {filteredPlans.length !== 1 ? "s" : ""} found
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="text-muted-foreground text-sm">
+                        {filteredPlans.length} plan
+                        {filteredPlans.length !== 1 ? "s" : ""} found
+                      </div>
+                      <SortDropdown onChange={setSortBy} value={sortBy} />
                     </div>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {filteredPlans.map((plan) => (
@@ -498,9 +558,12 @@ export default function SessionPlansPage() {
                 filteredPlans.length > 0 &&
                 viewMode === "list" && (
                   <>
-                    <div className="mb-4 text-muted-foreground text-sm">
-                      {filteredPlans.length} plan
-                      {filteredPlans.length !== 1 ? "s" : ""} found
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="text-muted-foreground text-sm">
+                        {filteredPlans.length} plan
+                        {filteredPlans.length !== 1 ? "s" : ""} found
+                      </div>
+                      <SortDropdown onChange={setSortBy} value={sortBy} />
                     </div>
                     <div className="space-y-2">
                       {filteredPlans.map((plan) => (
@@ -586,9 +649,12 @@ export default function SessionPlansPage() {
                 filteredPlans.length > 0 &&
                 viewMode === "gallery" && (
                   <>
-                    <div className="mb-4 text-muted-foreground text-sm">
-                      {filteredPlans.length} plan
-                      {filteredPlans.length !== 1 ? "s" : ""} found
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="text-muted-foreground text-sm">
+                        {filteredPlans.length} plan
+                        {filteredPlans.length !== 1 ? "s" : ""} found
+                      </div>
+                      <SortDropdown onChange={setSortBy} value={sortBy} />
                     </div>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {filteredPlans.map((plan) => (
@@ -607,9 +673,12 @@ export default function SessionPlansPage() {
                 filteredPlans.length > 0 &&
                 viewMode === "list" && (
                   <>
-                    <div className="mb-4 text-muted-foreground text-sm">
-                      {filteredPlans.length} plan
-                      {filteredPlans.length !== 1 ? "s" : ""} found
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="text-muted-foreground text-sm">
+                        {filteredPlans.length} plan
+                        {filteredPlans.length !== 1 ? "s" : ""} found
+                      </div>
+                      <SortDropdown onChange={setSortBy} value={sortBy} />
                     </div>
                     <div className="space-y-2">
                       {filteredPlans.map((plan) => (

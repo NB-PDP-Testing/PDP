@@ -2,7 +2,7 @@
 Started: Sat 17 Jan 2026 17:59:54 GMT
 ---
 ## Codebase Patterns
-**Last Updated**: Sat 17 Jan 2026 18:30 GMT - Iteration 1
+**Last Updated**: Sun 18 Jan 2026 05:30 GMT - Iteration 7
 
 ### Architecture
 - All routes scoped under `/orgs/[orgId]/`
@@ -19,16 +19,30 @@ Started: Sat 17 Jan 2026 17:59:54 GMT
 - Icons configured: CircleCheckIcon for success, OctagonXIcon for error, TriangleAlertIcon for warning
 - Stacking behavior is built-in (no configuration needed)
 
+### LocalStorage Patterns
+- Check `typeof window !== "undefined"` before accessing localStorage (SSR compatibility)
+- Use useState with initializer function: `useState(() => { if (typeof window !== "undefined") { ... } })`
+- Persist state changes with useEffect: `useEffect(() => { localStorage.setItem(key, value); }, [value])`
+- Validate loaded values before using (check array includes value for union types)
+
+### Sorting & Filtering
+- Client-side sorting: use spread operator `[...array].sort()` to avoid mutating Convex results
+- Switch statement with variables: use block scope `case "x": { const y = ...; ... }`
+- Apply sorting after filtering, before display
+- Results header pattern: flex container with justify-between, count left, controls right
+
 ### Quality Checks
 - Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
 - Pre-existing type errors in backend are acceptable if not caused by your changes
 - Pre-commit hooks run lint-staged automatically on commit
+- Linter aggressively removes unused imports - add import and usage in same edit
 
 ### File Locations
 - Session plans main page: `apps/web/src/app/orgs/[orgId]/coach/session-plans/page.tsx`
 - Session plan detail page: `apps/web/src/app/orgs/[orgId]/coach/session-plans/[planId]/page.tsx`
 - Toast provider: `apps/web/src/components/providers.tsx`
 - Toast UI component: `apps/web/src/components/ui/sonner.tsx`
+- Select component: `apps/web/src/components/ui/select.tsx` (uses Radix UI SelectPrimitive)
 
 ---
 

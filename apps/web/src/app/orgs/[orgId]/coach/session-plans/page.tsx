@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -230,8 +231,10 @@ export default function SessionPlansPage() {
   const handleToggleFavorite = async (planId: Id<"sessionPlans">) => {
     try {
       await toggleFavorite({ planId });
+      toast.success("Favorite updated successfully");
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
+      toast.error("Failed to update favorite");
     }
   };
 

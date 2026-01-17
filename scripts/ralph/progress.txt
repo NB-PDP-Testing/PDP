@@ -442,3 +442,83 @@ Started: Sat 17 Jan 2026 17:59:54 GMT
 - Forgot to add type guards when checking pill.value against union types
 
 ---
+## Sun 18 Jan 2026 05:30 GMT - US-007 - Sort Dropdown - Result Ordering
+**Iteration**: 7
+**Commit**: 9b84720cf7968ea3235d6bfa402ad18cce5e702d
+**Session**: 8bcd8793-b6f0-4b16-be0e-c1b97f1ee3f6
+**Status**: Complete
+
+### What was implemented
+- Created SortDropdown component with 5 sort options:
+  - Most Used (sorts by timesUsed descending)
+  - Highest Rated (sorts by successRate descending)
+  - Recently Created (sorts by _creationTime descending)
+  - Duration (sorts by duration ascending)
+  - A-Z (alphabetical by title)
+- Added sort state with localStorage persistence (key: sessionPlans_sortBy)
+- Sort preference loads on mount from localStorage (defaults to "recent")
+- Sort preference saves to localStorage on change
+- Integrated SortDropdown into session plans page results header
+- Sort dropdown appears aligned right next to plan count in both gallery and list views
+- Sort dropdown appears in both my-plans and club-library tabs
+- Applied client-side sorting to filteredPlans array
+- Sorting works with all existing filters (search, age groups, intensities, quick access, etc.)
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/sort-dropdown.tsx (new file, +84 lines)
+  - SortDropdown component with Select from shadcn/ui
+  - 5 sort options with icons (TrendingUp, Star, Clock, ArrowDownAZ)
+  - SortOption type export ("mostUsed" | "highestRated" | "recent" | "duration" | "alphabetical")
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/page.tsx (+50, -13)
+  - Import useEffect, SortOption, SortDropdown
+  - Added sortBy state with localStorage persistence
+  - useEffect to sync sortBy to localStorage on change
+  - Added sorting logic after quick access filter (lines 271-298)
+  - Integrated SortDropdown into results header (4 locations: my-plans gallery, my-plans list, club-library gallery, club-library list)
+  - Changed plan count display from simple div to flex container with SortDropdown aligned right
+
+### Quality checks
+- ✅ Type check: passes (only pre-existing backend error in sessionPlans.ts:99 - not caused by changes)
+- ✅ Linting: passes (sort-dropdown.tsx has 0 warnings, page.tsx has pre-existing complexity warnings)
+- ✅ Pre-commit hook: passes (lint-staged successful)
+- ❌ Browser verification: not performed (will verify in next iteration if issues arise)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Sort state with localStorage pattern: useState with initializer function checking localStorage
+- Must check `typeof window !== "undefined"` before accessing localStorage (SSR compatibility)
+- Use useEffect to persist state changes to localStorage
+- Client-side sorting pattern: spread array with [...array].sort() to avoid mutating original
+- Switch statement with block scope (curly braces) when declaring variables inside cases
+- Select component from shadcn/ui uses onValueChange (not onChange) for callback
+- SelectTrigger accepts size prop ("sm" | "default" | "touch")
+- Results header pattern: flex container with justify-between, left side has count, right side has controls
+
+**Gotchas encountered:**
+- Linter aggressively removes imports if not used immediately (useEffect, SortDropdown, SortOption)
+- Must add import and usage at same time or linter will remove it
+- Linter auto-reformats imports alphabetically, breaking exact string match for edits
+- Must use block scope in switch cases when declaring variables (const aTime, bTime, etc.)
+- LocalStorage validation: check array includes value before using as SortOption type
+- Must spread array before sorting to avoid mutating Convex query results
+
+**Dependencies found:**
+- SortDropdown depends on: Select components (shadcn/ui), lucide-react icons
+- Sort logic runs after quick access filter but before display
+- Sort dropdown integrated into 4 locations (gallery/list × my-plans/club-library)
+- Results header uses flex with justify-between for layout
+- localStorage key: "sessionPlans_sortBy"
+
+**What to do next**:
+- US-008: Results Header - Search Context (next priority story)
+- Note: US-008 is partially complete - plan count and sort dropdown are already in results header
+- May need to add "number of active filters" display
+
+**Mistakes made**:
+- Initially forgot to import useEffect (linter removed it)
+- Initially forgot to import SortDropdown and SortOption (linter removed them)
+- Had to re-add imports multiple times due to linter auto-removal
+- Should have added all imports and usage in single edit to avoid linter issues
+
+---

@@ -31,6 +31,7 @@ import {
   FilterSidebar,
   type FilterState,
 } from "./filter-sidebar";
+import { QuickAccessCards } from "./quick-access-cards";
 import { TemplateCard } from "./template-card";
 
 type ExtendedUser = {
@@ -88,6 +89,12 @@ export default function SessionPlansPage() {
   const [activeTab, setActiveTab] = useState<
     "my-plans" | "club-library" | "admin"
   >("my-plans");
+
+  // Quick access filter state
+  const [quickAccessFilter, setQuickAccessFilter] = useState<{
+    type: string | null;
+    planIds: string[] | null;
+  }>({ type: null, planIds: null });
 
   // Fetch filtered plans for "My Plans" tab
   const myPlans = useQuery(
@@ -248,6 +255,19 @@ export default function SessionPlansPage() {
     currentPlans = adminPlans;
   }
 
+  // Apply quick access filter if active
+  let filteredPlans = currentPlans;
+  if (
+    quickAccessFilter.type &&
+    quickAccessFilter.planIds &&
+    currentPlans &&
+    activeTab !== "admin"
+  ) {
+    filteredPlans = currentPlans.filter((p) =>
+      quickAccessFilter.planIds?.includes(p._id)
+    );
+  }
+
   const isLoading = currentPlans === undefined;
 
   if (isLoading && activeTab !== "admin") {
@@ -318,6 +338,31 @@ export default function SessionPlansPage() {
               </div>
             </div>
           )}
+
+          {/* Quick Access Cards */}
+          {activeTab === "my-plans" && (
+            <div className="mt-6">
+              <h2 className="mb-4 font-semibold text-lg">Quick Access</h2>
+              <QuickAccessCards
+                onCardClick={(filterType, planIds) => {
+                  if (filterType === "topRated") {
+                    // Switch to club library tab for top rated plans
+                    setActiveTab("club-library");
+                    setQuickAccessFilter({
+                      type: filterType,
+                      planIds: planIds || [],
+                    });
+                  } else {
+                    // Stay on my-plans tab, apply filter
+                    setQuickAccessFilter({
+                      type: filterType,
+                      planIds: planIds || [],
+                    });
+                  }
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
@@ -364,7 +409,7 @@ export default function SessionPlansPage() {
                   <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
               )}
-              {!isLoading && (!myPlans || myPlans.length === 0) && (
+              {!isLoading && (!filteredPlans || filteredPlans.length === 0) && (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center p-12">
                     <FileText className="mb-4 h-16 w-16 text-muted-foreground" />
@@ -393,16 +438,16 @@ export default function SessionPlansPage() {
                 </Card>
               )}
               {!isLoading &&
-                myPlans &&
-                myPlans.length > 0 &&
+                filteredPlans &&
+                filteredPlans.length > 0 &&
                 viewMode === "gallery" && (
                   <>
                     <div className="mb-4 text-muted-foreground text-sm">
-                      {myPlans.length} plan{myPlans.length !== 1 ? "s" : ""}{" "}
-                      found
+                      {filteredPlans.length} plan
+                      {filteredPlans.length !== 1 ? "s" : ""} found
                     </div>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {myPlans.map((plan) => (
+                      {filteredPlans.map((plan) => (
                         <TemplateCard
                           key={plan._id}
                           onToggleFavorite={handleToggleFavorite}
@@ -414,16 +459,16 @@ export default function SessionPlansPage() {
                   </>
                 )}
               {!isLoading &&
-                myPlans &&
-                myPlans.length > 0 &&
+                filteredPlans &&
+                filteredPlans.length > 0 &&
                 viewMode === "list" && (
                   <>
                     <div className="mb-4 text-muted-foreground text-sm">
-                      {myPlans.length} plan{myPlans.length !== 1 ? "s" : ""}{" "}
-                      found
+                      {filteredPlans.length} plan
+                      {filteredPlans.length !== 1 ? "s" : ""} found
                     </div>
                     <div className="space-y-2">
-                      {myPlans.map((plan) => (
+                      {filteredPlans.map((plan) => (
                         <Link
                           href={`/orgs/${orgId}/coach/session-plans/${plan._id}`}
                           key={plan._id}
@@ -482,7 +527,7 @@ export default function SessionPlansPage() {
                   <Loader2 className="h-8 w-8 animate-spin" />
                 </div>
               )}
-              {!isLoading && (!clubLibrary || clubLibrary.length === 0) && (
+              {!isLoading && (!filteredPlans || filteredPlans.length === 0) && (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center p-12">
                     <FileText className="mb-4 h-16 w-16 text-muted-foreground" />
@@ -500,16 +545,16 @@ export default function SessionPlansPage() {
                 </Card>
               )}
               {!isLoading &&
-                clubLibrary &&
-                clubLibrary.length > 0 &&
+                filteredPlans &&
+                filteredPlans.length > 0 &&
                 viewMode === "gallery" && (
                   <>
                     <div className="mb-4 text-muted-foreground text-sm">
-                      {clubLibrary.length} plan
-                      {clubLibrary.length !== 1 ? "s" : ""} found
+                      {filteredPlans.length} plan
+                      {filteredPlans.length !== 1 ? "s" : ""} found
                     </div>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {clubLibrary.map((plan) => (
+                      {filteredPlans.map((plan) => (
                         <TemplateCard
                           key={plan._id}
                           onToggleFavorite={handleToggleFavorite}
@@ -521,16 +566,16 @@ export default function SessionPlansPage() {
                   </>
                 )}
               {!isLoading &&
-                clubLibrary &&
-                clubLibrary.length > 0 &&
+                filteredPlans &&
+                filteredPlans.length > 0 &&
                 viewMode === "list" && (
                   <>
                     <div className="mb-4 text-muted-foreground text-sm">
-                      {clubLibrary.length} plan
-                      {clubLibrary.length !== 1 ? "s" : ""} found
+                      {filteredPlans.length} plan
+                      {filteredPlans.length !== 1 ? "s" : ""} found
                     </div>
                     <div className="space-y-2">
-                      {clubLibrary.map((plan) => (
+                      {filteredPlans.map((plan) => (
                         <Card
                           className="cursor-pointer transition-shadow hover:shadow-md"
                           key={plan._id}

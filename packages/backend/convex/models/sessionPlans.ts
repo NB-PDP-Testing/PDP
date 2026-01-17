@@ -1458,6 +1458,212 @@ export const getStats = query({
 });
 
 /**
+ * Get recently used plans for Quick Access section
+ * Returns plans marked as used in the last 30 days, sorted by last used date
+ */
+export const getRecentlyUsed = query({
+  args: {
+    organizationId: v.string(),
+    coachId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    plans: v.array(v.any()),
+    count: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify requesting user is the coach
+    if (identity.subject !== args.coachId) {
+      throw new Error("Not authorized");
+    }
+
+    const limit = args.limit || 10;
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    const allPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_coach", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("coachId", args.coachId)
+      )
+      .filter((q: any) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    const recentlyUsed = allPlans
+      .filter(
+        (p) =>
+          p.usedInSession && p.lastUsedDate && p.lastUsedDate >= thirtyDaysAgo
+      )
+      .sort((a, b) => (b.lastUsedDate || 0) - (a.lastUsedDate || 0))
+      .slice(0, limit);
+
+    return {
+      plans: recentlyUsed,
+      count: recentlyUsed.length,
+    };
+  },
+});
+
+/**
+ * Get most popular plans (highest timesUsed) for Quick Access section
+ */
+export const getMostPopular = query({
+  args: {
+    organizationId: v.string(),
+    coachId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    plans: v.array(v.any()),
+    count: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify requesting user is the coach
+    if (identity.subject !== args.coachId) {
+      throw new Error("Not authorized");
+    }
+
+    const limit = args.limit || 10;
+
+    const allPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_coach", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("coachId", args.coachId)
+      )
+      .filter((q: any) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    const popular = allPlans
+      .filter((p) => (p.timesUsed || 0) > 0)
+      .sort((a, b) => (b.timesUsed || 0) - (a.timesUsed || 0))
+      .slice(0, limit);
+
+    return {
+      plans: popular,
+      count: popular.length,
+    };
+  },
+});
+
+/**
+ * Get coach's best performing plans (highest success rate) for Quick Access section
+ */
+export const getYourBest = query({
+  args: {
+    organizationId: v.string(),
+    coachId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    plans: v.array(v.any()),
+    count: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify requesting user is the coach
+    if (identity.subject !== args.coachId) {
+      throw new Error("Not authorized");
+    }
+
+    const limit = args.limit || 10;
+
+    const allPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_coach", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("coachId", args.coachId)
+      )
+      .filter((q: any) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    const bestPlans = allPlans
+      .filter(
+        (p) =>
+          p.successRate !== undefined &&
+          p.successRate !== null &&
+          p.successRate >= 80
+      )
+      .sort((a, b) => (b.successRate || 0) - (a.successRate || 0))
+      .slice(0, limit);
+
+    return {
+      plans: bestPlans,
+      count: bestPlans.length,
+    };
+  },
+});
+
+/**
+ * Get top rated plans from club library for Quick Access section
+ */
+export const getTopRated = query({
+  args: {
+    organizationId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    plans: v.array(v.any()),
+    count: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify user is member of organization
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: args.organizationId, operator: "eq" },
+      ],
+    });
+
+    if (!member) {
+      throw new Error("Not a member of this organization");
+    }
+
+    const limit = args.limit || 10;
+
+    const clubPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_visibility", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("visibility", "club")
+      )
+      .filter((q: any) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    const topRated = clubPlans
+      .filter(
+        (p) =>
+          p.successRate !== undefined &&
+          p.successRate !== null &&
+          p.successRate >= 80
+      )
+      .sort((a, b) => (b.successRate || 0) - (a.successRate || 0))
+      .slice(0, limit);
+
+    return {
+      plans: topRated,
+      count: topRated.length,
+    };
+  },
+});
+
+/**
  * Save a pre-generated plan (for Quick Actions compatibility)
  */
 export const savePlan = mutation({

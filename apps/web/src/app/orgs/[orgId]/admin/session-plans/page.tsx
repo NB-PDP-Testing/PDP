@@ -5,9 +5,11 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
+  Clock,
   Eye,
   Layers,
   Loader2,
+  MoreVertical,
   Pin,
   PinOff,
   Shield,
@@ -34,6 +36,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { authClient } from "@/lib/auth-client";
@@ -89,6 +98,48 @@ export default function AdminSessionPlansPage() {
       default:
         return "bg-gray-100 text-gray-800";
     }
+  };
+
+  // Helper to determine if plan is new (< 7 days old)
+  const isPlanNew = (createdAt: number) => {
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return createdAt > sevenDaysAgo;
+  };
+
+  // Helper to get card border color based on status
+  const getCardBorderClass = (plan: SessionPlan) => {
+    if (plan.pinnedByAdmin) {
+      return "border-l-4 border-l-green-500";
+    }
+    if (plan.moderationNote && plan.visibility === "club") {
+      return "border-l-4 border-l-red-500";
+    }
+    if (isPlanNew(plan.createdAt)) {
+      return "border-l-4 border-l-yellow-500";
+    }
+    return "";
+  };
+
+  // Helper to format date as "Shared X days ago"
+  const formatSharedDate = (timestamp: number) => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+    if (days === 0) {
+      return "Shared today";
+    }
+    if (days === 1) {
+      return "Shared yesterday";
+    }
+    if (days < 7) {
+      return `Shared ${days} days ago`;
+    }
+    if (days < 30) {
+      const weeks = Math.floor(days / 7);
+      return `Shared ${weeks} week${weeks !== 1 ? "s" : ""} ago`;
+    }
+    const months = Math.floor(days / 30);
+    return `Shared ${months} month${months !== 1 ? "s" : ""} ago`;
   };
 
   // Filter state
@@ -431,27 +482,38 @@ export default function AdminSessionPlansPage() {
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredSharedPlans.map((plan) => (
                   <Card
-                    className="relative transition-shadow hover:shadow-lg"
+                    className={`relative transition-shadow hover:shadow-lg ${getCardBorderClass(plan)}`}
                     key={plan._id}
                   >
                     <CardHeader>
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <div className="flex flex-wrap gap-2">
-                          <Badge
-                            className="bg-blue-100 text-blue-800"
-                            variant="secondary"
-                          >
-                            SHARED
-                          </Badge>
                           {plan.pinnedByAdmin && (
                             <Badge
-                              className="bg-amber-100 text-amber-800"
+                              className="bg-green-100 text-green-800"
                               variant="secondary"
                             >
-                              <Pin className="mr-1 h-3 w-3 fill-current" />
-                              FEATURED
+                              📌 PINNED
                             </Badge>
                           )}
+                          {plan.moderationNote &&
+                            plan.visibility === "club" && (
+                              <Badge
+                                className="bg-red-100 text-red-800"
+                                variant="secondary"
+                              >
+                                ⚠️ FLAGGED
+                              </Badge>
+                            )}
+                          {!(plan.pinnedByAdmin || plan.moderationNote) &&
+                            isPlanNew(plan.createdAt) && (
+                              <Badge
+                                className="bg-yellow-100 text-yellow-800"
+                                variant="secondary"
+                              >
+                                ⏳ NEW
+                              </Badge>
+                            )}
                         </div>
                       </div>
                       <CardTitle className="line-clamp-2 text-lg">
@@ -460,6 +522,18 @@ export default function AdminSessionPlansPage() {
                       <CardDescription>
                         By {plan.coachName || "Unknown Coach"} • {plan.teamName}
                       </CardDescription>
+                      <div className="mt-2 flex items-center gap-3 text-muted-foreground text-sm">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5" />
+                          {formatSharedDate(plan.createdAt)}
+                        </div>
+                        {plan.timesUsed !== undefined && plan.timesUsed > 0 && (
+                          <div>
+                            • {plan.timesUsed} use
+                            {plan.timesUsed !== 1 ? "s" : ""}
+                          </div>
+                        )}
+                      </div>
                     </CardHeader>
 
                     <CardContent>
@@ -514,68 +588,74 @@ export default function AdminSessionPlansPage() {
                           </div>
                         )}
 
-                      {/* Stats */}
-                      {(plan.timesUsed !== undefined ||
-                        plan.successRate !== undefined) && (
-                        <div className="mb-3 text-muted-foreground text-sm">
-                          {plan.timesUsed !== undefined &&
-                            plan.timesUsed > 0 && (
-                              <span>{plan.timesUsed} uses</span>
-                            )}
-                          {plan.timesUsed !== undefined &&
-                            plan.timesUsed > 0 &&
-                            plan.successRate !== undefined &&
-                            plan.successRate > 0 && <span> • </span>}
-                          {plan.successRate !== undefined &&
-                            plan.successRate > 0 && (
-                              <span>{plan.successRate}% success rate</span>
-                            )}
+                      {/* Flag Reasons */}
+                      {plan.moderationNote && plan.visibility === "club" && (
+                        <div className="mb-3 rounded-md border border-yellow-200 bg-yellow-50 p-2 text-sm">
+                          <div className="font-medium text-yellow-900">
+                            ⚠️ Flagged
+                          </div>
+                          <div className="text-xs text-yellow-700">
+                            {plan.moderationNote}
+                          </div>
                         </div>
                       )}
+
+                      {/* Success Rate */}
+                      {plan.successRate !== undefined &&
+                        plan.successRate > 0 && (
+                          <div className="mb-3 text-muted-foreground text-sm">
+                            {plan.successRate}% success rate
+                          </div>
+                        )}
 
                       {/* Quality Score */}
                       <QualityScoreDisplay planId={plan._id} />
 
-                      {/* Actions */}
-                      <div className="flex gap-2">
-                        <Button
-                          className="flex-1"
-                          onClick={() => handleViewPlan(plan._id)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          <Eye className="mr-1.5 h-4 w-4" />
-                          View
-                        </Button>
-                        <Button
-                          onClick={() =>
-                            plan.pinnedByAdmin
-                              ? handlePinToggle(plan)
-                              : handlePinToggle(plan)
-                          }
-                          size="sm"
-                          title={
-                            plan.pinnedByAdmin
-                              ? "Unpin from featured"
-                              : "Pin as featured"
-                          }
-                          variant="outline"
-                        >
-                          {plan.pinnedByAdmin ? (
-                            <PinOff className="h-4 w-4" />
-                          ) : (
-                            <Pin className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          onClick={() => handleRejectClick(plan)}
-                          size="sm"
-                          variant="destructive"
-                        >
-                          <X className="mr-1.5 h-4 w-4" />
-                          Reject
-                        </Button>
-                      </div>
+                      {/* Actions Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            className="w-full"
+                            size="sm"
+                            variant="outline"
+                          >
+                            <MoreVertical className="mr-1.5 h-4 w-4" />
+                            Actions
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            onClick={() => handleViewPlan(plan._id)}
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Full Plan
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handlePinToggle(plan)}
+                          >
+                            {plan.pinnedByAdmin ? (
+                              <>
+                                <PinOff className="mr-2 h-4 w-4" />
+                                Unpin Plan
+                              </>
+                            ) : (
+                              <>
+                                <Pin className="mr-2 h-4 w-4" />
+                                Feature Plan
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => handleRejectClick(plan)}
+                          >
+                            <X className="mr-2 h-4 w-4" />
+                            Remove from Library
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </CardContent>
                   </Card>
                 ))}
@@ -608,6 +688,18 @@ export default function AdminSessionPlansPage() {
                       <CardDescription>
                         By {plan.coachName || "Unknown Coach"} • {plan.teamName}
                       </CardDescription>
+                      <div className="mt-2 flex items-center gap-3 text-muted-foreground text-sm">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5" />
+                          {formatSharedDate(plan.createdAt)}
+                        </div>
+                        {plan.timesUsed !== undefined && plan.timesUsed > 0 && (
+                          <div>
+                            • {plan.timesUsed} use
+                            {plan.timesUsed !== 1 ? "s" : ""}
+                          </div>
+                        )}
+                      </div>
                     </CardHeader>
 
                     <CardContent>

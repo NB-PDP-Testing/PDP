@@ -90,3 +90,72 @@ Started: Sat 17 Jan 2026 17:59:54 GMT
 - Almost missed that duration needed to be exactly 3 seconds (default is 4)
 
 ---
+## Sat 17 Jan 2026 19:15 GMT - US-002 - Quick Access Section - Smart Collections
+**Iteration**: 2
+**Commit**: dc55af3dbab2b21a631d9dcdb162ad2a0bd99720
+**Session**: 6ff359de-ff40-4850-8edc-64e977645742
+**Status**: Complete
+
+### What was implemented
+- Created 4 backend queries for smart collections:
+  - getRecentlyUsed: Returns plans with usedInSession=true and lastUsedDate within last 30 days
+  - getMostPopular: Returns plans sorted by timesUsed count (descending)
+  - getYourBest: Returns plans with successRate >= 80% (coach's own plans)
+  - getTopRated: Returns club library plans with successRate >= 80%
+- Created QuickAccessCards component with 4 responsive cards
+- Integrated cards into session plans page above tabs (only on "my-plans" tab)
+- Implemented click handlers:
+  - "Top Rated" card switches to club-library tab and applies filter
+  - Other 3 cards stay on my-plans tab and filter by plan IDs
+- Added quickAccessFilter state to track active filter
+- Updated plan display logic to use filteredPlans instead of raw myPlans/clubLibrary
+
+### Files changed
+- packages/backend/convex/models/sessionPlans.ts (+206 lines)
+  - Added getRecentlyUsed, getMostPopular, getYourBest, getTopRated queries
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/quick-access-cards.tsx (new file, +134 lines)
+  - QuickAccessCards component with 4 cards
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/page.tsx (+29, -15)
+  - Import QuickAccessCards
+  - Added quickAccessFilter state
+  - Integrated QuickAccessCards above tabs
+  - Updated plan filtering logic to apply quickAccessFilter
+  - Changed all myPlans/clubLibrary references to filteredPlans in display
+
+### Quality checks
+- ✅ Type check: passes (1 pre-existing backend error in sessionPlans.ts line 99 - getCoachForOrg type mismatch, not caused by this story)
+- ✅ Linting: passes (only 2 pre-existing complexity warnings in page.tsx - not related to changes)
+- ❌ Browser verification: not performed (will be done in later iteration if needed)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Quick access queries all return {plans: array, count: number} structure
+- Responsive grid pattern: grid-cols-1 md:grid-cols-2 lg:grid-cols-4
+- Filter state pattern: store active filter type and planIds, then filter currentPlans
+- Tab switching on card click: setActiveTab("club-library") for Top Rated card
+- Use useParams() to get orgId, not useRouter() if you don't need navigation
+
+**Gotchas encountered:**
+- Linter removes unused imports - must add import and usage at same time
+- QuickAccessCards import got removed by linter, had to re-add after first edit
+- Must change all references from myPlans/clubLibrary to filteredPlans for filtering to work
+- Need to apply filter to both my-plans and club-library tabs
+- quickAccessFilter state must handle null planIds for empty collections
+
+**Dependencies found:**
+- QuickAccessCards depends on 4 backend queries being available
+- Page.tsx needs quickAccessFilter state before integrating QuickAccessCards
+- Filter logic must be applied AFTER getting currentPlans but BEFORE display logic
+- Empty state logic must check filteredPlans, not raw myPlans/clubLibrary
+
+**What to do next**:
+- US-003: Loading States - Progress Indicators
+
+**Mistakes made**:
+- Initially forgot to import QuickAccessCards (linter removed it)
+- Used (p: any) types initially instead of letting TypeScript infer from query response
+- Almost missed updating club-library tab to use filteredPlans (only updated my-plans first)
+
+---
+

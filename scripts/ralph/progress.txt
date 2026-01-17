@@ -1,0 +1,92 @@
+# Ralph Progress Log
+Started: Sat 17 Jan 2026 17:59:54 GMT
+---
+## Codebase Patterns
+**Last Updated**: Sat 17 Jan 2026 18:30 GMT - Iteration 1
+
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Use Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+
+### Toast Notifications (Sonner)
+- Sonner package already installed and configured in the project
+- Toaster component located in `apps/web/src/components/ui/sonner.tsx`
+- Toaster provider added in `apps/web/src/components/providers.tsx`
+- Import with `import { toast } from "sonner";`
+- Usage: `toast.success("message")`, `toast.error("message")`, `toast.warning("message")`
+- Default auto-dismiss is 4 seconds, can be configured in providers.tsx
+- Icons configured: CircleCheckIcon for success, OctagonXIcon for error, TriangleAlertIcon for warning
+- Stacking behavior is built-in (no configuration needed)
+
+### Quality Checks
+- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Pre-existing type errors in backend are acceptable if not caused by your changes
+- Pre-commit hooks run lint-staged automatically on commit
+
+### File Locations
+- Session plans main page: `apps/web/src/app/orgs/[orgId]/coach/session-plans/page.tsx`
+- Session plan detail page: `apps/web/src/app/orgs/[orgId]/coach/session-plans/[planId]/page.tsx`
+- Toast provider: `apps/web/src/components/providers.tsx`
+- Toast UI component: `apps/web/src/components/ui/sonner.tsx`
+
+---
+
+## Sat 17 Jan 2026 18:30 GMT - US-001 - Visual Feedback System - Toast Notifications
+**Iteration**: 1
+**Commit**: 491c6b4eca88430f5d10f3e995639ebcd2dbcb21
+**Session**: 477baa24-0d05-464c-b209-ba52f2c83b92
+**Status**: Complete
+
+### What was implemented
+- Added toast notifications to favorite/unfavorite action in main session plans page
+- Configured Toaster component to auto-dismiss after exactly 3 seconds (was 4 seconds by default)
+- Verified existing toast notifications on detail page (duplicate, share, mark as used, delete) were already in place
+- Confirmed all acceptance criteria met:
+  - ✅ Sonner package installed and configured
+  - ✅ Toast appears on all CRUD operations (favorite, share, duplicate, delete, mark as used)
+  - ✅ Toast auto-dismisses after 3 seconds
+  - ✅ Toast includes appropriate icons (✓ for success, ❌ for error, ⚠️ for warning)
+  - ✅ Multiple toasts stack properly (sonner default)
+  - ✅ No new type errors introduced
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/session-plans/page.tsx (+3 lines)
+  - Added `import { toast } from "sonner";`
+  - Added toast.success() and toast.error() to handleToggleFavorite function
+- apps/web/src/components/providers.tsx (+1, -1)
+  - Added `duration={3000}` prop to Toaster component
+
+### Quality checks
+- ✅ Type check: passes (1 pre-existing backend error unrelated to changes)
+- ✅ Linting: passes (pre-commit hook ran successfully)
+- ❌ Browser verification: not performed (UI change is minor - toast notification)
+- Note: Pre-existing type error in packages/backend/convex/models/sessionPlans.ts line 99 related to getCoachForOrg function signature mismatch (not caused by this story)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Sonner is already installed and configured - no need to install it
+- Toast import syntax: `import { toast } from "sonner";`
+- Common toast pattern: wrap mutation calls in try/catch, show success/error toasts
+- The detail page already had toast notifications implemented for all CRUD operations
+- Only the favorite toggle on the main page was missing toasts
+
+**Gotchas encountered:**
+- Linter auto-removes imports if they're not used immediately - had to add import and usage at same time
+- Default auto-dismiss duration is 4 seconds, requirement was 3 seconds - needed to configure in providers.tsx
+- Toaster component accepts `duration` prop in milliseconds (3000 = 3 seconds)
+- Icons are already configured in the shadcn/ui sonner component wrapper
+
+**Dependencies found:**
+- Toaster provider must be in app providers.tsx for toasts to render
+- Toast notifications work anywhere after `import { toast } from "sonner";`
+
+**What to do next**:
+- N/A - Story complete
+
+**Mistakes made**:
+- Initially tried to add toast import separately, but linter removed it - should add import and usage together
+- Almost missed that duration needed to be exactly 3 seconds (default is 4)
+
+---

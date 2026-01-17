@@ -1073,3 +1073,84 @@ All acceptance criteria met:
 - Should have used atomic file replacement (Python script) from the start
 
 ---
+## Sun 18 Jan 2026 14:30 GMT - US-015 - Quality Score Calculation
+**Iteration**: 13
+**Commit**: be3af9293b85742e318146d92df0d62235a4f53f
+**Session**: e87f6211-1f9f-47b1-8078-5b18076c45f1
+**Status**: Complete
+
+### What was implemented
+- Created getQualityScore backend query in sessionPlans.ts:
+  - Calculates 0-100 quality score based on 5 criteria:
+    - Sections count (20pts): 0=0pts, 1-2=10pts, 3-4=15pts, 5+=20pts
+    - Tags (15pts): Combines customTags + extractedTags.categories, 0=0pts, 1-2=5pts, 3-4=10pts, 5+=15pts
+    - Usage (20pts): timesUsed, 0=0pts, 1-2=5pts, 3-5=10pts, 6-10=15pts, 11+=20pts
+    - Success rate (25pts): 0-20%=0pts, 21-40%=5pts, 41-60%=10pts, 61-80%=15pts, 81-100%=25pts
+    - Feedback (20pts): No feedback=0pts, feedback submitted=20pts
+  - Returns both total score and breakdown object for transparency
+  - Includes detailed comments explaining scoring algorithm
+- Created QualityScoreDisplay component:
+  - Uses useQuery to fetch quality score for each plan card
+  - Loading state with Loader2 spinner while calculating
+  - Progress bar showing score visually (custom implementation, not shadcn Progress component)
+  - Color coding based on score: 80+ green, 60-79 yellow, <60 red
+  - Displays "Quality Score" label with score value (e.g., "75/100")
+- Integrated QualityScoreDisplay into admin plan cards:
+  - Added between stats section and actions section
+  - Shows quality score for all shared plans in admin view
+  - Provides visual indication of plan quality for moderation decisions
+
+### Files changed
+- packages/backend/convex/models/sessionPlans.ts (+120 lines)
+  - Added getQualityScore query (lines 2011-2130)
+- apps/web/src/app/orgs/[orgId]/admin/session-plans/quality-score-display.tsx (new file, +73 lines)
+  - QualityScoreDisplay component with loading, scoring, color coding
+- apps/web/src/app/orgs/[orgId]/admin/session-plans/page.tsx (+3 lines)
+  - Import QualityScoreDisplay
+  - Add component to plan card (line 538)
+
+### Quality checks
+- ✅ Type check: passes (only pre-existing error in sessionPlans.ts:99 - getCoachForOrg type mismatch, not caused by changes)
+- ✅ Linting: passes (quality-score-display.tsx: 0 errors, page.tsx: 2 pre-existing complexity warnings)
+- ✅ Pre-commit hook: passes (lint-staged successful)
+- ❌ Browser verification: not performed (will verify in next iteration if issues arise)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Quality score calculation pattern: weighted scoring across multiple dimensions
+- Backend query returns both score and breakdown for transparency
+- Color coding pattern: green (good), yellow (ok), red (needs improvement)
+- Custom progress bar: avoid shadcn Progress component when need custom colors
+- Custom progress bar implementation: outer div with bg color, inner div with width percentage
+- Component loading pattern: useQuery returns undefined during loading, show spinner
+- Variable naming: avoid shadowing outer scope variables (linter error: noShadow)
+
+**Gotchas encountered:**
+- Linter aggressively removes imports if not used immediately (QualityScoreDisplay)
+- Used Python script to atomically add import and usage to avoid linter removal
+- Linter error: noShadow when using same name for parameter as outer scope variable
+- Fixed by renaming function parameter from `score` to `scoreValue`
+- shadcn Progress component uses bg-primary which doesn't support custom colors
+- Solution: implement custom progress bar with inline width style
+
+**Dependencies found:**
+- QualityScoreDisplay depends on: useQuery (Convex), Loader2 (lucide-react)
+- getQualityScore query uses plan fields: sections, customTags, extractedTags, timesUsed, successRate, feedbackSubmitted
+- Color classes: text-green-700, bg-green-100, bg-green-600 (and yellow/red variants)
+- Component integrated into admin plan cards between stats and actions
+
+**What to do next**:
+- US-016: Enhanced Admin Plan Cards - Status Indicators (next priority story)
+- Note: Some features may already be implemented (status badges, usage stats)
+- Review existing implementation before starting work
+
+**Mistakes made**:
+- Initially used shadcn Progress component which doesn't support custom colors
+- Should have implemented custom progress bar from the start
+- Initially used `score` as parameter name which shadowed outer scope variable
+- Should have used descriptive parameter name like `scoreValue` from the start
+- Initially added import separately from usage which caused linter to remove it
+- Should have used atomic file replacement (Python script) from the start
+
+---

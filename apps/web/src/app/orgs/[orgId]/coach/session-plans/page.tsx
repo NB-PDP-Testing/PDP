@@ -32,6 +32,7 @@ import {
   type FilterState,
 } from "./filter-sidebar";
 import { QuickAccessCards } from "./quick-access-cards";
+import { SessionPlanSkeleton } from "./session-plan-skeleton";
 import { TemplateCard } from "./template-card";
 
 type ExtendedUser = {
@@ -405,8 +406,11 @@ export default function SessionPlansPage() {
           <div className="flex-1 overflow-y-auto p-6">
             <TabsContent className="mt-0" value="my-plans">
               {isLoading && (
-                <div className="flex h-96 items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin" />
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {[...new Array(6)].map((_, index) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton placeholders are static and never reorder
+                    <SessionPlanSkeleton key={index} />
+                  ))}
                 </div>
               )}
               {!isLoading && (!filteredPlans || filteredPlans.length === 0) && (
@@ -523,8 +527,11 @@ export default function SessionPlansPage() {
 
             <TabsContent className="mt-0" value="club-library">
               {isLoading && (
-                <div className="flex h-96 items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin" />
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {[...new Array(6)].map((_, index) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton placeholders are static and never reorder
+                    <SessionPlanSkeleton key={index} />
+                  ))}
                 </div>
               )}
               {!isLoading && (!filteredPlans || filteredPlans.length === 0) && (

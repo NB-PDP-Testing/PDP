@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { authClient } from "@/lib/auth-client";
+import { GenerationProgress } from "./generation-progress";
 
 export default function GenerateSessionPlanPage() {
   const params = useParams();
@@ -84,6 +85,11 @@ export default function GenerateSessionPlanPage() {
       toast.error("Failed to generate session plan. Please try again.");
       setIsGenerating(false);
     }
+  };
+
+  const handleCancelGeneration = () => {
+    setIsGenerating(false);
+    toast.info("Generation cancelled");
   };
 
   if (!userId || coachAssignments === undefined) {
@@ -179,6 +185,13 @@ export default function GenerateSessionPlanPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Progress indicator */}
+      {isGenerating && (
+        <div className="mt-6">
+          <GenerationProgress onCancel={handleCancelGeneration} />
+        </div>
+      )}
     </div>
   );
 }

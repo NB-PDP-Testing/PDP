@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
@@ -573,10 +574,14 @@ export const findOrCreateEnrollment = mutation({
       }
     }
 
+    if (!enrollment) {
+      throw new Error("Failed to create or find enrollment");
+    }
+
     return {
-      enrollmentId: enrollment?._id,
+      enrollmentId: enrollment._id as Id<"orgPlayerEnrollments">,
       wasCreated,
-      passportId,
+      passportId: passportId as Id<"sportPassports"> | null,
       passportWasCreated,
     };
   },

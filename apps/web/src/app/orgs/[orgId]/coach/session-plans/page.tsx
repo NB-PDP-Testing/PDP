@@ -7,6 +7,7 @@ import { Grid3x3, List, Loader2, Plus, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import Masonry from "react-masonry-css";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -586,16 +587,21 @@ export default function SessionPlansPage() {
                       </div>
                       <SortDropdown onChange={setSortBy} value={sortBy} />
                     </div>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <Masonry
+                      breakpointCols={{ default: 3, 1024: 2, 640: 1 }}
+                      className="-ml-4 flex w-auto"
+                      columnClassName="pl-4 bg-clip-padding"
+                    >
                       {filteredPlans.map((plan) => (
-                        <TemplateCard
-                          key={plan._id}
-                          onToggleFavorite={handleToggleFavorite}
-                          onView={handlePreview}
-                          plan={plan}
-                        />
+                        <div className="mb-4" key={plan._id}>
+                          <TemplateCard
+                            onToggleFavorite={handleToggleFavorite}
+                            onView={handlePreview}
+                            plan={plan}
+                          />
+                        </div>
                       ))}
-                    </div>
+                    </Masonry>
                   </>
                 )}
               {!isLoading &&
@@ -717,16 +723,21 @@ export default function SessionPlansPage() {
                       </div>
                       <SortDropdown onChange={setSortBy} value={sortBy} />
                     </div>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    <Masonry
+                      breakpointCols={{ default: 3, 1024: 2, 640: 1 }}
+                      className="-ml-4 flex w-auto"
+                      columnClassName="pl-4 bg-clip-padding"
+                    >
                       {filteredPlans.map((plan) => (
-                        <TemplateCard
-                          key={plan._id}
-                          onToggleFavorite={handleToggleFavorite}
-                          onView={handlePreview}
-                          plan={plan}
-                        />
+                        <div className="mb-4" key={plan._id}>
+                          <TemplateCard
+                            onToggleFavorite={handleToggleFavorite}
+                            onView={handlePreview}
+                            plan={plan}
+                          />
+                        </div>
                       ))}
-                    </div>
+                    </Masonry>
                   </>
                 )}
               {!isLoading &&

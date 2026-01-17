@@ -26,5 +26,8 @@
     "turbo": "^2.5.4",
     "ultracite": "6.3.6"
   },
-  "packageManager": "npm@11.6.2"
+  "packageManager": "npm@11.6.2",
+  "dependencies": {
+    "react-masonry-css": "^1.0.16"
+  }
 }

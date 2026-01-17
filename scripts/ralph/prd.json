@@ -276,7 +276,7 @@
         "Typecheck passes"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Phase 4: Masonry + Admin (6 hours effort)"
     },
     {

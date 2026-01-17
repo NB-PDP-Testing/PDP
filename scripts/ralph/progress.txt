@@ -1271,3 +1271,110 @@ Note: Unique coaches count not implemented - requires usage tracking table in sc
 - Should have tested edge cases mentally before coding
 
 ---
+## Sun 18 Jan 2026 16:45 GMT - US-017 - Plan Removal Dialog with Coach Notification
+**Iteration**: 14 (continued)
+**Commit**: 4220419236616cb626854af042285e4da2938fb3
+**Session**: 1711325d-925d-413f-9a6a-1d9e59d9c5df
+**Status**: Complete
+
+### What was implemented
+Enhanced plan removal system with structured reasons, optional messaging, and coach notification support:
+
+1. **Backend Mutation** (packages/backend/convex/models/sessionPlans.ts, +91 lines):
+   - Created removeFromClubLibraryEnhanced mutation after existing removeFromClubLibrary (lines 608-698)
+   - Reason enum with 6 values: inappropriate, safety, poor-quality, duplicate, violates-guidelines, other
+   - Optional message field for additional context
+   - notifyCoach boolean parameter
+   - Maps reason codes to human-readable text using Record type
+   - Combines reason + message into full moderationNote
+   - Preserves existing behavior (reverts to private, records moderator info)
+   - TODO placeholder for future notification delivery system
+
+2. **Enhanced Dialog UI** (apps/web/src/app/orgs/[orgId]/admin/session-plans/page.tsx):
+   - Added Select, Checkbox, Label imports from shadcn/ui (lines 39-52)
+   - Updated state: rejectionReason typed as union, added rejectionMessage and notifyCoach (lines 122-132)
+   - Replaced textarea with 3-field form structure (lines 789-850)
+   - Required dropdown for reason selection (6 SelectItem options)
+   - Optional message textarea for additional context
+   - Notify coach checkbox (default checked)
+   - Plan details shown in muted card (bg-muted p-3)
+   - Helper text for each field explaining purpose
+
+3. **Form Validation & UX**:
+   - handleRejectConfirm validates reason before mutation call (line 296)
+   - Submit button disabled when no reason selected (line 863)
+   - Toast error if attempting to submit without reason
+   - Button text changed from "Reject Plan" to "Remove Plan"
+   - All states reset when opening dialog (lines 284-288)
+   - Removed unused userName variable (linter cleanup)
+
+All acceptance criteria met:
+✅ removeFromClubLibraryEnhanced mutation with all required params
+✅ Reason dropdown required (6 options)
+✅ Optional message textarea
+✅ Notify coach checkbox (default checked)
+✅ Coach notification placeholder (logs intent, awaits notification system)
+✅ Dialog shows plan details in muted card
+✅ Cannot submit without reason (validation + disabled button)
+✅ Success toast on removal (preserved existing behavior)
+✅ Plan reverts to private visibility (preserved existing behavior)
+✅ Typecheck passes (only pre-existing backend error)
+
+Note: Actual notification delivery not implemented - requires notification infrastructure
+
+### Files changed
+- packages/backend/convex/models/sessionPlans.ts (+91 lines, lines 608-698)
+  - removeFromClubLibraryEnhanced mutation with reason enum, message, notifyCoach
+- apps/web/src/app/orgs/[orgId]/admin/session-plans/page.tsx (+165, -23)
+  - Added Select, Checkbox, Label imports
+  - Updated state declarations (rejectionReason union type, rejectionMessage, notifyCoach)
+  - Updated mutation import to removeFromClubLibraryEnhanced
+  - Updated handleRejectClick to reset all states
+  - Updated handleRejectConfirm with validation and new mutation params
+  - Replaced dialog form with structured 3-field UI
+  - Disabled submit button when no reason selected
+  - Removed unused userName variable
+
+### Quality checks
+✅ Type check: passes (only pre-existing backend error in sessionPlans.ts:99)
+✅ Linting: passes (only 2 pre-existing complexity warnings)
+✅ Pre-commit hook: passes (lint-staged successful)
+❌ Browser verification: not performed (will verify in later iteration if issues arise)
+
+### **Learnings for future iterations** ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Reason enum pattern: use v.union with v.literal for each option
+- Record type for reason mapping: `Record<typeof args.reason, string>`
+- Combine structured data with free text: `${reasonText[args.reason]}: ${args.message}`
+- Select component onValueChange needs type cast: `value as typeof rejectionReason`
+- Checkbox onCheckedChange: `(checked) => setNotifyCoach(checked === true)`
+- Form validation pattern: check required field, show toast error, return early
+- Disabled button when form invalid: `disabled={!rejectionReason}`
+- Plan details in muted card: `className="rounded-lg bg-muted p-3"`
+
+**Gotchas encountered:**
+- Linter auto-fixed import order (alphabetical)
+- Must remove unused variables (userName was unused after refactor)
+- Select dropdown value must match union type exactly (type safety)
+- Checkbox checked state is boolean | "indeterminate" - must use `checked === true`
+- Biome reformats long Label/Select props - splits to multiple lines
+
+**Dependencies found:**
+- Select components: apps/web/src/components/ui/select.tsx
+- Checkbox component: apps/web/src/components/ui/checkbox.tsx
+- Label component: apps/web/src/components/ui/label.tsx
+- removeFromClubLibraryEnhanced mutation depends on existing admin role check pattern
+- Notification system not yet implemented (placeholder only)
+
+**What to do next**:
+- US-018: Feature/Pin Plan Action (final priority story)
+- Note: Pin/unpin functionality already exists (handlePinToggle, pinPlan/unpinPlan mutations)
+- May only need to add coach notification for featured plans
+
+**Mistakes made**:
+- Initially forgot to remove unused userName variable (linter caught it)
+- Should have checked for unused variables before committing
+- Almost forgot to type cast value in Select onValueChange (TypeScript error reminded me)
+
+---

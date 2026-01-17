@@ -3,14 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import {
-  FileText,
-  Grid3x3,
-  List,
-  Loader2,
-  Plus,
-  TrendingUp,
-} from "lucide-react";
+import { Grid3x3, List, Loader2, Plus, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -26,6 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
+import { EmptyState } from "./empty-state";
 import {
   type AvailableFilters,
   FilterSidebar,
@@ -414,32 +408,23 @@ export default function SessionPlansPage() {
                 </div>
               )}
               {!isLoading && (!filteredPlans || filteredPlans.length === 0) && (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center p-12">
-                    <FileText className="mb-4 h-16 w-16 text-muted-foreground" />
-                    <h3 className="mb-2 font-semibold text-lg">
-                      No session plans found
-                    </h3>
-                    <p className="mb-4 text-center text-muted-foreground">
-                      {filters.search ||
-                      filters.ageGroups.length > 0 ||
-                      filters.sports.length > 0 ||
-                      filters.favoriteOnly
-                        ? "Try adjusting your filters"
-                        : "Create your first AI-powered session plan to get started"}
-                    </p>
-                    {!filters.search &&
-                      filters.ageGroups.length === 0 &&
-                      filters.sports.length === 0 && (
-                        <Link href={`/orgs/${orgId}/coach/session-plans/new`}>
-                          <Button>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Generate Session Plan
-                          </Button>
-                        </Link>
-                      )}
-                  </CardContent>
-                </Card>
+                <EmptyState
+                  orgId={orgId}
+                  scenario={
+                    filters.favoriteOnly
+                      ? "no-favorites"
+                      : filters.search ||
+                          filters.ageGroups.length > 0 ||
+                          filters.sports.length > 0 ||
+                          filters.intensities.length > 0 ||
+                          filters.skills.length > 0 ||
+                          filters.categories.length > 0 ||
+                          filters.featuredOnly ||
+                          filters.templateOnly
+                        ? "no-results"
+                        : "no-plans"
+                  }
+                />
               )}
               {!isLoading &&
                 filteredPlans &&
@@ -535,21 +520,20 @@ export default function SessionPlansPage() {
                 </div>
               )}
               {!isLoading && (!filteredPlans || filteredPlans.length === 0) && (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center p-12">
-                    <FileText className="mb-4 h-16 w-16 text-muted-foreground" />
-                    <h3 className="mb-2 font-semibold text-lg">
-                      No plans in club library
-                    </h3>
-                    <p className="text-center text-muted-foreground">
-                      {filters.search ||
-                      filters.ageGroups.length > 0 ||
-                      filters.sports.length > 0
-                        ? "Try adjusting your filters"
-                        : "Share your plans to make them available to other coaches"}
-                    </p>
-                  </CardContent>
-                </Card>
+                <EmptyState
+                  orgId={orgId}
+                  scenario={
+                    filters.search ||
+                    filters.ageGroups.length > 0 ||
+                    filters.sports.length > 0 ||
+                    filters.intensities.length > 0 ||
+                    filters.skills.length > 0 ||
+                    filters.categories.length > 0 ||
+                    filters.featuredOnly
+                      ? "no-results"
+                      : "no-plans"
+                  }
+                />
               )}
               {!isLoading &&
                 filteredPlans &&

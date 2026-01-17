@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, mutation, query } from "../_generated/server";
 
@@ -455,10 +456,10 @@ export const createPassportShareConsent = mutation({
 
     // Fetch additional data for consent receipt and notifications
     const playerIdentity = await ctx.db.get(args.playerIdentityId);
-    const receivingOrg = await ctx.db
-      .query("organization")
-      .filter((q) => q.eq(q.field("id"), args.receivingOrgId))
-      .first();
+    const receivingOrg = await ctx.runQuery(
+      api.models.organizations.getOrganization,
+      { organizationId: args.receivingOrgId }
+    );
 
     const playerName = playerIdentity
       ? `${playerIdentity.firstName} ${playerIdentity.lastName}`
@@ -574,10 +575,10 @@ export const updatePassportShareConsent = mutation({
 
     // Notify all guardians with parental responsibility about the change
     // Get receiving org name for notification
-    const receivingOrg = await ctx.db
-      .query("organization")
-      .filter((q) => q.eq(q.field("id"), consent.receivingOrgId))
-      .first();
+    const receivingOrg = await ctx.runQuery(
+      api.models.organizations.getOrganization,
+      { organizationId: consent.receivingOrgId }
+    );
     const receivingOrgName = receivingOrg?.name || "Unknown Organization";
 
     await notifyGuardiansOfSharingChange(ctx, {
@@ -646,10 +647,10 @@ export const revokePassportShareConsent = mutation({
 
     // Notify all guardians and receiving org coaches
     // Get receiving org name for notification
-    const receivingOrg = await ctx.db
-      .query("organization")
-      .filter((q) => q.eq(q.field("id"), consent.receivingOrgId))
-      .first();
+    const receivingOrg = await ctx.runQuery(
+      api.models.organizations.getOrganization,
+      { organizationId: consent.receivingOrgId }
+    );
     const receivingOrgName = receivingOrg?.name || "Unknown Organization";
 
     // Notify guardians
@@ -819,10 +820,10 @@ export const getSharedPassportData = query({
     // Fetch org names for source orgs
     const sourceOrgs = await Promise.all(
       sourceOrgIds.map(async (orgId) => {
-        const org = await ctx.db
-          .query("organization")
-          .filter((q) => q.eq(q.field("id"), orgId))
-          .first();
+        const org = await ctx.runQuery(
+          api.models.organizations.getOrganization,
+          { organizationId: orgId }
+        );
         return {
           organizationId: orgId,
           organizationName: org?.name || "Unknown Organization",
@@ -833,10 +834,10 @@ export const getSharedPassportData = query({
     // Fetch sharing contact info for all source orgs
     const orgSharingContacts = await Promise.all(
       sourceOrgIds.map(async (orgId) => {
-        const org = await ctx.db
-          .query("organization")
-          .filter((q) => q.eq(q.field("id"), orgId))
-          .first();
+        const org = await ctx.runQuery(
+          api.models.organizations.getOrganization,
+          { organizationId: orgId }
+        );
 
         // Only include orgs that have configured sharing contact
         if (!org?.sharingContactMode) {
@@ -888,10 +889,10 @@ export const getSharedPassportData = query({
 
       response.enrollments = await Promise.all(
         filteredEnrollments.map(async (enrollment) => {
-          const org = await ctx.db
-            .query("organization")
-            .filter((q) => q.eq(q.field("id"), enrollment.organizationId))
-            .first();
+          const org = await ctx.runQuery(
+            api.models.organizations.getOrganization,
+            { organizationId: enrollment.organizationId }
+          );
 
           return {
             organizationId: enrollment.organizationId,
@@ -925,10 +926,10 @@ export const getSharedPassportData = query({
 
       response.goals = await Promise.all(
         shareableGoals.map(async (goal) => {
-          const org = await ctx.db
-            .query("organization")
-            .filter((q) => q.eq(q.field("id"), goal.organizationId))
-            .first();
+          const org = await ctx.runQuery(
+            api.models.organizations.getOrganization,
+            { organizationId: goal.organizationId }
+          );
 
           return {
             goalId: goal._id,
@@ -1033,10 +1034,10 @@ export const acceptPassportShare = mutation({
         "A coach"
       : "A coach";
 
-    const receivingOrg = await ctx.db
-      .query("organization")
-      .filter((q) => q.eq(q.field("id"), consent.receivingOrgId))
-      .first();
+    const receivingOrg = await ctx.runQuery(
+      api.models.organizations.getOrganization,
+      { organizationId: consent.receivingOrgId }
+    );
     const receivingOrgName = receivingOrg?.name || "an organization";
 
     // Get all guardians with parental responsibility
@@ -1157,10 +1158,10 @@ export const declinePassportShare = mutation({
         "A coach"
       : "A coach";
 
-    const receivingOrg = await ctx.db
-      .query("organization")
-      .filter((q) => q.eq(q.field("id"), consent.receivingOrgId))
-      .first();
+    const receivingOrg = await ctx.runQuery(
+      api.models.organizations.getOrganization,
+      { organizationId: consent.receivingOrgId }
+    );
     const receivingOrgName = receivingOrg?.name || "an organization";
 
     // Get all guardians with parental responsibility
@@ -1285,10 +1286,9 @@ export const requestPassportAccess = mutation({
       : "Unknown Coach";
 
     // Get requesting org name for notification
-    const org = await ctx.db
-      .query("organization")
-      .filter((q) => q.eq(q.field("id"), args.requestingOrgId))
-      .first();
+    const org = await ctx.runQuery(api.models.organizations.getOrganization, {
+      organizationId: args.requestingOrgId,
+    });
 
     const orgName = org?.name || args.requestingOrgId;
 
@@ -1486,10 +1486,10 @@ export const logPassportAccess = mutation({
     const accessorRole = "Coach"; // Default - should be fetched from member table
 
     // Get receiving org name
-    const receivingOrg = await ctx.db
-      .query("organization")
-      .filter((q) => q.eq(q.field("id"), consent.receivingOrgId))
-      .first();
+    const receivingOrg = await ctx.runQuery(
+      api.models.organizations.getOrganization,
+      { organizationId: consent.receivingOrgId }
+    );
 
     const accessorOrgName = receivingOrg?.name || consent.receivingOrgId;
 
@@ -2444,10 +2444,10 @@ export const getOrgOutgoingShares = query({
           : "Unknown Player";
 
         // Get receiving organization name
-        const receivingOrg = await ctx.db
-          .query("organization")
-          .filter((q) => q.eq(q.field("id"), consent.receivingOrgId))
-          .first();
+        const receivingOrg = await ctx.runQuery(
+          api.models.organizations.getOrganization,
+          { organizationId: consent.receivingOrgId }
+        );
         const receivingOrgName = receivingOrg?.name || "Unknown Organization";
 
         // Build list of shared elements
@@ -2547,10 +2547,10 @@ export const getOrgIncomingShares = query({
         // Get source organization names
         const sourceOrgNames = await Promise.all(
           (consent.sourceOrgIds || []).map(async (orgId) => {
-            const org = await ctx.db
-              .query("organization")
-              .filter((q) => q.eq(q.field("id"), orgId))
-              .first();
+            const org = await ctx.runQuery(
+              api.models.organizations.getOrganization,
+              { organizationId: orgId }
+            );
             return org?.name || "Unknown Organization";
           })
         );
@@ -2678,10 +2678,10 @@ export const getOrgRecentSharingActivity = query({
       const otherOrgId = isSourceOrg
         ? consent.receivingOrgId
         : consent.sourceOrgIds?.[0] || "";
-      const otherOrg = await ctx.db
-        .query("organization")
-        .filter((q) => q.eq(q.field("id"), otherOrgId))
-        .first();
+      const otherOrg = await ctx.runQuery(
+        api.models.organizations.getOrganization,
+        { organizationId: otherOrgId }
+      );
       const orgName = otherOrg?.name || "Unknown Organization";
 
       // Add activity based on consent lifecycle
@@ -2775,10 +2775,10 @@ export const getOrgPendingAcceptances = query({
         // Get source organization names
         const sourceOrgNames = await Promise.all(
           (consent.sourceOrgIds || []).map(async (orgId) => {
-            const org = await ctx.db
-              .query("organization")
-              .filter((q) => q.eq(q.field("id"), orgId))
-              .first();
+            const org = await ctx.runQuery(
+              api.models.organizations.getOrganization,
+              { organizationId: orgId }
+            );
             return org?.name || "Unknown Organization";
           })
         );

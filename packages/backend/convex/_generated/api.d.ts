@@ -60,6 +60,7 @@ import type * as models_sportPassports from "../models/sportPassports.js";
 import type * as models_sports from "../models/sports.js";
 import type * as models_teamPlayerIdentities from "../models/teamPlayerIdentities.js";
 import type * as models_teams from "../models/teams.js";
+import type * as models_userPreferences from "../models/userPreferences.js";
 import type * as models_users from "../models/users.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
 import type * as privateData from "../privateData.js";
@@ -150,6 +151,7 @@ declare const fullApi: ApiFromModules<{
   "models/sports": typeof models_sports;
   "models/teamPlayerIdentities": typeof models_teamPlayerIdentities;
   "models/teams": typeof models_teams;
+  "models/userPreferences": typeof models_userPreferences;
   "models/users": typeof models_users;
   "models/voiceNotes": typeof models_voiceNotes;
   privateData: typeof privateData;

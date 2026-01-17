@@ -726,10 +726,21 @@ export const pinPlan = mutation({
       throw new Error("Not authorized - admin role required");
     }
 
+    const now = Date.now();
+
     await ctx.db.patch(args.planId, {
       pinnedByAdmin: true,
-      updatedAt: Date.now(),
+      moderatedBy: identity.subject,
+      moderatedAt: now,
+      updatedAt: now,
     });
+
+    // TODO: Implement coach notification system
+    // Send positive notification to plan.coachId
+    // Notification content: "Your session plan was featured! 🎉"
+    console.log(
+      `Would notify coach ${plan.coachId}: Your session plan "${plan.title}" was featured! 🎉`
+    );
   },
 });
 

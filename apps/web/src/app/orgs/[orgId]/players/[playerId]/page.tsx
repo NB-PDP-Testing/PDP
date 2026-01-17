@@ -3,7 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { ArrowLeft, Edit, Loader2, Share2 } from "lucide-react";
+import { ArrowLeft, Edit, ExternalLink, Loader2, Share2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { BenchmarkComparison } from "@/components/benchmark-comparison";
@@ -16,6 +16,7 @@ import { EmergencyContactsSection } from "./components/emergency-contacts-sectio
 import { GoalsSection } from "./components/goals-section";
 import { NotesSection } from "./components/notes-section";
 import { PositionsFitnessSection } from "./components/positions-fitness-section";
+import { RequestAccessModal } from "./components/request-access-modal";
 import { ShareModal } from "./components/share-modal";
 import { SkillsSection } from "./components/skills-section";
 
@@ -26,6 +27,7 @@ export default function PlayerPassportPage() {
   const playerId = params.playerId as string;
 
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showRequestAccessModal, setShowRequestAccessModal] = useState(false);
 
   // Use new identity system (legacy fallback removed)
   const playerData = useQuery(
@@ -45,6 +47,15 @@ export default function PlayerPassportPage() {
     session?.user?.email
       ? { organizationId: orgId, userEmail: session.user.email }
       : "skip"
+  );
+
+  // Check share status for this player (for coach access request feature)
+  const shareStatus = useQuery(
+    api.models.passportSharing.checkPlayerShareStatus,
+    {
+      playerIdentityId: playerId as Id<"playerIdentities">,
+      organizationId: orgId,
+    }
   );
 
   // Determine user permissions based on functional roles
@@ -147,6 +158,43 @@ export default function PlayerPassportPage() {
           <Share2 className="mr-2 h-4 w-4" />
           Share / Export
         </Button>
+
+        {/* Coach: Request Access or View Shared Passport */}
+        {permissions.isCoach && shareStatus && (
+          <>
+            {shareStatus.hasActiveShare && shareStatus.consentId && (
+              <Button
+                className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                onClick={() =>
+                  router.push(
+                    `/orgs/${orgId}/players/${playerId}/shared?consentId=${shareStatus.consentId}`
+                  )
+                }
+                variant="outline"
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                View Shared Passport
+              </Button>
+            )}
+
+            {!(shareStatus.hasActiveShare || shareStatus.hasPendingRequest) && (
+              <Button
+                onClick={() => setShowRequestAccessModal(true)}
+                variant="outline"
+              >
+                <Share2 className="mr-2 h-4 w-4" />
+                Request Access
+              </Button>
+            )}
+
+            {!shareStatus.hasActiveShare && shareStatus.hasPendingRequest && (
+              <Button disabled variant="outline">
+                <Share2 className="mr-2 h-4 w-4" />
+                Request Pending
+              </Button>
+            )}
+          </>
+        )}
       </div>
 
       {/* Player Passport Sections */}
@@ -202,6 +250,19 @@ export default function PlayerPassportPage() {
           playerName={playerData.name || "Player"}
         />
       )}
+
+      {/* Request Access Modal */}
+      <RequestAccessModal
+        onOpenChange={setShowRequestAccessModal}
+        onRequestSent={() => {
+          // Refresh share status after request is sent
+          // The query will automatically update via Convex reactivity
+        }}
+        open={showRequestAccessModal}
+        organizationId={orgId}
+        playerIdentityId={playerId as Id<"playerIdentities">}
+        playerName={playerData.name || "Player"}
+      />
     </div>
   );
 }

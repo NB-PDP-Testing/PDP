@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
@@ -128,11 +129,10 @@ export const getEnrollmentsForOrg = query({
   returns: v.array(enrollmentValidator),
   handler: async (ctx, args) => {
     if (args.status) {
-      const status = args.status;
       return await ctx.db
         .query("orgPlayerEnrollments")
         .withIndex("by_org_and_status", (q) =>
-          q.eq("organizationId", args.organizationId).eq("status", status)
+          q.eq("organizationId", args.organizationId).eq("status", args.status!)
         )
         .collect();
     }
@@ -341,14 +341,13 @@ export const enrollPlayer = mutation({
     // Auto-create sport passport if sportCode provided
     let passportId = null;
     if (args.sportCode) {
-      const sportCode = args.sportCode;
       // Check if passport already exists for this player/sport
       const existingPassport = await ctx.db
         .query("sportPassports")
         .withIndex("by_player_and_sport", (q) =>
           q
             .eq("playerIdentityId", args.playerIdentityId)
-            .eq("sportCode", sportCode)
+            .eq("sportCode", args.sportCode!)
         )
         .first();
 
@@ -549,13 +548,12 @@ export const findOrCreateEnrollment = mutation({
 
     // Handle passport if sportCode provided
     if (args.sportCode) {
-      const sportCode = args.sportCode;
       const existingPassport = await ctx.db
         .query("sportPassports")
         .withIndex("by_player_and_sport", (q) =>
           q
             .eq("playerIdentityId", args.playerIdentityId)
-            .eq("sportCode", sportCode)
+            .eq("sportCode", args.sportCode!)
         )
         .first();
 
@@ -577,13 +575,13 @@ export const findOrCreateEnrollment = mutation({
     }
 
     if (!enrollment) {
-      throw new Error("Failed to create or retrieve enrollment");
+      throw new Error("Failed to create or find enrollment");
     }
 
     return {
-      enrollmentId: enrollment._id,
+      enrollmentId: enrollment._id as Id<"orgPlayerEnrollments">,
       wasCreated,
-      passportId,
+      passportId: passportId as Id<"sportPassports"> | null,
       passportWasCreated,
     };
   },
@@ -748,7 +746,7 @@ export const updateReviewStatuses = internalMutation({
       // Check if overdue (due date is in the past)
       if (nextDue < todayStr && enrollment.reviewStatus !== "Overdue") {
         newStatus = "Overdue";
-        overdue += 1;
+        overdue++;
       }
       // Check if due soon (within next 7 days)
       else if (
@@ -757,7 +755,7 @@ export const updateReviewStatuses = internalMutation({
         enrollment.reviewStatus !== "Due Soon"
       ) {
         newStatus = "Due Soon";
-        dueSoon += 1;
+        dueSoon++;
       }
 
       // Update if status needs to change
@@ -766,7 +764,7 @@ export const updateReviewStatuses = internalMutation({
           reviewStatus: newStatus,
           updatedAt: Date.now(),
         });
-        updated += 1;
+        updated++;
       }
     }
 

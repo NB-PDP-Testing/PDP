@@ -10,6 +10,7 @@ import { SmartCoachDashboard } from "@/components/smart-coach-dashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
+import { SharedPassports } from "./shared-passports";
 
 export function CoachDashboard() {
   const params = useParams();
@@ -648,6 +649,9 @@ export function CoachDashboard() {
         selectedTeam={selectedTeam}
         selectedTeamData={selectedTeamData}
       />
+
+      {/* Shared Passports Section */}
+      {userId && <SharedPassports organizationId={orgId} userId={userId} />}
 
       {/* Empty State */}
       {filteredPlayers.length === 0 && (

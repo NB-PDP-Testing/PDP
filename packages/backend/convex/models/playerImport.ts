@@ -26,8 +26,8 @@ function normalizeNameForMatching(name: string): {
   if (parts.length === 0) {
     return { normalized: "", firstName: "", lastName: "" };
   }
-  const firstName = parts[0];
-  const lastName = parts.length > 1 ? (parts.at(-1) ?? "") : "";
+  const firstName = parts[0] ?? "";
+  const lastName = parts.length > 1 ? (parts[parts.length - 1] ?? "") : "";
   return {
     normalized: `${firstName} ${lastName}`.trim(),
     firstName,
@@ -381,21 +381,14 @@ export const importPlayerWithIdentity = mutation({
       }
 
       // If no email match, try to find by name + phone (if phone provided)
-      if (
-        !existingGuardian &&
-        args.parentPhone &&
-        args.parentFirstName &&
-        args.parentLastName
-      ) {
+      if (!existingGuardian && args.parentPhone) {
         const normalizedPhone = args.parentPhone.trim();
-        const parentFirstName = args.parentFirstName;
-        const parentLastName = args.parentLastName;
+        const lastName = args.parentLastName?.trim() ?? "";
+        const firstName = args.parentFirstName?.trim() ?? "";
         const guardiansByName = await ctx.db
           .query("guardianIdentities")
           .withIndex("by_name", (q) =>
-            q
-              .eq("lastName", parentLastName.trim())
-              .eq("firstName", parentFirstName.trim())
+            q.eq("lastName", lastName).eq("firstName", firstName)
           )
           .collect();
 
@@ -864,21 +857,14 @@ export const batchImportPlayersWithIdentity = mutation({
           }
 
           // If no email match, try to find by name + phone (if phone provided)
-          if (
-            !existingGuardian &&
-            playerData.parentPhone &&
-            playerData.parentFirstName &&
-            playerData.parentLastName
-          ) {
+          if (!existingGuardian && playerData.parentPhone) {
             const normalizedPhone = playerData.parentPhone.trim();
-            const parentFirstName = playerData.parentFirstName;
-            const parentLastName = playerData.parentLastName;
+            const lastName = playerData.parentLastName?.trim() ?? "";
+            const firstName = playerData.parentFirstName?.trim() ?? "";
             const guardiansByName = await ctx.db
               .query("guardianIdentities")
               .withIndex("by_name", (q) =>
-                q
-                  .eq("lastName", parentLastName.trim())
-                  .eq("firstName", parentFirstName.trim())
+                q.eq("lastName", lastName).eq("firstName", firstName)
               )
               .collect();
 

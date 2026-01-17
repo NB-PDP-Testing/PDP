@@ -12,6 +12,7 @@ import {
   LineChart,
   Megaphone,
   Settings,
+  Share2,
   Shield,
   ShieldAlert,
   Upload,
@@ -129,6 +130,11 @@ export function getAdminNavGroups(orgId: string): NavGroup[] {
           href: `/orgs/${orgId}/admin/benchmarks`,
           label: "Benchmarks",
           icon: BarChart3,
+        },
+        {
+          href: `/orgs/${orgId}/admin/sharing`,
+          label: "Passport Sharing",
+          icon: Share2,
         },
         {
           href: `/orgs/${orgId}/admin/player-import`,

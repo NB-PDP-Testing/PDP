@@ -142,12 +142,12 @@ export const searchPlayersByName = query({
     if (args.firstName && args.lastName) {
       // Note: This won't work as partial match, just exact
       // For partial matching, we'd need a search index
-      const firstName = args.firstName;
-      const lastName = args.lastName;
+      const firstName = args.firstName.trim();
+      const lastName = args.lastName.trim();
       const players = await ctx.db
         .query("playerIdentities")
         .withIndex("by_name_dob", (q) =>
-          q.eq("firstName", firstName.trim()).eq("lastName", lastName.trim())
+          q.eq("firstName", firstName).eq("lastName", lastName)
         )
         .take(limit);
       return players;
@@ -419,7 +419,7 @@ export function calculateAge(dateOfBirth: string): number {
     monthDiff < 0 ||
     (monthDiff === 0 && today.getDate() < birthDate.getDate())
   ) {
-    age -= 1;
+    age--;
   }
 
   return age;

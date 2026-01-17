@@ -132,22 +132,19 @@ export const searchGuardiansByName = query({
 
     // If we have both names, use the composite index
     if (args.lastName && args.firstName) {
-      const lastName = args.lastName;
-      const firstName = args.firstName;
       return await ctx.db
         .query("guardianIdentities")
         .withIndex("by_name", (q) =>
-          q.eq("lastName", lastName).eq("firstName", firstName)
+          q.eq("lastName", args.lastName!).eq("firstName", args.firstName!)
         )
         .take(limit);
     }
 
     // If we only have lastName, use the index and filter
     if (args.lastName) {
-      const lastName = args.lastName;
       return await ctx.db
         .query("guardianIdentities")
-        .withIndex("by_name", (q) => q.eq("lastName", lastName))
+        .withIndex("by_name", (q) => q.eq("lastName", args.lastName!))
         .take(limit);
     }
 
@@ -502,12 +499,12 @@ export const findMatchingGuardian = query({
 
     // 3. Name match only (lowest confidence - requires admin review)
     if (args.firstName && args.lastName) {
-      const firstName = args.firstName;
-      const lastName = args.lastName;
+      const firstName = args.firstName.trim();
+      const lastName = args.lastName.trim();
       const byName = await ctx.db
         .query("guardianIdentities")
         .withIndex("by_name", (q) =>
-          q.eq("lastName", lastName.trim()).eq("firstName", firstName.trim())
+          q.eq("lastName", lastName).eq("firstName", firstName)
         )
         .first();
 

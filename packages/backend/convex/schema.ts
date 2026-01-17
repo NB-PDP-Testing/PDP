@@ -595,6 +595,11 @@ export default defineSchema({
     coachNotes: v.optional(v.string()),
     playerNotes: v.optional(v.string()),
 
+    // Cross-org sharing flags
+    isShareable: v.optional(v.boolean()), // Can be shared cross-org, default false
+    markedShareableAt: v.optional(v.number()), // When marked shareable
+    markedShareableBy: v.optional(v.string()), // userId who marked shareable
+
     // Metadata
     createdBy: v.optional(v.string()),
     createdAt: v.number(),
@@ -1990,4 +1995,233 @@ export default defineSchema({
     .index("by_org", ["organizationId"])
     .index("by_org_and_name", ["organizationId", "normalizedName"])
     .index("by_org_and_type", ["organizationId", "activityType"]),
+
+  // ============================================================
+  // PASSPORT SHARING SYSTEM
+  // Cross-organization passport sharing with parent consent and coach acceptance
+  // See: docs/features/PRD-passport-sharing.md
+  // ============================================================
+
+  // Passport Share Consents
+  // Records explicit sharing consent from guardian/adult player
+  // One record per guardian-player-receiving_org combination
+  passportShareConsents: defineTable({
+    // Who is sharing
+    playerIdentityId: v.id("playerIdentities"),
+    grantedBy: v.string(), // userId of guardian or adult player
+    grantedByType: v.union(v.literal("guardian"), v.literal("self")),
+    guardianIdentityId: v.optional(v.id("guardianIdentities")), // If guardian
+
+    // Where data comes from (can be all orgs or specific)
+    sourceOrgMode: v.union(
+      v.literal("all_enrolled"), // All orgs player is enrolled in
+      v.literal("specific_orgs") // Only selected orgs
+    ),
+    sourceOrgIds: v.optional(v.array(v.string())), // If specific_orgs mode
+
+    // Who can see the data
+    receivingOrgId: v.string(), // The org receiving shared access
+
+    // What can be seen (granular element control)
+    sharedElements: v.object({
+      basicProfile: v.boolean(), // Name, age group, photo
+      skillRatings: v.boolean(), // Skill assessments
+      skillHistory: v.boolean(), // Historical ratings
+      developmentGoals: v.boolean(), // Goals & milestones
+      coachNotes: v.boolean(), // Public coach notes
+      benchmarkData: v.boolean(), // Benchmark comparisons
+      attendanceRecords: v.boolean(), // Training/match attendance
+      injuryHistory: v.boolean(), // Injury records (safety-critical)
+      medicalSummary: v.boolean(), // Medical profile summary
+      contactInfo: v.boolean(), // Guardian/coach contact for coordination
+    }),
+
+    // Consent lifecycle
+    consentedAt: v.number(), // Timestamp of consent
+    expiresAt: v.number(), // When consent expires
+    renewalReminderSent: v.boolean(), // Whether reminder was sent
+
+    // Status
+    status: v.union(
+      v.literal("active"),
+      v.literal("expired"),
+      v.literal("revoked"),
+      v.literal("suspended") // Platform intervention
+    ),
+    revokedAt: v.optional(v.number()),
+    revokedReason: v.optional(v.string()),
+
+    // Renewal tracking
+    renewalCount: v.number(), // How many times renewed
+    lastRenewedAt: v.optional(v.number()),
+
+    // Coach Acceptance
+    coachAcceptanceStatus: v.union(
+      v.literal("pending"), // Awaiting coach acceptance
+      v.literal("accepted"), // Coach accepted the share
+      v.literal("declined") // Coach declined the share
+    ),
+    acceptedByCoachId: v.optional(v.string()),
+    acceptedAt: v.optional(v.number()),
+    declinedAt: v.optional(v.number()),
+    declineReason: v.optional(v.string()),
+    declineCount: v.optional(v.number()), // Track repeated declines for cooling-off
+
+    // Age 18 Transition
+    pausedForAge18Review: v.optional(v.boolean()), // True when player turns 18
+    age18ReviewCompletedAt: v.optional(v.number()),
+
+    // Metadata
+    consentVersion: v.string(), // Version of consent terms accepted
+    ipAddress: v.optional(v.string()), // For audit purposes
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_player_and_status", ["playerIdentityId", "status"])
+    .index("by_receiving_org", ["receivingOrgId"])
+    .index("by_granted_by", ["grantedBy"])
+    .index("by_expiry", ["status", "expiresAt"])
+    .index("by_coach_acceptance", ["receivingOrgId", "coachAcceptanceStatus"]),
+
+  // Passport Share Access Logs
+  // Immutable audit trail of all access to shared passport data
+  passportShareAccessLogs: defineTable({
+    consentId: v.id("passportShareConsents"),
+    playerIdentityId: v.id("playerIdentities"),
+
+    // Who accessed
+    accessedBy: v.string(), // userId
+    accessedByName: v.string(), // Denormalized for audit
+    accessedByRole: v.string(), // coach, admin, etc.
+    accessedByOrgId: v.string(), // Better Auth organization ID
+    accessedByOrgName: v.string(), // Denormalized for audit
+
+    // What was accessed
+    accessType: v.union(
+      v.literal("view_summary"), // Viewed shared passport overview
+      v.literal("view_skills"), // Viewed skill details
+      v.literal("view_goals"), // Viewed development goals
+      v.literal("view_notes"), // Viewed coach notes
+      v.literal("view_medical"), // Viewed medical/injury info
+      v.literal("view_contact"), // Viewed contact information
+      v.literal("export_pdf"), // Exported shared data as PDF
+      v.literal("view_insights") // Viewed AI insights
+    ),
+
+    // Context
+    accessedAt: v.number(),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+
+    // Source information
+    sourceOrgId: v.optional(v.string()), // Which org's data was viewed
+  })
+    .index("by_consent", ["consentId"])
+    .index("by_player", ["playerIdentityId"])
+    .index("by_accessor", ["accessedBy"])
+    .index("by_date", ["accessedAt"]),
+
+  // Passport Share Requests
+  // Coach-initiated requests for passport access
+  passportShareRequests: defineTable({
+    // Target player
+    playerIdentityId: v.id("playerIdentities"),
+
+    // Requesting coach/org
+    requestedBy: v.string(), // userId of coach
+    requestedByName: v.string(), // Denormalized for display
+    requestedByRole: v.string(), // e.g., "Head Coach"
+    requestingOrgId: v.string(), // Better Auth organization ID
+    requestingOrgName: v.string(), // Denormalized for display
+
+    // Request details
+    reason: v.optional(v.string()), // Why coach wants access
+
+    // Request lifecycle
+    status: v.union(
+      v.literal("pending"), // Awaiting parent response
+      v.literal("approved"), // Parent approved, consent flow started
+      v.literal("declined"), // Parent declined
+      v.literal("expired") // Auto-expired after 14 days
+    ),
+
+    // Timestamps
+    requestedAt: v.number(),
+    respondedAt: v.optional(v.number()),
+    respondedBy: v.optional(v.string()), // userId of responding guardian
+    expiresAt: v.number(), // Auto-expire timestamp (14 days)
+
+    // Resulting consent (if approved)
+    resultingConsentId: v.optional(v.id("passportShareConsents")),
+  })
+    .index("by_player", ["playerIdentityId"])
+    .index("by_player_and_status", ["playerIdentityId", "status"])
+    .index("by_requesting_org", ["requestingOrgId"])
+    .index("by_expiry", ["status", "expiresAt"]),
+
+  // Parent Notification Preferences
+  // Customizable notification settings for parents
+  parentNotificationPreferences: defineTable({
+    guardianIdentityId: v.id("guardianIdentities"),
+    playerIdentityId: v.optional(v.id("playerIdentities")), // null = global default
+
+    // Access notification frequency
+    accessNotificationFrequency: v.union(
+      v.literal("realtime"), // Immediate notification on every access
+      v.literal("daily"), // Daily digest
+      v.literal("weekly"), // Weekly digest (default)
+      v.literal("none") // No access notifications
+    ),
+
+    // Other notification preferences
+    notifyOnCoachRequest: v.optional(v.boolean()), // Default: true
+    notifyOnShareExpiring: v.optional(v.boolean()), // Default: true
+    notifyOnGuardianChange: v.optional(v.boolean()), // Default: true
+
+    updatedAt: v.number(),
+  })
+    .index("by_guardian", ["guardianIdentityId"])
+    .index("by_guardian_and_player", [
+      "guardianIdentityId",
+      "playerIdentityId",
+    ]),
+
+  // Passport Share Notifications
+  // In-app notification records for sharing events
+  passportShareNotifications: defineTable({
+    userId: v.string(), // Recipient (Better Auth user ID)
+
+    // Notification type
+    notificationType: v.union(
+      v.literal("share_enabled"), // Someone shared passport with your org
+      v.literal("share_revoked"), // Share was revoked
+      v.literal("share_expiring"), // Reminder that share is expiring
+      v.literal("share_expired"), // Share has expired
+      v.literal("coach_acceptance_pending"), // Coach needs to accept share
+      v.literal("coach_accepted"), // Coach accepted share offer
+      v.literal("coach_declined"), // Coach declined share offer
+      v.literal("share_request"), // Coach requested access to passport
+      v.literal("guardian_change"), // Another guardian modified sharing
+      v.literal("access_alert") // Someone accessed shared data (for digest notifications)
+    ),
+
+    // References
+    consentId: v.optional(v.id("passportShareConsents")),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    requestId: v.optional(v.id("passportShareRequests")),
+
+    // Content
+    title: v.string(),
+    message: v.string(),
+    actionUrl: v.optional(v.string()), // Optional URL for navigation
+
+    // Status
+    createdAt: v.number(),
+    readAt: v.optional(v.number()),
+    dismissedAt: v.optional(v.number()),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_and_type", ["userId", "notificationType"])
+    .index("by_user_unread", ["userId", "readAt"])
+    .index("by_consent", ["consentId"])
+    .index("by_player", ["playerIdentityId"]),
 });

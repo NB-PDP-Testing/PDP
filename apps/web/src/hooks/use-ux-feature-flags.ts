@@ -259,6 +259,10 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     // Phase 14 - Header Navigation
     useMinimalHeaderNav: isFeatureEnabled("ux_header_nav_minimal"),
 
+    // Phase 15 - Enhanced User Profile
+    useEnhancedUserMenu: isFeatureEnabled("ux_enhanced_user_menu"),
+    useOrgUsageTracking: isFeatureEnabled("ux_org_usage_tracking"),
+
     // Quick Actions A/B/C Testing
     quickActionsVariant: getQuickActionsVariant(isFeatureEnabled),
   };
@@ -382,4 +386,8 @@ export const UXAnalyticsEvents = {
   QUICK_ACTIONS_FAB_OPENED: "ux_quick_actions_fab_opened",
   QUICK_ACTIONS_COLLAPSED: "ux_quick_actions_collapsed",
   QUICK_ACTIONS_EXPANDED: "ux_quick_actions_expanded",
+
+  // Phase 15 - Enhanced User Profile events
+  ENHANCED_USER_MENU_OPENED: "ux_enhanced_user_menu_opened",
+  ENHANCED_USER_MENU_THEME_CHANGED: "ux_enhanced_user_menu_theme_changed",
 } as const;

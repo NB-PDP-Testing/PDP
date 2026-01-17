@@ -1,0 +1,1500 @@
+{
+  "metadata": {
+    "title": "Session Plans Feature Enhancement PRD",
+    "version": "1.0.0",
+    "date": "2026-01-17",
+    "author": "UX Review Team",
+    "status": "approved",
+    "approvedDesigns": [
+      "Pinterest-Style Masonry Grid",
+      "Top Filter Bar + Search",
+      "Advanced Filter Panel Modal/Drawer",
+      "Enhanced Admin View with Quality Signals"
+    ]
+  },
+  "executiveSummary": {
+    "overview": "This PRD outlines the implementation of approved Session Plans feature enhancements for PlayerARC, broken into 4 phased deployments over 8-10 weeks.",
+    "totalEffort": "~180 hours",
+    "timeline": "8-10 weeks",
+    "goals": [
+      "Improve plan discovery with search-first approach",
+      "Implement visual masonry grid for better browsing",
+      "Add comprehensive filtering capabilities",
+      "Enhance admin moderation workflow"
+    ]
+  },
+  "phases": [
+    {
+      "id": "phase-1",
+      "name": "Foundation & Quick Wins",
+      "timeline": "Weeks 1-2",
+      "effort": "~40 hours",
+      "dependencies": "None (can start immediately)",
+      "goal": "Polish existing UI, implement high-impact visual improvements",
+      "features": [
+        {
+          "id": "1.1",
+          "name": "Visual Feedback System",
+          "effort": "3 hours",
+          "description": "Implement toast notifications for all CRUD operations",
+          "files": [
+            "apps/web/src/components/ui/toast.tsx (new)",
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/page.tsx"
+          ],
+          "implementation": {
+            "steps": [
+              {
+                "step": 1,
+                "name": "Create Toast Component",
+                "effort": "1 hour",
+                "code": "import { Toaster } from \"sonner\"\n\nexport function Toast() {\n  return <Toaster position=\"top-right\" richColors />\n}"
+              },
+              {
+                "step": 2,
+                "name": "Add Toast Notifications",
+                "effort": "2 hours",
+                "actions": [
+                  "Import toast from sonner",
+                  "Add to toggleFavorite() → 'Plan favorited! ✓' / 'Removed from favorites'",
+                  "Add to updateVisibility() → 'Shared to club library ✓'",
+                  "Add to duplicatePlan() → 'Plan duplicated ✓'",
+                  "Add to archivePlan() → 'Plan archived'"
+                ]
+              }
+            ]
+          },
+          "acceptanceCriteria": [
+            "Toast appears on all CRUD operations",
+            "Toast auto-dismisses after 3 seconds",
+            "Toast includes appropriate icon (✓ ⚠️ ❌)",
+            "Multiple toasts stack properly"
+          ]
+        },
+        {
+          "id": "1.2",
+          "name": "Quick Access Section",
+          "effort": "4 hours",
+          "description": "Add 4 smart collection cards for quick navigation",
+          "files": [
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/page.tsx",
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/quick-access.tsx (new)",
+            "packages/backend/convex/models/sessionPlans.ts"
+          ],
+          "implementation": {
+            "backend": {
+              "effort": "2 hours",
+              "queries": [
+                {
+                  "name": "getRecentlyUsed",
+                  "description": "Plans used in last 30 days, ordered by usage date",
+                  "parameters": {
+                    "orgId": "string",
+                    "limit": "optional number, default 4"
+                  }
+                },
+                {
+                  "name": "getMostPopular",
+                  "description": "Plans sorted by timesUsed",
+                  "parameters": {
+                    "orgId": "string",
+                    "limit": "optional number, default 4"
+                  }
+                },
+                {
+                  "name": "getYourBest",
+                  "description": "Plans with successRate >= 90%",
+                  "parameters": {
+                    "orgId": "string",
+                    "limit": "optional number, default 4"
+                  }
+                },
+                {
+                  "name": "getTopRated",
+                  "description": "Highest rated plans from club library",
+                  "parameters": {
+                    "orgId": "string",
+                    "limit": "optional number, default 4"
+                  }
+                }
+              ]
+            },
+            "frontend": {
+              "effort": "2 hours",
+              "component": "QuickAccessSection",
+              "cards": [
+                {
+                  "title": "Recently Used",
+                  "icon": "🕐",
+                  "gradient": "from-purple-500 to-indigo-600"
+                },
+                {
+                  "title": "Most Popular",
+                  "icon": "🔥",
+                  "gradient": "from-orange-500 to-red-600"
+                },
+                {
+                  "title": "Your Best",
+                  "icon": "⭐",
+                  "gradient": "from-green-500 to-teal-600"
+                },
+                {
+                  "title": "Top Rated",
+                  "icon": "🏆",
+                  "gradient": "from-blue-500 to-cyan-600"
+                }
+              ]
+            }
+          },
+          "acceptanceCriteria": [
+            "4 quick access cards display horizontally",
+            "Cards scroll horizontally on mobile",
+            "Each card shows plan count",
+            "Clicking card navigates to filtered view",
+            "Empty state when no plans match category"
+          ]
+        },
+        {
+          "id": "1.3",
+          "name": "Loading States",
+          "effort": "2 hours",
+          "description": "Add progress indicators and skeleton loaders",
+          "files": [
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/generate-plan-dialog.tsx",
+            "apps/web/src/components/ui/skeleton.tsx (if not exists)"
+          ],
+          "implementation": {
+            "steps": [
+              {
+                "step": 1,
+                "name": "Add Loading UI to AI Generation",
+                "effort": "1 hour",
+                "elements": [
+                  "Progress bar component",
+                  "Stage text ('Analyzing...', 'Selecting...', 'Formatting...')",
+                  "Estimated time remaining",
+                  "Cancel button"
+                ]
+              },
+              {
+                "step": 2,
+                "name": "Add Skeleton Loaders for Plan Cards",
+                "effort": "1 hour",
+                "description": "Display 6 skeleton cards while loading plan list"
+              }
+            ]
+          },
+          "acceptanceCriteria": [
+            "Progress indicator during AI generation",
+            "Stage text updates ('Analyzing...', 'Selecting...', 'Formatting...')",
+            "Estimated time remaining shown",
+            "Skeleton cards while loading plan list",
+            "Cancel button to abort generation"
+          ]
+        },
+        {
+          "id": "1.4",
+          "name": "Empty State Improvements",
+          "effort": "1 hour",
+          "description": "Create contextual empty states with clear CTAs",
+          "files": [
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/empty-state.tsx (new)"
+          ],
+          "implementation": {
+            "states": [
+              {
+                "type": "no-plans",
+                "icon": "📋",
+                "title": "No session plans yet",
+                "description": "Create your first AI-powered training session",
+                "action": "Generate New Plan"
+              },
+              {
+                "type": "no-results",
+                "icon": "🔍",
+                "title": "No plans match your filters",
+                "description": "Try adjusting your search or filters",
+                "action": "Clear Filters"
+              },
+              {
+                "type": "no-favorites",
+                "icon": "⭐",
+                "title": "No favorite plans yet",
+                "description": "Favorite plans to quick-access them later",
+                "action": "Browse Plans"
+              }
+            ]
+          },
+          "acceptanceCriteria": [
+            "Different empty states for different scenarios",
+            "Clear call-to-action for each state",
+            "Helpful guidance text",
+            "Appropriate icon/illustration"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-2",
+      "name": "Top Filter Bar + Search",
+      "timeline": "Weeks 3-4",
+      "effort": "~50 hours",
+      "dependencies": "Phase 1 complete",
+      "goal": "Implement search-first discovery with mobile-friendly filters",
+      "features": [
+        {
+          "id": "2.1",
+          "name": "Search Bar Component",
+          "effort": "6 hours",
+          "description": "Full-text search with debouncing",
+          "files": [
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/search-bar.tsx (new)",
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/page.tsx",
+            "packages/backend/convex/models/sessionPlans.ts"
+          ],
+          "implementation": {
+            "backend": {
+              "effort": "3 hours",
+              "searchIndex": {
+                "name": "search_plans",
+                "searchField": "searchableText",
+                "filterFields": [
+                  "organizationId",
+                  "coachId",
+                  "ageGroup",
+                  "sport"
+                ]
+              },
+              "query": {
+                "name": "searchPlans",
+                "parameters": {
+                  "orgId": "string",
+                  "searchQuery": "string",
+                  "filters": {
+                    "ageGroup": "optional string",
+                    "duration": "optional { min: number, max: number }",
+                    "intensity": "optional string",
+                    "focusAreas": "optional string[]"
+                  }
+                }
+              }
+            },
+            "frontend": {
+              "effort": "3 hours",
+              "debounceDelay": "300ms",
+              "features": [
+                "Search input with icon",
+                "Filters button in search bar",
+                "Clear button when text present",
+                "Loading indicator",
+                "Results count"
+              ]
+            }
+          },
+          "acceptanceCriteria": [
+            "Search input with icon and filter button",
+            "Debounced search (300ms delay)",
+            "Search across title, description, focus areas, tags",
+            "Clear button (X) when search has text",
+            "Loading indicator while searching",
+            "Results count displayed"
+          ]
+        },
+        {
+          "id": "2.2",
+          "name": "Quick Filter Pills",
+          "effort": "4 hours",
+          "description": "Horizontal scrolling filter pills for common filters",
+          "files": [
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/filter-pills.tsx (new)"
+          ],
+          "implementation": {
+            "pills": [
+              {
+                "id": "favorites",
+                "label": "⭐ Favorites",
+                "filter": {
+                  "favorited": true
+                }
+              },
+              {
+                "id": "recent",
+                "label": "🕐 Recent",
+                "filter": {
+                  "recent": true
+                }
+              },
+              {
+                "id": "u12",
+                "label": "U12",
+                "filter": {
+                  "ageGroup": "U12"
+                }
+              },
+              {
+                "id": "u14",
+                "label": "U14",
+                "filter": {
+                  "ageGroup": "U14"
+                }
+              },
+              {
+                "id": "60min",
+                "label": "60 min",
+                "filter": {
+                  "duration": 60
+                }
+              },
+              {
+                "id": "high",
+                "label": "High Intensity",
+                "filter": {
+                  "intensity": "high"
+                }
+              }
+            ],
+            "behavior": "Multi-select toggle",
+            "styling": "Rounded-full pills with filled state when active"
+          },
+          "acceptanceCriteria": [
+            "Pills displayed horizontally with scroll",
+            "Active pill has filled background",
+            "Clicking pill toggles filter on/off",
+            "Pills respond to screen size (more on desktop)",
+            "Touch-friendly on mobile (48px+ touch targets)"
+          ]
+        },
+        {
+          "id": "2.3",
+          "name": "Sort Dropdown",
+          "effort": "2 hours",
+          "description": "Dropdown for sorting results",
+          "files": [
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/sort-dropdown.tsx (new)"
+          ],
+          "implementation": {
+            "options": [
+              {
+                "value": "mostUsed",
+                "label": "Sort: Most Used"
+              },
+              {
+                "value": "highestRated",
+                "label": "Sort: Highest Rated"
+              },
+              {
+                "value": "recentlyCreated",
+                "label": "Sort: Recently Created"
+              },
+              {
+                "value": "duration",
+                "label": "Sort: Duration (Short to Long)"
+              },
+              {
+                "value": "alphabetical",
+                "label": "Sort: A-Z"
+              }
+            ],
+            "persistence": "localStorage",
+            "defaultSort": "mostUsed"
+          },
+          "acceptanceCriteria": [
+            "Dropdown accessible via keyboard",
+            "Current sort option displayed",
+            "Results update immediately on selection",
+            "Sort persists across page reloads (localStorage)"
+          ]
+        },
+        {
+          "id": "2.4",
+          "name": "Results Header",
+          "effort": "1 hour",
+          "description": "Display results count and active filters",
+          "implementation": {
+            "elements": [
+              "Plan count display",
+              "Active filter count",
+              "Sort dropdown aligned right"
+            ],
+            "example": "42 plans match your search with 3 active filters"
+          },
+          "acceptanceCriteria": [
+            "Count updates reactively",
+            "Clear messaging about active filters",
+            "Sort dropdown aligned right"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "Advanced Filter Panel",
+      "timeline": "Week 5",
+      "effort": "~35 hours",
+      "dependencies": "Phase 2 complete",
+      "goal": "Implement comprehensive filter modal with all options",
+      "features": [
+        {
+          "id": "3.1",
+          "name": "Filter Modal/Drawer Structure",
+          "effort": "4 hours",
+          "description": "Responsive modal with all filter sections",
+          "files": [
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/advanced-filters.tsx",
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/filter-sections/age-group-filter.tsx",
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/filter-sections/duration-filter.tsx",
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/filter-sections/intensity-filter.tsx",
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/filter-sections/focus-areas-filter.tsx",
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/filter-sections/success-rate-filter.tsx"
+          ],
+          "implementation": {
+            "behavior": {
+              "mobile": "Full-screen drawer from bottom",
+              "desktop": "Centered modal max-w-2xl",
+              "scrolling": "Overflow-y-auto if content exceeds 80vh"
+            },
+            "actions": [
+              {
+                "button": "Clear All",
+                "action": "Reset all filters to defaults"
+              },
+              {
+                "button": "Show X Plans",
+                "action": "Apply filters and close modal",
+                "toast": "Showing {matchCount} plans"
+              }
+            ]
+          },
+          "acceptanceCriteria": [
+            "Modal opens from 'Filters' button",
+            "Modal closes on backdrop click or ESC",
+            "Mobile: Full-screen drawer from bottom",
+            "Desktop: Centered modal",
+            "Scroll if content exceeds viewport"
+          ]
+        },
+        {
+          "id": "3.2",
+          "name": "Age Group Filter",
+          "effort": "3 hours",
+          "description": "Multi-select age group buttons with counts",
+          "implementation": {
+            "ageGroups": [
+              "U8",
+              "U10",
+              "U12",
+              "U14",
+              "U16",
+              "U18",
+              "Senior"
+            ],
+            "behavior": "Multi-select (can select multiple)",
+            "display": "Grid 4 columns desktop, 2 mobile",
+            "counts": "Show plan count for each age group",
+            "liveUpdate": "Display matching plan count as selections change"
+          },
+          "acceptanceCriteria": [
+            "Multi-select (can select multiple age groups)",
+            "Shows count for each age group",
+            "Selected buttons have filled style",
+            "Live count updates as selections change",
+            "Grid layout (4 columns on desktop, 2 on mobile)"
+          ]
+        },
+        {
+          "id": "3.3",
+          "name": "Duration Filter",
+          "effort": "2 hours",
+          "description": "Slider for duration selection",
+          "implementation": {
+            "range": {
+              "min": 30,
+              "max": 120,
+              "step": 15,
+              "unit": "minutes"
+            },
+            "display": "Slider with live value display",
+            "accessibility": "Keyboard navigation supported"
+          },
+          "acceptanceCriteria": [
+            "Slider from 30-120 minutes",
+            "15-minute increments",
+            "Live value display updates",
+            "Accessible (keyboard navigation)",
+            "Touch-friendly on mobile"
+          ]
+        },
+        {
+          "id": "3.4",
+          "name": "Intensity Filter",
+          "effort": "2 hours",
+          "description": "Single-select intensity buttons",
+          "implementation": {
+            "intensities": [
+              {
+                "value": "low",
+                "label": "🟢 Low",
+                "color": "bg-green-500"
+              },
+              {
+                "value": "medium",
+                "label": "🟡 Medium",
+                "color": "bg-yellow-500"
+              },
+              {
+                "value": "high",
+                "label": "🔴 High",
+                "color": "bg-red-500"
+              }
+            ],
+            "behavior": "Single-select (radio button behavior)",
+            "display": "Grid 3 columns"
+          },
+          "acceptanceCriteria": [
+            "Single-select (radio button behavior)",
+            "Color-coded indicators",
+            "Clear visual feedback for selected state"
+          ]
+        },
+        {
+          "id": "3.5",
+          "name": "Focus Areas Filter",
+          "effort": "3 hours",
+          "description": "Multi-select focus area pills",
+          "implementation": {
+            "focusAreas": [
+              {
+                "id": "passing",
+                "label": "⚽ Passing"
+              },
+              {
+                "id": "shooting",
+                "label": "🎯 Shooting"
+              },
+              {
+                "id": "dribbling",
+                "label": "🏃 Dribbling"
+              },
+              {
+                "id": "tactical",
+                "label": "🧠 Tactical"
+              },
+              {
+                "id": "fitness",
+                "label": "💪 Fitness"
+              },
+              {
+                "id": "games",
+                "label": "🎮 Games"
+              },
+              {
+                "id": "defending",
+                "label": "🛡️ Defending"
+              },
+              {
+                "id": "possession",
+                "label": "🔄 Possession"
+              }
+            ],
+            "behavior": "Multi-select pill buttons",
+            "display": "Flex wrap with gap"
+          },
+          "acceptanceCriteria": [
+            "Multi-select pill buttons",
+            "Icons for visual identification",
+            "Wraps to multiple rows on small screens",
+            "Selected pills have filled background"
+          ]
+        },
+        {
+          "id": "3.6",
+          "name": "Success Rate & Favorites Filter",
+          "effort": "1 hour",
+          "description": "Checkbox filters for quality and favorites",
+          "implementation": {
+            "checkboxes": [
+              {
+                "id": "highRated",
+                "label": "Only show highly rated plans (80%+)",
+                "filter": "successRate >= 80"
+              },
+              {
+                "id": "favoritesOnly",
+                "label": "Only favorites",
+                "filter": "favorited = true"
+              }
+            ]
+          },
+          "acceptanceCriteria": [
+            "Checkboxes are keyboard accessible",
+            "Labels are clickable",
+            "Clear visual feedback for checked state"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "Pinterest-Style Masonry + Enhanced Admin",
+      "timeline": "Weeks 6-8",
+      "effort": "~55 hours",
+      "dependencies": "Phases 1-3 complete",
+      "goal": "Implement visual library layout and admin moderation improvements",
+      "features": [
+        {
+          "id": "4.1",
+          "name": "Masonry Grid Layout",
+          "effort": "8 hours",
+          "description": "Pinterest-style variable-height grid",
+          "files": [
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/masonry-grid.tsx (new)",
+            "apps/web/src/app/orgs/[orgId]/coach/session-plans/session-plan-card.tsx (update)"
+          ],
+          "implementation": {
+            "steps": [
+              {
+                "step": 1,
+                "name": "Install Masonry Library",
+                "effort": "1 hour",
+                "command": "npm install react-masonry-css"
+              },
+              {
+                "step": 2,
+                "name": "Create Masonry Grid Component",
+                "effort": "4 hours",
+                "breakpoints": {
+                  "default": 3,
+                  "1024": 2,
+                  "640": 1
+                }
+              },
+              {
+                "step": 3,
+                "name": "Update Session Plan Card for Variable Heights",
+                "effort": "3 hours",
+                "features": [
+                  "Show preview of first section when variant='masonry'",
+                  "Hover shows action menu",
+                  "Variable height based on content",
+                  "Smooth transitions"
+                ]
+              }
+            ]
+          },
+          "acceptanceCriteria": [
+            "Cards arranged in masonry grid (no gaps)",
+            "Responsive (3 cols desktop, 2 tablet, 1 mobile)",
+            "Variable heights based on content",
+            "Preview shows first section of plan",
+            "Hover shows action menu",
+            "Smooth transitions on hover",
+            "Cards clickable to open detail view"
+          ]
+        },
+        {
+          "id": "4.2",
+          "name": "Enhanced Admin Dashboard",
+          "effort": "12 hours",
+          "description": "Admin overview with metrics and quality signals",
+          "files": [
+            "apps/web/src/app/orgs/[orgId]/admin/session-plans/admin-dashboard.tsx (new)",
+            "apps/web/src/app/orgs/[orgId]/admin/session-plans/metrics-cards.tsx (new)",
+            "apps/web/src/app/orgs/[orgId]/admin/session-plans/status-tabs.tsx (new)",
+            "packages/backend/convex/models/sessionPlans.ts (update)"
+          ],
+          "implementation": {
+            "backend": {
+              "effort": "4 hours",
+              "queries": [
+                {
+                  "name": "getAdminMetrics",
+                  "returns": {
+                    "total": "Total shared plans",
+                    "pendingReview": "Plans without moderatedAt",
+                    "flagged": "Plans with flaggedCount > 0",
+                    "featured": "Plans with pinnedByAdmin = true"
+                  }
+                },
+                {
+                  "name": "getQualityScore",
+                  "description": "Calculate quality score 0-100",
+                  "factors": [
+                    {
+                      "factor": "sections.length >= 4",
+                      "points": 20
+                    },
+                    {
+                      "factor": "extractedTags.categories.length > 0",
+                      "points": 15
+                    },
+                    {
+                      "factor": "timesUsed > 3",
+                      "points": 20
+                    },
+                    {
+                      "factor": "successRate > 80",
+                      "points": 25
+                    },
+                    {
+                      "factor": "feedbackSubmitted",
+                      "points": 20
+                    }
+                  ]
+                }
+              ]
+            },
+            "frontend": {
+              "effort": "8 hours",
+              "components": [
+                {
+                  "name": "MetricsCards",
+                  "effort": "4 hours",
+                  "cards": [
+                    {
+                      "title": "Total Shared",
+                      "color": "default"
+                    },
+                    {
+                      "title": "Pending Review",
+                      "color": "border-2 border-blue-500",
+                      "textColor": "text-blue-600"
+                    },
+                    {
+                      "title": "Flagged",
+                      "color": "border-2 border-red-500",
+                      "textColor": "text-red-600"
+                    },
+                    {
+                      "title": "Featured",
+                      "color": "border-2 border-green-500",
+                      "textColor": "text-green-600"
+                    }
+                  ]
+                },
+                {
+                  "name": "StatusTabs",
+                  "effort": "2 hours",
+                  "tabs": [
+                    "All",
+                    "Pending",
+                    "Featured",
+                    "High Usage"
+                  ]
+                },
+                {
+                  "name": "QualityScoreIndicator",
+                  "effort": "2 hours",
+                  "display": "Progress bar with color coding",
+                  "colors": {
+                    "80+": "green",
+                    "60-79": "yellow",
+                    "<60": "red"
+                  }
+                }
+              ]
+            }
+          },
+          "acceptanceCriteria": [
+            "Metrics cards show at top of admin view",
+            "Cards color-coded by urgency",
+            "Status tabs filter plans",
+            "Quality score calculated and displayed",
+            "Visual progress bar for quality",
+            "Pending plans highlighted prominently"
+          ]
+        },
+        {
+          "id": "4.3",
+          "name": "Enhanced Plan Cards (Admin View)",
+          "effort": "4 hours",
+          "description": "Admin-specific plan cards with status indicators",
+          "implementation": {
+            "statusIndicators": {
+              "borderColors": {
+                "pinned": "border-l-green-500",
+                "flagged": "border-l-red-500",
+                "new": "border-l-yellow-500"
+              },
+              "badges": [
+                {
+                  "condition": "pinnedByAdmin",
+                  "text": "📌 PINNED",
+                  "color": "bg-green-100 text-green-800"
+                },
+                {
+                  "condition": "flaggedCount > 0",
+                  "text": "⚠️ FLAGGED",
+                  "color": "bg-red-100 text-red-800"
+                },
+                {
+                  "condition": "!moderatedAt",
+                  "text": "⏳ NEW",
+                  "color": "bg-yellow-100 text-yellow-800"
+                }
+              ]
+            },
+            "displayInfo": [
+              "Coach name",
+              "Shared date (relative)",
+              "Times used",
+              "Unique coaches count",
+              "Quality score with progress bar",
+              "Flag reasons (if flagged)"
+            ],
+            "actions": [
+              "Feature Plan (if not pinned)",
+              "Unpin Plan (if pinned)",
+              "Remove from Library",
+              "View Full Plan"
+            ]
+          },
+          "acceptanceCriteria": [
+            "Status badge visible (PINNED, FLAGGED, NEW)",
+            "Color-coded left border",
+            "Quality score displayed",
+            "Usage stats shown (times used, unique coaches)",
+            "Quick actions in dropdown",
+            "Flag reasons displayed if flagged"
+          ]
+        },
+        {
+          "id": "4.4",
+          "name": "Removal Dialog with Notification",
+          "effort": "6 hours",
+          "description": "Structured removal process with coach notification",
+          "files": [
+            "apps/web/src/app/orgs/[orgId]/admin/session-plans/remove-plan-dialog.tsx (new)",
+            "packages/backend/convex/models/sessionPlans.ts (update)"
+          ],
+          "implementation": {
+            "backend": {
+              "effort": "2 hours",
+              "mutation": "removeFromClubLibraryEnhanced",
+              "parameters": {
+                "planId": "ID of plan to remove",
+                "reason": "Required reason from dropdown",
+                "message": "Optional message to coach",
+                "notifyCoach": "Boolean, default true"
+              },
+              "actions": [
+                "Set visibility to 'private'",
+                "Record moderatedAt timestamp",
+                "Record moderatedBy admin ID",
+                "Store moderationReason and moderationNote",
+                "Send notification if notifyCoach = true"
+              ]
+            },
+            "frontend": {
+              "effort": "4 hours",
+              "reasons": [
+                "Inappropriate content",
+                "Safety concerns",
+                "Poor quality",
+                "Duplicate content",
+                "Violates guidelines",
+                "Other"
+              ],
+              "fields": [
+                {
+                  "name": "reason",
+                  "type": "dropdown",
+                  "required": true
+                },
+                {
+                  "name": "message",
+                  "type": "textarea",
+                  "required": false,
+                  "placeholder": "Explain why this plan was removed and how they can improve..."
+                },
+                {
+                  "name": "notifyCoach",
+                  "type": "checkbox",
+                  "default": true,
+                  "label": "Notify {coachName} about removal"
+                }
+              ]
+            }
+          },
+          "acceptanceCriteria": [
+            "Reason dropdown required",
+            "Optional message field",
+            "Notify coach checkbox (default checked)",
+            "Coach receives notification if checked",
+            "Dialog shows plan details",
+            "Cannot submit without reason",
+            "Success toast on removal",
+            "Plan reverts to private visibility"
+          ]
+        },
+        {
+          "id": "4.5",
+          "name": "Feature/Pin Plan Action",
+          "effort": "2 hours",
+          "description": "Allow admins to feature high-quality plans",
+          "implementation": {
+            "mutation": "featurePlan",
+            "actions": [
+              "Set pinnedByAdmin = true",
+              "Record moderatedAt timestamp",
+              "Record moderatedBy admin ID",
+              "Send positive notification to coach"
+            ],
+            "notification": {
+              "type": "plan_featured",
+              "title": "Your session plan was featured! 🎉",
+              "message": "Your plan has been featured by an admin for its quality."
+            }
+          },
+          "acceptanceCriteria": [
+            "Pin button in admin card dropdown",
+            "Plan gets 'PINNED' badge",
+            "Plan appears in 'Featured' tab",
+            "Coach receives positive notification",
+            "Unpin option available for pinned plans"
+          ]
+        }
+      ]
+    }
+  ],
+  "technicalRequirements": {
+    "dependencies": {
+      "newPackages": [
+        {
+          "name": "react-masonry-css",
+          "version": "^1.0.16",
+          "purpose": "Pinterest-style masonry grid layout"
+        },
+        {
+          "name": "sonner",
+          "version": "^1.3.1",
+          "purpose": "Toast notifications"
+        },
+        {
+          "name": "react-hotkeys-hook",
+          "version": "^4.4.1",
+          "purpose": "Keyboard shortcuts"
+        }
+      ],
+      "existingPackages": [
+        "@radix-ui/react-dialog",
+        "@radix-ui/react-dropdown-menu",
+        "@radix-ui/react-slider",
+        "@radix-ui/react-tabs",
+        "date-fns"
+      ]
+    },
+    "databaseChanges": {
+      "indexes": [
+        {
+          "table": "sessionPlans",
+          "name": "search_plans",
+          "type": "searchIndex",
+          "searchField": "searchableText",
+          "filterFields": [
+            "organizationId",
+            "coachId",
+            "ageGroup",
+            "sport"
+          ]
+        }
+      ],
+      "newFields": [
+        {
+          "table": "sessionPlans",
+          "field": "searchableText",
+          "type": "string",
+          "description": "Concatenated searchable content (title + description + tags)"
+        },
+        {
+          "table": "sessionPlans",
+          "field": "moderatedAt",
+          "type": "number",
+          "description": "Timestamp when plan was moderated"
+        },
+        {
+          "table": "sessionPlans",
+          "field": "moderatedBy",
+          "type": "Id<'users'>",
+          "description": "Admin who moderated the plan"
+        },
+        {
+          "table": "sessionPlans",
+          "field": "moderationReason",
+          "type": "string",
+          "description": "Reason for removal/moderation"
+        },
+        {
+          "table": "sessionPlans",
+          "field": "moderationNote",
+          "type": "string",
+          "description": "Optional message to coach"
+        }
+      ]
+    },
+    "performanceOptimizations": [
+      {
+        "optimization": "Pagination",
+        "description": "Load 20 plans per page",
+        "implementation": "Use Convex paginatedQuery"
+      },
+      {
+        "optimization": "Search Debouncing",
+        "description": "300ms delay before search execution",
+        "implementation": "Custom useDebounce hook"
+      },
+      {
+        "optimization": "Lazy Loading",
+        "description": "Load images on demand",
+        "implementation": "Native loading='lazy' attribute"
+      },
+      {
+        "optimization": "Caching",
+        "description": "Cache frequently accessed data",
+        "implementation": "React Query / Convex built-in caching"
+      }
+    ]
+  },
+  "userExperience": {
+    "mobileOptimization": {
+      "requirements": [
+        "Touch targets >= 48px",
+        "Filter drawer slides from bottom",
+        "Masonry grid single column on mobile",
+        "Search bar prominent and accessible",
+        "No horizontal scroll"
+      ],
+      "breakpoints": {
+        "mobile": "< 640px",
+        "tablet": "640px - 1024px",
+        "desktop": "> 1024px"
+      }
+    },
+    "accessibility": {
+      "wcag": "AA compliance",
+      "requirements": [
+        "Keyboard navigation for all interactions",
+        "Screen reader announcements for state changes",
+        "ARIA labels on all interactive elements",
+        "Color contrast meets WCAG AA standards",
+        "Visible focus indicators",
+        "Accessible form validation messages"
+      ],
+      "keyboardShortcuts": [
+        {
+          "key": "Ctrl+F",
+          "action": "Focus search input"
+        },
+        {
+          "key": "Ctrl+N",
+          "action": "Open create plan dialog"
+        },
+        {
+          "key": "Esc",
+          "action": "Close modals/dialogs"
+        }
+      ]
+    },
+    "loadingStates": [
+      {
+        "state": "Initial Load",
+        "target": "< 2 seconds",
+        "indicator": "Skeleton cards"
+      },
+      {
+        "state": "Search",
+        "target": "< 300ms response",
+        "indicator": "Loading spinner in search"
+      },
+      {
+        "state": "AI Generation",
+        "target": "15-30 seconds",
+        "indicator": "Progress bar with stages"
+      },
+      {
+        "state": "Filter Application",
+        "target": "< 500ms",
+        "indicator": "Brief loading state"
+      }
+    ],
+    "emptyStates": [
+      {
+        "scenario": "No plans created",
+        "message": "No session plans yet",
+        "cta": "Generate New Plan"
+      },
+      {
+        "scenario": "No search results",
+        "message": "No plans match your filters",
+        "cta": "Clear Filters"
+      },
+      {
+        "scenario": "No favorites",
+        "message": "No favorite plans yet",
+        "cta": "Browse Plans"
+      }
+    ]
+  },
+  "testing": {
+    "phases": [
+      {
+        "phase": "Unit Testing",
+        "scope": "Individual components and functions",
+        "tools": ["Jest", "React Testing Library"]
+      },
+      {
+        "phase": "Integration Testing",
+        "scope": "Component interactions and data flow",
+        "tools": ["Jest", "React Testing Library"]
+      },
+      {
+        "phase": "E2E Testing",
+        "scope": "Complete user flows",
+        "tools": ["Playwright"]
+      },
+      {
+        "phase": "UAT",
+        "scope": "Real users in production-like environment",
+        "scenarios": [
+          "New coach creates first plan",
+          "Coach searches for plan",
+          "Coach shares plan to club",
+          "Admin moderates plan",
+          "Mobile coach uses filters"
+        ]
+      }
+    ],
+    "acceptanceCriteria": {
+      "desktop": "All scenarios pass on Chrome, Firefox, Safari",
+      "mobile": "All scenarios pass on iOS Safari, Chrome Android",
+      "tablet": "All scenarios pass on iPad, Android tablet",
+      "performance": "Initial load < 2s, search < 300ms",
+      "accessibility": "WCAG AA compliance verified",
+      "errors": "No console errors in production"
+    }
+  },
+  "deployment": {
+    "strategy": "Phased rollout with feature flags",
+    "phases": [
+      {
+        "phase": "Beta",
+        "duration": "Weeks 1-2",
+        "percentage": "10%",
+        "users": "Selected beta organizations",
+        "monitoring": [
+          "Error rates",
+          "Performance metrics",
+          "User feedback",
+          "Support tickets"
+        ]
+      },
+      {
+        "phase": "Gradual",
+        "duration": "Week 3",
+        "percentage": "50%",
+        "users": "Half of organizations",
+        "monitoring": [
+          "Adoption rates",
+          "Feature usage",
+          "Performance at scale",
+          "Error patterns"
+        ]
+      },
+      {
+        "phase": "Full",
+        "duration": "Week 4",
+        "percentage": "100%",
+        "users": "All users",
+        "monitoring": [
+          "Overall adoption",
+          "Success metrics",
+          "Support volume",
+          "User satisfaction"
+        ]
+      }
+    ],
+    "preDeploymentChecklist": [
+      "Feature flags configured",
+      "Convex indexes deployed",
+      "Environment variables set",
+      "Analytics tracking added",
+      "Error monitoring configured (Sentry)",
+      "All TypeScript errors resolved",
+      "ESLint warnings addressed",
+      "Unit tests passing",
+      "E2E tests passing",
+      "Bundle size acceptable (< 500KB added)",
+      "Performance benchmarks met",
+      "Documentation updated",
+      "Coach onboarding guide created",
+      "Admin features documented",
+      "Release notes prepared"
+    ]
+  },
+  "successMetrics": {
+    "phase1": {
+      "timeToFindPlan": {
+        "current": "5+ minutes",
+        "target": "< 2 minutes",
+        "measure": "Time from page load to plan selection"
+      },
+      "supportTickets": {
+        "target": "-30%",
+        "measure": "Reduction in session plans related tickets"
+      },
+      "userSatisfaction": {
+        "target": "> 8/10",
+        "measure": "In-app satisfaction survey"
+      }
+    },
+    "phase2": {
+      "searchUsage": {
+        "target": "70% of sessions",
+        "measure": "Percentage of users who use search"
+      },
+      "filterUsage": {
+        "target": "50% of sessions",
+        "measure": "Percentage of users who apply filters"
+      },
+      "mobileEngagement": {
+        "target": "+40%",
+        "measure": "Increase in mobile feature usage"
+      }
+    },
+    "phase3": {
+      "advancedFilterUsage": {
+        "target": "30% of searches",
+        "measure": "Percentage using advanced filter modal"
+      },
+      "filterSatisfaction": {
+        "target": "> 7/10",
+        "measure": "Filter feature satisfaction score"
+      }
+    },
+    "phase4": {
+      "plansShared": {
+        "target": "3x increase",
+        "measure": "Number of plans shared to club library"
+      },
+      "planDiscovery": {
+        "target": "+50%",
+        "measure": "Plans discovered from club library"
+      },
+      "adminModerationTime": {
+        "target": "-50%",
+        "measure": "Time to moderate a plan"
+      }
+    },
+    "overall": {
+      "monthlyActiveCoaches": {
+        "target": "80%+",
+        "measure": "Coaches using feature monthly"
+      },
+      "plansCreatedPerCoach": {
+        "target": "2+ per month",
+        "measure": "Average plans per coach"
+      },
+      "successRate": {
+        "target": "> 85%",
+        "measure": "Plans marked as successful"
+      },
+      "nps": {
+        "target": "> 40",
+        "measure": "Net Promoter Score for feature"
+      }
+    }
+  },
+  "riskMitigation": {
+    "technicalRisks": [
+      {
+        "risk": "Performance Degradation",
+        "likelihood": "Medium",
+        "impact": "High",
+        "mitigation": [
+          "Implement pagination (20 per page)",
+          "Add proper database indexes",
+          "Use debouncing for search/filters",
+          "Cache frequently accessed data"
+        ],
+        "monitoring": [
+          "Query execution times",
+          "Bundle size",
+          "Time to interactive (TTI)"
+        ],
+        "rollback": "Feature flag to disable new features"
+      },
+      {
+        "risk": "Data Migration Issues",
+        "likelihood": "Low",
+        "impact": "High",
+        "mitigation": [
+          "Test on staging with production data clone",
+          "Maintain backward compatibility",
+          "Run migration scripts in batches",
+          "Monitor error logs during migration"
+        ],
+        "monitoring": [
+          "Error rates",
+          "Data consistency checks",
+          "User reports"
+        ],
+        "rollback": "Revert database changes via backup"
+      },
+      {
+        "risk": "Mobile Layout Issues",
+        "likelihood": "Medium",
+        "impact": "Medium",
+        "mitigation": [
+          "Extensive testing on real devices",
+          "Use responsive design patterns",
+          "Test on multiple screen sizes",
+          "Touch target sizing >= 48px"
+        ],
+        "monitoring": [
+          "Error rates by device type",
+          "User agent analysis",
+          "Mobile-specific support tickets"
+        ],
+        "rollback": "Serve desktop layout to mobile if critical"
+      }
+    ],
+    "uxRisks": [
+      {
+        "risk": "User Confusion with New UI",
+        "likelihood": "Medium",
+        "impact": "Medium",
+        "mitigation": [
+          "Provide onboarding tour on first visit",
+          "Add contextual tooltips",
+          "Create help documentation",
+          "Send announcement email"
+        ],
+        "monitoring": [
+          "Support ticket volume",
+          "User feedback surveys",
+          "Feature adoption rates"
+        ],
+        "rollback": "Provide 'classic view' toggle"
+      },
+      {
+        "risk": "Feature Overload",
+        "likelihood": "Low",
+        "impact": "Medium",
+        "mitigation": [
+          "Use progressive disclosure",
+          "Set smart defaults",
+          "Hide advanced features initially",
+          "Provide feature discovery prompts"
+        ],
+        "monitoring": [
+          "Feature usage analytics",
+          "Time on page",
+          "Completion rates"
+        ],
+        "rollback": "Simplify interface based on usage data"
+      }
+    ]
+  },
+  "training": {
+    "coaches": [
+      {
+        "type": "Video Tutorial",
+        "duration": "3-5 minutes",
+        "topics": [
+          "Overview of new features",
+          "How to search and filter",
+          "How to share plans",
+          "Quick tips and shortcuts"
+        ],
+        "delivery": "In-app and email"
+      },
+      {
+        "type": "Quick Start Guide",
+        "format": "PDF",
+        "content": [
+          "One-page cheat sheet",
+          "Common tasks",
+          "Keyboard shortcuts",
+          "Troubleshooting tips"
+        ],
+        "delivery": "Download link in app"
+      },
+      {
+        "type": "In-App Tour",
+        "format": "Interactive walkthrough",
+        "triggers": "First visit after release",
+        "features": [
+          "Dismissible",
+          "Re-accessible from help menu",
+          "Step-by-step highlights",
+          "Can skip or complete"
+        ]
+      }
+    ],
+    "admins": [
+      {
+        "type": "Admin Guide",
+        "format": "Documentation",
+        "topics": [
+          "Moderation best practices",
+          "How to feature plans",
+          "Handling flags and reports",
+          "Quality guidelines"
+        ],
+        "delivery": "Admin portal"
+      },
+      {
+        "type": "Admin Workshop",
+        "format": "Live webinar",
+        "duration": "30 minutes",
+        "content": [
+          "Live demo of features",
+          "Q&A session",
+          "Best practices sharing",
+          "Common scenarios walkthrough"
+        ],
+        "delivery": "Zoom/Teams"
+      }
+    ]
+  },
+  "futureEnhancements": {
+    "shortTerm": [
+      {
+        "feature": "AI Recommendations",
+        "description": "Suggest plans based on team performance and history",
+        "effort": "High",
+        "priority": "P1"
+      },
+      {
+        "feature": "Plan Templates Marketplace",
+        "description": "Community-contributed plan templates",
+        "effort": "High",
+        "priority": "P2"
+      },
+      {
+        "feature": "Collaborative Plans",
+        "description": "Multiple coaches edit same plan",
+        "effort": "Medium",
+        "priority": "P2"
+      }
+    ],
+    "longTerm": [
+      {
+        "feature": "Video Integration",
+        "description": "Attach drill videos to plan sections",
+        "effort": "High",
+        "priority": "P3"
+      },
+      {
+        "feature": "Mobile App",
+        "description": "Native iOS/Android app for field use",
+        "effort": "Very High",
+        "priority": "P3"
+      },
+      {
+        "feature": "Plan Analytics",
+        "description": "Detailed performance tracking per plan",
+        "effort": "Medium",
+        "priority": "P2"
+      }
+    ]
+  }
+}

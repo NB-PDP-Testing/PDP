@@ -54,7 +54,6 @@ function ParentDashboardContent() {
     guardianIdentity,
     children: identityChildren,
     isLoading: identityLoading,
-    hasIdentity,
   } = useGuardianChildrenInOrg(orgId, session?.user?.email);
 
   // Check if user has parent functional role or is admin/owner
@@ -79,16 +78,16 @@ function ParentDashboardContent() {
     let dueSoon = 0;
     let overdue = 0;
 
-    identityChildren.forEach((child) => {
+    for (const child of identityChildren) {
       const status = child.enrollment?.reviewStatus?.toLowerCase();
       if (status === "completed") {
-        completedReviews++;
+        completedReviews += 1;
       } else if (status === "due soon" || status === "due_soon") {
-        dueSoon++;
+        dueSoon += 1;
       } else if (status === "overdue") {
-        overdue++;
+        overdue += 1;
       }
-    });
+    }
 
     return { completedReviews, dueSoon, overdue };
   }, [identityChildren]);
@@ -275,22 +274,22 @@ function ParentDashboardContent() {
       )}
 
       {/* Weekly Schedule */}
-      {playerCount > 0 && <WeeklySchedule children={identityChildren} />}
+      {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}
 
       {/* Coach Feedback Section */}
       {playerCount > 0 && (
-        <CoachFeedback children={identityChildren} orgId={orgId} />
+        <CoachFeedback orgId={orgId} playerData={identityChildren} />
       )}
 
       {/* Medical Information Section */}
       {playerCount > 0 && (
-        <MedicalInfo children={identityChildren} orgId={orgId} />
+        <MedicalInfo orgId={orgId} playerData={identityChildren} />
       )}
 
       {/* AI Practice Assistant */}
       {playerCount > 0 && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <AIPracticeAssistant children={identityChildren} orgId={orgId} />
+          <AIPracticeAssistant orgId={orgId} playerData={identityChildren} />
 
           {/* Coming Soon Features */}
           <Card>

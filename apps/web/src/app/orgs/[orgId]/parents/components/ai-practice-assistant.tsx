@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/select";
 
 type AIPracticeAssistantProps = {
-  children: Array<{
+  playerData: Array<{
     player: {
       _id: Id<"playerIdentities">;
       firstName: string;
@@ -225,7 +225,7 @@ type PracticePlan = {
 };
 
 export function AIPracticeAssistant({
-  children,
+  playerData,
   orgId,
 }: AIPracticeAssistantProps) {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
@@ -234,7 +234,9 @@ export function AIPracticeAssistant({
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Get selected child
-  const selectedChild = children.find((c) => c.player._id === selectedChildId);
+  const selectedChild = playerData.find(
+    (c) => c.player._id === selectedChildId
+  );
 
   // Get passport data for selected child
   const passportData = useQuery(
@@ -329,7 +331,7 @@ export function AIPracticeAssistant({
                   <SelectValue placeholder="Choose a child" />
                 </SelectTrigger>
                 <SelectContent>
-                  {children.map((child) => (
+                  {playerData.map((child) => (
                     <SelectItem key={child.player._id} value={child.player._id}>
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4" />

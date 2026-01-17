@@ -17,6 +17,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
 import type { AvailableFilters, FilterState } from "./filter-sidebar";
 
 type FilterModalProps = {
@@ -51,7 +52,11 @@ export function FilterModal({
     localFilters.categories.length > 0 ||
     localFilters.favoriteOnly ||
     localFilters.featuredOnly ||
-    localFilters.templateOnly;
+    localFilters.templateOnly ||
+    (localFilters.minDuration !== undefined &&
+      localFilters.minDuration !== 30) ||
+    (localFilters.maxDuration !== undefined &&
+      localFilters.maxDuration !== 120);
 
   const clearAllFilters = () => {
     setLocalFilters({
@@ -64,6 +69,8 @@ export function FilterModal({
       favoriteOnly: false,
       featuredOnly: false,
       templateOnly: false,
+      minDuration: undefined,
+      maxDuration: undefined,
     });
   };
 
@@ -237,26 +244,129 @@ export function FilterModal({
             {/* Intensity */}
             <div className="space-y-3">
               <Label className="font-medium text-sm">Intensity</Label>
-              {(["low", "medium", "high"] as const).map((intensity) => (
-                <div className="flex items-center space-x-2" key={intensity}>
-                  <Checkbox
-                    checked={localFilters.intensities.includes(intensity)}
-                    id={`intensity-modal-${intensity}`}
-                    onCheckedChange={() =>
-                      toggleArrayFilter("intensities", intensity)
-                    }
-                  />
-                  <label
-                    className="cursor-pointer font-normal text-sm capitalize leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    htmlFor={`intensity-modal-${intensity}`}
-                  >
-                    {intensity}
-                  </label>
-                </div>
-              ))}
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    {
+                      value: "low",
+                      label: "Low",
+                      color:
+                        "bg-green-100 text-green-700 border-green-300 hover:bg-green-200",
+                    },
+                    {
+                      value: "medium",
+                      label: "Medium",
+                      color:
+                        "bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200",
+                    },
+                    {
+                      value: "high",
+                      label: "High",
+                      color:
+                        "bg-red-100 text-red-700 border-red-300 hover:bg-red-200",
+                    },
+                  ] as const
+                ).map(({ value, label, color }) => {
+                  const isSelected = localFilters.intensities.includes(value);
+                  return (
+                    <Button
+                      className={isSelected ? color : ""}
+                      key={value}
+                      onClick={() => {
+                        // Single-select: clear all other intensities
+                        setLocalFilters({
+                          ...localFilters,
+                          intensities: isSelected ? [] : [value],
+                        });
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
 
             <Separator />
+
+            {/* Duration */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="font-medium text-sm">
+                  Duration (minutes)
+                </Label>
+                <span className="text-muted-foreground text-sm">
+                  {localFilters.minDuration ?? 30} -{" "}
+                  {localFilters.maxDuration ?? 120} min
+                </span>
+              </div>
+              <Slider
+                className="w-full"
+                max={120}
+                min={30}
+                onValueChange={(values) => {
+                  setLocalFilters({
+                    ...localFilters,
+                    minDuration: values[0],
+                    maxDuration: values[1],
+                  });
+                }}
+                step={15}
+                value={[
+                  localFilters.minDuration ?? 30,
+                  localFilters.maxDuration ?? 120,
+                ]}
+              />
+              <div className="flex justify-between text-muted-foreground text-xs">
+                <span>30 min</span>
+                <span>120 min</span>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Focus Areas (Skills) */}
+            {availableFilters.skills.length > 0 && (
+              <>
+                <div className="space-y-3">
+                  <Label className="font-medium text-sm">Focus Areas</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {availableFilters.skills
+                      .slice(0, 20)
+                      .map(({ value, count }) => {
+                        const isSelected = localFilters.skills.includes(value);
+                        return (
+                          <Button
+                            className="h-8"
+                            key={value}
+                            onClick={() => toggleArrayFilter("skills", value)}
+                            size="sm"
+                            type="button"
+                            variant={isSelected ? "default" : "outline"}
+                          >
+                            {value}
+                            <Badge
+                              className="ml-1.5"
+                              variant={isSelected ? "outline" : "secondary"}
+                            >
+                              {count}
+                            </Badge>
+                          </Button>
+                        );
+                      })}
+                  </div>
+                  {availableFilters.skills.length > 20 && (
+                    <p className="text-muted-foreground text-xs">
+                      +{availableFilters.skills.length - 20} more skills
+                    </p>
+                  )}
+                </div>
+                <Separator />
+              </>
+            )}
 
             {/* Categories */}
             {availableFilters.categories.length > 0 && (
@@ -286,40 +396,6 @@ export function FilterModal({
                 </div>
                 <Separator />
               </>
-            )}
-
-            {/* Skills */}
-            {availableFilters.skills.length > 0 && (
-              <div className="space-y-3">
-                <Label className="font-medium text-sm">Skills</Label>
-                {availableFilters.skills
-                  .slice(0, 20)
-                  .map(({ value, count }) => (
-                    <div className="flex items-center space-x-2" key={value}>
-                      <Checkbox
-                        checked={localFilters.skills.includes(value)}
-                        id={`skill-modal-${value}`}
-                        onCheckedChange={() =>
-                          toggleArrayFilter("skills", value)
-                        }
-                      />
-                      <label
-                        className="flex flex-1 cursor-pointer items-center justify-between font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        htmlFor={`skill-modal-${value}`}
-                      >
-                        <span>{value}</span>
-                        <Badge className="ml-2" variant="secondary">
-                          {count}
-                        </Badge>
-                      </label>
-                    </div>
-                  ))}
-                {availableFilters.skills.length > 20 && (
-                  <p className="text-muted-foreground text-xs">
-                    +{availableFilters.skills.length - 20} more skills
-                  </p>
-                )}
-              </div>
             )}
           </div>
         </ScrollArea>

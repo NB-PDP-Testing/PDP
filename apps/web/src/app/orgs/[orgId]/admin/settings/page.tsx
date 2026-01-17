@@ -13,6 +13,7 @@ import {
   Heart,
   Palette,
   Save,
+  Share2,
   Shield,
   Star,
   Trash2,
@@ -47,6 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
@@ -130,6 +132,16 @@ export default function OrgSettingsPage() {
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
   const [savingSports, setSavingSports] = useState(false);
 
+  // Sharing contact settings state
+  const [sharingContactMode, setSharingContactMode] = useState<
+    "direct" | "form" | ""
+  >("");
+  const [sharingContactName, setSharingContactName] = useState("");
+  const [sharingContactEmail, setSharingContactEmail] = useState("");
+  const [sharingContactPhone, setSharingContactPhone] = useState("");
+  const [sharingEnquiriesUrl, setSharingEnquiriesUrl] = useState("");
+  const [savingSharingContact, setSavingSharingContact] = useState(false);
+
   // Owner transfer state
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [selectedNewOwner, setSelectedNewOwner] = useState<string | null>(null);
@@ -151,6 +163,9 @@ export default function OrgSettingsPage() {
   );
   const updateOrganizationSports = useMutation(
     api.models.organizations.updateOrganizationSports
+  );
+  const updateOrganizationSharingContact = useMutation(
+    api.models.organizations.updateOrganizationSharingContact
   );
 
   // Query for org data including social links and supported sports
@@ -207,7 +222,7 @@ export default function OrgSettingsPage() {
     loadOrg();
   }, [orgId]);
 
-  // Populate social links and supported sports from Convex query
+  // Populate social links, supported sports, and sharing contact from Convex query
   useEffect(() => {
     if (orgData) {
       setWebsite(orgData.website || "");
@@ -216,6 +231,11 @@ export default function OrgSettingsPage() {
       setSocialInstagram(orgData.socialLinks?.instagram || "");
       setSocialLinkedin(orgData.socialLinks?.linkedin || "");
       setSelectedSports(orgData.supportedSports || []);
+      setSharingContactMode(orgData.sharingContactMode || "");
+      setSharingContactName(orgData.sharingContactName || "");
+      setSharingContactEmail(orgData.sharingContactEmail || "");
+      setSharingContactPhone(orgData.sharingContactPhone || "");
+      setSharingEnquiriesUrl(orgData.sharingEnquiriesUrl || "");
     }
   }, [orgData]);
 
@@ -324,6 +344,41 @@ export default function OrgSettingsPage() {
       );
     } finally {
       setSavingSports(false);
+    }
+  };
+
+  const handleSaveSharingContact = async () => {
+    // Validate based on mode
+    if (sharingContactMode === "direct") {
+      if (!(sharingContactEmail || sharingContactPhone)) {
+        toast.error(
+          "Please provide at least an email or phone number for direct contact"
+        );
+        return;
+      }
+    } else if (sharingContactMode === "form" && !sharingEnquiriesUrl) {
+      toast.error("Please provide an enquiries form URL");
+      return;
+    }
+
+    setSavingSharingContact(true);
+    try {
+      await updateOrganizationSharingContact({
+        organizationId: orgId,
+        sharingContactMode: sharingContactMode || null,
+        sharingContactName: sharingContactName.trim() || null,
+        sharingContactEmail: sharingContactEmail.trim() || null,
+        sharingContactPhone: sharingContactPhone.trim() || null,
+        sharingEnquiriesUrl: sharingEnquiriesUrl.trim() || null,
+      });
+      toast.success("Sharing contact settings updated successfully!");
+    } catch (error) {
+      console.error("Error updating sharing contact settings:", error);
+      toast.error(
+        (error as Error)?.message || "Failed to update sharing contact settings"
+      );
+    } finally {
+      setSavingSharingContact(false);
     }
   };
 
@@ -1336,6 +1391,152 @@ export default function OrgSettingsPage() {
               <p className="text-blue-900 text-sm">
                 Teams created in this organization will automatically default to
                 the first selected sport.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Sharing Contact Settings - Only for owners and admins */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Share2 className="h-5 w-5" />
+              Sharing Contact Settings
+            </CardTitle>
+            <CardDescription>
+              Configure public contact information displayed on shared player
+              passports
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Contact Mode Selection */}
+            <div className="space-y-3">
+              <Label>Contact Method</Label>
+              <RadioGroup
+                disabled={savingSharingContact}
+                onValueChange={(value) =>
+                  setSharingContactMode(value as "direct" | "form" | "")
+                }
+                value={sharingContactMode}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem id="mode-none" value="" />
+                  <Label
+                    className="cursor-pointer font-normal"
+                    htmlFor="mode-none"
+                  >
+                    No public contact (default)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem id="mode-direct" value="direct" />
+                  <Label
+                    className="cursor-pointer font-normal"
+                    htmlFor="mode-direct"
+                  >
+                    Direct contact (name, email, phone)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem id="mode-form" value="form" />
+                  <Label
+                    className="cursor-pointer font-normal"
+                    htmlFor="mode-form"
+                  >
+                    Enquiries form (URL link)
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* Direct Contact Fields */}
+            {sharingContactMode === "direct" && (
+              <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
+                <p className="text-muted-foreground text-sm">
+                  Provide at least an email or phone number for other
+                  organizations to contact you.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="contact-name">Contact Name (Optional)</Label>
+                  <Input
+                    disabled={savingSharingContact}
+                    id="contact-name"
+                    onChange={(e) => setSharingContactName(e.target.value)}
+                    placeholder="e.g., John Smith"
+                    value={sharingContactName}
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-email">Email</Label>
+                    <Input
+                      disabled={savingSharingContact}
+                      id="contact-email"
+                      onChange={(e) => setSharingContactEmail(e.target.value)}
+                      placeholder="contact@yourclub.com"
+                      type="email"
+                      value={sharingContactEmail}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact-phone">Phone</Label>
+                    <Input
+                      disabled={savingSharingContact}
+                      id="contact-phone"
+                      onChange={(e) => setSharingContactPhone(e.target.value)}
+                      placeholder="+1 555-0100"
+                      type="tel"
+                      value={sharingContactPhone}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Enquiries Form URL */}
+            {sharingContactMode === "form" && (
+              <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
+                <p className="text-muted-foreground text-sm">
+                  Provide a URL to your contact or enquiries form.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="enquiries-url">Enquiries Form URL</Label>
+                  <Input
+                    disabled={savingSharingContact}
+                    id="enquiries-url"
+                    onChange={(e) => setSharingEnquiriesUrl(e.target.value)}
+                    placeholder="https://yourclub.com/contact"
+                    type="url"
+                    value={sharingEnquiriesUrl}
+                  />
+                </div>
+              </div>
+            )}
+
+            <Button
+              disabled={savingSharingContact}
+              onClick={handleSaveSharingContact}
+              type="button"
+            >
+              {savingSharingContact ? (
+                <>
+                  <Save className="mr-2 h-4 w-4 animate-pulse" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Save Sharing Contact
+                </>
+              )}
+            </Button>
+
+            <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+              <p className="text-blue-900 text-sm">
+                This contact information will be displayed to coaches viewing
+                shared player passports from other organizations.
               </p>
             </div>
           </CardContent>

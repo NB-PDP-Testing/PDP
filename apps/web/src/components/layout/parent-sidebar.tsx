@@ -10,6 +10,7 @@ import {
   Menu,
   MessageSquare,
   Settings,
+  Shield,
   TrendingUp,
   User,
   Users,
@@ -64,6 +65,11 @@ export function getParentNavGroups(orgId: string): NavGroup[] {
           href: `/orgs/${orgId}/parents/progress`,
           label: "Progress",
           icon: TrendingUp,
+        },
+        {
+          href: `/orgs/${orgId}/parents/sharing`,
+          label: "Passport Sharing",
+          icon: Shield,
         },
       ],
     },
@@ -166,6 +172,7 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
                     hasActiveItem && "text-primary"
                   )}
                   onClick={() => toggleGroup(group.label)}
+                  type="button"
                 >
                   <div className="flex items-center gap-2">
                     <GroupIcon className="h-4 w-4" />
@@ -299,6 +306,7 @@ export function ParentMobileNav({
                       hasActiveItem && "text-primary"
                     )}
                     onClick={() => toggleGroup(group.label)}
+                    type="button"
                   >
                     <div className="flex items-center gap-3">
                       <GroupIcon className="h-5 w-5" />

@@ -129,6 +129,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   logo?: null | string;
                   metadata?: null | string;
                   name: string;
+                  sharingContactEmail?: string;
+                  sharingContactMode?: "direct" | "form";
+                  sharingContactName?: string;
+                  sharingContactPhone?: string;
+                  sharingEnquiriesUrl?: string;
                   slug: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -155,6 +160,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     "coach" | "parent" | "admin" | "player"
                   >;
                   isDisabled?: boolean;
+                  lastAccessedOrgs?: Array<{
+                    orgId: string;
+                    role: string;
+                    timestamp: number;
+                  }>;
                   organizationId: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
@@ -446,6 +456,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "sharingContactMode"
+                    | "sharingContactName"
+                    | "sharingContactEmail"
+                    | "sharingContactPhone"
+                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -480,6 +495,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "lastAccessedOrgs"
                     | "isDisabled"
                     | "disabledAt"
                     | "disabledBy"
@@ -816,6 +832,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "sharingContactMode"
+                    | "sharingContactName"
+                    | "sharingContactEmail"
+                    | "sharingContactPhone"
+                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -850,6 +871,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "lastAccessedOrgs"
                     | "isDisabled"
                     | "disabledAt"
                     | "disabledBy"
@@ -1337,6 +1359,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   logo?: null | string;
                   metadata?: null | string;
                   name?: string;
+                  sharingContactEmail?: string;
+                  sharingContactMode?: "direct" | "form";
+                  sharingContactName?: string;
+                  sharingContactPhone?: string;
+                  sharingEnquiriesUrl?: string;
                   slug?: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -1360,6 +1387,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "sharingContactMode"
+                    | "sharingContactName"
+                    | "sharingContactEmail"
+                    | "sharingContactPhone"
+                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1399,6 +1431,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     "coach" | "parent" | "admin" | "player"
                   >;
                   isDisabled?: boolean;
+                  lastAccessedOrgs?: Array<{
+                    orgId: string;
+                    role: string;
+                    timestamp: number;
+                  }>;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
@@ -1418,6 +1455,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "lastAccessedOrgs"
                     | "isDisabled"
                     | "disabledAt"
                     | "disabledBy"
@@ -1827,6 +1865,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   logo?: null | string;
                   metadata?: null | string;
                   name?: string;
+                  sharingContactEmail?: string;
+                  sharingContactMode?: "direct" | "form";
+                  sharingContactName?: string;
+                  sharingContactPhone?: string;
+                  sharingEnquiriesUrl?: string;
                   slug?: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -1850,6 +1893,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "sharingContactMode"
+                    | "sharingContactName"
+                    | "sharingContactEmail"
+                    | "sharingContactPhone"
+                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1889,6 +1937,11 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     "coach" | "parent" | "admin" | "player"
                   >;
                   isDisabled?: boolean;
+                  lastAccessedOrgs?: Array<{
+                    orgId: string;
+                    role: string;
+                    timestamp: number;
+                  }>;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
@@ -1908,6 +1961,7 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "lastAccessedOrgs"
                     | "isDisabled"
                     | "disabledAt"
                     | "disabledBy"

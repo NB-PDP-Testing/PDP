@@ -65,6 +65,10 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_theme_smooth_transitions: Smooth 200ms transitions when changing themes
  * - ux_header_nav_minimal: Hide header nav links (Home, Platform, Coach, Parent, Admin)
  *
+ * PHASE 15 - Enhanced User Menu:
+ * - ux_enhanced_user_menu: Enhanced user menu with profile settings, preferences, and alerts
+ * - ux_org_usage_tracking: Organization usage tracking in user menu
+ *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
  * - When enabled, features are visible to ALL users (not restricted to staff)
@@ -177,10 +181,10 @@ export type UXFeatureFlags = {
   /** Hide header nav links (Home, Platform, Coach, Parent, Admin) - users should use the switcher */
   useMinimalHeaderNav: boolean;
 
-  // Phase 15 - Enhanced User Profile
-  /** Enhanced user menu consolidating UserMenu + ModeToggle */
+  // Phase 15 - Enhanced User Menu
+  /** Enhanced user menu with profile settings, preferences, and alerts */
   useEnhancedUserMenu: boolean;
-  /** Track organization/role usage patterns for smart defaults */
+  /** Organization usage tracking in user menu */
   useOrgUsageTracking: boolean;
 
   // Quick Actions A/B/C Testing
@@ -265,7 +269,7 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     // Phase 14 - Header Navigation
     useMinimalHeaderNav: isFeatureEnabled("ux_header_nav_minimal"),
 
-    // Phase 15 - Enhanced User Profile
+    // Phase 15 - Enhanced User Menu
     useEnhancedUserMenu: isFeatureEnabled("ux_enhanced_user_menu"),
     useOrgUsageTracking: isFeatureEnabled("ux_org_usage_tracking"),
 
@@ -386,14 +390,19 @@ export const UXAnalyticsEvents = {
   THEME_CHANGED: "ux_theme_changed",
   THEME_TOGGLE_OPENED: "ux_theme_toggle_opened",
 
+  // Phase 15 - Enhanced User Menu events
+  ENHANCED_USER_MENU_OPENED: "ux_enhanced_user_menu_opened",
+  ENHANCED_USER_MENU_THEME_CHANGED: "ux_enhanced_user_menu_theme_changed",
+  ENHANCED_USER_MENU_PREFERENCES_OPENED:
+    "ux_enhanced_user_menu_preferences_opened",
+  ENHANCED_USER_MENU_ALERTS_OPENED: "ux_enhanced_user_menu_alerts_opened",
+  ENHANCED_USER_MENU_PROFILE_SETTINGS_OPENED:
+    "ux_enhanced_user_menu_profile_settings_opened",
+
   // Quick Actions A/B/C Testing events
   QUICK_ACTIONS_VARIANT_VIEWED: "ux_quick_actions_variant_viewed",
   QUICK_ACTIONS_ACTION_CLICKED: "ux_quick_actions_action_clicked",
   QUICK_ACTIONS_FAB_OPENED: "ux_quick_actions_fab_opened",
   QUICK_ACTIONS_COLLAPSED: "ux_quick_actions_collapsed",
   QUICK_ACTIONS_EXPANDED: "ux_quick_actions_expanded",
-
-  // Phase 15 - Enhanced User Profile events
-  ENHANCED_USER_MENU_OPENED: "ux_enhanced_user_menu_opened",
-  ENHANCED_USER_MENU_THEME_CHANGED: "ux_enhanced_user_menu_theme_changed",
 } as const;

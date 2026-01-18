@@ -1,7 +1,7 @@
 "use client";
 
-import { SlidersHorizontal, Star, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { SlidersHorizontal, Star, TrendingUp, X } from "lucide-react";
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -34,34 +34,26 @@ export function FilterModal({
   planCount,
 }: FilterModalProps) {
   const [open, setOpen] = useState(false);
-  const [localFilters, setLocalFilters] = useState<FilterState>(filters);
 
-  // Sync local filters with parent filters when modal opens
-  useEffect(() => {
-    if (open) {
-      setLocalFilters(filters);
-    }
-  }, [open, filters]);
-
+  // Instant apply - check if any filters are active
   const hasActiveFilters =
-    localFilters.search ||
-    localFilters.ageGroups.length > 0 ||
-    localFilters.sports.length > 0 ||
-    localFilters.intensities.length > 0 ||
-    localFilters.skills.length > 0 ||
-    localFilters.categories.length > 0 ||
-    localFilters.favoriteOnly ||
-    localFilters.featuredOnly ||
-    localFilters.templateOnly ||
-    (localFilters.minDuration !== undefined &&
-      localFilters.minDuration !== 30) ||
-    (localFilters.maxDuration !== undefined &&
-      localFilters.maxDuration !== 120) ||
-    localFilters.minSuccessRate !== undefined;
+    filters.search ||
+    filters.ageGroups.length > 0 ||
+    filters.sports.length > 0 ||
+    filters.intensities.length > 0 ||
+    filters.skills.length > 0 ||
+    filters.categories.length > 0 ||
+    filters.favoriteOnly ||
+    filters.featuredOnly ||
+    filters.templateOnly ||
+    (filters.minDuration !== undefined && filters.minDuration !== 30) ||
+    (filters.maxDuration !== undefined && filters.maxDuration !== 120) ||
+    filters.minSuccessRate !== undefined;
 
+  // Instant apply: clear all filters immediately
   const clearAllFilters = () => {
-    setLocalFilters({
-      search: "",
+    onFilterChange({
+      search: filters.search, // Keep search term
       ageGroups: [],
       sports: [],
       intensities: [],
@@ -76,11 +68,7 @@ export function FilterModal({
     });
   };
 
-  const applyFilters = () => {
-    onFilterChange(localFilters);
-    setOpen(false);
-  };
-
+  // Instant apply: toggle array filter and apply immediately
   const toggleArrayFilter = (
     key: keyof Pick<
       FilterState,
@@ -88,48 +76,72 @@ export function FilterModal({
     >,
     value: string
   ) => {
-    const currentValues = localFilters[key] as string[];
+    const currentValues = filters[key] as string[];
     const newValues = currentValues.includes(value)
       ? currentValues.filter((v) => v !== value)
       : [...currentValues, value];
-    setLocalFilters({ ...localFilters, [key]: newValues });
+    onFilterChange({ ...filters, [key]: newValues });
   };
 
-  // Handle ESC key and backdrop click (Dialog component handles this automatically)
+  // Instant apply: update filter and apply immediately
+  const updateFilter = (updates: Partial<FilterState>) => {
+    onFilterChange({ ...filters, ...updates });
+  };
+
   return (
     <Dialog onOpenChange={setOpen} open={open}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline">
+        <Button
+          className="border-2 border-gray-200 bg-white text-gray-700 transition-all hover:border-[#667eea] hover:bg-[#667eea] hover:text-white"
+          size="sm"
+          variant="outline"
+        >
           <SlidersHorizontal className="mr-2 h-4 w-4" />
           Filters
+          {hasActiveFilters && (
+            <Badge className="ml-2 bg-[#667eea] text-white" variant="secondary">
+              Active
+            </Badge>
+          )}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[80vh] max-w-2xl gap-0 p-0">
-        <DialogHeader className="sticky top-0 z-10 border-b bg-background p-6 pb-4">
-          <DialogTitle className="flex items-center gap-2">
-            <SlidersHorizontal className="h-5 w-5" />
-            Filter Plans
-          </DialogTitle>
-          <DialogDescription>
-            Narrow down your session plans by applying filters
-          </DialogDescription>
+      <DialogContent className="flex h-full max-h-[100dvh] w-full max-w-full flex-col gap-0 overflow-hidden p-0 max-sm:rounded-none max-sm:border-0 sm:h-[80vh] sm:max-w-2xl sm:rounded-lg">
+        <DialogHeader className="sticky top-0 z-10 shrink-0 border-b bg-background p-4 sm:p-6 sm:pb-4">
+          <div className="flex items-start gap-2">
+            {/* Close button */}
+            <Button
+              aria-label="Close filters"
+              className="h-8 w-8 shrink-0 sm:order-last sm:h-9 sm:w-9"
+              onClick={() => setOpen(false)}
+              size="icon"
+              variant="ghost"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="flex items-center gap-2">
+                <SlidersHorizontal className="h-5 w-5" />
+                Filter Plans
+              </DialogTitle>
+              <DialogDescription>
+                Select filters to narrow down your session plans
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         {/* Scrollable Filters */}
-        <ScrollArea className="max-h-[calc(80vh-200px)] flex-1">
-          <div className="space-y-6 p-6">
+        <ScrollArea className="min-h-0 flex-1 overflow-y-auto">
+          <div className="space-y-6 p-4 sm:p-6">
             {/* Quick Filters */}
             <div className="space-y-3">
               <Label className="font-medium text-sm">Quick Filters</Label>
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  checked={localFilters.favoriteOnly}
+                  checked={filters.favoriteOnly}
                   id="favorites-modal"
                   onCheckedChange={(checked) =>
-                    setLocalFilters({
-                      ...localFilters,
-                      favoriteOnly: checked === true,
-                    })
+                    updateFilter({ favoriteOnly: checked === true })
                   }
                 />
                 <label
@@ -142,13 +154,10 @@ export function FilterModal({
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  checked={localFilters.featuredOnly}
+                  checked={filters.featuredOnly}
                   id="featured-modal"
                   onCheckedChange={(checked) =>
-                    setLocalFilters({
-                      ...localFilters,
-                      featuredOnly: checked === true,
-                    })
+                    updateFilter({ featuredOnly: checked === true })
                   }
                 />
                 <label
@@ -161,13 +170,10 @@ export function FilterModal({
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  checked={localFilters.templateOnly}
+                  checked={filters.templateOnly}
                   id="templates-modal"
                   onCheckedChange={(checked) =>
-                    setLocalFilters({
-                      ...localFilters,
-                      templateOnly: checked === true,
-                    })
+                    updateFilter({ templateOnly: checked === true })
                   }
                 />
                 <label
@@ -180,13 +186,12 @@ export function FilterModal({
               <div className="flex items-center space-x-2">
                 <Checkbox
                   checked={
-                    localFilters.minSuccessRate !== undefined &&
-                    localFilters.minSuccessRate >= 80
+                    filters.minSuccessRate !== undefined &&
+                    filters.minSuccessRate >= 80
                   }
                   id="highly-rated-modal"
                   onCheckedChange={(checked) =>
-                    setLocalFilters({
-                      ...localFilters,
+                    updateFilter({
                       minSuccessRate: checked === true ? 80 : undefined,
                     })
                   }
@@ -211,7 +216,7 @@ export function FilterModal({
                     {availableFilters.ageGroups.map(({ value, count }) => (
                       <div className="flex items-center space-x-2" key={value}>
                         <Checkbox
-                          checked={localFilters.ageGroups.includes(value)}
+                          checked={filters.ageGroups.includes(value)}
                           id={`age-modal-${value}`}
                           onCheckedChange={() =>
                             toggleArrayFilter("ageGroups", value)
@@ -242,7 +247,7 @@ export function FilterModal({
                   {availableFilters.sports.map(({ value, count }) => (
                     <div className="flex items-center space-x-2" key={value}>
                       <Checkbox
-                        checked={localFilters.sports.includes(value)}
+                        checked={filters.sports.includes(value)}
                         id={`sport-modal-${value}`}
                         onCheckedChange={() =>
                           toggleArrayFilter("sports", value)
@@ -290,15 +295,14 @@ export function FilterModal({
                     },
                   ] as const
                 ).map(({ value, label, color }) => {
-                  const isSelected = localFilters.intensities.includes(value);
+                  const isSelected = filters.intensities.includes(value);
                   return (
                     <Button
                       className={isSelected ? color : ""}
                       key={value}
                       onClick={() => {
                         // Single-select: clear all other intensities
-                        setLocalFilters({
-                          ...localFilters,
+                        updateFilter({
                           intensities: isSelected ? [] : [value],
                         });
                       }}
@@ -322,26 +326,21 @@ export function FilterModal({
                   Duration (minutes)
                 </Label>
                 <span className="text-muted-foreground text-sm">
-                  {localFilters.minDuration ?? 30} -{" "}
-                  {localFilters.maxDuration ?? 120} min
+                  {filters.minDuration ?? 30} - {filters.maxDuration ?? 120} min
                 </span>
               </div>
               <Slider
                 className="w-full"
                 max={120}
                 min={30}
-                onValueChange={(values) => {
-                  setLocalFilters({
-                    ...localFilters,
+                onValueCommit={(values) => {
+                  updateFilter({
                     minDuration: values[0],
                     maxDuration: values[1],
                   });
                 }}
                 step={15}
-                value={[
-                  localFilters.minDuration ?? 30,
-                  localFilters.maxDuration ?? 120,
-                ]}
+                value={[filters.minDuration ?? 30, filters.maxDuration ?? 120]}
               />
               <div className="flex justify-between text-muted-foreground text-xs">
                 <span>30 min</span>
@@ -360,7 +359,7 @@ export function FilterModal({
                     {availableFilters.skills
                       .slice(0, 20)
                       .map(({ value, count }) => {
-                        const isSelected = localFilters.skills.includes(value);
+                        const isSelected = filters.skills.includes(value);
                         return (
                           <Button
                             className="h-8"
@@ -393,37 +392,35 @@ export function FilterModal({
 
             {/* Categories */}
             {availableFilters.categories.length > 0 && (
-              <>
-                <div className="space-y-3">
-                  <Label className="font-medium text-sm">Categories</Label>
-                  {availableFilters.categories.map(({ value, count }) => (
-                    <div className="flex items-center space-x-2" key={value}>
-                      <Checkbox
-                        checked={localFilters.categories.includes(value)}
-                        id={`category-modal-${value}`}
-                        onCheckedChange={() =>
-                          toggleArrayFilter("categories", value)
-                        }
-                      />
-                      <label
-                        className="flex flex-1 cursor-pointer items-center justify-between font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        htmlFor={`category-modal-${value}`}
-                      >
-                        <span>{value}</span>
-                        <Badge className="ml-2" variant="secondary">
-                          {count}
-                        </Badge>
-                      </label>
-                    </div>
-                  ))}
-                </div>
-                <Separator />
-              </>
+              <div className="space-y-3">
+                <Label className="font-medium text-sm">Categories</Label>
+                {availableFilters.categories.map(({ value, count }) => (
+                  <div className="flex items-center space-x-2" key={value}>
+                    <Checkbox
+                      checked={filters.categories.includes(value)}
+                      id={`category-modal-${value}`}
+                      onCheckedChange={() =>
+                        toggleArrayFilter("categories", value)
+                      }
+                    />
+                    <label
+                      className="flex flex-1 cursor-pointer items-center justify-between font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      htmlFor={`category-modal-${value}`}
+                    >
+                      <span>{value}</span>
+                      <Badge className="ml-2" variant="secondary">
+                        {count}
+                      </Badge>
+                    </label>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </ScrollArea>
 
-        <DialogFooter className="sticky bottom-0 flex-row justify-between gap-3 border-t bg-background p-6 pt-4">
+        {/* Footer: Clear All + Result Count (no Apply button - instant apply) */}
+        <DialogFooter className="mt-auto shrink-0 flex-row items-center justify-between gap-3 border-t bg-background p-4 pb-safe sm:p-6 sm:pt-4 sm:pb-4">
           <Button
             disabled={!hasActiveFilters}
             onClick={clearAllFilters}
@@ -431,9 +428,9 @@ export function FilterModal({
           >
             Clear All
           </Button>
-          <Button onClick={applyFilters}>
-            Apply ({planCount} plan{planCount !== 1 ? "s" : ""})
-          </Button>
+          <span className="text-muted-foreground text-sm">
+            {planCount} plan{planCount !== 1 ? "s" : ""}
+          </span>
         </DialogFooter>
       </DialogContent>
     </Dialog>

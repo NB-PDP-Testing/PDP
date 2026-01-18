@@ -3,7 +3,14 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Grid3x3, List, Loader2, Plus, TrendingUp } from "lucide-react";
+import {
+  ArrowLeft,
+  Grid3x3,
+  List,
+  Loader2,
+  Plus,
+  TrendingUp,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -21,12 +28,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
 import { EmptyState } from "./empty-state";
-import { FilterPills } from "./filter-pills";
-import {
-  type AvailableFilters,
-  FilterSidebar,
-  type FilterState,
-} from "./filter-sidebar";
+import type { AvailableFilters, FilterState } from "./filter-sidebar";
 import { QuickAccessCards } from "./quick-access-cards";
 import { SearchBar } from "./search-bar";
 import { SessionPlanSkeleton } from "./session-plan-skeleton";
@@ -79,6 +81,7 @@ export default function SessionPlansPage() {
     favoriteOnly: false,
     featuredOnly: false,
     templateOnly: false,
+    minSuccessRate: undefined,
   });
 
   // View mode (gallery or list)
@@ -323,7 +326,7 @@ export default function SessionPlansPage() {
     });
   }
 
-  // Calculate active filter count
+  // Calculate active filter count (including quick access filter)
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.search) {
@@ -353,8 +356,12 @@ export default function SessionPlansPage() {
     if (filters.templateOnly) {
       count += 1;
     }
+    // Include quick access filter in count
+    if (quickAccessFilter.type) {
+      count += 1;
+    }
     return count;
-  }, [filters]);
+  }, [filters, quickAccessFilter.type]);
 
   const isLoading = currentPlans === undefined;
 
@@ -367,24 +374,27 @@ export default function SessionPlansPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)]">
-      {/* Filter Sidebar */}
-      <FilterSidebar
-        availableFilters={availableFilters}
-        filters={filters}
-        onFilterChange={setFilters}
-      />
-
+    <div className="min-w-0 max-w-full overflow-hidden">
       {/* Main Content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Header */}
-        <div className="border-b bg-background p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h1 className="font-bold text-3xl">Session Plans</h1>
-              <p className="text-muted-foreground">
-                AI-powered training session plans for your teams
-              </p>
+        <div className="min-w-0 border-b bg-background p-4 sm:p-6">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <Button
+                className="shrink-0"
+                onClick={() => router.push(`/orgs/${orgId}/coach`)}
+                size="icon"
+                variant="ghost"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div>
+                <h1 className="font-bold text-3xl">Session Plans</h1>
+                <p className="text-muted-foreground">
+                  AI-powered training session plans for your teams
+                </p>
+              </div>
             </div>
             <Link href={`/orgs/${orgId}/coach/session-plans/new`}>
               <Button>
@@ -396,31 +406,37 @@ export default function SessionPlansPage() {
 
           {/* Stats Bar */}
           {stats && activeTab === "my-plans" && (
-            <div className="grid grid-cols-4 gap-4">
-              <div className="rounded-lg border bg-card p-4">
-                <div className="text-muted-foreground text-sm">Total Plans</div>
-                <div className="mt-1 font-bold text-2xl">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-4">
+              <div className="rounded-lg border-2 border-[#667eea]/20 bg-gradient-to-br from-[#667eea]/5 to-[#764ba2]/5 p-3 shadow-sm sm:p-4">
+                <div className="text-gray-600 text-xs sm:text-sm">
+                  Total Plans
+                </div>
+                <div className="mt-1 font-bold text-[#667eea] text-xl sm:text-2xl">
                   {stats.totalPlans}
                 </div>
               </div>
-              <div className="rounded-lg border bg-card p-4">
-                <div className="text-muted-foreground text-sm">Used Plans</div>
-                <div className="mt-1 font-bold text-2xl">{stats.usedPlans}</div>
+              <div className="rounded-lg border-2 border-[#48bb78]/20 bg-gradient-to-br from-[#48bb78]/5 to-[#38f9d7]/5 p-3 shadow-sm sm:p-4">
+                <div className="text-gray-600 text-xs sm:text-sm">
+                  Used Plans
+                </div>
+                <div className="mt-1 font-bold text-[#48bb78] text-xl sm:text-2xl">
+                  {stats.usedPlans}
+                </div>
               </div>
-              <div className="rounded-lg border bg-card p-4">
-                <div className="text-muted-foreground text-sm">
+              <div className="rounded-lg border-2 border-[#f093fb]/20 bg-gradient-to-br from-[#f093fb]/5 to-[#f5576c]/5 p-3 shadow-sm sm:p-4">
+                <div className="text-gray-600 text-xs sm:text-sm">
                   Success Rate
                 </div>
-                <div className="mt-1 font-bold text-2xl">
+                <div className="mt-1 font-bold text-[#f5576c] text-xl sm:text-2xl">
                   {stats.avgSuccessRate?.toFixed(0) ?? 0}%
                 </div>
               </div>
-              <div className="rounded-lg border bg-card p-4">
-                <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                  <TrendingUp className="h-4 w-4" />
+              <div className="rounded-lg border-2 border-[#4facfe]/20 bg-gradient-to-br from-[#4facfe]/5 to-[#00f2fe]/5 p-3 shadow-sm sm:p-4">
+                <div className="flex items-center gap-1 text-gray-600 text-xs sm:gap-2 sm:text-sm">
+                  <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4" />
                   This Month
                 </div>
-                <div className="mt-1 font-bold text-2xl">
+                <div className="mt-1 font-bold text-[#4facfe] text-xl sm:text-2xl">
                   {stats.recentPlans}
                 </div>
               </div>
@@ -468,48 +484,19 @@ export default function SessionPlansPage() {
               value={filters.search}
             />
           </div>
-
-          {/* Filter Pills */}
-          <div className="mt-4">
-            <FilterPills
-              ageGroups={filters.ageGroups}
-              favoriteOnly={filters.favoriteOnly}
-              intensities={filters.intensities}
-              onToggleAgeGroup={(ageGroup: string) => {
-                setFilters((prev) => ({
-                  ...prev,
-                  ageGroups: prev.ageGroups.includes(ageGroup)
-                    ? prev.ageGroups.filter((ag) => ag !== ageGroup)
-                    : [...prev.ageGroups, ageGroup],
-                }));
-              }}
-              onToggleFavorite={() => {
-                setFilters((prev) => ({
-                  ...prev,
-                  favoriteOnly: !prev.favoriteOnly,
-                }));
-              }}
-              onToggleIntensity={(intensity: "low" | "medium" | "high") => {
-                setFilters((prev) => ({
-                  ...prev,
-                  intensities: prev.intensities.includes(intensity)
-                    ? prev.intensities.filter((i) => i !== intensity)
-                    : [...prev.intensities, intensity],
-                }));
-              }}
-            />
-          </div>
         </div>
 
         {/* Tabs */}
         <Tabs
-          className="flex flex-1 flex-col overflow-hidden"
-          onValueChange={(value) =>
-            setActiveTab(value as "my-plans" | "club-library" | "admin")
-          }
+          className="flex flex-1 flex-col"
+          onValueChange={(value) => {
+            // Clear quickAccessFilter when switching tabs
+            setQuickAccessFilter({ type: null, planIds: null });
+            setActiveTab(value as "my-plans" | "club-library" | "admin");
+          }}
           value={activeTab}
         >
-          <div className="flex items-center justify-between border-b px-6">
+          <div className="flex items-center justify-between border-b px-4 sm:px-6">
             <TabsList>
               <TabsTrigger value="my-plans">My Plans</TabsTrigger>
               <TabsTrigger value="club-library">Club Library</TabsTrigger>
@@ -538,7 +525,7 @@ export default function SessionPlansPage() {
           </div>
 
           {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 p-4 sm:p-6">
             <TabsContent className="mt-0" value="my-plans">
               {isLoading && (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -572,25 +559,51 @@ export default function SessionPlansPage() {
                 filteredPlans.length > 0 &&
                 viewMode === "gallery" && (
                   <>
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3 text-muted-foreground text-sm">
-                        <span>
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">
                           {filteredPlans.length} plan
                           {filteredPlans.length !== 1 ? "s" : ""} found
                         </span>
                         {activeFilterCount > 0 && (
-                          <Badge variant="secondary">
-                            {activeFilterCount} filter
-                            {activeFilterCount !== 1 ? "s" : ""} active
-                          </Badge>
+                          <>
+                            <Badge variant="secondary">
+                              {activeFilterCount} filter
+                              {activeFilterCount !== 1 ? "s" : ""} active
+                            </Badge>
+                            <Button
+                              className="h-8 text-xs"
+                              onClick={() => {
+                                setFilters({
+                                  search: "",
+                                  ageGroups: [],
+                                  sports: [],
+                                  intensities: [],
+                                  skills: [],
+                                  categories: [],
+                                  favoriteOnly: false,
+                                  featuredOnly: false,
+                                  templateOnly: false,
+                                });
+                                setQuickAccessFilter({
+                                  type: null,
+                                  planIds: null,
+                                });
+                              }}
+                              size="sm"
+                              variant="ghost"
+                            >
+                              Clear filters
+                            </Button>
+                          </>
                         )}
                       </div>
                       <SortDropdown onChange={setSortBy} value={sortBy} />
                     </div>
                     <Masonry
                       breakpointCols={{ default: 3, 1024: 2, 640: 1 }}
-                      className="-ml-4 flex w-auto"
-                      columnClassName="pl-4 bg-clip-padding"
+                      className="sm:-ml-4 flex w-auto"
+                      columnClassName="sm:pl-4 bg-clip-padding"
                     >
                       {filteredPlans.map((plan) => (
                         <div className="mb-4" key={plan._id}>
@@ -609,17 +622,43 @@ export default function SessionPlansPage() {
                 filteredPlans.length > 0 &&
                 viewMode === "list" && (
                   <>
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3 text-muted-foreground text-sm">
-                        <span>
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">
                           {filteredPlans.length} plan
                           {filteredPlans.length !== 1 ? "s" : ""} found
                         </span>
                         {activeFilterCount > 0 && (
-                          <Badge variant="secondary">
-                            {activeFilterCount} filter
-                            {activeFilterCount !== 1 ? "s" : ""} active
-                          </Badge>
+                          <>
+                            <Badge variant="secondary">
+                              {activeFilterCount} filter
+                              {activeFilterCount !== 1 ? "s" : ""} active
+                            </Badge>
+                            <Button
+                              className="h-8 text-xs"
+                              onClick={() => {
+                                setFilters({
+                                  search: "",
+                                  ageGroups: [],
+                                  sports: [],
+                                  intensities: [],
+                                  skills: [],
+                                  categories: [],
+                                  favoriteOnly: false,
+                                  featuredOnly: false,
+                                  templateOnly: false,
+                                });
+                                setQuickAccessFilter({
+                                  type: null,
+                                  planIds: null,
+                                });
+                              }}
+                              size="sm"
+                              variant="ghost"
+                            >
+                              Clear filters
+                            </Button>
+                          </>
                         )}
                       </div>
                       <SortDropdown onChange={setSortBy} value={sortBy} />
@@ -708,25 +747,51 @@ export default function SessionPlansPage() {
                 filteredPlans.length > 0 &&
                 viewMode === "gallery" && (
                   <>
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3 text-muted-foreground text-sm">
-                        <span>
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">
                           {filteredPlans.length} plan
                           {filteredPlans.length !== 1 ? "s" : ""} found
                         </span>
                         {activeFilterCount > 0 && (
-                          <Badge variant="secondary">
-                            {activeFilterCount} filter
-                            {activeFilterCount !== 1 ? "s" : ""} active
-                          </Badge>
+                          <>
+                            <Badge variant="secondary">
+                              {activeFilterCount} filter
+                              {activeFilterCount !== 1 ? "s" : ""} active
+                            </Badge>
+                            <Button
+                              className="h-8 text-xs"
+                              onClick={() => {
+                                setFilters({
+                                  search: "",
+                                  ageGroups: [],
+                                  sports: [],
+                                  intensities: [],
+                                  skills: [],
+                                  categories: [],
+                                  favoriteOnly: false,
+                                  featuredOnly: false,
+                                  templateOnly: false,
+                                });
+                                setQuickAccessFilter({
+                                  type: null,
+                                  planIds: null,
+                                });
+                              }}
+                              size="sm"
+                              variant="ghost"
+                            >
+                              Clear filters
+                            </Button>
+                          </>
                         )}
                       </div>
                       <SortDropdown onChange={setSortBy} value={sortBy} />
                     </div>
                     <Masonry
                       breakpointCols={{ default: 3, 1024: 2, 640: 1 }}
-                      className="-ml-4 flex w-auto"
-                      columnClassName="pl-4 bg-clip-padding"
+                      className="sm:-ml-4 flex w-auto"
+                      columnClassName="sm:pl-4 bg-clip-padding"
                     >
                       {filteredPlans.map((plan) => (
                         <div className="mb-4" key={plan._id}>
@@ -745,17 +810,43 @@ export default function SessionPlansPage() {
                 filteredPlans.length > 0 &&
                 viewMode === "list" && (
                   <>
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3 text-muted-foreground text-sm">
-                        <span>
+                    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">
                           {filteredPlans.length} plan
                           {filteredPlans.length !== 1 ? "s" : ""} found
                         </span>
                         {activeFilterCount > 0 && (
-                          <Badge variant="secondary">
-                            {activeFilterCount} filter
-                            {activeFilterCount !== 1 ? "s" : ""} active
-                          </Badge>
+                          <>
+                            <Badge variant="secondary">
+                              {activeFilterCount} filter
+                              {activeFilterCount !== 1 ? "s" : ""} active
+                            </Badge>
+                            <Button
+                              className="h-8 text-xs"
+                              onClick={() => {
+                                setFilters({
+                                  search: "",
+                                  ageGroups: [],
+                                  sports: [],
+                                  intensities: [],
+                                  skills: [],
+                                  categories: [],
+                                  favoriteOnly: false,
+                                  featuredOnly: false,
+                                  templateOnly: false,
+                                });
+                                setQuickAccessFilter({
+                                  type: null,
+                                  planIds: null,
+                                });
+                              }}
+                              size="sm"
+                              variant="ghost"
+                            >
+                              Clear filters
+                            </Button>
+                          </>
                         )}
                       </div>
                       <SortDropdown onChange={setSortBy} value={sortBy} />

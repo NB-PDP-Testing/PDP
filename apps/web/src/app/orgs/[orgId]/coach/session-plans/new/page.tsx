@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -102,11 +102,21 @@ export default function GenerateSessionPlanPage() {
 
   return (
     <div className="container mx-auto max-w-2xl p-6">
-      <div className="mb-6">
-        <h1 className="font-bold text-3xl">Generate Session Plan</h1>
-        <p className="text-muted-foreground">
-          Create an AI-powered training session plan for your team
-        </p>
+      <div className="mb-6 flex items-center gap-3">
+        <Button
+          className="shrink-0"
+          onClick={() => router.push(`/orgs/${orgId}/coach/session-plans`)}
+          size="icon"
+          variant="ghost"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="font-bold text-3xl">Generate Session Plan</h1>
+          <p className="text-muted-foreground">
+            Create an AI-powered training session plan for your team
+          </p>
+        </div>
       </div>
 
       <Card>

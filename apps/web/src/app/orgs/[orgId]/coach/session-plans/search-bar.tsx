@@ -63,9 +63,9 @@ export function SearchBar({
     <div className="relative w-full">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-muted-foreground" />
+          <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-gray-400" />
           <Input
-            className="pr-20 pl-9"
+            className="border-2 border-gray-200 pr-20 pl-9 transition-all focus:border-[#667eea] focus:ring-2 focus:ring-[#667eea]/20"
             onChange={(e) => setLocalValue(e.target.value)}
             placeholder={placeholder}
             type="text"
@@ -73,7 +73,7 @@ export function SearchBar({
           />
           <div className="-translate-y-1/2 absolute top-1/2 right-2 flex items-center gap-2">
             {isSearching && (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <Loader2 className="h-4 w-4 animate-spin text-[#667eea]" />
             )}
             {localValue && (
               <Button

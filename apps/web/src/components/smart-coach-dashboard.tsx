@@ -1645,20 +1645,20 @@ export function SmartCoachDashboard({
           aria-describedby="session-plan-description"
           aria-labelledby="session-plan-title"
           aria-modal="true"
-          className="fixed inset-0 z-[100] bg-black/50"
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
           role="dialog"
         >
-          {/* Mobile: Full-screen from bottom | Desktop: Centered modal */}
+          {/* Mobile: Full-screen sheet from bottom | Desktop: Centered modal */}
           <div
             className={cn(
-              "fixed flex flex-col overflow-hidden bg-background shadow-2xl",
-              // Desktop: centered modal
-              "sm:-translate-x-1/2 sm:-translate-y-1/2 sm:top-1/2 sm:left-1/2 sm:max-h-[90vh] sm:max-w-3xl sm:rounded-lg",
-              // Mobile: full-screen - covers entire viewport including bottom nav
-              "max-sm:inset-0 max-sm:h-full max-sm:w-full max-sm:rounded-none"
+              "flex flex-col overflow-hidden bg-background shadow-2xl",
+              // Desktop: centered modal with max width
+              "sm:max-h-[90vh] sm:max-w-3xl sm:rounded-lg sm:w-full",
+              // Mobile: full-screen sheet
+              "max-sm:h-full max-sm:w-full max-sm:rounded-none"
             )}
           >
-            <Card className="flex h-full flex-col overflow-hidden border-0 shadow-none">
+            <div className="flex h-full flex-col overflow-hidden">
               <CardHeader
                 className={cn(
                   "sticky top-0 z-10 flex-shrink-0 border-b bg-background",
@@ -1764,7 +1764,7 @@ export function SmartCoachDashboard({
                 <div
                   className={cn(
                     "sticky bottom-0 z-10 flex-shrink-0 border-t bg-background shadow-[0_-4px_12px_rgba(0,0,0,0.08)]",
-                    "max-sm:px-3 max-sm:py-2",
+                    "max-sm:px-3 max-sm:py-3 max-sm:pb-safe",
                     "sm:px-6 sm:py-4"
                   )}
                 >
@@ -1851,7 +1851,7 @@ export function SmartCoachDashboard({
                   </div>
                 </div>
               )}
-            </Card>
+            </div>
           </div>
         </div>
       )}

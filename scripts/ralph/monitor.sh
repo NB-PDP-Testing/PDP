@@ -107,7 +107,7 @@ while true; do
   echo ""
 
   # === Claude Process Status ===
-  if pgrep -f "claude.*bypassPermissions" > /dev/null; then
+  if pgrep -f "claude.*dangerously-skip" > /dev/null; then
     echo -e "${GREEN}✓ Ralph is ACTIVE${NC}"
   else
     echo -e "${RED}⚠ Ralph not detected${NC}"

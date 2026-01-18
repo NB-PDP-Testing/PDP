@@ -11,12 +11,13 @@ import {
   Dumbbell,
   Loader2,
   MoreVertical,
-  Pencil,
+  Pin,
+  PinOff,
   Star,
   ThumbsUp,
-  Trash2,
   TrendingUp,
   Users,
+  X,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -45,8 +46,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { authClient } from "@/lib/auth-client";
 
 // Get gradient based on intensity
@@ -101,7 +109,7 @@ function getVisibilityBadge(visibility?: "private" | "club" | "platform") {
   }
 }
 
-export default function SessionPlanDetailPage() {
+export default function AdminSessionPlanDetailPage() {
   const params = useParams();
   const router = useRouter();
   const orgId = params.orgId as string;
@@ -110,73 +118,70 @@ export default function SessionPlanDetailPage() {
   const { data: session } = authClient.useSession();
   const userId = session?.user?.id;
 
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState<
+    | "inappropriate"
+    | "safety"
+    | "poor-quality"
+    | "duplicate"
+    | "violates-guidelines"
+    | "other"
+    | ""
+  >("");
+  const [rejectionMessage, setRejectionMessage] = useState("");
+
   const plan = useQuery(api.models.sessionPlans.getPlanById, { planId });
 
-  const updateVisibility = useMutation(
-    api.models.sessionPlans.updateVisibility
+  const removeFromClubLibraryEnhanced = useMutation(
+    api.models.sessionPlans.removeFromClubLibraryEnhanced
   );
-  const updateTitle = useMutation(api.models.sessionPlans.updateTitle);
-  const deletePlan = useMutation(api.models.sessionPlans.deletePlan);
+  const pinPlan = useMutation(api.models.sessionPlans.pinPlan);
+  const unpinPlan = useMutation(api.models.sessionPlans.unpinPlan);
 
-  // Dialog states
-  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const handleRejectClick = () => {
+    setRejectionReason("");
+    setRejectionMessage("");
+    setRejectDialogOpen(true);
+  };
 
-  const isOwner = plan && userId && plan.coachId === userId;
-  const intensity = plan?.extractedTags?.intensity;
-  const gradientClass = getIntensityGradient(intensity);
-
-  // Rename handler
-  const handleRename = async () => {
-    if (!newTitle.trim()) {
-      toast.error("Please enter a title");
+  const handleRejectConfirm = async () => {
+    if (!userId) {
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      await updateTitle({ planId, title: newTitle.trim() });
-      toast.success("Plan renamed successfully!");
-      setRenameDialogOpen(false);
-      setNewTitle("");
-    } catch (error) {
-      console.error("Failed to rename plan:", error);
-      toast.error("Failed to rename plan");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Open rename dialog
-  const openRenameDialog = () => {
-    setNewTitle(plan?.title || "");
-    setRenameDialogOpen(true);
-  };
-
-  const _handleShareToClub = async () => {
-    try {
-      await updateVisibility({ planId, visibility: "club" });
-      toast.success("Plan shared to club library!");
-    } catch (error) {
-      console.error("Failed to share plan:", error);
-      toast.error("Failed to share plan");
-    }
-  };
-
-  const handleDelete = async () => {
-    // biome-ignore lint/suspicious/noAlert: TODO: Replace with proper dialog component
-    if (!confirm("Are you sure you want to delete this plan?")) {
+    if (!rejectionReason) {
+      toast.error("Please select a reason for removal");
       return;
     }
 
     try {
-      await deletePlan({ planId });
-      toast.success("Plan deleted");
-      router.push(`/orgs/${orgId}/coach/session-plans`);
+      await removeFromClubLibraryEnhanced({
+        planId,
+        reason: rejectionReason,
+        message: rejectionMessage || undefined,
+        notifyCoach: true,
+      });
+
+      toast.success("Plan removed from club library");
+      router.push(`/orgs/${orgId}/admin/session-plans`);
     } catch (error) {
-      console.error("Failed to delete plan:", error);
-      toast.error("Failed to delete plan");
+      console.error("Failed to reject plan:", error);
+      toast.error("Failed to remove plan");
+    }
+  };
+
+  const handlePinToggle = async () => {
+    try {
+      if (plan?.pinnedByAdmin) {
+        await unpinPlan({ planId });
+        toast.success("Plan unpinned");
+      } else {
+        await pinPlan({ planId });
+        toast.success("Plan pinned as featured");
+      }
+    } catch (error) {
+      console.error("Failed to toggle pin:", error);
+      toast.error("Failed to update plan");
     }
   };
 
@@ -187,6 +192,9 @@ export default function SessionPlanDetailPage() {
       </div>
     );
   }
+
+  const intensity = plan?.extractedTags?.intensity;
+  const gradientClass = getIntensityGradient(intensity);
 
   const isNew =
     plan._creationTime &&
@@ -213,7 +221,7 @@ export default function SessionPlanDetailPage() {
               <Button
                 className="mt-1 shrink-0 border-white/30 bg-white/20 text-white hover:bg-white/30"
                 onClick={() =>
-                  router.push(`/orgs/${orgId}/coach/session-plans`)
+                  router.push(`/orgs/${orgId}/admin/session-plans`)
                 }
                 size="icon"
                 variant="outline"
@@ -229,7 +237,13 @@ export default function SessionPlanDetailPage() {
                       FEATURED
                     </Badge>
                   )}
-                  {isNew && (
+                  {plan.moderatedBy && (
+                    <Badge className="border-red-300/50 bg-red-200/80 text-red-900">
+                      <AlertTriangle className="mr-1 h-3 w-3" />
+                      REJECTED
+                    </Badge>
+                  )}
+                  {isNew && !plan.pinnedByAdmin && !plan.moderatedBy && (
                     <Badge className="border-emerald-300/50 bg-emerald-200/80 text-emerald-900">
                       NEW
                     </Badge>
@@ -263,8 +277,8 @@ export default function SessionPlanDetailPage() {
               </div>
             </div>
 
-            {/* 3-dot menu for owner actions */}
-            {isOwner && (
+            {/* 3-dot menu for admin actions */}
+            {plan.visibility === "club" && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -276,17 +290,26 @@ export default function SessionPlanDetailPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={openRenameDialog}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Rename
+                  <DropdownMenuItem onClick={handlePinToggle}>
+                    {plan.pinnedByAdmin ? (
+                      <>
+                        <PinOff className="mr-2 h-4 w-4" />
+                        Unpin Plan
+                      </>
+                    ) : (
+                      <>
+                        <Pin className="mr-2 h-4 w-4" />
+                        Feature Plan
+                      </>
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-red-600"
-                    onClick={handleDelete}
+                    onClick={handleRejectClick}
                   >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
+                    <X className="mr-2 h-4 w-4" />
+                    Remove from Library
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -352,14 +375,6 @@ export default function SessionPlanDetailPage() {
                   <span>{new Date(plan.moderatedAt).toLocaleDateString()}</span>
                 )}
               </div>
-              <div className="rounded-md bg-white p-3 text-sm">
-                <p className="text-muted-foreground">
-                  Your plan has been set back to private and is no longer
-                  visible to other coaches. You can still view and use it
-                  yourself. If you believe this was a mistake, please contact
-                  your club administrator.
-                </p>
-              </div>
             </CardContent>
           </Card>
         )}
@@ -369,11 +384,11 @@ export default function SessionPlanDetailPage() {
             <CardContent className="flex flex-col items-center justify-center p-12">
               <Loader2 className="mb-4 h-16 w-16 animate-spin text-primary" />
               <h3 className="mb-2 font-semibold text-lg">
-                Generating your session plan...
+                Generating session plan...
               </h3>
               <p className="text-center text-muted-foreground">
-                This usually takes a few seconds. Your plan will appear here
-                when ready.
+                This usually takes a few seconds. The plan will appear here when
+                ready.
               </p>
             </CardContent>
           </Card>
@@ -524,51 +539,88 @@ export default function SessionPlanDetailPage() {
         )}
       </div>
 
-      {/* Rename Dialog */}
-      <Dialog onOpenChange={setRenameDialogOpen} open={renameDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+      {/* Rejection Dialog */}
+      <Dialog onOpenChange={setRejectDialogOpen} open={rejectDialogOpen}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename Session Plan</DialogTitle>
+            <DialogTitle>Reject Session Plan</DialogTitle>
             <DialogDescription>
-              Enter a new name for this session plan.
+              This plan will be removed from the club library and set back to
+              private. The coach will be able to see the rejection reason.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="rename-title">Title</Label>
-              <Input
-                id="rename-title"
-                onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !isSubmitting) {
-                    handleRename();
-                  }
-                }}
-                placeholder="Enter plan title..."
-                value={newTitle}
+
+          <div className="space-y-4">
+            <div className="rounded-lg bg-muted p-3">
+              <div className="font-medium">
+                {plan.title || "Untitled Session Plan"}
+              </div>
+              <div className="text-muted-foreground text-sm">
+                By {plan.coachName}
+              </div>
+            </div>
+
+            <div>
+              <Label className="mb-2 block" htmlFor="rejection-reason-dropdown">
+                Reason for Removal <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                onValueChange={(value) =>
+                  setRejectionReason(value as typeof rejectionReason)
+                }
+                value={rejectionReason}
+              >
+                <SelectTrigger id="rejection-reason-dropdown">
+                  <SelectValue placeholder="Select a reason..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inappropriate">
+                    Inappropriate Content
+                  </SelectItem>
+                  <SelectItem value="safety">Safety Concern</SelectItem>
+                  <SelectItem value="poor-quality">Poor Quality</SelectItem>
+                  <SelectItem value="duplicate">Duplicate Content</SelectItem>
+                  <SelectItem value="violates-guidelines">
+                    Violates Guidelines
+                  </SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-muted-foreground text-xs">
+                Required - Select the primary reason for removing this plan.
+              </p>
+            </div>
+
+            <div>
+              <Label className="mb-2 block" htmlFor="rejection-message">
+                Additional Message (Optional)
+              </Label>
+              <Textarea
+                id="rejection-message"
+                onChange={(e) => setRejectionMessage(e.target.value)}
+                placeholder="Provide additional context or instructions..."
+                rows={3}
+                value={rejectionMessage}
               />
+              <p className="mt-1 text-muted-foreground text-xs">
+                Optional - Add extra details if needed.
+              </p>
             </div>
           </div>
+
           <DialogFooter>
             <Button
-              disabled={isSubmitting}
-              onClick={() => setRenameDialogOpen(false)}
+              onClick={() => setRejectDialogOpen(false)}
               variant="outline"
             >
               Cancel
             </Button>
             <Button
-              disabled={isSubmitting || !newTitle.trim()}
-              onClick={handleRename}
+              disabled={!rejectionReason}
+              onClick={handleRejectConfirm}
+              variant="destructive"
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save"
-              )}
+              Remove Plan
             </Button>
           </DialogFooter>
         </DialogContent>

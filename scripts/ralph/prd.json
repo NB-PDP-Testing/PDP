@@ -1,0 +1,300 @@
+{
+  "project": "PlayerARC",
+  "branchName": "ralph/session-plans-enhancement",
+  "description": "Session Plans Feature Enhancement - Implement Pinterest-style masonry grid, advanced search/filters, and enhanced admin moderation",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Visual Feedback System - Toast Notifications",
+      "description": "As a coach, I want immediate visual feedback when I perform actions (favorite, share, duplicate plans) so I know my actions were successful.",
+      "acceptanceCriteria": [
+        "Install and configure sonner package for toast notifications",
+        "Toast appears on all CRUD operations (favorite, share, duplicate, archive)",
+        "Toast auto-dismisses after 3 seconds",
+        "Toast includes appropriate icon (✓ ⚠️ ❌)",
+        "Multiple toasts stack properly",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Phase 1: Foundation & Quick Wins (3 hours effort)"
+    },
+    {
+      "id": "US-002",
+      "title": "Quick Access Section - Smart Collections",
+      "description": "As a coach, I want quick access to my recently used, most popular, and best-performing plans so I can find relevant plans faster.",
+      "acceptanceCriteria": [
+        "Create backend queries: getRecentlyUsed, getMostPopular, getYourBest, getTopRated",
+        "Display 4 horizontal quick access cards with plan counts",
+        "Cards scroll horizontally on mobile",
+        "Clicking card navigates to filtered view",
+        "Empty state when no plans match category",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Phase 1: Foundation & Quick Wins (4 hours effort)"
+    },
+    {
+      "id": "US-003",
+      "title": "Loading States - Progress Indicators",
+      "description": "As a coach, I want to see loading indicators during AI plan generation and while plans load so I understand the system is working.",
+      "acceptanceCriteria": [
+        "Progress bar during AI generation with stage text (Analyzing, Selecting, Formatting)",
+        "Show estimated time remaining during generation",
+        "Display 6 skeleton cards while loading plan list",
+        "Cancel button to abort AI generation",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Phase 1: Foundation & Quick Wins (2 hours effort)"
+    },
+    {
+      "id": "US-004",
+      "title": "Empty States - Contextual Guidance",
+      "description": "As a coach, I want helpful guidance when there are no plans to display so I understand what to do next.",
+      "acceptanceCriteria": [
+        "Create EmptyState component with 3 scenarios: no-plans, no-results, no-favorites",
+        "Each state shows appropriate icon, title, description, and CTA",
+        "Clear call-to-action for each scenario",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Phase 1: Foundation & Quick Wins (1 hour effort)"
+    },
+    {
+      "id": "US-005",
+      "title": "Full-Text Search - Debounced Search Bar",
+      "description": "As a coach, I want to search for plans by title, description, or drill names so I can quickly find specific plans.",
+      "acceptanceCriteria": [
+        "Add search_plans index to Convex schema with searchableText field",
+        "Implement searchPlans query with full-text search",
+        "Search bar with 300ms debouncing to prevent excessive queries",
+        "Search across title, description, focus areas, tags",
+        "Clear button (X) when search has text",
+        "Loading indicator while searching",
+        "Results count displayed",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Phase 2: Top Filter Bar + Search (6 hours effort)"
+    },
+    {
+      "id": "US-006",
+      "title": "Quick Filter Pills - Common Filters",
+      "description": "As a coach, I want quick one-tap filters for common criteria (favorites, age groups, duration) so I can narrow results instantly.",
+      "acceptanceCriteria": [
+        "Display horizontal scrolling filter pills (Favorites, Recent, U12, U14, 60min, High Intensity)",
+        "Active pill has filled background",
+        "Clicking pill toggles filter on/off (multi-select)",
+        "Pills responsive to screen size",
+        "Touch-friendly on mobile (48px+ touch targets)",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Phase 2: Top Filter Bar + Search (4 hours effort)"
+    },
+    {
+      "id": "US-007",
+      "title": "Sort Dropdown - Result Ordering",
+      "description": "As a coach, I want to sort plans by different criteria (most used, highest rated, recent, duration) so I can find plans that meet my needs.",
+      "acceptanceCriteria": [
+        "Dropdown with 5 options: Most Used, Highest Rated, Recently Created, Duration, A-Z",
+        "Dropdown accessible via keyboard",
+        "Current sort option displayed",
+        "Results update immediately on selection",
+        "Sort persists across page reloads (localStorage)",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Phase 2: Top Filter Bar + Search (2 hours effort)"
+    },
+    {
+      "id": "US-008",
+      "title": "Results Header - Search Context",
+      "description": "As a coach, I want to see how many plans match my search and how many filters are active so I understand my current view.",
+      "acceptanceCriteria": [
+        "Display plan count that updates reactively",
+        "Show number of active filters",
+        "Sort dropdown aligned right",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Phase 2: Top Filter Bar + Search (1 hour effort)"
+    },
+    {
+      "id": "US-009",
+      "title": "Advanced Filter Modal - Filter Structure",
+      "description": "As a coach, I want a comprehensive filter panel with all available options so I can precisely find the plans I need.",
+      "acceptanceCriteria": [
+        "Modal opens from 'Filters' button in search bar",
+        "Modal closes on backdrop click or ESC key",
+        "Mobile: Full-screen drawer from bottom",
+        "Desktop: Centered modal (max-w-2xl)",
+        "Scroll if content exceeds viewport (80vh)",
+        "Clear All button resets filters",
+        "Apply button shows plan count and closes modal",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "Phase 3: Advanced Filter Panel (4 hours effort)"
+    },
+    {
+      "id": "US-010",
+      "title": "Age Group Filter - Multi-Select with Counts",
+      "description": "As a coach, I want to filter by multiple age groups and see how many plans exist for each so I can find age-appropriate plans.",
+      "acceptanceCriteria": [
+        "Multi-select buttons for age groups (U8, U10, U12, U14, U16, U18, Senior)",
+        "Shows plan count for each age group",
+        "Selected buttons have filled style",
+        "Live count updates as selections change",
+        "Grid layout (4 columns desktop, 2 mobile)",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "Phase 3: Advanced Filter Panel (3 hours effort)"
+    },
+    {
+      "id": "US-011",
+      "title": "Duration, Intensity, Focus Areas Filters",
+      "description": "As a coach, I want to filter by session duration, intensity level, and focus areas so I can find plans that fit my training needs.",
+      "acceptanceCriteria": [
+        "Duration slider (30-120 min, 15-min increments) with live value display",
+        "Intensity single-select (Low/Medium/High) with color coding (green/yellow/red)",
+        "Focus areas multi-select pills (Passing, Shooting, Dribbling, Tactical, Fitness, Games, Defending, Possession)",
+        "All filters keyboard accessible",
+        "Touch-friendly on mobile",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Phase 3: Advanced Filter Panel (7 hours effort total for 3.3, 3.4, 3.5)"
+    },
+    {
+      "id": "US-012",
+      "title": "Success Rate & Favorites Filters",
+      "description": "As a coach, I want to filter for highly-rated plans and my favorites so I can quickly access quality content.",
+      "acceptanceCriteria": [
+        "Checkbox: 'Only show highly rated plans (80%+)'",
+        "Checkbox: 'Only favorites'",
+        "Checkboxes keyboard accessible",
+        "Labels are clickable",
+        "Clear visual feedback for checked state",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Phase 3: Advanced Filter Panel (1 hour effort)"
+    },
+    {
+      "id": "US-013",
+      "title": "Pinterest-Style Masonry Grid Layout",
+      "description": "As a coach, I want to browse plans in a visual masonry grid with variable heights so I can see more content at a glance.",
+      "acceptanceCriteria": [
+        "Install react-masonry-css package",
+        "Cards arranged in masonry grid with no gaps",
+        "Responsive: 3 cols desktop, 2 tablet, 1 mobile",
+        "Variable heights based on content",
+        "Preview shows first section of each plan",
+        "Hover shows action menu (favorite, share, duplicate)",
+        "Smooth transitions on hover",
+        "Cards clickable to open detail view",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "Phase 4: Masonry + Admin (8 hours effort)"
+    },
+    {
+      "id": "US-014",
+      "title": "Enhanced Admin Dashboard - Metrics Overview",
+      "description": "As an admin, I want to see metrics about shared plans (total, pending, flagged, featured) so I can monitor the library health.",
+      "acceptanceCriteria": [
+        "Create getAdminMetrics query returning total, pendingReview, flagged, featured counts",
+        "Display 4 metrics cards at top of admin view",
+        "Cards color-coded by urgency (default, blue, red, green borders)",
+        "Status tabs filter plans (All, Pending, Featured, High Usage)",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "Phase 4: Masonry + Admin (6 hours effort for backend + metrics cards + tabs)"
+    },
+    {
+      "id": "US-015",
+      "title": "Quality Score Calculation",
+      "description": "As an admin, I want to see a quality score for each shared plan so I can identify high-value content to feature.",
+      "acceptanceCriteria": [
+        "Create getQualityScore query calculating 0-100 score based on: sections count (20pts), tags (15pts), usage (20pts), success rate (25pts), feedback (20pts)",
+        "Display quality score with progress bar",
+        "Color coding: 80+ green, 60-79 yellow, <60 red",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "Phase 4: Masonry + Admin (2 hours effort)"
+    },
+    {
+      "id": "US-016",
+      "title": "Enhanced Admin Plan Cards - Status Indicators",
+      "description": "As an admin, I want to see status badges and usage stats on plan cards so I can quickly assess each plan's state.",
+      "acceptanceCriteria": [
+        "Status badge visible (📌 PINNED, ⚠️ FLAGGED, ⏳ NEW)",
+        "Color-coded left border (green=pinned, red=flagged, yellow=new)",
+        "Display coach name, shared date, times used, unique coaches count",
+        "Quality score with progress bar",
+        "Flag reasons displayed if flagged",
+        "Quick actions dropdown: Feature/Unpin Plan, Remove from Library, View Full Plan",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "Phase 4: Masonry + Admin (4 hours effort)"
+    },
+    {
+      "id": "US-017",
+      "title": "Plan Removal Dialog with Coach Notification",
+      "description": "As an admin, I want to remove plans from the library with a reason and optional message so coaches understand why their content was removed.",
+      "acceptanceCriteria": [
+        "Create removeFromClubLibraryEnhanced mutation with planId, reason, message, notifyCoach params",
+        "Reason dropdown required (Inappropriate, Safety, Poor Quality, Duplicate, Violates Guidelines, Other)",
+        "Optional message textarea",
+        "Notify coach checkbox (default checked)",
+        "Coach receives notification if checked",
+        "Dialog shows plan details",
+        "Cannot submit without reason",
+        "Success toast on removal",
+        "Plan reverts to private visibility",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "Phase 4: Masonry + Admin (6 hours effort)"
+    },
+    {
+      "id": "US-018",
+      "title": "Feature/Pin Plan Action",
+      "description": "As an admin, I want to feature high-quality plans so coaches can easily discover excellent content.",
+      "acceptanceCriteria": [
+        "Create featurePlan mutation setting pinnedByAdmin=true, recording moderatedAt/moderatedBy",
+        "Pin button in admin card dropdown",
+        "Plan gets 'PINNED' badge",
+        "Plan appears in 'Featured' tab",
+        "Coach receives positive notification ('Your session plan was featured! 🎉')",
+        "Unpin option available for pinned plans",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": "Phase 4: Masonry + Admin (2 hours effort)"
+    }
+  ]
+}

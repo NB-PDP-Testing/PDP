@@ -73,7 +73,8 @@ for i in $(seq 1 $MAX_ITERATIONS); do
 
   # Run claude with the ralph prompt
   # Note: Using cat to pipe prompt and capturing output
-  OUTPUT=$(cat "$SCRIPT_DIR/prompt.md" | claude 2>&1 | tee /dev/stderr) || true
+  # Using --dangerously-skip-permissions to run autonomously
+  OUTPUT=$(cat "$SCRIPT_DIR/prompt.md" | claude --dangerously-skip-permissions 2>&1 | tee /dev/stderr) || true
 
   # Capture session ID after iteration
   SESSION_ID=$("$SCRIPT_DIR/capture-session-id.sh" 2>/dev/null || echo "unknown")

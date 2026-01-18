@@ -4,10 +4,11 @@ import { Building2 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
+import { getAdaptiveLogoBoxStyles } from "@/lib/adaptive-logo-styles";
 import { authClient } from "@/lib/auth-client";
 import type { OrgMemberRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -81,7 +82,18 @@ export default function Header() {
   const { theme } = useOrgTheme({ skip: isPlatformLevelRoute });
 
   // Get UX feature flags
-  const { useMinimalHeaderNav, useEnhancedUserMenu } = useUXFeatureFlags();
+  const {
+    useMinimalHeaderNav,
+    useEnhancedUserMenu,
+    useAdaptiveLogoVisibility,
+  } = useUXFeatureFlags();
+
+  // Calculate adaptive logo styles for enhanced visibility (Phase 16)
+  // Only recalculate when org colors change
+  const adaptiveLogoStyles = useMemo(
+    () => (useAdaptiveLogoVisibility ? getAdaptiveLogoBoxStyles(theme) : null),
+    [useAdaptiveLogoVisibility, theme.primary, theme.secondary, theme.tertiary]
+  );
 
   // Track current org in user profile
   // Skip this on platform-level pages - user isn't in a specific org context
@@ -160,7 +172,17 @@ export default function Header() {
           <>
             <Link href={`/orgs/${orgId}` as Route}>
               <div
-                className="flex h-10 items-center gap-2 rounded-lg border-2 border-white/30 bg-white/10 px-2 backdrop-blur-sm transition-colors hover:bg-white/20 sm:gap-3 sm:px-4"
+                className={cn(
+                  "flex h-10 items-center gap-2 rounded-lg px-2 transition-colors sm:gap-3 sm:px-4",
+                  useAdaptiveLogoVisibility
+                    ? "shadow-sm hover:opacity-90"
+                    : "border-2 border-white/30 bg-white/10 backdrop-blur-sm hover:bg-white/20"
+                )}
+                style={
+                  useAdaptiveLogoVisibility
+                    ? adaptiveLogoStyles || undefined
+                    : undefined
+                }
                 title={org.name}
               >
                 {org.logo ? (

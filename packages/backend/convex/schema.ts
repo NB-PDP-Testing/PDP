@@ -2007,6 +2007,15 @@ export default defineSchema({
     grantedByType: v.union(v.literal("guardian"), v.literal("self")),
     guardianIdentityId: v.optional(v.id("guardianIdentities")), // If guardian
 
+    // HOW sharing was initiated (analytics/tracking)
+    initiationType: v.optional(
+      v.union(
+        v.literal("parent_initiated"), // Parent proactively shared via wizard
+        v.literal("coach_requested") // Parent approved a coach access request
+      )
+    ),
+    sourceRequestId: v.optional(v.id("passportShareRequests")), // Link to original request if coach_requested
+
     // Where data comes from (can be all orgs or specific)
     sourceOrgMode: v.union(
       v.literal("all_enrolled"), // All orgs player is enrolled in

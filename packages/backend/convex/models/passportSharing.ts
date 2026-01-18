@@ -77,6 +77,9 @@ async function _lookupOrganization(
   name?: string;
   slug?: string;
   logo?: string;
+  metadata?: {
+    sport?: string;
+  } | null;
 } | null> {
   try {
     const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
@@ -128,6 +131,44 @@ async function _lookupUser(
     return null;
   } catch (error) {
     console.warn(`Failed to lookup user ${userId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Lookup Better Auth member (user in organization) by user ID and org ID
+ * @param ctx - Query context
+ * @param userId - User ID
+ * @param orgId - Organization ID
+ * @returns Member data or null
+ */
+// biome-ignore lint/suspicious/noExplicitAny: Matches existing pattern in this file for context parameter
+async function _lookupMember(
+  ctx: any,
+  userId: string,
+  orgId: string
+): Promise<{
+  _id: string;
+  role: string;
+  functionalRoles?: string[];
+} | null> {
+  try {
+    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "member",
+      paginationOpts: { cursor: null, numItems: 1 },
+      where: [
+        { field: "userId", value: userId, operator: "eq" },
+        { field: "organizationId", value: orgId, operator: "eq" },
+      ],
+    });
+
+    if (result.page[0]) {
+      // biome-ignore lint/suspicious/noExplicitAny: Better Auth adapter returns untyped objects
+      return result.page[0] as any;
+    }
+    return null;
+  } catch (error) {
+    console.warn(`Failed to lookup member ${userId} in org ${orgId}:`, error);
     return null;
   }
 }
@@ -492,6 +533,9 @@ export const createPassportShareConsent = mutation({
       v.union(v.literal("parent_initiated"), v.literal("coach_requested"))
     ),
     sourceRequestId: v.optional(v.id("passportShareRequests")),
+    // Cross-sport visibility controls
+    allowCrossSportVisibility: v.optional(v.boolean()),
+    visibleSportCodes: v.optional(v.array(v.string())),
   },
   returns: v.id("passportShareConsents"),
   handler: async (ctx, args) => {
@@ -561,6 +605,8 @@ export const createPassportShareConsent = mutation({
       sourceOrgIds: args.sourceOrgIds,
       receivingOrgId: args.receivingOrgId,
       sharedElements: args.sharedElements,
+      allowCrossSportVisibility: args.allowCrossSportVisibility,
+      visibleSportCodes: args.visibleSportCodes,
       consentedAt: now,
       expiresAt: args.expiresAt,
       renewalReminderSent: false,
@@ -1767,9 +1813,15 @@ export const getPendingRequestsForPlayer = query({
       requestedByName: v.string(),
       requestingOrgId: v.string(),
       requestingOrgName: v.string(),
+      requestingOrgLogo: v.optional(v.string()),
+      requestingOrgSport: v.optional(v.string()),
+      requestedByRole: v.string(),
+      requestedByEmail: v.optional(v.string()),
       reason: v.optional(v.string()),
       requestedAt: v.number(),
       expiresAt: v.number(),
+      daysUntilExpiry: v.number(),
+      isExpiringSoon: v.boolean(),
       status: v.union(
         v.literal("pending"),
         v.literal("approved"),
@@ -1797,18 +1849,62 @@ export const getPendingRequestsForPlayer = query({
     const now = Date.now();
     const validRequests = requests.filter((req) => req.expiresAt > now);
 
-    // Map to return format
-    return validRequests.map((request) => ({
-      requestId: request._id,
-      requestedBy: request.requestedBy,
-      requestedByName: request.requestedByName,
-      requestingOrgId: request.requestingOrgId,
-      requestingOrgName: request.requestingOrgName,
-      reason: request.reason,
-      requestedAt: request.requestedAt,
-      expiresAt: request.expiresAt,
-      status: request.status,
-    }));
+    // Enrich with organization and user data
+    const enrichedRequests = await Promise.all(
+      validRequests.map(async (request) => {
+        // Lookup organization for logo and sport
+        const org = await _lookupOrganization(ctx, request.requestingOrgId);
+
+        // Lookup user for email
+        const user = await _lookupUser(ctx, request.requestedBy);
+
+        // Lookup member for role in their organization
+        const member = await _lookupMember(
+          ctx,
+          request.requestedBy,
+          request.requestingOrgId
+        );
+
+        // Calculate expiry info
+        const millisecondsUntilExpiry = request.expiresAt - now;
+        const daysUntilExpiry = Math.ceil(
+          millisecondsUntilExpiry / (1000 * 60 * 60 * 24)
+        );
+        const isExpiringSoon = daysUntilExpiry <= 7; // Consider < 7 days as expiring soon
+
+        // Determine role display
+        let roleDisplay = "Coach";
+        if (member) {
+          if (member.role === "owner") {
+            roleDisplay = "Owner";
+          } else if (member.role === "admin") {
+            roleDisplay = "Admin";
+          } else if (member.functionalRoles?.includes("coach")) {
+            roleDisplay = "Coach";
+          }
+        }
+
+        return {
+          requestId: request._id,
+          requestedBy: request.requestedBy,
+          requestedByName: request.requestedByName,
+          requestingOrgId: request.requestingOrgId,
+          requestingOrgName: request.requestingOrgName,
+          requestingOrgLogo: org?.logo,
+          requestingOrgSport: org?.metadata?.sport,
+          requestedByRole: roleDisplay,
+          requestedByEmail: user?.email,
+          reason: request.reason,
+          requestedAt: request.requestedAt,
+          expiresAt: request.expiresAt,
+          daysUntilExpiry,
+          isExpiringSoon,
+          status: request.status,
+        };
+      })
+    );
+
+    return enrichedRequests;
   },
 });
 

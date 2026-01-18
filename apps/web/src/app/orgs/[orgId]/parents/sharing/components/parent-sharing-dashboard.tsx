@@ -2,20 +2,36 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   CheckCircle,
   Clock,
+  Eye,
   Shield,
   UserCheck,
   Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 import { ChildSharingCard } from "./child-sharing-card";
@@ -23,6 +39,7 @@ import {
   type ChildForSharing,
   EnableSharingWizard,
 } from "./enable-sharing-wizard";
+import { NotificationPreferences } from "./notification-preferences";
 
 type ParentSharingDashboardProps = {
   orgId: string;
@@ -42,12 +59,20 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
     Id<"passportShareRequests"> | undefined
   >(undefined);
 
+  // Preferences modal state
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
+
   // Get children from guardian identity system
   const {
     guardianIdentity,
     children: identityChildren,
     isLoading: identityLoading,
   } = useGuardianChildrenInOrg(orgId, session?.user?.email);
+
+  // Global findability preference mutation
+  const updateDiscoveryPreference = useMutation(
+    api.models.guardianIdentities.updatePassportDiscoveryPreference
+  );
 
   // Get user's role details in this organization
   const roleDetails = useQuery(
@@ -76,39 +101,89 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
     [identityChildren]
   );
 
-  // Fetch consent data for all children in a single query pattern
-  // Use the first child's ID or skip if no children
-  const allConsentsQuery = useQuery(
-    api.lib.consentGateway.getConsentsForPlayer,
-    playerIdentityIds.length > 0
-      ? { playerIdentityId: playerIdentityIds[0] }
-      : "skip"
+  // Fetch consent and request data for all children in a single bulk query
+  const bulkData = useQuery(
+    api.lib.consentGateway.getBulkConsentsAndRequestsForPlayers,
+    playerIdentityIds.length > 0 ? { playerIdentityIds } : "skip"
   );
 
-  const allRequestsQuery = useQuery(
-    api.models.passportSharing.getPendingRequestsForPlayer,
-    playerIdentityIds.length > 0
-      ? { playerIdentityId: playerIdentityIds[0] }
-      : "skip"
+  // Fetch sport passports for all children in a single bulk query
+  // Note: enrollment.sport is DEPRECATED - sportPassports is the source of truth
+  const sportPassportsBulk = useQuery(
+    api.models.sportPassports.getBulkPassportsForPlayers,
+    playerIdentityIds.length > 0 ? { playerIdentityIds } : "skip"
   );
 
-  // Calculate summary stats - simplified for now since we can't batch query
-  // The full stats will come from the individual ChildSharingCard components
+  // Calculate summary stats from bulk data
   const summaryStats = useMemo(() => {
+    if (!bulkData) {
+      return {
+        childrenCount: identityChildren.length,
+        activeShares: 0,
+        pendingRequests: 0,
+        lastActivity: null as Date | null,
+      };
+    }
+
+    // Aggregate across all children
+    let totalActiveShares = 0;
+    let totalPendingRequests = 0;
+    let mostRecentActivity: Date | null = null;
+
+    const now = Date.now();
+    for (const childData of bulkData) {
+      // Count active shares
+      const activeShares = childData.consents.filter(
+        (c) =>
+          c.status === "active" &&
+          c.coachAcceptanceStatus === "accepted" &&
+          c.expiresAt > now
+      );
+      totalActiveShares += activeShares.length;
+
+      // Count pending requests
+      totalPendingRequests += childData.pendingRequests.length;
+
+      // Track most recent activity
+      for (const consent of childData.consents) {
+        const consentDate = new Date(consent.consentedAt);
+        if (!mostRecentActivity || consentDate > mostRecentActivity) {
+          mostRecentActivity = consentDate;
+        }
+      }
+    }
+
     return {
       childrenCount: identityChildren.length,
-      activeShares: allConsentsQuery
-        ? allConsentsQuery.filter(
-            (c) =>
-              c.status === "active" &&
-              c.coachAcceptanceStatus === "accepted" &&
-              c.expiresAt > Date.now()
-          ).length
-        : 0,
-      pendingRequests: allRequestsQuery?.length ?? 0,
-      lastActivity: null as Date | null, // Simplified - could be computed from consents
+      activeShares: totalActiveShares,
+      pendingRequests: totalPendingRequests,
+      lastActivity: mostRecentActivity,
     };
-  }, [identityChildren.length, allConsentsQuery, allRequestsQuery]);
+  }, [identityChildren.length, bulkData]);
+
+  // Handle global findability toggle
+  const handleDiscoveryToggle = async (enabled: boolean) => {
+    if (!guardianIdentity?._id) {
+      toast.error("Guardian identity not found");
+      return;
+    }
+
+    try {
+      await updateDiscoveryPreference({
+        guardianIdentityId: guardianIdentity._id,
+        allowGlobalPassportDiscovery: enabled,
+      });
+
+      toast.success(
+        enabled
+          ? "Global passport discovery enabled - coaches can now find your children's passports"
+          : "Global passport discovery disabled"
+      );
+    } catch (error) {
+      toast.error("Failed to update preference. Please try again.");
+      console.error(error);
+    }
+  };
 
   // Show loading state while checking roles
   if (roleDetails === undefined || identityLoading) {
@@ -240,6 +315,68 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
         </Card>
       </div>
 
+      {/* Global Actions */}
+      {identityChildren.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Quick Actions</CardTitle>
+            <CardDescription>
+              Manage sharing and preferences for all your children
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={() => setShowWizard(true)}
+                size="default"
+                variant="default"
+              >
+                Enable Sharing
+              </Button>
+              <Button
+                disabled={!guardianIdentity?._id}
+                onClick={() => setPreferencesOpen(true)}
+                size="default"
+                variant="outline"
+              >
+                Manage Notification Preferences
+              </Button>
+            </div>
+
+            {/* Global Findability Toggle */}
+            <div className="flex items-start gap-3 rounded-lg border-2 border-blue-200 bg-blue-50 p-4">
+              <Eye className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <Label
+                      className="font-medium text-blue-900 text-sm"
+                      htmlFor="global-discovery"
+                    >
+                      Allow Global Passport Discovery
+                    </Label>
+                    <p className="text-blue-700 text-xs">
+                      Enable coaches at any organization to discover your
+                      children's passports and request access. You'll receive a
+                      notification for each request and can approve or decline.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={
+                      guardianIdentity?.allowGlobalPassportDiscovery ?? false
+                    }
+                    disabled={!guardianIdentity?._id}
+                    id="global-discovery"
+                    onCheckedChange={handleDiscoveryToggle}
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Children List */}
       {identityChildren.length > 0 && (
         <div>
@@ -247,18 +384,27 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
             <h2 className="font-semibold text-xl">Your Children</h2>
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {identityChildren.map((child) => (
-              <ChildSharingCard
-                child={child}
-                guardianIdentityId={guardianIdentity?._id}
-                key={child.player._id}
-                onEnableSharing={(childId, requestId) => {
-                  setSelectedChildForWizard(childId);
-                  setSourceRequestId(requestId);
-                  setShowWizard(true);
-                }}
-              />
-            ))}
+            {identityChildren.map((child) => {
+              // Find this child's data from bulk query
+              const childBulkData = bulkData?.find(
+                (data) => data.playerIdentityId === child.player._id
+              );
+
+              return (
+                <ChildSharingCard
+                  child={child}
+                  consentsData={childBulkData?.consents}
+                  guardianIdentityId={guardianIdentity?._id}
+                  key={child.player._id}
+                  onEnableSharing={(childId, requestId) => {
+                    setSelectedChildForWizard(childId);
+                    setSourceRequestId(requestId);
+                    setShowWizard(true);
+                  }}
+                  pendingRequestsData={childBulkData?.pendingRequests}
+                />
+              );
+            })}
           </div>
         </div>
       )}
@@ -300,17 +446,38 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
         preSelectedChildId={selectedChildForWizard || undefined}
         sourceRequestId={sourceRequestId}
       />
+
+      {/* Notification Preferences Dialog */}
+      <Dialog onOpenChange={setPreferencesOpen} open={preferencesOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Notification Preferences</DialogTitle>
+          </DialogHeader>
+          {guardianIdentity?._id && (
+            <NotificationPreferences
+              guardianIdentityId={guardianIdentity._id}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 
   // Helper function to prepare children data for wizard
   function prepareChildrenForWizard(): ChildForSharing[] {
-    return identityChildren.map((child) => ({
-      _id: child.player._id,
-      firstName: child.player.firstName,
-      lastName: child.player.lastName,
-      sport: child.enrollment?.sport,
-      ageGroup: child.enrollment?.ageGroup,
-    }));
+    return identityChildren.map((child) => {
+      // Find sport passport data for this child
+      const sportData = sportPassportsBulk?.find(
+        (data) => data.playerIdentityId === child.player._id
+      );
+
+      return {
+        _id: child.player._id,
+        firstName: child.player.firstName,
+        lastName: child.player.lastName,
+        sport: sportData?.primarySportCode || child.enrollment?.sport, // Fallback to deprecated field if no passport
+        ageGroup: child.enrollment?.ageGroup,
+      };
+    });
   }
 }

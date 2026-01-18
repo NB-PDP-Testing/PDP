@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { BrowsePlayersTab } from "./components/browse-players-tab";
+import { MyPlayersTab } from "./components/my-players-tab";
 import { ShareAcceptanceModal } from "./components/share-acceptance-modal";
 
 type SharedPassportsProps = {
@@ -153,29 +154,6 @@ export function SharedPassportsView({ orgId }: SharedPassportsProps) {
     setSelectedShare(null);
   };
 
-  // Empty state - no accepted or pending shares
-  if (sharedPassports.length === 0 && pendingShares.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Share2 className="h-5 w-5" />
-            Shared Passports
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="py-8 text-center">
-            <Share2 className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-            <p className="text-gray-600 text-sm">
-              No shared passports yet. When parents share their child's passport
-              with your organization, they'll appear here.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <>
       <div className="space-y-6">
@@ -187,8 +165,9 @@ export function SharedPassportsView({ orgId }: SharedPassportsProps) {
           </p>
         </div>
 
-        <Tabs className="w-full" defaultValue="active">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs className="w-full" defaultValue="my-players">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="my-players">My Players</TabsTrigger>
             <TabsTrigger value="active">
               Active
               {sharedPassports.length > 0 && (
@@ -207,6 +186,11 @@ export function SharedPassportsView({ orgId }: SharedPassportsProps) {
             </TabsTrigger>
             <TabsTrigger value="browse">Browse</TabsTrigger>
           </TabsList>
+
+          {/* My Players tab - shows team players with available passports from other orgs */}
+          <TabsContent className="mt-4" value="my-players">
+            <MyPlayersTab organizationId={organizationId} userId={userId} />
+          </TabsContent>
 
           {/* Active shares tab */}
           <TabsContent className="mt-4" value="active">

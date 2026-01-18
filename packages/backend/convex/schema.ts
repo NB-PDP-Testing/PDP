@@ -191,6 +191,9 @@ export default defineSchema({
       v.union(v.literal("email"), v.literal("phone"), v.literal("both"))
     ),
 
+    // Passport Sharing Preferences (global)
+    allowGlobalPassportDiscovery: v.optional(v.boolean()), // Allow coaches at any org to discover children's passports
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -2039,6 +2042,10 @@ export default defineSchema({
       medicalSummary: v.boolean(), // Medical profile summary
       contactInfo: v.boolean(), // Guardian/coach contact for coordination
     }),
+
+    // Cross-Sport Visibility (granular control over multi-sport passports)
+    allowCrossSportVisibility: v.optional(v.boolean()), // Whether receiving org can see player has other sport passports
+    visibleSportCodes: v.optional(v.array(v.string())), // Which specific sports to make visible (if cross-sport visibility enabled)
 
     // Consent lifecycle
     consentedAt: v.number(), // Timestamp of consent

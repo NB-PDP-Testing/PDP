@@ -3,7 +3,16 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
-import { ShieldAlert } from "lucide-react";
+import {
+  AlertTriangle,
+  Building2,
+  CheckCircle,
+  Clock,
+  Share2,
+  ShieldAlert,
+  TrendingUp,
+  UserCheck,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,12 +23,60 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AccessAuditLog } from "./access-audit-log";
 import { NotificationPreferences } from "./notification-preferences";
 import { PendingRequests } from "./pending-requests";
 import { QuickShare } from "./quick-share";
 import { RevokeConsentModal } from "./revoke-consent-modal";
+
+/**
+ * Format sport code to human-readable name
+ * Handles both lowercase and uppercase sport codes
+ */
+function formatSportName(sportCode: string | undefined): string {
+  if (!sportCode) {
+    return "";
+  }
+
+  // Convert to lowercase for lookup
+  const normalizedCode = sportCode.toLowerCase();
+
+  const sportNames: Record<string, string> = {
+    gaa_gaelic_football: "GAA Gaelic Football",
+    gaa_hurling: "GAA Hurling",
+    gaa_football: "GAA Gaelic Football",
+    gaelic_football: "GAA Gaelic Football",
+    hurling: "GAA Hurling",
+    soccer: "Soccer",
+    football: "Soccer",
+    rugby: "Rugby",
+    rugby_union: "Rugby Union",
+    rugby_league: "Rugby League",
+    basketball: "Basketball",
+    hockey: "Hockey",
+    field_hockey: "Field Hockey",
+    ice_hockey: "Ice Hockey",
+    tennis: "Tennis",
+    cricket: "Cricket",
+    athletics: "Athletics",
+    track_and_field: "Athletics",
+  };
+
+  // Return formatted name or capitalize the raw code
+  return (
+    sportNames[normalizedCode] ||
+    sportCode
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  );
+}
 
 type ChildSharingCardProps = {
   child: {
@@ -38,12 +95,55 @@ type ChildSharingCardProps = {
     childId: string,
     sourceRequestId?: Id<"passportShareRequests">
   ) => void;
+  // Optional: Pre-fetched data from parent bulk query
+  consentsData?: Array<{
+    consentId: Id<"passportShareConsents">;
+    receivingOrgId: string;
+    status: "active" | "expired" | "revoked" | "suspended";
+    coachAcceptanceStatus: "pending" | "accepted" | "declined";
+    sharedElements: {
+      basicProfile: boolean;
+      skillRatings: boolean;
+      skillHistory: boolean;
+      developmentGoals: boolean;
+      coachNotes: boolean;
+      benchmarkData: boolean;
+      attendanceRecords: boolean;
+      injuryHistory: boolean;
+      medicalSummary: boolean;
+      contactInfo: boolean;
+    };
+    consentedAt: number;
+    expiresAt: number;
+    revokedAt?: number;
+    acceptedAt?: number;
+    declinedAt?: number;
+  }>;
+  pendingRequestsData?: Array<{
+    requestId: Id<"passportShareRequests">;
+    requestedBy: string;
+    requestedByName: string;
+    requestingOrgId: string;
+    requestingOrgName: string;
+    requestingOrgLogo?: string;
+    requestingOrgSport?: string;
+    requestedByRole: string;
+    requestedByEmail?: string;
+    reason?: string;
+    requestedAt: number;
+    expiresAt: number;
+    daysUntilExpiry: number;
+    isExpiringSoon: boolean;
+    status: "pending" | "approved" | "declined" | "expired";
+  }>;
 };
 
 export function ChildSharingCard({
   child,
   guardianIdentityId,
   onEnableSharing,
+  consentsData,
+  pendingRequestsData,
 }: ChildSharingCardProps) {
   // Modal state for revocation
   const [revokeModalOpen, setRevokeModalOpen] = useState(false);
@@ -60,18 +160,48 @@ export function ChildSharingCard({
   // Modal state for pending requests
   const [pendingRequestsOpen, setPendingRequestsOpen] = useState(false);
 
-  // Fetch consents for this player
-  const consents = useQuery(api.lib.consentGateway.getConsentsForPlayer, {
-    playerIdentityId: child.player._id,
-  });
+  // Fetch consents for this player (only if not provided)
+  const consentsQuery = useQuery(
+    api.lib.consentGateway.getConsentsForPlayer,
+    consentsData
+      ? "skip"
+      : {
+          playerIdentityId: child.player._id,
+        }
+  );
 
-  // Fetch pending requests for this player
-  const pendingRequests = useQuery(
+  // Fetch pending requests for this player (only if not provided)
+  const pendingRequestsQuery = useQuery(
     api.models.passportSharing.getPendingRequestsForPlayer,
+    pendingRequestsData
+      ? "skip"
+      : {
+          playerIdentityId: child.player._id,
+        }
+  );
+
+  // Fetch sport passports for this player to get accurate sport information
+  // Note: enrollment.sport is DEPRECATED - sportPassports is the source of truth
+  const sportPassports = useQuery(
+    api.models.sportPassports.getPassportsForPlayer,
     {
       playerIdentityId: child.player._id,
     }
   );
+
+  // Use provided data or fallback to query results
+  const consents = consentsData ?? consentsQuery;
+  const pendingRequests = pendingRequestsData ?? pendingRequestsQuery;
+
+  // Get primary sport from sport passports (first active passport)
+  const primarySportCode = useMemo(() => {
+    if (!sportPassports || sportPassports.length === 0) {
+      return child.enrollment?.sport; // Fallback to deprecated field
+    }
+    // Find first active passport, or just use first passport
+    const activeSport = sportPassports.find((p) => p.status === "active");
+    return activeSport?.sportCode || sportPassports[0]?.sportCode;
+  }, [sportPassports, child.enrollment?.sport]);
 
   // Get active consents (for revocation UI)
   const activeConsents = useMemo(() => {
@@ -133,17 +263,24 @@ export function ChildSharingCard({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>
-            {child.player.firstName} {child.player.lastName}
-          </span>
-          <Badge variant="outline">
-            {child.enrollment?.sport || "Unknown"}
-          </Badge>
+      <CardHeader className="pb-3">
+        <CardTitle className="mb-1.5 font-semibold text-base">
+          {child.player.firstName} {child.player.lastName}
         </CardTitle>
-        <CardDescription>
-          {child.enrollment?.ageGroup || "No age group"}
+        <CardDescription className="flex flex-wrap items-center gap-2">
+          <Badge className="font-normal" variant="outline">
+            {formatSportName(primarySportCode) || "Unknown"}
+          </Badge>
+          <span className="text-muted-foreground">•</span>
+          <span>{child.enrollment?.ageGroup || "No age group"}</span>
+          {sportPassports && sportPassports.length > 1 && (
+            <>
+              <span className="text-muted-foreground">•</span>
+              <Badge className="text-xs" variant="secondary">
+                {sportPassports.length} sports
+              </Badge>
+            </>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -157,121 +294,275 @@ export function ChildSharingCard({
           playerIdentityId={child.player._id}
         />
 
-        {/* Sharing status */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Active Shares:</span>
-            <Badge
-              variant={
-                sharingMetrics.activeShares > 0 ? "default" : "secondary"
-              }
+        {/* Sharing status - Enhanced visual design */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* Active Shares */}
+          <div
+            className={`rounded-lg border-2 p-3 text-center transition-colors ${
+              sharingMetrics.activeShares > 0
+                ? "border-green-200 bg-green-50"
+                : "border-gray-200 bg-gray-50"
+            }`}
+          >
+            <div
+              className={`mb-1 flex items-center justify-center ${
+                sharingMetrics.activeShares > 0
+                  ? "text-green-600"
+                  : "text-gray-400"
+              }`}
+            >
+              <Share2 className="h-5 w-5" />
+            </div>
+            <p
+              className={`font-bold text-2xl ${
+                sharingMetrics.activeShares > 0
+                  ? "text-green-700"
+                  : "text-gray-500"
+              }`}
             >
               {sharingMetrics.activeShares}
-            </Badge>
+            </p>
+            <p className="text-muted-foreground text-xs">Active</p>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Pending Requests:</span>
-            <Badge
-              variant={
-                sharingMetrics.pendingRequests > 0 ? "default" : "secondary"
-              }
+
+          {/* Pending Requests */}
+          <div
+            className={`rounded-lg border-2 p-3 text-center transition-colors ${
+              sharingMetrics.pendingRequests > 0
+                ? "border-yellow-200 bg-yellow-50"
+                : "border-gray-200 bg-gray-50"
+            }`}
+          >
+            <div
+              className={`mb-1 flex items-center justify-center ${
+                sharingMetrics.pendingRequests > 0
+                  ? "text-yellow-600"
+                  : "text-gray-400"
+              }`}
+            >
+              <Clock className="h-5 w-5" />
+            </div>
+            <p
+              className={`font-bold text-2xl ${
+                sharingMetrics.pendingRequests > 0
+                  ? "text-yellow-700"
+                  : "text-gray-500"
+              }`}
             >
               {sharingMetrics.pendingRequests}
-            </Badge>
+            </p>
+            <p className="text-muted-foreground text-xs">Pending</p>
           </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Last Activity:</span>
-            <span className="text-muted-foreground text-xs">
+
+          {/* Last Activity */}
+          <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-3 text-center">
+            <div className="mb-1 flex items-center justify-center text-gray-400">
+              <UserCheck className="h-5 w-5" />
+            </div>
+            <p className="font-bold text-gray-700 text-xs">
               {sharingMetrics.lastActivity
-                ? sharingMetrics.lastActivity.toLocaleDateString()
+                ? sharingMetrics.lastActivity.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                  })
                 : "None"}
-            </span>
+            </p>
+            <p className="text-muted-foreground text-xs">Activity</p>
           </div>
         </div>
 
-        {/* Active shares with revoke buttons */}
+        {/* Empty state message when no activity */}
+        {sharingMetrics.activeShares === 0 &&
+          sharingMetrics.pendingRequests === 0 && (
+            <div className="rounded-lg border border-gray-300 border-dashed bg-gray-50 p-4 text-center">
+              <TrendingUp className="mx-auto mb-2 h-8 w-8 text-gray-400" />
+              <p className="font-medium text-gray-700 text-sm">
+                No sharing activity yet
+              </p>
+              <p className="mt-1 text-muted-foreground text-xs">
+                Enable sharing to allow coaches at other organizations to access{" "}
+                {child.player.firstName}'s passport
+              </p>
+            </div>
+          )}
+
+        {/* Active shares with detailed information */}
         {activeConsents.length > 0 && (
-          <div className="space-y-2">
-            <p className="font-medium text-sm">Active Shares:</p>
-            {activeConsents.map((consent) => (
-              <div
-                className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-2"
-                key={consent.consentId}
-              >
-                <div className="flex items-center gap-2">
-                  <ShieldAlert className="h-4 w-4 text-green-600" />
-                  <div>
-                    <p className="font-medium text-sm">
-                      Org: {consent.receivingOrgId.slice(0, 8)}...
+          <div className="space-y-3">
+            <p className="font-medium text-sm">
+              Active Shares ({activeConsents.length}):
+            </p>
+            {activeConsents.map((consent) => {
+              // Calculate expiry warning
+              const now = Date.now();
+              const millisecondsUntilExpiry = consent.expiresAt - now;
+              const daysUntilExpiry = Math.ceil(
+                millisecondsUntilExpiry / (1000 * 60 * 60 * 24)
+              );
+              const isExpiringSoon = daysUntilExpiry <= 14;
+
+              return (
+                <div
+                  className="space-y-3 rounded-lg border-2 border-green-200 bg-gradient-to-br from-green-50 to-white p-4 shadow-sm"
+                  key={consent.consentId}
+                >
+                  {/* Organization Header */}
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-green-200 bg-white">
+                        <Building2 className="h-6 w-6 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">
+                          {consent.receivingOrgId.slice(0, 20)}...
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          Organization
+                        </p>
+                      </div>
+                    </div>
+                    <Badge className="bg-green-600" variant="default">
+                      <CheckCircle className="mr-1 h-3 w-3" />
+                      Active
+                    </Badge>
+                  </div>
+
+                  {/* Dates */}
+                  <div className="grid grid-cols-2 gap-3 rounded-md bg-white p-3">
+                    <div>
+                      <p className="text-muted-foreground text-xs">Shared On</p>
+                      <p className="font-medium text-sm">
+                        {new Date(consent.consentedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs">Expires</p>
+                      <div className="flex items-center gap-1">
+                        <p className="font-medium text-sm">
+                          {new Date(consent.expiresAt).toLocaleDateString()}
+                        </p>
+                        {isExpiringSoon && (
+                          <Badge
+                            className="px-1.5 py-0 text-xs"
+                            variant="destructive"
+                          >
+                            <AlertTriangle className="mr-1 h-3 w-3" />
+                            {daysUntilExpiry}d
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Shared Elements */}
+                  <div className="rounded-md border border-green-200 bg-white p-3">
+                    <p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                      Shared Information
                     </p>
-                    <p className="text-muted-foreground text-xs">
-                      Expires:{" "}
-                      {new Date(consent.expiresAt).toLocaleDateString()}
-                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {consent.sharedElements.basicProfile && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                          <span>Profile</span>
+                        </div>
+                      )}
+                      {consent.sharedElements.skillRatings && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                          <span>Skills</span>
+                        </div>
+                      )}
+                      {consent.sharedElements.developmentGoals && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                          <span>Goals</span>
+                        </div>
+                      )}
+                      {consent.sharedElements.coachNotes && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                          <span>Notes</span>
+                        </div>
+                      )}
+                      {consent.sharedElements.attendanceRecords && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                          <span>Attendance</span>
+                        </div>
+                      )}
+                      {consent.sharedElements.injuryHistory && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                          <span>Injuries</span>
+                        </div>
+                      )}
+                      {consent.sharedElements.medicalSummary && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
+                          <span className="font-medium">Medical</span>
+                        </div>
+                      )}
+                      {consent.sharedElements.contactInfo && (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                          <span>Contact</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      className="flex-1"
+                      onClick={() => {
+                        setSelectedConsentId(consent.consentId);
+                        setSelectedOrgName(consent.receivingOrgId);
+                        setRevokeModalOpen(true);
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="destructive"
+                    >
+                      Revoke Access
+                    </Button>
                   </div>
                 </div>
-                <Button
-                  onClick={() => {
-                    setSelectedConsentId(consent.consentId);
-                    setSelectedOrgName(consent.receivingOrgId);
-                    setRevokeModalOpen(true);
-                  }}
-                  size="sm"
-                  type="button"
-                  variant="destructive"
-                >
-                  Revoke
-                </Button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        {/* Quick actions */}
-        <div className="flex flex-col gap-2">
-          <Button
-            className="w-full"
-            onClick={() => onEnableSharing?.(child.player._id)}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Enable Sharing
-          </Button>
-          <Button
-            className="w-full"
-            onClick={() => setPendingRequestsOpen(true)}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            View Pending Requests
+        {/* Child-specific actions */}
+        {(sharingMetrics.pendingRequests > 0 || activeConsents.length > 0) && (
+          <div className="flex flex-col gap-2">
             {sharingMetrics.pendingRequests > 0 && (
-              <Badge className="ml-2" variant="default">
-                {sharingMetrics.pendingRequests}
-              </Badge>
+              <Button
+                className="w-full"
+                onClick={() => setPendingRequestsOpen(true)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                View Pending Requests
+                <Badge className="ml-2" variant="default">
+                  {sharingMetrics.pendingRequests}
+                </Badge>
+              </Button>
             )}
-          </Button>
-          <Button
-            className="w-full"
-            onClick={() => setAuditLogOpen(true)}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            View Audit Log
-          </Button>
-          <Button
-            className="w-full"
-            disabled={!guardianIdentityId}
-            onClick={() => setPreferencesOpen(true)}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            Manage Preferences
-          </Button>
-        </div>
+            {activeConsents.length > 0 && (
+              <Button
+                className="w-full"
+                onClick={() => setAuditLogOpen(true)}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                View Access Log
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
 
       {/* Revoke Consent Modal */}
@@ -291,6 +582,11 @@ export function ChildSharingCard({
       {/* Access Audit Log Dialog */}
       <Dialog onOpenChange={setAuditLogOpen} open={auditLogOpen}>
         <DialogContent className="max-h-[80vh] max-w-4xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Access Log - {child.player.firstName} {child.player.lastName}
+            </DialogTitle>
+          </DialogHeader>
           <AccessAuditLog
             childName={`${child.player.firstName} ${child.player.lastName}`}
             playerIdentityId={child.player._id}
@@ -302,6 +598,9 @@ export function ChildSharingCard({
       {guardianIdentityId && (
         <Dialog onOpenChange={setPreferencesOpen} open={preferencesOpen}>
           <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Notification Preferences</DialogTitle>
+            </DialogHeader>
             <NotificationPreferences
               guardianIdentityId={guardianIdentityId}
               playerIdentityId={child.player._id}
@@ -313,6 +612,12 @@ export function ChildSharingCard({
       {/* Pending Requests Dialog */}
       <Dialog onOpenChange={setPendingRequestsOpen} open={pendingRequestsOpen}>
         <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Pending Requests - {child.player.firstName}{" "}
+              {child.player.lastName}
+            </DialogTitle>
+          </DialogHeader>
           <PendingRequests
             childName={`${child.player.firstName} ${child.player.lastName}`}
             onApprove={(requestId) => {

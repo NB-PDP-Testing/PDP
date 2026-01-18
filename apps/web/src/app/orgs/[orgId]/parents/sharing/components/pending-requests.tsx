@@ -3,7 +3,15 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, Clock, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  Building2,
+  CheckCircle2,
+  Clock,
+  Mail,
+  User,
+  XCircle,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -17,6 +25,49 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+
+/**
+ * Format sport code to human-readable name
+ * Handles both lowercase and uppercase sport codes
+ */
+function formatSportName(sportCode: string | undefined): string {
+  if (!sportCode) {
+    return "";
+  }
+
+  // Convert to lowercase for lookup
+  const normalizedCode = sportCode.toLowerCase();
+
+  const sportNames: Record<string, string> = {
+    gaa_gaelic_football: "GAA Gaelic Football",
+    gaa_hurling: "GAA Hurling",
+    gaa_football: "GAA Gaelic Football",
+    gaelic_football: "GAA Gaelic Football",
+    hurling: "GAA Hurling",
+    soccer: "Soccer",
+    football: "Soccer",
+    rugby: "Rugby",
+    rugby_union: "Rugby Union",
+    rugby_league: "Rugby League",
+    basketball: "Basketball",
+    hockey: "Hockey",
+    field_hockey: "Field Hockey",
+    ice_hockey: "Ice Hockey",
+    tennis: "Tennis",
+    cricket: "Cricket",
+    athletics: "Athletics",
+    track_and_field: "Athletics",
+  };
+
+  // Return formatted name or capitalize the raw code
+  return (
+    sportNames[normalizedCode] ||
+    sportCode
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  );
+}
 
 type PendingRequestsProps = {
   playerIdentityId: Id<"playerIdentities">;
@@ -150,49 +201,107 @@ export function PendingRequests({
         <CardContent className="space-y-4">
           {pendingRequests.map((request) => {
             const expiresIn = calculateExpiresIn(request.expiresAt);
-            const isExpiringSoon =
-              (request.expiresAt - Date.now()) / (1000 * 60 * 60 * 24) <= 3;
+            // Use backend-calculated isExpiringSoon flag
+            const isExpiringSoon = request.isExpiringSoon;
+            const sportName = formatSportName(request.requestingOrgSport);
 
             return (
               <div
-                className="space-y-3 rounded-lg border border-gray-200 p-4"
+                className="space-y-4 rounded-lg border-2 border-gray-200 bg-gradient-to-br from-white to-gray-50 p-5 shadow-sm transition-shadow hover:shadow-md"
                 key={request.requestId}
               >
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <p className="font-medium text-sm">
-                      {request.requestedByName}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      {request.requestingOrgName}
-                    </p>
+                {/* Header: Organization & Expiry Badge */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    {/* Organization Logo */}
+                    {request.requestingOrgLogo ? (
+                      <img
+                        alt={`${request.requestingOrgName} logo`}
+                        className="h-12 w-12 rounded-lg border border-gray-200 object-cover"
+                        src={request.requestingOrgLogo}
+                      />
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-gray-200 bg-blue-100">
+                        <Building2 className="h-6 w-6 text-blue-600" />
+                      </div>
+                    )}
+
+                    {/* Organization Info */}
+                    <div className="space-y-1">
+                      <p className="font-semibold text-sm">
+                        {request.requestingOrgName}
+                      </p>
+                      {sportName && (
+                        <p className="text-muted-foreground text-xs">
+                          {sportName}
+                        </p>
+                      )}
+                    </div>
                   </div>
+
+                  {/* Expiry Badge */}
                   <div
-                    className={`rounded-full px-2 py-1 font-medium text-xs ${
+                    className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 font-medium text-xs ${
                       isExpiringSoon
                         ? "bg-orange-100 text-orange-700"
                         : "bg-blue-100 text-blue-700"
                     }`}
                   >
+                    {isExpiringSoon ? (
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                    ) : (
+                      <Clock className="h-3.5 w-3.5" />
+                    )}
                     {expiresIn}
                   </div>
                 </div>
 
+                {/* Coach Information */}
+                <div className="space-y-2 rounded-lg bg-blue-50 p-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium">
+                      {request.requestedByName}
+                    </span>
+                    <span className="rounded bg-blue-200 px-2 py-0.5 font-medium text-blue-700 text-xs">
+                      {request.requestedByRole}
+                    </span>
+                  </div>
+                  {request.requestedByEmail && (
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                      <Mail className="h-3.5 w-3.5" />
+                      <span>{request.requestedByEmail}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Request Reason */}
                 {request.reason && (
-                  <div className="rounded bg-gray-50 p-2">
-                    <p className="font-medium text-muted-foreground text-xs">
-                      Reason:
+                  <div className="space-y-1.5 rounded-lg border border-gray-200 bg-white p-3">
+                    <p className="font-semibold text-gray-700 text-xs uppercase tracking-wide">
+                      Reason for Request
                     </p>
-                    <p className="text-sm">{request.reason}</p>
+                    <p className="text-gray-900 text-sm leading-relaxed">
+                      {request.reason}
+                    </p>
                   </div>
                 )}
 
-                <div className="text-muted-foreground text-xs">
-                  Requested on{" "}
-                  {new Date(request.requestedAt).toLocaleDateString()}
+                {/* Request Date */}
+                <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>
+                    Requested on{" "}
+                    {new Date(request.requestedAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </span>
                 </div>
 
-                <div className="flex gap-2">
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-2">
                   <Button
                     className="flex-1 gap-2"
                     onClick={() => handleApprove(request.requestId)}
@@ -201,7 +310,7 @@ export function PendingRequests({
                     variant="default"
                   >
                     <CheckCircle2 className="h-4 w-4" />
-                    Approve
+                    Approve & Enable Sharing
                   </Button>
                   <Button
                     className="flex-1 gap-2"

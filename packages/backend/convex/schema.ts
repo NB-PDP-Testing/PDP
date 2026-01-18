@@ -2220,4 +2220,62 @@ export default defineSchema({
     .index("by_user_unread", ["userId", "readAt"])
     .index("by_consent", ["consentId"])
     .index("by_player", ["playerIdentityId"]),
+
+  // ============================================================
+  // USER PREFERENCES & USAGE TRACKING
+  // Stores user preferences for default org/role and tracks
+  // usage patterns for smart defaults
+  // ============================================================
+
+  userPreferences: defineTable({
+    userId: v.string(), // Better Auth user ID
+
+    // Landing page defaults
+    defaultOrganizationId: v.optional(v.string()),
+    defaultRole: v.optional(
+      v.union(
+        v.literal("admin"),
+        v.literal("coach"),
+        v.literal("parent"),
+        v.literal("player")
+      )
+    ),
+    defaultPage: v.optional(v.string()), // e.g., "/dashboard", "/teams", etc.
+
+    // Usage tracking for smart defaults
+    // Array of org access history with frequency scoring
+    orgAccessHistory: v.optional(
+      v.array(
+        v.object({
+          orgId: v.string(),
+          orgName: v.string(),
+          role: v.union(
+            v.literal("admin"),
+            v.literal("coach"),
+            v.literal("parent"),
+            v.literal("player")
+          ),
+          accessCount: v.number(), // Total number of times accessed
+          totalMinutesSpent: v.number(), // Total time spent in this org/role
+          lastAccessedAt: v.number(), // Unix timestamp of last access
+        })
+      )
+    ),
+
+    // UI preferences
+    themePreference: v.optional(
+      v.union(v.literal("light"), v.literal("dark"), v.literal("system"))
+    ),
+    densityPreference: v.optional(
+      v.union(
+        v.literal("compact"),
+        v.literal("comfortable"),
+        v.literal("spacious")
+      )
+    ),
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_userId", ["userId"]),
 });

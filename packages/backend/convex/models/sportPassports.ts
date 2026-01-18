@@ -110,23 +110,7 @@ export const getPassportsForOrg = query({
   },
   returns: v.array(passportValidator),
   handler: async (ctx, args) => {
-    let passports: Array<{
-      _id: any;
-      _creationTime: number;
-      organizationId: string;
-      playerIdentityId: any;
-      sportCode: string;
-      status: string;
-      currentLevel?: string | undefined;
-      targetLevel?: string | undefined;
-      lastAssessmentDate?: number | undefined;
-      nextAssessmentDate?: number | undefined;
-      notes?: string | undefined;
-      createdBy: string;
-      createdAt: number;
-      updatedAt?: number | undefined;
-      deletedAt?: number | undefined;
-    }> = [];
+    let passports = [];
 
     if (args.sportCode) {
       const sportCode = args.sportCode;
@@ -163,23 +147,7 @@ export const getPassportsWithPlayersForOrg = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    let passports: Array<{
-      _id: any;
-      _creationTime: number;
-      organizationId: string;
-      playerIdentityId: any;
-      sportCode: string;
-      status: string;
-      currentLevel?: string | undefined;
-      targetLevel?: string | undefined;
-      lastAssessmentDate?: number | undefined;
-      nextAssessmentDate?: number | undefined;
-      notes?: string | undefined;
-      createdBy: string;
-      createdAt: number;
-      updatedAt?: number | undefined;
-      deletedAt?: number | undefined;
-    }> = [];
+    let passports = [];
 
     if (args.sportCode) {
       const sportCode = args.sportCode;
@@ -619,23 +587,7 @@ export const getFullPlayerPassportView = query({
     }
 
     // Get passports (all or specific sport)
-    let passports: Array<{
-      _id: any;
-      _creationTime: number;
-      organizationId: string;
-      playerIdentityId: any;
-      sportCode: string;
-      status: string;
-      currentLevel?: string | undefined;
-      targetLevel?: string | undefined;
-      lastAssessmentDate?: number | undefined;
-      nextAssessmentDate?: number | undefined;
-      notes?: string | undefined;
-      createdBy: string;
-      createdAt: number;
-      updatedAt?: number | undefined;
-      deletedAt?: number | undefined;
-    }> = [];
+    let passports = [];
 
     if (args.sportCode) {
       const sportCode = args.sportCode;

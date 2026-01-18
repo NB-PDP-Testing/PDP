@@ -279,7 +279,7 @@ export default function CoachMedicalPage() {
       return [];
     }
 
-    return allProfiles.filter((item) => {
+    return allProfiles.filter((item: NonNullable<typeof allProfiles>[0]) => {
       // Only show players WITH medical profiles
       if (!item.hasProfile) {
         return false;
@@ -311,9 +311,15 @@ export default function CoachMedicalPage() {
       return { allergies: 0, conditions: 0, medications: 0 };
     }
     return {
-      allergies: allProfiles.filter((p) => p.hasAllergies).length,
-      conditions: allProfiles.filter((p) => p.hasConditions).length,
-      medications: allProfiles.filter((p) => p.hasMedications).length,
+      allergies: allProfiles.filter(
+        (p: NonNullable<typeof allProfiles>[0]) => p.hasAllergies
+      ).length,
+      conditions: allProfiles.filter(
+        (p: NonNullable<typeof allProfiles>[0]) => p.hasConditions
+      ).length,
+      medications: allProfiles.filter(
+        (p: NonNullable<typeof allProfiles>[0]) => p.hasMedications
+      ).length,
     };
   }, [allProfiles]);
 
@@ -342,7 +348,9 @@ export default function CoachMedicalPage() {
     );
   }
 
-  const playersWithProfiles = allProfiles.filter((p) => p.hasProfile).length;
+  const playersWithProfiles = allProfiles.filter(
+    (p: NonNullable<typeof allProfiles>[0]) => p.hasProfile
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -483,78 +491,80 @@ export default function CoachMedicalPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPlayers.map((item) => (
-                <TableRow key={item.player._id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
-                        <User className="h-5 w-5 text-gray-600" />
+              {filteredPlayers.map(
+                (item: NonNullable<typeof allProfiles>[0]) => (
+                  <TableRow key={item.player._id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                          <User className="h-5 w-5 text-gray-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{item.player.name}</p>
+                          <p className="text-muted-foreground text-xs">
+                            {item.player.sport}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{item.player.name}</p>
-                        <p className="text-muted-foreground text-xs">
-                          {item.player.sport}
-                        </p>
+                    </TableCell>
+                    <TableCell>{item.player.ageGroup}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {item.hasAllergies && (
+                          <Badge
+                            className="bg-orange-100 text-orange-700"
+                            title="Has Allergies"
+                          >
+                            <AlertCircle className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {item.hasMedications && (
+                          <Badge
+                            className="bg-blue-100 text-blue-700"
+                            title="On Medications"
+                          >
+                            <Pill className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {item.hasConditions && (
+                          <Badge
+                            className="bg-purple-100 text-purple-700"
+                            title="Has Conditions"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {!(
+                          item.hasAllergies ||
+                          item.hasMedications ||
+                          item.hasConditions
+                        ) && (
+                          <Badge className="text-green-600" variant="outline">
+                            Clear
+                          </Badge>
+                        )}
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{item.player.ageGroup}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {item.hasAllergies && (
-                        <Badge
-                          className="bg-orange-100 text-orange-700"
-                          title="Has Allergies"
-                        >
-                          <AlertCircle className="h-3 w-3" />
-                        </Badge>
-                      )}
-                      {item.hasMedications && (
-                        <Badge
-                          className="bg-blue-100 text-blue-700"
-                          title="On Medications"
-                        >
-                          <Pill className="h-3 w-3" />
-                        </Badge>
-                      )}
-                      {item.hasConditions && (
-                        <Badge
-                          className="bg-purple-100 text-purple-700"
-                          title="Has Conditions"
-                        >
-                          <AlertTriangle className="h-3 w-3" />
-                        </Badge>
-                      )}
-                      {!(
-                        item.hasAllergies ||
-                        item.hasMedications ||
-                        item.hasConditions
-                      ) && (
-                        <Badge className="text-green-600" variant="outline">
-                          Clear
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <p className="font-mono text-sm">
-                      {item.profile?.emergencyContact1Phone || "Not set"}
-                    </p>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      onClick={() =>
-                        handleViewClick(item.player.name, item.profile)
-                      }
-                      size="sm"
-                      variant="outline"
-                    >
-                      <Eye className="mr-1 h-4 w-4" />
-                      View
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell>
+                      <p className="font-mono text-sm">
+                        {item.profile?.emergencyContact1Phone || "Not set"}
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        onClick={() =>
+                          handleViewClick(item.player.name, item.profile)
+                        }
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Eye className="mr-1 h-4 w-4" />
+                        View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              )}
               {filteredPlayers.length === 0 && (
                 <TableRow>
                   <TableCell className="py-8 text-center" colSpan={5}>

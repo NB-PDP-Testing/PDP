@@ -2,7 +2,6 @@
 
 import {
   Database,
-  Home,
   Key,
   Megaphone,
   Settings,
@@ -19,19 +18,6 @@ export default function PlatformDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1E3A5F] via-[#1E3A5F] to-white p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl">
-        {/* Back to Home Button */}
-        <div className="mb-6">
-          <Link href="/">
-            <button
-              className="flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-white transition-all hover:bg-white/20"
-              type="button"
-            >
-              <Home className="h-4 w-4" />
-              <span>Back to Home</span>
-            </button>
-          </Link>
-        </div>
-
         {/* Platform Welcome Section */}
         <div className="mb-12 text-center text-white">
           <div className="mb-6 flex justify-center">

@@ -18,6 +18,7 @@ import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as lib_ageGroupUtils from "../lib/ageGroupUtils.js";
 import type * as lib_analytics from "../lib/analytics.js";
+import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
 import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
@@ -43,6 +44,7 @@ import type * as models_orgPlayerEnrollments from "../models/orgPlayerEnrollment
 import type * as models_organizationScraper from "../models/organizationScraper.js";
 import type * as models_organizations from "../models/organizations.js";
 import type * as models_passportGoals from "../models/passportGoals.js";
+import type * as models_passportSharing from "../models/passportSharing.js";
 import type * as models_playerEmergencyContacts from "../models/playerEmergencyContacts.js";
 import type * as models_playerIdentities from "../models/playerIdentities.js";
 import type * as models_playerImport from "../models/playerImport.js";
@@ -58,6 +60,7 @@ import type * as models_sportPassports from "../models/sportPassports.js";
 import type * as models_sports from "../models/sports.js";
 import type * as models_teamPlayerIdentities from "../models/teamPlayerIdentities.js";
 import type * as models_teams from "../models/teams.js";
+import type * as models_userPreferences from "../models/userPreferences.js";
 import type * as models_users from "../models/users.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
 import type * as privateData from "../privateData.js";
@@ -106,6 +109,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/ageGroupUtils": typeof lib_ageGroupUtils;
   "lib/analytics": typeof lib_analytics;
+  "lib/consentGateway": typeof lib_consentGateway;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
   "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
@@ -131,6 +135,7 @@ declare const fullApi: ApiFromModules<{
   "models/organizationScraper": typeof models_organizationScraper;
   "models/organizations": typeof models_organizations;
   "models/passportGoals": typeof models_passportGoals;
+  "models/passportSharing": typeof models_passportSharing;
   "models/playerEmergencyContacts": typeof models_playerEmergencyContacts;
   "models/playerIdentities": typeof models_playerIdentities;
   "models/playerImport": typeof models_playerImport;
@@ -146,6 +151,7 @@ declare const fullApi: ApiFromModules<{
   "models/sports": typeof models_sports;
   "models/teamPlayerIdentities": typeof models_teamPlayerIdentities;
   "models/teams": typeof models_teams;
+  "models/userPreferences": typeof models_userPreferences;
   "models/users": typeof models_users;
   "models/voiceNotes": typeof models_voiceNotes;
   privateData: typeof privateData;
@@ -312,6 +318,11 @@ export declare const components: {
                   logo?: null | string;
                   metadata?: null | string;
                   name: string;
+                  sharingContactEmail?: string;
+                  sharingContactMode?: "direct" | "form";
+                  sharingContactName?: string;
+                  sharingContactPhone?: string;
+                  sharingEnquiriesUrl?: string;
                   slug: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -338,6 +349,11 @@ export declare const components: {
                     "coach" | "parent" | "admin" | "player"
                   >;
                   isDisabled?: boolean;
+                  lastAccessedOrgs?: Array<{
+                    orgId: string;
+                    role: string;
+                    timestamp: number;
+                  }>;
                   organizationId: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
@@ -628,6 +644,11 @@ export declare const components: {
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "sharingContactMode"
+                    | "sharingContactName"
+                    | "sharingContactEmail"
+                    | "sharingContactPhone"
+                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -662,6 +683,7 @@ export declare const components: {
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "lastAccessedOrgs"
                     | "isDisabled"
                     | "disabledAt"
                     | "disabledBy"
@@ -997,6 +1019,11 @@ export declare const components: {
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "sharingContactMode"
+                    | "sharingContactName"
+                    | "sharingContactEmail"
+                    | "sharingContactPhone"
+                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1031,6 +1058,7 @@ export declare const components: {
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "lastAccessedOrgs"
                     | "isDisabled"
                     | "disabledAt"
                     | "disabledBy"
@@ -1515,6 +1543,11 @@ export declare const components: {
                   logo?: null | string;
                   metadata?: null | string;
                   name?: string;
+                  sharingContactEmail?: string;
+                  sharingContactMode?: "direct" | "form";
+                  sharingContactName?: string;
+                  sharingContactPhone?: string;
+                  sharingEnquiriesUrl?: string;
                   slug?: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -1538,6 +1571,11 @@ export declare const components: {
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "sharingContactMode"
+                    | "sharingContactName"
+                    | "sharingContactEmail"
+                    | "sharingContactPhone"
+                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1577,6 +1615,11 @@ export declare const components: {
                     "coach" | "parent" | "admin" | "player"
                   >;
                   isDisabled?: boolean;
+                  lastAccessedOrgs?: Array<{
+                    orgId: string;
+                    role: string;
+                    timestamp: number;
+                  }>;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
@@ -1596,6 +1639,7 @@ export declare const components: {
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "lastAccessedOrgs"
                     | "isDisabled"
                     | "disabledAt"
                     | "disabledBy"
@@ -2004,6 +2048,11 @@ export declare const components: {
                   logo?: null | string;
                   metadata?: null | string;
                   name?: string;
+                  sharingContactEmail?: string;
+                  sharingContactMode?: "direct" | "form";
+                  sharingContactName?: string;
+                  sharingContactPhone?: string;
+                  sharingEnquiriesUrl?: string;
                   slug?: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -2027,6 +2076,11 @@ export declare const components: {
                     | "socialLinkedin"
                     | "website"
                     | "supportedSports"
+                    | "sharingContactMode"
+                    | "sharingContactName"
+                    | "sharingContactEmail"
+                    | "sharingContactPhone"
+                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -2066,6 +2120,11 @@ export declare const components: {
                     "coach" | "parent" | "admin" | "player"
                   >;
                   isDisabled?: boolean;
+                  lastAccessedOrgs?: Array<{
+                    orgId: string;
+                    role: string;
+                    timestamp: number;
+                  }>;
                   organizationId?: string;
                   pendingFunctionalRoleRequests?: Array<{
                     message?: string;
@@ -2085,6 +2144,7 @@ export declare const components: {
                     | "functionalRoles"
                     | "activeFunctionalRole"
                     | "pendingFunctionalRoleRequests"
+                    | "lastAccessedOrgs"
                     | "isDisabled"
                     | "disabledAt"
                     | "disabledBy"

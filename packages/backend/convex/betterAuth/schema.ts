@@ -98,6 +98,19 @@ const customOrganizationTable = defineTable({
   // Allows multi-sport organizations (e.g., GAA clubs with football, hurling, camogie)
   // Sport codes reference the sports table: "gaa_football", "soccer", "rugby", etc.
   supportedSports: v.optional(v.array(v.string())),
+
+  // Passport sharing contact configuration
+  // Allows other organizations to contact this org for coordination about shared players
+  sharingContactMode: v.optional(
+    v.union(
+      v.literal("direct"), // Direct contact with name/email/phone
+      v.literal("form") // Enquiries form/page URL
+    )
+  ),
+  sharingContactName: v.optional(v.string()),
+  sharingContactEmail: v.optional(v.string()),
+  sharingContactPhone: v.optional(v.string()),
+  sharingEnquiriesUrl: v.optional(v.string()), // For form mode
 })
   .index("name", ["name"])
   .index("slug", ["slug"]);
@@ -144,6 +157,17 @@ const customMemberTable = defineTable({
         ),
         requestedAt: v.string(),
         message: v.optional(v.string()),
+      })
+    )
+  ),
+
+  // Last accessed organizations with timestamps for "recently accessed" sorting
+  lastAccessedOrgs: v.optional(
+    v.array(
+      v.object({
+        orgId: v.string(),
+        timestamp: v.number(),
+        role: v.string(),
       })
     )
   ),

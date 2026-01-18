@@ -785,7 +785,7 @@ export default function MedicalProfilesPage() {
       return [];
     }
 
-    return allProfiles.filter((item) => {
+    return allProfiles.filter((item: NonNullable<typeof allProfiles>[0]) => {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -1066,92 +1066,110 @@ export default function MedicalProfilesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPlayers.map((item) => (
-                <TableRow key={item.player._id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
-                        <User className="h-5 w-5 text-gray-600" />
+              {filteredPlayers.map(
+                (item: NonNullable<typeof allProfiles>[0]) => (
+                  <TableRow key={item.player._id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                          <User className="h-5 w-5 text-gray-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{item.player.name}</p>
+                          <p className="text-muted-foreground text-xs">
+                            {item.player.sport}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{item.player.name}</p>
-                        <p className="text-muted-foreground text-xs">
-                          {item.player.sport}
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{item.player.ageGroup}</TableCell>
-                  <TableCell>
-                    {item.hasProfile ? (
-                      <Badge className="bg-green-100 text-green-700">
-                        <Check className="mr-1 h-3 w-3" />
-                        Complete
-                      </Badge>
-                    ) : (
-                      <Badge variant="destructive">
-                        <AlertTriangle className="mr-1 h-3 w-3" />
-                        Missing
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {item.hasAllergies && (
-                        <Badge
-                          className="bg-orange-100 text-orange-700"
-                          title="Has Allergies"
-                        >
-                          <AlertCircle className="h-3 w-3" />
-                        </Badge>
-                      )}
-                      {item.hasMedications && (
-                        <Badge
-                          className="bg-blue-100 text-blue-700"
-                          title="On Medications"
-                        >
-                          <Pill className="h-3 w-3" />
-                        </Badge>
-                      )}
-                      {item.hasConditions && (
-                        <Badge
-                          className="bg-purple-100 text-purple-700"
-                          title="Has Conditions"
-                        >
-                          <AlertTriangle className="h-3 w-3" />
-                        </Badge>
-                      )}
-                      {!(
-                        item.hasAllergies ||
-                        item.hasMedications ||
-                        item.hasConditions
-                      ) && (
-                        <span className="text-muted-foreground text-xs">
-                          None
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+                    </TableCell>
+                    <TableCell>{item.player.ageGroup}</TableCell>
+                    <TableCell>
                       {item.hasProfile ? (
-                        <>
-                          <Button
-                            onClick={() =>
-                              handleViewClick(
-                                item.player._id,
-                                item.player.name,
-                                item.player.ageGroup,
-                                item.player.sport,
-                                item.profile
-                              )
-                            }
-                            size="sm"
-                            variant="outline"
+                        <Badge className="bg-green-100 text-green-700">
+                          <Check className="mr-1 h-3 w-3" />
+                          Complete
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive">
+                          <AlertTriangle className="mr-1 h-3 w-3" />
+                          Missing
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {item.hasAllergies && (
+                          <Badge
+                            className="bg-orange-100 text-orange-700"
+                            title="Has Allergies"
                           >
-                            <Eye className="mr-1 h-4 w-4" />
-                            View
-                          </Button>
+                            <AlertCircle className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {item.hasMedications && (
+                          <Badge
+                            className="bg-blue-100 text-blue-700"
+                            title="On Medications"
+                          >
+                            <Pill className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {item.hasConditions && (
+                          <Badge
+                            className="bg-purple-100 text-purple-700"
+                            title="Has Conditions"
+                          >
+                            <AlertTriangle className="h-3 w-3" />
+                          </Badge>
+                        )}
+                        {!(
+                          item.hasAllergies ||
+                          item.hasMedications ||
+                          item.hasConditions
+                        ) && (
+                          <span className="text-muted-foreground text-xs">
+                            None
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        {item.hasProfile ? (
+                          <>
+                            <Button
+                              onClick={() =>
+                                handleViewClick(
+                                  item.player._id,
+                                  item.player.name,
+                                  item.player.ageGroup,
+                                  item.player.sport,
+                                  item.profile
+                                )
+                              }
+                              size="sm"
+                              variant="outline"
+                            >
+                              <Eye className="mr-1 h-4 w-4" />
+                              View
+                            </Button>
+                            <Button
+                              onClick={() =>
+                                setEditingProfile({
+                                  playerIdentityId: item.player._id,
+                                  playerName: item.player.name,
+                                  ageGroup: item.player.ageGroup,
+                                  sport: item.player.sport,
+                                  profile: item.profile,
+                                })
+                              }
+                              size="sm"
+                              variant="outline"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </>
+                        ) : (
                           <Button
                             onClick={() =>
                               setEditingProfile({
@@ -1159,36 +1177,20 @@ export default function MedicalProfilesPage() {
                                 playerName: item.player.name,
                                 ageGroup: item.player.ageGroup,
                                 sport: item.player.sport,
-                                profile: item.profile,
+                                profile: null,
                               })
                             }
                             size="sm"
-                            variant="outline"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Plus className="mr-1 h-4 w-4" />
+                            Create
                           </Button>
-                        </>
-                      ) : (
-                        <Button
-                          onClick={() =>
-                            setEditingProfile({
-                              playerIdentityId: item.player._id,
-                              playerName: item.player.name,
-                              ageGroup: item.player.ageGroup,
-                              sport: item.player.sport,
-                              profile: null,
-                            })
-                          }
-                          size="sm"
-                        >
-                          <Plus className="mr-1 h-4 w-4" />
-                          Create
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              )}
               {filteredPlayers.length === 0 && (
                 <TableRow>
                   <TableCell className="py-8 text-center" colSpan={5}>

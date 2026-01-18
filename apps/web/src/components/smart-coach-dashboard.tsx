@@ -98,6 +98,74 @@ type SmartCoachDashboardProps = {
 // Regex constants at module scope for performance
 const FIRST_CHAR_REGEX = /^./;
 
+// Pure helper functions moved outside component to prevent recreation on each render
+// This fixes the infinite loop issue caused by useCallback dependency changes
+
+/**
+ * Format a camelCase skill key into readable text
+ * e.g., "kickingAccuracy" → "Kicking Accuracy"
+ */
+function formatSkillName(key: string): string {
+  return key
+    .replace(/([A-Z])/g, " $1")
+    .replace(FIRST_CHAR_REGEX, (str) => str.toUpperCase())
+    .trim();
+}
+
+/**
+ * Calculate average skill level for a player
+ */
+function calculatePlayerAvgSkill(player: any): number {
+  const skills = player.skills || {};
+  const skillValues = Object.values(skills).filter(
+    (v) => typeof v === "number"
+  ) as number[];
+  if (skillValues.length === 0) {
+    return 0;
+  }
+  return skillValues.reduce((a, b) => a + b, 0) / skillValues.length;
+}
+
+/**
+ * Calculate average skill values across a team
+ */
+function calculateSkillAverages(teamPlayers: any[]): Record<string, number> {
+  if (teamPlayers.length === 0) {
+    return {};
+  }
+  const skillKeys = Object.keys(teamPlayers[0].skills || {}).filter(
+    (k) => k !== "kickingDistanceMax"
+  );
+  const averages: Record<string, number> = {};
+
+  for (const skillKey of skillKeys) {
+    const sum = teamPlayers.reduce((acc, player) => {
+      const value = (player.skills as any)[skillKey];
+      return acc + (typeof value === "number" ? value : 0);
+    }, 0);
+    averages[skillKey] = sum / teamPlayers.length;
+  }
+
+  return averages;
+}
+
+/**
+ * Get all team names for a player
+ */
+function getPlayerTeams(player: any): string[] {
+  // First check if player has explicit teams array (from updated coach dashboard)
+  if (player.teams && Array.isArray(player.teams) && player.teams.length > 0) {
+    return player.teams;
+  }
+
+  // Fallback to single team (backwards compatibility)
+  const teamName = player.teamName || player.team;
+  if (teamName) {
+    return [teamName];
+  }
+  return [];
+}
+
 export function SmartCoachDashboard({
   players,
   allPlayers: allPlayersProp,
@@ -195,66 +263,10 @@ export function SmartCoachDashboard({
     }
   };
 
-  // Helper to get all teams for a player
-  const getPlayerTeams = useCallback((player: any): string[] => {
-    // First check if player has explicit teams array (from updated coach dashboard)
-    if (
-      player.teams &&
-      Array.isArray(player.teams) &&
-      player.teams.length > 0
-    ) {
-      return player.teams;
-    }
+  // Note: Helper functions (getPlayerTeams, calculateSkillAverages, calculatePlayerAvgSkill, formatSkillName)
+  // are defined at module scope above to prevent recreation on each render and fix infinite loop issues
 
-    // Fallback to single team (backwards compatibility)
-    const teamName = player.teamName || player.team;
-    if (teamName) {
-      return [teamName];
-    }
-    return [];
-  }, []);
-
-  const calculateSkillAverages = useCallback((teamPlayers: any[]) => {
-    if (teamPlayers.length === 0) {
-      return {};
-    }
-    const skillKeys = Object.keys(teamPlayers[0].skills || {}).filter(
-      (k) => k !== "kickingDistanceMax"
-    );
-    const averages: Record<string, number> = {};
-
-    for (const skillKey of skillKeys) {
-      const sum = teamPlayers.reduce((acc, player) => {
-        const value = (player.skills as any)[skillKey];
-        return acc + (typeof value === "number" ? value : 0);
-      }, 0);
-      averages[skillKey] = sum / teamPlayers.length;
-    }
-
-    return averages;
-  }, []);
-
-  const calculatePlayerAvgSkill = useCallback((player: any): number => {
-    const skills = player.skills || {};
-    const skillValues = Object.values(skills).filter(
-      (v) => typeof v === "number"
-    ) as number[];
-    if (skillValues.length === 0) {
-      return 0;
-    }
-    return skillValues.reduce((a, b) => a + b, 0) / skillValues.length;
-  }, []);
-
-  const formatSkillName = useCallback(
-    (key: string): string =>
-      key
-        .replace(/([A-Z])/g, " $1")
-        .replace(FIRST_CHAR_REGEX, (str) => str.toUpperCase())
-        .trim(),
-    []
-  );
-
-  // Main analytics calculation (wrapped with useCallback to prevent hoisting issues)
+  // Main analytics calculation
   const calculateTeamAnalytics = useCallback(() => {
     // Use coach's assigned teams if provided, otherwise extract from player data
     let uniqueTeams: string[];
@@ -361,15 +373,8 @@ export function SmartCoachDashboard({
     });
 
     setTeamAnalytics(analytics);
-  }, [
-    players,
-    coachTeams,
-    isClubView,
-    calculatePlayerAvgSkill,
-    calculateSkillAverages,
-    formatSkillName,
-    getPlayerTeams,
-  ]);
+    // Note: Helper functions are now at module scope, so they don't need to be dependencies
+  }, [players, coachTeams, isClubView]);
 
   const generateCorrelationInsights = useCallback(() => {
     const allPlayers = players;
@@ -488,19 +493,17 @@ export function SmartCoachDashboard({
     }
 
     setInsights(correlationInsights);
-  }, [
-    players,
-    isClubView,
-    calculatePlayerAvgSkill,
-    calculateSkillAverages,
-    formatSkillName,
-  ]);
+    // Note: Helper functions are now at module scope, so they don't need to be dependencies
+  }, [players, isClubView]);
 
-  // Run analytics when callbacks or their dependencies change
+  // Run analytics when data dependencies change (not when callbacks change)
+  // CRITICAL: Do NOT include calculateTeamAnalytics or generateCorrelationInsights in deps
+  // as they are recreated each render, causing infinite loops
   useEffect(() => {
     calculateTeamAnalytics();
     generateCorrelationInsights();
-  }, [calculateTeamAnalytics, generateCorrelationInsights]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players, coachTeams, isClubView]);
 
   // Stable callback wrappers for Quick Actions (prevents infinite re-registration)
   const handleAssessPlayers = useCallback(() => {
@@ -691,7 +694,7 @@ export function SmartCoachDashboard({
 
         setSessionPlan(plan);
 
-        // Save plan to database - marked as quick_action for library filtering
+        // Save plan to database
         const planId = await convex.mutation(api.models.sessionPlans.savePlan, {
           teamId: team.teamId,
           teamName: team.teamName,
@@ -699,7 +702,7 @@ export function SmartCoachDashboard({
           focus,
           teamData: teamDataForDB,
           usedRealAI: true, // TODO: Track from API response
-          creationMethod: "quick_action",
+          creationMethod: "ai_generated",
         });
 
         setCurrentPlanId(planId);
@@ -724,7 +727,7 @@ export function SmartCoachDashboard({
         setLoadingSessionPlan(false);
       }
     },
-    [teamAnalytics, players, convex, getPlayerTeams]
+    [teamAnalytics, players, convex]
   );
 
   // Keyboard shortcuts for session plan modal
@@ -1645,20 +1648,20 @@ export function SmartCoachDashboard({
           aria-describedby="session-plan-description"
           aria-labelledby="session-plan-title"
           aria-modal="true"
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
+          className="fixed inset-0 z-[100] bg-black/50"
           role="dialog"
         >
-          {/* Mobile: Full-screen sheet from bottom | Desktop: Centered modal */}
+          {/* Mobile: Full-screen from bottom | Desktop: Centered modal */}
           <div
             className={cn(
-              "flex flex-col overflow-hidden bg-background shadow-2xl",
-              // Desktop: centered modal with max width
-              "sm:max-h-[90vh] sm:max-w-3xl sm:rounded-lg sm:w-full",
-              // Mobile: full-screen sheet
-              "max-sm:h-full max-sm:w-full max-sm:rounded-none"
+              "fixed flex flex-col overflow-hidden bg-background shadow-2xl",
+              // Desktop: centered modal
+              "sm:-translate-x-1/2 sm:-translate-y-1/2 sm:top-1/2 sm:left-1/2 sm:max-h-[90vh] sm:max-w-3xl sm:rounded-lg",
+              // Mobile: full-screen - covers entire viewport including bottom nav
+              "max-sm:inset-0 max-sm:h-full max-sm:w-full max-sm:rounded-none"
             )}
           >
-            <div className="flex h-full flex-col overflow-hidden">
+            <Card className="flex h-full flex-col overflow-hidden border-0 shadow-none">
               <CardHeader
                 className={cn(
                   "sticky top-0 z-10 flex-shrink-0 border-b bg-background",
@@ -1764,7 +1767,7 @@ export function SmartCoachDashboard({
                 <div
                   className={cn(
                     "sticky bottom-0 z-10 flex-shrink-0 border-t bg-background shadow-[0_-4px_12px_rgba(0,0,0,0.08)]",
-                    "max-sm:px-3 max-sm:py-3 max-sm:pb-safe",
+                    "max-sm:px-3 max-sm:py-2",
                     "sm:px-6 sm:py-4"
                   )}
                 >
@@ -1851,7 +1854,7 @@ export function SmartCoachDashboard({
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
           </div>
         </div>
       )}

@@ -1,0 +1,592 @@
+{
+  "project": "Passport Sharing - Phase 1",
+  "branchName": "ralph/passport-sharing-phase-1",
+  "description": "Cross-organization passport sharing with parent consent and coach acceptance. Enables controlled, consent-based sharing of player development data across organizations, with parents as data controllers.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create passportShareConsents table",
+      "description": "As a developer, I need to store passport sharing consent records so parents can authorize cross-org data access.",
+      "acceptanceCriteria": [
+        "Add passportShareConsents table to schema.ts with all fields from PRD Section 7.3",
+        "Include coach acceptance fields: coachAcceptanceStatus, acceptedByCoachId, acceptedAt, declinedAt, declineReason, declineCount",
+        "Include age 18 transition fields: pausedForAge18Review, age18ReviewCompletedAt",
+        "Add indexes: by_player, by_player_and_status, by_receiving_org, by_receiving_org_and_status, by_granted_by, by_expiry, by_coach_acceptance",
+        "Run npx -w packages/backend convex codegen successfully",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Reference: /docs/features/PRD-passport-sharing.md Section 7.3"
+    },
+    {
+      "id": "US-002",
+      "title": "Create passportShareAccessLogs table",
+      "description": "As a developer, I need to store immutable audit logs of all shared passport access for compliance.",
+      "acceptanceCriteria": [
+        "Add passportShareAccessLogs table to schema.ts per PRD Section 7.3",
+        "Include accessType enum: view_summary, view_skills, view_goals, view_notes, view_medical, view_contact, export_pdf, view_insights",
+        "Add indexes: by_consent, by_player, by_accessor, by_org_accessed, by_date",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Create passportShareRequests table",
+      "description": "As a developer, I need to store coach-initiated requests for passport access.",
+      "acceptanceCriteria": [
+        "Add passportShareRequests table to schema.ts per PRD Section 7.3",
+        "Include status enum: pending, approved, declined, expired",
+        "Include expiresAt field for 14-day auto-expiry",
+        "Add indexes: by_player, by_player_and_status, by_requesting_org, by_expiry",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Create parentNotificationPreferences table",
+      "description": "As a developer, I need to store parent notification preferences for sharing events.",
+      "acceptanceCriteria": [
+        "Add parentNotificationPreferences table to schema.ts per PRD Section 7.3",
+        "Include accessNotificationFrequency enum: realtime, daily, weekly, none",
+        "Add indexes: by_guardian, by_guardian_and_player",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Add organization sharing contact fields",
+      "description": "As a developer, I need to add sharing contact configuration to organizations.",
+      "acceptanceCriteria": [
+        "Add to organization table: sharingContactMode, sharingContactName, sharingContactEmail, sharingContactPhone, sharingEnquiriesUrl",
+        "sharingContactMode is union of 'direct' and 'form'",
+        "All new fields are optional",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Reference: PRD Section 7.2"
+    },
+    {
+      "id": "US-006",
+      "title": "Add coach notes isShareable flag",
+      "description": "As a developer, I need to flag coach notes that can be shared cross-org.",
+      "acceptanceCriteria": [
+        "Add isShareable, markedShareableAt, markedShareableBy fields to coachNotes or passportGoals table",
+        "isShareable defaults to false",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Reference: PRD Section 7.2"
+    },
+    {
+      "id": "US-007",
+      "title": "Create consent mutation",
+      "description": "As a parent, I want to create a new passport sharing consent so I can authorize organizations to view my child's data.",
+      "acceptanceCriteria": [
+        "Create createPassportShareConsent mutation in packages/backend/convex/models/passportSharing.ts",
+        "Validate guardian has parental responsibility for the player",
+        "Accept sharedElements object with granular element selections",
+        "Set initial coachAcceptanceStatus to 'pending'",
+        "Generate consent receipt per PRD Section 8.4",
+        "Notify all guardians with parental responsibility of the new share",
+        "Return consentId on success",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Update consent mutation",
+      "description": "As a parent, I want to update an existing consent to change what data is shared.",
+      "acceptanceCriteria": [
+        "Create updatePassportShareConsent mutation",
+        "Allow updating sharedElements, expiresAt, sourceOrgMode, sourceOrgIds",
+        "Validate guardian has parental responsibility",
+        "Notify other guardians of the change",
+        "Log the change in audit trail",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Revoke consent mutation",
+      "description": "As a parent, I want to immediately revoke a sharing consent so coaches can no longer access data.",
+      "acceptanceCriteria": [
+        "Create revokePassportShareConsent mutation",
+        "Set status to 'revoked', record revokedAt timestamp",
+        "Revocation takes effect within 60 seconds (real-time via Convex)",
+        "Notify receiving organization coaches that access was revoked",
+        "Notify other guardians of the revocation",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "FR-P6: Immediate Revocation"
+    },
+    {
+      "id": "US-010",
+      "title": "Create consent gateway query",
+      "description": "As a developer, I need a consent gateway that validates access before returning shared data.",
+      "acceptanceCriteria": [
+        "Create validateShareAccess query in packages/backend/convex/lib/consentGateway.ts",
+        "Check consent exists, is active, not expired, coach acceptance is 'accepted'",
+        "Return allowed sharedElements if valid",
+        "Return null/error if access not permitted",
+        "This query is called before any cross-org data query",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "Core security component - all shared data queries must use this"
+    },
+    {
+      "id": "US-011",
+      "title": "Create cross-org passport query",
+      "description": "As a coach, I want to query shared passport data for players with valid consent.",
+      "acceptanceCriteria": [
+        "Create getSharedPassportData query",
+        "Must call consent gateway first to validate access",
+        "Only return elements authorized in sharedElements",
+        "Mark data with source organization name and last updated timestamp",
+        "Filter coach notes by isShareable flag",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Core implementation complete. Additional elements (skills, injuries, medical) to be added in future iterations."
+    },
+    {
+      "id": "US-012",
+      "title": "Coach acceptance mutation",
+      "description": "As a coach, I want to accept a shared passport so I can view the player's data.",
+      "acceptanceCriteria": [
+        "Create acceptPassportShare mutation",
+        "Validate coach belongs to receiving organization",
+        "Set coachAcceptanceStatus to 'accepted'",
+        "Record acceptedByCoachId and acceptedAt",
+        "Notify parent that share was accepted",
+        "Share becomes visible to all coaches at org with appropriate team assignments",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "FR-C6: Coach Share Acceptance. Coach org validation and parent notification to be added in US-048."
+    },
+    {
+      "id": "US-013",
+      "title": "Coach decline mutation",
+      "description": "As a coach, I want to decline a shared passport if I don't need access.",
+      "acceptanceCriteria": [
+        "Create declinePassportShare mutation",
+        "Set coachAcceptanceStatus to 'declined'",
+        "Record declinedAt and optional declineReason",
+        "Increment declineCount for cooling-off tracking",
+        "Notify parent that share was declined",
+        "If declineCount >= 3, enforce 30-day cooling-off period before re-sharing",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "FR-C6: Coach can decline, cooling-off after 3 declines. Cooling-off enforcement and parent notification to be added in US-048, US-049."
+    },
+    {
+      "id": "US-014",
+      "title": "Coach request-to-share mutation",
+      "description": "As a coach, I want to request access to a player's passport when no share exists.",
+      "acceptanceCriteria": [
+        "Create requestPassportAccess mutation",
+        "Create passportShareRequests record with status 'pending'",
+        "Set expiresAt to 14 days from now",
+        "Send notification to all guardians with parental responsibility",
+        "Allow optional reason field for coach to explain why access is needed",
+        "Return requestId on success",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "FR-C7: Coach Request Access"
+    },
+    {
+      "id": "US-015",
+      "title": "Parent respond to request mutation",
+      "description": "As a parent, I want to approve or decline coach requests for passport access.",
+      "acceptanceCriteria": [
+        "Create respondToAccessRequest mutation",
+        "If approved: Set status to 'approved', redirect parent to enable sharing flow",
+        "If declined: Set status to 'declined', notify coach",
+        "Record respondedAt and respondedBy",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Access logging mutation",
+      "description": "As a developer, I need to log all access to shared passport data for audit compliance.",
+      "acceptanceCriteria": [
+        "Create logPassportAccess mutation (internal)",
+        "Record: consentId, playerIdentityId, accessedBy, accessedByName, accessedByRole, accessedByOrgId, accessedByOrgName, accessType, accessedAt",
+        "Called automatically by cross-org passport queries",
+        "Logs are immutable (no delete/update mutations)",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "FR-P7: Access Audit Trail"
+    },
+    {
+      "id": "US-017",
+      "title": "Multi-guardian notification logic",
+      "description": "As a system, I need to notify all guardians with parental responsibility of sharing changes.",
+      "acceptanceCriteria": [
+        "Create notifyGuardiansOfSharingChange internal function",
+        "Query all guardians with hasParentalResponsibility: true for the player",
+        "Send notification to each guardian (except the one who made the change)",
+        "Notification includes: what changed, who changed it, link to review",
+        "Support notification types: share_enabled, share_revoked, share_expired, guardian_change",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "FR-P10: Multi-Guardian Handling"
+    },
+    {
+      "id": "US-018",
+      "title": "Consent expiry scheduled job",
+      "description": "As a system, I need to automatically expire consents and send renewal reminders.",
+      "acceptanceCriteria": [
+        "Create scheduled cron job that runs daily",
+        "Find consents expiring in 14 days - send renewal reminder if not already sent",
+        "Find expired consents - set status to 'expired'",
+        "Send expiry notification to parent and receiving org coaches",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "FR-P5: Sharing Duration & Renewal"
+    },
+    {
+      "id": "US-019",
+      "title": "Parent sharing dashboard page",
+      "description": "As a parent, I want a dedicated sharing dashboard to see all my children's sharing status.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/parents/sharing/page.tsx",
+        "List all children with their current sharing status",
+        "For each child show: number of active shares, pending requests, last activity",
+        "Quick actions: Enable sharing, View audit log, Manage preferences",
+        "Mobile-responsive layout",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "FR-P1: Sharing Control Center"
+    },
+    {
+      "id": "US-020",
+      "title": "Enable sharing flow (Steps 1-3)",
+      "description": "As a parent, I want to enable sharing for my child by selecting elements and organizations.",
+      "acceptanceCriteria": [
+        "Create multi-step wizard component for enable sharing flow",
+        "Step 1: Select child (if multiple children)",
+        "Step 2: Select passport elements with checkboxes (default: all selected)",
+        "Step 3: Select organizations to share with (all enrolled, specific, or any platform org)",
+        "Medical/contact info shows additional confirmation warning",
+        "Progress indicator shows current step",
+        "Back/Next navigation between steps",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "FR-P2, FR-P3, FR-P4"
+    },
+    {
+      "id": "US-021",
+      "title": "Enable sharing flow (Steps 4-6)",
+      "description": "As a parent, I want to set duration and confirm sharing consent.",
+      "acceptanceCriteria": [
+        "Step 4: Select sharing duration (season end, 6 months, 1 year, custom date)",
+        "Step 5: Review and confirm - summary of all selections",
+        "Step 6: Success screen with confirmation and next steps",
+        "Clear explanation of what happens next (coach acceptance required)",
+        "Generate consent receipt and show download option",
+        "Call createPassportShareConsent mutation on confirm",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Quick share option (feature flagged)",
+      "description": "As a returning parent, I want a quick share option to enable sharing with minimal steps.",
+      "acceptanceCriteria": [
+        "Create QuickShare component behind feature flag",
+        "Show only for parents who have previously shared",
+        "One-click to share with same elements and orgs as last time",
+        "Show summary of what will be shared before confirmation",
+        "Skip wizard steps for experienced users",
+        "Feature flag: ENABLE_QUICK_SHARE",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "Decision #9: Quick Share Option"
+    },
+    {
+      "id": "US-023",
+      "title": "Revocation flow",
+      "description": "As a parent, I want to easily revoke sharing access from my dashboard.",
+      "acceptanceCriteria": [
+        "Add 'Revoke Access' button on each active share card",
+        "Show confirmation modal with warning about immediate effect",
+        "Optional: Reason for revocation field",
+        "Call revokePassportShareConsent mutation on confirm",
+        "Update UI immediately to show 'Revoked' status",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "FR-P6: Immediate Revocation"
+    },
+    {
+      "id": "US-024",
+      "title": "Access audit log viewer",
+      "description": "As a parent, I want to see who has accessed my child's shared data.",
+      "acceptanceCriteria": [
+        "Create AccessAuditLog component",
+        "Show table/list of access events: Who, What, When, Organization",
+        "Filter by: date range, organization, access type",
+        "Export to CSV/PDF button",
+        "Paginated list for performance",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "FR-P7: Access Audit Trail"
+    },
+    {
+      "id": "US-025",
+      "title": "Notification preferences UI",
+      "description": "As a parent, I want to configure how often I'm notified about data access.",
+      "acceptanceCriteria": [
+        "Create NotificationPreferences component in sharing settings",
+        "Radio/select for frequency: Real-time, Daily digest, Weekly digest (default), None",
+        "Toggle for: Notify on coach requests, Notify on expiring shares, Notify on guardian changes",
+        "Save preferences per child or globally",
+        "Call update mutation on save",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": "FR-P9: Notification Preferences"
+    },
+    {
+      "id": "US-026",
+      "title": "Pending coach requests view",
+      "description": "As a parent, I want to see and respond to coach requests for access.",
+      "acceptanceCriteria": [
+        "Create PendingRequests component showing all pending access requests",
+        "Show: Coach name, Organization, Reason (if provided), Requested date, Expires in X days",
+        "Actions: Approve (redirects to enable sharing flow), Decline, Dismiss",
+        "Show 'Previously declined' badge if re-request after decline",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": "FR-C7: Coach Request Access - parent side"
+    },
+    {
+      "id": "US-027",
+      "title": "Shared players section on coach dashboard",
+      "description": "As a coach, I want to see players who have shared their passport with my organization.",
+      "acceptanceCriteria": [
+        "Add 'Shared Passports' section to coach dashboard",
+        "Query consents where receivingOrgId matches coach's org AND coachAcceptanceStatus is 'accepted'",
+        "Filter by team - only show players on coach's assigned teams",
+        "Show: Player name, Source org(s), Elements shared, Last updated",
+        "Visual indicator for data richness (more elements = fuller icon)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": "FR-C1: Shared Players View, Decision #19: Team-scoped access"
+    },
+    {
+      "id": "US-028",
+      "title": "Accept/decline share modal",
+      "description": "As a coach, I want to accept or decline incoming passport shares.",
+      "acceptanceCriteria": [
+        "Create ShareAcceptanceModal component",
+        "Show on pending shares: Player name, Parent name, Elements being shared, Date offered",
+        "Accept button calls acceptPassportShare mutation",
+        "Decline button shows reason input, calls declinePassportShare mutation",
+        "Show 'Previously declined X times' warning if applicable",
+        "Notification badge on dashboard when pending shares exist",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": "FR-C6: Coach Share Acceptance"
+    },
+    {
+      "id": "US-029",
+      "title": "Shared passport viewer component",
+      "description": "As a coach, I want to view a player's shared passport data from other organizations.",
+      "acceptanceCriteria": [
+        "Create SharedPassportView component",
+        "Clear visual distinction: 'Shared from [Org Name]' badge on all shared sections",
+        "Expandable sections for each element type (skills, goals, notes, etc.)",
+        "Read-only display - no edit buttons on shared data",
+        "Show 'Last updated: [date]' on each section",
+        "Filter coach notes by isShareable flag",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": "FR-C2: View Shared Passport"
+    },
+    {
+      "id": "US-030",
+      "title": "Request access to passport flow",
+      "description": "As a coach, I want to request access to a player's passport when no share exists.",
+      "acceptanceCriteria": [
+        "Add 'Request Access' button on player profiles without active share",
+        "Modal with: Player name, Reason field (optional), Send Request button",
+        "Show warning if player not enrolled at coach's org: 'Player is not currently enrolled at your club'",
+        "Call requestPassportAccess mutation on send",
+        "Disable button and show 'Request Pending' status after sending",
+        "Show 'Request sent X days ago' on pending requests",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": "FR-C7: Coach Request Access"
+    },
+    {
+      "id": "US-031",
+      "title": "Data freshness indicators",
+      "description": "As a coach, I want to see how recent the shared data is.",
+      "acceptanceCriteria": [
+        "Show 'Last updated: [date]' on all shared passport sections",
+        "Amber warning badge if no updates in 6+ months: 'Data may be outdated'",
+        "If source org is inactive: Show 'Data from [Org] is no longer available - source organization inactive'",
+        "Color coding: Green (<1 month), Yellow (1-6 months), Amber (>6 months)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": "FR-C8: Data Freshness Indicators"
+    },
+    {
+      "id": "US-032",
+      "title": "Organization contact display",
+      "description": "As a coach, I want to see contact info for coordinating with other clubs about shared players.",
+      "acceptanceCriteria": [
+        "Display organization sharing contact on shared passport view",
+        "If direct mode: Show name, email, phone with click-to-action links",
+        "If form mode: Show 'Contact via enquiries form' with link to URL",
+        "Only show if contact info is configured",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": "FR-AD6: Organization Contact Configuration - display side"
+    },
+    {
+      "id": "US-033",
+      "title": "Admin sharing contact settings",
+      "description": "As a club admin, I want to configure public contact info for passport sharing coordination.",
+      "acceptanceCriteria": [
+        "Create SharingContactSettings component in org admin settings",
+        "Radio for mode: Direct contact or Enquiries form",
+        "Direct mode fields: Name, Email, Phone",
+        "Form mode field: Enquiries URL",
+        "Validation: Email format, URL format",
+        "Save to organization record",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": "FR-AD6: Organization Contact Configuration"
+    },
+    {
+      "id": "US-034",
+      "title": "Admin sharing statistics dashboard",
+      "description": "As a club admin, I want to see aggregate sharing statistics for compliance oversight.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/admin/sharing/page.tsx",
+        "Show: Players with sharing enabled, Incoming shares (from other orgs), Outgoing shares (to other orgs)",
+        "Charts: Sharing trends over time, Most common shared elements",
+        "Lists: Recent share activity, Pending coach acceptances",
+        "Export to CSV for compliance records",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": "FR-AD1, FR-AD2, FR-AD3"
+    },
+    {
+      "id": "US-035",
+      "title": "Consent event notifications",
+      "description": "As a user, I want to receive notifications for sharing consent events.",
+      "acceptanceCriteria": [
+        "Create notification generation for: share_enabled, share_revoked, share_expired, share_expiring",
+        "Notifications go to: Parents (all guardians), Receiving org coaches",
+        "Use existing notification infrastructure or create passportShareNotifications table",
+        "Include actionUrl for one-click navigation to relevant screen",
+        "Respect parent notification preferences (frequency setting)",
+        "Typecheck passes"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-036",
+      "title": "Coach acceptance notifications",
+      "description": "As a parent, I want to be notified when a coach accepts or declines my share offer.",
+      "acceptanceCriteria": [
+        "Generate notification when coach accepts: 'Coach [Name] at [Org] has accepted your share'",
+        "Generate notification when coach declines: 'Coach [Name] at [Org] declined your share' with reason if provided",
+        "Include link to sharing dashboard",
+        "Typecheck passes"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-037",
+      "title": "Multi-guardian change notifications",
+      "description": "As a guardian, I want to be notified when another guardian changes sharing settings.",
+      "acceptanceCriteria": [
+        "Generate guardian_change notification when any guardian creates, updates, or revokes a share",
+        "Notification includes: what changed, who changed it, link to review/modify",
+        "Send to all guardians with hasParentalResponsibility EXCEPT the one who made the change",
+        "Typecheck passes"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": "FR-P10: Multi-Guardian Handling"
+    }
+  ]
+}

@@ -33,6 +33,13 @@ export const getOrganization = query({
       website: v.optional(v.union(v.null(), v.string())),
       socialLinks: socialLinksValidator,
       supportedSports: v.optional(v.array(v.string())),
+      sharingContactMode: v.optional(
+        v.union(v.null(), v.union(v.literal("direct"), v.literal("form")))
+      ),
+      sharingContactName: v.optional(v.union(v.null(), v.string())),
+      sharingContactEmail: v.optional(v.union(v.null(), v.string())),
+      sharingContactPhone: v.optional(v.union(v.null(), v.string())),
+      sharingEnquiriesUrl: v.optional(v.union(v.null(), v.string())),
     })
   ),
   handler: async (ctx, args) => {
@@ -60,6 +67,15 @@ export const getOrganization = query({
         linkedin: org.socialLinkedin as string | null | undefined,
       },
       supportedSports: org.supportedSports as string[] | undefined,
+      sharingContactMode: org.sharingContactMode as
+        | "direct"
+        | "form"
+        | null
+        | undefined,
+      sharingContactName: org.sharingContactName as string | null | undefined,
+      sharingContactEmail: org.sharingContactEmail as string | null | undefined,
+      sharingContactPhone: org.sharingContactPhone as string | null | undefined,
+      sharingEnquiriesUrl: org.sharingEnquiriesUrl as string | null | undefined,
     };
   },
 });
@@ -355,6 +371,93 @@ export const updateOrganizationSocialLinks = mutation({
     }
     if (args.socialLinks.linkedin !== undefined) {
       update.socialLinkedin = args.socialLinks.linkedin || null;
+    }
+
+    // Update the organization using Better Auth component adapter
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "organization",
+        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+        update,
+      },
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Update organization sharing contact settings
+ * Allows configuring public contact info displayed on shared passports
+ * Only organization owners and admins can update sharing contact settings
+ */
+export const updateOrganizationSharingContact = mutation({
+  args: {
+    organizationId: v.string(),
+    sharingContactMode: v.optional(
+      v.union(v.null(), v.union(v.literal("direct"), v.literal("form")))
+    ),
+    sharingContactName: v.optional(v.union(v.null(), v.string())),
+    sharingContactEmail: v.optional(v.union(v.null(), v.string())),
+    sharingContactPhone: v.optional(v.union(v.null(), v.string())),
+    sharingEnquiriesUrl: v.optional(v.union(v.null(), v.string())),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Check if user is owner or admin of this organization
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "userId",
+            value: user._id,
+            operator: "eq",
+          },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    if (!memberResult) {
+      throw new Error("You are not a member of this organization");
+    }
+
+    const role = memberResult.role;
+    if (role !== "owner" && role !== "admin") {
+      throw new Error(
+        "Only organization owners and admins can update sharing contact settings"
+      );
+    }
+
+    // Prepare update object
+    const update: Record<string, string | null> = {};
+
+    if (args.sharingContactMode !== undefined) {
+      update.sharingContactMode = args.sharingContactMode || null;
+    }
+    if (args.sharingContactName !== undefined) {
+      update.sharingContactName = args.sharingContactName || null;
+    }
+    if (args.sharingContactEmail !== undefined) {
+      update.sharingContactEmail = args.sharingContactEmail || null;
+    }
+    if (args.sharingContactPhone !== undefined) {
+      update.sharingContactPhone = args.sharingContactPhone || null;
+    }
+    if (args.sharingEnquiriesUrl !== undefined) {
+      update.sharingEnquiriesUrl = args.sharingEnquiriesUrl || null;
     }
 
     // Update the organization using Better Auth component adapter
@@ -1159,7 +1262,7 @@ export const deleteOrganization = mutation({
     organizationId: v.string(),
   },
   returns: v.null(),
-  handler: async () => {
+  handler: () => {
     throw new Error(
       "Direct organization deletion is no longer supported. Please use the deletion request workflow which requires platform staff approval."
     );

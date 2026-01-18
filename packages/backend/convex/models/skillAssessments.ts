@@ -93,11 +93,10 @@ export const getAssessmentsForPassport = query({
   returns: v.array(assessmentValidator),
   handler: async (ctx, args) => {
     if (args.skillCode) {
-      const skillCode = args.skillCode;
       return await ctx.db
         .query("skillAssessments")
         .withIndex("by_skill", (q) =>
-          q.eq("passportId", args.passportId).eq("skillCode", skillCode)
+          q.eq("passportId", args.passportId).eq("skillCode", args.skillCode!)
         )
         .order("desc")
         .collect();
@@ -147,7 +146,7 @@ export const getSkillHistory = query({
   },
   returns: v.array(assessmentValidator),
   handler: async (ctx, args) => {
-    const dbQuery = ctx.db
+    const query = ctx.db
       .query("skillAssessments")
       .withIndex("by_skill", (q) =>
         q.eq("passportId", args.passportId).eq("skillCode", args.skillCode)
@@ -155,10 +154,10 @@ export const getSkillHistory = query({
       .order("desc");
 
     if (args.limit) {
-      return await dbQuery.take(args.limit);
+      return await query.take(args.limit);
     }
 
-    return await dbQuery.collect();
+    return await query.collect();
   },
 });
 
@@ -173,13 +172,12 @@ export const getAssessmentsForPlayer = query({
   returns: v.array(assessmentValidator),
   handler: async (ctx, args) => {
     if (args.sportCode) {
-      const sportCode = args.sportCode;
       return await ctx.db
         .query("skillAssessments")
         .withIndex("by_player_and_sport", (q) =>
           q
             .eq("playerIdentityId", args.playerIdentityId)
-            .eq("sportCode", sportCode)
+            .eq("sportCode", args.sportCode!)
         )
         .order("desc")
         .collect();
@@ -275,12 +273,14 @@ export const getAssessmentsByAssessor = query({
       .collect();
 
     if (args.startDate) {
-      const startDate = args.startDate;
-      assessments = assessments.filter((a) => a.assessmentDate >= startDate);
+      assessments = assessments.filter(
+        (a) => a.assessmentDate >= args.startDate!
+      );
     }
     if (args.endDate) {
-      const endDate = args.endDate;
-      assessments = assessments.filter((a) => a.assessmentDate <= endDate);
+      assessments = assessments.filter(
+        (a) => a.assessmentDate <= args.endDate!
+      );
     }
 
     return assessments;
@@ -308,12 +308,14 @@ export const getOrgAssessments = query({
       .collect();
 
     if (args.startDate) {
-      const startDate = args.startDate;
-      assessments = assessments.filter((a) => a.assessmentDate >= startDate);
+      assessments = assessments.filter(
+        (a) => a.assessmentDate >= args.startDate!
+      );
     }
     if (args.endDate) {
-      const endDate = args.endDate;
-      assessments = assessments.filter((a) => a.assessmentDate <= endDate);
+      assessments = assessments.filter(
+        (a) => a.assessmentDate <= args.endDate!
+      );
     }
     if (args.assessmentType) {
       assessments = assessments.filter(
@@ -367,10 +369,11 @@ export const getSkillProgress = query({
 
     const first = assessments[0];
     const last = assessments.at(-1);
-    if (!last) {
-      throw new Error("Unexpected: assessments array should not be empty");
-    }
     const secondToLast = assessments.length > 1 ? assessments.at(-2) : null;
+
+    if (!last) {
+      throw new Error("Failed to get last assessment");
+    }
 
     return {
       currentRating: last.rating,
@@ -698,7 +701,7 @@ export const recordAssessmentWithBenchmark = mutation({
         monthDiff < 0 ||
         (monthDiff === 0 && today.getDate() < dob.getDate())
       ) {
-        age -= 1;
+        age--;
       }
 
       // Map age to age group code (matches referenceData.ts getAgeGroupFromDOB)
@@ -736,12 +739,6 @@ export const recordAssessmentWithBenchmark = mutation({
         ageGroupCode = "senior";
       }
 
-      // Ensure age group code was set
-      if (!ageGroupCode) {
-        throw new Error("Unexpected: age group code should be assigned");
-      }
-      const ageGroup = ageGroupCode;
-
       // Look up benchmark
       const level = args.benchmarkLevel ?? "recreational";
       const benchmark = await ctx.db
@@ -750,7 +747,7 @@ export const recordAssessmentWithBenchmark = mutation({
           q
             .eq("sportCode", passport.sportCode)
             .eq("skillCode", args.skillCode)
-            .eq("ageGroup", ageGroup)
+            .eq("ageGroup", ageGroupCode!)
             .eq("gender", "all")
             .eq("level", level)
         )
@@ -1319,10 +1316,7 @@ export const getLatestSkillsForCoachPlayers = query({
         latestByPlayerAndSkill.set(playerId, new Map());
       }
 
-      const playerMap = latestByPlayerAndSkill.get(playerId);
-      if (!playerMap) {
-        throw new Error("Unexpected: player map should exist");
-      }
+      const playerMap = latestByPlayerAndSkill.get(playerId)!;
       const existing = playerMap.get(skillCode);
 
       if (

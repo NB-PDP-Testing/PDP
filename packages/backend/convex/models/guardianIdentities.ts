@@ -37,6 +37,7 @@ const guardianIdentityValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
   createdFrom: v.optional(v.string()),
+  allowGlobalPassportDiscovery: v.optional(v.boolean()),
 });
 
 // ============================================================
@@ -343,6 +344,31 @@ export const linkGuardianToUser = mutation({
 });
 
 /**
+ * Update guardian's global passport discovery preference
+ * Allows/disallows coaches from any org to discover their children's passports
+ */
+export const updatePassportDiscoveryPreference = mutation({
+  args: {
+    guardianIdentityId: v.id("guardianIdentities"),
+    allowGlobalPassportDiscovery: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.guardianIdentityId);
+    if (!existing) {
+      throw new Error("Guardian identity not found");
+    }
+
+    await ctx.db.patch(args.guardianIdentityId, {
+      allowGlobalPassportDiscovery: args.allowGlobalPassportDiscovery,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
  * Find or create a guardian identity (upsert pattern)
  * Used primarily for imports - finds by email match or creates new
  */
@@ -502,12 +528,12 @@ export const findMatchingGuardian = query({
 
     // 3. Name match only (lowest confidence - requires admin review)
     if (args.firstName && args.lastName) {
-      const firstName = args.firstName;
-      const lastName = args.lastName;
+      const firstName = args.firstName.trim();
+      const lastName = args.lastName.trim();
       const byName = await ctx.db
         .query("guardianIdentities")
         .withIndex("by_name", (q) =>
-          q.eq("lastName", lastName.trim()).eq("firstName", firstName.trim())
+          q.eq("lastName", lastName).eq("firstName", firstName)
         )
         .first();
 
@@ -555,7 +581,7 @@ export const getUnclaimedGuardians = query({
       .filter((q) => q.eq(q.field("userId"), undefined))
       .collect();
 
-    const results = [];
+    const results: any[] = [];
 
     for (const guardian of allGuardians) {
       // Get linked children
@@ -566,7 +592,7 @@ export const getUnclaimedGuardians = query({
         )
         .collect();
 
-      const children = [];
+      const children: any[] = [];
       const orgSet = new Set<string>();
 
       for (const link of links) {
@@ -675,7 +701,7 @@ export const findAllClaimableForCurrentUser = query({
       .filter((q) => q.eq(q.field("userId"), undefined))
       .collect();
 
-    const results = [];
+    const results: any[] = [];
 
     for (const guardian of matchingGuardians) {
       // Get all linked children
@@ -686,7 +712,7 @@ export const findAllClaimableForCurrentUser = query({
         )
         .collect();
 
-      const children = [];
+      const children: any[] = [];
       const orgSet = new Set<string>();
 
       for (const link of links) {
@@ -801,7 +827,7 @@ export const checkForClaimableIdentity = query({
       .withIndex("by_guardian", (q) => q.eq("guardianIdentityId", guardian._id))
       .collect();
 
-    const children = [];
+    const children: any[] = [];
     const orgSet = new Set<string>();
 
     for (const link of links) {

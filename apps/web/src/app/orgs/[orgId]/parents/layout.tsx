@@ -51,7 +51,6 @@ export default function ParentsLayout({
       icon: TrendingUp,
       label: "Progress",
       href: `/orgs/${orgId}/parents/progress`,
-      isAction: true,
     },
     {
       id: "achievements",

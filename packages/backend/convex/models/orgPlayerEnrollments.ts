@@ -27,6 +27,7 @@ const enrollmentValidator = v.object({
   clubMembershipNumber: v.optional(v.string()),
   ageGroup: v.string(),
   season: v.string(),
+  sport: v.optional(v.string()), // DEPRECATED: kept for backwards compatibility
   status: enrollmentStatusValidator,
   reviewStatus: v.optional(v.string()),
   lastReviewDate: v.optional(v.string()),

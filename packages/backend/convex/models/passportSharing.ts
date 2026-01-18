@@ -2498,6 +2498,9 @@ export const checkPlayerShareStatus = query({
     hasActiveShare: v.boolean(),
     hasPendingRequest: v.boolean(),
     consentId: v.optional(v.id("passportShareConsents")),
+    canRequestAccess: v.boolean(),
+    hasOtherEnrollments: v.boolean(),
+    enrollmentVisibilityAllowed: v.boolean(),
   }),
   handler: async (ctx, args) => {
     // Check for active consent
@@ -2529,10 +2532,82 @@ export const checkPlayerShareStatus = query({
       )
       .first();
 
+    // Check if player has enrollments in OTHER organizations (not the requesting org)
+    const playerEnrollments = await ctx.db
+      .query("orgPlayerEnrollments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .filter((q) =>
+        q.and(
+          q.neq(q.field("organizationId"), args.organizationId),
+          q.eq(q.field("status"), "active")
+        )
+      )
+      .collect();
+
+    const hasOtherEnrollments = playerEnrollments.length > 0;
+
+    // Check if parent has allowed enrollment visibility
+    // Find the player's guardian
+    const playerIdentity = await ctx.db.get(args.playerIdentityId);
+    if (!playerIdentity) {
+      return {
+        hasActiveShare: false,
+        hasPendingRequest: false,
+        consentId: undefined,
+        canRequestAccess: false,
+        hasOtherEnrollments: false,
+        enrollmentVisibilityAllowed: false,
+      };
+    }
+
+    // Get guardian-player link
+    const guardianLink = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_player", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .filter((q) => q.eq(q.field("isPrimary"), true))
+      .first();
+
+    let enrollmentVisibilityAllowed = true; // Default to true
+
+    if (guardianLink) {
+      // Check notification preferences for enrollment visibility setting
+      const preferences = await ctx.db
+        .query("parentNotificationPreferences")
+        .withIndex("by_guardian_and_player", (q) =>
+          q
+            .eq("guardianIdentityId", guardianLink.guardianIdentityId)
+            .eq("playerIdentityId", args.playerIdentityId)
+        )
+        .first();
+
+      // If preferences exist and explicitly set to false, use that setting
+      if (preferences && preferences.allowEnrollmentVisibility === false) {
+        enrollmentVisibilityAllowed = false;
+      }
+    }
+
+    // Can request access ONLY if:
+    // 1. Player has enrollments in other organizations
+    // 2. Parent has allowed enrollment visibility
+    // 3. No active share exists
+    // 4. No pending request exists
+    const canRequestAccess =
+      hasOtherEnrollments &&
+      enrollmentVisibilityAllowed &&
+      !activeConsent &&
+      !pendingRequest;
+
     return {
       hasActiveShare: !!activeConsent,
       hasPendingRequest: !!pendingRequest,
       consentId: activeConsent?._id,
+      canRequestAccess,
+      hasOtherEnrollments,
+      enrollmentVisibilityAllowed,
     };
   },
 });

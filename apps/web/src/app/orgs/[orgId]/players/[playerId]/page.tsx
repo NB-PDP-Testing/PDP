@@ -4,8 +4,9 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { ArrowLeft, Edit, ExternalLink, Loader2, Share2 } from "lucide-react";
+import type { Route } from "next";
 import { useParams, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BenchmarkComparison } from "@/components/benchmark-comparison";
 import { SkillRadarChart } from "@/components/skill-radar-chart";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,30 @@ export default function PlayerPassportPage() {
       ? { organizationId: orgId, userEmail: session.user.email }
       : "skip"
   );
+
+  // Check if this user is a player viewing their own profile
+  // If so, redirect to /player/ for proper role context
+  const userEmail = session?.user?.email;
+  const ownPlayerIdentity = useQuery(
+    api.models.playerIdentities.findPlayerByEmail,
+    userEmail ? { email: userEmail.toLowerCase() } : "skip"
+  );
+
+  // Redirect player to /player/ if viewing own profile
+  useEffect(() => {
+    if (!roleDetails || ownPlayerIdentity === undefined) {
+      return;
+    }
+
+    // Check if user has player role AND is viewing their own profile
+    const hasPlayerRole = roleDetails.functionalRoles.includes("player");
+    const isOwnProfile = ownPlayerIdentity?._id === playerId;
+
+    if (hasPlayerRole && isOwnProfile) {
+      // Redirect to player self-access route
+      router.replace(`/orgs/${orgId}/player` as Route);
+    }
+  }, [roleDetails, ownPlayerIdentity, playerId, orgId, router]);
 
   // Check share status for this player (for coach access request feature)
   const shareStatus = useQuery(
@@ -188,7 +213,7 @@ export default function PlayerPassportPage() {
               </Button>
             )}
 
-            {!(shareStatus.hasActiveShare || shareStatus.hasPendingRequest) && (
+            {shareStatus.canRequestAccess && (
               <Button
                 onClick={() => setShowRequestAccessModal(true)}
                 variant="outline"

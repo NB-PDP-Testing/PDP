@@ -1,0 +1,709 @@
+{
+  "projectName": "Platform Staff User Management Dashboard",
+  "branchName": "ralph/platform-staff-user-mgmt",
+  "description": "Comprehensive user management dashboard for Platform Staff to view, manage, troubleshoot, and audit all users across all organizations.",
+  "planReference": "/Users/neil/.claude/plans/starry-yawning-crane.md",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add userSessions schema table for session tracking",
+      "priority": 1,
+      "passes": false,
+      "phase": "Schema Foundation",
+      "acceptanceCriteria": [
+        "Add userSessions table to schema.ts with all fields (userId, sessionId, deviceType, browser, os, ipAddress, etc.)",
+        "Add indexes: by_userId, by_userId_and_active, by_lastActive, by_sessionId",
+        "Run convex codegen to verify schema compiles"
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "Add userActivityLog schema table for activity tracking",
+      "priority": 2,
+      "passes": false,
+      "phase": "Schema Foundation",
+      "acceptanceCriteria": [
+        "Add userActivityLog table with activityType union (login, logout, page_view, voice_note_created, etc.)",
+        "Add indexes: by_userId, by_userId_and_type, by_userId_and_timestamp, by_orgId, by_timestamp",
+        "Run convex codegen to verify schema compiles"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Add impersonationSessions schema table",
+      "priority": 3,
+      "passes": false,
+      "phase": "Schema Foundation",
+      "acceptanceCriteria": [
+        "Add impersonationSessions table with staff/target user fields, session timing, status, reason",
+        "Add indexes: by_staffUser, by_targetUser, by_status, by_expiresAt",
+        "Run convex codegen to verify schema compiles"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Add platformStaffApprovalRequests schema table",
+      "priority": 4,
+      "passes": false,
+      "phase": "Schema Foundation",
+      "acceptanceCriteria": [
+        "Add approval requests table with actionType union, target users, status, review fields",
+        "Add indexes: by_status, by_requestedBy, by_targetUser, by_actionType, by_createdAt, by_expiresAt",
+        "Run convex codegen to verify schema compiles"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Add platformStaffAuditLog schema table",
+      "priority": 5,
+      "passes": false,
+      "phase": "Schema Foundation",
+      "acceptanceCriteria": [
+        "Add audit log table with performer, target, action union (view, edit, suspend, delete, etc.), snapshots",
+        "Add indexes: by_performedBy, by_targetUserId, by_action, by_timestamp, by_target_and_timestamp, by_isArchived",
+        "Run convex codegen to verify schema compiles"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Add platformErrorLog and platformUserNotifications schema tables",
+      "priority": 6,
+      "passes": false,
+      "phase": "Schema Foundation",
+      "acceptanceCriteria": [
+        "Add platformErrorLog table with error details, severity, resolution status",
+        "Add platformUserNotifications table for notifying users of account changes",
+        "Add appropriate indexes for both tables",
+        "Run convex codegen to verify schema compiles"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Create platformStaff.ts with requirePlatformStaff helper",
+      "priority": 7,
+      "passes": false,
+      "phase": "Core Backend",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/platformStaff.ts",
+        "Add requirePlatformStaff helper function that checks isPlatformStaff and throws if not",
+        "Export helper for use in other functions"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Add getPlatformHealthMetrics query",
+      "priority": 8,
+      "passes": false,
+      "phase": "Core Backend",
+      "acceptanceCriteria": [
+        "Query returns totalUsers, activeUsersLast7Days, activeUsersLast30Days, newUsersLast30Days",
+        "Returns platformStaffCount, verifiedUsersCount, suspendedUsersCount, dormantUsersCount",
+        "Returns totalOrganizations, pendingApprovalRequests, recentErrors",
+        "Only accessible by platform staff"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Add getPlatformHealthMetrics chart data",
+      "priority": 9,
+      "passes": false,
+      "phase": "Core Backend",
+      "acceptanceCriteria": [
+        "Add usersByOrganization array with orgId, orgName, memberCount",
+        "Add signupsOverTime array with date and count for last 30 days",
+        "Returns sorted by count descending for org breakdown"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Add searchPlatformUsers query with text search",
+      "priority": 10,
+      "passes": false,
+      "phase": "Core Backend",
+      "acceptanceCriteria": [
+        "Query accepts searchQuery for name/email/phone search",
+        "Query accepts isPlatformStaff boolean filter",
+        "Query accepts verificationStatus filter (verified/unverified)",
+        "Returns paginated results with nextCursor"
+      ]
+    },
+    {
+      "id": "US-011",
+      "title": "Add searchPlatformUsers organization and role filters",
+      "priority": 11,
+      "passes": false,
+      "phase": "Core Backend",
+      "acceptanceCriteria": [
+        "Add organizationId filter - fetch memberships and filter by org",
+        "Add functionalRole filter (coach, parent, admin, player)",
+        "Add betterAuthRole filter (owner, admin, member)",
+        "Add accountStatus filter (active, suspended, dormant)"
+      ]
+    },
+    {
+      "id": "US-012",
+      "title": "Add searchPlatformUsers child name search",
+      "priority": 12,
+      "passes": false,
+      "phase": "Core Backend",
+      "acceptanceCriteria": [
+        "Add childName parameter for searching by linked child's name",
+        "Fetch guardian identities for each user",
+        "Fetch guardian-player links and player identities",
+        "Filter users who have children matching the search term"
+      ]
+    },
+    {
+      "id": "US-013",
+      "title": "Add getPlatformUserDetails query - Better Auth layer",
+      "priority": 13,
+      "passes": false,
+      "phase": "Core Backend",
+      "acceptanceCriteria": [
+        "Fetch user by userId from Better Auth adapter",
+        "Fetch all member records for user (organization memberships)",
+        "Enrich each membership with organization details",
+        "Log view action to audit log"
+      ]
+    },
+    {
+      "id": "US-014",
+      "title": "Add getPlatformUserDetails query - Player identity layer",
+      "priority": 14,
+      "passes": false,
+      "phase": "Core Backend",
+      "acceptanceCriteria": [
+        "Fetch playerIdentities where userId matches",
+        "For each player, fetch orgPlayerEnrollments",
+        "Fetch teamPlayerIdentities for team assignments",
+        "Fetch sportPassports for sport-specific data"
+      ]
+    },
+    {
+      "id": "US-015",
+      "title": "Add getPlatformUserDetails query - Guardian identity layer",
+      "priority": 15,
+      "passes": false,
+      "phase": "Core Backend",
+      "acceptanceCriteria": [
+        "Fetch guardianIdentities where userId matches",
+        "Fetch guardianPlayerLinks for each guardian",
+        "Fetch player details for each linked child",
+        "Include child enrollments for cross-org visibility"
+      ]
+    },
+    {
+      "id": "US-016",
+      "title": "Add getPlatformUserDetails query - Coach identity and stats",
+      "priority": 16,
+      "passes": false,
+      "phase": "Core Backend",
+      "acceptanceCriteria": [
+        "Fetch coachAssignments for user",
+        "Fetch team details for each assignment",
+        "Fetch activity counts (voiceNotes, sessionPlans, skillAssessments)",
+        "Calculate stats (accountCreatedDays, lastActivityDays, lastLoginDays)"
+      ]
+    },
+    {
+      "id": "US-017",
+      "title": "Add startImpersonation mutation",
+      "priority": 17,
+      "passes": false,
+      "phase": "Impersonation Backend",
+      "acceptanceCriteria": [
+        "Require platform staff access",
+        "Require reason minimum 10 characters",
+        "Create impersonation session with 30-minute expiry",
+        "End any existing active session for same staff user",
+        "Log to audit trail"
+      ]
+    },
+    {
+      "id": "US-018",
+      "title": "Add endImpersonation and getCurrentImpersonation",
+      "priority": 18,
+      "passes": false,
+      "phase": "Impersonation Backend",
+      "acceptanceCriteria": [
+        "endImpersonation mutation ends session and logs to audit",
+        "getCurrentImpersonation query returns active session or null",
+        "Auto-expire sessions past expiresAt timestamp",
+        "Cannot end another staff member's session"
+      ]
+    },
+    {
+      "id": "US-019",
+      "title": "Add requestApproval mutation",
+      "priority": 19,
+      "passes": false,
+      "phase": "Approval Backend",
+      "acceptanceCriteria": [
+        "Accept actionType (suspend_user, delete_user, bulk_suspend, bulk_delete)",
+        "Accept target userId(s) and organizationId for org-specific actions",
+        "Require reason minimum 10 characters",
+        "Create pending request with 7-day expiry",
+        "Log to audit trail"
+      ]
+    },
+    {
+      "id": "US-020",
+      "title": "Add reviewApprovalRequest mutation",
+      "priority": 20,
+      "passes": false,
+      "phase": "Approval Backend",
+      "acceptanceCriteria": [
+        "Accept requestId and decision (approved/rejected)",
+        "Cannot approve own request",
+        "Update request status with reviewer info",
+        "If approved, execute the action (suspend user via member.isDisabled)",
+        "Create user notification for target user"
+      ]
+    },
+    {
+      "id": "US-021",
+      "title": "Add getPendingApprovalRequests query",
+      "priority": 21,
+      "passes": false,
+      "phase": "Approval Backend",
+      "acceptanceCriteria": [
+        "Fetch all requests with status pending",
+        "Enrich with requester user details",
+        "Enrich with target user details",
+        "Order by createdAt descending"
+      ]
+    },
+    {
+      "id": "US-022",
+      "title": "Add bulkExportUsers query",
+      "priority": 22,
+      "passes": false,
+      "phase": "Bulk Operations Backend",
+      "acceptanceCriteria": [
+        "Accept optional userIds array (if empty, export all)",
+        "Accept includeIdentities and includeActivity booleans",
+        "Return structured export with user, memberships, and optional identity/activity data",
+        "Log export action to audit trail"
+      ]
+    },
+    {
+      "id": "US-023",
+      "title": "Add getErrorLogs and getAuditLog queries",
+      "priority": 23,
+      "passes": false,
+      "phase": "Logs Backend",
+      "acceptanceCriteria": [
+        "getErrorLogs accepts userId, severity, errorType, isResolved filters",
+        "getAuditLog accepts targetUserId, performedBy, action, date range filters",
+        "Both return paginated results",
+        "Both require platform staff access"
+      ]
+    },
+    {
+      "id": "US-024",
+      "title": "Create platform users dashboard page layout",
+      "priority": 24,
+      "passes": false,
+      "phase": "Dashboard UI",
+      "acceptanceCriteria": [
+        "Create /platform/users/page.tsx with gradient background",
+        "Add header with back button to /platform and title",
+        "Add placeholder for stats grid",
+        "Follow existing platform page UI patterns"
+      ]
+    },
+    {
+      "id": "US-025",
+      "title": "Add platform health metrics stats cards",
+      "priority": 25,
+      "passes": false,
+      "phase": "Dashboard UI",
+      "acceptanceCriteria": [
+        "Call getPlatformHealthMetrics query",
+        "Display stats cards: Total Users, Active (7d), New (30d), Platform Staff",
+        "Display stats cards: Verified, Suspended, Dormant, Total Orgs",
+        "Use existing StatCard component with appropriate colors"
+      ]
+    },
+    {
+      "id": "US-026",
+      "title": "Add signups over time chart",
+      "priority": 26,
+      "passes": false,
+      "phase": "Dashboard UI",
+      "acceptanceCriteria": [
+        "Install recharts if not present (npm install recharts)",
+        "Create SignupsChart component with line chart",
+        "Display last 30 days of signups from signupsOverTime data",
+        "Add to dashboard page below stats cards"
+      ]
+    },
+    {
+      "id": "US-027",
+      "title": "Add users by organization chart",
+      "priority": 27,
+      "passes": false,
+      "phase": "Dashboard UI",
+      "acceptanceCriteria": [
+        "Create OrgDistributionChart component with pie or bar chart",
+        "Display top 10 organizations by member count",
+        "Show organization name and count",
+        "Add to dashboard page in grid with signups chart"
+      ]
+    },
+    {
+      "id": "US-028",
+      "title": "Add quick links and pending approvals badge",
+      "priority": 28,
+      "passes": false,
+      "phase": "Dashboard UI",
+      "acceptanceCriteria": [
+        "Add quick link cards: User List, Pending Approvals, Error Logs, Org Health",
+        "Show pending approval count badge on Pending Approvals link",
+        "Links navigate to respective pages",
+        "Use consistent card styling with icons"
+      ]
+    },
+    {
+      "id": "US-029",
+      "title": "Create user list page with basic search",
+      "priority": 29,
+      "passes": false,
+      "phase": "User List UI",
+      "acceptanceCriteria": [
+        "Create /platform/users/list/page.tsx",
+        "Add search input for name/email/phone",
+        "Call searchPlatformUsers with searchQuery",
+        "Display results in SmartDataView table"
+      ]
+    },
+    {
+      "id": "US-030",
+      "title": "Add user list filters dropdown",
+      "priority": 30,
+      "passes": false,
+      "phase": "User List UI",
+      "acceptanceCriteria": [
+        "Add organization filter dropdown (fetch from getAllOrganizations)",
+        "Add functional role filter (coach, parent, admin, player)",
+        "Add account status filter (active, suspended, dormant)",
+        "Add platform staff only toggle"
+      ]
+    },
+    {
+      "id": "US-031",
+      "title": "Add user list child name search",
+      "priority": 31,
+      "passes": false,
+      "phase": "User List UI",
+      "acceptanceCriteria": [
+        "Add child name search input",
+        "Pass childName to searchPlatformUsers query",
+        "Show loading state during search",
+        "Clear results when search cleared"
+      ]
+    },
+    {
+      "id": "US-032",
+      "title": "Add user list table columns and row actions",
+      "priority": 32,
+      "passes": false,
+      "phase": "User List UI",
+      "acceptanceCriteria": [
+        "Columns: Name, Email, Status badges, Orgs count, Last active, Created",
+        "Row action: View Details (navigate to /platform/users/[userId])",
+        "Row action: Start Impersonation (opens dialog)",
+        "Status badges for Verified, Staff, Suspended"
+      ]
+    },
+    {
+      "id": "US-033",
+      "title": "Add bulk selection to user list",
+      "priority": 33,
+      "passes": false,
+      "phase": "User List UI",
+      "acceptanceCriteria": [
+        "Add checkbox column to table",
+        "Add select all checkbox in header",
+        "Show bulk action bar when rows selected",
+        "Display selected count in bar"
+      ]
+    },
+    {
+      "id": "US-034",
+      "title": "Add bulk action dropdown",
+      "priority": 34,
+      "passes": false,
+      "phase": "User List UI",
+      "acceptanceCriteria": [
+        "Bulk action dropdown: Export Selected, Suspend Selected",
+        "Export triggers bulkExportUsers query and downloads JSON",
+        "Suspend opens request approval dialog",
+        "Clear selection after action"
+      ]
+    },
+    {
+      "id": "US-035",
+      "title": "Create user detail page layout",
+      "priority": 35,
+      "passes": false,
+      "phase": "User Detail UI",
+      "acceptanceCriteria": [
+        "Create /platform/users/[userId]/page.tsx",
+        "Add header with user name, email, back button",
+        "Add action buttons: Edit Profile, Suspend, View as User",
+        "Call getPlatformUserDetails query"
+      ]
+    },
+    {
+      "id": "US-036",
+      "title": "Add user detail stats cards",
+      "priority": 36,
+      "passes": false,
+      "phase": "User Detail UI",
+      "acceptanceCriteria": [
+        "Display stats: Organizations count, Teams coached, Account age (days)",
+        "Display stats: Children linked (if guardian), Players (if adult player)",
+        "Show verification and staff badges",
+        "Use color-coded stat cards"
+      ]
+    },
+    {
+      "id": "US-037",
+      "title": "Add user detail Overview tab",
+      "priority": 37,
+      "passes": false,
+      "phase": "User Detail UI",
+      "acceptanceCriteria": [
+        "Create tabbed interface with Overview as default",
+        "Display user profile fields: name, email, phone, created, updated",
+        "Show email verification status",
+        "Show platform staff status"
+      ]
+    },
+    {
+      "id": "US-038",
+      "title": "Add user detail Organizations tab",
+      "priority": 38,
+      "passes": false,
+      "phase": "User Detail UI",
+      "acceptanceCriteria": [
+        "Show all organization memberships in cards",
+        "Display org name, role (owner/admin/member), functional roles",
+        "Show suspended badge if isDisabled",
+        "Add per-org action buttons: Suspend in Org, Unsuspend"
+      ]
+    },
+    {
+      "id": "US-039",
+      "title": "Add user detail Player Identity tab (conditional)",
+      "priority": 39,
+      "passes": false,
+      "phase": "User Detail UI",
+      "acceptanceCriteria": [
+        "Only show tab if playerIdentities.length > 0",
+        "Display player enrollments across organizations",
+        "Show team assignments with team names",
+        "Show sport passports summary"
+      ]
+    },
+    {
+      "id": "US-040",
+      "title": "Add user detail Guardian Identity tab (conditional)",
+      "priority": 40,
+      "passes": false,
+      "phase": "User Detail UI",
+      "acceptanceCriteria": [
+        "Only show tab if guardianIdentities.length > 0",
+        "Display linked children with names and relationship",
+        "Show each child's organization enrollments",
+        "Link to child's player record if available"
+      ]
+    },
+    {
+      "id": "US-041",
+      "title": "Add user detail Coach Identity tab (conditional)",
+      "priority": 41,
+      "passes": false,
+      "phase": "User Detail UI",
+      "acceptanceCriteria": [
+        "Only show tab if coachAssignments.length > 0",
+        "Display coach assignments by organization",
+        "Show teams coached with team names",
+        "Show age groups and sports coached"
+      ]
+    },
+    {
+      "id": "US-042",
+      "title": "Add user detail Sessions tab",
+      "priority": 42,
+      "passes": false,
+      "phase": "User Detail UI",
+      "acceptanceCriteria": [
+        "Display active sessions in cards",
+        "Show login history (last 20 sessions)",
+        "Display device type, browser, OS, IP, location",
+        "Add Force Logout button for active sessions"
+      ]
+    },
+    {
+      "id": "US-043",
+      "title": "Add user detail Activity tab",
+      "priority": 43,
+      "passes": false,
+      "phase": "User Detail UI",
+      "acceptanceCriteria": [
+        "Display recent activity timeline (last 50 entries)",
+        "Show activity type, timestamp, organization context",
+        "Activity types: login, page_view, voice_note_created, etc.",
+        "Add filter by activity type"
+      ]
+    },
+    {
+      "id": "US-044",
+      "title": "Add user detail Audit Log tab",
+      "priority": 44,
+      "passes": false,
+      "phase": "User Detail UI",
+      "acceptanceCriteria": [
+        "Display platform staff actions on this user",
+        "Show action type, performer, timestamp, reason",
+        "Expandable to show before/after snapshots",
+        "Link to performer's user detail if staff"
+      ]
+    },
+    {
+      "id": "US-045",
+      "title": "Add Edit Profile dialog with reason field",
+      "priority": 45,
+      "passes": false,
+      "phase": "User Detail UI",
+      "acceptanceCriteria": [
+        "Open dialog from Edit Profile button",
+        "Editable fields: firstName, lastName, phone",
+        "Required reason field (minimum 10 characters)",
+        "Call updateUserProfile mutation on submit"
+      ]
+    },
+    {
+      "id": "US-046",
+      "title": "Add Suspend User dialog with approval",
+      "priority": 46,
+      "passes": false,
+      "phase": "User Detail UI",
+      "acceptanceCriteria": [
+        "Open dialog from Suspend button",
+        "Select organization or platform-wide suspend",
+        "Required reason field (minimum 10 characters)",
+        "Call requestApproval mutation (not direct suspend)",
+        "Show message that request pending approval"
+      ]
+    },
+    {
+      "id": "US-047",
+      "title": "Create pending approvals page",
+      "priority": 47,
+      "passes": false,
+      "phase": "Approval UI",
+      "acceptanceCriteria": [
+        "Create /platform/users/pending-approvals/page.tsx",
+        "Call getPendingApprovalRequests query",
+        "Display requests in cards with action type, requester, target",
+        "Show request reason and timestamp"
+      ]
+    },
+    {
+      "id": "US-048",
+      "title": "Add approve/reject actions to pending approvals",
+      "priority": 48,
+      "passes": false,
+      "phase": "Approval UI",
+      "acceptanceCriteria": [
+        "Add Approve and Reject buttons to each request card",
+        "Reject opens dialog for rejection notes",
+        "Approve opens confirmation dialog",
+        "Hide approve button if requester is current user",
+        "Call reviewApprovalRequest mutation"
+      ]
+    },
+    {
+      "id": "US-049",
+      "title": "Add impersonation start dialog",
+      "priority": 49,
+      "passes": false,
+      "phase": "Impersonation UI",
+      "acceptanceCriteria": [
+        "Open dialog from View as User button or list row action",
+        "Show target user info",
+        "Required reason field (minimum 10 characters)",
+        "Call startImpersonation mutation",
+        "Navigate to impersonated view on success"
+      ]
+    },
+    {
+      "id": "US-050",
+      "title": "Add impersonation banner component",
+      "priority": 50,
+      "passes": false,
+      "phase": "Impersonation UI",
+      "acceptanceCriteria": [
+        "Create ImpersonationBanner component",
+        "Show fixed banner at top when impersonating",
+        "Display target user email and time remaining",
+        "Add End Session button that calls endImpersonation"
+      ]
+    },
+    {
+      "id": "US-051",
+      "title": "Integrate impersonation banner in app layout",
+      "priority": 51,
+      "passes": false,
+      "phase": "Impersonation UI",
+      "acceptanceCriteria": [
+        "Call getCurrentImpersonation in layout/header",
+        "Show ImpersonationBanner if session active",
+        "Disable all action buttons when impersonating",
+        "Add tooltip explaining view-only mode"
+      ]
+    },
+    {
+      "id": "US-052",
+      "title": "Add navigation links to platform dashboard",
+      "priority": 52,
+      "passes": false,
+      "phase": "Navigation",
+      "acceptanceCriteria": [
+        "Add User Management link to /platform page",
+        "Add link from /platform/staff page to /platform/users",
+        "Show pending approvals count badge in navigation",
+        "Use Users icon for consistency"
+      ]
+    },
+    {
+      "id": "US-053",
+      "title": "Add error logs page",
+      "priority": 53,
+      "passes": false,
+      "phase": "Error Logs UI",
+      "acceptanceCriteria": [
+        "Create /platform/users/error-logs/page.tsx",
+        "Call getErrorLogs query",
+        "Display errors in table with type, message, severity, timestamp",
+        "Add filters for severity and resolved status"
+      ]
+    },
+    {
+      "id": "US-054",
+      "title": "Add error log user lookup",
+      "priority": 54,
+      "passes": false,
+      "phase": "Error Logs UI",
+      "acceptanceCriteria": [
+        "Add user email filter to error logs",
+        "Link user email to user detail page",
+        "Show error context (route, action, payload preview)",
+        "Add mark as resolved action"
+      ]
+    }
+  ]
+}

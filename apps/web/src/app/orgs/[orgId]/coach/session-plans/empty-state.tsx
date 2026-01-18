@@ -7,10 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 
 type EmptyStateScenario = "no-plans" | "no-results" | "no-favorites";
 
-interface EmptyStateProps {
+type EmptyStateProps = {
   scenario: EmptyStateScenario;
   orgId: string;
-}
+};
 
 export function EmptyState({ scenario, orgId }: EmptyStateProps) {
   if (scenario === "no-plans") {

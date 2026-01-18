@@ -5,15 +5,17 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
+  ArrowLeft,
   CheckCircle,
   Copy,
   Loader2,
   MoreVertical,
+  Pencil,
   Share2,
   Trash2,
 } from "lucide-react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,12 +26,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 
 export default function SessionPlanDetailPage() {
@@ -47,20 +59,74 @@ export default function SessionPlanDetailPage() {
   const updateVisibility = useMutation(
     api.models.sessionPlans.updateVisibility
   );
+  const updateTitle = useMutation(api.models.sessionPlans.updateTitle);
   const markAsUsed = useMutation(api.models.sessionPlans.markAsUsed);
   const deletePlan = useMutation(api.models.sessionPlans.deletePlan);
 
+  // Dialog states
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const isOwner = plan && userId && plan.coachId === userId;
 
-  const handleDuplicate = async () => {
+  // Rename handler
+  const handleRename = async () => {
+    if (!newTitle.trim()) {
+      toast.error("Please enter a title");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const newPlanId = await duplicatePlan({ planId });
+      await updateTitle({ planId, title: newTitle.trim() });
+      toast.success("Plan renamed successfully!");
+      setRenameDialogOpen(false);
+      setNewTitle("");
+    } catch (error) {
+      console.error("Failed to rename plan:", error);
+      toast.error("Failed to rename plan");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Duplicate with new name handler
+  const handleDuplicate = async () => {
+    if (!newTitle.trim()) {
+      toast.error("Please enter a title for the copy");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const newPlanId = await duplicatePlan({
+        planId,
+        newTitle: newTitle.trim(),
+      });
       toast.success("Plan duplicated successfully!");
+      setDuplicateDialogOpen(false);
+      setNewTitle("");
       router.push(`/orgs/${orgId}/coach/session-plans/${newPlanId}`);
     } catch (error) {
       console.error("Failed to duplicate plan:", error);
       toast.error("Failed to duplicate plan");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  // Open rename dialog
+  const openRenameDialog = () => {
+    setNewTitle(plan?.title || "");
+    setRenameDialogOpen(true);
+  };
+
+  // Open duplicate dialog
+  const openDuplicateDialog = () => {
+    setNewTitle(`${plan?.title || "Untitled"} (Copy)`);
+    setDuplicateDialogOpen(true);
   };
 
   const handleShareToClub = async () => {
@@ -110,25 +176,29 @@ export default function SessionPlanDetailPage() {
   return (
     <div className="container mx-auto max-w-4xl p-6">
       <div className="mb-6">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <Link
-              className="mb-2 inline-block text-muted-foreground text-sm hover:text-foreground"
-              href={`/orgs/${orgId}/coach/session-plans`}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <Button
+              className="mt-1 shrink-0"
+              onClick={() => router.push(`/orgs/${orgId}/coach/session-plans`)}
+              size="icon"
+              variant="ghost"
             >
-              ← Back to Session Plans
-            </Link>
-            <h1 className="font-bold text-3xl">{plan.title}</h1>
-            <div className="mt-2 flex items-center gap-4 text-muted-foreground text-sm">
-              <span>{plan.teamName}</span>
-              <span>•</span>
-              <span>{plan.duration} minutes</span>
-              {plan.focusArea && (
-                <>
-                  <span>•</span>
-                  <span>{plan.focusArea}</span>
-                </>
-              )}
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="font-bold text-3xl">{plan.title}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-muted-foreground text-sm sm:gap-4">
+                <span>{plan.teamName}</span>
+                <span className="hidden sm:inline">•</span>
+                <span>{plan.duration} minutes</span>
+                {plan.focusArea && (
+                  <>
+                    <span className="hidden sm:inline">•</span>
+                    <span>{plan.focusArea}</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -140,16 +210,20 @@ export default function SessionPlanDetailPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={openRenameDialog}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={openDuplicateDialog}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Duplicate
+                </DropdownMenuItem>
                 {!plan.usedInSession && (
                   <DropdownMenuItem onClick={handleMarkAsUsed}>
                     <CheckCircle className="mr-2 h-4 w-4" />
                     Mark as Used
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem onClick={handleDuplicate}>
-                  <Copy className="mr-2 h-4 w-4" />
-                  Duplicate
-                </DropdownMenuItem>
                 {plan.visibility === "private" && (
                   <DropdownMenuItem onClick={handleShareToClub}>
                     <Share2 className="mr-2 h-4 w-4" />
@@ -308,6 +382,110 @@ export default function SessionPlanDetailPage() {
           )}
         </div>
       )}
+
+      {/* Rename Dialog */}
+      <Dialog onOpenChange={setRenameDialogOpen} open={renameDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rename Session Plan</DialogTitle>
+            <DialogDescription>
+              Enter a new name for this session plan.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rename-title">Title</Label>
+              <Input
+                id="rename-title"
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !isSubmitting) {
+                    handleRename();
+                  }
+                }}
+                placeholder="Enter plan title..."
+                value={newTitle}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={isSubmitting}
+              onClick={() => setRenameDialogOpen(false)}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isSubmitting || !newTitle.trim()}
+              onClick={handleRename}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate Dialog */}
+      <Dialog onOpenChange={setDuplicateDialogOpen} open={duplicateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Duplicate Session Plan</DialogTitle>
+            <DialogDescription>
+              Create a copy of this session plan with a new name. This is useful
+              for adapting plans for different teams, age groups, or variations.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="duplicate-title">New Plan Title</Label>
+              <Input
+                id="duplicate-title"
+                onChange={(e) => setNewTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !isSubmitting) {
+                    handleDuplicate();
+                  }
+                }}
+                placeholder="Enter title for the copy..."
+                value={newTitle}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={isSubmitting}
+              onClick={() => setDuplicateDialogOpen(false)}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isSubmitting || !newTitle.trim()}
+              onClick={handleDuplicate}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Create Copy
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -329,11 +329,44 @@ export const updateVisibility = mutation({
 });
 
 /**
+ * Update plan title (rename)
+ */
+export const updateTitle = mutation({
+  args: {
+    planId: v.id("sessionPlans"),
+    title: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    // Verify ownership
+    if (plan.coachId !== identity.subject) {
+      throw new Error("Not authorized to rename this plan");
+    }
+
+    await ctx.db.patch(args.planId, {
+      title: args.title,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
  * Duplicate an existing plan
  */
 export const duplicatePlan = mutation({
   args: {
     planId: v.id("sessionPlans"),
+    newTitle: v.optional(v.string()),
   },
   returns: v.id("sessionPlans"),
   handler: async (ctx, args) => {
@@ -357,6 +390,9 @@ export const duplicatePlan = mutation({
 
     const now = Date.now();
 
+    // Use provided title or default to "(Copy)" suffix
+    const duplicateTitle = args.newTitle || `${originalPlan.title} (Copy)`;
+
     // Create duplicate - exclude _id and _creationTime as they are managed by Convex
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { _id, _creationTime, ...planData } = originalPlan;
@@ -367,7 +403,7 @@ export const duplicatePlan = mutation({
         `${identity.given_name || ""} ${identity.family_name || ""}`.trim() ||
         identity.email ||
         "Unknown Coach",
-      title: `${originalPlan.title} (Copy)`,
+      title: duplicateTitle,
       visibility: "private", // Duplicates are always private
       sharedAt: undefined,
       sharedBy: undefined,
@@ -423,6 +459,117 @@ export const markAsUsed = mutation({
       lastUsedDate: now,
       updatedAt: now,
     });
+  },
+});
+
+/**
+ * Vote on a session plan (like/dislike - YouTube style)
+ * Each user can only vote once per plan, and can change their vote
+ */
+export const votePlan = mutation({
+  args: {
+    planId: v.id("sessionPlans"),
+    voteType: v.union(
+      v.literal("like"),
+      v.literal("dislike"),
+      v.literal("none")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const userId = identity.subject;
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    // Check if user already voted on this plan
+    const existingVote = await ctx.db
+      .query("planVotes")
+      .withIndex("by_plan_and_voter", (q: any) =>
+        q.eq("planId", args.planId).eq("voterId", userId)
+      )
+      .first();
+
+    const now = Date.now();
+
+    // Calculate vote changes
+    let likeChange = 0;
+    let dislikeChange = 0;
+
+    if (existingVote) {
+      // Removing previous vote effect
+      if (existingVote.voteType === "like") {
+        likeChange -= 1;
+      }
+      if (existingVote.voteType === "dislike") {
+        dislikeChange -= 1;
+      }
+
+      if (args.voteType === "none") {
+        // User is removing their vote
+        await ctx.db.delete(existingVote._id);
+      } else {
+        // User is changing their vote
+        await ctx.db.patch(existingVote._id, {
+          voteType: args.voteType,
+          votedAt: now,
+        });
+      }
+    } else if (args.voteType !== "none") {
+      // New vote
+      await ctx.db.insert("planVotes", {
+        planId: args.planId,
+        voterId: userId,
+        voteType: args.voteType,
+        votedAt: now,
+      });
+    }
+
+    // Adding new vote effect
+    if (args.voteType === "like") {
+      likeChange += 1;
+    }
+    if (args.voteType === "dislike") {
+      dislikeChange += 1;
+    }
+
+    // Update plan vote counts
+    await ctx.db.patch(args.planId, {
+      likeCount: Math.max(0, (plan.likeCount || 0) + likeChange),
+      dislikeCount: Math.max(0, (plan.dislikeCount || 0) + dislikeChange),
+      updatedAt: now,
+    });
+  },
+});
+
+/**
+ * Get user's vote on a plan
+ */
+export const getUserVote = query({
+  args: {
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.union(v.literal("like"), v.literal("dislike"), v.null()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const vote = await ctx.db
+      .query("planVotes")
+      .withIndex("by_plan_and_voter", (q: any) =>
+        q.eq("planId", args.planId).eq("voterId", identity.subject)
+      )
+      .first();
+
+    return vote?.voteType || null;
   },
 });
 
@@ -1702,6 +1849,7 @@ export const getYourBest = query({
 
 /**
  * Get top rated plans from club library for Quick Access section
+ * Now uses likeCount (YouTube-style) instead of successRate
  */
 export const getTopRated = query({
   args: {
@@ -1741,19 +1889,62 @@ export const getTopRated = query({
       .filter((q: any) => q.neq(q.field("status"), "deleted"))
       .collect();
 
+    // Sort by likeCount (YouTube-style) - most liked first
     const topRated = clubPlans
-      .filter(
-        (p) =>
-          p.successRate !== undefined &&
-          p.successRate !== null &&
-          p.successRate >= 80
-      )
-      .sort((a, b) => (b.successRate || 0) - (a.successRate || 0))
+      .filter((p) => (p.likeCount || 0) > 0)
+      .sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0))
       .slice(0, limit);
 
     return {
       plans: topRated,
       count: topRated.length,
+    };
+  },
+});
+
+/**
+ * Get coach's most liked plans for Quick Access section
+ */
+export const getYourMostLiked = query({
+  args: {
+    organizationId: v.string(),
+    coachId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    plans: v.array(v.any()),
+    count: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify requesting user is the coach
+    if (identity.subject !== args.coachId) {
+      throw new Error("Not authorized");
+    }
+
+    const limit = args.limit || 10;
+
+    const allPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_coach", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("coachId", args.coachId)
+      )
+      .filter((q: any) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    // Filter to plans with likes and sort by likeCount
+    const mostLiked = allPlans
+      .filter((p) => (p.likeCount || 0) > 0)
+      .sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0))
+      .slice(0, limit);
+
+    return {
+      plans: mostLiked,
+      count: mostLiked.length,
     };
   },
 });

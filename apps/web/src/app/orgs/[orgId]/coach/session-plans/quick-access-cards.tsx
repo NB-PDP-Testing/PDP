@@ -2,9 +2,8 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { BookmarkCheck, Clock, Star, TrendingUp } from "lucide-react";
+import { Clock, Heart, Star, ThumbsUp } from "lucide-react";
 import { useParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
 
 type QuickAccessCardsProps = {
@@ -18,9 +17,30 @@ export function QuickAccessCards({ onCardClick }: QuickAccessCardsProps) {
   const { data: session } = authClient.useSession();
   const userId = session?.user?.id;
 
-  // Fetch quick access data
-  const recentlyUsed = useQuery(
-    api.models.sessionPlans.getRecentlyUsed,
+  // Fetch quick access data - using reliable signals only
+  const recentlyCreated = useQuery(
+    api.models.sessionPlans.getFilteredPlans,
+    userId
+      ? {
+          organizationId: orgId,
+          limit: 5,
+        }
+      : "skip"
+  );
+
+  const favorites = useQuery(
+    api.models.sessionPlans.getFilteredPlans,
+    userId
+      ? {
+          organizationId: orgId,
+          favoriteOnly: true,
+          limit: 5,
+        }
+      : "skip"
+  );
+
+  const yourMostLiked = useQuery(
+    api.models.sessionPlans.getYourMostLiked,
     userId
       ? {
           organizationId: orgId,
@@ -30,29 +50,7 @@ export function QuickAccessCards({ onCardClick }: QuickAccessCardsProps) {
       : "skip"
   );
 
-  const mostPopular = useQuery(
-    api.models.sessionPlans.getMostPopular,
-    userId
-      ? {
-          organizationId: orgId,
-          coachId: userId,
-          limit: 5,
-        }
-      : "skip"
-  );
-
-  const yourBest = useQuery(
-    api.models.sessionPlans.getYourBest,
-    userId
-      ? {
-          organizationId: orgId,
-          coachId: userId,
-          limit: 5,
-        }
-      : "skip"
-  );
-
-  const topRated = useQuery(
+  const clubMostLiked = useQuery(
     api.models.sessionPlans.getTopRated,
     userId
       ? {
@@ -73,66 +71,66 @@ export function QuickAccessCards({ onCardClick }: QuickAccessCardsProps) {
 
   const cards = [
     {
-      title: "Recently Used",
+      title: "Recently Created",
       icon: Clock,
-      count: recentlyUsed?.count ?? 0,
-      description: "Plans used in the last 30 days",
+      count: recentlyCreated?.length ?? 0,
+      description: "Your latest session plans",
       filterType: "recent",
-      color: "text-blue-600",
-      planIds: recentlyUsed?.plans?.map((p) => p._id),
+      gradient: "from-[#667eea] to-[#764ba2]",
+      planIds: recentlyCreated?.map((p: { _id: string }) => p._id),
     },
     {
-      title: "Most Popular",
-      icon: TrendingUp,
-      count: mostPopular?.count ?? 0,
-      description: "Your most frequently used plans",
-      filterType: "popular",
-      color: "text-green-600",
-      planIds: mostPopular?.plans?.map((p) => p._id),
-    },
-    {
-      title: "Your Best",
+      title: "Favorites",
       icon: Star,
-      count: yourBest?.count ?? 0,
-      description: "Plans with 80%+ success rate",
-      filterType: "best",
-      color: "text-yellow-600",
-      planIds: yourBest?.plans?.map((p) => p._id),
+      count: favorites?.length ?? 0,
+      description: "Plans you've starred",
+      filterType: "favorites",
+      gradient: "from-[#f093fb] to-[#f5576c]",
+      planIds: favorites?.map((p: { _id: string }) => p._id),
     },
     {
-      title: "Top Rated",
-      icon: BookmarkCheck,
-      count: topRated?.count ?? 0,
-      description: "Highest rated in club library",
-      filterType: "topRated",
-      color: "text-purple-600",
-      planIds: topRated?.plans?.map((p) => p._id),
+      title: "Your Most Liked",
+      icon: Heart,
+      count: yourMostLiked?.count ?? 0,
+      description: "Your plans others liked",
+      filterType: "yourLiked",
+      gradient: "from-[#4facfe] to-[#00f2fe]",
+      planIds: yourMostLiked?.plans?.map((p: { _id: string }) => p._id),
+    },
+    {
+      title: "Club Top Picks",
+      icon: ThumbsUp,
+      count: clubMostLiked?.count ?? 0,
+      description: "Most liked in club library",
+      filterType: "clubLiked",
+      gradient: "from-[#43e97b] to-[#38f9d7]",
+      planIds: clubMostLiked?.plans?.map((p: { _id: string }) => p._id),
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
       {cards.map((card) => {
         const Icon = card.icon;
         return (
-          <Card
-            className="cursor-pointer transition-shadow hover:shadow-md"
+          <button
+            className={`group relative cursor-pointer overflow-hidden rounded-xl bg-gradient-to-br ${card.gradient} p-4 text-left text-white shadow-lg transition-all hover:scale-105 hover:shadow-xl sm:p-6`}
             key={card.filterType}
             onClick={() => handleCardClick(card.filterType, card.planIds)}
+            type="button"
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="font-medium text-sm">
-                {card.title}
-              </CardTitle>
-              <Icon className={`h-4 w-4 ${card.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="font-bold text-2xl">{card.count}</div>
-              <p className="text-muted-foreground text-xs">
-                {card.description}
-              </p>
-            </CardContent>
-          </Card>
+            <div className="mb-3 flex items-center justify-between sm:mb-4">
+              <Icon className="h-6 w-6 opacity-90 sm:h-8 sm:w-8" />
+              <div className="rounded-full bg-white/20 px-2 py-0.5 font-bold text-xl backdrop-blur-sm sm:px-3 sm:py-1 sm:text-2xl">
+                {card.count}
+              </div>
+            </div>
+            <h3 className="mb-0.5 font-semibold text-base sm:mb-1 sm:text-lg">
+              {card.title}
+            </h3>
+            <p className="text-xs opacity-90 sm:text-sm">{card.description}</p>
+            <div className="-bottom-2 -right-2 absolute h-16 w-16 rounded-full bg-white/10 transition-transform group-hover:scale-110 sm:h-24 sm:w-24" />
+          </button>
         );
       })}
     </div>

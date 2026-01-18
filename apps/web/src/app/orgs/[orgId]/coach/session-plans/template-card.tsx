@@ -1,9 +1,17 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { AlertTriangle, Eye, Star, TrendingUp } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import {
+  AlertTriangle,
+  Star,
+  ThumbsDown,
+  ThumbsUp,
+  TrendingUp,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type TemplateCardProps = {
@@ -29,6 +37,8 @@ type TemplateCardProps = {
     moderatedBy?: string;
     moderatedAt?: number;
     moderationNote?: string;
+    likeCount?: number;
+    dislikeCount?: number;
   };
   onView: (planId: Id<"sessionPlans">) => void;
   onToggleFavorite: (planId: Id<"sessionPlans">) => void;
@@ -39,6 +49,27 @@ export function TemplateCard({
   onView,
   onToggleFavorite,
 }: TemplateCardProps) {
+  // Voting hooks
+  const userVote = useQuery(api.models.sessionPlans.getUserVote, {
+    planId: plan._id,
+  });
+  const votePlan = useMutation(api.models.sessionPlans.votePlan);
+
+  const handleVote = async (
+    voteType: "like" | "dislike",
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    try {
+      // If already voted the same way, remove vote
+      const newVoteType = userVote === voteType ? "none" : voteType;
+      await votePlan({ planId: plan._id, voteType: newVoteType });
+    } catch (error) {
+      console.error("Failed to vote:", error);
+      toast.error("Failed to record your vote");
+    }
+  };
+
   const isNew = Date.now() - plan.createdAt < 7 * 24 * 60 * 60 * 1000; // 7 days
   const isTrending =
     (plan.timesUsed ?? 0) > 5 &&
@@ -56,6 +87,31 @@ export function TemplateCard({
       default:
         return "bg-gray-100 text-gray-800";
     }
+  };
+
+  // Get gradient top border based on intensity
+  const getIntensityGradient = (intensity?: "low" | "medium" | "high") => {
+    switch (intensity) {
+      case "low":
+        return "from-[#43e97b] to-[#38f9d7]"; // Green
+      case "medium":
+        return "from-[#f093fb] to-[#f5576c]"; // Pink/Red
+      case "high":
+        return "from-[#ff6b6b] to-[#feca57]"; // Red/Orange
+      default:
+        return "from-[#667eea] to-[#764ba2]"; // Purple (default)
+    }
+  };
+
+  // Get background gradient based on visibility/status
+  const getCardBackground = () => {
+    if (plan.pinnedByAdmin) {
+      return "bg-gradient-to-br from-amber-50/50 to-yellow-50/30"; // Featured - gold tint
+    }
+    if (plan.visibility === "club") {
+      return "bg-gradient-to-br from-[#667eea]/5 to-[#764ba2]/5"; // Shared - purple tint
+    }
+    return "bg-gradient-to-br from-slate-50/50 to-gray-50/30"; // Private - subtle gray
   };
 
   const getVisibilityBadge = () => {
@@ -83,8 +139,30 @@ export function TemplateCard({
     }
   };
 
+  // Handle card click
+  const handleCardClick = () => {
+    onView(plan._id);
+  };
+
+  const intensityGradient = getIntensityGradient(plan.extractedTags?.intensity);
+  const cardBackground = getCardBackground();
+
   return (
-    <Card className="group relative flex h-full flex-col transition-shadow hover:shadow-lg">
+    <Card
+      className={`group relative flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:shadow-lg hover:ring-2 hover:ring-primary/20 active:scale-[0.98] active:ring-primary/40 ${cardBackground}`}
+      onClick={handleCardClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
+      {/* Gradient top border - Option A */}
+      <div className={`h-1 w-full bg-gradient-to-r ${intensityGradient}`} />
+
       {/* Header with badges */}
       <CardHeader className="pb-3">
         <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
@@ -207,43 +285,45 @@ export function TemplateCard({
           </div>
         )}
 
-        {/* Creator & Usage */}
-        <div className="mt-auto mb-3 flex items-center justify-between text-muted-foreground text-sm">
+        {/* Creator */}
+        <div className="mt-auto mb-3 text-muted-foreground text-sm">
           <span>By {plan.coachName || "Unknown Coach"}</span>
-          {plan.timesUsed !== undefined && plan.timesUsed > 0 && (
-            <span>{plan.timesUsed} uses</span>
-          )}
         </div>
 
-        {/* Success Rate */}
-        {plan.successRate !== undefined && plan.successRate > 0 && (
-          <div className="mb-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Success Rate</span>
-              <span className="font-medium">{plan.successRate}%</span>
-            </div>
-            <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200">
-              <div
-                className="h-full bg-green-500"
-                style={{ width: `${plan.successRate}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-2">
-          <Button
-            className="w-full"
-            onClick={(e) => {
-              e.stopPropagation();
-              onView(plan._id);
-            }}
-            size="sm"
+        {/* YouTube-style Like/Dislike - visible like count, hidden dislike */}
+        <div className="flex items-center gap-3 border-t pt-3">
+          {/* Like button */}
+          <button
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-all ${
+              userVote === "like"
+                ? "bg-green-100 font-medium text-green-700"
+                : "bg-gray-100 text-gray-600 hover:bg-green-50 hover:text-green-600"
+            }`}
+            onClick={(e) => handleVote("like", e)}
+            title="I found this helpful"
+            type="button"
           >
-            <Eye className="mr-1.5 h-4 w-4" />
-            View
-          </Button>
+            <ThumbsUp
+              className={`h-4 w-4 ${userVote === "like" ? "fill-current" : ""}`}
+            />
+            <span>{plan.likeCount || 0}</span>
+          </button>
+
+          {/* Dislike button (no count shown - YouTube style) */}
+          <button
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-all ${
+              userVote === "dislike"
+                ? "bg-red-100 font-medium text-red-700"
+                : "bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600"
+            }`}
+            onClick={(e) => handleVote("dislike", e)}
+            title="Not helpful"
+            type="button"
+          >
+            <ThumbsDown
+              className={`h-4 w-4 ${userVote === "dislike" ? "fill-current" : ""}`}
+            />
+          </button>
         </div>
       </CardContent>
     </Card>

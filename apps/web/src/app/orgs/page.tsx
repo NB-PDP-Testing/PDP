@@ -923,7 +923,7 @@ export default function OrganizationsPage() {
                                   variant="default"
                                 >
                                   <Plus className="mr-1 h-3 w-3" />
-                                  Request Access
+                                  Access
                                 </Button>
                               )}
                               <p className="mt-2 text-muted-foreground text-xs">
@@ -1145,7 +1145,7 @@ export default function OrganizationsPage() {
                                         variant="default"
                                       >
                                         <Plus className="mr-1 h-3 w-3" />
-                                        Request Access
+                                        Access
                                       </Button>
                                     )}
                                   </TableCell>

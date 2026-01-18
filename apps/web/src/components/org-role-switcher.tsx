@@ -23,7 +23,6 @@ import {
   Shield,
   UserCircle,
   Users,
-  X,
 } from "lucide-react";
 import type { Route } from "next";
 import { useParams, usePathname, useRouter } from "next/navigation";
@@ -35,10 +34,12 @@ const ROLE_PATHNAME_REGEX = /\/orgs\/[^/]+\/(admin|coach|parents|player)/;
 
 import { ResponsiveDialog } from "@/components/interactions";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
+  CommandInput,
   CommandItem,
   CommandList,
   CommandSeparator,
@@ -143,6 +144,8 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   const urlOrgId = params.orgId as string | undefined;
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [showAllOrgs, setShowAllOrgs] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Request role dialog state
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
@@ -169,14 +172,8 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   const requestFunctionalRole = useMutation(
     api.models.members.requestFunctionalRole
   );
-  const cancelFunctionalRoleRequest = useMutation(
-    api.models.members.cancelFunctionalRoleRequest
-  );
 
-  // Find current org and membership
-  const currentOrg = organizations?.find(
-    (org: Organization) => org.id === urlOrgId
-  );
+  // Find current membership
   const currentMembership = allMemberships?.find(
     (m) => m.organizationId === urlOrgId
   );
@@ -209,32 +206,33 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
       ) as FunctionalRole;
       const currentRole = currentMembership.activeFunctionalRole;
 
+      // Check if user has this role
+      const hasRole = currentMembership.functionalRoles?.includes(urlRole);
+
       console.log("[Role Sync] URL role vs Current role:", {
         urlRole,
         currentRole,
         needsSync: urlRole !== currentRole,
+        hasRole,
       });
 
-      // Only sync if there's a mismatch
-      if (urlRole !== currentRole) {
-        // Check if user has this role
-        const hasRole = currentMembership.functionalRoles?.includes(urlRole);
-
-        console.log("[Role Sync] User has role:", { urlRole, hasRole });
-
-        if (hasRole) {
-          console.log(
-            `[Role Sync] Syncing role from URL: ${urlRole} (was: ${currentRole})`
-          );
-          try {
-            await switchActiveRole({
-              organizationId: urlOrgId,
-              functionalRole: urlRole,
-            });
-            console.log("[Role Sync] ✅ Successfully synced role");
-          } catch (error) {
-            console.error("[Role Sync] ❌ Failed to sync role:", error);
-          }
+      if (hasRole) {
+        // Always call switchActiveRole to update lastAccessedOrgs timestamp
+        // Even if the role hasn't changed, this ensures "recently accessed" is up to date
+        const needsSync = urlRole !== currentRole;
+        console.log(
+          needsSync
+            ? `[Role Sync] Syncing role from URL: ${urlRole} (was: ${currentRole})`
+            : `[Role Sync] Updating last accessed for ${urlRole} in org ${urlOrgId}`
+        );
+        try {
+          await switchActiveRole({
+            organizationId: urlOrgId,
+            functionalRole: urlRole,
+          });
+          console.log("[Role Sync] ✅ Successfully synced role");
+        } catch (error) {
+          console.error("[Role Sync] ❌ Failed to sync role:", error);
         }
       }
     };
@@ -295,21 +293,6 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
       console.error("Error switching role:", error);
     } finally {
       setSwitching(false);
-    }
-  };
-
-  const handleCancelPendingRequest = async (
-    orgId: string,
-    role: FunctionalRole
-  ) => {
-    setOpen(false);
-    try {
-      await cancelFunctionalRoleRequest({
-        organizationId: orgId,
-        role,
-      });
-    } catch (error) {
-      console.error("Error canceling request:", error);
     }
   };
 
@@ -413,12 +396,65 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
     .filter(
       ({ roles, pendingRequests }) =>
         roles.length > 0 || pendingRequests.length > 0
+    )
+    .map((item) => {
+      // Get last accessed timestamp for this org from membership data
+      // biome-ignore lint/suspicious/noExplicitAny: membership type from Better Auth has complex shape
+      const lastAccessedOrgs = (item.membership as any)?.lastAccessedOrgs || [];
+      const orgAccessRecord = lastAccessedOrgs.find(
+        (record: { orgId: string; timestamp: number }) =>
+          record.orgId === item.org.id
+      );
+      return {
+        ...item,
+        lastAccessedTimestamp: orgAccessRecord?.timestamp || 0,
+      };
+    })
+    .sort((a, b) => {
+      // Always put active org at the top
+      const aIsActive = a.org.id === urlOrgId;
+      const bIsActive = b.org.id === urlOrgId;
+
+      if (aIsActive && !bIsActive) {
+        return -1; // a is active, move to top
+      }
+      if (!aIsActive && bIsActive) {
+        return 1; // b is active, move to top
+      }
+
+      // Sort by last accessed timestamp (most recent first)
+      // If no timestamp, put at end
+      if (a.lastAccessedTimestamp === 0 && b.lastAccessedTimestamp === 0) {
+        return a.org.name.localeCompare(b.org.name); // Alphabetical if neither accessed
+      }
+      if (a.lastAccessedTimestamp === 0) {
+        return 1; // a to end
+      }
+      if (b.lastAccessedTimestamp === 0) {
+        return -1; // b to end
+      }
+      return b.lastAccessedTimestamp - a.lastAccessedTimestamp; // Most recent first
+    });
+
+  // Filter organizations based on search query
+  const filteredOrgRoleStructure = orgRoleStructure.filter(({ org, roles }) => {
+    if (!searchQuery) {
+      return true;
+    }
+
+    const query = searchQuery.toLowerCase();
+    const orgNameMatches = org.name.toLowerCase().includes(query);
+    const roleMatches = roles.some((role) =>
+      getRoleLabel(role).toLowerCase().includes(query)
     );
+
+    return orgNameMatches || roleMatches;
+  });
 
   const triggerButton = (
     <Button
       aria-expanded={open}
-      className={cn("w-[140px] justify-between sm:w-[220px]", className)}
+      className={cn("h-10 justify-between", className)}
       disabled={switching}
       variant="outline"
     >
@@ -427,33 +463,15 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
           <Loader2 className="h-4 w-4 animate-spin" />
           Switching...
         </span>
-      ) : currentOrg && currentMembership?.activeFunctionalRole ? (
-        <div className="flex items-center gap-2 truncate">
-          {currentOrg.logo ? (
-            <img alt="" className="h-4 w-4 rounded" src={currentOrg.logo} />
-          ) : (
-            <Building2 className="h-4 w-4 shrink-0" />
-          )}
-          <span className="truncate">{currentOrg.name}</span>
-          <span className="hidden text-muted-foreground sm:inline">•</span>
+      ) : currentMembership?.activeFunctionalRole ? (
+        <div className="flex items-center gap-2">
           {getRoleIcon(currentMembership.activeFunctionalRole)}
-          <span className="hidden truncate sm:inline">
-            {getRoleLabel(currentMembership.activeFunctionalRole)}
-          </span>
-        </div>
-      ) : currentOrg ? (
-        <div className="flex items-center gap-2 truncate">
-          {currentOrg.logo ? (
-            <img alt="" className="h-4 w-4 rounded" src={currentOrg.logo} />
-          ) : (
-            <Building2 className="h-4 w-4 shrink-0" />
-          )}
-          <span className="truncate">{currentOrg.name}</span>
+          <span>{getRoleLabel(currentMembership.activeFunctionalRole)}</span>
         </div>
       ) : (
         <div className="flex items-center gap-2">
           <Building2 className="h-4 w-4" />
-          <span>Select organization...</span>
+          <span>Select role...</span>
         </div>
       )}
       <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -463,98 +481,127 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   return (
     <>
       <ResponsiveDialog
-        contentClassName="sm:w-[360px]"
+        contentClassName="sm:w-[440px]"
         onOpenChange={setOpen}
         open={open}
         title="Switch Organization or Role"
         trigger={triggerButton}
       >
-        <Command className="rounded-none border-none">
-          <CommandList className="max-h-[60vh]">
-            <CommandEmpty>No organization found.</CommandEmpty>
-            {orgRoleStructure.map(
-              ({ org, roles, activeRole, pendingRequests }: OrgRoleItem) => (
-                <CommandGroup
-                  heading={
-                    <div className="flex items-center gap-2">
-                      {org.logo ? (
-                        <img
-                          alt=""
-                          className="h-4 w-4 rounded object-cover"
-                          src={org.logo}
-                        />
-                      ) : (
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
+        <Command className="rounded-none border-none" shouldFilter={false}>
+          <CommandInput
+            onValueChange={setSearchQuery}
+            placeholder="Search organizations..."
+            value={searchQuery}
+          />
+          <CommandList className="max-h-[70vh]">
+            {filteredOrgRoleStructure.length === 0 ? (
+              <CommandEmpty>No organization found.</CommandEmpty>
+            ) : (
+              <div className="space-y-0.5 p-1">
+                {/* Recently Accessed Section */}
+                <div className="flex items-center gap-1 px-1.5 pb-0 font-semibold text-[10px] text-muted-foreground uppercase tracking-wide">
+                  <Clock className="h-2.5 w-2.5" />
+                  Recently Accessed
+                </div>
+                {(showAllOrgs
+                  ? filteredOrgRoleStructure
+                  : filteredOrgRoleStructure.slice(0, 3)
+                ).map(({ org, roles, activeRole }: OrgRoleItem) => {
+                  const isActiveOrg = urlOrgId === org.id;
+                  return (
+                    <Card
+                      className={cn(
+                        "relative px-2 py-1.5 shadow-sm transition-all hover:shadow-md",
+                        isActiveOrg && "border-2 border-green-500"
                       )}
-                      <span>{org.name}</span>
-                    </div>
-                  }
-                  key={org.id}
-                >
-                  {roles.length === 0 && pendingRequests.length === 0 ? (
-                    <CommandItem disabled>
-                      <span className="text-muted-foreground text-sm">
-                        No roles assigned
-                      </span>
-                    </CommandItem>
-                  ) : (
-                    <>
-                      {/* Active roles */}
-                      {roles.map((role) => {
-                        const isActive =
-                          urlOrgId === org.id && role === activeRole;
-                        return (
-                          <CommandItem
-                            className={cn(
-                              "min-h-[44px]",
-                              isActive && "bg-green-50"
-                            )}
-                            key={`${org.id}-${role}`}
-                            onSelect={() => handleSwitchRole(org.id, role)}
-                            value={`${org.id}-${role}`}
-                          >
-                            <div className="flex w-full items-center justify-between">
-                              <div className="flex items-center gap-2">
+                      key={org.id}
+                    >
+                      {/* Active org indicator */}
+                      {isActiveOrg && (
+                        <div className="absolute top-1 right-1 flex items-center gap-0.5 font-medium text-[9px] text-green-600">
+                          <Check className="h-2 w-2" />
+                          Active
+                        </div>
+                      )}
+
+                      {/* Org header */}
+                      <div className="flex items-center gap-1">
+                        {org.logo ? (
+                          <img
+                            alt=""
+                            className="h-5 w-5 flex-shrink-0 rounded object-cover"
+                            src={org.logo}
+                          />
+                        ) : (
+                          <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-muted">
+                            <Building2 className="h-3 w-3 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-bold text-[11px] uppercase leading-none tracking-tight">
+                            {org.name}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Horizontal role badges */}
+                      {roles.length > 0 ? (
+                        <div className="-mt-1.5 flex flex-wrap gap-1">
+                          {roles.map((role) => {
+                            const isActiveRole =
+                              isActiveOrg && role === activeRole;
+                            return (
+                              <Button
+                                className={cn(
+                                  "h-5 gap-0.5 px-1.5 py-0 text-[11px]",
+                                  isActiveRole
+                                    ? "border-green-300 bg-green-100 text-green-700 hover:bg-green-200"
+                                    : "variant-outline"
+                                )}
+                                key={`${org.id}-${role}`}
+                                onClick={() => handleSwitchRole(org.id, role)}
+                                size="sm"
+                                variant={isActiveRole ? "default" : "outline"}
+                              >
                                 {getRoleIcon(role)}
                                 <span>{getRoleLabel(role)}</span>
-                              </div>
-                              {isActive && (
-                                <span className="flex items-center gap-1 text-green-600 text-xs">
-                                  <Check className="h-3 w-3" />
-                                  Active
-                                </span>
-                              )}
-                            </div>
-                          </CommandItem>
-                        );
-                      })}
-                      {/* Pending role requests */}
-                      {pendingRequests.map((request) => (
-                        <CommandItem
-                          className="min-h-[44px] bg-yellow-50"
-                          key={`${org.id}-pending-${request.role}`}
-                          onSelect={() =>
-                            handleCancelPendingRequest(org.id, request.role)
-                          }
-                          value={`${org.id}-pending-${request.role}`}
-                        >
-                          <div className="flex w-full items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {getRoleIcon(request.role)}
-                              <span>{getRoleLabel(request.role)}</span>
-                            </div>
-                            <span className="flex items-center gap-1 text-xs text-yellow-600">
-                              <Clock className="h-3 w-3" />
-                              Pending
-                              <X className="h-3 w-3 hover:text-red-500" />
-                            </span>
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </>
-                  )}
-                </CommandGroup>
-              )
+                                {isActiveRole && <Check className="h-2 w-2" />}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-muted-foreground text-xs">
+                          No roles assigned
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+
+                {/* Show more/less button */}
+                {filteredOrgRoleStructure.length > 3 && (
+                  <Button
+                    className="w-full"
+                    onClick={() => setShowAllOrgs(!showAllOrgs)}
+                    variant="ghost"
+                  >
+                    {showAllOrgs ? (
+                      <>
+                        <ChevronDown className="mr-2 h-4 w-4 rotate-180" />
+                        Show less
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="mr-2 h-4 w-4" />
+                        Show {filteredOrgRoleStructure.length - 3} more
+                        organization
+                        {filteredOrgRoleStructure.length - 3 !== 1 ? "s" : ""}
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             )}
 
             {/* Single consolidated Request Role option */}

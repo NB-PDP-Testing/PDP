@@ -622,3 +622,56 @@ export const deleteUserAccount = mutation({
     };
   },
 });
+
+/**
+ * Get user auth method (OAuth vs email/password)
+ * Checks Better Auth account table to determine if user has OAuth providers
+ */
+export const getUserAuthMethod = query({
+  args: { userId: v.string() },
+  returns: v.union(
+    v.object({
+      hasOAuthAccount: v.boolean(),
+      oauthProvider: v.optional(
+        v.union(v.literal("google"), v.literal("microsoft"))
+      ),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Query Better Auth account table to check for OAuth providers
+    try {
+      const accountsResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "account",
+          paginationOpts: { cursor: null, numItems: 10 },
+          where: [{ field: "userId", value: args.userId, operator: "eq" }],
+        }
+      );
+
+      if (!accountsResult || accountsResult.page.length === 0) {
+        return { hasOAuthAccount: false };
+      }
+
+      // Check if any account is an OAuth provider
+      for (const account of accountsResult.page) {
+        const providerId = (account as any).providerId;
+        if (providerId === "google" || providerId === "microsoft") {
+          return {
+            hasOAuthAccount: true,
+            oauthProvider: providerId as "google" | "microsoft",
+          };
+        }
+      }
+
+      return { hasOAuthAccount: false };
+    } catch (error) {
+      console.warn(
+        `Failed to lookup auth method for user ${args.userId}:`,
+        error
+      );
+      return null;
+    }
+  },
+});

@@ -317,6 +317,7 @@ export const updateUserPreferences = mutation({
         userId: args.userId,
         ...updates,
         createdAt: now,
+        updatedAt: now,
       });
     }
 
@@ -370,26 +371,5 @@ export const updateProfile = mutation({
     // For now, profile updates are handled by Better Auth client SDK
     // This is a placeholder for future server-side profile updates
     return { success: false };
-  },
-});
-
-/**
- * Get user auth method (OAuth vs email/password)
- */
-export const getUserAuthMethod = query({
-  args: { userId: v.string() },
-  returns: v.union(
-    v.object({
-      hasOAuthAccount: v.boolean(),
-      oauthProvider: v.optional(
-        v.union(v.literal("google"), v.literal("microsoft"))
-      ),
-    }),
-    v.null()
-  ),
-  handler: (_ctx, _args) => {
-    // TODO: Query Better Auth account table to check for OAuth providers
-    // For now, return null (not implemented)
-    return null;
   },
 });

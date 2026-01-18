@@ -368,12 +368,7 @@ export function SharedPassportsView({ orgId }: SharedPassportsProps) {
 
           {/* Browse players tab */}
           <TabsContent className="mt-4" value="browse">
-            {userId && (
-              <BrowsePlayersTab
-                organizationId={organizationId}
-                userId={userId}
-              />
-            )}
+            <BrowsePlayersTab organizationId={organizationId} />
           </TabsContent>
         </Tabs>
       </div>

@@ -24,13 +24,11 @@ type PlayerSearchCardProps = {
     hasExistingRequest?: boolean;
   };
   organizationId: string;
-  userId: string;
 };
 
 export function PlayerSearchCard({
   player,
   organizationId,
-  userId,
 }: PlayerSearchCardProps) {
   const [showModal, setShowModal] = useState(false);
 
@@ -98,7 +96,6 @@ export function PlayerSearchCard({
         organizationId={organizationId}
         playerIdentityId={player._id}
         playerName={`${player.firstName} ${player.lastName}`}
-        userId={userId}
       />
     </>
   );

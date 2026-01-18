@@ -47,13 +47,7 @@ export function ProfileSettingsDialog({
   const authMethod = useQuery(
     api.models.users.getUserAuthMethod,
     user?._id ? { userId: user._id } : "skip"
-  ) as
-    | {
-        hasOAuthAccount: boolean;
-        oauthProvider?: "google" | "microsoft";
-      }
-    | null
-    | undefined;
+  );
 
   // Form state
   const [firstName, setFirstName] = useState(user?.firstName || "");

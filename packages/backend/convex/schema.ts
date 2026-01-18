@@ -2251,13 +2251,24 @@ export default defineSchema({
     ),
     defaultPage: v.optional(v.string()), // e.g., "/dashboard", "/teams", etc.
 
+    // Legacy field names (for backwards compatibility with existing data)
+    preferredDefaultOrg: v.optional(v.string()),
+    preferredDefaultRole: v.optional(
+      v.union(
+        v.literal("admin"),
+        v.literal("coach"),
+        v.literal("parent"),
+        v.literal("player")
+      )
+    ),
+
     // Usage tracking for smart defaults
     // Array of org access history with frequency scoring
     orgAccessHistory: v.optional(
       v.array(
         v.object({
           orgId: v.string(),
-          orgName: v.string(),
+          orgName: v.optional(v.string()), // Optional to support existing data
           role: v.union(
             v.literal("admin"),
             v.literal("coach"),
@@ -2266,6 +2277,7 @@ export default defineSchema({
           ),
           accessCount: v.number(), // Total number of times accessed
           totalMinutesSpent: v.number(), // Total time spent in this org/role
+          firstAccessedAt: v.optional(v.number()), // Unix timestamp of first access
           lastAccessedAt: v.number(), // Unix timestamp of last access
         })
       )

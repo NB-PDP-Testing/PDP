@@ -30,7 +30,7 @@ export const getUserPreferences = query({
         v.array(
           v.object({
             orgId: v.string(),
-            orgName: v.string(),
+            orgName: v.optional(v.string()),
             role: v.union(
               v.literal("admin"),
               v.literal("coach"),
@@ -173,7 +173,7 @@ export const getUsageInsights = query({
       mostUsedOrgs: v.array(
         v.object({
           orgId: v.string(),
-          orgName: v.string(),
+          orgName: v.optional(v.string()),
           role: v.union(
             v.literal("admin"),
             v.literal("coach"),
@@ -188,7 +188,7 @@ export const getUsageInsights = query({
       recentOrgs: v.array(
         v.object({
           orgId: v.string(),
-          orgName: v.string(),
+          orgName: v.optional(v.string()),
           lastAccessedAt: v.number(),
         })
       ),

@@ -45,7 +45,7 @@ export function ProfileSettingsDialog({
 
   // Check if user has OAuth account
   const authMethod = useQuery(
-    api.models.userPreferences.getUserAuthMethod,
+    api.models.users.getUserAuthMethod,
     user?._id ? { userId: user._id } : "skip"
   ) as
     | {

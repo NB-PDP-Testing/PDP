@@ -1893,7 +1893,11 @@ export const syncFunctionalRolesFromInvitation = mutation({
       suggestedRoles.includes("coach") &&
       roleSpecificData.teams?.length > 0
     ) {
-      const teams: string[] = roleSpecificData.teams;
+      // Extract team IDs from team objects (roleSpecificData.teams contains objects with id, name, etc.)
+      // biome-ignore lint/suspicious/noExplicitAny: Team metadata structure varies
+      const teams: string[] = roleSpecificData.teams.map((t: any) =>
+        typeof t === "string" ? t : t.id
+      );
 
       // Check if coach assignment already exists
       const existingAssignment = await ctx.db

@@ -59,6 +59,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
@@ -160,6 +161,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   const { data: organizations, isPending: isLoadingOrgs } =
     authClient.useListOrganizations();
   const user = useCurrentUser();
+  const { useOrgUsageTracking } = useUXFeatureFlags();
 
   // Get all memberships with roles for all organizations
   const allMemberships = useQuery(
@@ -171,6 +173,13 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   );
   const requestFunctionalRole = useMutation(
     api.models.members.requestFunctionalRole
+  );
+  const trackOrgAccess = useMutation(api.models.userPreferences.trackOrgAccess);
+
+  // Get usage insights for smart org sorting (Phase 2B)
+  const usageInsights = useQuery(
+    api.models.userPreferences.getUsageInsights,
+    useOrgUsageTracking && user?._id ? { userId: user._id } : "skip"
   );
 
   // Find current membership
@@ -230,6 +239,18 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
             organizationId: urlOrgId,
             functionalRole: urlRole,
           });
+
+          // Track org access for usage insights
+          if (user?._id) {
+            const org = organizations?.find((o) => o.id === urlOrgId);
+            await trackOrgAccess({
+              userId: user._id,
+              orgId: urlOrgId,
+              orgName: org?.name || "Unknown Organization",
+              role: urlRole,
+            });
+          }
+
           console.log("[Role Sync] ✅ Successfully synced role");
         } catch (error) {
           console.error("[Role Sync] ❌ Failed to sync role:", error);
@@ -245,6 +266,9 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
     currentMembership?.activeFunctionalRole,
     currentMembership,
     switchActiveRole,
+    organizations,
+    user?._id,
+    trackOrgAccess,
   ]);
 
   // Set default org for request dialog when it opens
@@ -286,6 +310,17 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
         organizationId: orgId,
         functionalRole: role,
       });
+
+      // Track org access for usage insights
+      if (user?._id) {
+        const org = organizations?.find((o) => o.id === orgId);
+        await trackOrgAccess({
+          userId: user._id,
+          orgId,
+          orgName: org?.name || "Unknown Organization",
+          role,
+        });
+      }
 
       // Redirect to appropriate dashboard
       router.push(getRoleDashboardRoute(orgId, role));
@@ -451,6 +486,20 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
     return orgNameMatches || roleMatches;
   });
 
+  // Process most used orgs from usage insights (Phase 2B)
+  const mostUsedOrgItems: OrgRoleItem[] = [];
+  if (useOrgUsageTracking && usageInsights?.mostUsedOrgs) {
+    for (const mostUsed of usageInsights.mostUsedOrgs.slice(0, 3)) {
+      // Find corresponding org in orgRoleStructure
+      const orgItem = orgRoleStructure.find(
+        (item) => item.org.id === mostUsed.orgId
+      );
+      if (orgItem) {
+        mostUsedOrgItems.push(orgItem);
+      }
+    }
+  }
+
   const triggerButton = (
     <Button
       aria-expanded={open}
@@ -498,6 +547,97 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
               <CommandEmpty>No organization found.</CommandEmpty>
             ) : (
               <div className="space-y-0.5 p-1">
+                {/* Most Used Section (Phase 2B) */}
+                {mostUsedOrgItems.length > 0 && (
+                  <>
+                    <div className="flex items-center gap-1 px-1.5 pb-0 font-semibold text-[10px] text-muted-foreground uppercase tracking-wide">
+                      <span>⚡</span>
+                      Most Used
+                    </div>
+                    {mostUsedOrgItems.map(
+                      ({ org, roles, activeRole }: OrgRoleItem) => {
+                        const isActiveOrg = urlOrgId === org.id;
+                        return (
+                          <Card
+                            className={cn(
+                              "relative px-2 py-1.5 shadow-sm transition-all hover:shadow-md",
+                              isActiveOrg && "border-2 border-green-500"
+                            )}
+                            key={`most-used-${org.id}`}
+                          >
+                            {/* Active org indicator */}
+                            {isActiveOrg && (
+                              <div className="absolute top-1 right-1 flex items-center gap-0.5 font-medium text-[9px] text-green-600">
+                                <Check className="h-2 w-2" />
+                                Active
+                              </div>
+                            )}
+
+                            {/* Org header */}
+                            <div className="flex items-center gap-1">
+                              {org.logo ? (
+                                <img
+                                  alt=""
+                                  className="h-5 w-5 flex-shrink-0 rounded object-cover"
+                                  src={org.logo}
+                                />
+                              ) : (
+                                <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded bg-muted">
+                                  <Building2 className="h-3 w-3 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate font-bold text-[11px] uppercase leading-none tracking-tight">
+                                  {org.name}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Horizontal role badges */}
+                            {roles.length > 0 ? (
+                              <div className="-mt-1.5 flex flex-wrap gap-1">
+                                {roles.map((role) => {
+                                  const isActiveRole =
+                                    isActiveOrg && role === activeRole;
+                                  return (
+                                    <Button
+                                      className={cn(
+                                        "h-5 gap-0.5 px-1.5 py-0 text-[11px]",
+                                        isActiveRole
+                                          ? "border-green-300 bg-green-100 text-green-700 hover:bg-green-200"
+                                          : "variant-outline"
+                                      )}
+                                      key={`${org.id}-${role}`}
+                                      onClick={() =>
+                                        handleSwitchRole(org.id, role)
+                                      }
+                                      size="sm"
+                                      variant={
+                                        isActiveRole ? "default" : "outline"
+                                      }
+                                    >
+                                      {getRoleIcon(role)}
+                                      <span>{getRoleLabel(role)}</span>
+                                      {isActiveRole && (
+                                        <Check className="h-2 w-2" />
+                                      )}
+                                    </Button>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="text-muted-foreground text-xs">
+                                No roles assigned
+                              </div>
+                            )}
+                          </Card>
+                        );
+                      }
+                    )}
+                    <CommandSeparator />
+                  </>
+                )}
+
                 {/* Recently Accessed Section */}
                 <div className="flex items-center gap-1 px-1.5 pb-0 font-semibold text-[10px] text-muted-foreground uppercase tracking-wide">
                   <Clock className="h-2.5 w-2.5" />

@@ -34,7 +34,10 @@ type ChildSharingCardProps = {
     };
   };
   guardianIdentityId?: Id<"guardianIdentities">;
-  onEnableSharing?: (childId: string) => void;
+  onEnableSharing?: (
+    childId: string,
+    sourceRequestId?: Id<"passportShareRequests">
+  ) => void;
 };
 
 export function ChildSharingCard({
@@ -312,11 +315,11 @@ export function ChildSharingCard({
         <DialogContent className="max-h-[80vh] max-w-2xl overflow-y-auto">
           <PendingRequests
             childName={`${child.player.firstName} ${child.player.lastName}`}
-            onApprove={() => {
+            onApprove={(requestId) => {
               // Close the pending requests dialog
               setPendingRequestsOpen(false);
-              // Open the enable sharing wizard
-              onEnableSharing?.(child.player._id);
+              // Open the enable sharing wizard with the request ID
+              onEnableSharing?.(child.player._id, requestId);
             }}
             playerIdentityId={child.player._id}
           />

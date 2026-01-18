@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { components, internal } from "../_generated/api";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
   internalMutation,
   internalQuery,
@@ -26,17 +27,7 @@ import {
  * Verify user has coach role in organization
  */
 async function getCoachForOrg(
-  ctx: {
-    runQuery: (
-      component: unknown,
-      args: {
-        model: string;
-        where: Array<{ field: string; value: string; operator: string }>;
-      }
-    ) => Promise<{
-      functionalRoles?: string[];
-    } | null>;
-  },
+  ctx: MutationCtx | QueryCtx,
   userId: string,
   orgId: string
 ) {

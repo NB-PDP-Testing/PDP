@@ -2331,6 +2331,80 @@ export const getPendingSharesForCoach = query({
 });
 
 /**
+ * Bulk check passport sharing availability for multiple players
+ * Used by coaches to efficiently check passport status for all their players at once
+ * Avoids N+1 query problem when displaying badges in player lists
+ *
+ * @param playerIdentityIds - Array of player IDs to check
+ * @param organizationId - The organization (coach's org) checking access
+ * @param userId - The coach's user ID
+ * @returns Array of availability status for each player
+ */
+export const checkPassportAvailabilityBulk = query({
+  args: {
+    playerIdentityIds: v.array(v.id("playerIdentities")),
+    organizationId: v.string(),
+    userId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      playerIdentityId: v.id("playerIdentities"),
+      hasActiveSharesToView: v.boolean(),
+      hasPendingSharesToAccept: v.boolean(),
+      pendingShareCount: v.number(),
+      activeShareCount: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const results = [];
+
+    for (const playerIdentityId of args.playerIdentityIds) {
+      // Check for active shares the coach can view
+      const activeShares = await ctx.db
+        .query("passportShareConsents")
+        .withIndex("by_player_and_status", (q) =>
+          q.eq("playerIdentityId", playerIdentityId).eq("status", "active")
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("receivingOrgId"), args.organizationId),
+            q.eq(q.field("coachAcceptanceStatus"), "accepted"),
+            q.eq(q.field("acceptedByCoachId"), args.userId)
+          )
+        )
+        .collect();
+
+      // Check for pending shares awaiting this coach's acceptance
+      const pendingShares = await ctx.db
+        .query("passportShareConsents")
+        .withIndex("by_player_and_status", (q) =>
+          q.eq("playerIdentityId", playerIdentityId).eq("status", "active")
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("receivingOrgId"), args.organizationId),
+            q.eq(q.field("coachAcceptanceStatus"), "pending")
+          )
+        )
+        .collect();
+
+      // Pending shares are all available for this coach (no decline tracking per coach)
+      const pendingSharesForCoach = pendingShares;
+
+      results.push({
+        playerIdentityId,
+        hasActiveSharesToView: activeShares.length > 0,
+        hasPendingSharesToAccept: pendingSharesForCoach.length > 0,
+        pendingShareCount: pendingSharesForCoach.length,
+        activeShareCount: activeShares.length,
+      });
+    }
+
+    return results;
+  },
+});
+
+/**
  * Check if a player has an active share or pending request with an organization
  * Used to determine whether to show "Request Access" button on player profile
  *

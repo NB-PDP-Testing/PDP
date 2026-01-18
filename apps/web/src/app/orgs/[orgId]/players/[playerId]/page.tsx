@@ -74,7 +74,9 @@ export default function PlayerPassportPage() {
       // Redirect to player self-access route
       router.replace(`/orgs/${orgId}/player` as Route);
     }
-  }, [roleDetails, ownPlayerIdentity, playerId, orgId, router]);
+    // Note: router is intentionally excluded from deps to prevent infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roleDetails, ownPlayerIdentity, playerId, orgId]);
 
   // Check share status for this player (for coach access request feature)
   const shareStatus = useQuery(

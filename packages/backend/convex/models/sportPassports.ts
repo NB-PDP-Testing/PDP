@@ -612,32 +612,64 @@ export const getFullPlayerPassportView = query({
     );
 
     // Fetch actual team details from Better Auth for each membership
-    const teamAssignments = await Promise.all(
+    const teamAssignmentsRaw = await Promise.all(
       activeTeamMemberships.map(async (m) => {
-        // Fetch team details from Better Auth
-        const teamResult = await ctx.runQuery(
-          components.betterAuth.adapter.findMany,
-          {
-            model: "team",
-            paginationOpts: { cursor: null, numItems: 1 },
-            where: [{ field: "_id", value: m.teamId, operator: "eq" }],
-          }
-        );
-        const team = teamResult.page[0] as BetterAuthDoc<"team"> | undefined;
+        // Skip if teamId is missing or invalid
+        if (!m.teamId || typeof m.teamId !== "string" || m.teamId.length < 10) {
+          console.warn(
+            `[sportPassports] Skipping invalid teamId: ${m.teamId} for player ${args.playerIdentityId}`
+          );
+          return null;
+        }
 
-        // Return team assignment with full team details
-        return {
-          teamId: m.teamId,
-          name: team?.name ?? "Unknown Team",
-          sport: team?.sport,
-          ageGroup: team?.ageGroup,
-          gender: team?.gender,
-          season: m.season ?? team?.season,
-          role: m.role,
-          joinedDate: m.joinedDate,
-          isActive: team?.isActive ?? true,
-        };
+        try {
+          // Fetch team details from Better Auth
+          const teamResult = await ctx.runQuery(
+            components.betterAuth.adapter.findMany,
+            {
+              model: "team",
+              paginationOpts: { cursor: null, numItems: 1 },
+              where: [{ field: "_id", value: m.teamId, operator: "eq" }],
+            }
+          );
+          const team = teamResult.page[0] as BetterAuthDoc<"team"> | undefined;
+
+          // Return team assignment with full team details
+          return {
+            teamId: m.teamId,
+            name: team?.name ?? "Unknown Team",
+            sport: team?.sport,
+            ageGroup: team?.ageGroup,
+            gender: team?.gender,
+            season: m.season ?? team?.season,
+            role: m.role,
+            joinedDate: m.joinedDate,
+            isActive: team?.isActive ?? true,
+          };
+        } catch (error) {
+          console.warn(
+            `[sportPassports] Error fetching team ${m.teamId}:`,
+            error
+          );
+          // Return a fallback entry so the player still shows
+          return {
+            teamId: m.teamId,
+            name: "Unknown Team",
+            sport: undefined,
+            ageGroup: undefined,
+            gender: undefined,
+            season: m.season,
+            role: m.role,
+            joinedDate: m.joinedDate,
+            isActive: false,
+          };
+        }
       })
+    );
+
+    // Filter out null entries from invalid teamIds
+    const teamAssignments = teamAssignmentsRaw.filter(
+      (t): t is NonNullable<typeof t> => t !== null
     );
 
     // Get goals for primary passport

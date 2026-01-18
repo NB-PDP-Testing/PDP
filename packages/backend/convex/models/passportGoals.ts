@@ -52,6 +52,10 @@ const goalValidator = v.object({
   milestones: v.optional(v.array(milestoneValidator)),
   parentActions: v.optional(v.array(v.string())),
   parentCanView: v.boolean(),
+  // Cross-org sharing control (Passport Sharing Feature)
+  isShareable: v.optional(v.boolean()),
+  markedShareableAt: v.optional(v.number()),
+  markedShareableBy: v.optional(v.string()),
   coachNotes: v.optional(v.string()),
   playerNotes: v.optional(v.string()),
   createdBy: v.optional(v.string()),

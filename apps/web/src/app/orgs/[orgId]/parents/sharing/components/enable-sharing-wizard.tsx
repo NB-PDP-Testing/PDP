@@ -292,19 +292,18 @@ export function EnableSharingWizard({
   return (
     <ResponsiveDialog
       contentClassName="sm:max-w-lg"
+      description={`Step ${currentStepNumber} of ${totalSteps}`}
       onOpenChange={handleOpenChange}
       open={open}
+      title={getStepTitle(currentStep)}
     >
       <div className="space-y-6">
-        {/* Header with progress indicator */}
+        {/* Progress indicator */}
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Shield className="h-4 w-4" />
-            <span>
-              Step {currentStepNumber} of {totalSteps}
-            </span>
+            <span>Enable Passport Sharing</span>
           </div>
-          <h2 className="font-semibold text-lg">{getStepTitle(currentStep)}</h2>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
               className="h-full bg-primary transition-all duration-300"

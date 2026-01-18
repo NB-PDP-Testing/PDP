@@ -8,13 +8,9 @@ import { PlayerSearchCard } from "./player-search-card";
 
 type BrowsePlayersTabProps = {
   organizationId: string;
-  userId: string;
 };
 
-export function BrowsePlayersTab({
-  organizationId,
-  userId,
-}: BrowsePlayersTabProps) {
+export function BrowsePlayersTab({ organizationId }: BrowsePlayersTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 500);
 
@@ -65,7 +61,6 @@ export function BrowsePlayersTab({
               key={player._id}
               organizationId={organizationId}
               player={player}
-              userId={userId}
             />
           ))}
         </div>

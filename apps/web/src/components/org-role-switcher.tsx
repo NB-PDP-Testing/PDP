@@ -489,13 +489,25 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   // Process most used orgs from usage insights (Phase 2B)
   const mostUsedOrgItems: OrgRoleItem[] = [];
   if (useOrgUsageTracking && usageInsights?.mostUsedOrgs) {
-    for (const mostUsed of usageInsights.mostUsedOrgs.slice(0, 3)) {
+    const seenOrgIds = new Set<string>();
+    for (const mostUsed of usageInsights.mostUsedOrgs) {
+      // Skip if we've already added this org (same org can have multiple roles in top list)
+      if (seenOrgIds.has(mostUsed.orgId)) {
+        continue;
+      }
+
       // Find corresponding org in orgRoleStructure
       const orgItem = orgRoleStructure.find(
         (item) => item.org.id === mostUsed.orgId
       );
       if (orgItem) {
         mostUsedOrgItems.push(orgItem);
+        seenOrgIds.add(mostUsed.orgId);
+
+        // Stop at 3 unique orgs
+        if (mostUsedOrgItems.length >= 3) {
+          break;
+        }
       }
     }
   }

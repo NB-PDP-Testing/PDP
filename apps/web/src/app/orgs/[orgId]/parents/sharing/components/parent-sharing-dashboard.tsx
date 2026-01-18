@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import {
   AlertCircle,
@@ -34,9 +35,12 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
 
   // Wizard state
   const [showWizard, setShowWizard] = useState(false);
-  const [_selectedChildForWizard, setSelectedChildForWizard] = useState<
+  const [selectedChildForWizard, setSelectedChildForWizard] = useState<
     string | null
   >(null);
+  const [sourceRequestId, setSourceRequestId] = useState<
+    Id<"passportShareRequests"> | undefined
+  >(undefined);
 
   // Get children from guardian identity system
   const {
@@ -276,8 +280,9 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
                 child={child}
                 guardianIdentityId={guardianIdentity?._id}
                 key={child.player._id}
-                onEnableSharing={(childId) => {
+                onEnableSharing={(childId, requestId) => {
                   setSelectedChildForWizard(childId);
+                  setSourceRequestId(requestId);
                   setShowWizard(true);
                 }}
               />
@@ -315,10 +320,13 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
           setShowWizard(open);
           if (!open) {
             setSelectedChildForWizard(null);
+            setSourceRequestId(undefined);
           }
         }}
         open={showWizard}
         orgId={orgId}
+        preSelectedChildId={selectedChildForWizard || undefined}
+        sourceRequestId={sourceRequestId}
       />
     </div>
   );

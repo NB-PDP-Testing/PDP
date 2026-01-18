@@ -51,6 +51,10 @@ export type EnableSharingWizardProps = {
   childrenList: ChildForSharing[];
   /** Organization ID */
   orgId: string;
+  /** Optional: If this wizard was opened from approving a coach request, pass the request ID */
+  sourceRequestId?: Id<"passportShareRequests">;
+  /** Optional: Child ID to pre-select (when coming from request approval) */
+  preSelectedChildId?: string;
 };
 
 /**
@@ -95,9 +99,13 @@ export function EnableSharingWizard({
   onOpenChange,
   childrenList,
   orgId,
+  sourceRequestId,
+  preSelectedChildId,
 }: EnableSharingWizardProps) {
   const [currentStep, setCurrentStep] = useState<WizardStep>("child-selection");
-  const [selectedChildId, setSelectedChildId] = useState<string>("");
+  const [selectedChildId, setSelectedChildId] = useState<string>(
+    preSelectedChildId || ""
+  );
 
   // Default: all elements selected
   const [sharedElements, setSharedElements] = useState<SharedElements>({
@@ -205,6 +213,10 @@ export function EnableSharingWizard({
         sourceOrgIds:
           sourceOrgMode === "specific_orgs" ? selectedOrgIds : undefined,
         expiresAt: expiresAt.getTime(),
+        initiationType: sourceRequestId
+          ? "coach_requested"
+          : "parent_initiated",
+        sourceRequestId,
         // ipAddress is optional - backend will handle if not provided
       });
 

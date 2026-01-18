@@ -488,6 +488,10 @@ export const createPassportShareConsent = mutation({
     sourceOrgIds: v.optional(v.array(v.string())),
     expiresAt: v.number(),
     ipAddress: v.optional(v.string()),
+    initiationType: v.optional(
+      v.union(v.literal("parent_initiated"), v.literal("coach_requested"))
+    ),
+    sourceRequestId: v.optional(v.id("passportShareRequests")),
   },
   returns: v.id("passportShareConsents"),
   handler: async (ctx, args) => {
@@ -551,6 +555,8 @@ export const createPassportShareConsent = mutation({
       grantedBy: userId,
       grantedByType: "guardian",
       guardianIdentityId: guardianIdentity._id,
+      initiationType: args.initiationType || "parent_initiated",
+      sourceRequestId: args.sourceRequestId,
       sourceOrgMode: args.sourceOrgMode,
       sourceOrgIds: args.sourceOrgIds,
       receivingOrgId: args.receivingOrgId,

@@ -1,6 +1,6 @@
 import type { GenericDatabaseReader } from "convex/server";
 import { v } from "convex/values";
-import { api, components } from "../_generated/api";
+import { components } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
@@ -584,12 +584,10 @@ export const deleteUserAccount = mutation({
     }
 
     // Check blockers via preview
-    const preview: any = await ctx.runQuery(
-      api.models.users.getUserDeletionPreview,
-      {
-        email: args.email,
-      }
-    );
+    // Call getUserDeletionPreview directly (same module) to avoid circular dependency
+    const preview = await getUserDeletionPreview(ctx, {
+      email: args.email,
+    });
 
     if (!preview.canDelete) {
       return {

@@ -7,6 +7,7 @@ import {
   Clock,
   FileText,
   Shield,
+  Trophy,
   User,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,8 @@ type ReviewStepProps = {
   selectedOrgIds: string[];
   playerIdentityId: Id<"playerIdentities">;
   expiresAt: Date | undefined;
+  allowCrossSportVisibility: boolean;
+  visibleSportCodes: string[];
 };
 
 export function ReviewStep({
@@ -33,6 +36,8 @@ export function ReviewStep({
   selectedOrgIds,
   playerIdentityId,
   expiresAt,
+  allowCrossSportVisibility,
+  visibleSportCodes,
 }: ReviewStepProps) {
   // Format date for display
   const formatDate = (date: Date): string =>
@@ -41,6 +46,39 @@ export function ReviewStep({
       month: "long",
       day: "numeric",
     });
+
+  // Helper to format sport code to human-readable name
+  const formatSportName = (sportCode: string): string => {
+    const normalizedCode = sportCode.toLowerCase();
+    const sportNames: Record<string, string> = {
+      gaa_gaelic_football: "GAA Gaelic Football",
+      gaa_hurling: "GAA Hurling",
+      gaa_football: "GAA Gaelic Football",
+      gaelic_football: "GAA Gaelic Football",
+      hurling: "GAA Hurling",
+      soccer: "Soccer",
+      football: "Soccer",
+      rugby: "Rugby",
+      rugby_union: "Rugby Union",
+      rugby_league: "Rugby League",
+      basketball: "Basketball",
+      hockey: "Hockey",
+      field_hockey: "Field Hockey",
+      ice_hockey: "Ice Hockey",
+      tennis: "Tennis",
+      cricket: "Cricket",
+      athletics: "Athletics",
+      track_and_field: "Athletics",
+    };
+
+    return (
+      sportNames[normalizedCode] ||
+      sportCode
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")
+    );
+  };
 
   // Count selected elements
   const selectedElementCount =
@@ -164,6 +202,49 @@ export function ReviewStep({
                   <OrganizationDisplay key={orgId} organizationId={orgId} />
                 ))}
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Cross-Sport Visibility Summary */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Trophy className="h-4 w-4" />
+            Cross-Sport Visibility
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {allowCrossSportVisibility ? (
+            <div className="space-y-2">
+              <p className="font-medium text-sm">Enabled</p>
+              <p className="text-muted-foreground text-xs">
+                The receiving organization can see this player participates in
+                multiple sports.
+              </p>
+              {visibleSportCodes.length > 0 && (
+                <div>
+                  <p className="mb-2 text-muted-foreground text-xs">
+                    Visible sports:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {visibleSportCodes.map((sportCode) => (
+                      <Badge key={sportCode} variant="secondary">
+                        {formatSportName(sportCode)}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <p className="font-medium text-sm">Disabled</p>
+              <p className="text-muted-foreground text-xs">
+                The receiving organization will only see data from the sports
+                you share.
+              </p>
             </div>
           )}
         </CardContent>

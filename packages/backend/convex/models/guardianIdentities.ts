@@ -37,6 +37,7 @@ const guardianIdentityValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
   createdFrom: v.optional(v.string()),
+  allowGlobalPassportDiscovery: v.optional(v.boolean()),
 });
 
 // ============================================================
@@ -132,19 +133,22 @@ export const searchGuardiansByName = query({
 
     // If we have both names, use the composite index
     if (args.lastName && args.firstName) {
+      const lastName = args.lastName;
+      const firstName = args.firstName;
       return await ctx.db
         .query("guardianIdentities")
         .withIndex("by_name", (q) =>
-          q.eq("lastName", args.lastName!).eq("firstName", args.firstName!)
+          q.eq("lastName", lastName).eq("firstName", firstName)
         )
         .take(limit);
     }
 
     // If we only have lastName, use the index and filter
     if (args.lastName) {
+      const lastName = args.lastName;
       return await ctx.db
         .query("guardianIdentities")
-        .withIndex("by_name", (q) => q.eq("lastName", args.lastName!))
+        .withIndex("by_name", (q) => q.eq("lastName", lastName))
         .take(limit);
     }
 
@@ -332,6 +336,31 @@ export const linkGuardianToUser = mutation({
         existing.verificationStatus === "unverified"
           ? "email_verified"
           : existing.verificationStatus,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Update guardian's global passport discovery preference
+ * Allows/disallows coaches from any org to discover their children's passports
+ */
+export const updatePassportDiscoveryPreference = mutation({
+  args: {
+    guardianIdentityId: v.id("guardianIdentities"),
+    allowGlobalPassportDiscovery: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.guardianIdentityId);
+    if (!existing) {
+      throw new Error("Guardian identity not found");
+    }
+
+    await ctx.db.patch(args.guardianIdentityId, {
+      allowGlobalPassportDiscovery: args.allowGlobalPassportDiscovery,
       updatedAt: Date.now(),
     });
 
@@ -552,7 +581,7 @@ export const getUnclaimedGuardians = query({
       .filter((q) => q.eq(q.field("userId"), undefined))
       .collect();
 
-    const results = [];
+    const results: any[] = [];
 
     for (const guardian of allGuardians) {
       // Get linked children
@@ -563,7 +592,7 @@ export const getUnclaimedGuardians = query({
         )
         .collect();
 
-      const children = [];
+      const children: any[] = [];
       const orgSet = new Set<string>();
 
       for (const link of links) {
@@ -672,7 +701,7 @@ export const findAllClaimableForCurrentUser = query({
       .filter((q) => q.eq(q.field("userId"), undefined))
       .collect();
 
-    const results = [];
+    const results: any[] = [];
 
     for (const guardian of matchingGuardians) {
       // Get all linked children
@@ -683,7 +712,7 @@ export const findAllClaimableForCurrentUser = query({
         )
         .collect();
 
-      const children = [];
+      const children: any[] = [];
       const orgSet = new Set<string>();
 
       for (const link of links) {
@@ -798,7 +827,7 @@ export const checkForClaimableIdentity = query({
       .withIndex("by_guardian", (q) => q.eq("guardianIdentityId", guardian._id))
       .collect();
 
-    const children = [];
+    const children: any[] = [];
     const orgSet = new Set<string>();
 
     for (const link of links) {

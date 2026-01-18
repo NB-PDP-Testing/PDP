@@ -62,8 +62,9 @@ export type EnableSharingWizardProps = {
  */
 type WizardStep =
   | "child-selection"
-  | "org-selection"
   | "element-selection"
+  | "cross-sport-visibility"
+  | "org-selection"
   | "duration"
   | "review"
   | "success";
@@ -127,6 +128,11 @@ export function EnableSharingWizard({
   >("all_enrolled");
   const [selectedOrgIds, setSelectedOrgIds] = useState<string[]>([]);
 
+  // Cross-sport visibility state
+  const [allowCrossSportVisibility, setAllowCrossSportVisibility] =
+    useState<boolean>(false);
+  const [visibleSportCodes, setVisibleSportCodes] = useState<string[]>([]);
+
   // Duration selection state
   const [expiresAt, setExpiresAt] = useState<Date | undefined>(undefined);
 
@@ -160,6 +166,9 @@ export function EnableSharingWizard({
       // Reset org selection
       setSourceOrgMode("all_enrolled");
       setSelectedOrgIds([]);
+      // Reset cross-sport visibility
+      setAllowCrossSportVisibility(false);
+      setVisibleSportCodes([]);
       // Reset duration
       setExpiresAt(undefined);
       // Reset success state
@@ -174,6 +183,8 @@ export function EnableSharingWizard({
     if (currentStep === "child-selection") {
       setCurrentStep("element-selection");
     } else if (currentStep === "element-selection") {
+      setCurrentStep("cross-sport-visibility");
+    } else if (currentStep === "cross-sport-visibility") {
       setCurrentStep("org-selection");
     } else if (currentStep === "org-selection") {
       setCurrentStep("duration");
@@ -187,8 +198,10 @@ export function EnableSharingWizard({
       handleOpenChange(false);
     } else if (currentStep === "element-selection") {
       setCurrentStep("child-selection");
-    } else if (currentStep === "org-selection") {
+    } else if (currentStep === "cross-sport-visibility") {
       setCurrentStep("element-selection");
+    } else if (currentStep === "org-selection") {
+      setCurrentStep("cross-sport-visibility");
     } else if (currentStep === "duration") {
       setCurrentStep("org-selection");
     } else if (currentStep === "review") {
@@ -217,6 +230,12 @@ export function EnableSharingWizard({
           ? "coach_requested"
           : "parent_initiated",
         sourceRequestId,
+        // Cross-sport visibility controls
+        allowCrossSportVisibility: allowCrossSportVisibility || undefined,
+        visibleSportCodes:
+          allowCrossSportVisibility && visibleSportCodes.length > 0
+            ? visibleSportCodes
+            : undefined,
         // ipAddress is optional - backend will handle if not provided
       });
 
@@ -265,10 +284,11 @@ export function EnableSharingWizard({
     const stepMap: Record<WizardStep, number> = {
       "child-selection": 1,
       "element-selection": 2,
-      "org-selection": 3,
-      duration: 4,
-      review: 5,
-      success: 6,
+      "cross-sport-visibility": 3,
+      "org-selection": 4,
+      duration: 5,
+      review: 6,
+      success: 7,
     };
     return stepMap[step];
   };
@@ -278,6 +298,7 @@ export function EnableSharingWizard({
     const titleMap: Record<WizardStep, string> = {
       "child-selection": "Select Child",
       "element-selection": "What to Share",
+      "cross-sport-visibility": "Cross-Sport Visibility",
       "org-selection": "Who Can See",
       duration: "How Long",
       review: "Review & Confirm",
@@ -287,7 +308,7 @@ export function EnableSharingWizard({
   };
 
   const currentStepNumber = getStepNumber(currentStep);
-  const totalSteps = 5; // Don't count success screen in progress
+  const totalSteps = 6; // Don't count success screen in progress
 
   return (
     <ResponsiveDialog
@@ -328,6 +349,16 @@ export function EnableSharingWizard({
           />
         )}
 
+        {currentStep === "cross-sport-visibility" && (
+          <CrossSportVisibilityStep
+            allowCrossSportVisibility={allowCrossSportVisibility}
+            onToggleVisibility={setAllowCrossSportVisibility}
+            onUpdateVisibleSports={setVisibleSportCodes}
+            playerIdentityId={selectedChildId as Id<"playerIdentities">}
+            visibleSportCodes={visibleSportCodes}
+          />
+        )}
+
         {currentStep === "org-selection" && (
           <OrganizationSelectionStep
             onSelectMode={setSourceOrgMode}
@@ -347,12 +378,14 @@ export function EnableSharingWizard({
 
         {currentStep === "review" && selectedChild && (
           <ReviewStep
+            allowCrossSportVisibility={allowCrossSportVisibility}
             child={selectedChild}
             expiresAt={expiresAt}
             playerIdentityId={selectedChildId as Id<"playerIdentities">}
             selectedOrgIds={selectedOrgIds}
             sharedElements={sharedElements}
             sourceOrgMode={sourceOrgMode}
+            visibleSportCodes={visibleSportCodes}
           />
         )}
 
@@ -650,7 +683,209 @@ function ElementSelectionStep({
 }
 
 /**
- * Step 3: Organization Selection
+ * Step 3: Cross-Sport Visibility Controls
+ */
+type CrossSportVisibilityStepProps = {
+  playerIdentityId: Id<"playerIdentities">;
+  allowCrossSportVisibility: boolean;
+  onToggleVisibility: (enabled: boolean) => void;
+  visibleSportCodes: string[];
+  onUpdateVisibleSports: (sportCodes: string[]) => void;
+};
+
+function CrossSportVisibilityStep({
+  playerIdentityId,
+  allowCrossSportVisibility,
+  onToggleVisibility,
+  visibleSportCodes,
+  onUpdateVisibleSports,
+}: CrossSportVisibilityStepProps) {
+  // Fetch sport passports for this player
+  const sportPassports = useQuery(
+    api.models.sportPassports.getPassportsForPlayer,
+    { playerIdentityId }
+  );
+
+  // Helper to format sport code to human-readable name
+  const formatSportName = (sportCode: string): string => {
+    const normalizedCode = sportCode.toLowerCase();
+    const sportNames: Record<string, string> = {
+      gaa_gaelic_football: "GAA Gaelic Football",
+      gaa_hurling: "GAA Hurling",
+      gaa_football: "GAA Gaelic Football",
+      gaelic_football: "GAA Gaelic Football",
+      hurling: "GAA Hurling",
+      soccer: "Soccer",
+      football: "Soccer",
+      rugby: "Rugby",
+      rugby_union: "Rugby Union",
+      rugby_league: "Rugby League",
+      basketball: "Basketball",
+      hockey: "Hockey",
+      field_hockey: "Field Hockey",
+      ice_hockey: "Ice Hockey",
+      tennis: "Tennis",
+      cricket: "Cricket",
+      athletics: "Athletics",
+      track_and_field: "Athletics",
+    };
+
+    return (
+      sportNames[normalizedCode] ||
+      sportCode
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")
+    );
+  };
+
+  // Toggle sport selection
+  const toggleSport = (sportCode: string) => {
+    if (visibleSportCodes.includes(sportCode)) {
+      onUpdateVisibleSports(
+        visibleSportCodes.filter((code) => code !== sportCode)
+      );
+    } else {
+      onUpdateVisibleSports([...visibleSportCodes, sportCode]);
+    }
+  };
+
+  // Loading state
+  if (!sportPassports) {
+    return (
+      <div className="space-y-4">
+        <p className="text-muted-foreground text-sm">
+          Loading sport passports...
+        </p>
+      </div>
+    );
+  }
+
+  // Filter for active passports only
+  const activeSportPassports = sportPassports.filter(
+    (passport) => passport.status === "active"
+  );
+
+  // Single sport or no multi-sport capability - skip this step
+  if (activeSportPassports.length <= 1) {
+    return (
+      <div className="space-y-4">
+        <div className="flex gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-blue-800">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="space-y-1 text-sm">
+            <p className="font-medium">Single Sport Player</p>
+            <p>
+              This player only has one active sport passport. Cross-sport
+              visibility controls are not needed.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-muted-foreground text-sm">
+        This player participates in multiple sports. Control which sports are
+        visible to the receiving organization.
+      </p>
+
+      {/* Main toggle */}
+      <div className="flex items-start gap-3 rounded-lg border-2 border-primary/20 bg-primary/5 p-4">
+        <Checkbox
+          checked={allowCrossSportVisibility}
+          className="mt-0.5"
+          id="allow-cross-sport"
+          onCheckedChange={(checked) => {
+            onToggleVisibility(checked === true);
+            // If disabling, clear selected sports
+            if (checked === false) {
+              onUpdateVisibleSports([]);
+            }
+          }}
+        />
+        <div className="flex-1">
+          <Label
+            className="cursor-pointer font-medium text-sm"
+            htmlFor="allow-cross-sport"
+          >
+            Allow cross-sport visibility
+          </Label>
+          <p className="mt-1 text-muted-foreground text-xs">
+            Enable this to let the receiving organization see that this player
+            participates in other sports. You can choose which specific sports
+            to make visible below.
+          </p>
+        </div>
+      </div>
+
+      {/* Sport selection (only shown when enabled) */}
+      {allowCrossSportVisibility && (
+        <div className="space-y-3">
+          <p className="font-medium text-sm">
+            Select Visible Sports ({visibleSportCodes.length} selected)
+          </p>
+          <div className="space-y-2">
+            {activeSportPassports.map((passport) => (
+              <div
+                className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                key={passport._id}
+              >
+                <Checkbox
+                  checked={visibleSportCodes.includes(passport.sportCode)}
+                  className="mt-0.5"
+                  id={passport.sportCode}
+                  onCheckedChange={() => {
+                    toggleSport(passport.sportCode);
+                  }}
+                />
+                <div className="flex-1">
+                  <Label
+                    className="cursor-pointer font-medium text-sm"
+                    htmlFor={passport.sportCode}
+                  >
+                    {formatSportName(passport.sportCode)}
+                  </Label>
+                  <p className="mt-0.5 text-muted-foreground text-xs">
+                    Status: {passport.status}
+                    {passport.primaryPosition &&
+                      ` • Position: ${passport.primaryPosition}`}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {visibleSportCodes.length === 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 text-sm">
+              <p className="font-medium">No sports selected</p>
+              <p className="mt-1 text-xs">
+                Select at least one sport to make visible, or disable
+                cross-sport visibility above.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Explanation */}
+      {!allowCrossSportVisibility && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+          <p className="font-medium text-gray-700">What does this mean?</p>
+          <p className="mt-1 text-muted-foreground text-xs">
+            When cross-sport visibility is disabled, the receiving organization
+            will only see data from the sports you share. They won't know this
+            player participates in other sports.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Step 4: Organization Selection
  */
 type OrganizationSelectionStepProps = {
   playerIdentityId: Id<"playerIdentities">;

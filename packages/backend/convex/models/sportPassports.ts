@@ -110,15 +110,30 @@ export const getPassportsForOrg = query({
   },
   returns: v.array(passportValidator),
   handler: async (ctx, args) => {
-    let passports;
+    let passports: Array<{
+      _id: any;
+      _creationTime: number;
+      organizationId: string;
+      playerIdentityId: any;
+      sportCode: string;
+      status: string;
+      currentLevel?: string | undefined;
+      targetLevel?: string | undefined;
+      lastAssessmentDate?: number | undefined;
+      nextAssessmentDate?: number | undefined;
+      notes?: string | undefined;
+      createdBy: string;
+      createdAt: number;
+      updatedAt?: number | undefined;
+      deletedAt?: number | undefined;
+    }> = [];
 
     if (args.sportCode) {
+      const sportCode = args.sportCode;
       passports = await ctx.db
         .query("sportPassports")
         .withIndex("by_org_and_sport", (q) =>
-          q
-            .eq("organizationId", args.organizationId)
-            .eq("sportCode", args.sportCode!)
+          q.eq("organizationId", args.organizationId).eq("sportCode", sportCode)
         )
         .collect();
     } else {
@@ -148,15 +163,30 @@ export const getPassportsWithPlayersForOrg = query({
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
-    let passports;
+    let passports: Array<{
+      _id: any;
+      _creationTime: number;
+      organizationId: string;
+      playerIdentityId: any;
+      sportCode: string;
+      status: string;
+      currentLevel?: string | undefined;
+      targetLevel?: string | undefined;
+      lastAssessmentDate?: number | undefined;
+      nextAssessmentDate?: number | undefined;
+      notes?: string | undefined;
+      createdBy: string;
+      createdAt: number;
+      updatedAt?: number | undefined;
+      deletedAt?: number | undefined;
+    }> = [];
 
     if (args.sportCode) {
+      const sportCode = args.sportCode;
       passports = await ctx.db
         .query("sportPassports")
         .withIndex("by_org_and_sport", (q) =>
-          q
-            .eq("organizationId", args.organizationId)
-            .eq("sportCode", args.sportCode!)
+          q.eq("organizationId", args.organizationId).eq("sportCode", sportCode)
         )
         .collect();
     } else {
@@ -168,13 +198,59 @@ export const getPassportsWithPlayersForOrg = query({
         .collect();
     }
 
-    const results = [];
+    const results: any[] = [];
     for (const passport of passports) {
       const player = await ctx.db.get(passport.playerIdentityId);
       if (player) {
         results.push({ passport, player });
       }
     }
+
+    return results;
+  },
+});
+
+/**
+ * Get sport passports for multiple players in bulk
+ * Optimized for parent dashboards with multiple children
+ *
+ * @param playerIdentityIds - Array of player identity IDs
+ * @returns Array of {playerIdentityId, passports, primarySportCode} for each player
+ */
+export const getBulkPassportsForPlayers = query({
+  args: {
+    playerIdentityIds: v.array(v.id("playerIdentities")),
+  },
+  returns: v.array(
+    v.object({
+      playerIdentityId: v.id("playerIdentities"),
+      passports: v.array(passportValidator),
+      primarySportCode: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Fetch passports for each player in parallel
+    const results = await Promise.all(
+      args.playerIdentityIds.map(async (playerIdentityId) => {
+        const passports = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerIdentityId)
+          )
+          .collect();
+
+        // Find primary sport (first active passport, or just first passport)
+        const activeSport = passports.find((p) => p.status === "active");
+        const primarySportCode =
+          activeSport?.sportCode || passports[0]?.sportCode;
+
+        return {
+          playerIdentityId,
+          passports,
+          primarySportCode,
+        };
+      })
+    );
 
     return results;
   },
@@ -543,14 +619,32 @@ export const getFullPlayerPassportView = query({
     }
 
     // Get passports (all or specific sport)
-    let passports;
+    let passports: Array<{
+      _id: any;
+      _creationTime: number;
+      organizationId: string;
+      playerIdentityId: any;
+      sportCode: string;
+      status: string;
+      currentLevel?: string | undefined;
+      targetLevel?: string | undefined;
+      lastAssessmentDate?: number | undefined;
+      nextAssessmentDate?: number | undefined;
+      notes?: string | undefined;
+      createdBy: string;
+      createdAt: number;
+      updatedAt?: number | undefined;
+      deletedAt?: number | undefined;
+    }> = [];
+
     if (args.sportCode) {
+      const sportCode = args.sportCode;
       const passport = await ctx.db
         .query("sportPassports")
         .withIndex("by_player_and_sport", (q) =>
           q
             .eq("playerIdentityId", args.playerIdentityId)
-            .eq("sportCode", args.sportCode!)
+            .eq("sportCode", sportCode)
         )
         .first();
       passports = passport ? [passport] : [];
@@ -574,7 +668,15 @@ export const getFullPlayerPassportView = query({
       )
       .collect();
 
-    const guardians = [];
+    const guardians: Array<{
+      id: any;
+      firstName: string;
+      surname: string;
+      email: string;
+      phone: string;
+      relationship: string;
+      isPrimary: boolean;
+    }> = [];
     for (const link of guardianLinks) {
       const guardian = await ctx.db.get(link.guardianIdentityId);
       if (guardian) {

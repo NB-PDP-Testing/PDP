@@ -1,5 +1,7 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
 import { Search } from "lucide-react";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -14,10 +16,17 @@ export function BrowsePlayersTab({ organizationId }: BrowsePlayersTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearch = useDebounce(searchTerm, 500);
 
-  // TODO: Backend query needs to be implemented for cross-org search
-  // For now, showing placeholder
-  const searchResults: any[] | undefined =
-    debouncedSearch.length >= 2 ? [] : undefined;
+  // Search for discoverable players across organizations
+  const searchResults = useQuery(
+    api.models.playerIdentities.searchDiscoverablePlayers,
+    debouncedSearch.length >= 2
+      ? {
+          searchTerm: debouncedSearch,
+          requestingOrgId: organizationId,
+          limit: 20,
+        }
+      : "skip"
+  );
 
   return (
     <div className="space-y-4">

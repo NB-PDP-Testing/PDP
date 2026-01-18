@@ -4279,3 +4279,73 @@ export const removeFromOrganization = mutation({
     }
   },
 });
+
+/**
+ * Get all memberships for a user across all organizations
+ * Used for filtering role dropdowns in preferences to show only roles user has
+ */
+export const getMembersByUserId = query({
+  args: {
+    userId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.string(),
+      userId: v.string(),
+      organizationId: v.string(),
+      role: v.string(),
+      functionalRoles: v.optional(v.array(v.string())),
+      organizationName: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all memberships for this user
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "userId",
+            value: args.userId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    // Fetch organization names for each membership
+    const membershipsWithOrgNames = await Promise.all(
+      membersResult.page.map(async (member: any) => {
+        const orgResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "organization",
+            where: [
+              {
+                field: "_id",
+                value: member.organizationId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        return {
+          _id: member._id,
+          userId: member.userId,
+          organizationId: member.organizationId,
+          role: member.role,
+          functionalRoles: member.functionalRoles || undefined,
+          organizationName: orgResult?.name || undefined,
+        };
+      })
+    );
+
+    return membershipsWithOrgNames;
+  },
+});

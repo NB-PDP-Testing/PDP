@@ -3,7 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { BarChart3, Check, Info, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ResponsiveDialog } from "@/components/interactions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -67,6 +67,55 @@ export function PreferencesDialog({
     | null
     | undefined;
 
+  // Query user's memberships to filter role dropdown
+  const userMemberships = useQuery(
+    api.models.members.getMembersByUserId,
+    currentUser?._id ? { userId: currentUser._id } : "skip"
+  );
+
+  // Filter memberships to selected org
+  const selectedOrgMembership = useMemo(() => {
+    if (!(userMemberships && selectedOrg)) {
+      return null;
+    }
+    return userMemberships.find((m) => m.organizationId === selectedOrg);
+    // biome-ignore lint/correctness/noInvalidUseBeforeDeclaration: React hook can reference state variables declared later
+  }, [userMemberships, selectedOrg]);
+
+  // Get available roles for selected org
+  const availableRoles = useMemo(() => {
+    if (!selectedOrgMembership) {
+      return [];
+    }
+
+    const roles: FunctionalRole[] = [];
+
+    // Better Auth role (owner/admin get admin access)
+    if (
+      selectedOrgMembership.role === "owner" ||
+      selectedOrgMembership.role === "admin"
+    ) {
+      roles.push("admin");
+    }
+
+    // Functional roles (coach, parent, player)
+    if (selectedOrgMembership.functionalRoles) {
+      for (const role of selectedOrgMembership.functionalRoles) {
+        if (
+          role === "coach" ||
+          role === "parent" ||
+          role === "player" ||
+          role === "admin"
+        ) {
+          roles.push(role as FunctionalRole);
+        }
+      }
+    }
+
+    // Remove duplicates and return
+    return Array.from(new Set(roles));
+  }, [selectedOrgMembership]);
+
   // Local state for form
   const [preferenceMode, setPreferenceMode] = useState<"smart" | "manual">(
     "smart"
@@ -88,6 +137,14 @@ export function PreferencesDialog({
     }
   }, [preferences]);
 
+  // Update selected role when available roles change
+  useEffect(() => {
+    // If selected role is not available, select first available role
+    if (availableRoles.length > 0 && !availableRoles.includes(selectedRole)) {
+      setSelectedRole(availableRoles[0]);
+    }
+  }, [availableRoles, selectedRole]);
+
   const handleSave = async () => {
     setIsSaving(true);
 
@@ -95,6 +152,15 @@ export function PreferencesDialog({
       if (preferenceMode === "manual") {
         if (!selectedOrg) {
           toast.error("Please select an organization");
+          setIsSaving(false);
+          return;
+        }
+
+        // Validate that selected role is available for selected org
+        if (!availableRoles.includes(selectedRole)) {
+          toast.error(
+            `You don't have the ${getRoleLabel(selectedRole)} role in ${getOrgName(selectedOrg)}. Please select a valid role.`
+          );
           setIsSaving(false);
           return;
         }
@@ -131,6 +197,16 @@ export function PreferencesDialog({
       player: "Player",
     };
     return labels[role];
+  };
+
+  const getRolePlaceholder = (): string => {
+    if (!selectedOrg) {
+      return "Select an organization first";
+    }
+    if (availableRoles.length === 0) {
+      return "No roles in this organization";
+    }
+    return "Select a role";
   };
 
   if (isLoading) {
@@ -231,19 +307,21 @@ export function PreferencesDialog({
                           Default Role
                         </Label>
                         <Select
+                          disabled={!selectedOrg || availableRoles.length === 0}
                           onValueChange={(value) =>
                             setSelectedRole(value as FunctionalRole)
                           }
                           value={selectedRole}
                         >
                           <SelectTrigger id="role-select">
-                            <SelectValue />
+                            <SelectValue placeholder={getRolePlaceholder()} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="coach">Coach</SelectItem>
-                            <SelectItem value="parent">Parent</SelectItem>
-                            <SelectItem value="player">Player</SelectItem>
+                            {availableRoles.map((role) => (
+                              <SelectItem key={role} value={role}>
+                                {role.charAt(0).toUpperCase() + role.slice(1)}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, SlidersHorizontal, Star, X } from "lucide-react";
+import { Search, SlidersHorizontal, Star, TrendingUp, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,6 +20,7 @@ export type FilterState = {
   maxDuration?: number;
   minSuccessRate?: number;
   favoriteOnly: boolean;
+  featuredOnly: boolean;
   templateOnly: boolean;
 };
 
@@ -49,6 +50,7 @@ export function FilterSidebar({
     filters.skills.length > 0 ||
     filters.categories.length > 0 ||
     filters.favoriteOnly ||
+    filters.featuredOnly ||
     filters.templateOnly;
 
   const clearAllFilters = () => {
@@ -60,6 +62,7 @@ export function FilterSidebar({
       skills: [],
       categories: [],
       favoriteOnly: false,
+      featuredOnly: false,
       templateOnly: false,
     });
   };
@@ -145,6 +148,25 @@ export function FilterSidebar({
               >
                 <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
                 Favorites
+              </label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                checked={filters.featuredOnly}
+                id="featured"
+                onCheckedChange={(checked) =>
+                  onFilterChange({
+                    ...filters,
+                    featuredOnly: checked === true,
+                  })
+                }
+              />
+              <label
+                className="flex cursor-pointer items-center gap-1.5 font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                htmlFor="featured"
+              >
+                <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                Featured
               </label>
             </div>
             <div className="flex items-center space-x-2">

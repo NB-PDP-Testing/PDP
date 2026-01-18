@@ -34,7 +34,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             </ServiceWorkerProvider>
           </AnnouncerProvider>
         </DensityProvider>
-        <Toaster richColors />
+        <Toaster duration={3000} richColors />
       </ThemeProvider>
     </PHProvider>
   );

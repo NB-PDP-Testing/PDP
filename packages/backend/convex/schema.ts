@@ -1843,6 +1843,10 @@ export default defineSchema({
     collections: v.optional(v.array(v.string())),
     successRate: v.optional(v.number()), // 0-100
 
+    // YouTube-style voting (likes visible, dislikes hidden)
+    likeCount: v.optional(v.number()), // Public like count
+    dislikeCount: v.optional(v.number()), // Hidden dislike count for algorithm
+
     // Sharing & Visibility (Phase 1: Club Sharing)
     visibility: v.optional(
       v.union(
@@ -1969,6 +1973,17 @@ export default defineSchema({
         "visibility",
       ],
     }),
+
+  // Plan Votes - YouTube-style like/dislike tracking for session plans
+  planVotes: defineTable({
+    planId: v.id("sessionPlans"),
+    voterId: v.string(), // User ID who voted
+    voteType: v.union(v.literal("like"), v.literal("dislike")),
+    votedAt: v.number(),
+  })
+    .index("by_plan", ["planId"])
+    .index("by_voter", ["voterId"])
+    .index("by_plan_and_voter", ["planId", "voterId"]),
 
   // Drill Library - Aggregated effectiveness data from session plan feedback
   drillLibrary: defineTable({

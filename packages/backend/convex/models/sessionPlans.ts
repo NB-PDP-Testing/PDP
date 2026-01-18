@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { components, internal } from "../_generated/api";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
   internalMutation,
   internalQuery,
@@ -25,7 +26,11 @@ import {
 /**
  * Verify user has coach role in organization
  */
-async function getCoachForOrg(ctx: any, userId: string, orgId: string) {
+async function getCoachForOrg(
+  ctx: MutationCtx | QueryCtx,
+  userId: string,
+  orgId: string
+) {
   const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
     model: "member",
     where: [
@@ -294,7 +299,12 @@ export const updateVisibility = mutation({
     }
 
     const now = Date.now();
-    const updates: any = {
+    const updates: {
+      visibility: "private" | "club" | "platform";
+      updatedAt: number;
+      sharedAt?: number;
+      sharedBy?: string;
+    } = {
       visibility: args.visibility,
       updatedAt: now,
     };
@@ -310,11 +320,44 @@ export const updateVisibility = mutation({
 });
 
 /**
+ * Update plan title (rename)
+ */
+export const updateTitle = mutation({
+  args: {
+    planId: v.id("sessionPlans"),
+    title: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    // Verify ownership
+    if (plan.coachId !== identity.subject) {
+      throw new Error("Not authorized to rename this plan");
+    }
+
+    await ctx.db.patch(args.planId, {
+      title: args.title,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+/**
  * Duplicate an existing plan
  */
 export const duplicatePlan = mutation({
   args: {
     planId: v.id("sessionPlans"),
+    newTitle: v.optional(v.string()),
   },
   returns: v.id("sessionPlans"),
   handler: async (ctx, args) => {
@@ -338,15 +381,20 @@ export const duplicatePlan = mutation({
 
     const now = Date.now();
 
-    // Create duplicate
+    // Use provided title or default to "(Copy)" suffix
+    const duplicateTitle = args.newTitle || `${originalPlan.title} (Copy)`;
+
+    // Create duplicate - exclude _id and _creationTime as they are managed by Convex
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _id, _creationTime, ...planData } = originalPlan;
     const newPlanId = await ctx.db.insert("sessionPlans", {
-      ...originalPlan,
+      ...planData,
       coachId: identity.subject,
       coachName:
         `${identity.given_name || ""} ${identity.family_name || ""}`.trim() ||
         identity.email ||
         "Unknown Coach",
-      title: `${originalPlan.title} (Copy)`,
+      title: duplicateTitle,
       visibility: "private", // Duplicates are always private
       sharedAt: undefined,
       sharedBy: undefined,
@@ -402,6 +450,117 @@ export const markAsUsed = mutation({
       lastUsedDate: now,
       updatedAt: now,
     });
+  },
+});
+
+/**
+ * Vote on a session plan (like/dislike - YouTube style)
+ * Each user can only vote once per plan, and can change their vote
+ */
+export const votePlan = mutation({
+  args: {
+    planId: v.id("sessionPlans"),
+    voteType: v.union(
+      v.literal("like"),
+      v.literal("dislike"),
+      v.literal("none")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const userId = identity.subject;
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    // Check if user already voted on this plan
+    const existingVote = await ctx.db
+      .query("planVotes")
+      .withIndex("by_plan_and_voter", (q: any) =>
+        q.eq("planId", args.planId).eq("voterId", userId)
+      )
+      .first();
+
+    const now = Date.now();
+
+    // Calculate vote changes
+    let likeChange = 0;
+    let dislikeChange = 0;
+
+    if (existingVote) {
+      // Removing previous vote effect
+      if (existingVote.voteType === "like") {
+        likeChange -= 1;
+      }
+      if (existingVote.voteType === "dislike") {
+        dislikeChange -= 1;
+      }
+
+      if (args.voteType === "none") {
+        // User is removing their vote
+        await ctx.db.delete(existingVote._id);
+      } else {
+        // User is changing their vote
+        await ctx.db.patch(existingVote._id, {
+          voteType: args.voteType,
+          votedAt: now,
+        });
+      }
+    } else if (args.voteType !== "none") {
+      // New vote
+      await ctx.db.insert("planVotes", {
+        planId: args.planId,
+        voterId: userId,
+        voteType: args.voteType,
+        votedAt: now,
+      });
+    }
+
+    // Adding new vote effect
+    if (args.voteType === "like") {
+      likeChange += 1;
+    }
+    if (args.voteType === "dislike") {
+      dislikeChange += 1;
+    }
+
+    // Update plan vote counts
+    await ctx.db.patch(args.planId, {
+      likeCount: Math.max(0, (plan.likeCount || 0) + likeChange),
+      dislikeCount: Math.max(0, (plan.dislikeCount || 0) + dislikeChange),
+      updatedAt: now,
+    });
+  },
+});
+
+/**
+ * Get user's vote on a plan
+ */
+export const getUserVote = query({
+  args: {
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.union(v.literal("like"), v.literal("dislike"), v.null()),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return null;
+    }
+
+    const vote = await ctx.db
+      .query("planVotes")
+      .withIndex("by_plan_and_voter", (q: any) =>
+        q.eq("planId", args.planId).eq("voterId", identity.subject)
+      )
+      .first();
+
+    return vote?.voteType || null;
   },
 });
 
@@ -585,6 +744,90 @@ export const removeFromClubLibrary = mutation({
 });
 
 /**
+ * Enhanced admin mutation to remove plan from club library with detailed reason and optional notification
+ */
+export const removeFromClubLibraryEnhanced = mutation({
+  args: {
+    planId: v.id("sessionPlans"),
+    reason: v.union(
+      v.literal("inappropriate"),
+      v.literal("safety"),
+      v.literal("poor-quality"),
+      v.literal("duplicate"),
+      v.literal("violates-guidelines"),
+      v.literal("other")
+    ),
+    message: v.optional(v.string()),
+    notifyCoach: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    // Verify admin role
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: plan.organizationId, operator: "eq" },
+      ],
+    });
+
+    if (!member) {
+      throw new Error("Not a member of this organization");
+    }
+
+    const isAdmin = member.role === "admin" || member.role === "owner";
+    if (!isAdmin) {
+      throw new Error("Not authorized - admin role required");
+    }
+
+    const now = Date.now();
+
+    // Map reason to human-readable text
+    const reasonText: Record<typeof args.reason, string> = {
+      inappropriate: "Inappropriate Content",
+      safety: "Safety Concern",
+      "poor-quality": "Poor Quality",
+      duplicate: "Duplicate Content",
+      "violates-guidelines": "Violates Guidelines",
+      other: "Other",
+    };
+
+    const fullReason = args.message
+      ? `${reasonText[args.reason]}: ${args.message}`
+      : reasonText[args.reason];
+
+    // Update plan to private with moderation note
+    await ctx.db.patch(args.planId, {
+      visibility: "private",
+      moderatedBy: identity.subject,
+      moderatedAt: now,
+      moderationNote: fullReason,
+      updatedAt: now,
+    });
+
+    // TODO: Implement coach notification system
+    // If args.notifyCoach is true, send notification to plan.coachId
+    // Notification content: "Your session plan was removed from the club library. Reason: ${fullReason}"
+    if (args.notifyCoach) {
+      // Placeholder for future notification implementation
+      console.log(
+        `Would notify coach ${plan.coachId} about plan removal: ${fullReason}`
+      );
+    }
+  },
+});
+
+/**
  * Admin: Pin/unpin a featured plan
  */
 export const pinPlan = mutation({
@@ -621,10 +864,21 @@ export const pinPlan = mutation({
       throw new Error("Not authorized - admin role required");
     }
 
+    const now = Date.now();
+
     await ctx.db.patch(args.planId, {
       pinnedByAdmin: true,
-      updatedAt: Date.now(),
+      moderatedBy: identity.subject,
+      moderatedAt: now,
+      updatedAt: now,
     });
+
+    // TODO: Implement coach notification system
+    // Send positive notification to plan.coachId
+    // Notification content: "Your session plan was featured! 🎉"
+    console.log(
+      `Would notify coach ${plan.coachId}: Your session plan "${plan.title}" was featured! 🎉`
+    );
   },
 });
 
@@ -834,6 +1088,7 @@ export const getFilteredPlans = query({
     categories: v.optional(v.array(v.string())),
     skills: v.optional(v.array(v.string())),
     favoriteOnly: v.optional(v.boolean()),
+    featuredOnly: v.optional(v.boolean()),
     templateOnly: v.optional(v.boolean()),
     limit: v.optional(v.number()),
   },
@@ -927,6 +1182,11 @@ export const getFilteredPlans = query({
         return false;
       }
 
+      // Featured filter
+      if (args.featuredOnly && !plan.pinnedByAdmin) {
+        return false;
+      }
+
       // Template filter
       if (args.templateOnly && !plan.isTemplate) {
         return false;
@@ -952,6 +1212,7 @@ export const getClubLibrary = query({
     intensities: v.optional(v.array(v.string())),
     categories: v.optional(v.array(v.string())),
     skills: v.optional(v.array(v.string())),
+    featuredOnly: v.optional(v.boolean()),
     sortBy: v.optional(
       v.union(
         v.literal("recent"),
@@ -1050,6 +1311,11 @@ export const getClubLibrary = query({
         }
       }
 
+      // Featured filter
+      if (args.featuredOnly && !plan.pinnedByAdmin) {
+        return false;
+      }
+
       return true;
     });
 
@@ -1131,6 +1397,15 @@ export const listClubLibrary = query({
 export const listForAdmin = query({
   args: {
     organizationId: v.string(),
+    search: v.optional(v.string()),
+    ageGroups: v.optional(v.array(v.string())),
+    sports: v.optional(v.array(v.string())),
+    intensities: v.optional(
+      v.array(v.union(v.literal("low"), v.literal("medium"), v.literal("high")))
+    ),
+    categories: v.optional(v.array(v.string())),
+    skills: v.optional(v.array(v.string())),
+    featuredOnly: v.optional(v.boolean()),
   },
   returns: v.array(v.any()),
   handler: async (ctx, args) => {
@@ -1157,12 +1432,90 @@ export const listForAdmin = query({
       throw new Error("Not authorized - admin role required");
     }
 
-    const plans = await ctx.db
+    let plans = await ctx.db
       .query("sessionPlans")
       .withIndex("by_org", (q: any) =>
         q.eq("organizationId", args.organizationId)
       )
       .collect();
+
+    // Apply filters
+    plans = plans.filter((plan) => {
+      // Search filter
+      if (args.search) {
+        const searchLower = args.search.toLowerCase();
+        const matchesSearch =
+          plan.title?.toLowerCase().includes(searchLower) ||
+          plan.coachName?.toLowerCase().includes(searchLower) ||
+          plan.teamName?.toLowerCase().includes(searchLower);
+        if (!matchesSearch) {
+          return false;
+        }
+      }
+
+      // Age group filter
+      if (
+        args.ageGroups &&
+        args.ageGroups.length > 0 &&
+        !(plan.ageGroup && args.ageGroups.includes(plan.ageGroup))
+      ) {
+        return false;
+      }
+
+      // Sport filter
+      if (
+        args.sports &&
+        args.sports.length > 0 &&
+        !(plan.sport && args.sports.includes(plan.sport))
+      ) {
+        return false;
+      }
+
+      // Intensity filter
+      if (
+        args.intensities &&
+        args.intensities.length > 0 &&
+        !(
+          plan.extractedTags?.intensity &&
+          args.intensities.includes(plan.extractedTags.intensity)
+        )
+      ) {
+        return false;
+      }
+
+      // Category filter
+      if (args.categories && args.categories.length > 0) {
+        if (!plan.extractedTags?.categories) {
+          return false;
+        }
+        const hasCategory = args.categories.some((cat) =>
+          plan.extractedTags?.categories.includes(cat)
+        );
+        if (!hasCategory) {
+          return false;
+        }
+      }
+
+      // Skills filter
+      if (args.skills && args.skills.length > 0) {
+        if (!plan.extractedTags?.skills) {
+          return false;
+        }
+        const hasSkill = args.skills.some((skill) =>
+          plan.extractedTags?.skills.includes(skill)
+        );
+        if (!hasSkill) {
+          return false;
+        }
+      }
+
+      // Featured filter
+      if (args.featuredOnly && !plan.pinnedByAdmin) {
+        return false;
+      }
+
+      return true;
+    });
 
     // Sort by creation date descending
     return plans.sort((a, b) => b.createdAt - a.createdAt);
@@ -1338,7 +1691,353 @@ export const getStats = query({
 });
 
 /**
+ * Get recently used plans for Quick Access section
+ * Returns plans marked as used in the last 30 days, sorted by last used date
+ */
+export const getRecentlyUsed = query({
+  args: {
+    organizationId: v.string(),
+    coachId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    plans: v.array(v.any()),
+    count: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify requesting user is the coach
+    if (identity.subject !== args.coachId) {
+      throw new Error("Not authorized");
+    }
+
+    const limit = args.limit || 10;
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    const allPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_coach", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("coachId", args.coachId)
+      )
+      .filter((q: any) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    const recentlyUsed = allPlans
+      .filter(
+        (p) =>
+          p.usedInSession && p.lastUsedDate && p.lastUsedDate >= thirtyDaysAgo
+      )
+      .sort((a, b) => (b.lastUsedDate || 0) - (a.lastUsedDate || 0))
+      .slice(0, limit);
+
+    return {
+      plans: recentlyUsed,
+      count: recentlyUsed.length,
+    };
+  },
+});
+
+/**
+ * Get most popular plans (highest timesUsed) for Quick Access section
+ */
+export const getMostPopular = query({
+  args: {
+    organizationId: v.string(),
+    coachId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    plans: v.array(v.any()),
+    count: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify requesting user is the coach
+    if (identity.subject !== args.coachId) {
+      throw new Error("Not authorized");
+    }
+
+    const limit = args.limit || 10;
+
+    const allPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_coach", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("coachId", args.coachId)
+      )
+      .filter((q: any) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    const popular = allPlans
+      .filter((p) => (p.timesUsed || 0) > 0)
+      .sort((a, b) => (b.timesUsed || 0) - (a.timesUsed || 0))
+      .slice(0, limit);
+
+    return {
+      plans: popular,
+      count: popular.length,
+    };
+  },
+});
+
+/**
+ * Get coach's best performing plans (highest success rate) for Quick Access section
+ */
+export const getYourBest = query({
+  args: {
+    organizationId: v.string(),
+    coachId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    plans: v.array(v.any()),
+    count: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify requesting user is the coach
+    if (identity.subject !== args.coachId) {
+      throw new Error("Not authorized");
+    }
+
+    const limit = args.limit || 10;
+
+    const allPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_coach", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("coachId", args.coachId)
+      )
+      .filter((q: any) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    const bestPlans = allPlans
+      .filter(
+        (p) =>
+          p.successRate !== undefined &&
+          p.successRate !== null &&
+          p.successRate >= 80
+      )
+      .sort((a, b) => (b.successRate || 0) - (a.successRate || 0))
+      .slice(0, limit);
+
+    return {
+      plans: bestPlans,
+      count: bestPlans.length,
+    };
+  },
+});
+
+/**
+ * Get top rated plans from club library for Quick Access section
+ * Now uses likeCount (YouTube-style) instead of successRate
+ */
+export const getTopRated = query({
+  args: {
+    organizationId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    plans: v.array(v.any()),
+    count: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify user is member of organization
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: args.organizationId, operator: "eq" },
+      ],
+    });
+
+    if (!member) {
+      throw new Error("Not a member of this organization");
+    }
+
+    const limit = args.limit || 10;
+
+    const clubPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_visibility", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("visibility", "club")
+      )
+      .filter((q: any) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    // Sort by likeCount (YouTube-style) - most liked first
+    const topRated = clubPlans
+      .filter((p) => (p.likeCount || 0) > 0)
+      .sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0))
+      .slice(0, limit);
+
+    return {
+      plans: topRated,
+      count: topRated.length,
+    };
+  },
+});
+
+/**
+ * Get coach's most liked plans for Quick Access section
+ */
+export const getYourMostLiked = query({
+  args: {
+    organizationId: v.string(),
+    coachId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    plans: v.array(v.any()),
+    count: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify requesting user is the coach
+    if (identity.subject !== args.coachId) {
+      throw new Error("Not authorized");
+    }
+
+    const limit = args.limit || 10;
+
+    const allPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_coach", (q: any) =>
+        q.eq("organizationId", args.organizationId).eq("coachId", args.coachId)
+      )
+      .filter((q: any) => q.neq(q.field("status"), "deleted"))
+      .collect();
+
+    // Filter to plans with likes and sort by likeCount
+    const mostLiked = allPlans
+      .filter((p) => (p.likeCount || 0) > 0)
+      .sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0))
+      .slice(0, limit);
+
+    return {
+      plans: mostLiked,
+      count: mostLiked.length,
+    };
+  },
+});
+
+/**
+ * Full-text search across session plans
+ * Searches title, description, focus areas, and tags
+ * Returns matching plans with relevance ranking
+ */
+export const searchPlans = query({
+  args: {
+    organizationId: v.string(),
+    searchQuery: v.string(),
+    visibility: v.optional(
+      v.union(v.literal("private"), v.literal("club"), v.literal("all"))
+    ),
+    limit: v.optional(v.number()),
+  },
+  returns: v.object({
+    plans: v.array(v.any()),
+    count: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { plans: [], count: 0 };
+    }
+
+    const userId = identity.subject;
+    const limit = args.limit || 50;
+    const searchQuery = args.searchQuery.trim();
+
+    if (!searchQuery) {
+      return { plans: [], count: 0 };
+    }
+
+    // Search using both title and content indexes, then deduplicate
+    const titleResults = await ctx.db
+      .query("sessionPlans")
+      .withSearchIndex("search_title", (q) =>
+        q.search("title", searchQuery).eq("organizationId", args.organizationId)
+      )
+      .take(limit);
+
+    const contentResults = await ctx.db
+      .query("sessionPlans")
+      .withSearchIndex("search_content", (q) =>
+        q
+          .search("rawContent", searchQuery)
+          .eq("organizationId", args.organizationId)
+      )
+      .take(limit);
+
+    // Combine and deduplicate results (title matches have higher priority)
+    const seenIds = new Set<string>();
+    const combinedResults = [];
+
+    for (const plan of titleResults) {
+      if (!seenIds.has(plan._id)) {
+        seenIds.add(plan._id);
+        combinedResults.push(plan);
+      }
+    }
+
+    for (const plan of contentResults) {
+      if (!seenIds.has(plan._id)) {
+        seenIds.add(plan._id);
+        combinedResults.push(plan);
+      }
+    }
+
+    // Filter by visibility and status
+    const filteredPlans = combinedResults.filter((plan) => {
+      // Never show deleted plans
+      if (plan.status === "deleted") {
+        return false;
+      }
+
+      // Filter by visibility if specified
+      if (args.visibility === "private") {
+        return plan.visibility === "private" && plan.coachId === userId;
+      }
+      if (args.visibility === "club") {
+        return plan.visibility === "club";
+      }
+      // "all" or undefined: show both private (if owned) and club plans
+      if (plan.visibility === "private" && plan.coachId !== userId) {
+        return false; // Hide other coaches' private plans
+      }
+      return true;
+    });
+
+    return {
+      plans: filteredPlans.slice(0, limit),
+      count: filteredPlans.length,
+    };
+  },
+});
+
+/**
  * Save a pre-generated plan (for Quick Actions compatibility)
+ * Automatically schedules metadata extraction after saving
  */
 export const savePlan = mutation({
   args: {
@@ -1387,9 +2086,20 @@ export const savePlan = mutation({
       usedInSession: false,
       feedbackSubmitted: false,
       feedbackUsedForTraining: false,
+      creationMethod: args.creationMethod, // Track source: "quick_action" or "session_plans_page"
+      generatedAt: now,
+      usedRealAI: args.usedRealAI ?? false,
       createdAt: now,
       updatedAt: now,
     });
+
+    // Schedule metadata extraction to run asynchronously
+    // This extracts categories, skills, equipment, intensity from the plan content
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.sessionPlans.extractMetadata,
+      { planId }
+    );
 
     return planId;
   },
@@ -1513,6 +2223,191 @@ export const getRecentPlanForTeam = query({
       duration: recentPlan.duration,
       sessionPlan: recentPlan.rawContent,
       usedRealAI: false, // Currently using simulated AI
+    };
+  },
+});
+
+/**
+ * Get admin dashboard metrics for session plans
+ */
+export const getAdminMetrics = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    total: v.number(),
+    pendingReview: v.number(),
+    flagged: v.number(),
+    featured: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify admin role
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: identity.subject, operator: "eq" },
+        { field: "organizationId", value: args.organizationId, operator: "eq" },
+      ],
+    });
+
+    if (!member) {
+      throw new Error("Not a member of this organization");
+    }
+
+    // Use index to get all shared plans for the organization
+    const sharedPlans = await ctx.db
+      .query("sessionPlans")
+      .withIndex("by_org_and_visibility", (q) =>
+        q.eq("organizationId", args.organizationId).eq("visibility", "club")
+      )
+      .collect();
+
+    // Filter out deleted plans
+    const activePlans = sharedPlans.filter((p) => p.status !== "deleted");
+
+    // Calculate metrics
+    const total = activePlans.length;
+
+    // Pending review: shared plans that have not been moderated yet
+    const pendingReview = activePlans.filter(
+      (p) => !(p.moderatedBy || p.pinnedByAdmin)
+    ).length;
+
+    // Flagged: plans with moderation notes (rejected plans that are still visible)
+    // Since rejected plans are set to private, we'll count plans with moderationNote
+    // that are still shared (might be warnings/notes from admin)
+    const flagged = activePlans.filter(
+      (p) => p.moderationNote && !p.pinnedByAdmin
+    ).length;
+
+    // Featured: plans pinned by admin
+    const featured = activePlans.filter((p) => p.pinnedByAdmin).length;
+
+    return {
+      total,
+      pendingReview,
+      flagged,
+      featured,
+    };
+  },
+});
+
+/**
+ * Calculate quality score for a session plan (0-100)
+ * Used by admins to identify high-value content for featuring
+ *
+ * Scoring breakdown:
+ * - Sections count (20pts): More comprehensive plans with multiple sections
+ * - Tags (15pts): Better categorized plans with tags
+ * - Usage (20pts): Plans that are actually used by coaches
+ * - Success rate (25pts): Plans that work well in practice
+ * - Feedback (20pts): Plans with coach feedback
+ */
+export const getQualityScore = query({
+  args: {
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.object({
+    score: v.number(), // 0-100
+    breakdown: v.object({
+      sections: v.number(), // 0-20
+      tags: v.number(), // 0-15
+      usage: v.number(), // 0-20
+      successRate: v.number(), // 0-25
+      feedback: v.number(), // 0-20
+    }),
+  }),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    // Calculate individual scores
+
+    // 1. Sections count (20pts max)
+    // 0 sections = 0pts, 1-2 = 10pts, 3-4 = 15pts, 5+ = 20pts
+    const sectionsCount = plan.sections?.length ?? 0;
+    let sectionsScore = 0;
+    if (sectionsCount >= 5) {
+      sectionsScore = 20;
+    } else if (sectionsCount >= 3) {
+      sectionsScore = 15;
+    } else if (sectionsCount >= 1) {
+      sectionsScore = 10;
+    }
+
+    // 2. Tags (15pts max)
+    // Combine customTags and extractedTags.categories
+    const customTagsCount = plan.customTags?.length ?? 0;
+    const extractedCategoriesCount =
+      plan.extractedTags?.categories?.length ?? 0;
+    const totalTags = customTagsCount + extractedCategoriesCount;
+    // 0 tags = 0pts, 1-2 = 5pts, 3-4 = 10pts, 5+ = 15pts
+    let tagsScore = 0;
+    if (totalTags >= 5) {
+      tagsScore = 15;
+    } else if (totalTags >= 3) {
+      tagsScore = 10;
+    } else if (totalTags >= 1) {
+      tagsScore = 5;
+    }
+
+    // 3. Usage (20pts max)
+    // 0 uses = 0pts, 1-2 = 5pts, 3-5 = 10pts, 6-10 = 15pts, 11+ = 20pts
+    const timesUsed = plan.timesUsed ?? 0;
+    let usageScore = 0;
+    if (timesUsed >= 11) {
+      usageScore = 20;
+    } else if (timesUsed >= 6) {
+      usageScore = 15;
+    } else if (timesUsed >= 3) {
+      usageScore = 10;
+    } else if (timesUsed >= 1) {
+      usageScore = 5;
+    }
+
+    // 4. Success rate (25pts max)
+    // 0-20% = 0pts, 21-40% = 5pts, 41-60% = 10pts, 61-80% = 15pts, 81-100% = 25pts
+    const successRate = plan.successRate ?? 0;
+    let successRateScore = 0;
+    if (successRate >= 81) {
+      successRateScore = 25;
+    } else if (successRate >= 61) {
+      successRateScore = 15;
+    } else if (successRate >= 41) {
+      successRateScore = 10;
+    } else if (successRate >= 21) {
+      successRateScore = 5;
+    }
+
+    // 5. Feedback (20pts max)
+    // No feedback = 0pts, Feedback submitted = 20pts
+    const feedbackScore = plan.feedbackSubmitted ? 20 : 0;
+
+    // Calculate total score
+    const totalScore =
+      sectionsScore + tagsScore + usageScore + successRateScore + feedbackScore;
+
+    return {
+      score: totalScore,
+      breakdown: {
+        sections: sectionsScore,
+        tags: tagsScore,
+        usage: usageScore,
+        successRate: successRateScore,
+        feedback: feedbackScore,
+      },
     };
   },
 });

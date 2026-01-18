@@ -1136,7 +1136,7 @@ export default function OrganizationsPage() {
                                       })()
                                     ) : (
                                       <Button
-                                        className="w-full"
+                                        className="h-8 w-full"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleRequestAccess(org._id);

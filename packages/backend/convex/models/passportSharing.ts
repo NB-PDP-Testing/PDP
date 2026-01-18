@@ -62,6 +62,77 @@ export const _getBetterAuthUserName = query({
 });
 
 /**
+ * Lookup Better Auth organization by ID
+ * Helper function for future use - prefixed with _ to indicate intentionally unused
+ * @param ctx - Query context
+ * @param orgId - Organization ID
+ * @returns Organization data or null
+ */
+// biome-ignore lint/suspicious/noExplicitAny: Matches existing pattern in this file for context parameter
+async function _lookupOrganization(
+  ctx: any,
+  orgId: string
+): Promise<{
+  _id: string;
+  name?: string;
+  slug?: string;
+  logo?: string;
+} | null> {
+  try {
+    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "organization",
+      paginationOpts: { cursor: null, numItems: 1 },
+      where: [{ field: "_id", value: orgId, operator: "eq" }],
+    });
+
+    if (result.page[0]) {
+      // biome-ignore lint/suspicious/noExplicitAny: Better Auth adapter returns untyped objects
+      return result.page[0] as any;
+    }
+    return null;
+  } catch (error) {
+    console.warn(`Failed to lookup organization ${orgId}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Lookup Better Auth user by ID
+ * Helper function for future use - prefixed with _ to indicate intentionally unused
+ * @param ctx - Query context
+ * @param userId - User ID
+ * @returns User data or null
+ */
+// biome-ignore lint/suspicious/noExplicitAny: Matches existing pattern in this file for context parameter
+async function _lookupUser(
+  ctx: any,
+  userId: string
+): Promise<{
+  _id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  name?: string;
+} | null> {
+  try {
+    const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "user",
+      paginationOpts: { cursor: null, numItems: 1 },
+      where: [{ field: "_id", value: userId, operator: "eq" }],
+    });
+
+    if (result.page[0]) {
+      // biome-ignore lint/suspicious/noExplicitAny: Better Auth adapter returns untyped objects
+      return result.page[0] as any;
+    }
+    return null;
+  } catch (error) {
+    console.warn(`Failed to lookup user ${userId}:`, error);
+    return null;
+  }
+}
+
+/**
  * Generate a consent receipt following MyData/Kantara standards
  * @param params - Receipt generation parameters
  * @returns Consent receipt object

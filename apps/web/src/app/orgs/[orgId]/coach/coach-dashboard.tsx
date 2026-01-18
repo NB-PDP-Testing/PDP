@@ -2,15 +2,15 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { Brain } from "lucide-react";
+import { Brain, Share2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { SmartCoachDashboard } from "@/components/smart-coach-dashboard";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
-import { SharedPassports } from "./shared-passports";
 
 export function CoachDashboard() {
   const params = useParams();
@@ -45,6 +45,20 @@ export function CoachDashboard() {
         }
       : "skip"
   );
+
+  // Get passport sharing counts
+  const sharedPassports = useQuery(
+    api.models.passportSharing.getSharedPassportsForCoach,
+    userId && orgId ? { userId, organizationId: orgId } : "skip"
+  );
+
+  const pendingShares = useQuery(
+    api.models.passportSharing.getPendingSharesForCoach,
+    userId && orgId ? { userId, organizationId: orgId } : "skip"
+  );
+
+  const activeCount = sharedPassports?.length ?? 0;
+  const pendingCount = pendingShares?.length ?? 0;
 
   // Get all teams for the organization
   const teams = useQuery(api.models.teams.getTeamsByOrganization, {
@@ -441,6 +455,8 @@ export function CoachDashboard() {
     teamPlayerLinks === undefined ||
     allPlayers === undefined ||
     playerSkillsData === undefined ||
+    sharedPassports === undefined ||
+    pendingShares === undefined ||
     // Only check coachAssignments if we have a user
     (hasUser && coachAssignments === undefined);
 
@@ -650,8 +666,35 @@ export function CoachDashboard() {
         selectedTeamData={selectedTeamData}
       />
 
-      {/* Shared Passports Section */}
-      {userId && <SharedPassports organizationId={orgId} userId={userId} />}
+      {/* Passport Sharing Summary */}
+      {userId && (
+        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Share2 className="h-5 w-5 text-blue-600" />
+              Shared Passports
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <p className="text-sm">
+                  {pendingCount > 0
+                    ? `${pendingCount} pending share${pendingCount === 1 ? "" : "s"} awaiting review`
+                    : `${activeCount} active shared passport${activeCount === 1 ? "" : "s"}`}
+                </p>
+              </div>
+              <Button
+                onClick={() =>
+                  router.push(`/orgs/${orgId}/coach/shared-passports` as any)
+                }
+              >
+                {pendingCount > 0 ? "Review Pending" : "Manage Passports"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Empty State */}
       {filteredPlayers.length === 0 && (

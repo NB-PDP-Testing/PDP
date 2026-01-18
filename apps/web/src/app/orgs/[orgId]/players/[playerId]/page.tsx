@@ -9,9 +9,11 @@ import { useMemo, useState } from "react";
 import { BenchmarkComparison } from "@/components/benchmark-comparison";
 import { SkillRadarChart } from "@/components/skill-radar-chart";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authClient } from "@/lib/auth-client";
 import type { PassportPDFData } from "@/lib/pdf-generator";
 import { BasicInformationSection } from "./components/basic-info-section";
+import { CrossSportOverview } from "./components/cross-sport-overview";
 import { EmergencyContactsSection } from "./components/emergency-contacts-section";
 import { GoalsSection } from "./components/goals-section";
 import { NotesSection } from "./components/notes-section";
@@ -57,6 +59,15 @@ export default function PlayerPassportPage() {
       organizationId: orgId,
     }
   );
+
+  // Get ALL sport passports for cross-sport analysis
+  const allPassports = useQuery(
+    api.models.sportPassports.getPassportsForPlayer,
+    { playerIdentityId: playerId as Id<"playerIdentities"> }
+  );
+
+  // Check if player has multiple sports
+  const showCrossSportTab = (allPassports?.length ?? 0) > 1;
 
   // Determine user permissions based on functional roles
   const permissions = useMemo(() => {
@@ -198,48 +209,109 @@ export default function PlayerPassportPage() {
       </div>
 
       {/* Player Passport Sections */}
-      <div className="space-y-4">
-        {/* Cast to any since components define their own interfaces for the properties they need */}
-        <BasicInformationSection player={playerData as any} />
+      {showCrossSportTab ? (
+        <Tabs className="w-full" defaultValue="primary">
+          <TabsList>
+            <TabsTrigger value="primary">
+              {playerData.sportCode || "Primary Sport"}
+            </TabsTrigger>
+            <TabsTrigger value="cross-sport">Cross-Sport Analysis</TabsTrigger>
+          </TabsList>
 
-        {/* Emergency Contacts - for adult players, shown right after basic info */}
-        {"playerType" in playerData && playerData.playerType === "adult" && (
-          <EmergencyContactsSection
-            isEditable={false}
-            playerIdentityId={playerId as Id<"playerIdentities">} // Coaches can view but not edit adult player's contacts
-            playerType="adult"
-          />
-        )}
+          <TabsContent className="space-y-4" value="primary">
+            {/* Cast to any since components define their own interfaces for the properties they need */}
+            <BasicInformationSection player={playerData as any} />
 
-        {/* Skills Radar Chart - visual overview of player skills */}
-        {playerData.sportCode && (
-          <SkillRadarChart
-            dateOfBirth={(playerData as any).dateOfBirth}
-            playerId={playerId as Id<"playerIdentities">}
-            sportCode={playerData.sportCode}
-          />
-        )}
+            {/* Emergency Contacts - for adult players, shown right after basic info */}
+            {"playerType" in playerData &&
+              playerData.playerType === "adult" && (
+                <EmergencyContactsSection
+                  isEditable={false}
+                  playerIdentityId={playerId as Id<"playerIdentities">} // Coaches can view but not edit adult player's contacts
+                  playerType="adult"
+                />
+              )}
 
-        {/* Benchmark Comparison - only for new identity system with sport passport */}
-        {"playerIdentityId" in playerData &&
-          playerData.playerIdentityId &&
-          playerData.sportCode && (
-            <BenchmarkComparison
-              dateOfBirth={(playerData as any).dateOfBirth ?? ""}
-              playerId={playerData.playerIdentityId}
-              showAllSkills={true}
+            {/* Skills Radar Chart - visual overview of player skills */}
+            {playerData.sportCode && (
+              <SkillRadarChart
+                dateOfBirth={(playerData as any).dateOfBirth}
+                playerId={playerId as Id<"playerIdentities">}
+                sportCode={playerData.sportCode}
+              />
+            )}
+
+            {/* Benchmark Comparison - only for new identity system with sport passport */}
+            {"playerIdentityId" in playerData &&
+              playerData.playerIdentityId &&
+              playerData.sportCode && (
+                <BenchmarkComparison
+                  dateOfBirth={(playerData as any).dateOfBirth ?? ""}
+                  playerId={playerData.playerIdentityId}
+                  showAllSkills={true}
+                  sportCode={playerData.sportCode}
+                />
+              )}
+
+            <GoalsSection player={playerData as any} />
+            <NotesSection
+              isCoach={permissions.canEdit}
+              player={playerData as any}
+            />
+            <SkillsSection player={playerData as any} />
+            <PositionsFitnessSection player={playerData as any} />
+          </TabsContent>
+
+          <TabsContent className="space-y-4" value="cross-sport">
+            <CrossSportOverview
+              playerIdentityId={playerId as Id<"playerIdentities">}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <div className="space-y-4">
+          {/* Single-sport player - existing layout */}
+          <BasicInformationSection player={playerData as any} />
+
+          {/* Emergency Contacts - for adult players, shown right after basic info */}
+          {"playerType" in playerData && playerData.playerType === "adult" && (
+            <EmergencyContactsSection
+              isEditable={false}
+              playerIdentityId={playerId as Id<"playerIdentities">}
+              playerType="adult"
+            />
+          )}
+
+          {/* Skills Radar Chart - visual overview of player skills */}
+          {playerData.sportCode && (
+            <SkillRadarChart
+              dateOfBirth={(playerData as any).dateOfBirth}
+              playerId={playerId as Id<"playerIdentities">}
               sportCode={playerData.sportCode}
             />
           )}
 
-        <GoalsSection player={playerData as any} />
-        <NotesSection
-          isCoach={permissions.canEdit}
-          player={playerData as any}
-        />
-        <SkillsSection player={playerData as any} />
-        <PositionsFitnessSection player={playerData as any} />
-      </div>
+          {/* Benchmark Comparison - only for new identity system with sport passport */}
+          {"playerIdentityId" in playerData &&
+            playerData.playerIdentityId &&
+            playerData.sportCode && (
+              <BenchmarkComparison
+                dateOfBirth={(playerData as any).dateOfBirth ?? ""}
+                playerId={playerData.playerIdentityId}
+                showAllSkills={true}
+                sportCode={playerData.sportCode}
+              />
+            )}
+
+          <GoalsSection player={playerData as any} />
+          <NotesSection
+            isCoach={permissions.canEdit}
+            player={playerData as any}
+          />
+          <SkillsSection player={playerData as any} />
+          <PositionsFitnessSection player={playerData as any} />
+        </div>
+      )}
 
       {/* Share Modal */}
       {pdfData && (

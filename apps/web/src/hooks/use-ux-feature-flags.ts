@@ -69,6 +69,9 @@ import { useAnalytics } from "@/lib/analytics";
  * - ux_enhanced_user_menu: Enhanced user menu with profile settings, preferences, and alerts
  * - ux_org_usage_tracking: Organization usage tracking in user menu
  *
+ * PHASE 16 - Logo Visibility Enhancement:
+ * - ux_logo_adaptive_visibility: WCAG-based logo box contrast calculation using org colors
+ *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
  * - When enabled, features are visible to ALL users (not restricted to staff)
@@ -187,6 +190,10 @@ export type UXFeatureFlags = {
   /** Organization usage tracking in user menu */
   useOrgUsageTracking: boolean;
 
+  // Phase 16 - Logo Visibility Enhancement
+  /** Adaptive logo visibility using org colors and smart contrast detection */
+  useAdaptiveLogoVisibility: boolean;
+
   // Quick Actions A/B/C Testing
   /** Which quick actions variant to display: control (collapsible grid), fab (floating button), horizontal (icon scroll), two-tier (3 primary + more) */
   quickActionsVariant: QuickActionsVariant;
@@ -272,6 +279,9 @@ export function useUXFeatureFlags(): UXFeatureFlags {
     // Phase 15 - Enhanced User Menu
     useEnhancedUserMenu: isFeatureEnabled("ux_enhanced_user_menu"),
     useOrgUsageTracking: isFeatureEnabled("ux_org_usage_tracking"),
+
+    // Phase 16 - Logo Visibility Enhancement
+    useAdaptiveLogoVisibility: isFeatureEnabled("ux_logo_adaptive_visibility"),
 
     // Quick Actions A/B/C Testing
     quickActionsVariant: getQuickActionsVariant(isFeatureEnabled),

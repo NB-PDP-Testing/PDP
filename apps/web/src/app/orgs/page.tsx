@@ -12,7 +12,6 @@ import {
 import {
   Building2,
   Check,
-  ChevronRight,
   Globe,
   LayoutGrid,
   List,
@@ -438,7 +437,7 @@ export default function OrganizationsPage() {
                 </div>
               ) : filteredYourOrgs && filteredYourOrgs.length > 0 ? (
                 yourOrgsView === "cards" ? (
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {filteredYourOrgs.map((org: Organization) => (
                       <Card
                         className="group cursor-pointer transition-all hover:shadow-lg"
@@ -447,35 +446,33 @@ export default function OrganizationsPage() {
                           router.push(getOrgNavigationPath(org.id));
                         }}
                       >
-                        <CardHeader>
+                        <CardHeader className="pb-3">
                           <div className="flex min-w-0 items-start justify-between">
                             <div className="flex min-w-0 flex-1 items-center gap-3">
-                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                                 {org.logo ? (
                                   <img
                                     alt={org.name}
-                                    className="h-12 w-12 rounded-lg object-cover"
+                                    className="h-10 w-10 rounded-lg object-cover"
                                     src={org.logo}
                                   />
                                 ) : (
-                                  <Building2 className="h-6 w-6 text-primary" />
+                                  <Building2 className="h-5 w-5 text-primary" />
                                 )}
                               </div>
                               <div className="min-w-0 flex-1 overflow-hidden">
-                                <CardTitle className="truncate text-xl">
+                                <CardTitle className="truncate text-base">
                                   {org.name}
                                 </CardTitle>
-                                <CardDescription className="mt-1 truncate">
-                                  <span className="font-mono text-xs">
-                                    {org.slug}
-                                  </span>
+                                <CardDescription className="mt-0.5 truncate font-mono text-xs">
+                                  {org.slug}
                                 </CardDescription>
                               </div>
                             </div>
                           </div>
                         </CardHeader>
                         <CardContent
-                          className="space-y-4"
+                          className="pt-0"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {(() => {
@@ -490,41 +487,38 @@ export default function OrganizationsPage() {
                               membership?.betterAuthRole === "owner";
 
                             return (
-                              <>
-                                {hasCoachRole && (
-                                  <Button
-                                    asChild
-                                    className="w-full justify-between"
-                                    variant="outline"
-                                  >
-                                    <Link href={`/orgs/${org.id}/coach`}>
-                                      <span className="flex items-center gap-2">
-                                        <Settings className="h-4 w-4" />
-                                        Coach Panel
-                                      </span>
-                                      <ChevronRight className="h-4 w-4" />
-                                    </Link>
-                                  </Button>
-                                )}
-                                {hasAdminRole && (
-                                  <Button
-                                    asChild
-                                    className="w-full justify-between"
-                                    variant="outline"
-                                  >
-                                    <Link href={`/orgs/${org.id}/admin`}>
-                                      <span className="flex items-center gap-2">
-                                        <Settings className="h-4 w-4" />
-                                        Admin Panel
-                                      </span>
-                                      <ChevronRight className="h-4 w-4" />
-                                    </Link>
-                                  </Button>
-                                )}
-                              </>
+                              (hasCoachRole || hasAdminRole) && (
+                                <div className="mb-3 flex gap-2">
+                                  {hasAdminRole && (
+                                    <Button
+                                      asChild
+                                      className="flex-1"
+                                      size="sm"
+                                      variant="outline"
+                                    >
+                                      <Link href={`/orgs/${org.id}/admin`}>
+                                        <Settings className="mr-1 h-3 w-3" />
+                                        Admin
+                                      </Link>
+                                    </Button>
+                                  )}
+                                  {hasCoachRole && (
+                                    <Button
+                                      asChild
+                                      className="flex-1"
+                                      size="sm"
+                                      variant="outline"
+                                    >
+                                      <Link href={`/orgs/${org.id}/coach`}>
+                                        Coach
+                                      </Link>
+                                    </Button>
+                                  )}
+                                </div>
+                              )
                             );
                           })()}
-                          <div className="flex items-center justify-between pt-2 text-muted-foreground text-xs">
+                          <div className="flex items-center justify-between text-muted-foreground text-xs">
                             <span>
                               Created{" "}
                               {new Date(org.createdAt).toLocaleDateString()}
@@ -558,17 +552,17 @@ export default function OrganizationsPage() {
                               router.push(getOrgNavigationPath(org.id));
                             }}
                           >
-                            <TableCell>
+                            <TableCell className="max-w-[200px] sm:max-w-[300px]">
                               <div className="flex items-center gap-2">
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 sm:h-10 sm:w-10">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                                   {org.logo ? (
                                     <img
                                       alt={org.name}
-                                      className="h-8 w-8 rounded-lg object-cover sm:h-10 sm:w-10"
+                                      className="h-8 w-8 rounded-lg object-cover"
                                       src={org.logo}
                                     />
                                   ) : (
-                                    <Building2 className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
+                                    <Building2 className="h-4 w-4 text-primary" />
                                   )}
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -984,7 +978,7 @@ export default function OrganizationsPage() {
                                     }
                                   }}
                                 >
-                                  <TableCell>
+                                  <TableCell className="max-w-[200px] sm:max-w-[300px]">
                                     <div className="flex items-center gap-2">
                                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                                         {org.logo ? (
@@ -998,7 +992,7 @@ export default function OrganizationsPage() {
                                         )}
                                       </div>
                                       <div className="min-w-0 flex-1">
-                                        <div>
+                                        <div className="min-w-0 overflow-hidden">
                                           <div className="truncate font-medium text-sm">
                                             {org.name}
                                           </div>

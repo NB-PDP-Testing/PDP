@@ -5,19 +5,17 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
-  Clock,
-  Eye,
+  ArrowLeft,
+  Grid3x3,
   Layers,
+  List,
   Loader2,
-  MoreVertical,
-  Pin,
-  PinOff,
   Shield,
   Star,
-  X,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Masonry from "react-masonry-css";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,13 +35,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -52,18 +43,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { authClient } from "@/lib/auth-client";
 import type {
   AvailableFilters,
   FilterState,
 } from "../../coach/session-plans/filter-sidebar";
-import { FilterSidebar } from "../../coach/session-plans/filter-sidebar";
-import { QualityScoreDisplay } from "./quality-score-display";
+import { SearchBar } from "../../coach/session-plans/search-bar";
+import {
+  SortDropdown,
+  type SortOption,
+} from "../../coach/session-plans/sort-dropdown";
+import { AdminPlanCard } from "./admin-plan-card";
 
 type SessionPlan = {
   _id: Id<"sessionPlans">;
+  _creationTime?: number;
   title?: string;
   coachName?: string;
   teamName: string;
@@ -79,6 +74,8 @@ type SessionPlan = {
   timesUsed?: number;
   successRate?: number;
   status?: string;
+  likeCount?: number;
+  dislikeCount?: number;
   extractedTags?: {
     categories: string[];
     skills: string[];
@@ -95,61 +92,6 @@ export default function AdminSessionPlansPage() {
   const { data: session } = authClient.useSession();
   const userId = session?.user?.id;
 
-  const getIntensityColor = (intensity?: "low" | "medium" | "high") => {
-    switch (intensity) {
-      case "low":
-        return "bg-green-100 text-green-800";
-      case "medium":
-        return "bg-yellow-100 text-yellow-800";
-      case "high":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  // Helper to determine if plan is new (< 7 days old)
-  const isPlanNew = (createdAt: number) => {
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    return createdAt > sevenDaysAgo;
-  };
-
-  // Helper to get card border color based on status
-  const getCardBorderClass = (plan: SessionPlan) => {
-    if (plan.pinnedByAdmin) {
-      return "border-l-4 border-l-green-500";
-    }
-    if (plan.moderationNote && plan.visibility === "club") {
-      return "border-l-4 border-l-red-500";
-    }
-    if (isPlanNew(plan.createdAt)) {
-      return "border-l-4 border-l-yellow-500";
-    }
-    return "";
-  };
-
-  // Helper to format date as "Shared X days ago"
-  const formatSharedDate = (timestamp: number) => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
-    if (days === 0) {
-      return "Shared today";
-    }
-    if (days === 1) {
-      return "Shared yesterday";
-    }
-    if (days < 7) {
-      return `Shared ${days} days ago`;
-    }
-    if (days < 30) {
-      const weeks = Math.floor(days / 7);
-      return `Shared ${weeks} week${weeks !== 1 ? "s" : ""} ago`;
-    }
-    const months = Math.floor(days / 30);
-    return `Shared ${months} month${months !== 1 ? "s" : ""} ago`;
-  };
-
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
     search: "",
@@ -163,10 +105,38 @@ export default function AdminSessionPlansPage() {
     templateOnly: false,
   });
 
-  // Status tab state
-  const [activeTab, setActiveTab] = useState<
-    "all" | "pending" | "featured" | "high-usage"
-  >("all");
+  // View mode (gallery or list)
+  const [viewMode, setViewMode] = useState<"gallery" | "list">("gallery");
+
+  // Filter view state (all or rejected)
+  const [filterView, setFilterView] = useState<"all" | "rejected">("all");
+
+  // Sort state with localStorage persistence
+  const [sortBy, setSortBy] = useState<SortOption>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("adminSessionPlans_sortBy");
+      if (
+        saved &&
+        [
+          "mostUsed",
+          "highestRated",
+          "recent",
+          "duration",
+          "alphabetical",
+        ].includes(saved)
+      ) {
+        return saved as SortOption;
+      }
+    }
+    return "recent";
+  });
+
+  // Persist sort preference
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("adminSessionPlans_sortBy", sortBy);
+    }
+  }, [sortBy]);
 
   // State for rejection dialog
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
@@ -182,12 +152,6 @@ export default function AdminSessionPlansPage() {
   >("");
   const [rejectionMessage, setRejectionMessage] = useState("");
   const [notifyCoach, setNotifyCoach] = useState(true);
-
-  // Fetch admin metrics
-  const metrics = useQuery(
-    api.models.sessionPlans.getAdminMetrics,
-    userId ? { organizationId: orgId } : "skip"
-  );
 
   // Fetch all plans for admin review
   const plans = useQuery(
@@ -216,14 +180,16 @@ export default function AdminSessionPlansPage() {
   );
 
   // Aggregate available filters from all plans
-  const availableFilters: AvailableFilters = {
-    ageGroups: [],
-    sports: [],
-    categories: [],
-    skills: [],
-  };
+  const availableFilters: AvailableFilters = useMemo(() => {
+    if (!allPlans) {
+      return {
+        ageGroups: [],
+        sports: [],
+        categories: [],
+        skills: [],
+      };
+    }
 
-  if (allPlans) {
     const ageGroupCounts = new Map<string, number>();
     const sportCounts = new Map<string, number>();
     const categoryCounts = new Map<string, number>();
@@ -251,22 +217,21 @@ export default function AdminSessionPlansPage() {
       }
     }
 
-    availableFilters.ageGroups = Array.from(ageGroupCounts.entries())
-      .map(([value, count]) => ({ value, count }))
-      .sort((a, b) => b.count - a.count);
-
-    availableFilters.sports = Array.from(sportCounts.entries())
-      .map(([value, count]) => ({ value, count }))
-      .sort((a, b) => b.count - a.count);
-
-    availableFilters.categories = Array.from(categoryCounts.entries())
-      .map(([value, count]) => ({ value, count }))
-      .sort((a, b) => b.count - a.count);
-
-    availableFilters.skills = Array.from(skillCounts.entries())
-      .map(([value, count]) => ({ value, count }))
-      .sort((a, b) => b.count - a.count);
-  }
+    return {
+      ageGroups: Array.from(ageGroupCounts.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count),
+      sports: Array.from(sportCounts.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count),
+      categories: Array.from(categoryCounts.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count),
+      skills: Array.from(skillCounts.entries())
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => b.count - a.count),
+    };
+  }, [allPlans]);
 
   // Mutations
   const removeFromClubLibraryEnhanced = useMutation(
@@ -275,12 +240,15 @@ export default function AdminSessionPlansPage() {
   const pinPlan = useMutation(api.models.sessionPlans.pinPlan);
   const unpinPlan = useMutation(api.models.sessionPlans.unpinPlan);
 
-  const handleRejectClick = (plan: SessionPlan) => {
-    setSelectedPlan(plan);
-    setRejectionReason("");
-    setRejectionMessage("");
-    setNotifyCoach(true);
-    setRejectDialogOpen(true);
+  const handleRejectClick = (planId: Id<"sessionPlans">) => {
+    const plan = plans?.find((p) => p._id === planId);
+    if (plan) {
+      setSelectedPlan(plan);
+      setRejectionReason("");
+      setRejectionMessage("");
+      setNotifyCoach(true);
+      setRejectDialogOpen(true);
+    }
   };
 
   const handleRejectConfirm = async () => {
@@ -288,7 +256,6 @@ export default function AdminSessionPlansPage() {
       return;
     }
 
-    // Validate reason is selected
     if (!rejectionReason) {
       toast.error("Please select a reason for removal");
       return;
@@ -314,13 +281,16 @@ export default function AdminSessionPlansPage() {
     }
   };
 
-  const handlePinToggle = async (plan: SessionPlan) => {
+  const handlePinToggle = async (
+    planId: Id<"sessionPlans">,
+    isPinned: boolean
+  ) => {
     try {
-      if (plan.pinnedByAdmin) {
-        await unpinPlan({ planId: plan._id });
+      if (isPinned) {
+        await unpinPlan({ planId });
         toast.success("Plan unpinned");
       } else {
-        await pinPlan({ planId: plan._id });
+        await pinPlan({ planId });
         toast.success("Plan pinned as featured");
       }
     } catch (error) {
@@ -333,7 +303,80 @@ export default function AdminSessionPlansPage() {
     router.push(`/orgs/${orgId}/admin/session-plans/${planId}`);
   };
 
-  if (plans === undefined || metrics === undefined) {
+  // Separate plans by status
+  const sharedPlans = plans?.filter((p) => p.visibility === "club") || [];
+  const rejectedPlans =
+    plans?.filter((p) => p.visibility === "private" && p.moderatedBy) || [];
+
+  // Filter plans based on filter view
+  const getFilteredPlans = () => {
+    if (filterView === "rejected") {
+      return rejectedPlans;
+    }
+    return sharedPlans;
+  };
+
+  let filteredPlans = getFilteredPlans();
+
+  // Apply sorting
+  if (filteredPlans && filteredPlans.length > 0) {
+    filteredPlans = [...filteredPlans].sort((a, b) => {
+      switch (sortBy) {
+        case "mostUsed":
+          return (b.timesUsed || 0) - (a.timesUsed || 0);
+        case "highestRated": {
+          const aRate = a.successRate || 0;
+          const bRate = b.successRate || 0;
+          return bRate - aRate;
+        }
+        case "recent": {
+          const aTime = a._creationTime || a.createdAt || 0;
+          const bTime = b._creationTime || b.createdAt || 0;
+          return bTime - aTime;
+        }
+        case "duration":
+          return (a.duration || 0) - (b.duration || 0);
+        case "alphabetical": {
+          const aTitle = a.title || "";
+          const bTitle = b.title || "";
+          return aTitle.localeCompare(bTitle);
+        }
+        default:
+          return 0;
+      }
+    });
+  }
+
+  // Calculate active filter count
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.search) {
+      count += 1;
+    }
+    if (filters.ageGroups.length > 0) {
+      count += 1;
+    }
+    if (filters.sports.length > 0) {
+      count += 1;
+    }
+    if (filters.intensities.length > 0) {
+      count += 1;
+    }
+    if (filters.skills.length > 0) {
+      count += 1;
+    }
+    if (filters.categories.length > 0) {
+      count += 1;
+    }
+    if (filters.featuredOnly) {
+      count += 1;
+    }
+    return count;
+  }, [filters]);
+
+  const isLoading = plans === undefined;
+
+  if (isLoading) {
     return (
       <div className="flex h-96 items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -341,540 +384,358 @@ export default function AdminSessionPlansPage() {
     );
   }
 
-  // Separate plans by visibility
-  const sharedPlans = plans.filter((p) => p.visibility === "club");
-  const rejectedPlans = plans.filter(
-    (p) => p.visibility === "private" && p.moderatedBy
-  );
-
-  // Filter plans based on active tab
-  const getFilteredPlans = () => {
-    switch (activeTab) {
-      case "pending": {
-        return sharedPlans.filter((p) => !(p.moderatedBy || p.pinnedByAdmin));
-      }
-      case "featured": {
-        return sharedPlans.filter((p) => p.pinnedByAdmin);
-      }
-      case "high-usage": {
-        // Plans with 5+ uses
-        return sharedPlans.filter((p) => (p.timesUsed || 0) >= 5);
-      }
-      default: {
-        return sharedPlans;
-      }
-    }
-  };
-
-  const filteredSharedPlans = getFilteredPlans();
-
   return (
-    <div className="flex h-screen">
-      {/* Filter Sidebar */}
-      <FilterSidebar
-        availableFilters={availableFilters}
-        filters={filters}
-        onFilterChange={setFilters}
-      />
-      <div className="flex-1 overflow-y-auto">
-        <div className="container mx-auto p-6">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="mb-2 flex items-center gap-2">
-              <Shield className="h-8 w-8 text-primary" />
-              <h1 className="font-bold text-3xl">Session Plans Moderation</h1>
+    <div className="min-w-0 max-w-full overflow-hidden">
+      {/* Main Content */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Header */}
+        <div className="min-w-0 border-b bg-background p-4 sm:p-6">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <Button
+                className="shrink-0"
+                onClick={() => router.push(`/orgs/${orgId}/admin`)}
+                size="icon"
+                variant="ghost"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div>
+                <div className="flex items-center gap-2">
+                  <Shield className="h-8 w-8 text-primary" />
+                  <h1 className="font-bold text-3xl">
+                    Session Plans Moderation
+                  </h1>
+                </div>
+                <p className="text-muted-foreground">
+                  Review and moderate session plans shared with the organization
+                </p>
+              </div>
             </div>
-            <p className="text-muted-foreground">
-              Review and moderate session plans shared with the organization.
-              Reject inappropriate plans or feature high-quality content.
-            </p>
           </div>
 
-          {/* Enhanced Metrics Cards */}
-          <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-            {/* Total Plans - Default border */}
-            <Card className="transition-shadow hover:shadow-md">
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="font-bold text-3xl">{metrics.total}</div>
-                    <div className="text-muted-foreground text-sm">
-                      Total Shared
-                    </div>
-                  </div>
-                  <Layers className="h-8 w-8 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Pending Review - Blue border */}
-            <Card className="border-blue-500 transition-shadow hover:shadow-md">
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="font-bold text-3xl">
-                      {metrics.pendingReview}
-                    </div>
-                    <div className="text-muted-foreground text-sm">
-                      Pending Review
-                    </div>
-                  </div>
-                  <Eye className="h-8 w-8 text-blue-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Flagged - Red border */}
-            <Card className="border-red-500 transition-shadow hover:shadow-md">
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="font-bold text-3xl">{metrics.flagged}</div>
-                    <div className="text-muted-foreground text-sm">Flagged</div>
-                  </div>
-                  <AlertTriangle className="h-8 w-8 text-red-500" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Featured - Green border */}
-            <Card className="border-green-500 transition-shadow hover:shadow-md">
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="font-bold text-3xl">{metrics.featured}</div>
-                    <div className="text-muted-foreground text-sm">
-                      Featured
-                    </div>
-                  </div>
-                  <Star className="h-8 w-8 text-green-500" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Status Tabs */}
-          <div className="mb-6">
-            <Tabs
-              onValueChange={(v) => setActiveTab(v as typeof activeTab)}
-              value={activeTab}
+          {/* Clickable Filter Cards (All / Rejected) */}
+          <div className="mb-6 grid grid-cols-2 gap-4">
+            {/* All Shared Plans Card */}
+            <button
+              className={`cursor-pointer rounded-lg border-2 p-4 text-left transition-all hover:shadow-md active:scale-[0.98] ${
+                filterView === "all"
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                  : "border-slate-200 bg-gradient-to-br from-slate-50 to-gray-50 hover:border-primary/50"
+              }`}
+              onClick={() => setFilterView("all")}
+              type="button"
             >
-              <TabsList>
-                <TabsTrigger value="all">
-                  All ({sharedPlans.length})
-                </TabsTrigger>
-                <TabsTrigger value="pending">
-                  Pending ({metrics.pendingReview})
-                </TabsTrigger>
-                <TabsTrigger value="featured">
-                  Featured ({metrics.featured})
-                </TabsTrigger>
-                <TabsTrigger value="high-usage">
-                  High Usage (
-                  {sharedPlans.filter((p) => (p.timesUsed || 0) >= 5).length})
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-
-          {/* Shared Plans Section */}
-          <div className="mb-8">
-            <h2 className="mb-4 font-semibold text-xl">
-              {activeTab === "all" &&
-                `All Plans (${filteredSharedPlans.length})`}
-              {activeTab === "pending" &&
-                `Pending Review (${filteredSharedPlans.length})`}
-              {activeTab === "featured" &&
-                `Featured Plans (${filteredSharedPlans.length})`}
-              {activeTab === "high-usage" &&
-                `High Usage Plans (${filteredSharedPlans.length})`}
-            </h2>
-            {filteredSharedPlans.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center p-12">
-                  <Shield className="mb-4 h-16 w-16 text-muted-foreground" />
-                  <h3 className="mb-2 font-semibold text-lg">
-                    No plans in this category
-                  </h3>
-                  <p className="text-center text-muted-foreground">
-                    {activeTab === "pending" && "No plans are pending review."}
-                    {activeTab === "featured" &&
-                      "No plans have been featured yet."}
-                    {activeTab === "high-usage" && "No plans have 5+ uses yet."}
-                    {activeTab === "all" &&
-                      "When coaches share their session plans with the organization, they will appear here for review."}
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredSharedPlans.map((plan) => (
-                  <Card
-                    className={`relative transition-shadow hover:shadow-lg ${getCardBorderClass(plan)}`}
-                    key={plan._id}
+              <div className="flex items-start justify-between">
+                <div>
+                  <div
+                    className={`font-bold text-2xl sm:text-3xl ${filterView === "all" ? "text-primary" : ""}`}
                   >
-                    <CardHeader>
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <div className="flex flex-wrap gap-2">
-                          {plan.pinnedByAdmin && (
-                            <Badge
-                              className="bg-green-100 text-green-800"
-                              variant="secondary"
-                            >
-                              📌 PINNED
-                            </Badge>
-                          )}
-                          {plan.moderationNote &&
-                            plan.visibility === "club" && (
-                              <Badge
-                                className="bg-red-100 text-red-800"
-                                variant="secondary"
-                              >
-                                ⚠️ FLAGGED
-                              </Badge>
-                            )}
-                          {!(plan.pinnedByAdmin || plan.moderationNote) &&
-                            isPlanNew(plan.createdAt) && (
-                              <Badge
-                                className="bg-yellow-100 text-yellow-800"
-                                variant="secondary"
-                              >
-                                ⏳ NEW
-                              </Badge>
-                            )}
-                        </div>
-                      </div>
-                      <CardTitle className="line-clamp-2 text-lg">
-                        {plan.title || "Untitled Session Plan"}
-                      </CardTitle>
-                      <CardDescription>
-                        By {plan.coachName || "Unknown Coach"} • {plan.teamName}
-                      </CardDescription>
-                      <div className="mt-2 flex items-center gap-3 text-muted-foreground text-sm">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5" />
-                          {formatSharedDate(plan.createdAt)}
-                        </div>
-                        {plan.timesUsed !== undefined && plan.timesUsed > 0 && (
-                          <div>
-                            • {plan.timesUsed} use
-                            {plan.timesUsed !== 1 ? "s" : ""}
-                          </div>
-                        )}
-                      </div>
-                    </CardHeader>
-
-                    <CardContent>
-                      {/* Metadata */}
-                      <div className="mb-3 flex flex-wrap gap-2 text-sm">
-                        {plan.ageGroup && (
-                          <Badge variant="outline">{plan.ageGroup}</Badge>
-                        )}
-                        {plan.sport && (
-                          <Badge variant="outline">{plan.sport}</Badge>
-                        )}
-                        {plan.duration && (
-                          <Badge variant="outline">{plan.duration} min</Badge>
-                        )}
-                        {plan.extractedTags?.intensity && (
-                          <Badge
-                            className={getIntensityColor(
-                              plan.extractedTags.intensity
-                            )}
-                            variant="secondary"
-                          >
-                            {plan.extractedTags.intensity}
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Skills */}
-                      {plan.extractedTags?.skills &&
-                        plan.extractedTags.skills.length > 0 && (
-                          <div className="mb-3">
-                            <div className="flex flex-wrap gap-1.5">
-                              {plan.extractedTags.skills
-                                .slice(0, 3)
-                                .map((skill) => (
-                                  <Badge
-                                    className="bg-slate-100 text-slate-700 text-xs"
-                                    key={skill}
-                                    variant="secondary"
-                                  >
-                                    {skill}
-                                  </Badge>
-                                ))}
-                              {plan.extractedTags.skills.length > 3 && (
-                                <Badge
-                                  className="bg-slate-100 text-slate-700 text-xs"
-                                  variant="secondary"
-                                >
-                                  +{plan.extractedTags.skills.length - 3}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                      {/* Flag Reasons */}
-                      {plan.moderationNote && plan.visibility === "club" && (
-                        <div className="mb-3 rounded-md border border-yellow-200 bg-yellow-50 p-2 text-sm">
-                          <div className="font-medium text-yellow-900">
-                            ⚠️ Flagged
-                          </div>
-                          <div className="text-xs text-yellow-700">
-                            {plan.moderationNote}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Success Rate */}
-                      {plan.successRate !== undefined &&
-                        plan.successRate > 0 && (
-                          <div className="mb-3 text-muted-foreground text-sm">
-                            {plan.successRate}% success rate
-                          </div>
-                        )}
-
-                      {/* Quality Score */}
-                      <QualityScoreDisplay planId={plan._id} />
-
-                      {/* Actions Dropdown */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            className="w-full"
-                            size="sm"
-                            variant="outline"
-                          >
-                            <MoreVertical className="mr-1.5 h-4 w-4" />
-                            Actions
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem
-                            onClick={() => handleViewPlan(plan._id)}
-                          >
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Full Plan
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handlePinToggle(plan)}
-                          >
-                            {plan.pinnedByAdmin ? (
-                              <>
-                                <PinOff className="mr-2 h-4 w-4" />
-                                Unpin Plan
-                              </>
-                            ) : (
-                              <>
-                                <Pin className="mr-2 h-4 w-4" />
-                                Feature Plan
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => handleRejectClick(plan)}
-                          >
-                            <X className="mr-2 h-4 w-4" />
-                            Remove from Library
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </CardContent>
-                  </Card>
-                ))}
+                    {sharedPlans.length}
+                  </div>
+                  <div className="text-muted-foreground text-xs sm:text-sm">
+                    All Shared Plans
+                  </div>
+                </div>
+                <Layers
+                  className={`h-6 w-6 sm:h-8 sm:w-8 ${filterView === "all" ? "text-primary" : "text-muted-foreground"}`}
+                />
               </div>
-            )}
+            </button>
+
+            {/* Rejected Plans Card */}
+            <button
+              className={`cursor-pointer rounded-lg border-2 p-4 text-left transition-all hover:shadow-md active:scale-[0.98] ${
+                filterView === "rejected"
+                  ? "border-red-500 bg-red-50 ring-2 ring-red-200"
+                  : "border-red-200 bg-gradient-to-br from-red-50 to-rose-50 hover:border-red-400"
+              }`}
+              onClick={() => setFilterView("rejected")}
+              type="button"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <div
+                    className={`font-bold text-2xl sm:text-3xl ${filterView === "rejected" ? "text-red-600" : "text-red-600"}`}
+                  >
+                    {rejectedPlans.length}
+                  </div>
+                  <div className="text-muted-foreground text-xs sm:text-sm">
+                    Rejected Plans
+                  </div>
+                </div>
+                <AlertTriangle
+                  className={`h-6 w-6 sm:h-8 sm:w-8 ${filterView === "rejected" ? "text-red-600" : "text-red-500"}`}
+                />
+              </div>
+            </button>
           </div>
 
-          {/* Rejected Plans Section */}
-          {rejectedPlans.length > 0 && (
-            <div>
-              <h2 className="mb-4 font-semibold text-xl">
-                Recently Rejected Plans ({rejectedPlans.length})
-              </h2>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {rejectedPlans.map((plan) => (
-                  <Card className="border-red-200" key={plan._id}>
-                    <CardHeader>
-                      <div className="mb-2">
-                        <Badge
-                          className="bg-red-100 text-red-800"
-                          variant="secondary"
-                        >
-                          <AlertTriangle className="mr-1 h-3 w-3" />
-                          REJECTED
-                        </Badge>
-                      </div>
-                      <CardTitle className="line-clamp-2 text-lg">
-                        {plan.title || "Untitled Session Plan"}
-                      </CardTitle>
-                      <CardDescription>
-                        By {plan.coachName || "Unknown Coach"} • {plan.teamName}
-                      </CardDescription>
-                      <div className="mt-2 flex items-center gap-3 text-muted-foreground text-sm">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5" />
-                          {formatSharedDate(plan.createdAt)}
-                        </div>
-                        {plan.timesUsed !== undefined && plan.timesUsed > 0 && (
-                          <div>
-                            • {plan.timesUsed} use
-                            {plan.timesUsed !== 1 ? "s" : ""}
-                          </div>
-                        )}
-                      </div>
-                    </CardHeader>
+          {/* Search Bar */}
+          <SearchBar
+            availableFilters={availableFilters}
+            filters={filters}
+            isSearching={isLoading}
+            onChange={(value: string) =>
+              setFilters((prev) => ({ ...prev, search: value }))
+            }
+            onFilterChange={setFilters}
+            placeholder="Search plans by title, coach, or team..."
+            planCount={filteredPlans?.length ?? 0}
+            resultsCount={filteredPlans?.length}
+            value={filters.search}
+          />
+        </div>
 
-                    <CardContent>
-                      {/* Moderation Info */}
-                      <div className="mb-3 rounded-md bg-red-50 p-3 text-sm">
-                        <div className="mb-1 font-medium text-red-900">
-                          Rejected by {plan.moderatedBy}
-                        </div>
-                        <div className="text-red-700">
-                          {plan.moderationNote || "No reason provided"}
-                        </div>
-                        {plan.moderatedAt && (
-                          <div className="mt-1 text-red-600 text-xs">
-                            {new Date(plan.moderatedAt).toLocaleString()}
-                          </div>
-                        )}
-                      </div>
-
-                      <Button
-                        className="w-full"
-                        onClick={() => handleViewPlan(plan._id)}
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Eye className="mr-1.5 h-4 w-4" />
-                        View Details
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
+        {/* Content Area */}
+        <div className="flex-1 p-4 sm:p-6">
+          {/* Results Bar */}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {filteredPlans.length} plan
+                {filteredPlans.length !== 1 ? "s" : ""} found
+              </span>
+              {activeFilterCount > 0 && (
+                <>
+                  <Badge variant="secondary">
+                    {activeFilterCount} filter
+                    {activeFilterCount !== 1 ? "s" : ""} active
+                  </Badge>
+                  <Button
+                    className="h-8 text-xs"
+                    onClick={() => {
+                      setFilters({
+                        search: "",
+                        ageGroups: [],
+                        sports: [],
+                        intensities: [],
+                        skills: [],
+                        categories: [],
+                        favoriteOnly: false,
+                        featuredOnly: false,
+                        templateOnly: false,
+                      });
+                    }}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    Clear filters
+                  </Button>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <SortDropdown onChange={setSortBy} value={sortBy} />
+              {/* View Mode Toggle */}
+              <div className="flex gap-1">
+                <Button
+                  onClick={() => setViewMode("gallery")}
+                  size="sm"
+                  variant={viewMode === "gallery" ? "default" : "outline"}
+                >
+                  <Grid3x3 className="h-4 w-4" />
+                </Button>
+                <Button
+                  onClick={() => setViewMode("list")}
+                  size="sm"
+                  variant={viewMode === "list" ? "default" : "outline"}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
               </div>
             </div>
+          </div>
+
+          {/* Empty State */}
+          {filteredPlans.length === 0 && (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-12">
+                <Shield className="mb-4 h-16 w-16 text-muted-foreground" />
+                <h3 className="mb-2 font-semibold text-lg">
+                  No plans in this category
+                </h3>
+                <p className="text-center text-muted-foreground">
+                  {filterView === "rejected"
+                    ? "No plans have been rejected."
+                    : "When coaches share their session plans with the organization, they will appear here for review."}
+                </p>
+              </CardContent>
+            </Card>
           )}
 
-          {/* Rejection Dialog */}
-          <Dialog onOpenChange={setRejectDialogOpen} open={rejectDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Reject Session Plan</DialogTitle>
-                <DialogDescription>
-                  This plan will be removed from the club library and set back
-                  to private. The coach will be able to see the rejection
-                  reason.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                {selectedPlan && (
-                  <div className="rounded-lg bg-muted p-3">
-                    <div className="font-medium">
-                      {selectedPlan.title || "Untitled Session Plan"}
-                    </div>
-                    <div className="text-muted-foreground text-sm">
-                      By {selectedPlan.coachName}
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <Label
-                    className="mb-2 block"
-                    htmlFor="rejection-reason-dropdown"
-                  >
-                    Reason for Removal{" "}
-                    <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    onValueChange={(value) =>
-                      setRejectionReason(value as typeof rejectionReason)
-                    }
-                    value={rejectionReason}
-                  >
-                    <SelectTrigger id="rejection-reason-dropdown">
-                      <SelectValue placeholder="Select a reason..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="inappropriate">
-                        Inappropriate Content
-                      </SelectItem>
-                      <SelectItem value="safety">Safety Concern</SelectItem>
-                      <SelectItem value="poor-quality">Poor Quality</SelectItem>
-                      <SelectItem value="duplicate">
-                        Duplicate Content
-                      </SelectItem>
-                      <SelectItem value="violates-guidelines">
-                        Violates Guidelines
-                      </SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="mt-1 text-muted-foreground text-xs">
-                    Required - Select the primary reason for removing this plan.
-                  </p>
-                </div>
-
-                <div>
-                  <Label className="mb-2 block" htmlFor="rejection-message">
-                    Additional Message (Optional)
-                  </Label>
-                  <Textarea
-                    id="rejection-message"
-                    onChange={(e) => setRejectionMessage(e.target.value)}
-                    placeholder="Provide additional context or instructions..."
-                    rows={3}
-                    value={rejectionMessage}
+          {/* Gallery View */}
+          {filteredPlans.length > 0 && viewMode === "gallery" && (
+            <Masonry
+              breakpointCols={{ default: 3, 1024: 2, 640: 1 }}
+              className="sm:-ml-4 flex w-auto"
+              columnClassName="sm:pl-4 bg-clip-padding"
+            >
+              {filteredPlans.map((plan) => (
+                <div className="mb-4" key={plan._id}>
+                  <AdminPlanCard
+                    onPinToggle={handlePinToggle}
+                    onReject={handleRejectClick}
+                    onView={handleViewPlan}
+                    plan={plan}
                   />
-                  <p className="mt-1 text-muted-foreground text-xs">
-                    Optional - Add extra details if needed.
-                  </p>
                 </div>
+              ))}
+            </Masonry>
+          )}
 
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    checked={notifyCoach}
-                    id="notify-coach"
-                    onCheckedChange={(checked) =>
-                      setNotifyCoach(checked === true)
-                    }
-                  />
-                  <Label
-                    className="cursor-pointer font-normal text-sm"
-                    htmlFor="notify-coach"
-                  >
-                    Notify coach about this removal
-                  </Label>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  onClick={() => setRejectDialogOpen(false)}
-                  variant="outline"
+          {/* List View */}
+          {filteredPlans.length > 0 && viewMode === "list" && (
+            <div className="space-y-2">
+              {filteredPlans.map((plan) => (
+                <Card
+                  className="cursor-pointer transition-shadow hover:shadow-md"
+                  key={plan._id}
+                  onClick={() => handleViewPlan(plan._id)}
                 >
-                  Cancel
-                </Button>
-                <Button
-                  disabled={!rejectionReason}
-                  onClick={handleRejectConfirm}
-                  variant="destructive"
-                >
-                  Remove Plan
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                  <CardHeader className="py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          <CardTitle className="line-clamp-1 text-base">
+                            {plan.title || "Untitled Session Plan"}
+                          </CardTitle>
+                          {plan.pinnedByAdmin && (
+                            <Badge
+                              className="bg-amber-100 text-amber-800"
+                              variant="secondary"
+                            >
+                              <Star className="mr-1 h-3 w-3 fill-current" />
+                              FEATURED
+                            </Badge>
+                          )}
+                          {plan.moderatedBy && (
+                            <Badge
+                              className="bg-red-100 text-red-800"
+                              variant="secondary"
+                            >
+                              REJECTED
+                            </Badge>
+                          )}
+                        </div>
+                        <CardDescription className="mt-1">
+                          By {plan.coachName || "Unknown Coach"} •{" "}
+                          {plan.teamName}
+                          {plan.ageGroup && ` • ${plan.ageGroup}`}
+                          {plan.duration && ` • ${plan.duration} min`}
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Rejection Dialog */}
+      <Dialog onOpenChange={setRejectDialogOpen} open={rejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Session Plan</DialogTitle>
+            <DialogDescription>
+              This plan will be removed from the club library and set back to
+              private. The coach will be able to see the rejection reason.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {selectedPlan && (
+              <div className="rounded-lg bg-muted p-3">
+                <div className="font-medium">
+                  {selectedPlan.title || "Untitled Session Plan"}
+                </div>
+                <div className="text-muted-foreground text-sm">
+                  By {selectedPlan.coachName}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <Label className="mb-2 block" htmlFor="rejection-reason-dropdown">
+                Reason for Removal <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                onValueChange={(value) =>
+                  setRejectionReason(value as typeof rejectionReason)
+                }
+                value={rejectionReason}
+              >
+                <SelectTrigger id="rejection-reason-dropdown">
+                  <SelectValue placeholder="Select a reason..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inappropriate">
+                    Inappropriate Content
+                  </SelectItem>
+                  <SelectItem value="safety">Safety Concern</SelectItem>
+                  <SelectItem value="poor-quality">Poor Quality</SelectItem>
+                  <SelectItem value="duplicate">Duplicate Content</SelectItem>
+                  <SelectItem value="violates-guidelines">
+                    Violates Guidelines
+                  </SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-muted-foreground text-xs">
+                Required - Select the primary reason for removing this plan.
+              </p>
+            </div>
+
+            <div>
+              <Label className="mb-2 block" htmlFor="rejection-message">
+                Additional Message (Optional)
+              </Label>
+              <Textarea
+                id="rejection-message"
+                onChange={(e) => setRejectionMessage(e.target.value)}
+                placeholder="Provide additional context or instructions..."
+                rows={3}
+                value={rejectionMessage}
+              />
+              <p className="mt-1 text-muted-foreground text-xs">
+                Optional - Add extra details if needed.
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                checked={notifyCoach}
+                id="notify-coach"
+                onCheckedChange={(checked) => setNotifyCoach(checked === true)}
+              />
+              <Label
+                className="cursor-pointer font-normal text-sm"
+                htmlFor="notify-coach"
+              >
+                Notify coach about this removal
+              </Label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => setRejectDialogOpen(false)}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!rejectionReason}
+              onClick={handleRejectConfirm}
+              variant="destructive"
+            >
+              Remove Plan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

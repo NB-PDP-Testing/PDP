@@ -2046,6 +2046,7 @@ export const searchPlans = query({
 
 /**
  * Save a pre-generated plan (for Quick Actions compatibility)
+ * Automatically schedules metadata extraction after saving
  */
 export const savePlan = mutation({
   args: {
@@ -2094,9 +2095,20 @@ export const savePlan = mutation({
       usedInSession: false,
       feedbackSubmitted: false,
       feedbackUsedForTraining: false,
+      creationMethod: args.creationMethod, // Track source: "quick_action" or "session_plans_page"
+      generatedAt: now,
+      usedRealAI: args.usedRealAI ?? false,
       createdAt: now,
       updatedAt: now,
     });
+
+    // Schedule metadata extraction to run asynchronously
+    // This extracts categories, skills, equipment, intensity from the plan content
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.sessionPlans.extractMetadata,
+      { planId }
+    );
 
     return planId;
   },

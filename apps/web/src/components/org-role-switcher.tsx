@@ -30,7 +30,9 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 // Regex for extracting role from pathname (Issue #226)
-const ROLE_PATHNAME_REGEX = /\/orgs\/[^/]+\/(admin|coach|parents|player)/;
+// Must have / or end-of-string after role to avoid matching "players" as "player"
+const ROLE_PATHNAME_REGEX =
+  /\/orgs\/[^/]+\/(admin|coach|parents|player)(?:\/|$)/;
 
 import { ResponsiveDialog } from "@/components/interactions";
 import { Button } from "@/components/ui/button";
@@ -342,6 +344,12 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
       router.push(getRoleDashboardRoute(orgId, role));
     } catch (error) {
       console.error("Error switching role:", error);
+      toast.error("Failed to switch role", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "Please try again or contact support",
+      });
     } finally {
       setSwitching(false);
     }

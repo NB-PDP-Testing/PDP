@@ -1,6 +1,6 @@
 "use client";
 
-import { SlidersHorizontal, Star, TrendingUp, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,6 @@ import {
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Slider } from "@/components/ui/slider";
 import type { AvailableFilters, FilterState } from "./filter-sidebar";
 
 type FilterModalProps = {
@@ -133,80 +132,6 @@ export function FilterModal({
         {/* Scrollable Filters */}
         <ScrollArea className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-6 p-4 sm:p-6">
-            {/* Quick Filters */}
-            <div className="space-y-3">
-              <Label className="font-medium text-sm">Quick Filters</Label>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  checked={filters.favoriteOnly}
-                  id="favorites-modal"
-                  onCheckedChange={(checked) =>
-                    updateFilter({ favoriteOnly: checked === true })
-                  }
-                />
-                <label
-                  className="flex cursor-pointer items-center gap-1.5 font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  htmlFor="favorites-modal"
-                >
-                  <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-                  Favorites
-                </label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  checked={filters.featuredOnly}
-                  id="featured-modal"
-                  onCheckedChange={(checked) =>
-                    updateFilter({ featuredOnly: checked === true })
-                  }
-                />
-                <label
-                  className="flex cursor-pointer items-center gap-1.5 font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  htmlFor="featured-modal"
-                >
-                  <TrendingUp className="h-3.5 w-3.5 text-primary" />
-                  Featured
-                </label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  checked={filters.templateOnly}
-                  id="templates-modal"
-                  onCheckedChange={(checked) =>
-                    updateFilter({ templateOnly: checked === true })
-                  }
-                />
-                <label
-                  className="cursor-pointer font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  htmlFor="templates-modal"
-                >
-                  Templates Only
-                </label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  checked={
-                    filters.minSuccessRate !== undefined &&
-                    filters.minSuccessRate >= 80
-                  }
-                  id="highly-rated-modal"
-                  onCheckedChange={(checked) =>
-                    updateFilter({
-                      minSuccessRate: checked === true ? 80 : undefined,
-                    })
-                  }
-                />
-                <label
-                  className="cursor-pointer font-normal text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  htmlFor="highly-rated-modal"
-                >
-                  Only show highly rated plans (80%+)
-                </label>
-              </div>
-            </div>
-
-            <Separator />
-
             {/* Age Groups */}
             {availableFilters.ageGroups.length > 0 && (
               <>
@@ -320,31 +245,42 @@ export function FilterModal({
             <Separator />
 
             {/* Duration */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="font-medium text-sm">
-                  Duration (minutes)
-                </Label>
-                <span className="text-muted-foreground text-sm">
-                  {filters.minDuration ?? 30} - {filters.maxDuration ?? 120} min
-                </span>
-              </div>
-              <Slider
-                className="w-full"
-                max={120}
-                min={30}
-                onValueCommit={(values) => {
-                  updateFilter({
-                    minDuration: values[0],
-                    maxDuration: values[1],
-                  });
-                }}
-                step={15}
-                value={[filters.minDuration ?? 30, filters.maxDuration ?? 120]}
-              />
-              <div className="flex justify-between text-muted-foreground text-xs">
-                <span>30 min</span>
-                <span>120 min</span>
+            <div className="space-y-3">
+              <Label className="font-medium text-sm">Duration (minutes)</Label>
+              <div className="grid grid-cols-4 gap-2">
+                {[30, 60, 90, 120].map((duration) => {
+                  const isSelected =
+                    filters.minDuration === duration &&
+                    filters.maxDuration === duration;
+                  return (
+                    <Button
+                      className={
+                        isSelected ? "bg-primary text-primary-foreground" : ""
+                      }
+                      key={duration}
+                      onClick={() => {
+                        if (isSelected) {
+                          // Deselect
+                          updateFilter({
+                            minDuration: undefined,
+                            maxDuration: undefined,
+                          });
+                        } else {
+                          // Select this duration
+                          updateFilter({
+                            minDuration: duration,
+                            maxDuration: duration,
+                          });
+                        }
+                      }}
+                      size="sm"
+                      type="button"
+                      variant={isSelected ? "default" : "outline"}
+                    >
+                      {duration} min
+                    </Button>
+                  );
+                })}
               </div>
             </div>
 

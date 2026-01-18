@@ -15,14 +15,14 @@ import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
 import { useAnalytics } from "@/lib/analytics";
 
 type FABQuickActionsProps = {
-  onAssessPlayers: () => void;
-  onGenerateSessionPlan: () => void;
-  onViewAnalytics: () => void;
-  onVoiceNotes: () => void;
-  onInjuries: () => void;
-  onGoals: () => void;
-  onMedical: () => void;
-  onMatchDay: () => void;
+  onAssessPlayers?: () => void;
+  onGenerateSessionPlan?: () => void;
+  onViewAnalytics?: () => void;
+  onVoiceNotes?: () => void;
+  onInjuries?: () => void;
+  onGoals?: () => void;
+  onMedical?: () => void;
+  onMatchDay?: () => void;
 };
 
 /**
@@ -101,7 +101,7 @@ export function FABQuickActions({
         icon: Edit,
         label: "Assess Players",
         title: "Rate player skills & performance",
-        onClick: () => callbacksRef.current.onAssessPlayers(),
+        onClick: () => callbacksRef.current.onAssessPlayers?.(),
         color: "bg-blue-600 hover:bg-blue-700",
       },
       {
@@ -109,7 +109,7 @@ export function FABQuickActions({
         icon: Target,
         label: "Generate Session Plan",
         title: "AI-powered training session",
-        onClick: () => callbacksRef.current.onGenerateSessionPlan(),
+        onClick: () => callbacksRef.current.onGenerateSessionPlan?.(),
         color: "bg-purple-600 hover:bg-purple-700",
       },
       {
@@ -117,7 +117,7 @@ export function FABQuickActions({
         icon: FileText,
         label: "View Analytics",
         title: "Team performance insights",
-        onClick: () => callbacksRef.current.onViewAnalytics(),
+        onClick: () => callbacksRef.current.onViewAnalytics?.(),
         color: "bg-cyan-600 hover:bg-cyan-700",
       },
       {
@@ -125,7 +125,7 @@ export function FABQuickActions({
         icon: Mic,
         label: "Record Voice Note",
         title: "Quick audio observations",
-        onClick: () => callbacksRef.current.onVoiceNotes(),
+        onClick: () => callbacksRef.current.onVoiceNotes?.(),
         color: "bg-green-600 hover:bg-green-700",
       },
       {
@@ -133,7 +133,7 @@ export function FABQuickActions({
         icon: AlertCircle,
         label: "Report Injury",
         title: "Track player injuries",
-        onClick: () => callbacksRef.current.onInjuries(),
+        onClick: () => callbacksRef.current.onInjuries?.(),
         color: "bg-red-600 hover:bg-red-700",
       },
       {
@@ -141,7 +141,7 @@ export function FABQuickActions({
         icon: Heart,
         label: "Manage Goals",
         title: "Development objectives",
-        onClick: () => callbacksRef.current.onGoals(),
+        onClick: () => callbacksRef.current.onGoals?.(),
         color: "bg-pink-600 hover:bg-pink-700",
       },
       {
@@ -149,7 +149,7 @@ export function FABQuickActions({
         icon: Stethoscope,
         label: "View Medical Info",
         title: "Health & emergency details",
-        onClick: () => callbacksRef.current.onMedical(),
+        onClick: () => callbacksRef.current.onMedical?.(),
         color: "bg-amber-600 hover:bg-amber-700",
       },
       {
@@ -157,7 +157,7 @@ export function FABQuickActions({
         icon: Target,
         label: "View Match Day",
         title: "Emergency contacts & info",
-        onClick: () => callbacksRef.current.onMatchDay(),
+        onClick: () => callbacksRef.current.onMatchDay?.(),
         color: "bg-orange-600 hover:bg-orange-700",
       },
     ];

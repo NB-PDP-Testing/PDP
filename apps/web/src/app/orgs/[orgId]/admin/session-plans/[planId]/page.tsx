@@ -3,8 +3,22 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { AlertTriangle, Loader2, Pin, PinOff, Shield, X } from "lucide-react";
-import Link from "next/link";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  CheckCircle,
+  Clock,
+  Dumbbell,
+  Loader2,
+  MoreVertical,
+  Pin,
+  PinOff,
+  Star,
+  ThumbsUp,
+  TrendingUp,
+  Users,
+  X,
+} from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -25,8 +39,75 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { authClient } from "@/lib/auth-client";
+
+// Get gradient based on intensity
+function getIntensityGradient(intensity?: "low" | "medium" | "high"): string {
+  switch (intensity) {
+    case "low":
+      return "from-[#43e97b] to-[#38f9d7]"; // Green
+    case "medium":
+      return "from-[#f093fb] to-[#f5576c]"; // Pink/Red
+    case "high":
+      return "from-[#ff6b6b] to-[#feca57]"; // Red/Orange
+    default:
+      return "from-[#667eea] to-[#764ba2]"; // Purple (default)
+  }
+}
+
+// Get intensity badge color
+function getIntensityColor(intensity?: "low" | "medium" | "high"): string {
+  switch (intensity) {
+    case "low":
+      return "bg-green-100 text-green-800 border-green-200";
+    case "medium":
+      return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    case "high":
+      return "bg-red-100 text-red-800 border-red-200";
+    default:
+      return "bg-gray-100 text-gray-800 border-gray-200";
+  }
+}
+
+// Get visibility badge
+function getVisibilityBadge(visibility?: "private" | "club" | "platform") {
+  switch (visibility) {
+    case "club":
+      return (
+        <Badge className="border border-blue-200 bg-blue-100 text-blue-800">
+          SHARED
+        </Badge>
+      );
+    case "platform":
+      return (
+        <Badge className="border border-purple-200 bg-purple-100 text-purple-800">
+          PLATFORM
+        </Badge>
+      );
+    default:
+      return (
+        <Badge className="border border-gray-200 bg-gray-100 text-gray-800">
+          PRIVATE
+        </Badge>
+      );
+  }
+}
 
 export default function AdminSessionPlanDetailPage() {
   const params = useParams();
@@ -36,21 +117,30 @@ export default function AdminSessionPlanDetailPage() {
 
   const { data: session } = authClient.useSession();
   const userId = session?.user?.id;
-  const userName = session?.user?.name || "Admin";
 
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectionReason, setRejectionReason] = useState<
+    | "inappropriate"
+    | "safety"
+    | "poor-quality"
+    | "duplicate"
+    | "violates-guidelines"
+    | "other"
+    | ""
+  >("");
+  const [rejectionMessage, setRejectionMessage] = useState("");
 
   const plan = useQuery(api.models.sessionPlans.getPlanById, { planId });
 
-  const removeFromClubLibrary = useMutation(
-    api.models.sessionPlans.removeFromClubLibrary
+  const removeFromClubLibraryEnhanced = useMutation(
+    api.models.sessionPlans.removeFromClubLibraryEnhanced
   );
   const pinPlan = useMutation(api.models.sessionPlans.pinPlan);
   const unpinPlan = useMutation(api.models.sessionPlans.unpinPlan);
 
   const handleRejectClick = () => {
     setRejectionReason("");
+    setRejectionMessage("");
     setRejectDialogOpen(true);
   };
 
@@ -59,12 +149,17 @@ export default function AdminSessionPlanDetailPage() {
       return;
     }
 
+    if (!rejectionReason) {
+      toast.error("Please select a reason for removal");
+      return;
+    }
+
     try {
-      await removeFromClubLibrary({
+      await removeFromClubLibraryEnhanced({
         planId,
-        moderatorId: userId,
-        moderatorName: userName,
-        reason: rejectionReason || "No reason provided",
+        reason: rejectionReason,
+        message: rejectionMessage || undefined,
+        notifyCoach: true,
       });
 
       toast.success("Plan removed from club library");
@@ -98,248 +193,351 @@ export default function AdminSessionPlanDetailPage() {
     );
   }
 
+  const intensity = plan?.extractedTags?.intensity;
+  const gradientClass = getIntensityGradient(intensity);
+
+  const isNew =
+    plan._creationTime &&
+    Date.now() - plan._creationTime < 7 * 24 * 60 * 60 * 1000;
+  const isTrending =
+    (plan.timesUsed ?? 0) > 5 &&
+    plan._creationTime &&
+    Date.now() - plan._creationTime < 30 * 24 * 60 * 60 * 1000;
+
   return (
-    <div className="container mx-auto max-w-4xl p-6">
-      <div className="mb-6">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <Link
-              className="mb-2 inline-block text-muted-foreground text-sm hover:text-foreground"
-              href={`/orgs/${orgId}/admin/session-plans`}
-            >
-              ← Back to Session Plans
-            </Link>
-            <div className="mb-2 flex items-center gap-2">
-              <Shield className="h-8 w-8 text-primary" />
-              <h1 className="font-bold text-3xl">{plan.title}</h1>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      {/* Gradient Header */}
+      <div
+        className={`relative overflow-hidden bg-gradient-to-r ${gradientClass} px-6 py-8 text-white shadow-lg`}
+      >
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="-translate-y-32 absolute top-0 right-0 h-64 w-64 translate-x-32 rounded-full bg-white/10 blur-3xl" />
+        <div className="-translate-x-24 absolute bottom-0 left-0 h-48 w-48 translate-y-24 rounded-full bg-white/10 blur-3xl" />
+
+        <div className="relative mx-auto max-w-4xl">
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <Button
+                className="mt-1 shrink-0 border-white/30 bg-white/20 text-white hover:bg-white/30"
+                onClick={() =>
+                  router.push(`/orgs/${orgId}/admin/session-plans`)
+                }
+                size="icon"
+                variant="outline"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  {getVisibilityBadge(plan.visibility)}
+                  {plan.pinnedByAdmin && (
+                    <Badge className="border-amber-300/50 bg-amber-200/80 text-amber-900">
+                      <Star className="mr-1 h-3 w-3 fill-current" />
+                      FEATURED
+                    </Badge>
+                  )}
+                  {plan.moderatedBy && (
+                    <Badge className="border-red-300/50 bg-red-200/80 text-red-900">
+                      <AlertTriangle className="mr-1 h-3 w-3" />
+                      REJECTED
+                    </Badge>
+                  )}
+                  {isNew && !plan.pinnedByAdmin && !plan.moderatedBy && (
+                    <Badge className="border-emerald-300/50 bg-emerald-200/80 text-emerald-900">
+                      NEW
+                    </Badge>
+                  )}
+                  {isTrending && (
+                    <Badge className="border-indigo-300/50 bg-indigo-200/80 text-indigo-900">
+                      <TrendingUp className="mr-1 h-3 w-3" />
+                      TRENDING
+                    </Badge>
+                  )}
+                </div>
+                <h1 className="font-bold text-2xl drop-shadow-sm sm:text-3xl">
+                  {plan.title}
+                </h1>
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-white/90 sm:gap-4">
+                  <span className="flex items-center gap-1.5">
+                    <Users className="h-4 w-4" />
+                    {plan.teamName}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="h-4 w-4" />
+                    {plan.duration} min
+                  </span>
+                  {plan.focusArea && (
+                    <span className="flex items-center gap-1.5">
+                      <Dumbbell className="h-4 w-4" />
+                      {plan.focusArea}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="mt-2 flex items-center gap-4 text-muted-foreground text-sm">
-              <span>{plan.teamName}</span>
-              <span>•</span>
-              <span>{plan.duration} minutes</span>
-              {plan.focusArea && (
-                <>
-                  <span>•</span>
-                  <span>{plan.focusArea}</span>
-                </>
-              )}
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {plan.visibility === "club" && (
-                <Badge
-                  className="bg-blue-100 text-blue-800"
-                  variant="secondary"
-                >
-                  SHARED
-                </Badge>
-              )}
-              {plan.pinnedByAdmin && (
-                <Badge
-                  className="bg-amber-100 text-amber-800"
-                  variant="secondary"
-                >
-                  <Pin className="mr-1 h-3 w-3 fill-current" />
-                  FEATURED
-                </Badge>
-              )}
-              {plan.moderatedBy && (
-                <Badge className="bg-red-100 text-red-800" variant="secondary">
-                  <AlertTriangle className="mr-1 h-3 w-3" />
-                  REJECTED
-                </Badge>
-              )}
-            </div>
+
+            {/* 3-dot menu for admin actions */}
+            {plan.visibility === "club" && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    className="border-white/30 bg-white/20 text-white hover:bg-white/30"
+                    size="icon"
+                    variant="outline"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handlePinToggle}>
+                    {plan.pinnedByAdmin ? (
+                      <>
+                        <PinOff className="mr-2 h-4 w-4" />
+                        Unpin Plan
+                      </>
+                    ) : (
+                      <>
+                        <Pin className="mr-2 h-4 w-4" />
+                        Feature Plan
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-red-600"
+                    onClick={handleRejectClick}
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Remove from Library
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
-          <div className="flex gap-2">
-            {plan.visibility === "club" && (
-              <>
-                <Button
-                  onClick={handlePinToggle}
-                  size="sm"
-                  title={
-                    plan.pinnedByAdmin
-                      ? "Unpin from featured"
-                      : "Pin as featured"
-                  }
-                  variant="outline"
-                >
-                  {plan.pinnedByAdmin ? (
-                    <>
-                      <PinOff className="mr-1.5 h-4 w-4" />
-                      Unpin
-                    </>
-                  ) : (
-                    <>
-                      <Pin className="mr-1.5 h-4 w-4" />
-                      Pin
-                    </>
-                  )}
-                </Button>
-                <Button
-                  onClick={handleRejectClick}
-                  size="sm"
-                  variant="destructive"
-                >
-                  <X className="mr-1.5 h-4 w-4" />
-                  Reject
-                </Button>
-              </>
+          {/* Quick Stats Row */}
+          <div className="mt-4 flex flex-wrap gap-4">
+            {plan.extractedTags?.intensity && (
+              <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-sm backdrop-blur-sm">
+                <span className="font-medium capitalize">
+                  {plan.extractedTags.intensity} Intensity
+                </span>
+              </div>
+            )}
+            {plan.playerCount && (
+              <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-sm backdrop-blur-sm">
+                <Users className="h-4 w-4" />
+                <span>{plan.playerCount} players</span>
+              </div>
+            )}
+            {(plan.likeCount ?? 0) > 0 && (
+              <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-sm backdrop-blur-sm">
+                <ThumbsUp className="h-4 w-4" />
+                <span>{plan.likeCount} likes</span>
+              </div>
+            )}
+            {(plan.timesUsed ?? 0) > 0 && (
+              <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-sm backdrop-blur-sm">
+                <CheckCircle className="h-4 w-4" />
+                <span>Used {plan.timesUsed} times</span>
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Rejection Notice */}
-      {plan.moderatedBy && (
-        <Card className="mb-6 border-red-200 bg-red-50">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-              <CardTitle className="text-red-900">
-                Rejected from Club Library
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div>
-              <div className="mb-1 font-medium text-red-900 text-sm">
-                Reason for Rejection:
-              </div>
-              <div className="text-red-700">
-                {plan.moderationNote || "No reason provided"}
-              </div>
-            </div>
-            <div className="flex items-center justify-between text-red-600 text-sm">
-              <span>Rejected by {plan.moderatedBy}</span>
-              {plan.moderatedAt && (
-                <span>{new Date(plan.moderatedAt).toLocaleDateString()}</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {plan.status === "draft" ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center p-12">
-            <Loader2 className="mb-4 h-16 w-16 animate-spin text-primary" />
-            <h3 className="mb-2 font-semibold text-lg">
-              Generating session plan...
-            </h3>
-            <p className="text-center text-muted-foreground">
-              This usually takes a few seconds. The plan will appear here when
-              ready.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {/* Metadata */}
-          <Card>
+      {/* Main Content */}
+      <div className="container mx-auto max-w-4xl p-6">
+        {/* Rejection Notice */}
+        {plan.moderatedBy && (
+          <Card className="mb-6 border-red-200 bg-red-50">
             <CardHeader>
-              <CardTitle>Session Information</CardTitle>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <CardTitle className="text-red-900">
+                  Rejected from Club Library
+                </CardTitle>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-sm">Coach</span>
-                <span className="font-medium text-sm">{plan.coachName}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-sm">Team</span>
-                <span className="font-medium text-sm">{plan.teamName}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-sm">Players</span>
-                <span className="font-medium text-sm">{plan.playerCount}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-sm">Status</span>
-                <span className="font-medium text-sm">
-                  {plan.usedInSession ? "Used" : "Ready"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-sm">
-                  Visibility
-                </span>
-                <span className="font-medium text-sm">
-                  {plan.visibility === "club" ? "Club Library" : "Private"}
-                </span>
-              </div>
-              {plan.timesUsed !== undefined && plan.timesUsed > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">
-                    Times Used
-                  </span>
-                  <span className="font-medium text-sm">{plan.timesUsed}</span>
+            <CardContent className="space-y-3">
+              <div>
+                <div className="mb-1 font-medium text-red-900 text-sm">
+                  Reason for Rejection:
                 </div>
-              )}
-              {plan.successRate !== undefined && plan.successRate > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">
-                    Success Rate
-                  </span>
-                  <span className="font-medium text-sm">
-                    {plan.successRate}%
-                  </span>
+                <div className="text-red-700">
+                  {plan.moderationNote || "No reason provided"}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Content */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Session Plan</CardTitle>
-              <CardDescription>
-                AI-generated training session structure
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <pre className="whitespace-pre-wrap font-sans">
-                  {plan.rawContent}
-                </pre>
+              </div>
+              <div className="flex items-center justify-between text-red-600 text-sm">
+                <span>Rejected by {plan.moderatedBy}</span>
+                {plan.moderatedAt && (
+                  <span>{new Date(plan.moderatedAt).toLocaleDateString()}</span>
+                )}
               </div>
             </CardContent>
           </Card>
+        )}
 
-          {/* Sections */}
-          {plan.sections && plan.sections.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Session Structure</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {plan.sections.map((section) => (
-                  <div
-                    className="border-primary border-l-4 pl-4"
-                    key={section.id}
-                  >
-                    <div className="mb-2 flex items-center justify-between">
-                      <h3 className="font-semibold">{section.title}</h3>
-                      <span className="text-muted-foreground text-sm">
-                        {section.duration} min
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {section.activities.map((activity) => (
-                        <div className="text-sm" key={activity.id}>
-                          <div className="font-medium">{activity.name}</div>
-                          <div className="text-muted-foreground">
-                            {activity.description}
-                          </div>
+        {plan.status === "draft" ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center p-12">
+              <Loader2 className="mb-4 h-16 w-16 animate-spin text-primary" />
+              <h3 className="mb-2 font-semibold text-lg">
+                Generating session plan...
+              </h3>
+              <p className="text-center text-muted-foreground">
+                This usually takes a few seconds. The plan will appear here when
+                ready.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {/* Tags/Skills Section */}
+            {(plan.extractedTags?.skills?.length ?? 0) > 0 ||
+            (plan.extractedTags?.categories?.length ?? 0) > 0 ||
+            (plan.extractedTags?.equipment?.length ?? 0) > 0 ? (
+              <Card className="border-0 bg-gradient-to-br from-slate-50 to-gray-50/50 shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Tags & Skills</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {plan.extractedTags?.skills &&
+                    plan.extractedTags.skills.length > 0 && (
+                      <div>
+                        <div className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                          Skills Focus
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                        <div className="flex flex-wrap gap-2">
+                          {plan.extractedTags.skills.map((skill) => (
+                            <Badge
+                              className={`border ${getIntensityColor(intensity)}`}
+                              key={skill}
+                              variant="outline"
+                            >
+                              {skill}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  {plan.extractedTags?.categories &&
+                    plan.extractedTags.categories.length > 0 && (
+                      <div>
+                        <div className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                          Categories
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {plan.extractedTags.categories.map((cat) => (
+                            <Badge
+                              className="border-slate-200 bg-slate-100 text-slate-700"
+                              key={cat}
+                              variant="outline"
+                            >
+                              {cat}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  {plan.extractedTags?.equipment &&
+                    plan.extractedTags.equipment.length > 0 && (
+                      <div>
+                        <div className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                          Equipment Needed
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {plan.extractedTags.equipment.map((eq) => (
+                            <Badge
+                              className="border-amber-200 bg-amber-50 text-amber-800"
+                              key={eq}
+                              variant="outline"
+                            >
+                              {eq}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {/* Content - Main Session Plan */}
+            <Card className="overflow-hidden border-0 shadow-md">
+              <CardHeader
+                className={`bg-gradient-to-r ${gradientClass} text-white`}
+              >
+                <CardTitle className="text-lg">Session Plan</CardTitle>
+                <CardDescription className="text-white/80">
+                  AI-generated training session structure
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-4 font-sans text-[15px] leading-relaxed">
+                    {plan.rawContent}
+                  </pre>
+                </div>
               </CardContent>
             </Card>
-          )}
-        </div>
-      )}
+
+            {/* Sections */}
+            {plan.sections && plan.sections.length > 0 && (
+              <Card className="border-0 shadow-sm">
+                <CardHeader>
+                  <CardTitle>Session Structure</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {plan.sections.map((section, index) => {
+                    const sectionColors = [
+                      "border-l-green-500 bg-green-50/50",
+                      "border-l-blue-500 bg-blue-50/50",
+                      "border-l-purple-500 bg-purple-50/50",
+                      "border-l-orange-500 bg-orange-50/50",
+                      "border-l-pink-500 bg-pink-50/50",
+                    ];
+                    const colorClass =
+                      sectionColors[index % sectionColors.length];
+
+                    return (
+                      <div
+                        className={`rounded-lg border-l-4 p-4 ${colorClass}`}
+                        key={section.id}
+                      >
+                        <div className="mb-3 flex items-center justify-between">
+                          <h3 className="font-semibold text-lg">
+                            {section.title}
+                          </h3>
+                          <Badge variant="outline">
+                            {section.duration} min
+                          </Badge>
+                        </div>
+                        <div className="space-y-3">
+                          {section.activities.map((activity) => (
+                            <div
+                              className="rounded-md bg-white p-3 shadow-sm"
+                              key={activity.id}
+                            >
+                              <div className="mb-1 font-medium">
+                                {activity.name}
+                              </div>
+                              <div className="text-muted-foreground text-sm">
+                                {activity.description}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Rejection Dialog */}
       <Dialog onOpenChange={setRejectDialogOpen} open={rejectDialogOpen}>
@@ -353,7 +551,7 @@ export default function AdminSessionPlanDetailPage() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
+            <div className="rounded-lg bg-muted p-3">
               <div className="font-medium">
                 {plan.title || "Untitled Session Plan"}
               </div>
@@ -363,21 +561,49 @@ export default function AdminSessionPlanDetailPage() {
             </div>
 
             <div>
-              <label
-                className="mb-2 block font-medium text-sm"
-                htmlFor="rejection-reason"
-              >
-                Reason for Rejection
-              </label>
-              <Textarea
-                id="rejection-reason"
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Please provide a reason for rejecting this plan..."
-                rows={4}
+              <Label className="mb-2 block" htmlFor="rejection-reason-dropdown">
+                Reason for Removal <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                onValueChange={(value) =>
+                  setRejectionReason(value as typeof rejectionReason)
+                }
                 value={rejectionReason}
+              >
+                <SelectTrigger id="rejection-reason-dropdown">
+                  <SelectValue placeholder="Select a reason..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inappropriate">
+                    Inappropriate Content
+                  </SelectItem>
+                  <SelectItem value="safety">Safety Concern</SelectItem>
+                  <SelectItem value="poor-quality">Poor Quality</SelectItem>
+                  <SelectItem value="duplicate">Duplicate Content</SelectItem>
+                  <SelectItem value="violates-guidelines">
+                    Violates Guidelines
+                  </SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-muted-foreground text-xs">
+                Required - Select the primary reason for removing this plan.
+              </p>
+            </div>
+
+            <div>
+              <Label className="mb-2 block" htmlFor="rejection-message">
+                Additional Message (Optional)
+              </Label>
+              <Textarea
+                id="rejection-message"
+                onChange={(e) => setRejectionMessage(e.target.value)}
+                placeholder="Provide additional context or instructions..."
+                rows={3}
+                value={rejectionMessage}
               />
               <p className="mt-1 text-muted-foreground text-xs">
-                This message will be visible to the coach who created the plan.
+                Optional - Add extra details if needed.
               </p>
             </div>
           </div>
@@ -389,8 +615,12 @@ export default function AdminSessionPlanDetailPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleRejectConfirm} variant="destructive">
-              Reject Plan
+            <Button
+              disabled={!rejectionReason}
+              onClick={handleRejectConfirm}
+              variant="destructive"
+            >
+              Remove Plan
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,95 +1,72 @@
 "use client";
 
-import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
+  Clock,
+  Eye,
+  MoreVertical,
+  Pin,
+  PinOff,
   Star,
   ThumbsDown,
   ThumbsUp,
-  Trash2,
   TrendingUp,
+  X,
 } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-type TemplateCardProps = {
+type AdminPlanCardProps = {
   plan: {
     _id: Id<"sessionPlans">;
     title?: string;
     coachName?: string;
+    teamName: string;
     duration?: number;
     ageGroup?: string;
     sport?: string;
+    visibility?: "private" | "club" | "platform";
+    pinnedByAdmin?: boolean;
+    moderatedBy?: string;
+    moderatedAt?: number;
+    moderationNote?: string;
+    createdAt: number;
+    timesUsed?: number;
+    successRate?: number;
+    status?: string;
+    likeCount?: number;
+    dislikeCount?: number;
     extractedTags?: {
       categories: string[];
       skills: string[];
       equipment: string[];
       intensity?: "low" | "medium" | "high";
     };
-    successRate?: number;
-    timesUsed?: number;
-    favorited?: boolean;
-    pinnedByAdmin?: boolean;
-    createdAt: number;
-    visibility?: "private" | "club" | "platform";
-    moderatedBy?: string;
-    moderatedAt?: number;
-    moderationNote?: string;
-    likeCount?: number;
-    dislikeCount?: number;
   };
   onView: (planId: Id<"sessionPlans">) => void;
-  onToggleFavorite: (planId: Id<"sessionPlans">) => void;
-  onDelete?: (planId: Id<"sessionPlans">) => void;
+  onPinToggle: (planId: Id<"sessionPlans">, isPinned: boolean) => void;
+  onReject: (planId: Id<"sessionPlans">) => void;
 };
 
-export function TemplateCard({
+export function AdminPlanCard({
   plan,
   onView,
-  onToggleFavorite,
-  onDelete,
-}: TemplateCardProps) {
-  // Delete confirmation state
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  // Voting hooks
-  const userVote = useQuery(api.models.sessionPlans.getUserVote, {
-    planId: plan._id,
-  });
-  const votePlan = useMutation(api.models.sessionPlans.votePlan);
-
-  const handleVote = async (
-    voteType: "like" | "dislike",
-    e: React.MouseEvent
-  ) => {
-    e.stopPropagation();
-    try {
-      // If already voted the same way, remove vote
-      const newVoteType = userVote === voteType ? "none" : voteType;
-      await votePlan({ planId: plan._id, voteType: newVoteType });
-    } catch (error) {
-      console.error("Failed to vote:", error);
-      toast.error("Failed to record your vote");
-    }
-  };
-
+  onPinToggle,
+  onReject,
+}: AdminPlanCardProps) {
   const isNew = Date.now() - plan.createdAt < 7 * 24 * 60 * 60 * 1000; // 7 days
   const isTrending =
     (plan.timesUsed ?? 0) > 5 &&
-    Date.now() - plan.createdAt < 30 * 24 * 60 * 60 * 1000; // Used 5+ times in last 30 days
+    Date.now() - plan.createdAt < 30 * 24 * 60 * 60 * 1000;
   const isModerated = !!plan.moderatedBy;
 
   const getIntensityColor = (intensity?: "low" | "medium" | "high") => {
@@ -124,10 +101,13 @@ export function TemplateCard({
     if (plan.pinnedByAdmin) {
       return "bg-gradient-to-br from-amber-50/50 to-yellow-50/30"; // Featured - gold tint
     }
+    if (isModerated) {
+      return "bg-gradient-to-br from-red-50/50 to-rose-50/30"; // Rejected - red tint
+    }
     if (plan.visibility === "club") {
       return "bg-gradient-to-br from-[#667eea]/5 to-[#764ba2]/5"; // Shared - purple tint
     }
-    return "bg-gradient-to-br from-slate-50/50 to-gray-50/30"; // Private - subtle gray
+    return "bg-gradient-to-br from-slate-50/50 to-gray-50/30"; // Default - subtle gray
   };
 
   const getVisibilityBadge = () => {
@@ -155,6 +135,28 @@ export function TemplateCard({
     }
   };
 
+  // Format date as "Shared X days ago"
+  const formatSharedDate = (timestamp: number) => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+    if (days === 0) {
+      return "Shared today";
+    }
+    if (days === 1) {
+      return "Shared yesterday";
+    }
+    if (days < 7) {
+      return `Shared ${days} days ago`;
+    }
+    if (days < 30) {
+      const weeks = Math.floor(days / 7);
+      return `Shared ${weeks} week${weeks !== 1 ? "s" : ""} ago`;
+    }
+    const months = Math.floor(days / 30);
+    return `Shared ${months} month${months !== 1 ? "s" : ""} ago`;
+  };
+
   // Handle card click
   const handleCardClick = () => {
     onView(plan._id);
@@ -165,7 +167,7 @@ export function TemplateCard({
 
   return (
     <Card
-      className={`group relative flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:shadow-lg hover:ring-2 hover:ring-primary/20 active:scale-[0.98] active:ring-primary/40 ${cardBackground}`}
+      className={`group relative flex h-full cursor-pointer flex-col overflow-hidden transition-all hover:shadow-lg hover:ring-2 hover:ring-primary/20 active:scale-[0.98] ${cardBackground}`}
       onClick={handleCardClick}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -176,7 +178,7 @@ export function TemplateCard({
       role="button"
       tabIndex={0}
     >
-      {/* Gradient top border - Option A */}
+      {/* Gradient top border */}
       <div className={`h-1 w-full bg-gradient-to-r ${intensityGradient}`} />
 
       {/* Header with badges */}
@@ -193,7 +195,7 @@ export function TemplateCard({
                 FEATURED
               </Badge>
             )}
-            {isNew && (
+            {isNew && !plan.pinnedByAdmin && !isModerated && (
               <Badge
                 className="bg-emerald-100 text-emerald-800"
                 variant="secondary"
@@ -213,33 +215,87 @@ export function TemplateCard({
             {isModerated && (
               <Badge className="bg-red-100 text-red-800" variant="secondary">
                 <AlertTriangle className="mr-1 h-3 w-3" />
-                REMOVED
+                REJECTED
               </Badge>
             )}
           </div>
 
-          {/* Favorite button */}
-          <button
-            className="ml-auto transition-colors hover:text-yellow-500"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleFavorite(plan._id);
-            }}
-            type="button"
-          >
-            <Star
-              className={`h-5 w-5 ${
-                plan.favorited
-                  ? "fill-yellow-500 text-yellow-500"
-                  : "text-muted-foreground"
-              }`}
-            />
-          </button>
+          {/* 3-dot menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={(e) => e.stopPropagation()}
+                size="icon"
+                variant="ghost"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onView(plan._id);
+                }}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                View Full Plan
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPinToggle(plan._id, !!plan.pinnedByAdmin);
+                }}
+              >
+                {plan.pinnedByAdmin ? (
+                  <>
+                    <PinOff className="mr-2 h-4 w-4" />
+                    Unpin Plan
+                  </>
+                ) : (
+                  <>
+                    <Pin className="mr-2 h-4 w-4" />
+                    Feature Plan
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReject(plan._id);
+                }}
+              >
+                <X className="mr-2 h-4 w-4" />
+                Remove from Library
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <CardTitle className="line-clamp-2 text-lg">
           {plan.title || "Untitled Session Plan"}
         </CardTitle>
+
+        <div className="mt-2 text-muted-foreground text-sm">
+          By {plan.coachName || "Unknown Coach"} • {plan.teamName}
+        </div>
+
+        <div className="mt-2 flex items-center gap-3 text-muted-foreground text-sm">
+          <div className="flex items-center gap-1">
+            <Clock className="h-3.5 w-3.5" />
+            {formatSharedDate(plan.createdAt)}
+          </div>
+          {plan.timesUsed !== undefined && plan.timesUsed > 0 && (
+            <div>
+              • {plan.timesUsed} use
+              {plan.timesUsed !== 1 ? "s" : ""}
+            </div>
+          )}
+        </div>
       </CardHeader>
 
       {/* Content */}
@@ -301,108 +357,18 @@ export function TemplateCard({
           </div>
         )}
 
-        {/* Creator */}
-        <div className="mt-auto mb-3 text-muted-foreground text-sm">
-          <span>By {plan.coachName || "Unknown Coach"}</span>
-        </div>
-
-        {/* YouTube-style Like/Dislike - visible like count, hidden dislike */}
-        <div className="flex items-center justify-between gap-3 border-t pt-3">
-          <div className="flex items-center gap-3">
-            {/* Like button */}
-            <button
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-all ${
-                userVote === "like"
-                  ? "bg-green-100 font-medium text-green-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-green-50 hover:text-green-600"
-              }`}
-              onClick={(e) => handleVote("like", e)}
-              title="I found this helpful"
-              type="button"
-            >
-              <ThumbsUp
-                className={`h-4 w-4 ${userVote === "like" ? "fill-current" : ""}`}
-              />
-              <span>{plan.likeCount || 0}</span>
-            </button>
-
-            {/* Dislike button (no count shown - YouTube style) */}
-            <button
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-all ${
-                userVote === "dislike"
-                  ? "bg-red-100 font-medium text-red-700"
-                  : "bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600"
-              }`}
-              onClick={(e) => handleVote("dislike", e)}
-              title="Not helpful"
-              type="button"
-            >
-              <ThumbsDown
-                className={`h-4 w-4 ${userVote === "dislike" ? "fill-current" : ""}`}
-              />
-            </button>
+        {/* Thumbs Up / Thumbs Down */}
+        <div className="mt-auto flex items-center gap-4 border-t pt-3 text-sm">
+          <div className="flex items-center gap-1.5 text-green-600">
+            <ThumbsUp className="h-4 w-4" />
+            <span className="font-medium">{plan.likeCount ?? 0}</span>
           </div>
-
-          {/* Delete button */}
-          {onDelete && (
-            <button
-              className="rounded-full p-1.5 text-gray-400 transition-all hover:bg-red-50 hover:text-red-600"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDeleteConfirm(true);
-              }}
-              title="Delete session plan"
-              type="button"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
+          <div className="flex items-center gap-1.5 text-red-500">
+            <ThumbsDown className="h-4 w-4" />
+            <span className="font-medium">{plan.dislikeCount ?? 0}</span>
+          </div>
         </div>
       </CardContent>
-
-      {/* Delete Confirmation Dialog */}
-      {onDelete && (
-        <Dialog
-          onOpenChange={(open) => setShowDeleteConfirm(open)}
-          open={showDeleteConfirm}
-        >
-          <DialogContent
-            className="sm:max-w-sm"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <DialogHeader>
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-                  <Trash2 className="h-5 w-5 text-red-600" />
-                </div>
-                <DialogTitle>Delete Session Plan?</DialogTitle>
-              </div>
-              <DialogDescription>
-                Are you sure you want to delete "
-                {plan.title || "Untitled Session Plan"}"? This action cannot be
-                undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                onClick={() => setShowDeleteConfirm(false)}
-                variant="outline"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowDeleteConfirm(false);
-                  onDelete(plan._id);
-                }}
-                variant="destructive"
-              >
-                Delete
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </Card>
   );
 }

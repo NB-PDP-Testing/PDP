@@ -2,20 +2,29 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
+  Brain,
+  Download,
+  FileText,
   Grid3x3,
   List,
   Loader2,
+  MessageCircle,
   Plus,
+  Save,
+  Share,
+  Share2,
   TrendingUp,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Masonry from "react-masonry-css";
 import { toast } from "sonner";
+import { FABQuickActions } from "@/components/quick-actions/fab-variant";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +35,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { generateSessionPlan } from "@/lib/ai-service";
 import { authClient } from "@/lib/auth-client";
+import {
+  downloadPDF,
+  generateSessionPlanPDF,
+  shareViaNative,
+  shareViaWhatsApp,
+} from "@/lib/pdf-generator";
+import { cn } from "@/lib/utils";
 import { EmptyState } from "./empty-state";
 import type { AvailableFilters, FilterState } from "./filter-sidebar";
 import { QuickAccessCards } from "./quick-access-cards";
@@ -193,8 +211,109 @@ export default function SessionPlansPage() {
     userId ? { organizationId: orgId, coachId: userId } : "skip"
   );
 
+  // Fetch coach's teams for session plan generation
+  const coachAssignments = useQuery(
+    api.models.coaches.getCoachAssignmentsWithTeams,
+    userId ? { userId, organizationId: orgId } : "skip"
+  );
+
+  // Get the first team from coach assignments
+  const firstTeam = coachAssignments?.teams?.[0];
+
+  // Fetch players for the first team (for session plan generation)
+  const teamPlayers = useQuery(
+    api.models.teamPlayerIdentities.getPlayersForTeam,
+    firstTeam ? { teamId: firstTeam.teamId } : "skip"
+  );
+
+  // Convex client for mutations
+  const convex = useConvex();
+
   // Mutations
   const toggleFavorite = useMutation(api.models.sessionPlans.toggleFavorite);
+  const deletePlan = useMutation(api.models.sessionPlans.deletePlan);
+
+  // Session plan modal state (same as Overview page)
+  const [showSessionPlan, setShowSessionPlan] = useState(false);
+  const [sessionPlan, setSessionPlan] = useState("");
+  const [loadingSessionPlan, setLoadingSessionPlan] = useState(false);
+  const [currentPlanId, setCurrentPlanId] = useState<Id<"sessionPlans"> | null>(
+    null
+  );
+  const [showShareModal, setShowShareModal] = useState(false);
+  const _isMobile = useMediaQuery("(max-width: 640px)");
+
+  // Handle session plan generation (same as Overview page)
+  const handleGenerateSessionPlan = useCallback(async () => {
+    if (!(firstTeam && teamPlayers)) {
+      toast.error("No team data available", {
+        description:
+          "Please make sure you have at least one team with players.",
+      });
+      return;
+    }
+
+    setLoadingSessionPlan(true);
+    setShowSessionPlan(true);
+
+    try {
+      // Note: Quick action doesn't have full skill data - AI will generate based on team basics
+      // For detailed skill-based plans, use the full generator at /new
+      const avgSkillLevel = 0; // Not available in quick action
+      const strengths: { skill: string; avg: number }[] = [];
+      const weaknesses: { skill: string; avg: number }[] = [];
+
+      const teamDataForAI = {
+        teamName: firstTeam.teamName,
+        playerCount: teamPlayers.length,
+        ageGroup: firstTeam.ageGroup || teamPlayers[0]?.ageGroup || "U12",
+        avgSkillLevel,
+        strengths,
+        weaknesses,
+        attendanceIssues: 0,
+        overdueReviews: 0,
+      };
+
+      const teamDataForDB = {
+        organizationId: orgId, // CRITICAL: Include org ID so plan appears in library
+        playerCount: teamPlayers.length,
+        ageGroup: firstTeam.ageGroup || teamPlayers[0]?.ageGroup || "U12",
+        avgSkillLevel,
+        strengths,
+        weaknesses,
+        attendanceIssues: 0,
+        overdueReviews: 0,
+      };
+
+      // Generate plan with AI
+      const focus = weaknesses.length > 0 ? weaknesses[0].skill : undefined;
+      const plan = await generateSessionPlan(teamDataForAI, focus);
+
+      setSessionPlan(plan);
+
+      // Save plan to database
+      const planId = await convex.mutation(api.models.sessionPlans.savePlan, {
+        teamId: firstTeam.teamId,
+        teamName: firstTeam.teamName,
+        sessionPlan: plan,
+        focus,
+        teamData: teamDataForDB,
+        usedRealAI: true,
+        creationMethod: "quick_action",
+      });
+
+      setCurrentPlanId(planId);
+      toast.success("Session plan generated!", {
+        description: "Your AI-powered training plan is ready.",
+      });
+    } catch (error) {
+      console.error("Error generating session plan:", error);
+      setSessionPlan("Error generating session plan. Please try again.");
+      toast.error("Failed to generate session plan");
+    } finally {
+      setLoadingSessionPlan(false);
+    }
+  }, [firstTeam, teamPlayers, convex, orgId]);
 
   // Calculate available filters from all plans
   const availableFilters: AvailableFilters = useMemo(() => {
@@ -271,6 +390,20 @@ export default function SessionPlansPage() {
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
       toast.error("Failed to update favorite");
+    }
+  };
+
+  const handleDeletePlan = async (planId: Id<"sessionPlans">) => {
+    try {
+      await deletePlan({ planId });
+      toast.success("Session plan deleted", {
+        description: "The plan has been permanently removed.",
+      });
+    } catch (error) {
+      console.error("Failed to delete plan:", error);
+      toast.error("Failed to delete session plan", {
+        description: "Please try again or contact support.",
+      });
     }
   };
 
@@ -375,6 +508,9 @@ export default function SessionPlansPage() {
 
   return (
     <div className="min-w-0 max-w-full overflow-hidden">
+      {/* FAB Quick Actions - Uses inline modal same as Overview page */}
+      <FABQuickActions onGenerateSessionPlan={handleGenerateSessionPlan} />
+
       {/* Main Content */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Header */}
@@ -608,6 +744,7 @@ export default function SessionPlansPage() {
                       {filteredPlans.map((plan) => (
                         <div className="mb-4" key={plan._id}>
                           <TemplateCard
+                            onDelete={handleDeletePlan}
                             onToggleFavorite={handleToggleFavorite}
                             onView={handlePreview}
                             plan={plan}
@@ -926,6 +1063,277 @@ export default function SessionPlansPage() {
           </div>
         </Tabs>
       </div>
+
+      {/* Share Plan Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-2 md:p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Share className="text-blue-600" size={20} />
+                  Share Practice Plan
+                </CardTitle>
+                <Button
+                  onClick={() => setShowShareModal(false)}
+                  size="icon"
+                  variant="ghost"
+                >
+                  ×
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Primary Action - Download */}
+              <Button
+                className="h-12 w-full bg-blue-600 font-semibold text-base transition-colors hover:bg-blue-700"
+                onClick={async () => {
+                  try {
+                    const pdfBlob = await generateSessionPlanPDF({
+                      teamName: firstTeam?.teamName || "Team",
+                      sessionPlan,
+                      sport: "GAA Football",
+                      ageGroup: firstTeam?.ageGroup || "U12",
+                      playerCount: teamPlayers?.length || 0,
+                      generatedBy: "ai",
+                    });
+                    await downloadPDF(
+                      pdfBlob,
+                      `${firstTeam?.teamName || "Team"}_Session_Plan.pdf`
+                    );
+                    toast.success("PDF Downloaded!", {
+                      description: "Session plan saved to your device",
+                    });
+                    setShowShareModal(false);
+                  } catch (error) {
+                    console.error("Error downloading PDF:", error);
+                    toast.error("Failed to download PDF");
+                  }
+                }}
+              >
+                <Download size={20} />
+                Download as PDF
+              </Button>
+
+              {/* Secondary Actions - Quick Share */}
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  className="w-full bg-green-600 font-medium transition-colors hover:bg-green-700"
+                  onClick={async () => {
+                    try {
+                      const pdfBlob = await generateSessionPlanPDF({
+                        teamName: firstTeam?.teamName || "Team",
+                        sessionPlan,
+                        sport: "GAA Football",
+                        ageGroup: firstTeam?.ageGroup || "U12",
+                        playerCount: teamPlayers?.length || 0,
+                        generatedBy: "ai",
+                      });
+                      await shareViaWhatsApp(
+                        pdfBlob,
+                        firstTeam?.teamName || "Team"
+                      );
+                      toast.success("Opening WhatsApp...", {
+                        description: "Select a chat to share the plan",
+                      });
+                      setShowShareModal(false);
+                    } catch (error) {
+                      console.error("Error sharing via WhatsApp:", error);
+                      toast.error("Failed to open WhatsApp");
+                    }
+                  }}
+                >
+                  <MessageCircle size={18} />
+                  WhatsApp
+                </Button>
+
+                <Button
+                  className="w-full bg-gray-700 font-medium transition-colors hover:bg-gray-800"
+                  onClick={async () => {
+                    try {
+                      const pdfBlob = await generateSessionPlanPDF({
+                        teamName: firstTeam?.teamName || "Team",
+                        sessionPlan,
+                        sport: "GAA Football",
+                        ageGroup: firstTeam?.ageGroup || "U12",
+                        playerCount: teamPlayers?.length || 0,
+                        generatedBy: "ai",
+                      });
+                      await shareViaNative(
+                        pdfBlob,
+                        firstTeam?.teamName || "Team"
+                      );
+                      toast.success("Share sheet opened!");
+                      setShowShareModal(false);
+                    } catch (error) {
+                      console.error("Error using native share:", error);
+                      toast.error("Native sharing not supported", {
+                        description: "Please download the PDF instead.",
+                      });
+                    }
+                  }}
+                >
+                  <Share2 size={18} />
+                  Share...
+                </Button>
+              </div>
+
+              {/* Tip */}
+              <p className="text-center text-muted-foreground text-xs">
+                💡 Share with your team via WhatsApp or messaging apps
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Session Plan Modal - Same as Overview page */}
+      {showSessionPlan && (
+        <div
+          aria-describedby="session-plan-description"
+          aria-labelledby="session-plan-title"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
+          role="dialog"
+        >
+          {/* Mobile: Full-screen sheet from bottom | Desktop: Centered modal */}
+          <div
+            className={cn(
+              "flex flex-col overflow-hidden bg-background shadow-2xl",
+              // Desktop: centered modal with max width
+              "sm:max-h-[90vh] sm:w-full sm:max-w-3xl sm:rounded-lg",
+              // Mobile: full-screen sheet
+              "max-sm:h-full max-sm:w-full max-sm:rounded-none"
+            )}
+          >
+            <div className="flex h-full flex-col overflow-hidden">
+              <CardHeader
+                className={cn(
+                  "sticky top-0 z-10 flex-shrink-0 border-b bg-background",
+                  "max-sm:px-3 max-sm:py-2",
+                  "sm:px-6 sm:py-4"
+                )}
+              >
+                <div className="flex items-start gap-2">
+                  {/* Close button - left on mobile, right on desktop */}
+                  <Button
+                    aria-label="Close session plan"
+                    className={cn(
+                      "h-8 w-8 flex-shrink-0",
+                      "max-sm:order-first",
+                      "sm:order-last sm:h-9 sm:w-9"
+                    )}
+                    onClick={() => setShowSessionPlan(false)}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <X size={18} />
+                  </Button>
+
+                  <div className="min-w-0 flex-1">
+                    <CardTitle
+                      className="flex items-center gap-2 text-base leading-tight sm:text-lg md:text-xl"
+                      id="session-plan-title"
+                    >
+                      <FileText
+                        className="flex-shrink-0 text-green-600"
+                        size={20}
+                      />
+                      <span className="line-clamp-1">
+                        AI Training Session Plan
+                      </span>
+                    </CardTitle>
+                    <p
+                      className="mt-1 text-muted-foreground text-xs leading-snug sm:text-sm"
+                      id="session-plan-description"
+                    >
+                      {firstTeam
+                        ? `Generated for ${firstTeam.teamName}`
+                        : "Personalized for your team's needs"}
+                    </p>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent
+                className={cn(
+                  "flex-1 overflow-y-auto",
+                  "max-sm:px-3 max-sm:py-2",
+                  "sm:px-6 sm:py-4"
+                )}
+              >
+                {loadingSessionPlan ? (
+                  <div className="py-8 text-center md:py-12">
+                    <Brain
+                      className="mx-auto mb-4 animate-pulse text-green-600"
+                      size={40}
+                    />
+                    <p className="text-muted-foreground text-sm md:text-base">
+                      AI is generating your personalized training session
+                      plan...
+                    </p>
+                    <p className="mt-2 text-muted-foreground text-xs opacity-75 md:text-sm">
+                      This may take a few moments
+                    </p>
+                  </div>
+                ) : (
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <div className="whitespace-pre-wrap text-[15px] leading-relaxed md:text-base">
+                      {sessionPlan}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+              {!loadingSessionPlan && (
+                <div
+                  className={cn(
+                    "sticky bottom-0 z-10 flex-shrink-0 border-t bg-background shadow-[0_-4px_12px_rgba(0,0,0,0.08)]",
+                    "max-sm:px-3 max-sm:py-3 max-sm:pb-safe",
+                    "sm:px-6 sm:py-4"
+                  )}
+                >
+                  {/* Action Buttons */}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+                    <Button
+                      className="flex h-10 w-full items-center justify-center gap-2 bg-blue-600 font-medium text-sm shadow-sm transition-colors hover:bg-blue-700 sm:flex-1 md:text-base"
+                      onClick={() => setShowShareModal(true)}
+                    >
+                      <Share2 className="flex-shrink-0" size={18} />
+                      <span>Share Plan</span>
+                    </Button>
+                    <Button
+                      className="flex h-10 w-full items-center justify-center gap-2 bg-green-600 font-medium text-sm shadow-sm transition-colors hover:bg-green-700 sm:flex-1 md:text-base"
+                      onClick={() => handleGenerateSessionPlan()}
+                    >
+                      <Brain className="flex-shrink-0" size={18} />
+                      <span>Regenerate Plan</span>
+                    </Button>
+                    {currentPlanId && (
+                      <Button
+                        className="flex h-10 w-full items-center justify-center gap-2 bg-purple-600 font-medium text-sm shadow-sm transition-colors hover:bg-purple-700 sm:flex-1 md:text-base"
+                        onClick={() => {
+                          router.push(
+                            `/orgs/${orgId}/coach/session-plans/${currentPlanId}`
+                          );
+                          setShowSessionPlan(false);
+                        }}
+                      >
+                        <Save className="flex-shrink-0" size={18} />
+                        <span>Save Plan</span>
+                      </Button>
+                    )}
+                    <Button
+                      className="h-10 w-full bg-gray-600 font-medium text-sm shadow-sm transition-colors hover:bg-gray-700 sm:flex-1 md:text-base"
+                      onClick={() => setShowSessionPlan(false)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

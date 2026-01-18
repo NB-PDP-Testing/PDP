@@ -691,7 +691,7 @@ export function SmartCoachDashboard({
 
         setSessionPlan(plan);
 
-        // Save plan to database
+        // Save plan to database - marked as quick_action for library filtering
         const planId = await convex.mutation(api.models.sessionPlans.savePlan, {
           teamId: team.teamId,
           teamName: team.teamName,
@@ -699,7 +699,7 @@ export function SmartCoachDashboard({
           focus,
           teamData: teamDataForDB,
           usedRealAI: true, // TODO: Track from API response
-          creationMethod: "ai_generated",
+          creationMethod: "quick_action",
         });
 
         setCurrentPlanId(planId);

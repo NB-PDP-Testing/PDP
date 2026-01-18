@@ -1,7 +1,8 @@
 import type { GenericDatabaseReader } from "convex/server";
 import { v } from "convex/values";
-import { api, components } from "../_generated/api";
+import { components } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
@@ -276,6 +277,208 @@ export const updatePlatformStaffStatus = mutation({
 // ============ PLATFORM-LEVEL USER DELETION (Platform Staff Only) ============
 
 /**
+ * Internal helper: Get deletion preview logic without permission checks
+ * Used by both getUserDeletionPreview query and deleteUserAccount mutation
+ */
+async function _getUserDeletionPreviewInternal(
+  ctx: QueryCtx | MutationCtx,
+  email: string
+) {
+  // Find user
+  const usersResult = await ctx.runQuery(
+    components.betterAuth.adapter.findMany,
+    {
+      model: "user",
+      paginationOpts: {
+        cursor: null,
+        numItems: 1000,
+      },
+      where: [],
+    }
+  );
+
+  const user = usersResult.page.find(
+    (u: any) => u.email.toLowerCase() === email.toLowerCase()
+  );
+
+  if (!user) {
+    return {
+      canDelete: false,
+      user: null,
+      blockers: [],
+      organizationMemberships: [],
+      dataRelationships: {
+        sessions: 0,
+        accounts: 0,
+        members: 0,
+        teamMembers: 0,
+        coachAssignments: 0,
+        guardianIdentities: 0,
+        playerIdentities: 0,
+        voiceNotes: 0,
+        skillAssessments: 0,
+        invitationsSent: 0,
+      },
+    };
+  }
+
+  // Get all organization memberships
+  const membersResult = await ctx.runQuery(
+    components.betterAuth.adapter.findMany,
+    {
+      model: "member",
+      paginationOpts: {
+        cursor: null,
+        numItems: 1000,
+      },
+      where: [{ field: "userId", value: user._id, operator: "eq" }],
+    }
+  );
+
+  const orgMemberships: Array<{
+    organizationId: string;
+    organizationName: string;
+    role: string;
+  }> = [];
+  const blockers: Array<{
+    type: string;
+    organizationId: string;
+    organizationName: string;
+    message: string;
+  }> = [];
+
+  for (const member of membersResult.page) {
+    const orgResult: any = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "organization",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1,
+        },
+        where: [
+          {
+            field: "_id",
+            value: (member as any).organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    orgMemberships.push({
+      organizationId: (member as any).organizationId,
+      organizationName: orgResult?.name || "Unknown",
+      role: (member as any).role,
+    });
+
+    // Check if only owner
+    if ((member as any).role === "owner") {
+      const orgOwnersResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "member",
+          paginationOpts: {
+            cursor: null,
+            numItems: 1000,
+          },
+          where: [
+            {
+              field: "organizationId",
+              value: (member as any).organizationId,
+              operator: "eq",
+            },
+          ],
+        }
+      );
+
+      const orgOwners = orgOwnersResult.page.filter(
+        (m: any) => m.role === "owner"
+      );
+
+      if (orgOwners.length === 1) {
+        blockers.push({
+          type: "is_only_owner",
+          organizationId: (member as any).organizationId,
+          organizationName: orgResult?.name || "Unknown",
+          message: `User is the only owner of ${orgResult?.name}. Transfer ownership first.`,
+        });
+      }
+    }
+  }
+
+  // Count data relationships
+  const [
+    sessionsResult,
+    accountsResult,
+    teamMembers,
+    coachAssignments,
+    guardianIdentities,
+    playerIdentities,
+    voiceNotes,
+    skillAssessments,
+  ] = await Promise.all([
+    ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "session",
+      paginationOpts: { cursor: null, numItems: 1000 },
+      where: [{ field: "userId", value: user._id, operator: "eq" }],
+    }),
+    ctx.runQuery(components.betterAuth.adapter.findMany, {
+      model: "account",
+      paginationOpts: { cursor: null, numItems: 1000 },
+      where: [{ field: "userId", value: user._id, operator: "eq" }],
+    }),
+    (ctx.db as BetterAuthDb).query("teamMember").collect(),
+    ctx.db.query("coachAssignments").collect(),
+    ctx.db.query("guardianIdentities").collect(),
+    ctx.db.query("playerIdentities").collect(),
+    ctx.db.query("voiceNotes").collect(),
+    ctx.db.query("skillAssessments").collect(),
+  ]);
+
+  const invitationsResult = await ctx.runQuery(
+    components.betterAuth.adapter.findMany,
+    {
+      model: "invitation",
+      paginationOpts: {
+        cursor: null,
+        numItems: 1000,
+      },
+      where: [
+        {
+          field: "inviterId",
+          value: user._id,
+          operator: "eq",
+        },
+      ],
+    }
+  );
+
+  return {
+    canDelete: blockers.length === 0,
+    user: {
+      _id: user._id,
+      email: user.email,
+      name: user.name || null,
+    },
+    blockers,
+    organizationMemberships: orgMemberships,
+    dataRelationships: {
+      sessions: sessionsResult.page.length,
+      accounts: accountsResult.page.length,
+      members: membersResult.page.length,
+      teamMembers: teamMembers.length,
+      coachAssignments: coachAssignments.length,
+      guardianIdentities: guardianIdentities.length,
+      playerIdentities: playerIdentities.length,
+      voiceNotes: voiceNotes.length,
+      skillAssessments: skillAssessments.length,
+      invitationsSent: invitationsResult.page.length,
+    },
+  };
+}
+
+/**
  * Get comprehensive deletion preview for a user account
  * Shows all organizations, memberships, and data relationships
  * Only accessible to platform staff
@@ -327,199 +530,8 @@ export const getUserDeletionPreview = query({
       throw new Error("Only platform staff can preview user deletion");
     }
 
-    // Find user
-    const usersResult = await ctx.runQuery(
-      components.betterAuth.adapter.findMany,
-      {
-        model: "user",
-        paginationOpts: {
-          cursor: null,
-          numItems: 1000,
-        },
-        where: [],
-      }
-    );
-
-    const user = usersResult.page.find(
-      (u: any) => u.email.toLowerCase() === args.email.toLowerCase()
-    );
-
-    if (!user) {
-      return {
-        canDelete: false,
-        user: null,
-        blockers: [],
-        organizationMemberships: [],
-        dataRelationships: {
-          sessions: 0,
-          accounts: 0,
-          members: 0,
-          teamMembers: 0,
-          coachAssignments: 0,
-          guardianIdentities: 0,
-          playerIdentities: 0,
-          voiceNotes: 0,
-          skillAssessments: 0,
-          invitationsSent: 0,
-        },
-      };
-    }
-
-    // Check ownership blockers
-    const blockers = [];
-    const membersResult = await ctx.runQuery(
-      components.betterAuth.adapter.findMany,
-      {
-        model: "member",
-        paginationOpts: {
-          cursor: null,
-          numItems: 1000,
-        },
-        where: [
-          {
-            field: "userId",
-            value: user._id,
-            operator: "eq",
-          },
-        ],
-      }
-    );
-
-    const orgMemberships = [];
-    for (const member of membersResult.page) {
-      const orgResult = await ctx.runQuery(
-        components.betterAuth.adapter.findOne,
-        {
-          model: "organization",
-          where: [
-            {
-              field: "_id",
-              value: member.organizationId,
-              operator: "eq",
-            },
-          ],
-        }
-      );
-
-      orgMemberships.push({
-        organizationId: member.organizationId,
-        organizationName: orgResult?.name || "Unknown",
-        role: member.role,
-      });
-
-      // Check if only owner
-      if (member.role === "owner") {
-        const orgOwnersResult = await ctx.runQuery(
-          components.betterAuth.adapter.findMany,
-          {
-            model: "member",
-            paginationOpts: {
-              cursor: null,
-              numItems: 1000,
-            },
-            where: [
-              {
-                field: "organizationId",
-                value: member.organizationId,
-                operator: "eq",
-              },
-            ],
-          }
-        );
-
-        const orgOwners = orgOwnersResult.page.filter(
-          (m: any) => m.role === "owner"
-        );
-
-        if (orgOwners.length === 1) {
-          blockers.push({
-            type: "is_only_owner",
-            organizationId: member.organizationId,
-            organizationName: orgResult?.name || "Unknown",
-            message: `User is the only owner of ${orgResult?.name}. Transfer ownership first.`,
-          });
-        }
-      }
-    }
-
-    // Count data relationships
-    const [
-      sessionsResult,
-      accountsResult,
-      teamMembers,
-      coachAssignments,
-      guardianIdentities,
-      playerIdentities,
-      voiceNotes,
-      skillAssessments,
-    ] = await Promise.all([
-      ctx.runQuery(components.betterAuth.adapter.findMany, {
-        model: "session",
-        paginationOpts: { cursor: null, numItems: 1000 },
-        where: [{ field: "userId", value: user._id, operator: "eq" }],
-      }),
-      ctx.runQuery(components.betterAuth.adapter.findMany, {
-        model: "account",
-        paginationOpts: { cursor: null, numItems: 1000 },
-        where: [{ field: "userId", value: user._id, operator: "eq" }],
-      }),
-      (ctx.db as BetterAuthDb).query("teamMember").collect(),
-      ctx.db.query("coachAssignments").collect(),
-      ctx.db.query("guardianIdentities").collect(),
-      ctx.db.query("playerIdentities").collect(),
-      ctx.db.query("voiceNotes").collect(),
-      ctx.db.query("skillAssessments").collect(),
-    ]);
-
-    const invitationsResult = await ctx.runQuery(
-      components.betterAuth.adapter.findMany,
-      {
-        model: "invitation",
-        paginationOpts: {
-          cursor: null,
-          numItems: 1000,
-        },
-        where: [
-          {
-            field: "inviterId",
-            value: user._id,
-            operator: "eq",
-          },
-        ],
-      }
-    );
-
-    return {
-      canDelete: blockers.length === 0,
-      user: {
-        _id: user._id,
-        email: user.email,
-        name: user.name || null,
-      },
-      blockers,
-      organizationMemberships: orgMemberships,
-      dataRelationships: {
-        sessions: sessionsResult.page.length,
-        accounts: accountsResult.page.length,
-        members: membersResult.page.length,
-        teamMembers: teamMembers.filter((tm: any) => tm.userId === user._id)
-          .length,
-        coachAssignments: coachAssignments.filter(
-          (ca) => ca.userId === user._id
-        ).length,
-        guardianIdentities: guardianIdentities.filter(
-          (gi) => gi.userId === user._id
-        ).length,
-        playerIdentities: playerIdentities.filter(
-          (pi) => pi.userId === user._id
-        ).length,
-        voiceNotes: voiceNotes.filter((vn) => vn.coachId === user._id).length,
-        skillAssessments: skillAssessments.filter(
-          (sa) => sa.assessedBy === user._id
-        ).length,
-        invitationsSent: invitationsResult.page.length,
-      },
-    };
+    // Use internal helper (avoids circular dependency)
+    return await _getUserDeletionPreviewInternal(ctx, args.email);
   },
 });
 
@@ -584,12 +596,8 @@ export const deleteUserAccount = mutation({
     }
 
     // Check blockers via preview
-    const preview: any = await ctx.runQuery(
-      api.models.users.getUserDeletionPreview,
-      {
-        email: args.email,
-      }
-    );
+    // Use internal helper (avoids circular dependency)
+    const preview = await _getUserDeletionPreviewInternal(ctx, args.email);
 
     if (!preview.canDelete) {
       return {
@@ -620,5 +628,58 @@ export const deleteUserAccount = mutation({
           preview.dataRelationships.members,
       },
     };
+  },
+});
+
+/**
+ * Get user auth method (OAuth vs email/password)
+ * Checks Better Auth account table to determine if user has OAuth providers
+ */
+export const getUserAuthMethod = query({
+  args: { userId: v.string() },
+  returns: v.union(
+    v.object({
+      hasOAuthAccount: v.boolean(),
+      oauthProvider: v.optional(
+        v.union(v.literal("google"), v.literal("microsoft"))
+      ),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Query Better Auth account table to check for OAuth providers
+    try {
+      const accountsResult = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "account",
+          paginationOpts: { cursor: null, numItems: 10 },
+          where: [{ field: "userId", value: args.userId, operator: "eq" }],
+        }
+      );
+
+      if (!accountsResult || accountsResult.page.length === 0) {
+        return { hasOAuthAccount: false };
+      }
+
+      // Check if any account is an OAuth provider
+      for (const account of accountsResult.page) {
+        const providerId = (account as any).providerId;
+        if (providerId === "google" || providerId === "microsoft") {
+          return {
+            hasOAuthAccount: true,
+            oauthProvider: providerId as "google" | "microsoft",
+          };
+        }
+      }
+
+      return { hasOAuthAccount: false };
+    } catch (error) {
+      console.warn(
+        `Failed to lookup auth method for user ${args.userId}:`,
+        error
+      );
+      return null;
+    }
   },
 });

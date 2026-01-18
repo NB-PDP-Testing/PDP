@@ -11,4 +11,12 @@ crons.interval(
   {}
 );
 
+// Run consent expiry checks daily at 3 AM
+crons.interval(
+  "process consent expiry",
+  { hours: 24 }, // Run every 24 hours
+  internal.models.passportSharing.processConsentExpiry,
+  {}
+);
+
 export default crons;

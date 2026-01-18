@@ -272,6 +272,7 @@ function LegacyNavigation({
     { href: `/orgs/${orgId}/admin/gaa-import`, label: "GAA" },
     { href: `/orgs/${orgId}/admin/benchmarks`, label: "Benchmarks" },
     { href: `/orgs/${orgId}/admin/analytics`, label: "Analytics" },
+    { href: `/orgs/${orgId}/admin/sharing`, label: "Sharing" },
     { href: `/orgs/${orgId}/admin/announcements`, label: "Announcements" },
     { href: `/orgs/${orgId}/admin/player-access`, label: "Player Access" },
     { href: `/orgs/${orgId}/admin/settings`, label: "Settings" },

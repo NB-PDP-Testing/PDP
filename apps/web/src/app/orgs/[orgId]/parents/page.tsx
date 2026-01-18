@@ -6,9 +6,12 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
+  Share2,
   TrendingUp,
   Users,
 } from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useMemo } from "react";
 import Loader from "@/components/loader";
@@ -51,7 +54,6 @@ function ParentDashboardContent() {
     guardianIdentity,
     children: identityChildren,
     isLoading: identityLoading,
-    hasIdentity,
   } = useGuardianChildrenInOrg(orgId, session?.user?.email);
 
   // Check if user has parent functional role or is admin/owner
@@ -76,16 +78,16 @@ function ParentDashboardContent() {
     let dueSoon = 0;
     let overdue = 0;
 
-    identityChildren.forEach((child) => {
+    for (const child of identityChildren) {
       const status = child.enrollment?.reviewStatus?.toLowerCase();
       if (status === "completed") {
-        completedReviews++;
+        completedReviews += 1;
       } else if (status === "due soon" || status === "due_soon") {
-        dueSoon++;
+        dueSoon += 1;
       } else if (status === "overdue") {
-        overdue++;
+        overdue += 1;
       }
-    });
+    }
 
     return { completedReviews, dueSoon, overdue };
   }, [identityChildren]);
@@ -217,6 +219,48 @@ function ParentDashboardContent() {
         </Card>
       </div>
 
+      {/* Passport Sharing Card */}
+      {playerCount > 0 && (
+        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+          <CardHeader>
+            <div className="flex items-start justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Share2 className="h-5 w-5 text-blue-600" />
+                  Passport Sharing
+                </CardTitle>
+                <CardDescription className="mt-2">
+                  Control who can view your children's player development
+                  passports across organizations
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-2">
+                <p className="text-sm">
+                  Enable sharing to allow coaches from other clubs and teams to
+                  view your child's development progress with your permission.
+                </p>
+                <ul className="ml-4 list-disc space-y-1 text-muted-foreground text-sm">
+                  <li>Share with specific organizations</li>
+                  <li>Control what information is shared</li>
+                  <li>View access logs and analytics</li>
+                  <li>Revoke access anytime</li>
+                </ul>
+              </div>
+              <Link href={`/orgs/${orgId}/parents/sharing` as Route}>
+                <Button className="shrink-0" size="lg">
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Manage Sharing
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Children Cards */}
       {playerCount > 0 && (
         <div>
@@ -230,22 +274,22 @@ function ParentDashboardContent() {
       )}
 
       {/* Weekly Schedule */}
-      {playerCount > 0 && <WeeklySchedule children={identityChildren} />}
+      {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}
 
       {/* Coach Feedback Section */}
       {playerCount > 0 && (
-        <CoachFeedback children={identityChildren} orgId={orgId} />
+        <CoachFeedback orgId={orgId} playerData={identityChildren} />
       )}
 
       {/* Medical Information Section */}
       {playerCount > 0 && (
-        <MedicalInfo children={identityChildren} orgId={orgId} />
+        <MedicalInfo orgId={orgId} playerData={identityChildren} />
       )}
 
       {/* AI Practice Assistant */}
       {playerCount > 0 && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <AIPracticeAssistant children={identityChildren} orgId={orgId} />
+          <AIPracticeAssistant orgId={orgId} playerData={identityChildren} />
 
           {/* Coming Soon Features */}
           <Card>

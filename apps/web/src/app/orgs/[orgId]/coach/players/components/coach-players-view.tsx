@@ -15,6 +15,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { PlayerTeamBadges } from "@/app/orgs/[orgId]/coach/components/player-team-badges";
+import { PassportAvailabilityBadges } from "@/app/orgs/[orgId]/coach/players/components/passport-availability-badges";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -160,6 +161,18 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
     );
   }, [allPlayers, coachPlayerIds]);
 
+  // Get passport sharing availability for all players (bulk query)
+  const passportAvailability = useQuery(
+    api.models.passportSharing.checkPassportAvailabilityBulk,
+    userId && coachPlayers.length > 0
+      ? {
+          playerIdentityIds: coachPlayers.map((p) => p._id),
+          organizationId: orgId,
+          userId,
+        }
+      : "skip"
+  );
+
   // Get team names for each player
   const getPlayerTeams = (player: any): string[] => {
     if (!teamPlayerLinks) {
@@ -196,6 +209,16 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
       }
     }
     return;
+  };
+
+  // Get passport availability for a specific player
+  const getPassportAvailability = (player: any) => {
+    if (!passportAvailability) {
+      return null;
+    }
+    return passportAvailability.find(
+      (pa) => pa.playerIdentityId.toString() === player._id.toString()
+    );
   };
 
   // Get unique filter values
@@ -334,6 +357,11 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
 
   const handleEditPlayer = (player: any) => {
     router.push(`/orgs/${orgId}/players/${player._id}/edit`);
+  };
+
+  const handlePassportAvailabilityClick = () => {
+    // Navigate to passport sharing page
+    router.push(`/orgs/${orgId}/coach/shared-passports` as any);
   };
 
   return (
@@ -616,6 +644,33 @@ export function CoachPlayersView({ orgId }: CoachPlayersViewProps) {
                                   Notes
                                 </span>
                               )}
+                              {/* Passport availability indicators */}
+                              {(() => {
+                                const availability =
+                                  getPassportAvailability(player);
+                                if (!availability) {
+                                  return null;
+                                }
+                                return (
+                                  <PassportAvailabilityBadges
+                                    activeCount={availability.activeShareCount}
+                                    hasActiveSharesToView={
+                                      availability.hasActiveSharesToView
+                                    }
+                                    hasPendingSharesToAccept={
+                                      availability.hasPendingSharesToAccept
+                                    }
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handlePassportAvailabilityClick();
+                                    }}
+                                    pendingCount={
+                                      availability.pendingShareCount
+                                    }
+                                    variant="compact"
+                                  />
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>

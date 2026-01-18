@@ -142,12 +142,12 @@ export const searchPlayersByName = query({
     if (args.firstName && args.lastName) {
       // Note: This won't work as partial match, just exact
       // For partial matching, we'd need a search index
-      const firstName = args.firstName;
-      const lastName = args.lastName;
+      const firstName = args.firstName.trim();
+      const lastName = args.lastName.trim();
       const players = await ctx.db
         .query("playerIdentities")
         .withIndex("by_name_dob", (q) =>
-          q.eq("firstName", firstName.trim()).eq("lastName", lastName.trim())
+          q.eq("firstName", firstName).eq("lastName", lastName)
         )
         .take(limit);
       return players;
@@ -169,6 +169,328 @@ export const searchPlayersByName = query({
     }
 
     return filtered.slice(0, limit);
+  },
+});
+
+/**
+ * Get team players with available cross-org passports
+ * Returns players on coach's teams who have enrollments/passports at other organizations
+ */
+export const getTeamPlayersWithCrossOrgPassports = query({
+  args: {
+    userId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      dateOfBirth: v.string(),
+      ageGroup: v.optional(v.string()),
+      primarySportCode: v.optional(v.string()),
+      teamNames: v.array(v.string()),
+      otherOrgEnrollments: v.array(
+        v.object({
+          organizationId: v.string(),
+          sportCode: v.optional(v.string()),
+          ageGroup: v.optional(v.string()),
+          isDiscoverable: v.boolean(),
+          hasExistingRequest: v.boolean(),
+          hasActiveShare: v.boolean(),
+        })
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get coach assignments for this user
+    const coachAssignments = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", args.userId).eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    if (coachAssignments.length === 0) {
+      return [];
+    }
+
+    // Flatten all team IDs from coach assignments (teams is an array)
+    const teamIds = coachAssignments.flatMap((ca) => ca.teams);
+
+    // Get all team-player links for these teams
+    const teamPlayerLinks = await ctx.db
+      .query("teamPlayerIdentities")
+      .collect();
+
+    const relevantLinks = teamPlayerLinks.filter((link) =>
+      teamIds.includes(link.teamId)
+    );
+
+    const playerIdentityIds = [
+      ...new Set(relevantLinks.map((link) => link.playerIdentityId)),
+    ];
+
+    // Process each player
+    const enrichedPlayers = await Promise.all(
+      playerIdentityIds.map(async (playerIdentityId) => {
+        const player = await ctx.db.get(playerIdentityId);
+        if (!player) {
+          return null;
+        }
+
+        // Get all enrollments for this player
+        const allEnrollments = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerIdentityId)
+          )
+          .collect();
+
+        // Filter to get current org enrollment and other org enrollments
+        const currentOrgEnrollment = allEnrollments.find(
+          (e) => e.organizationId === args.organizationId
+        );
+        const otherOrgEnrollments = allEnrollments.filter(
+          (e) => e.organizationId !== args.organizationId
+        );
+
+        // Skip if no enrollments in other orgs
+        if (otherOrgEnrollments.length === 0) {
+          return null;
+        }
+
+        // Get team names for this player in current org
+        const playerTeamLinks = relevantLinks.filter(
+          (link) => link.playerIdentityId === playerIdentityId
+        );
+        const teamNamesSet = new Set<string>();
+        // Team IDs are Better Auth team IDs (strings), not Convex IDs
+        // For now, just use the team ID strings - we'd need Better Auth client to fetch names
+        for (const link of playerTeamLinks) {
+          teamNamesSet.add(link.teamId);
+        }
+
+        // Get sport passports
+        const sportPassports = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", playerIdentityId)
+          )
+          .collect();
+
+        const activeSport = sportPassports.find((p) => p.status === "active");
+        const primarySportCode =
+          activeSport?.sportCode || sportPassports[0]?.sportCode;
+
+        // Check guardian discovery settings
+        const guardianLinks = await ctx.db
+          .query("guardianPlayerLinks")
+          .withIndex("by_player", (q) =>
+            q.eq("playerIdentityId", playerIdentityId)
+          )
+          .collect();
+
+        let isDiscoverable = false;
+        for (const link of guardianLinks) {
+          const guardian = await ctx.db.get(link.guardianIdentityId);
+          if (guardian?.allowGlobalPassportDiscovery === true) {
+            isDiscoverable = true;
+            break;
+          }
+        }
+
+        // Check existing requests and shares for each other org
+        const enrichedOtherOrgs = await Promise.all(
+          otherOrgEnrollments.map(async (enrollment) => {
+            // Get sport code from passport for this enrollment
+            const enrollmentPassport = sportPassports.find(
+              (p) => p.sportCode === enrollment.sport
+            );
+
+            // Check for existing request from current org to this player
+            const allRequests = await ctx.db
+              .query("passportShareRequests")
+              .withIndex("by_player", (q) =>
+                q.eq("playerIdentityId", playerIdentityId)
+              )
+              .collect();
+
+            const existingRequest = allRequests.find(
+              (r) =>
+                r.requestingOrgId === args.organizationId &&
+                r.status === "pending"
+            );
+
+            // Check for active share from other org to current org
+            const now = Date.now();
+            const allShares = await ctx.db
+              .query("passportShareConsents")
+              .withIndex("by_player_and_status", (q) =>
+                q
+                  .eq("playerIdentityId", playerIdentityId)
+                  .eq("status", "active")
+              )
+              .collect();
+
+            const activeShare = allShares.find(
+              (s) =>
+                s.receivingOrgId === args.organizationId &&
+                s.coachAcceptanceStatus === "accepted" &&
+                s.expiresAt > now
+            );
+
+            return {
+              organizationId: enrollment.organizationId,
+              sportCode: enrollmentPassport?.sportCode,
+              ageGroup: enrollment.ageGroup,
+              isDiscoverable,
+              hasExistingRequest: !!existingRequest,
+              hasActiveShare: !!activeShare,
+            };
+          })
+        );
+
+        return {
+          _id: player._id,
+          firstName: player.firstName,
+          lastName: player.lastName,
+          dateOfBirth: player.dateOfBirth,
+          ageGroup: currentOrgEnrollment?.ageGroup,
+          primarySportCode,
+          teamNames: Array.from(teamNamesSet),
+          otherOrgEnrollments: enrichedOtherOrgs,
+        };
+      })
+    );
+
+    // Filter out nulls
+    return enrichedPlayers.filter((p) => p !== null);
+  },
+});
+
+/**
+ * Search for discoverable players across organizations
+ * Returns players whose guardians have enabled global passport discovery
+ * Excludes players from the requesting organization
+ */
+export const searchDiscoverablePlayers = query({
+  args: {
+    searchTerm: v.string(),
+    requestingOrgId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      dateOfBirth: v.string(),
+      gender: genderValidator,
+      ageGroup: v.optional(v.string()),
+      primarySportCode: v.optional(v.string()),
+      enrollmentCount: v.number(),
+      organizationIds: v.array(v.string()),
+      hasActivePassport: v.boolean(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 20;
+    const searchTerm = args.searchTerm.toLowerCase().trim();
+
+    // Search for players by name (partial match)
+    const allPlayers = await ctx.db.query("playerIdentities").take(limit * 10);
+
+    const matchingPlayers = allPlayers.filter((player) => {
+      const fullName = `${player.firstName} ${player.lastName}`.toLowerCase();
+      return (
+        fullName.includes(searchTerm) ||
+        player.firstName.toLowerCase().includes(searchTerm) ||
+        player.lastName.toLowerCase().includes(searchTerm)
+      );
+    });
+
+    // Enrich with enrollment and guardian data
+    const enrichedPlayers = await Promise.all(
+      matchingPlayers.map(async (player) => {
+        // Get all enrollments for this player
+        const enrollments = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", player._id)
+          )
+          .collect();
+
+        // Filter out enrollments from requesting org
+        const otherOrgEnrollments = enrollments.filter(
+          (e) => e.organizationId !== args.requestingOrgId
+        );
+
+        // Skip if no enrollments in other orgs
+        if (otherOrgEnrollments.length === 0) {
+          return null;
+        }
+
+        // Get guardian links
+        const guardianLinks = await ctx.db
+          .query("guardianPlayerLinks")
+          .withIndex("by_player", (q) => q.eq("playerIdentityId", player._id))
+          .collect();
+
+        // Check if any guardian has enabled global discovery
+        let hasDiscoveryEnabled = false;
+        for (const link of guardianLinks) {
+          const guardian = await ctx.db.get(link.guardianIdentityId);
+          if (guardian?.allowGlobalPassportDiscovery === true) {
+            hasDiscoveryEnabled = true;
+            break;
+          }
+        }
+
+        // Skip if no guardian has enabled discovery
+        if (!hasDiscoveryEnabled) {
+          return null;
+        }
+
+        // Get sport passports
+        const sportPassports = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", player._id)
+          )
+          .collect();
+
+        const activeSport = sportPassports.find((p) => p.status === "active");
+        const primarySportCode =
+          activeSport?.sportCode || sportPassports[0]?.sportCode;
+
+        // Get organization IDs
+        const organizationIds = otherOrgEnrollments.map(
+          (e) => e.organizationId
+        );
+
+        // Get primary enrollment for age group
+        const primaryEnrollment =
+          otherOrgEnrollments.find((e) => e.status === "active") ||
+          otherOrgEnrollments[0];
+
+        return {
+          _id: player._id,
+          firstName: player.firstName,
+          lastName: player.lastName,
+          dateOfBirth: player.dateOfBirth,
+          gender: player.gender,
+          ageGroup: primaryEnrollment?.ageGroup,
+          primarySportCode,
+          enrollmentCount: otherOrgEnrollments.length,
+          organizationIds,
+          hasActivePassport: sportPassports.some((p) => p.status === "active"),
+        };
+      })
+    );
+
+    // Filter out nulls and take limit
+    return enrichedPlayers.filter((p) => p !== null).slice(0, limit);
   },
 });
 

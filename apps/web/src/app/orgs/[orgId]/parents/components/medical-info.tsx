@@ -48,7 +48,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 type MedicalInfoProps = {
-  children: Array<{
+  playerData: Array<{
     player: {
       _id: Id<"playerIdentities">;
       firstName: string;
@@ -472,7 +472,7 @@ function MedicalForm({
   );
 }
 
-export function MedicalInfo({ children, orgId }: MedicalInfoProps) {
+export function MedicalInfo({ playerData, orgId }: MedicalInfoProps) {
   const [editingProfile, setEditingProfile] = useState<{
     playerIdentityId: Id<"playerIdentities">;
     playerName: string;
@@ -490,7 +490,7 @@ export function MedicalInfo({ children, orgId }: MedicalInfoProps) {
   );
 
   // Match profiles with children
-  const childrenWithMedical = children.map((child) => {
+  const childrenWithMedical = playerData.map((child) => {
     const profileData = allProfiles?.find(
       (p: any) => p.player._id === child.player._id
     );
@@ -508,7 +508,7 @@ export function MedicalInfo({ children, orgId }: MedicalInfoProps) {
   // Count children missing medical info
   const missingCount = childrenWithMedical.filter((c) => !c.hasProfile).length;
 
-  if (children.length === 0) {
+  if (playerData.length === 0) {
     return null;
   }
 

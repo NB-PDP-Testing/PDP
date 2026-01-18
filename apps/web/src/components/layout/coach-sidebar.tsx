@@ -10,6 +10,7 @@ import {
   Home,
   Menu,
   Mic,
+  Share2,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -63,6 +64,11 @@ export function getCoachNavGroups(orgId: string): NavGroup[] {
           href: `/orgs/${orgId}/coach/assess`,
           label: "Assessments",
           icon: ClipboardList,
+        },
+        {
+          href: `/orgs/${orgId}/coach/shared-passports`,
+          label: "Shared Passports",
+          icon: Share2,
         },
       ],
     },

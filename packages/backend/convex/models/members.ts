@@ -1893,7 +1893,11 @@ export const syncFunctionalRolesFromInvitation = mutation({
       suggestedRoles.includes("coach") &&
       roleSpecificData.teams?.length > 0
     ) {
-      const teams: string[] = roleSpecificData.teams;
+      // Extract team IDs from team objects (roleSpecificData.teams contains objects with id, name, etc.)
+      // biome-ignore lint/suspicious/noExplicitAny: Team metadata structure varies
+      const teams: string[] = roleSpecificData.teams.map((t: any) =>
+        typeof t === "string" ? t : t.id
+      );
 
       // Check if coach assignment already exists
       const existingAssignment = await ctx.db
@@ -2211,14 +2215,33 @@ export const switchActiveFunctionalRole = mutation({
       );
     }
 
-    // Update active functional role
-    // Note: activeFunctionalRole is a custom field not in Better Auth schema, so we cast to any
+    // Update lastAccessedOrgs to track recently accessed organizations
+    // This enables "recently accessed" sorting in the role switcher UI
+    const currentLastAccessed = (memberResult as any).lastAccessedOrgs || [];
+    const now = Date.now();
+
+    // Remove old record for this org if it exists, then add new record with current timestamp
+    const updatedLastAccessed = [
+      ...currentLastAccessed.filter(
+        (record: { orgId: string; timestamp: number; role: string }) =>
+          record.orgId !== args.organizationId
+      ),
+      {
+        orgId: args.organizationId,
+        timestamp: now,
+        role: args.functionalRole,
+      },
+    ];
+
+    // Update active functional role and lastAccessedOrgs
+    // Note: These are custom fields not in Better Auth schema, so we cast to any
     await ctx.runMutation(components.betterAuth.adapter.updateOne, {
       input: {
         model: "member",
         where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
         update: {
           activeFunctionalRole: args.functionalRole,
+          lastAccessedOrgs: updatedLastAccessed,
         } as any,
       },
     });
@@ -4258,5 +4281,75 @@ export const removeFromOrganization = mutation({
         error: `Failed to remove member: ${error}`,
       };
     }
+  },
+});
+
+/**
+ * Get all memberships for a user across all organizations
+ * Used for filtering role dropdowns in preferences to show only roles user has
+ */
+export const getMembersByUserId = query({
+  args: {
+    userId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.string(),
+      userId: v.string(),
+      organizationId: v.string(),
+      role: v.string(),
+      functionalRoles: v.optional(v.array(v.string())),
+      organizationName: v.optional(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all memberships for this user
+    const membersResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "userId",
+            value: args.userId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    // Fetch organization names for each membership
+    const membershipsWithOrgNames = await Promise.all(
+      membersResult.page.map(async (member: any) => {
+        const orgResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "organization",
+            where: [
+              {
+                field: "_id",
+                value: member.organizationId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        return {
+          _id: member._id,
+          userId: member.userId,
+          organizationId: member.organizationId,
+          role: member.role,
+          functionalRoles: member.functionalRoles || undefined,
+          organizationName: orgResult?.name || undefined,
+        };
+      })
+    );
+
+    return membershipsWithOrgNames;
   },
 });

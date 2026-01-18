@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 
 type CoachFeedbackProps = {
-  children: Array<{
+  playerData: Array<{
     player: {
       _id: Id<"playerIdentities">;
       firstName: string;
@@ -24,9 +24,9 @@ type CoachFeedbackProps = {
   orgId: string;
 };
 
-export function CoachFeedback({ children, orgId }: CoachFeedbackProps) {
-  // Get passport data for all children to access coach notes
-  const childPassports = children.map((child) => {
+export function CoachFeedback({ playerData, orgId }: CoachFeedbackProps) {
+  // Get passport data for all playerData to access coach notes
+  const childPassports = playerData.map((child) => {
     const passportData = useQuery(
       api.models.sportPassports.getFullPlayerPassportView,
       {

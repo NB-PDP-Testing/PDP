@@ -4,15 +4,17 @@ import { Building2 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
+import { getAdaptiveLogoBoxStyles } from "@/lib/adaptive-logo-styles";
 import { authClient } from "@/lib/auth-client";
 import type { OrgMemberRole } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "./mode-toggle";
 import { OrgRoleSwitcher } from "./org-role-switcher";
+import { EnhancedUserMenu } from "./profile/enhanced-user-menu";
 import UserMenu from "./user-menu";
 
 function OrgNav({ member }: { member: Member }) {
@@ -33,7 +35,7 @@ function OrgNav({ member }: { member: Member }) {
   });
 
   return (
-    <nav className="flex gap-4 text-lg">
+    <nav className="hidden gap-4 text-lg sm:flex">
       {hasCoachRole && (
         <Link href={`/orgs/${effectiveOrgId}/coach` as Route}>Coach</Link>
       )}
@@ -66,27 +68,38 @@ export default function Header() {
   // Check if we're on an auth page or landing page
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isLandingPage = pathname === "/";
-  // Check if we're on orgs routes that should show PlayerARC branding (no org-specific content)
-  const isOrgsListingPage = pathname === "/orgs" || pathname === "/orgs/";
-  const isOrgsJoinPage =
-    pathname === "/orgs/join" || pathname?.startsWith("/orgs/join/");
-  const isOrgsCreatePage = pathname === "/orgs/create";
-  const shouldHideOrgContent =
-    isOrgsListingPage || isOrgsJoinPage || isOrgsCreatePage;
+
+  // Platform-level routes: no org-specific context (org listing, platform management, join/create flows)
+  const isPlatformLevelRoute =
+    pathname === "/orgs" ||
+    pathname === "/orgs/" ||
+    pathname?.startsWith("/orgs/join") ||
+    pathname === "/orgs/create" ||
+    pathname?.startsWith("/platform");
 
   // Only fetch org theme when we're on a page where we need it
-  // Skip on join/create pages to avoid queries for orgs the user isn't a member of
-  const { theme } = useOrgTheme({ skip: shouldHideOrgContent });
+  // Skip on platform-level pages to avoid queries for orgs the user isn't a member of
+  const { theme } = useOrgTheme({ skip: isPlatformLevelRoute });
 
   // Get UX feature flags
-  const { useMinimalHeaderNav } = useUXFeatureFlags();
+  const {
+    useMinimalHeaderNav,
+    useEnhancedUserMenu,
+    useAdaptiveLogoVisibility,
+  } = useUXFeatureFlags();
+
+  // Calculate adaptive logo styles for enhanced visibility (Phase 16)
+  // Only recalculate when org colors change
+  const adaptiveLogoStyles = useMemo(
+    () => (useAdaptiveLogoVisibility ? getAdaptiveLogoBoxStyles(theme) : null),
+    [useAdaptiveLogoVisibility, theme.primary, theme.secondary, theme.tertiary]
+  );
 
   // Track current org in user profile
-  // Skip this on join pages - user isn't a member yet and can't set active org
-  // Also skip if user has no member record at all (not a member of any org)
+  // Skip this on platform-level pages - user isn't in a specific org context
   useEffect(() => {
-    if (shouldHideOrgContent) {
-      return; // Don't try to set active org on join/create pages
+    if (isPlatformLevelRoute) {
+      return; // Don't try to set active org on platform-level pages
     }
     // Only try to set active org if:
     // 1. User is logged in
@@ -96,17 +109,17 @@ export default function Header() {
     if (user && orgId && member && member.organizationId !== orgId) {
       authClient.organization.setActive({ organizationId: orgId });
     }
-  }, [user, orgId, member, shouldHideOrgContent]);
+  }, [user, orgId, member, isPlatformLevelRoute]);
 
   // Get header styling based on context:
-  // - Org pages: Use org primary color
-  // - Non-org pages: Use PDP brand navy color (#1E3A5F)
-  const headerBackgroundStyle = orgId
+  // - Platform-level pages: Use PDP brand navy color (#1E3A5F)
+  // - Org-specific pages: Use org primary color
+  const headerBackgroundStyle = isPlatformLevelRoute
     ? {
-        backgroundColor: theme.primary,
+        backgroundColor: "#1E3A5F", // PDP brand navy
       }
     : {
-        backgroundColor: "#1E3A5F", // PDP brand navy
+        backgroundColor: theme.primary, // Org primary color
       };
   const headerTextStyle = "text-white"; // Always white text for contrast
 
@@ -132,12 +145,16 @@ export default function Header() {
       >
         {/* Left side - Home link always visible + Org logo and nav */}
         {/* When useMinimalHeaderNav is enabled, hide these links - users should use the switcher */}
-        {/* Exception: Always show on /platform pages and /orgs listing/join/create pages */}
-        {(!useMinimalHeaderNav ||
-          pathname?.startsWith("/platform") ||
-          shouldHideOrgContent) && (
+        {/* Exception: Always show on platform-level routes */}
+        {(!useMinimalHeaderNav || isPlatformLevelRoute) && (
           <nav
-            className={cn("flex items-center gap-4 text-lg", headerTextStyle)}
+            className={cn(
+              // Show on mobile for platform-level routes (platform staff navigation)
+              isPlatformLevelRoute
+                ? "flex items-center gap-2 text-sm sm:gap-4 sm:text-lg"
+                : "hidden items-center gap-4 text-lg sm:flex",
+              headerTextStyle
+            )}
           >
             <Link className="py-3" href="/">
               Home
@@ -150,28 +167,39 @@ export default function Header() {
           </nav>
         )}
 
-        {/* Org-specific content - only show when on a specific org page, not on /orgs listing, join, or create */}
-        {org && !shouldHideOrgContent && (
+        {/* Org-specific content - only show when NOT on platform-level routes */}
+        {org && !isPlatformLevelRoute && (
           <>
-            <div className={cn("flex items-center gap-4", headerTextStyle)}>
-              <Link
-                className="flex items-center gap-2 p-1.5 font-semibold"
-                href={`/orgs/${orgId}` as Route}
+            <Link href={`/orgs/${orgId}` as Route}>
+              <div
+                className={cn(
+                  "flex h-10 items-center gap-2 rounded-lg px-2 transition-colors sm:gap-3 sm:px-4",
+                  useAdaptiveLogoVisibility
+                    ? "shadow-sm hover:opacity-90"
+                    : "border-2 border-white/30 bg-white/10 backdrop-blur-sm hover:bg-white/20"
+                )}
+                style={
+                  useAdaptiveLogoVisibility
+                    ? adaptiveLogoStyles || undefined
+                    : undefined
+                }
+                title={org.name}
               >
                 {org.logo ? (
                   <img
                     alt={org.name}
-                    className="h-8 w-8 rounded object-contain"
+                    className="h-6 w-6 flex-shrink-0 rounded object-contain sm:h-8 sm:w-8"
                     src={org.logo}
                   />
                 ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded bg-white/20">
-                    <Building2 className="h-5 w-5" />
-                  </div>
+                  <Building2 className="h-6 w-6 flex-shrink-0 sm:h-8 sm:w-8" />
                 )}
-                <span className="hidden sm:inline">{org.name}</span>
-              </Link>
-            </div>
+                {/* Hide org name on mobile to save space, show only logo */}
+                <span className="hidden font-bold text-sm sm:inline sm:max-w-[300px] sm:truncate sm:text-lg">
+                  {org.name}
+                </span>
+              </div>
+            </Link>
             {/* Only render OrgNav when member data is loaded and matches current org */}
             {/* When useMinimalHeaderNav is enabled, hide these links - users should use the switcher */}
             {!(useMinimalHeaderNav || isMemberPending) && validMember && (
@@ -185,10 +213,18 @@ export default function Header() {
         {/* Right side - User controls */}
         <div className="flex items-center gap-2">
           {/* Combined org + role switcher - replaces separate OrgSelector and FunctionalRoleIndicator */}
-          {/* Hide on join/create pages where user isn't a member yet */}
-          {!shouldHideOrgContent && <OrgRoleSwitcher />}
-          <UserMenu />
-          <ModeToggle />
+          {/* Only show on org-specific routes, not platform-level routes */}
+          {!isPlatformLevelRoute && <OrgRoleSwitcher />}
+
+          {/* Enhanced User Menu (consolidates UserMenu + ModeToggle) */}
+          {useEnhancedUserMenu ? (
+            <EnhancedUserMenu />
+          ) : (
+            <>
+              <UserMenu />
+              <ModeToggle />
+            </>
+          )}
         </div>
       </div>
       <hr />

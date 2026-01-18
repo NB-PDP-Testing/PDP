@@ -67,6 +67,14 @@ export function PreferencesDialog({
     | null
     | undefined;
 
+  // Local state for form - MUST be declared before useMemo hooks
+  const [preferenceMode, setPreferenceMode] = useState<"smart" | "manual">(
+    "smart"
+  );
+  const [selectedOrg, setSelectedOrg] = useState<string>("");
+  const [selectedRole, setSelectedRole] = useState<FunctionalRole>("coach");
+  const [isSaving, setIsSaving] = useState(false);
+
   // Query user's memberships to filter role dropdown
   const userMemberships = useQuery(
     api.models.members.getMembersByUserId,
@@ -79,7 +87,6 @@ export function PreferencesDialog({
       return null;
     }
     return userMemberships.find((m) => m.organizationId === selectedOrg);
-    // biome-ignore lint/correctness/noInvalidUseBeforeDeclaration: React hook can reference state variables declared later
   }, [userMemberships, selectedOrg]);
 
   // Get available roles for selected org
@@ -115,14 +122,6 @@ export function PreferencesDialog({
     // Remove duplicates and return
     return Array.from(new Set(roles));
   }, [selectedOrgMembership]);
-
-  // Local state for form
-  const [preferenceMode, setPreferenceMode] = useState<"smart" | "manual">(
-    "smart"
-  );
-  const [selectedOrg, setSelectedOrg] = useState<string>("");
-  const [selectedRole, setSelectedRole] = useState<FunctionalRole>("coach");
-  const [isSaving, setIsSaving] = useState(false);
 
   // Initialize form from preferences
   useEffect(() => {

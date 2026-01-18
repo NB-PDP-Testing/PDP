@@ -2211,14 +2211,33 @@ export const switchActiveFunctionalRole = mutation({
       );
     }
 
-    // Update active functional role
-    // Note: activeFunctionalRole is a custom field not in Better Auth schema, so we cast to any
+    // Update lastAccessedOrgs to track recently accessed organizations
+    // This enables "recently accessed" sorting in the role switcher UI
+    const currentLastAccessed = (memberResult as any).lastAccessedOrgs || [];
+    const now = Date.now();
+
+    // Remove old record for this org if it exists, then add new record with current timestamp
+    const updatedLastAccessed = [
+      ...currentLastAccessed.filter(
+        (record: { orgId: string; timestamp: number; role: string }) =>
+          record.orgId !== args.organizationId
+      ),
+      {
+        orgId: args.organizationId,
+        timestamp: now,
+        role: args.functionalRole,
+      },
+    ];
+
+    // Update active functional role and lastAccessedOrgs
+    // Note: These are custom fields not in Better Auth schema, so we cast to any
     await ctx.runMutation(components.betterAuth.adapter.updateOne, {
       input: {
         model: "member",
         where: [{ field: "_id", value: memberResult._id, operator: "eq" }],
         update: {
           activeFunctionalRole: args.functionalRole,
+          lastAccessedOrgs: updatedLastAccessed,
         } as any,
       },
     });

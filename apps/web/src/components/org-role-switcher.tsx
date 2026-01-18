@@ -582,7 +582,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
                 </div>
                 {(showAllOrgs
                   ? filteredOrgRoleStructure
-                  : filteredOrgRoleStructure.slice(0, 3)
+                  : filteredOrgRoleStructure.slice(0, 2)
                 ).map(({ org, roles, activeRole }: OrgRoleItem) => {
                   const isActiveOrg = urlOrgId === org.id;
                   return (
@@ -657,7 +657,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
                 })}
 
                 {/* Show more/less button */}
-                {filteredOrgRoleStructure.length > 3 && (
+                {filteredOrgRoleStructure.length > 2 && (
                   <Button
                     className="w-full"
                     onClick={() => setShowAllOrgs(!showAllOrgs)}
@@ -671,9 +671,9 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
                     ) : (
                       <>
                         <ChevronDown className="mr-2 h-4 w-4" />
-                        Show {filteredOrgRoleStructure.length - 3} more
+                        Show {filteredOrgRoleStructure.length - 2} more
                         organization
-                        {filteredOrgRoleStructure.length - 3 !== 1 ? "s" : ""}
+                        {filteredOrgRoleStructure.length - 2 !== 1 ? "s" : ""}
                       </>
                     )}
                   </Button>

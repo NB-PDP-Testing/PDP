@@ -8,21 +8,27 @@ import {
   Bell,
   Building2,
   CalendarDays,
+  Camera,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   ClipboardList,
   Clock,
   Columns,
   Edit,
   Eye,
   Filter,
+  HelpCircle,
   Home,
+  Key,
   Keyboard,
   LogOut,
   Menu,
   Mic,
   Monitor,
+  Moon,
   MoreHorizontal,
   Mouse,
   Plus,
@@ -32,6 +38,7 @@ import {
   Shield,
   Smartphone,
   Star,
+  Sun,
   SwitchCamera,
   Target,
   Trash2,
@@ -225,6 +232,9 @@ export default function UXMockupsPage() {
 
         {/* Mockup 22: Mobile Org/Role Switching */}
         <MobileOrgRoleSwitchingMockup />
+
+        {/* Mockup 23: Enhanced Profile Button - 6 Options */}
+        <EnhancedProfileButton6OptionsMockup />
       </div>
     </div>
   );
@@ -4725,6 +4735,1312 @@ function MobileOrgRoleSwitchingMockup() {
       <PreferenceVoting
         mockupId="mobile-org-role-switching"
         mockupName="Mobile Context Switching"
+      />
+    </section>
+  );
+}
+function EnhancedProfileButton6OptionsMockup() {
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">
+          23. Enhanced Profile Button with Theme Integration - 10 Design Options
+          (with Hybrids)
+        </h2>
+        <p className="mt-1 text-muted-foreground">
+          Different approaches to consolidating user profile + theme toggle into
+          a single enhanced button - includes 6 base options + 4 hybrid
+          combinations
+        </p>
+        <p className="mt-1 text-muted-foreground text-xs">
+          Based on Issue #271 research and industry patterns (GitHub, Linear,
+          Notion, Slack)
+        </p>
+      </div>
+
+      {/* Context Note */}
+      <Card className="border-blue-200 bg-blue-50/50">
+        <CardContent className="pt-4 text-sm">
+          <div className="flex items-start gap-2">
+            <Monitor className="mt-0.5 h-4 w-4 text-blue-600" />
+            <div>
+              <span className="font-medium text-blue-800">
+                Current State: 3 separate buttons (OrgRoleSwitcher + UserMenu +
+                ModeToggle)
+              </span>{" "}
+              <span className="text-blue-700">
+                → Goal: Consolidate UserMenu + ModeToggle while keeping
+                OrgRoleSwitcher separate. These mockups show desktop patterns -
+                mobile uses ResponsiveDialog bottom sheet.
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Option 1: Avatar with Theme Badge */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "avatar-badge" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("avatar-badge")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Option 1: Avatar + Theme Badge
+              <Badge variant="outline">Minimal</Badge>
+            </CardTitle>
+            <CardDescription>
+              Theme indicator as small badge on avatar
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end">
+              <div className="relative">
+                <Button
+                  className="gap-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === "1" ? null : "1");
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  <div className="relative">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="text-xs">SM</AvatarFallback>
+                    </Avatar>
+                    {/* Theme indicator badge */}
+                    <div className="-top-1 -right-1 absolute flex h-3 w-3 items-center justify-center rounded-full bg-yellow-400 ring-2 ring-background">
+                      <Sun className="h-2 w-2 text-yellow-900" />
+                    </div>
+                  </div>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+
+                {openDropdown === "1" && (
+                  <div className="absolute top-12 right-0 z-50 w-72 rounded-lg border bg-background shadow-lg">
+                    <div className="flex items-center gap-3 border-b p-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>SM</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">Sean Murphy</div>
+                        <div className="text-muted-foreground text-xs">
+                          sean@example.com
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-2">
+                      <div className="mb-2 px-2 font-medium text-muted-foreground text-xs uppercase">
+                        Theme
+                      </div>
+                      <button className="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <div className="flex items-center gap-2">
+                          <Sun className="h-4 w-4 text-yellow-600" />
+                          Light
+                        </div>
+                        <Check className="h-4 w-4 text-green-600" />
+                      </button>
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <Moon className="h-4 w-4 text-blue-600" />
+                        Dark
+                      </button>
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <Monitor className="h-4 w-4 text-purple-600" />
+                        System
+                      </button>
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <Settings className="h-4 w-4" />
+                        Profile Settings
+                      </button>
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <Bell className="h-4 w-4" />
+                        Preferences
+                      </button>
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-red-600 text-sm hover:bg-red-50">
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Compact - minimal header space</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Theme state visible at a glance</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <X className="h-3 w-3 text-red-600" />
+                <span>Badge small, may be hard to see</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Option 2: Avatar with Name + Theme Text */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "avatar-name-theme" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("avatar-name-theme")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Option 2: Avatar + Name + Theme
+              <Badge className="bg-green-500">Recommended</Badge>
+            </CardTitle>
+            <CardDescription>
+              Shows user name and current theme mode
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end">
+              <div className="relative">
+                <Button
+                  className="gap-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === "2" ? null : "2");
+                  }}
+                  variant="outline"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-xs">SM</AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm">Sean Murphy</span>
+                    <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                      <Sun className="h-3 w-3" />
+                      Light
+                    </span>
+                  </div>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+
+                {openDropdown === "2" && (
+                  <div className="absolute top-14 right-0 z-50 w-80 rounded-lg border bg-background shadow-lg">
+                    <div className="flex items-center gap-3 border-b p-4">
+                      <Avatar className="h-12 w-12 ring-2 ring-primary/20">
+                        <AvatarFallback>SM</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="font-semibold">Sean Murphy</div>
+                        <div className="text-muted-foreground text-sm">
+                          sean@example.com
+                        </div>
+                        <div className="mt-1 flex gap-1">
+                          <Badge
+                            className="px-1.5 py-0 text-[10px]"
+                            variant="secondary"
+                          >
+                            <Building2 className="mr-1 h-3 w-3" />
+                            Grange GAA
+                          </Badge>
+                          <Badge className="bg-green-100 px-1.5 py-0 text-[10px] text-green-700">
+                            <Users className="mr-1 h-3 w-3" />
+                            Coach
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-2">
+                      <div className="mb-1 px-2 font-medium text-muted-foreground text-xs uppercase">
+                        Appearance
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 p-1">
+                        <button className="flex flex-col items-center gap-2 rounded-lg bg-accent p-3 hover:bg-accent/80">
+                          <Sun className="h-5 w-5 text-yellow-600" />
+                          <span className="text-xs">Light</span>
+                          <Check className="h-3 w-3 text-green-600" />
+                        </button>
+                        <button className="flex flex-col items-center gap-2 rounded-lg p-3 hover:bg-accent">
+                          <Moon className="h-5 w-5 text-blue-600" />
+                          <span className="text-xs">Dark</span>
+                        </button>
+                        <button className="flex flex-col items-center gap-2 rounded-lg p-3 hover:bg-accent">
+                          <Monitor className="h-5 w-5 text-purple-600" />
+                          <span className="text-xs">System</span>
+                        </button>
+                      </div>
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <User className="h-4 w-4" />
+                        Profile Settings
+                      </button>
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <Settings className="h-4 w-4" />
+                        Preferences
+                      </button>
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <HelpCircle className="h-4 w-4" />
+                        Help Center
+                      </button>
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center justify-center gap-2 rounded py-2 text-red-600 text-sm hover:bg-red-50">
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Clear user identity and theme state</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Visual theme picker (grid layout)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Shows current org/role context</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Option 3: Compact with Inline Theme Toggle */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "inline-theme" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("inline-theme")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Option 3: Inline Theme Toggle
+              <Badge variant="outline">Fast Access</Badge>
+            </CardTitle>
+            <CardDescription>
+              Theme toggle outside dropdown for 1-click access
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end">
+              <div className="relative flex items-center gap-2">
+                {/* Inline theme toggle */}
+                <Button
+                  className="gap-2"
+                  onClick={(e) => e.stopPropagation()}
+                  size="icon"
+                  variant="outline"
+                >
+                  <Sun className="h-4 w-4" />
+                </Button>
+
+                <Button
+                  className="gap-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === "3" ? null : "3");
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-xs">SM</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm">Sean M.</span>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+
+                {openDropdown === "3" && (
+                  <div className="absolute top-12 right-0 z-50 w-64 rounded-lg border bg-background shadow-lg">
+                    <div className="flex items-center gap-3 border-b p-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>SM</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">Sean Murphy</div>
+                        <div className="text-muted-foreground text-xs">
+                          sean@example.com
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-2">
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <User className="h-4 w-4" />
+                        Profile Settings
+                      </button>
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <Settings className="h-4 w-4" />
+                        Preferences
+                      </button>
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <Bell className="h-4 w-4" />
+                        Notifications
+                      </button>
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-red-600 text-sm hover:bg-red-50">
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Fastest theme switching (1 click)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Theme state always visible</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <X className="h-3 w-3 text-red-600" />
+                <span>Takes more header space (2 buttons)</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Option 4: Rich Profile Card */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "rich-card" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("rich-card")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Option 4: Rich Profile Card
+              <Badge variant="outline">Detailed</Badge>
+            </CardTitle>
+            <CardDescription>
+              Large card showing full context + quick actions
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end">
+              <div className="relative">
+                <Button
+                  className="gap-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === "4" ? null : "4");
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-xs">SM</AvatarFallback>
+                  </Avatar>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+
+                {openDropdown === "4" && (
+                  <div className="absolute top-12 right-0 z-50 w-80 rounded-lg border bg-background shadow-lg">
+                    <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-14 w-14 ring-2 ring-background">
+                          <AvatarFallback className="text-lg">
+                            SM
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-semibold">Sean Murphy</div>
+                          <div className="text-muted-foreground text-sm">
+                            sean@example.com
+                          </div>
+                          <div className="mt-1 flex gap-1">
+                            <Badge
+                              className="px-1.5 py-0 text-[10px]"
+                              variant="secondary"
+                            >
+                              <Building2 className="mr-1 h-3 w-3" />
+                              Grange GAA
+                            </Badge>
+                            <Badge className="bg-green-100 px-1.5 py-0 text-[10px] text-green-700">
+                              <Users className="mr-1 h-3 w-3" />
+                              Coach
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-2">
+                      <div className="mb-1 px-2 font-medium text-muted-foreground text-xs uppercase">
+                        Quick Actions
+                      </div>
+                      <div className="grid grid-cols-4 gap-1 p-1">
+                        <button className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent">
+                          <Sun className="h-5 w-5 text-yellow-600" />
+                          <span className="text-[10px]">Light</span>
+                          <Check className="h-3 w-3 text-green-600" />
+                        </button>
+                        <button className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent">
+                          <Moon className="h-5 w-5 text-blue-600" />
+                          <span className="text-[10px]">Dark</span>
+                        </button>
+                        <button className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent">
+                          <Settings className="h-5 w-5" />
+                          <span className="text-[10px]">Settings</span>
+                        </button>
+                        <button className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent">
+                          <SwitchCamera className="h-5 w-5" />
+                          <span className="text-[10px]">Switch</span>
+                        </button>
+                      </div>
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <User className="h-4 w-4" />
+                        Profile Settings
+                      </button>
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <HelpCircle className="h-4 w-4" />
+                        Help Center
+                      </button>
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center justify-center gap-2 rounded py-2 text-red-600 text-sm hover:bg-red-50">
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Shows full context at a glance</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Quick action grid for common tasks</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <X className="h-3 w-3 text-red-600" />
+                <span>Large dropdown (may feel overwhelming)</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Option 5: Collapsible Sections */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "collapsible" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("collapsible")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Option 5: Collapsible Sections
+              <Badge variant="outline">Organized</Badge>
+            </CardTitle>
+            <CardDescription>
+              Expandable sections for better organization
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end">
+              <div className="relative">
+                <Button
+                  className="gap-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === "5" ? null : "5");
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-xs">SM</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm">Sean M.</span>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+
+                {openDropdown === "5" && (
+                  <div className="absolute top-12 right-0 z-50 w-72 rounded-lg border bg-background shadow-lg">
+                    <div className="flex items-center gap-3 border-b p-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>SM</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">Sean Murphy</div>
+                        <div className="text-muted-foreground text-xs">
+                          sean@example.com
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-2">
+                      {/* Appearance Section - Expanded */}
+                      <button className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-accent">
+                        <div className="flex items-center gap-2">
+                          <Sun className="h-4 w-4" />
+                          <span className="font-medium text-sm">
+                            Appearance
+                          </span>
+                        </div>
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <div className="ml-6 space-y-1 pb-2">
+                        <button className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-accent">
+                          <span>Light</span>
+                          <Check className="h-3 w-3 text-green-600" />
+                        </button>
+                        <button className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-accent">
+                          <span>Dark</span>
+                        </button>
+                        <button className="flex w-full items-center rounded px-2 py-1.5 text-left text-sm hover:bg-accent">
+                          <span>System</span>
+                        </button>
+                      </div>
+
+                      {/* Profile Section - Collapsed */}
+                      <button className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-accent">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          <span className="font-medium text-sm">Profile</span>
+                        </div>
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+
+                      {/* Preferences Section - Collapsed */}
+                      <button className="flex w-full items-center justify-between rounded px-2 py-1.5 hover:bg-accent">
+                        <div className="flex items-center gap-2">
+                          <Settings className="h-4 w-4" />
+                          <span className="font-medium text-sm">
+                            Preferences
+                          </span>
+                        </div>
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-red-600 text-sm hover:bg-red-50">
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Well organized with clear sections</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>User can collapse unused sections</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <X className="h-3 w-3 text-red-600" />
+                <span>Requires extra click to expand sections</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Option 6: Tabbed Interface */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "tabbed" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("tabbed")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Option 6: Tabbed Interface
+              <Badge variant="outline">Power User</Badge>
+            </CardTitle>
+            <CardDescription>
+              Tabs for different sections (Profile, Settings, Theme)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end">
+              <div className="relative">
+                <Button
+                  className="gap-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === "6" ? null : "6");
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-xs">SM</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm">Sean M.</span>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+
+                {openDropdown === "6" && (
+                  <div className="absolute top-12 right-0 z-50 w-80 rounded-lg border bg-background shadow-lg">
+                    <div className="flex items-center gap-3 border-b p-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>SM</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">Sean Murphy</div>
+                        <div className="text-muted-foreground text-xs">
+                          sean@example.com
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="flex border-b">
+                      <button className="flex-1 border-primary border-b-2 py-2 font-medium text-primary text-sm">
+                        Profile
+                      </button>
+                      <button className="flex-1 py-2 text-muted-foreground text-sm hover:bg-accent">
+                        Settings
+                      </button>
+                      <button className="flex-1 py-2 text-muted-foreground text-sm hover:bg-accent">
+                        Theme
+                      </button>
+                    </div>
+
+                    {/* Tab Content - Profile */}
+                    <div className="p-2">
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <User className="h-4 w-4" />
+                        Edit Profile
+                      </button>
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <Camera className="h-4 w-4" />
+                        Change Avatar
+                      </button>
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <Key className="h-4 w-4" />
+                        Change Password
+                      </button>
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-red-600 text-sm hover:bg-red-50">
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Clear separation of concerns</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Familiar pattern (browser tabs)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <X className="h-3 w-3 text-red-600" />
+                <span>More complex, may be overkill</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Hybrid Option 7: Best of Both Worlds */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "hybrid-both-worlds" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("hybrid-both-worlds")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Option 7: Best of Both Worlds
+              <Badge className="bg-purple-500">Hybrid</Badge>
+            </CardTitle>
+            <CardDescription>
+              Option 2 identity + Option 3 inline toggle
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end gap-2">
+              <div className="relative">
+                <Button
+                  className="gap-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === "7" ? null : "7");
+                  }}
+                  variant="outline"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-xs">SM</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm">Sean Murphy</span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+
+                {openDropdown === "7" && (
+                  <div className="absolute top-12 right-0 z-50 w-80 rounded-lg border bg-background shadow-lg">
+                    <div className="flex items-center gap-3 border-b p-4">
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback>SM</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="font-semibold">Sean Murphy</div>
+                        <div className="text-muted-foreground text-sm">
+                          sean@example.com
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-2">
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <User className="h-4 w-4" />
+                        Profile Settings
+                      </button>
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <Settings className="h-4 w-4" />
+                        Preferences
+                      </button>
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-red-600 text-sm hover:bg-red-50">
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Inline theme toggle */}
+              <Button size="icon" variant="outline">
+                <Sun className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Clear identity + 1-click theme</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Power users get fastest theme access</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <X className="h-3 w-3 text-red-600" />
+                <span>Takes most header space</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Hybrid Option 8: Enhanced Context */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "hybrid-context" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("hybrid-context")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Option 8: Enhanced Context
+              <Badge className="bg-purple-500">Hybrid</Badge>
+            </CardTitle>
+            <CardDescription>
+              Compact badge indicator + quick actions grid
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end">
+              <div className="relative">
+                <Button
+                  className="gap-1.5"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === "8" ? null : "8");
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-xs">SM</AvatarFallback>
+                  </Avatar>
+                  {/* Theme badge beside avatar */}
+                  <div className="flex h-4 w-4 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 shadow-sm ring-1 ring-border">
+                    <Sun className="h-2.5 w-2.5 text-amber-900" />
+                  </div>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+
+                {openDropdown === "8" && (
+                  <div className="absolute top-14 right-0 z-50 w-80 rounded-lg border bg-background shadow-lg">
+                    <div className="flex items-center gap-3 border-b p-4">
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback>SM</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="font-semibold">Sean Murphy</div>
+                        <div className="text-muted-foreground text-sm">
+                          sean@example.com
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Theme Grid - Compact */}
+                    <div className="border-b p-2.5">
+                      <div className="mb-1.5 font-medium text-[10px] text-muted-foreground uppercase">
+                        Theme
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button className="flex flex-col items-center gap-0.5 rounded-md border-2 border-primary bg-primary/10 p-1.5">
+                          <Sun className="h-3.5 w-3.5" />
+                          <span className="text-[10px]">Light</span>
+                          <Check className="h-2.5 w-2.5 text-primary" />
+                        </button>
+                        <button className="flex flex-col items-center gap-0.5 rounded-md border p-1.5 hover:bg-accent">
+                          <Moon className="h-3.5 w-3.5" />
+                          <span className="text-[10px]">Dark</span>
+                        </button>
+                        <button className="flex flex-col items-center gap-0.5 rounded-md border p-1.5 hover:bg-accent">
+                          <Monitor className="h-3.5 w-3.5" />
+                          <span className="text-[10px]">System</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Actions Grid */}
+                    <div className="p-3">
+                      <div className="grid grid-cols-3 gap-2">
+                        <button className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent">
+                          <User className="h-5 w-5" />
+                          <span className="text-[10px]">Profile</span>
+                        </button>
+                        <button className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent">
+                          <Settings className="h-5 w-5" />
+                          <span className="text-[10px]">Settings</span>
+                        </button>
+                        <button className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent">
+                          <Bell className="h-5 w-5" />
+                          <span className="text-[10px]">Alerts</span>
+                        </button>
+                      </div>
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-red-600 text-sm hover:bg-red-50">
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Compact button with badge indicator</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Rich dropdown: theme grid + quick actions</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Most functionality without clutter</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Hybrid Option 9: Progressive Disclosure */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "hybrid-progressive" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("hybrid-progressive")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Option 9: Progressive Disclosure
+              <Badge className="bg-purple-500">Hybrid</Badge>
+            </CardTitle>
+            <CardDescription>
+              Option 2 base + Option 5 collapsible sections
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end">
+              <div className="relative">
+                <Button
+                  className="gap-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === "9" ? null : "9");
+                  }}
+                  variant="outline"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-xs">SM</AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm">Sean Murphy</span>
+                    <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                      <Sun className="h-3 w-3" />
+                      Light
+                    </span>
+                  </div>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+
+                {openDropdown === "9" && (
+                  <div className="absolute top-14 right-0 z-50 w-80 rounded-lg border bg-background shadow-lg">
+                    <div className="flex items-center gap-3 border-b p-4">
+                      <Avatar className="h-12 w-12">
+                        <AvatarFallback>SM</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="font-semibold">Sean Murphy</div>
+                        <div className="text-muted-foreground text-sm">
+                          sean@example.com
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Theme Grid - Always Visible */}
+                    <div className="border-b p-3">
+                      <div className="mb-2 font-medium text-xs uppercase">
+                        Theme
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button className="flex flex-col items-center gap-1 rounded-lg border-2 border-primary bg-primary/10 p-2">
+                          <Sun className="h-4 w-4" />
+                          <span className="text-xs">Light</span>
+                          <Check className="h-3 w-3 text-primary" />
+                        </button>
+                        <button className="flex flex-col items-center gap-1 rounded-lg border p-2 hover:bg-accent">
+                          <Moon className="h-4 w-4" />
+                          <span className="text-xs">Dark</span>
+                        </button>
+                        <button className="flex flex-col items-center gap-1 rounded-lg border p-2 hover:bg-accent">
+                          <Monitor className="h-4 w-4" />
+                          <span className="text-xs">System</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Collapsible Sections */}
+                    <div className="p-2">
+                      <button className="flex w-full items-center justify-between rounded px-3 py-2 font-medium text-sm hover:bg-accent">
+                        <span>Account Settings</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                      <button className="flex w-full items-center justify-between rounded px-3 py-2 font-medium text-sm hover:bg-accent">
+                        <span>Preferences</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-red-600 text-sm hover:bg-red-50">
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Clean theme grid always visible</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Advanced options hidden until needed</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <X className="h-3 w-3 text-red-600" />
+                <span>Extra click for settings</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Hybrid Option 10: Compact Context */}
+        <Card
+          className={cn(
+            "cursor-pointer transition-all",
+            selectedOption === "hybrid-compact" && "ring-2 ring-primary"
+          )}
+          onClick={() => setSelectedOption("hybrid-compact")}
+        >
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Option 10: Compact Context
+              <Badge className="bg-purple-500">Hybrid</Badge>
+            </CardTitle>
+            <CardDescription>
+              Option 1 minimal button + Option 2 rich dropdown
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex justify-end">
+              <div className="relative">
+                <Button
+                  className="gap-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenDropdown(openDropdown === "10" ? null : "10");
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-xs">SM</AvatarFallback>
+                  </Avatar>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+
+                {openDropdown === "10" && (
+                  <div className="absolute top-12 right-0 z-50 w-80 rounded-lg border bg-background shadow-lg">
+                    <div className="flex items-center gap-3 border-b p-4">
+                      <Avatar className="h-12 w-12 ring-2 ring-primary/20">
+                        <AvatarFallback>SM</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="font-semibold">Sean Murphy</div>
+                        <div className="text-muted-foreground text-sm">
+                          sean@example.com
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Theme Grid */}
+                    <div className="border-b p-3">
+                      <div className="mb-2 font-medium text-xs uppercase">
+                        Theme
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button className="flex flex-col items-center gap-1 rounded-lg border-2 border-primary bg-primary/10 p-2">
+                          <Sun className="h-4 w-4" />
+                          <span className="text-xs">Light</span>
+                          <Check className="h-3 w-3 text-primary" />
+                        </button>
+                        <button className="flex flex-col items-center gap-1 rounded-lg border p-2 hover:bg-accent">
+                          <Moon className="h-4 w-4" />
+                          <span className="text-xs">Dark</span>
+                        </button>
+                        <button className="flex flex-col items-center gap-1 rounded-lg border p-2 hover:bg-accent">
+                          <Monitor className="h-4 w-4" />
+                          <span className="text-xs">System</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-2">
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <User className="h-4 w-4" />
+                        Profile Settings
+                      </button>
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-accent">
+                        <Settings className="h-4 w-4" />
+                        Preferences
+                      </button>
+                      <div className="my-2 h-px bg-border" />
+                      <button className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-red-600 text-sm hover:bg-red-50">
+                        <LogOut className="h-4 w-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-4 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Minimal header space (avatar only)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Full context revealed in dropdown</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="h-3 w-3 text-green-600" />
+                <span>Best of minimal + informative</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Comparison Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Feature Comparison</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b">
+                <tr className="text-left">
+                  <th className="p-2 font-medium">Feature</th>
+                  <th className="p-2 text-center font-medium">Badge</th>
+                  <th className="p-2 text-center font-medium">Name+Theme</th>
+                  <th className="p-2 text-center font-medium">Inline</th>
+                  <th className="p-2 text-center font-medium">Rich Card</th>
+                  <th className="p-2 text-center font-medium">Collapsible</th>
+                  <th className="p-2 text-center font-medium">Tabbed</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                <tr>
+                  <td className="p-2">Header Space Used</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★</td>
+                </tr>
+                <tr>
+                  <td className="p-2">Theme Visibility</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★</td>
+                </tr>
+                <tr>
+                  <td className="p-2">Theme Change Speed</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★</td>
+                </tr>
+                <tr>
+                  <td className="p-2">Context Display</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★</td>
+                </tr>
+                <tr>
+                  <td className="p-2">Simplicity</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★</td>
+                </tr>
+                <tr>
+                  <td className="p-2">Mobile Friendly</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 text-muted-foreground text-xs">
+            ★★★ = Excellent | ★★ = Good | ★ = Fair
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recommendation */}
+      <Card className="border-green-200 bg-green-50/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-green-800">
+            <CheckCircle2 className="h-5 w-5" />
+            Recommendation: Option 2 (Avatar + Name + Theme)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-green-900 text-sm">
+          <p className="mb-3">
+            <strong>Option 2</strong> provides the best balance of
+            functionality, clarity, and user experience:
+          </p>
+          <ul className="ml-4 list-disc space-y-1">
+            <li>
+              Shows user identity, current org/role, and theme state clearly
+            </li>
+            <li>Visual grid layout makes theme selection intuitive</li>
+            <li>Aligns with industry patterns (Linear, Notion)</li>
+            <li>Works well on both desktop and mobile (ResponsiveDialog)</li>
+            <li>Provides context without overwhelming the user</li>
+          </ul>
+          <p className="mt-3">
+            <strong>Alternative:</strong> Option 3 (Inline Theme Toggle) is
+            recommended if users frequently change themes, as it provides
+            1-click access at the cost of slightly more header space.
+          </p>
+        </CardContent>
+      </Card>
+
+      <MultiOptionVoting
+        comparisonId="enhanced-profile-button"
+        comparisonName="Enhanced Profile Button Design"
+        options={[
+          {
+            id: "avatar-badge",
+            label: "Option 1: Avatar + Theme Badge",
+            description: "Compact with theme indicator badge",
+          },
+          {
+            id: "avatar-name-theme",
+            label: "Option 2: Avatar + Name + Theme (Recommended)",
+            description: "Clear identity and visual theme picker",
+          },
+          {
+            id: "inline-theme",
+            label: "Option 3: Inline Theme Toggle",
+            description: "Fast 1-click theme access",
+          },
+          {
+            id: "rich-card",
+            label: "Option 4: Rich Profile Card",
+            description: "Full context with quick action grid",
+          },
+          {
+            id: "collapsible",
+            label: "Option 5: Collapsible Sections",
+            description: "Organized expandable sections",
+          },
+          {
+            id: "tabbed",
+            label: "Option 6: Tabbed Interface",
+            description: "Clear separation with browser-style tabs",
+          },
+        ]}
       />
     </section>
   );

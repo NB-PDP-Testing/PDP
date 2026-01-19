@@ -408,10 +408,10 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
       "NAVBAR-ADMIN-006"
     );
 
-    expect(result.success).toBeTruthy();
     if (!result.success) {
       console.error(`[NAVBAR-ADMIN-006] Failed: ${result.error}`);
     }
+    expect(result.success).toBeTruthy();
   });
 
   test("NAVBAR-ADMIN-007: Users link", async ({ adminPage }) => {

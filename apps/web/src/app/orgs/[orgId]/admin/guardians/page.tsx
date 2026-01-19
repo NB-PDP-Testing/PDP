@@ -785,13 +785,13 @@ export default function GuardianManagementPage() {
                       type="button"
                     >
                       <div className="flex items-center gap-4">
-                        <button className="text-muted-foreground">
+                        <div className="text-muted-foreground">
                           {expandedRows.has(rel.playerId) ? (
                             <ChevronDown className="h-5 w-5" />
                           ) : (
                             <ChevronRight className="h-5 w-5" />
                           )}
-                        </button>
+                        </div>
                         <div>
                           <div className="font-medium">{rel.playerName}</div>
                           <div className="text-muted-foreground text-sm">
@@ -895,13 +895,13 @@ export default function GuardianManagementPage() {
                       type="button"
                     >
                       <div className="flex items-center gap-4">
-                        <button className="text-muted-foreground">
+                        <div className="text-muted-foreground">
                           {expandedRows.has(guardian.guardianId) ? (
                             <ChevronDown className="h-5 w-5" />
                           ) : (
                             <ChevronRight className="h-5 w-5" />
                           )}
-                        </button>
+                        </div>
                         <div>
                           <div className="font-medium">
                             {guardian.firstName} {guardian.lastName}

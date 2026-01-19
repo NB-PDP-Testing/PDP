@@ -116,6 +116,26 @@
           }
         }
       }
+    },
+    {
+      "includes": ["**/app/demo/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "recommended": false,
+            "noNoninteractiveElementInteractions": "off",
+            "noStaticElementInteractions": "off",
+            "useSemanticElements": "off",
+            "useKeyWithClickEvents": "off",
+            "useKeyWithMouseEvents": "off",
+            "noLabelWithoutControl": "off",
+            "noSvgWithoutTitle": "off"
+          },
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
     }
   ]
 }

@@ -539,11 +539,6 @@ function ProposedCardView() {
                 swipedCard === i && "-translate-x-32"
               )}
               onClick={() => setSwipedCard(swipedCard === i ? null : i)}
-              onKeyDown={(e) =>
-                e.key === "Enter" && setSwipedCard(swipedCard === i ? null : i)
-              }
-              role="button"
-              tabIndex={0}
             >
               <div className="flex items-center gap-3 p-3">
                 <Avatar className="h-10 w-10">
@@ -1106,19 +1101,12 @@ function AdminNavBottomSheet() {
       {/* Bottom Sheet Overlay */}
       {sheetOpen && (
         <div
-          aria-label="Close menu"
           className="absolute inset-0 bg-black/50"
           onClick={() => setSheetOpen(false)}
-          onKeyDown={(e) => e.key === "Escape" && setSheetOpen(false)}
-          role="button"
-          tabIndex={0}
         >
           <div
-            aria-modal="true"
             className="absolute inset-x-0 bottom-0 max-h-[85%] overflow-y-auto rounded-t-2xl bg-background"
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-            role="dialog"
           >
             {/* Handle */}
             <div className="sticky top-0 flex justify-center bg-background pt-3 pb-2">

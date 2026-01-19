@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import {
   AlertCircle,
@@ -38,6 +39,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { AddGuardianModal } from "./components/add-guardian-modal";
 
 type ViewMode = "players" | "guardians" | "status";
 type StatusFilter = "all" | "claimed" | "pending" | "missing";
@@ -51,6 +53,11 @@ export default function GuardianManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [groupByFamily, setGroupByFamily] = useState(false);
+  const [addGuardianModalOpen, setAddGuardianModalOpen] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Queries
   const stats = useQuery(api.models.guardianManagement.getGuardianStatsForOrg, {
@@ -214,13 +221,13 @@ export default function GuardianManagementPage() {
 
     const familyGroups: Map<string, any[]> = new Map();
 
-    guardians.forEach((guardian: any) => {
+    for (const guardian of guardians) {
       const familyKey = guardian.lastName.toLowerCase();
       if (!familyGroups.has(familyKey)) {
         familyGroups.set(familyKey, []);
       }
       familyGroups.get(familyKey)?.push(guardian);
-    });
+    }
 
     // Convert to array and filter by search
     return Array.from(familyGroups.entries())
@@ -520,7 +527,7 @@ export default function GuardianManagementPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 md:grid-cols-2">
-              {insights.slice(0, 4).map((insight, index) => {
+              {insights.slice(0, 4).map((insight) => {
                 const Icon = insight.icon;
                 const bgColor = {
                   warning: "bg-orange-100 dark:bg-orange-950/50",
@@ -546,8 +553,20 @@ export default function GuardianManagementPage() {
                     className={`flex flex-col gap-2 rounded-lg border ${borderColor} ${bgColor} p-3 transition-all ${
                       insight.onClick ? "cursor-pointer hover:shadow-md" : ""
                     }`}
-                    key={index}
-                    onClick={insight.onClick || undefined}
+                    key={insight.title}
+                    {...(insight.onClick
+                      ? {
+                          onClick: insight.onClick,
+                          onKeyDown: (e: React.KeyboardEvent) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              insight.onClick?.();
+                            }
+                          },
+                          role: "button" as const,
+                          tabIndex: 0,
+                        }
+                      : {})}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`rounded-full p-2 ${iconColor}`}>
@@ -760,9 +779,10 @@ export default function GuardianManagementPage() {
               filteredData.map((rel: any) => (
                 <Card className="overflow-hidden" key={rel.playerId}>
                   <CardContent className="p-0">
-                    <div
-                      className="flex cursor-pointer items-center justify-between p-4 hover:bg-muted/50"
+                    <button
+                      className="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent p-4 text-left hover:bg-muted/50"
                       onClick={() => toggleRow(rel.playerId)}
+                      type="button"
                     >
                       <div className="flex items-center gap-4">
                         <button className="text-muted-foreground">
@@ -783,7 +803,7 @@ export default function GuardianManagementPage() {
                       <div className="flex items-center gap-2">
                         {getStatusBadge(rel.claimedCount, rel.guardianCount)}
                       </div>
-                    </div>
+                    </button>
 
                     {expandedRows.has(rel.playerId) && (
                       <div className="border-t bg-muted/20 p-4">
@@ -869,9 +889,10 @@ export default function GuardianManagementPage() {
               filteredData.map((guardian: any) => (
                 <Card className="overflow-hidden" key={guardian.guardianId}>
                   <CardContent className="p-0">
-                    <div
-                      className="flex cursor-pointer items-center justify-between p-4 hover:bg-muted/50"
+                    <button
+                      className="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent p-4 text-left hover:bg-muted/50"
                       onClick={() => toggleRow(guardian.guardianId)}
+                      type="button"
                     >
                       <div className="flex items-center gap-4">
                         <button className="text-muted-foreground">
@@ -894,7 +915,7 @@ export default function GuardianManagementPage() {
                       <div className="flex items-center gap-2">
                         {getGuardianStatusBadge(guardian.hasUserAccount)}
                       </div>
-                    </div>
+                    </button>
 
                     {expandedRows.has(guardian.guardianId) && (
                       <div className="border-t bg-muted/20 p-4">
@@ -962,9 +983,10 @@ export default function GuardianManagementPage() {
               getGroupedGuardians().map((family: any) => (
                 <Card className="overflow-hidden" key={family.familyName}>
                   <CardContent className="p-0">
-                    <div
-                      className="flex cursor-pointer items-center justify-between bg-muted/30 p-4 hover:bg-muted/50"
+                    <button
+                      className="flex w-full cursor-pointer items-center justify-between border-0 bg-muted/30 p-4 text-left hover:bg-muted/50"
                       onClick={() => toggleRow(family.familyName)}
+                      type="button"
                     >
                       <div className="flex items-center gap-4">
                         <button className="text-muted-foreground">
@@ -996,7 +1018,7 @@ export default function GuardianManagementPage() {
                           / {family.members.length} claimed
                         </Badge>
                       </div>
-                    </div>
+                    </button>
 
                     {expandedRows.has(family.familyName) && (
                       <div className="border-t bg-background p-4">
@@ -1094,7 +1116,17 @@ export default function GuardianManagementPage() {
                         {player.ageGroup} • DOB: {player.dateOfBirth}
                       </div>
                     </div>
-                    <Button size="sm" variant="outline">
+                    <Button
+                      onClick={() => {
+                        setSelectedPlayer({
+                          id: player.playerId,
+                          name: player.playerName,
+                        });
+                        setAddGuardianModalOpen(true);
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
                       <Plus className="mr-2 h-4 w-4" />
                       Add Guardian
                     </Button>
@@ -1105,6 +1137,16 @@ export default function GuardianManagementPage() {
           </div>
         )}
       </div>
+
+      {/* Add Guardian Modal */}
+      {selectedPlayer && (
+        <AddGuardianModal
+          onOpenChange={setAddGuardianModalOpen}
+          open={addGuardianModalOpen}
+          playerId={selectedPlayer.id as Id<"playerIdentities">}
+          playerName={selectedPlayer.name}
+        />
+      )}
 
       {/* Contextual Help & Recommendations */}
       <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30">

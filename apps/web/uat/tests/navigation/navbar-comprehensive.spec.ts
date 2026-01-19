@@ -15,35 +15,78 @@ function getOrgId(page: Page): string {
 
 /**
  * Helper to navigate to admin dashboard
- * Uses /orgs/current/admin which redirects to user's current org
+ * Navigates and waits for the actual orgId to appear in URL
  */
-async function navigateToAdmin(page: Page): Promise<void> {
+async function navigateToAdmin(page: Page): Promise<string> {
   await page.goto("/orgs/current/admin");
   await waitForPageLoad(page);
-  // Wait a bit for any redirects to complete
-  await page.waitForTimeout(1000);
+
+  // Wait for URL to contain actual orgId (not "current")
+  await page.waitForFunction(() => {
+    const url = window.location.pathname;
+    const match = url.match(/\/orgs\/([^\/]+)/);
+    return match && match[1] && match[1] !== "current";
+  }, { timeout: 10000 }).catch(() => {});
+
+  // Extract and return the orgId
+  const url = page.url();
+  const match = url.match(/\/orgs\/([^\/]+)/);
+  if (match && match[1] && match[1] !== "current") {
+    return match[1];
+  }
+
+  // Fallback: return "current" if no redirect happened
+  return "current";
 }
 
 /**
  * Helper to navigate to coach dashboard
- * Uses /orgs/current/coach which redirects to user's current org
+ * Navigates and waits for the actual orgId to appear in URL
  */
-async function navigateToCoach(page: Page): Promise<void> {
+async function navigateToCoach(page: Page): Promise<string> {
   await page.goto("/orgs/current/coach");
   await waitForPageLoad(page);
-  // Wait a bit for any redirects to complete
-  await page.waitForTimeout(1000);
+
+  // Wait for URL to contain actual orgId (not "current")
+  await page.waitForFunction(() => {
+    const url = window.location.pathname;
+    const match = url.match(/\/orgs\/([^\/]+)/);
+    return match && match[1] && match[1] !== "current";
+  }, { timeout: 10000 }).catch(() => {});
+
+  // Extract and return the orgId
+  const url = page.url();
+  const match = url.match(/\/orgs\/([^\/]+)/);
+  if (match && match[1] && match[1] !== "current") {
+    return match[1];
+  }
+
+  return "current";
 }
 
 /**
  * Helper to navigate to parent dashboard
- * Uses /orgs/current/parents which redirects to user's current org
+ * Navigates and waits for the actual orgId to appear in URL
  */
-async function navigateToParent(page: Page): Promise<void> {
+async function navigateToParent(page: Page): Promise<string> {
   await page.goto("/orgs/current/parents");
   await waitForPageLoad(page);
-  // Wait a bit for any redirects to complete
-  await page.waitForTimeout(1000);
+
+  // Wait for URL to contain actual orgId (not "current")
+  await page.waitForFunction(() => {
+    const url = window.location.pathname;
+    const match = url.match(/\/orgs\/([^\/]+)/);
+    return match && match[1] && match[1] !== "current";
+  }, { timeout: 10000 }).catch(() => {});
+
+  // Extract and return the orgId
+  const url = page.url();
+  const match = url.match(/\/orgs\/([^\/]+)/);
+  if (match && match[1] && match[1] !== "current") {
+    return match[1];
+  }
+
+  return "current";
 }
 
 /**
@@ -263,8 +306,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
     const page = adminPage;
 
     // Navigate to admin dashboard first
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -287,8 +329,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
     const page = adminPage;
 
     // Navigate to admin dashboard first
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -310,8 +351,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-004: Teams link", async ({ adminPage }) => {
     const page = adminPage;
 
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -333,8 +373,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-005: Coaches link", async ({ adminPage }) => {
     const page = adminPage;
     
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -356,8 +395,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-006: Guardians link", async ({ adminPage }) => {
     const page = adminPage;
     
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -379,8 +417,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-007: Users link", async ({ adminPage }) => {
     const page = adminPage;
     
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -402,8 +439,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-008: Approvals link", async ({ adminPage }) => {
     const page = adminPage;
     
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -425,8 +461,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-009: Settings link", async ({ adminPage }) => {
     const page = adminPage;
     
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -448,8 +483,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-010: Benchmarks link", async ({ adminPage }) => {
     const page = adminPage;
     
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -471,8 +505,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-011: Analytics link", async ({ adminPage }) => {
     const page = adminPage;
     
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -494,8 +527,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-012: Overrides link", async ({ adminPage }) => {
     const page = adminPage;
     
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -517,8 +549,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-013: Announcements link", async ({ adminPage }) => {
     const page = adminPage;
     
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -540,8 +571,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-014: Player Access link", async ({ adminPage }) => {
     const page = adminPage;
     
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -563,8 +593,7 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-099: All navigation links work", async ({ adminPage }) => {
     const page = adminPage;
     
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -637,8 +666,7 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
   test("NAVBAR-COACH-002: Dashboard link", async ({ coachPage }) => {
     const page = coachPage;
     
-    await navigateToCoach(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToCoach(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -660,8 +688,7 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
   test("NAVBAR-COACH-003: Assess link", async ({ coachPage }) => {
     const page = coachPage;
     
-    await navigateToCoach(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToCoach(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -683,8 +710,7 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
   test("NAVBAR-COACH-004: Players link", async ({ coachPage }) => {
     const page = coachPage;
     
-    await navigateToCoach(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToCoach(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -706,8 +732,7 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
   test("NAVBAR-COACH-005: Goals link", async ({ coachPage }) => {
     const page = coachPage;
     
-    await navigateToCoach(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToCoach(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -729,8 +754,7 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
   test("NAVBAR-COACH-006: Voice Notes link", async ({ coachPage }) => {
     const page = coachPage;
     
-    await navigateToCoach(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToCoach(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -752,8 +776,7 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
   test("NAVBAR-COACH-007: Session Plans link", async ({ coachPage }) => {
     const page = coachPage;
     
-    await navigateToCoach(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToCoach(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -775,8 +798,7 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
   test("NAVBAR-COACH-008: Injuries link", async ({ coachPage }) => {
     const page = coachPage;
     
-    await navigateToCoach(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToCoach(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -798,8 +820,7 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
   test("NAVBAR-COACH-009: Medical link", async ({ coachPage }) => {
     const page = coachPage;
     
-    await navigateToCoach(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToCoach(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -821,8 +842,7 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
   test("NAVBAR-COACH-010: Match Day link", async ({ coachPage }) => {
     const page = coachPage;
     
-    await navigateToCoach(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToCoach(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -844,8 +864,7 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
   test("NAVBAR-COACH-099: All navigation links work", async ({ coachPage }) => {
     const page = coachPage;
     
-    await navigateToCoach(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToCoach(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -911,8 +930,7 @@ test.describe("NAVBAR - Parent Navigation Tests", () => {
     const page = parentPage;
 
     // Navigate to parent dashboard first
-    await navigateToParent(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToParent(page);
 
     await page.goto(`/orgs/${orgId}/parents`);
     await waitForPageLoad(page);
@@ -960,8 +978,7 @@ test.describe("NAVBAR - Owner/Platform Navigation Tests", () => {
   test("NAVBAR-OWNER-001: Admin navigation works for owner", async ({ ownerPage }) => {
     const page = ownerPage;
     
-    await navigateToAdmin(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToAdmin(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -976,8 +993,7 @@ test.describe("NAVBAR - Owner/Platform Navigation Tests", () => {
   test("NAVBAR-OWNER-002: Coach navigation works for owner", async ({ ownerPage }) => {
     const page = ownerPage;
     
-    await navigateToCoach(page);
-    const orgId = getOrgId(page);
+    const orgId = await navigateToCoach(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);

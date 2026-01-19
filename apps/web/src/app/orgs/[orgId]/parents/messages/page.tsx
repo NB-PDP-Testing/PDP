@@ -94,7 +94,6 @@ export default function ParentMessagesPage() {
         <div className="space-y-4">
           {messages.map((item) => (
             <Link
-              // @ts-expect-error - Route exists but Next.js types haven't regenerated
               href={`/orgs/${orgId as string}/parents/messages/${item.message._id as string}`}
               key={item.message._id}
             >

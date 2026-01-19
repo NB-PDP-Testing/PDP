@@ -145,11 +145,6 @@ export function SmartCoachDashboard({
     }
   };
 
-  useEffect(() => {
-    calculateTeamAnalytics();
-    generateCorrelationInsights();
-  }, [calculateTeamAnalytics, generateCorrelationInsights]);
-
   // Helper to get all teams for a player
   const getPlayerTeams = (player: any): string[] => {
     // First check if player has explicit teams array (from updated coach dashboard)
@@ -447,6 +442,13 @@ export function SmartCoachDashboard({
 
     setInsights(insights);
   };
+
+  // Calculate analytics when dependencies change
+  // Note: useEffect must be placed after function declarations
+  useEffect(() => {
+    calculateTeamAnalytics();
+    generateCorrelationInsights();
+  }, [calculateTeamAnalytics, generateCorrelationInsights]);
 
   const generateAIRecommendations = async () => {
     // Prevent duplicate calls if already loading

@@ -25,7 +25,7 @@ export function SharingContactSettings({
   organizationId,
 }: SharingContactSettingsProps) {
   const [sharingContactMode, setSharingContactMode] = useState<
-    "direct" | "enquiry" | ""
+    "direct" | "enquiry" | "none" | ""
   >("");
   const [sharingContactName, setSharingContactName] = useState("");
   const [sharingContactEmail, setSharingContactEmail] = useState("");
@@ -42,10 +42,11 @@ export function SharingContactSettings({
   );
 
   // Populate form when organization loads
+  // Default to "enquiry" mode when no mode is set (null/undefined)
   useEffect(() => {
     if (organization) {
       setSharingContactMode(
-        (organization.sharingContactMode as "direct" | "enquiry") || ""
+        (organization.sharingContactMode as "direct" | "enquiry") || "enquiry"
       );
       setSharingContactName(organization.sharingContactName || "");
       setSharingContactEmail(organization.sharingContactEmail || "");
@@ -107,26 +108,26 @@ export function SharingContactSettings({
           <Label>Contact Mode</Label>
           <RadioGroup
             onValueChange={(value) =>
-              setSharingContactMode(value as "direct" | "enquiry" | "")
+              setSharingContactMode(value as "direct" | "enquiry" | "none")
             }
             value={sharingContactMode}
           >
             <div className="flex items-center space-x-2">
-              <RadioGroupItem id="mode-none" value="" />
-              <Label className="font-normal" htmlFor="mode-none">
-                No public contact (default)
+              <RadioGroupItem id="mode-enquiry" value="enquiry" />
+              <Label className="font-normal" htmlFor="mode-enquiry">
+                Enquiry system (default, managed by admins)
               </Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem id="mode-direct" value="direct" />
               <Label className="font-normal" htmlFor="mode-direct">
-                Direct contact (name, email, phone)
+                Direct contact (share coach contact info)
               </Label>
             </div>
             <div className="flex items-center space-x-2">
-              <RadioGroupItem id="mode-enquiry" value="enquiry" />
-              <Label className="font-normal" htmlFor="mode-enquiry">
-                Enquiry system (managed by admins)
+              <RadioGroupItem id="mode-none" value="none" />
+              <Label className="font-normal" htmlFor="mode-none">
+                No public contact
               </Label>
             </div>
           </RadioGroup>

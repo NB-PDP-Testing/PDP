@@ -80,7 +80,6 @@ export default function CoachMessagesPage() {
           </p>
         </div>
         <Button asChild>
-          {/* @ts-expect-error - Route exists but Next.js types haven't regenerated */}
           <Link href={`/orgs/${orgId as string}/coach/messages/compose`}>
             <Plus className="mr-2 h-4 w-4" />
             New Message
@@ -129,7 +128,6 @@ export default function CoachMessagesPage() {
             </EmptyDescription>
           </EmptyContent>
           <Button asChild>
-            {/* @ts-expect-error - Route exists but Next.js types haven't regenerated */}
             <Link href={`/orgs/${orgId as string}/coach/messages/compose`}>
               <Plus className="mr-2 h-4 w-4" />
               Create Your First Message
@@ -142,7 +140,6 @@ export default function CoachMessagesPage() {
         <div className="space-y-4">
           {messages.map((message) => (
             <Link
-              // @ts-expect-error - Route exists but Next.js types haven't regenerated
               href={`/orgs/${orgId as string}/coach/messages/${message._id as string}`}
               key={message._id}
             >

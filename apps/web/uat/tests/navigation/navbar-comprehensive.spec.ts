@@ -1,6 +1,54 @@
 import { test, expect } from "../../fixtures/test-fixtures";
-import { waitForPageLoad, getCurrentOrgId } from "../../fixtures/test-fixtures";
+import { waitForPageLoad, getOrgIdFromUrl, navigateToAdmin, navigateToCoach } from "../../fixtures/test-fixtures";
 import type { Page } from "@playwright/test";
+
+/**
+ * Helper to get orgId from current page URL
+ */
+function getOrgId(page: Page): string {
+  const orgId = getOrgIdFromUrl(page.url());
+  if (!orgId || orgId === "current") {
+    throw new Error(`Could not extract orgId from URL: ${page.url()}`);
+  }
+  return orgId;
+}
+
+/**
+ * Helper to navigate to parent dashboard
+ */
+async function navigateToParent(page: Page): Promise<void> {
+  // Navigate to /orgs first to get organization
+  await page.goto("/orgs");
+  await waitForPageLoad(page);
+
+  // Try to find and click parent portal link
+  const parentPortal = page.getByText(/Parent Portal|Parents/i).first();
+  if (await parentPortal.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await parentPortal.click();
+    await waitForPageLoad(page);
+  } else {
+    // Fallback: try to navigate directly if we can extract orgId from page
+    const currentUrl = page.url();
+    const currentOrgId = getOrgIdFromUrl(currentUrl);
+    if (currentOrgId && currentOrgId !== "current") {
+      await page.goto(`/orgs/${currentOrgId}/parents`);
+      await waitForPageLoad(page);
+    } else {
+      // Last resort: look for any org card and extract orgId from it
+      const orgCard = page.locator('[data-testid="org-card"]').first();
+      if (await orgCard.isVisible({ timeout: 3000 }).catch(() => false)) {
+        const href = await orgCard.locator('a').first().getAttribute('href');
+        if (href) {
+          const match = href.match(/\/orgs\/([^\/]+)/);
+          if (match && match[1]) {
+            await page.goto(`/orgs/${match[1]}/parents`);
+            await waitForPageLoad(page);
+          }
+        }
+      }
+    }
+  }
+}
 
 /**
  * Comprehensive Navigation Bar Tests
@@ -43,30 +91,46 @@ async function getAllNavLinks(page: Page): Promise<Array<{ text: string; href: s
   let navContainer;
   if (navMode === "sidebar") {
     // Sidebar navigation - look in aside or sidebar container
-    navContainer = page.locator('aside nav, [data-testid="admin-sidebar"], [class*="sidebar"] nav').first();
+    navContainer = page.locator('aside, [data-testid="admin-sidebar"], [data-testid="coach-sidebar"], nav').first();
   } else {
-    // Horizontal navigation - look in header nav or horizontal scroll container
-    navContainer = page.locator('header nav, [class*="horizontal-nav"], [class*="scroll"]').first();
+    // Horizontal navigation - be more flexible, look for any nav element or container with links
+    navContainer = page.locator('nav, [role="navigation"]').first();
   }
 
-  // Get all links within the navigation container
+  // Wait for navigation to be visible
+  await navContainer.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+
+  // Get all links within the navigation container, including nested ones
   const links = await navContainer.locator('a[href]').all();
 
   const navLinks: Array<{ text: string; href: string }> = [];
+  const seenHrefs = new Set<string>(); // Deduplicate links
 
   for (const link of links) {
     try {
+      // Only process visible links
+      if (!(await link.isVisible({ timeout: 500 }))) {
+        continue;
+      }
+
       const text = await link.innerText({ timeout: 1000 });
       const href = await link.getAttribute('href');
 
-      if (href && text && !href.startsWith('#')) {
+      // Filter out: empty text, empty href, hash links, external links, duplicates
+      if (href &&
+          text &&
+          text.trim() &&
+          !href.startsWith('#') &&
+          !href.startsWith('http') &&
+          !seenHrefs.has(href)) {
         navLinks.push({
           text: text.trim(),
           href
         });
+        seenHrefs.add(href);
       }
     } catch (e) {
-      // Skip links that are not visible or accessible
+      // Skip links that are not accessible
       continue;
     }
   }
@@ -182,20 +246,8 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
   test("NAVBAR-ADMIN-001: Detect navigation mode and expand groups", async ({ adminPage }) => {
     const page = adminPage;
 
-    // Navigate to admin dashboard
-    await page.goto("/orgs");
-    await waitForPageLoad(page);
-
-    const adminPanel = page.getByText("Admin Panel").first();
-    if (await adminPanel.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await adminPanel.click();
-      await waitForPageLoad(page);
-    } else {
-      // Direct navigation if button not visible
-      const orgId = await getCurrentOrgId(page);
-      await page.goto(`/orgs/${orgId}/admin`);
-      await waitForPageLoad(page);
-    }
+    // Navigate to admin dashboard using helper
+    await navigateToAdmin(page);
 
     // Detect navigation mode
     const navMode = await detectNavMode(page);
@@ -213,7 +265,10 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-002: Overview/Dashboard link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+
+    // Navigate to admin dashboard first
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -234,7 +289,10 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-003: Players link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+
+    // Navigate to admin dashboard first
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -255,7 +313,9 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-004: Teams link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -276,7 +336,9 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-005: Coaches link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -297,7 +359,9 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-006: Guardians link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -318,7 +382,9 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-007: Users link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -339,7 +405,9 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-008: Approvals link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -360,7 +428,9 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-009: Settings link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -381,7 +451,9 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-010: Benchmarks link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -402,7 +474,9 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-011: Analytics link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -423,7 +497,9 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-012: Overrides link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -444,7 +520,9 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-013: Announcements link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -465,7 +543,9 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-014: Player Access link", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -486,7 +566,9 @@ test.describe("NAVBAR - Admin Navigation Tests", () => {
 
   test("NAVBAR-ADMIN-099: All navigation links work", async ({ adminPage }) => {
     const page = adminPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -542,18 +624,8 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
   test("NAVBAR-COACH-001: Detect navigation mode and expand groups", async ({ coachPage }) => {
     const page = coachPage;
 
-    await page.goto("/orgs");
-    await waitForPageLoad(page);
-
-    const coachPanel = page.getByText("Coach Panel").first();
-    if (await coachPanel.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await coachPanel.click();
-      await waitForPageLoad(page);
-    } else {
-      const orgId = await getCurrentOrgId(page);
-      await page.goto(`/orgs/${orgId}/coach`);
-      await waitForPageLoad(page);
-    }
+    // Navigate to coach dashboard using helper
+    await navigateToCoach(page);
 
     const navMode = await detectNavMode(page);
     console.log(`[NAVBAR-COACH-001] Navigation mode detected: ${navMode}`);
@@ -568,7 +640,9 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
 
   test("NAVBAR-COACH-002: Dashboard link", async ({ coachPage }) => {
     const page = coachPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToCoach(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -589,7 +663,9 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
 
   test("NAVBAR-COACH-003: Assess link", async ({ coachPage }) => {
     const page = coachPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToCoach(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -610,7 +686,9 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
 
   test("NAVBAR-COACH-004: Players link", async ({ coachPage }) => {
     const page = coachPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToCoach(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -631,7 +709,9 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
 
   test("NAVBAR-COACH-005: Goals link", async ({ coachPage }) => {
     const page = coachPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToCoach(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -652,7 +732,9 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
 
   test("NAVBAR-COACH-006: Voice Notes link", async ({ coachPage }) => {
     const page = coachPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToCoach(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -673,7 +755,9 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
 
   test("NAVBAR-COACH-007: Session Plans link", async ({ coachPage }) => {
     const page = coachPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToCoach(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -694,7 +778,9 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
 
   test("NAVBAR-COACH-008: Injuries link", async ({ coachPage }) => {
     const page = coachPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToCoach(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -715,7 +801,9 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
 
   test("NAVBAR-COACH-009: Medical link", async ({ coachPage }) => {
     const page = coachPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToCoach(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -736,7 +824,9 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
 
   test("NAVBAR-COACH-010: Match Day link", async ({ coachPage }) => {
     const page = coachPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToCoach(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -757,7 +847,9 @@ test.describe("NAVBAR - Coach Navigation Tests", () => {
 
   test("NAVBAR-COACH-099: All navigation links work", async ({ coachPage }) => {
     const page = coachPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToCoach(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);
@@ -807,18 +899,8 @@ test.describe("NAVBAR - Parent Navigation Tests", () => {
   test("NAVBAR-PARENT-001: Detect navigation mode", async ({ parentPage }) => {
     const page = parentPage;
 
-    await page.goto("/orgs");
-    await waitForPageLoad(page);
-
-    const parentPortal = page.getByText(/Parent Portal|Parents/i).first();
-    if (await parentPortal.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await parentPortal.click();
-      await waitForPageLoad(page);
-    } else {
-      const orgId = await getCurrentOrgId(page);
-      await page.goto(`/orgs/${orgId}/parents`);
-      await waitForPageLoad(page);
-    }
+    // Navigate to parent dashboard
+    await navigateToParent(page);
 
     const navMode = await detectNavMode(page);
     console.log(`[NAVBAR-PARENT-001] Navigation mode detected: ${navMode}`);
@@ -831,7 +913,10 @@ test.describe("NAVBAR - Parent Navigation Tests", () => {
 
   test("NAVBAR-PARENT-099: All navigation links work", async ({ parentPage }) => {
     const page = parentPage;
-    const orgId = await getCurrentOrgId(page);
+
+    // Navigate to parent dashboard first
+    await navigateToParent(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/parents`);
     await waitForPageLoad(page);
@@ -878,7 +963,9 @@ test.describe("NAVBAR - Parent Navigation Tests", () => {
 test.describe("NAVBAR - Owner/Platform Navigation Tests", () => {
   test("NAVBAR-OWNER-001: Admin navigation works for owner", async ({ ownerPage }) => {
     const page = ownerPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToAdmin(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/admin`);
     await waitForPageLoad(page);
@@ -892,7 +979,9 @@ test.describe("NAVBAR - Owner/Platform Navigation Tests", () => {
 
   test("NAVBAR-OWNER-002: Coach navigation works for owner", async ({ ownerPage }) => {
     const page = ownerPage;
-    const orgId = await getCurrentOrgId(page);
+    
+    await navigateToCoach(page);
+    const orgId = getOrgId(page);
 
     await page.goto(`/orgs/${orgId}/coach`);
     await waitForPageLoad(page);

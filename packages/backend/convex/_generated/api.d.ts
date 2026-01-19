@@ -9,6 +9,7 @@
  */
 
 import type * as actions_invitations from "../actions/invitations.js";
+import type * as actions_messaging from "../actions/messaging.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
 import type * as actions_sessionPlans from "../actions/sessionPlans.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
@@ -25,6 +26,7 @@ import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyD
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
 import type * as models_checkUserRoles from "../models/checkUserRoles.js";
+import type * as models_coachParentMessages from "../models/coachParentMessages.js";
 import type * as models_coachTasks from "../models/coachTasks.js";
 import type * as models_coaches from "../models/coaches.js";
 import type * as models_demoAsks from "../models/demoAsks.js";
@@ -102,6 +104,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "actions/invitations": typeof actions_invitations;
+  "actions/messaging": typeof actions_messaging;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
   "actions/sessionPlans": typeof actions_sessionPlans;
   "actions/voiceNotes": typeof actions_voiceNotes;
@@ -118,6 +121,7 @@ declare const fullApi: ApiFromModules<{
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
   "models/checkUserRoles": typeof models_checkUserRoles;
+  "models/coachParentMessages": typeof models_coachParentMessages;
   "models/coachTasks": typeof models_coachTasks;
   "models/coaches": typeof models_coaches;
   "models/demoAsks": typeof models_demoAsks;

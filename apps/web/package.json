@@ -20,6 +20,7 @@
     "test:cross-role": "playwright test --config=uat/playwright.config.ts tests/cross-role/",
     "test:performance": "playwright test --config=uat/playwright.config.ts tests/performance/",
     "test:mobile": "playwright test --config=uat/playwright.config.ts tests/mobile/",
+    "test:navbar": "playwright test --config=uat/playwright.config.ts tests/navigation/",
     "test:ui": "playwright test --config=uat/playwright.config.ts --ui",
     "test:headed": "playwright test --config=uat/playwright.config.ts --headed",
     "test:debug": "playwright test --config=uat/playwright.config.ts --debug",

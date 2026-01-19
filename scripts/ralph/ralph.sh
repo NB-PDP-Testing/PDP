@@ -69,12 +69,39 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   echo ""
   echo "═══════════════════════════════════════════════════════"
   echo "  Ralph Iteration $i of $MAX_ITERATIONS"
+  echo "  Started: $(date '+%H:%M:%S')"
   echo "═══════════════════════════════════════════════════════"
 
+  # Show current PRD status
+  if [ -f "$PRD_FILE" ]; then
+    INCOMPLETE_COUNT=$(jq '[.userStories[] | select(.passes == false)] | length' "$PRD_FILE" 2>/dev/null || echo "?")
+    TOTAL_COUNT=$(jq '.userStories | length' "$PRD_FILE" 2>/dev/null || echo "?")
+    COMPLETE_COUNT=$((TOTAL_COUNT - INCOMPLETE_COUNT))
+    echo "📋 Stories: $COMPLETE_COUNT complete, $INCOMPLETE_COUNT remaining (of $TOTAL_COUNT total)"
+  fi
+
+  # Show monitoring tip on first iteration
+  if [ "$i" -eq 1 ]; then
+    echo ""
+    echo "💡 TIP: Open another terminal and run:"
+    echo "   ./scripts/ralph/monitor.sh"
+    echo "   to see live progress updates!"
+  fi
+
+  echo ""
+  echo "🔄 Running Claude (iteration may take 2-5 minutes)..."
+
   # Run claude with the ralph prompt
-  # Note: Using cat to pipe prompt and capturing output
-  # Using --dangerously-skip-permissions to run autonomously
-  OUTPUT=$(cat "$SCRIPT_DIR/prompt.md" | claude --dangerously-skip-permissions 2>&1 | tee /dev/stderr) || true
+  # Note: Pass prompt as argument (not piped) for real-time interactive output
+  # --dangerously-skip-permissions: Auto-approve all permissions for autonomous operation
+  TEMP_OUTPUT="/tmp/ralph-output-$i.txt"
+  ITERATION_START=$(date +%s)
+  claude --dangerously-skip-permissions "$(cat "$SCRIPT_DIR/prompt.md")" 2>&1 | tee "$TEMP_OUTPUT" || true
+  ITERATION_END=$(date +%s)
+  ITERATION_DURATION=$((ITERATION_END - ITERATION_START))
+
+  echo ""
+  echo "⏱️  Iteration completed in ${ITERATION_DURATION}s ($(date '+%H:%M:%S'))"
 
   # Capture session ID after iteration
   SESSION_ID=$("$SCRIPT_DIR/capture-session-id.sh" 2>/dev/null || echo "unknown")
@@ -92,7 +119,7 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   fi
 
   # Check for completion signal
-  if echo "$OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
+  if [ -f "$TEMP_OUTPUT" ] && grep -q "<promise>COMPLETE</promise>" "$TEMP_OUTPUT"; then
     echo ""
     echo "Ralph completed all tasks!"
     echo "Completed at iteration $i of $MAX_ITERATIONS"
@@ -100,8 +127,12 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     echo "📊 Session history: $SESSION_HISTORY_FILE"
     echo "📝 Progress log: $PROGRESS_FILE"
     echo "💡 Insights: $INSIGHTS_DIR/"
+    rm -f "$TEMP_OUTPUT"
     exit 0
   fi
+
+  # Clean up temp file
+  rm -f "$TEMP_OUTPUT"
 
   echo "Iteration $i complete. Continuing..."
   sleep 2

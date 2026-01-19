@@ -1,300 +1,506 @@
 {
-  "project": "PlayerARC",
-  "branchName": "ralph/session-plans-enhancement",
-  "description": "Session Plans Feature Enhancement - Implement Pinterest-style masonry grid, advanced search/filters, and enhanced admin moderation",
+  "project": "Coach-Parent Messaging",
+  "branchName": "ralph/coach-parent-messaging",
+  "description": "Secure, auditable coach-to-parent messaging system with voice note insight integration. See docs/features/PRD_COACH_PARENT_MESSAGING.md for full specification.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Visual Feedback System - Toast Notifications",
-      "description": "As a coach, I want immediate visual feedback when I perform actions (favorite, share, duplicate plans) so I know my actions were successful.",
+      "title": "Add coachParentMessages table to schema",
+      "description": "As a developer, I need the main message storage table.",
       "acceptanceCriteria": [
-        "Install and configure sonner package for toast notifications",
-        "Toast appears on all CRUD operations (favorite, share, duplicate, archive)",
-        "Toast auto-dismisses after 3 seconds",
-        "Toast includes appropriate icon (✓ ⚠️ ❌)",
-        "Multiple toasts stack properly",
-        "Typecheck passes"
+        "Add coachParentMessages table to packages/backend/convex/schema.ts after the voiceNotes table (around line 900)",
+        "Fields: messageType (v.union direct/insight), organizationId (v.string), teamId (v.optional string), senderId (v.string), senderName (v.string), recipientGuardianIds (v.array of v.id guardianIdentities), playerIdentityId (v.id playerIdentities), playerName (v.string), subject (v.string), body (v.string), context (v.optional object with sessionType/sessionDate/developmentArea), sourceVoiceNoteId (v.optional id voiceNotes), sourceInsightId (v.optional string), originalInsight (v.optional object), discussionPrompts (v.optional array string), actionItems (v.optional array string), deliveryMethod (v.union in_app/email/both), priority (v.union normal/high), status (v.union draft/pending_approval/sent/delivered/failed), createdAt (v.number), sentAt (v.optional number), updatedAt (v.number)",
+        "Add indexes: by_org, by_sender, by_player, by_status, by_org_and_status, by_sender_and_createdAt, by_voiceNote",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Phase 1: Foundation & Quick Wins (3 hours effort)"
+      "notes": "Follow index naming pattern from invitationEvents table. Use v.id() for foreign keys, v.string() for Better Auth IDs."
     },
     {
       "id": "US-002",
-      "title": "Quick Access Section - Smart Collections",
-      "description": "As a coach, I want quick access to my recently used, most popular, and best-performing plans so I can find relevant plans faster.",
+      "title": "Add messageRecipients table to schema",
+      "description": "As a developer, I need per-recipient delivery tracking.",
       "acceptanceCriteria": [
-        "Create backend queries: getRecentlyUsed, getMostPopular, getYourBest, getTopRated",
-        "Display 4 horizontal quick access cards with plan counts",
-        "Cards scroll horizontally on mobile",
-        "Clicking card navigates to filtered view",
-        "Empty state when no plans match category",
-        "Typecheck passes"
+        "Add messageRecipients table to packages/backend/convex/schema.ts after coachParentMessages",
+        "Fields: messageId (v.id coachParentMessages), guardianIdentityId (v.id guardianIdentities), guardianUserId (v.optional string for Better Auth user), deliveryStatus (v.union pending/sent/delivered/failed/bounced), deliveryMethod (v.union in_app/email), emailSentAt/emailDeliveredAt/emailOpenedAt/emailBouncedAt (all v.optional number), emailBounceReason (v.optional string), inAppNotifiedAt/inAppViewedAt (v.optional number), acknowledgedAt (v.optional number), acknowledgmentNote (v.optional string), createdAt/updatedAt (v.number)",
+        "Add indexes: by_message, by_guardian, by_guardianUser, by_status, by_guardian_and_viewed",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Phase 1: Foundation & Quick Wins (4 hours effort)"
+      "notes": "This tracks delivery per recipient since a message can go to multiple guardians."
     },
     {
       "id": "US-003",
-      "title": "Loading States - Progress Indicators",
-      "description": "As a coach, I want to see loading indicators during AI plan generation and while plans load so I understand the system is working.",
+      "title": "Add messageAuditLog table to schema",
+      "description": "As a developer, I need compliance audit logging for messages.",
       "acceptanceCriteria": [
-        "Progress bar during AI generation with stage text (Analyzing, Selecting, Formatting)",
-        "Show estimated time remaining during generation",
-        "Display 6 skeleton cards while loading plan list",
-        "Cancel button to abort AI generation",
-        "Typecheck passes"
+        "Add messageAuditLog table to packages/backend/convex/schema.ts after messageRecipients",
+        "Fields: messageId (v.id coachParentMessages), organizationId (v.string), action (v.union created/edited/sent/viewed/acknowledged/deleted/exported/flagged/reviewed), actorId (v.string), actorType (v.union coach/parent/admin/system), actorName (v.string), details (v.optional object with previousContent/newContent/reason/ipAddress/userAgent), timestamp (v.number)",
+        "Add indexes: by_message, by_org, by_actor, by_org_and_timestamp, by_action",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Phase 1: Foundation & Quick Wins (2 hours effort)"
+      "notes": "Follow the invitationEvents audit pattern from schema.ts lines 1210-1250."
     },
     {
       "id": "US-004",
-      "title": "Empty States - Contextual Guidance",
-      "description": "As a coach, I want helpful guidance when there are no plans to display so I understand what to do next.",
+      "title": "Add orgMessagingSettings table to schema",
+      "description": "As a developer, I need organization-level messaging configuration.",
       "acceptanceCriteria": [
-        "Create EmptyState component with 3 scenarios: no-plans, no-results, no-favorites",
-        "Each state shows appropriate icon, title, description, and CTA",
-        "Clear call-to-action for each scenario",
-        "Typecheck passes"
+        "Add orgMessagingSettings table to packages/backend/convex/schema.ts after messageAuditLog",
+        "Fields: organizationId (v.string), messagingEnabled (v.boolean), voiceNoteInsightsEnabled (v.boolean), defaultDeliveryMethod (v.union in_app/email/both), allowCoachToChangeDelivery (v.boolean), requireSubject (v.boolean), maxMessageLength (v.optional number), requireAdminApproval (v.boolean), retentionDays (v.optional number), enableDetailedAuditLog (v.boolean), createdAt/updatedAt (v.number)",
+        "Add index: by_org",
+        "Run: npx -w packages/backend convex codegen",
+        "Type checking passes: npm run check-types"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "Phase 1: Foundation & Quick Wins (1 hour effort)"
+      "notes": "Default values will be set when org first sends a message if settings don't exist."
     },
     {
       "id": "US-005",
-      "title": "Full-Text Search - Debounced Search Bar",
-      "description": "As a coach, I want to search for plans by title, description, or drill names so I can quickly find specific plans.",
+      "title": "Create coachParentMessages.ts with helper functions",
+      "description": "As a developer, I need the base file with auth helpers.",
       "acceptanceCriteria": [
-        "Add search_plans index to Convex schema with searchableText field",
-        "Implement searchPlans query with full-text search",
-        "Search bar with 300ms debouncing to prevent excessive queries",
-        "Search across title, description, focus areas, tags",
-        "Clear button (X) when search has text",
-        "Loading indicator while searching",
-        "Results count displayed",
-        "Typecheck passes"
+        "Create new file: packages/backend/convex/models/coachParentMessages.ts",
+        "Add imports: v from convex/values, query/mutation from _generated/server, authComponent from auth, components from _generated/api",
+        "Add helper function getCoachAssignmentForOrg(ctx, userId, orgId) that queries coachAssignments with by_user_and_org index",
+        "Add helper function getGuardiansForPlayer(ctx, playerIdentityId) that queries guardianPlayerLinks with by_playerIdentityId index and fetches full guardian identities",
+        "Add helper function logAuditEvent(ctx, data) that inserts into messageAuditLog table",
+        "Type checking passes: npm run check-types"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Phase 2: Top Filter Bar + Search (6 hours effort)"
+      "notes": "Reference models/members.ts and models/guardianPlayerLinks.ts for auth patterns."
     },
     {
       "id": "US-006",
-      "title": "Quick Filter Pills - Common Filters",
-      "description": "As a coach, I want quick one-tap filters for common criteria (favorites, age groups, duration) so I can narrow results instantly.",
+      "title": "Implement createDirectMessage mutation",
+      "description": "As a coach, I want to create a direct message to a parent.",
       "acceptanceCriteria": [
-        "Display horizontal scrolling filter pills (Favorites, Recent, U12, U14, 60min, High Intensity)",
-        "Active pill has filled background",
-        "Clicking pill toggles filter on/off (multi-select)",
-        "Pills responsive to screen size",
-        "Touch-friendly on mobile (48px+ touch targets)",
-        "Typecheck passes"
+        "Add createDirectMessage mutation to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: organizationId, teamId (optional), playerIdentityId, recipientGuardianIds (array), subject, body, context (optional object), deliveryMethod, priority (default normal), sendImmediately (optional boolean)",
+        "Verify user is authenticated via authComponent.safeGetAuthUser",
+        "Verify coach has assignment in this org using getCoachAssignmentForOrg helper",
+        "Validate each recipient is a guardian of the player using guardianPlayerLinks table",
+        "Insert message with status 'draft' or 'sent' based on sendImmediately flag",
+        "Insert messageRecipients record for each guardian with status 'pending'",
+        "Call logAuditEvent with action 'created'",
+        "Return the message ID (v.id coachParentMessages)",
+        "Type checking passes: npm run check-types"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Phase 2: Top Filter Bar + Search (4 hours effort)"
+      "notes": "Get senderName and playerName by fetching user and playerIdentities records."
     },
     {
       "id": "US-007",
-      "title": "Sort Dropdown - Result Ordering",
-      "description": "As a coach, I want to sort plans by different criteria (most used, highest rated, recent, duration) so I can find plans that meet my needs.",
+      "title": "Implement sendMessage mutation",
+      "description": "As a coach, I want to send a drafted message.",
       "acceptanceCriteria": [
-        "Dropdown with 5 options: Most Used, Highest Rated, Recently Created, Duration, A-Z",
-        "Dropdown accessible via keyboard",
-        "Current sort option displayed",
-        "Results update immediately on selection",
-        "Sort persists across page reloads (localStorage)",
-        "Typecheck passes"
+        "Add sendMessage mutation to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: messageId (v.id coachParentMessages)",
+        "Verify user is authenticated and is the sender of this message",
+        "Update message: status to 'sent', sentAt to Date.now()",
+        "Update all messageRecipients: deliveryStatus to 'pending'",
+        "Call logAuditEvent with action 'sent'",
+        "Return v.null()",
+        "Type checking passes: npm run check-types"
       ],
       "priority": 7,
       "passes": true,
-      "notes": "Phase 2: Top Filter Bar + Search (2 hours effort)"
+      "notes": "Email scheduling will be added in a later story. For now just update statuses."
     },
     {
       "id": "US-008",
-      "title": "Results Header - Search Context",
-      "description": "As a coach, I want to see how many plans match my search and how many filters are active so I understand my current view.",
+      "title": "Implement getMyMessages query for coaches",
+      "description": "As a coach, I want to see messages I've sent.",
       "acceptanceCriteria": [
-        "Display plan count that updates reactively",
-        "Show number of active filters",
-        "Sort dropdown aligned right",
-        "Typecheck passes"
+        "Add getMyMessages query to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: organizationId (v.string), status (v.optional string), limit (v.optional number, default 50)",
+        "Get current user ID from authComponent.safeGetAuthUser",
+        "Query coachParentMessages with by_sender_and_createdAt index filtered by senderId and organizationId",
+        "If status arg provided, filter by status",
+        "Order by createdAt descending, take limit",
+        "For each message, count recipients and how many have inAppViewedAt set",
+        "Return array of messages with recipientCount and viewedCount fields added",
+        "Type checking passes: npm run check-types"
       ],
       "priority": 8,
       "passes": true,
-      "notes": "Phase 2: Top Filter Bar + Search (1 hour effort)"
+      "notes": "Use by_sender_and_createdAt index. The recipient stats come from messageRecipients table."
     },
     {
       "id": "US-009",
-      "title": "Advanced Filter Modal - Filter Structure",
-      "description": "As a coach, I want a comprehensive filter panel with all available options so I can precisely find the plans I need.",
+      "title": "Implement getMessagesForParent query",
+      "description": "As a parent, I want to see messages from coaches about my children.",
       "acceptanceCriteria": [
-        "Modal opens from 'Filters' button in search bar",
-        "Modal closes on backdrop click or ESC key",
-        "Mobile: Full-screen drawer from bottom",
-        "Desktop: Centered modal (max-w-2xl)",
-        "Scroll if content exceeds viewport (80vh)",
-        "Clear All button resets filters",
-        "Apply button shows plan count and closes modal",
-        "Typecheck passes"
+        "Add getMessagesForParent query to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: organizationId (v.optional string), unreadOnly (v.optional boolean), limit (v.optional number, default 50)",
+        "Get current user and find their guardianIdentity by matching userId in guardianIdentities table with by_userId index",
+        "Query messageRecipients with by_guardian index for this guardianIdentityId",
+        "If unreadOnly, filter where inAppViewedAt is undefined",
+        "For each recipient record, fetch the full message from coachParentMessages",
+        "If organizationId provided, filter messages by that org",
+        "Order by message createdAt descending",
+        "Return array with message, recipient record, and isUnread boolean",
+        "Type checking passes: npm run check-types"
       ],
       "priority": 9,
       "passes": true,
-      "notes": "Phase 3: Advanced Filter Panel (4 hours effort)"
+      "notes": "Parent must have a guardianIdentity linked to their Better Auth userId."
     },
     {
       "id": "US-010",
-      "title": "Age Group Filter - Multi-Select with Counts",
-      "description": "As a coach, I want to filter by multiple age groups and see how many plans exist for each so I can find age-appropriate plans.",
+      "title": "Implement markMessageViewed mutation",
+      "description": "As a parent, viewing a message should update the read status.",
       "acceptanceCriteria": [
-        "Multi-select buttons for age groups (U8, U10, U12, U14, U16, U18, Senior)",
-        "Shows plan count for each age group",
-        "Selected buttons have filled style",
-        "Live count updates as selections change",
-        "Grid layout (4 columns desktop, 2 mobile)",
-        "Typecheck passes"
+        "Add markMessageViewed mutation to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: messageId (v.id coachParentMessages)",
+        "Get current user and their guardianIdentityId",
+        "Find the messageRecipient record using by_message_and_recipient composite or by_message then filter",
+        "If inAppViewedAt is already set, return early (no double-logging)",
+        "Patch the recipient: inAppViewedAt = Date.now()",
+        "Call logAuditEvent with action 'viewed', actorType 'parent'",
+        "Return v.null()",
+        "Type checking passes: npm run check-types"
       ],
       "priority": 10,
       "passes": true,
-      "notes": "Phase 3: Advanced Filter Panel (3 hours effort)"
+      "notes": "Add by_message_and_recipient index to messageRecipients if needed for efficient lookup."
     },
     {
       "id": "US-011",
-      "title": "Duration, Intensity, Focus Areas Filters",
-      "description": "As a coach, I want to filter by session duration, intensity level, and focus areas so I can find plans that fit my training needs.",
+      "title": "Implement acknowledgeMessage mutation",
+      "description": "As a parent, I want to acknowledge a message from a coach.",
       "acceptanceCriteria": [
-        "Duration slider (30-120 min, 15-min increments) with live value display",
-        "Intensity single-select (Low/Medium/High) with color coding (green/yellow/red)",
-        "Focus areas multi-select pills (Passing, Shooting, Dribbling, Tactical, Fitness, Games, Defending, Possession)",
-        "All filters keyboard accessible",
-        "Touch-friendly on mobile",
-        "Typecheck passes"
+        "Add acknowledgeMessage mutation to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: messageId (v.id coachParentMessages), note (v.optional string)",
+        "Get current user and their guardianIdentityId",
+        "Find the messageRecipient record for this message and guardian",
+        "Patch: acknowledgedAt = Date.now(), acknowledgmentNote = note if provided",
+        "Call logAuditEvent with action 'acknowledged', actorType 'parent'",
+        "Return v.null()",
+        "Type checking passes: npm run check-types"
       ],
       "priority": 11,
       "passes": true,
-      "notes": "Phase 3: Advanced Filter Panel (7 hours effort total for 3.3, 3.4, 3.5)"
+      "notes": "Acknowledgment is optional - parent can view without acknowledging."
     },
     {
       "id": "US-012",
-      "title": "Success Rate & Favorites Filters",
-      "description": "As a coach, I want to filter for highly-rated plans and my favorites so I can quickly access quality content.",
+      "title": "Implement getUnreadCount query",
+      "description": "As a parent, I want to see how many unread messages I have for badge display.",
       "acceptanceCriteria": [
-        "Checkbox: 'Only show highly rated plans (80%+)'",
-        "Checkbox: 'Only favorites'",
-        "Checkboxes keyboard accessible",
-        "Labels are clickable",
-        "Clear visual feedback for checked state",
-        "Typecheck passes"
+        "Add getUnreadCount query to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: organizationId (v.optional string)",
+        "Get current user and their guardianIdentityId",
+        "Query messageRecipients with by_guardian index",
+        "Filter where inAppViewedAt is undefined",
+        "If organizationId provided, fetch each message and filter by org",
+        "Return count as v.number()",
+        "Type checking passes: npm run check-types"
       ],
       "priority": 12,
       "passes": true,
-      "notes": "Phase 3: Advanced Filter Panel (1 hour effort)"
+      "notes": "This powers the unread badge in navigation. Keep it efficient."
     },
     {
       "id": "US-013",
-      "title": "Pinterest-Style Masonry Grid Layout",
-      "description": "As a coach, I want to browse plans in a visual masonry grid with variable heights so I can see more content at a glance.",
+      "title": "Create coach message history page",
+      "description": "As a coach, I want to see all messages I've sent.",
       "acceptanceCriteria": [
-        "Install react-masonry-css package",
-        "Cards arranged in masonry grid with no gaps",
-        "Responsive: 3 cols desktop, 2 tablet, 1 mobile",
-        "Variable heights based on content",
-        "Preview shows first section of each plan",
-        "Hover shows action menu (favorite, share, duplicate)",
-        "Smooth transitions on hover",
-        "Cards clickable to open detail view",
-        "Typecheck passes"
+        "Create folder: apps/web/src/app/orgs/[orgId]/coach/messages/",
+        "Create page.tsx in that folder",
+        "Use useQuery with api.models.coachParentMessages.getMyMessages",
+        "Display list of messages with: subject, player name, recipient count, date, status badge",
+        "Add filter dropdown for status (All, Draft, Sent, Delivered)",
+        "Add New Message button linking to ./compose",
+        "Click on message row navigates to ./[messageId]",
+        "Use Card component for each message row",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
       ],
       "priority": 13,
       "passes": true,
-      "notes": "Phase 4: Masonry + Admin (8 hours effort)"
+      "notes": "Reference apps/web/src/app/orgs/[orgId]/coach/voice-notes/page.tsx for page structure patterns."
     },
     {
       "id": "US-014",
-      "title": "Enhanced Admin Dashboard - Metrics Overview",
-      "description": "As an admin, I want to see metrics about shared plans (total, pending, flagged, featured) so I can monitor the library health.",
+      "title": "Create coach message composer page",
+      "description": "As a coach, I want a page to compose new messages to parents.",
       "acceptanceCriteria": [
-        "Create getAdminMetrics query returning total, pendingReview, flagged, featured counts",
-        "Display 4 metrics cards at top of admin view",
-        "Cards color-coded by urgency (default, blue, red, green borders)",
-        "Status tabs filter plans (All, Pending, Featured, High Usage)",
-        "Typecheck passes"
+        "Create page: apps/web/src/app/orgs/[orgId]/coach/messages/compose/page.tsx",
+        "Player selector: fetch players from coach's assigned teams using existing queries",
+        "When player selected, fetch their guardians using getGuardiansForPlayer",
+        "Recipient checkboxes showing guardian name and relationship (e.g. 'Mary Smith (Mother)')",
+        "Subject input (required), Body textarea with placeholder",
+        "Optional context section: session type dropdown, date picker, development area dropdown",
+        "Delivery method radio: In-app only, Email only, Both (default)",
+        "Submit calls createDirectMessage mutation with sendImmediately: true",
+        "On success, redirect to ../messages with success toast",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
       ],
       "priority": 14,
       "passes": true,
-      "notes": "Phase 4: Masonry + Admin (6 hours effort for backend + metrics cards + tabs)"
+      "notes": "Use existing hooks: useQuery for player data. Reference voice-notes-dashboard.tsx for form patterns."
     },
     {
       "id": "US-015",
-      "title": "Quality Score Calculation",
-      "description": "As an admin, I want to see a quality score for each shared plan so I can identify high-value content to feature.",
+      "title": "Create parent message inbox page",
+      "description": "As a parent, I want to see all messages from coaches.",
       "acceptanceCriteria": [
-        "Create getQualityScore query calculating 0-100 score based on: sections count (20pts), tags (15pts), usage (20pts), success rate (25pts), feedback (20pts)",
-        "Display quality score with progress bar",
-        "Color coding: 80+ green, 60-79 yellow, <60 red",
-        "Typecheck passes"
+        "Update existing file: apps/web/src/app/orgs/[orgId]/parents/messages/page.tsx (replace placeholder)",
+        "Use useQuery with api.models.coachParentMessages.getMessagesForParent",
+        "Display list with: subject, coach name (senderName), player name, date, unread indicator (blue dot)",
+        "Unread messages have blue dot or highlighted background",
+        "Add toggle filter for 'Unread only'",
+        "Click on message navigates to ./[messageId]",
+        "Empty state if no messages: 'No messages yet. Coaches will send updates about your children here.'",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
       ],
       "priority": 15,
       "passes": true,
-      "notes": "Phase 4: Masonry + Admin (2 hours effort)"
+      "notes": "This file already exists with placeholder. MVP pattern: Use MessageSquare icon, blue left border (border-l-4 border-blue-500) for message items, card with shadow-md. See PRD MVP Mockup Reference section."
     },
     {
       "id": "US-016",
-      "title": "Enhanced Admin Plan Cards - Status Indicators",
-      "description": "As an admin, I want to see status badges and usage stats on plan cards so I can quickly assess each plan's state.",
+      "title": "Create parent message detail page",
+      "description": "As a parent, I want to read a message and acknowledge it.",
       "acceptanceCriteria": [
-        "Status badge visible (📌 PINNED, ⚠️ FLAGGED, ⏳ NEW)",
-        "Color-coded left border (green=pinned, red=flagged, yellow=new)",
-        "Display coach name, shared date, times used, unique coaches count",
-        "Quality score with progress bar",
-        "Flag reasons displayed if flagged",
-        "Quick actions dropdown: Feature/Unpin Plan, Remove from Library, View Full Plan",
-        "Typecheck passes"
+        "Create page: apps/web/src/app/orgs/[orgId]/parents/messages/[messageId]/page.tsx",
+        "Fetch message by ID (add getMessageById query if needed)",
+        "Call markMessageViewed mutation in useEffect on mount",
+        "Display: subject as heading, body content, coach name, player name, date, context info",
+        "If discussionPrompts array exists, display in a highlighted section with purple background (bg-purple-50)",
+        "If actionItems array exists, display as checklist",
+        "Acknowledgment section: optional textarea for note, 'Acknowledge' button",
+        "Button calls acknowledgeMessage mutation, shows success toast",
+        "Back button to ../messages",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
       ],
       "priority": 16,
       "passes": true,
-      "notes": "Phase 4: Masonry + Admin (4 hours effort)"
+      "notes": "Mark as viewed immediately on page load. MVP design: Discussion prompts use purple gradient like AI Practice Assistant. Card with shadow-md, header with gradient. See PRD MVP Mockup Reference."
     },
     {
       "id": "US-017",
-      "title": "Plan Removal Dialog with Coach Notification",
-      "description": "As an admin, I want to remove plans from the library with a reason and optional message so coaches understand why their content was removed.",
+      "title": "Add unread badge to parent navigation",
+      "description": "As a parent, I want to see unread message count in navigation.",
       "acceptanceCriteria": [
-        "Create removeFromClubLibraryEnhanced mutation with planId, reason, message, notifyCoach params",
-        "Reason dropdown required (Inappropriate, Safety, Poor Quality, Duplicate, Violates Guidelines, Other)",
-        "Optional message textarea",
-        "Notify coach checkbox (default checked)",
-        "Coach receives notification if checked",
-        "Dialog shows plan details",
-        "Cannot submit without reason",
-        "Success toast on removal",
-        "Plan reverts to private visibility",
-        "Typecheck passes"
+        "Find parent navigation component (likely in parents layout or dashboard)",
+        "Add Messages link to navigation if not present, using MessageSquare icon from lucide-react",
+        "Use useQuery with api.models.coachParentMessages.getUnreadCount",
+        "Display red badge with count next to Messages link when count > 0",
+        "Badge hidden when count is 0",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
       ],
       "priority": 17,
       "passes": true,
-      "notes": "Phase 4: Masonry + Admin (6 hours effort)"
+      "notes": "Check apps/web/src/app/orgs/[orgId]/parents/ for layout.tsx or navigation component."
     },
     {
       "id": "US-018",
-      "title": "Feature/Pin Plan Action",
-      "description": "As an admin, I want to feature high-quality plans so coaches can easily discover excellent content.",
+      "title": "Add Messages link to coach navigation",
+      "description": "As a coach, I want quick access to messaging from navigation.",
       "acceptanceCriteria": [
-        "Create featurePlan mutation setting pinnedByAdmin=true, recording moderatedAt/moderatedBy",
-        "Pin button in admin card dropdown",
-        "Plan gets 'PINNED' badge",
-        "Plan appears in 'Featured' tab",
-        "Coach receives positive notification ('Your session plan was featured! 🎉')",
-        "Unpin option available for pinned plans",
-        "Typecheck passes"
+        "Find coach navigation component (likely in coach layout or dashboard quick actions)",
+        "Add Messages link using MessageSquare icon from lucide-react",
+        "Links to /orgs/[orgId]/coach/messages",
+        "Position near Voice Notes link for consistency",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
       ],
       "priority": 18,
       "passes": true,
-      "notes": "Phase 4: Masonry + Admin (2 hours effort)"
+      "notes": "Check apps/web/src/app/orgs/[orgId]/coach/ for layout.tsx or SmartCoachDashboard component."
+    },
+    {
+      "id": "US-019",
+      "title": "Add Share with Parent button to voice notes insight panel",
+      "description": "As a coach, I want to share an insight with a parent directly from voice notes.",
+      "acceptanceCriteria": [
+        "Edit file: apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx",
+        "Find the insight action buttons section (near Apply/Dismiss buttons)",
+        "Add new button: 'Share with Parent' with Send icon from lucide-react",
+        "Button only appears if insight has a playerIdentityId (player was identified)",
+        "OnClick navigates to: /orgs/${orgId}/coach/messages/compose?type=insight&voiceNoteId=${noteId}&insightId=${insight.id}&playerIdentityId=${insight.playerIdentityId}",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": "The compose page will read these URL params and pre-fill the form (next story)."
+    },
+    {
+      "id": "US-020",
+      "title": "Update compose page to handle insight pre-fill from URL params",
+      "description": "As a coach, the compose page should pre-fill when coming from voice notes.",
+      "acceptanceCriteria": [
+        "Edit: apps/web/src/app/orgs/[orgId]/coach/messages/compose/page.tsx",
+        "Read URL search params: type, voiceNoteId, insightId, playerIdentityId",
+        "If type=insight, fetch the voice note by ID",
+        "Find the matching insight in the voiceNote.insights array by insightId",
+        "Pre-select the player from playerIdentityId",
+        "Pre-fill subject with insight.title",
+        "Pre-fill body with insight.description plus insight.recommendedUpdate if present",
+        "Show read-only card displaying original insight for reference",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 20,
+      "passes": true,
+      "notes": "Use useSearchParams from next/navigation. Add a query to fetch voice note by ID if needed."
+    },
+    {
+      "id": "US-021",
+      "title": "Implement getOrganizationMessages admin query",
+      "description": "As an admin, I want to see all messages in my organization.",
+      "acceptanceCriteria": [
+        "Add getOrganizationMessages query to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: organizationId (v.string), limit (v.optional number, default 100)",
+        "Verify current user has admin or owner role in this org via member.functionalRoles or Better Auth role",
+        "Query coachParentMessages with by_org index",
+        "Order by createdAt descending, take limit",
+        "Return array of messages with sender and recipient summary info",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 21,
+      "passes": true,
+      "notes": "Admin check: member.role === 'owner' || member.role === 'admin' || member.functionalRoles?.includes('admin')"
+    },
+    {
+      "id": "US-022",
+      "title": "Implement getMessageAuditLog admin query",
+      "description": "As an admin, I want to see the audit trail for messages.",
+      "acceptanceCriteria": [
+        "Add getMessageAuditLog query to packages/backend/convex/models/coachParentMessages.ts",
+        "Args: organizationId (v.string), messageId (v.optional id), limit (v.optional number, default 200)",
+        "Verify current user is org admin/owner",
+        "If messageId provided, query messageAuditLog with by_message index",
+        "Otherwise query with by_org_and_timestamp index for all org audit entries",
+        "Order by timestamp descending, take limit",
+        "Return array of audit log entries",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 22,
+      "passes": true,
+      "notes": "This is for compliance review. Admins need to see who sent what and when."
+    },
+    {
+      "id": "US-023",
+      "title": "Create admin messaging dashboard page",
+      "description": "As an admin, I want an overview of all messaging activity.",
+      "acceptanceCriteria": [
+        "Create folder: apps/web/src/app/orgs/[orgId]/admin/messaging/",
+        "Create page.tsx in that folder",
+        "Use useQuery with api.models.coachParentMessages.getOrganizationMessages",
+        "Show stats cards: Total Messages, Messages This Week (calculate from createdAt)",
+        "Display table of messages with columns: Coach, Player, Recipient(s), Date, Status",
+        "Link to audit log view: ./audit",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 23,
+      "passes": true,
+      "notes": "Reference apps/web/src/app/orgs/[orgId]/admin/ for existing admin page patterns."
+    },
+    {
+      "id": "US-024",
+      "title": "Create admin audit log page",
+      "description": "As an admin, I want to review the message audit trail.",
+      "acceptanceCriteria": [
+        "Create page: apps/web/src/app/orgs/[orgId]/admin/messaging/audit/page.tsx",
+        "Use useQuery with api.models.coachParentMessages.getMessageAuditLog",
+        "Display table: Timestamp, Action, Actor, Message Subject",
+        "Click on row shows full audit entry details in a sheet or dialog",
+        "Back link to ../messaging",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 24,
+      "passes": true,
+      "notes": "Format timestamp nicely. Action types: created, sent, viewed, acknowledged."
+    },
+    {
+      "id": "US-025",
+      "title": "Add email template for coach messages",
+      "description": "As a parent, I want to receive nicely formatted email notifications.",
+      "acceptanceCriteria": [
+        "Edit file: packages/backend/convex/utils/email.ts",
+        "Add new function: buildCoachMessageEmailHtml(data) following sendOrganizationInvitation pattern",
+        "Template includes: subject, body, coach name, player name, context info if present",
+        "Include 'View in PlayerARC' CTA button linking to message detail page",
+        "Include organization name in footer",
+        "Add corresponding buildCoachMessageEmailText() for plain text version",
+        "Add sendCoachMessageNotification() function that calls Resend API",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 25,
+      "passes": true,
+      "notes": "Follow exact pattern from sendOrganizationInvitation() around line 72. Use RESEND_API_KEY env var."
+    },
+    {
+      "id": "US-026",
+      "title": "Create messaging action for email delivery",
+      "description": "As a system, I need to send email notifications for messages.",
+      "acceptanceCriteria": [
+        "Create new file: packages/backend/convex/actions/messaging.ts",
+        "Add sendMessageEmail action with args: messageId, recipientId (messageRecipients ID)",
+        "Fetch the message and recipient records",
+        "Fetch the guardian's email from guardianIdentities table",
+        "If guardian has no email, skip and log warning",
+        "Call sendCoachMessageNotification from utils/email.ts",
+        "Update messageRecipient: emailSentAt = Date.now(), deliveryStatus = 'sent'",
+        "If email fails, set deliveryStatus = 'failed' and log error",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 26,
+      "passes": true,
+      "notes": "Actions can't access ctx.db directly - use ctx.runQuery and ctx.runMutation. Reference actions/invitations.ts."
+    },
+    {
+      "id": "US-027",
+      "title": "Schedule email delivery when message is sent",
+      "description": "As a system, sending a message should trigger email delivery.",
+      "acceptanceCriteria": [
+        "Edit sendMessage mutation in packages/backend/convex/models/coachParentMessages.ts",
+        "After updating message status to 'sent', get the message's deliveryMethod",
+        "If deliveryMethod is 'email' or 'both', for each recipient record:",
+        "Use ctx.scheduler.runAfter(0, internal.actions.messaging.sendMessageEmail, { messageId, recipientId })",
+        "Import internal from _generated/api at top of file",
+        "Make the sendMessageEmail action internal (export const sendMessageEmail = internalAction)",
+        "Type checking passes: npm run check-types"
+      ],
+      "priority": 27,
+      "passes": true,
+      "notes": "Use internal.actions.messaging.sendMessageEmail pattern. The action must be exported as internalAction."
+    },
+    {
+      "id": "US-028",
+      "title": "Add Messaging link to admin navigation",
+      "description": "As an admin, I want quick access to messaging dashboard.",
+      "acceptanceCriteria": [
+        "Find admin navigation component (likely in admin layout.tsx)",
+        "Add Messaging link using MessageSquare icon from lucide-react",
+        "Links to /orgs/[orgId]/admin/messaging",
+        "Position in management section of navigation",
+        "Type checking passes: npm run check-types",
+        "Linting passes: npm run check"
+      ],
+      "priority": 28,
+      "passes": true,
+      "notes": "Check apps/web/src/app/orgs/[orgId]/admin/ for layout.tsx or sidebar component."
     }
   ]
 }

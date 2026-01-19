@@ -374,7 +374,6 @@ export default function OrgSettingsPage() {
         null) as unknown as "direct" | "enquiry" | null;
       await updateOrganizationSharingContact({
         organizationId: orgId,
-        // @ts-expect-error - CI incorrectly expects "form" instead of "enquiry"
         sharingContactMode: mode,
         sharingContactName: sharingContactName.trim() || null,
         sharingContactEmail: sharingContactEmail.trim() || null,

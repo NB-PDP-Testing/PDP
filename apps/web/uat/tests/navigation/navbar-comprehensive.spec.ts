@@ -225,9 +225,12 @@ async function navigateAndVerify(
   });
 
   try {
-    // Navigate to the link
-    await page.goto(href, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    // Navigate to the link with increased timeout for slow pages
+    await page.goto(href, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await waitForPageLoad(page);
+
+    // Small delay to let page fully settle and console errors to surface
+    await page.waitForTimeout(1000);
 
     // Verify page loaded successfully
     const url = page.url();

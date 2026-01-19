@@ -92,7 +92,7 @@ export default function Header() {
   // Only recalculate when org colors change
   const adaptiveLogoStyles = useMemo(
     () => (useAdaptiveLogoVisibility ? getAdaptiveLogoBoxStyles(theme) : null),
-    [useAdaptiveLogoVisibility, theme.primary, theme.secondary, theme.tertiary]
+    [useAdaptiveLogoVisibility, theme]
   );
 
   // Track current org in user profile

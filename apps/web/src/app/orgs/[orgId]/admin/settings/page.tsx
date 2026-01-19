@@ -22,6 +22,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { LogoUpload } from "@/components/logo-upload";
 import { OrgThemedButton } from "@/components/org-themed-button";
 import { DensityToggle } from "@/components/polish/density-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -134,12 +135,11 @@ export default function OrgSettingsPage() {
 
   // Sharing contact settings state
   const [sharingContactMode, setSharingContactMode] = useState<
-    "direct" | "form" | ""
+    "direct" | "enquiry" | ""
   >("");
   const [sharingContactName, setSharingContactName] = useState("");
   const [sharingContactEmail, setSharingContactEmail] = useState("");
   const [sharingContactPhone, setSharingContactPhone] = useState("");
-  const [sharingEnquiriesUrl, setSharingEnquiriesUrl] = useState("");
   const [savingSharingContact, setSavingSharingContact] = useState(false);
 
   // Owner transfer state
@@ -235,7 +235,6 @@ export default function OrgSettingsPage() {
       setSharingContactName(orgData.sharingContactName || "");
       setSharingContactEmail(orgData.sharingContactEmail || "");
       setSharingContactPhone(orgData.sharingContactPhone || "");
-      setSharingEnquiriesUrl(orgData.sharingEnquiriesUrl || "");
     }
   }, [orgData]);
 
@@ -349,17 +348,16 @@ export default function OrgSettingsPage() {
 
   const handleSaveSharingContact = async () => {
     // Validate based on mode
-    if (sharingContactMode === "direct") {
-      if (!(sharingContactEmail || sharingContactPhone)) {
-        toast.error(
-          "Please provide at least an email or phone number for direct contact"
-        );
-        return;
-      }
-    } else if (sharingContactMode === "form" && !sharingEnquiriesUrl) {
-      toast.error("Please provide an enquiries form URL");
+    if (
+      sharingContactMode === "direct" &&
+      !(sharingContactEmail || sharingContactPhone)
+    ) {
+      toast.error(
+        "Please provide at least an email or phone number for direct contact"
+      );
       return;
     }
+    // No validation needed for enquiry mode - it's all internal
 
     setSavingSharingContact(true);
     try {
@@ -369,7 +367,6 @@ export default function OrgSettingsPage() {
         sharingContactName: sharingContactName.trim() || null,
         sharingContactEmail: sharingContactEmail.trim() || null,
         sharingContactPhone: sharingContactPhone.trim() || null,
-        sharingEnquiriesUrl: sharingEnquiriesUrl.trim() || null,
       });
       toast.success("Sharing contact settings updated successfully!");
     } catch (error) {
@@ -559,15 +556,22 @@ export default function OrgSettingsPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="logo">Logo URL</Label>
-            <Input
+            <Label>Organization Logo</Label>
+            <LogoUpload
+              currentLogo={logo}
               disabled={saving}
-              id="logo"
-              onChange={(e) => setLogo(e.target.value)}
-              placeholder="https://example.com/logo.png"
-              type="url"
-              value={logo}
+              onUploadComplete={(url) => {
+                setLogo(url);
+                setOrg((prev) => (prev ? { ...prev, logo: url } : null));
+              }}
+              onUrlChange={(url) => setLogo(url)}
+              organizationId={orgId}
+              showUrlFallback={true}
             />
+            <p className="text-muted-foreground text-xs">
+              Upload a PNG or JPG logo (max 5MB, recommended 512x512px) or
+              provide a URL
+            </p>
           </div>
 
           <Button disabled={saving} onClick={handleSave}>
@@ -1417,7 +1421,7 @@ export default function OrgSettingsPage() {
               <RadioGroup
                 disabled={savingSharingContact}
                 onValueChange={(value) =>
-                  setSharingContactMode(value as "direct" | "form" | "")
+                  setSharingContactMode(value as "direct" | "enquiry" | "")
                 }
                 value={sharingContactMode}
               >
@@ -1440,12 +1444,12 @@ export default function OrgSettingsPage() {
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem id="mode-form" value="form" />
+                  <RadioGroupItem id="mode-enquiry" value="enquiry" />
                   <Label
                     className="cursor-pointer font-normal"
-                    htmlFor="mode-form"
+                    htmlFor="mode-enquiry"
                   >
-                    Enquiries form (URL link)
+                    Enquiry system (managed by admins)
                   </Label>
                 </div>
               </RadioGroup>
@@ -1495,23 +1499,15 @@ export default function OrgSettingsPage() {
               </div>
             )}
 
-            {/* Enquiries Form URL */}
-            {sharingContactMode === "form" && (
-              <div className="space-y-4 rounded-lg border bg-muted/30 p-4">
+            {/* Enquiry System Info */}
+            {sharingContactMode === "enquiry" && (
+              <div className="space-y-4 rounded-lg border bg-blue-50 p-4">
+                <p className="font-medium text-sm">Enquiry System</p>
                 <p className="text-muted-foreground text-sm">
-                  Provide a URL to your contact or enquiries form.
+                  Coaches from other organizations will be able to submit
+                  enquiries about shared players. Enquiries will appear in your
+                  admin enquiry queue for review and response.
                 </p>
-                <div className="space-y-2">
-                  <Label htmlFor="enquiries-url">Enquiries Form URL</Label>
-                  <Input
-                    disabled={savingSharingContact}
-                    id="enquiries-url"
-                    onChange={(e) => setSharingEnquiriesUrl(e.target.value)}
-                    placeholder="https://yourclub.com/contact"
-                    type="url"
-                    value={sharingEnquiriesUrl}
-                  />
-                </div>
               </div>
             )}
 

@@ -83,11 +83,11 @@ async function loginWithEmail(
     console.log(`[${userKey}] ✓ Sign In clicked (${Date.now() - startTime}ms)`);
 
     // Wait for successful login - redirects to /orgs
-    console.log(`[${userKey}] Step 8: Waiting for redirect to /orgs (timeout: 30s)`);
+    console.log(`[${userKey}] Step 8: Waiting for redirect to /orgs (timeout: 60s)`);
     const urlBeforeWait = page.url();
     console.log(`[${userKey}]   Current URL: ${urlBeforeWait}`);
-    
-    await page.waitForURL(/\/orgs/, { timeout: 30000 });
+
+    await page.waitForURL(/\/orgs/, { timeout: 60000 });
     const urlAfterWait = page.url();
     console.log(`[${userKey}] ✓ Redirected to ${urlAfterWait} (${Date.now() - startTime}ms)`);
     

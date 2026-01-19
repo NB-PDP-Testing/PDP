@@ -253,11 +253,12 @@ async function navigateAndVerify(
 
     // Check for collected errors
     if (errors.length > 0) {
-      // Filter out WebSocket HMR errors (development only)
+      // Filter out WebSocket HMR errors (development only) and beforeunload warnings (Chrome security feature)
       const realErrors = errors.filter(err =>
         !err.includes('webpack-hmr') &&
         !err.includes('WebSocket') &&
-        !err.includes('ERR_CONNECTION_REFUSED')
+        !err.includes('ERR_CONNECTION_REFUSED') &&
+        !err.includes('beforeunload')
       );
 
       if (realErrors.length > 0) {

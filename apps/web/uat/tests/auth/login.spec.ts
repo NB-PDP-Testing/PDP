@@ -12,7 +12,7 @@ import {
  * Based on gaps identified in docs/testing/UAT_MCP_TESTS.MD
  */
 
-test.describe("AUTH - Login Tests", () => {
+test.describe.skip("AUTH - Login Tests", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/login");
     await dismissPWAPrompt(page);

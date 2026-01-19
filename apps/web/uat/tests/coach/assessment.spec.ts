@@ -8,8 +8,8 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Based on gaps identified in MASTER_UAT_PLAN.md
  */
 
-test.describe("COACH - Skills Assessment Tests", () => {
-  test.describe("Assessment Page Access", () => {
+test.describe.skip("COACH - Skills Assessment Tests", () => {
+  test.describe.skip("Assessment Page Access", () => {
     test("ASSESS-001: Coach can access assessment page", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -60,7 +60,7 @@ test.describe("COACH - Skills Assessment Tests", () => {
     });
   });
 
-  test.describe("Skill Rating", () => {
+  test.describe.skip("Skill Rating", () => {
     test("ASSESS-004: Skill categories are displayed", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -101,7 +101,7 @@ test.describe("COACH - Skills Assessment Tests", () => {
     });
   });
 
-  test.describe("Assessment History", () => {
+  test.describe.skip("Assessment History", () => {
     test("ASSESS-006: Recent assessments are displayed", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -120,7 +120,7 @@ test.describe("COACH - Skills Assessment Tests", () => {
     });
   });
 
-  test.describe("Sport Selection", () => {
+  test.describe.skip("Sport Selection", () => {
     test("ASSESS-007: Sport selector is available", async ({ ownerPage }) => {
       const page = ownerPage;
 

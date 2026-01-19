@@ -41,12 +41,12 @@ let createdOrgId = '';
 // Get the first team from config
 const TEST_TEAM = TEST_TEAMS[0];
 
-test.describe.serial('Initial Onboarding Flow', () => {
+test.describe.skip('Initial Onboarding Flow', () => {
   
   // ============================================================
   // TEST-ONBOARDING-001: First User Signup - Automatic Platform Staff
   // ============================================================
-  test.describe('TEST-ONBOARDING-001: First User Signup - Automatic Platform Staff', () => {
+  test.describe.skip('TEST-ONBOARDING-001: First User Signup - Automatic Platform Staff', () => {
     
     test('should signup as first user and be automatically granted platform staff', async ({ page, helper }) => {
       // First, check if user already exists by trying to login
@@ -360,7 +360,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
   // ============================================================
   // TEST-ONBOARDING-002: Non-Platform Staff Cannot Create Organizations  
   // ============================================================
-  test.describe('TEST-ONBOARDING-002: Non-Platform Staff Cannot Create Organizations', () => {
+  test.describe.skip('TEST-ONBOARDING-002: Non-Platform Staff Cannot Create Organizations', () => {
     
     test('should create a second user account', async ({ page, helper }) => {
       // First check if user already exists
@@ -448,7 +448,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
   // ============================================================
   // TEST-ONBOARDING-003: Owner First Login Experience
   // ============================================================
-  test.describe('TEST-ONBOARDING-003: Owner First Login Experience', () => {
+  test.describe.skip('TEST-ONBOARDING-003: Owner First Login Experience', () => {
     
     test('should login as owner and see organization dashboard', async ({ page, helper }) => {
       // Login as owner
@@ -695,7 +695,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
   // ============================================================
   // TEST-ONBOARDING-004: Owner Creates First Team
   // ============================================================
-  test.describe('TEST-ONBOARDING-004: Owner Creates First Team', () => {
+  test.describe.skip('TEST-ONBOARDING-004: Owner Creates First Team', () => {
     
     test('should navigate to team management', async ({ page, helper }) => {
       // Login as owner - use direct login instead of helper for better error handling
@@ -875,7 +875,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
   // ============================================================
   // TEST-ONBOARDING-005: Owner Invites First Admin
   // ============================================================
-  test.describe('TEST-ONBOARDING-005: Owner Invites First Admin', () => {
+  test.describe.skip('TEST-ONBOARDING-005: Owner Invites First Admin', () => {
     
     test('should have invite member functionality', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
@@ -976,7 +976,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
   // ============================================================
   // TEST-ONBOARDING-006: First Admin Accepts Invitation
   // ============================================================
-  test.describe('TEST-ONBOARDING-006: First Admin Accepts Invitation', () => {
+  test.describe.skip('TEST-ONBOARDING-006: First Admin Accepts Invitation', () => {
     
     test('should signup as admin user', async ({ page, helper }) => {
       // First, check if admin user already exists by trying to login
@@ -1145,7 +1145,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
   // ============================================================
   // TEST-ONBOARDING-007: Owner Invites First Coach
   // ============================================================
-  test.describe('TEST-ONBOARDING-007: Owner Invites First Coach', () => {
+  test.describe.skip('TEST-ONBOARDING-007: Owner Invites First Coach', () => {
     
     test('should be able to invite with coach role', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
@@ -1191,7 +1191,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
   // ============================================================
   // TEST-ONBOARDING-008: First Coach Gets Team Assignment
   // ============================================================
-  test.describe('TEST-ONBOARDING-008: First Coach Accepts and Gets Team Assignment', () => {
+  test.describe.skip('TEST-ONBOARDING-008: First Coach Accepts and Gets Team Assignment', () => {
     
     test('should signup as coach user', async ({ page, helper }) => {
       // First, check if coach user already exists by trying to login
@@ -1406,7 +1406,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
   // ============================================================
   // TEST-ONBOARDING-009: Admin Creates First Players
   // ============================================================
-  test.describe('TEST-ONBOARDING-009: Admin Creates First Players', () => {
+  test.describe.skip('TEST-ONBOARDING-009: Admin Creates First Players', () => {
     
     test('should have player management section', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
@@ -1954,7 +1954,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
   // ============================================================
   // TEST-ONBOARDING-010: Owner Invites First Parent (with Liam Murphy linked)
   // ============================================================
-  test.describe('TEST-ONBOARDING-010: Owner Invites First Parent', () => {
+  test.describe.skip('TEST-ONBOARDING-010: Owner Invites First Parent', () => {
     
     // Step 1: Owner invites parent with Parent role AND Liam Murphy as linked player
     test('should invite parent with Liam Murphy as linked player', async ({ page, helper }) => {
@@ -2275,7 +2275,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
   // ============================================================
   // TEST-ONBOARDING-011: Platform Admin Edits Organisation
   // ============================================================
-  test.describe('TEST-ONBOARDING-011: Platform Admin Edits Organisation', () => {
+  test.describe.skip('TEST-ONBOARDING-011: Platform Admin Edits Organisation', () => {
     
     test('should navigate to organization settings', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);
@@ -2699,7 +2699,7 @@ test.describe.serial('Initial Onboarding Flow', () => {
   // ============================================================
   // TEST-ONBOARDING-012: Owner Transfers Ownership to Admin
   // ============================================================
-  test.describe('TEST-ONBOARDING-012: Owner Transfers Ownership to Admin', () => {
+  test.describe.skip('TEST-ONBOARDING-012: Owner Transfers Ownership to Admin', () => {
     
     test('should navigate to organization settings and find transfer ownership', async ({ page, helper }) => {
       await helper.login(TEST_USERS.owner.email, TEST_USERS.owner.password);

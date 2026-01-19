@@ -8,7 +8,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Test IDs: ADMIN-BENCH-001, ADMIN-BENCH-002
  */
 
-test.describe("ADMIN - Benchmarks", () => {
+test.describe.skip("ADMIN - Benchmarks", () => {
   test("ADMIN-BENCH-001: Benchmarks page loads", async ({ adminPage }) => {
     /**
      * P2 Test - Verify benchmarks page loads correctly

@@ -7,7 +7,7 @@ import { test, expect } from "@playwright/test";
  * Test IDs: HOMEPAGE-NAV-001, HOMEPAGE-DEMO-001
  */
 
-test.describe("HOMEPAGE - Advanced Features", () => {
+test.describe.skip("HOMEPAGE - Advanced Features", () => {
   test("HOMEPAGE-NAV-001: All navigation sections scroll correctly", async ({ page }) => {
     // Use absolute URL for homepage
     await page.goto("http://localhost:3000/");

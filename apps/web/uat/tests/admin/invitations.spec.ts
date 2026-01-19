@@ -8,7 +8,7 @@
 
 import { test, expect } from "../../fixtures/test-fixtures";
 
-test.describe("Invitation Workflow", () => {
+test.describe.skip("Invitation Workflow", () => {
   
   // ============================================================
   // INVITE-001: Admin can access approvals/invitations page

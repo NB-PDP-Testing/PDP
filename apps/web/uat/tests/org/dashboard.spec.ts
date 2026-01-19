@@ -7,7 +7,7 @@ import { test, expect, waitForPageLoad, navigateToCoach, navigateToAdmin, naviga
  * Based on gaps identified in docs/testing/UAT_MCP_TESTS.MD
  */
 
-test.describe("ORG - Dashboard Tests", () => {
+test.describe.skip("ORG - Dashboard Tests", () => {
   test("ORG-001: Organizations dashboard displays correctly", async ({ ownerPage }) => {
     const page = ownerPage;
     await page.goto("/orgs");

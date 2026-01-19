@@ -118,7 +118,9 @@ export default function EditPlayerPage() {
         adminNotes: enrollment.adminNotes || "",
       });
     }
-  }, [playerIdentity, enrollment, formatDateForInput]);
+    // formatDateForInput is a stable function that doesn't depend on state/props
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerIdentity, enrollment]);
 
   // Initialize selected teams
   useEffect(() => {

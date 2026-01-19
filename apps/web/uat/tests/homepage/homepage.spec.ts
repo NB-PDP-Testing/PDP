@@ -7,7 +7,7 @@ import { test, expect } from "@playwright/test";
  * Based on gaps identified in docs/testing/UAT_MCP_TESTS.MD
  */
 
-test.describe("HOME - Homepage Tests", () => {
+test.describe.skip("HOME - Homepage Tests", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
   });

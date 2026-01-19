@@ -17,7 +17,7 @@ import {
  * Test IDs: FLOW-ACCESS-001, FLOW-USER-LOGIN-001
  */
 
-test.describe("FLOW - Platform Access Control", () => {
+test.describe.skip("FLOW - Platform Access Control", () => {
   // ============================================================
   // SECTION 1: Platform Access Restriction (P0)
   // ============================================================

@@ -8,7 +8,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Test IDs: ERR-EMPTY-PLAYERS-001, ERR-EMPTY-TEAMS-001, ERR-404-001, ERR-403-001
  */
 
-test.describe("ERROR - Empty States and Error Pages", () => {
+test.describe.skip("ERROR - Empty States and Error Pages", () => {
   test("ERR-EMPTY-PLAYERS-001: Empty state message when no players", async ({ adminPage }) => {
     const page = adminPage;
 

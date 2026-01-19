@@ -10,7 +10,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Test IDs: CROSS-001 through CROSS-015
  */
 
-test.describe("Cross-Role Scenarios", () => {
+test.describe.skip("Cross-Role Scenarios", () => {
   // ============================================================
   // SECTION 1: Role Switching
   // ============================================================

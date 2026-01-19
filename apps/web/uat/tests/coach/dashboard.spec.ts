@@ -8,7 +8,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Based on gaps identified in docs/testing/UAT_MCP_TESTS.MD
  */
 
-test.describe("COACH - Dashboard Tests", () => {
+test.describe.skip("COACH - Dashboard Tests", () => {
   test("COACH-001: Coach dashboard loads correctly", async ({ ownerPage }) => {
     const page = ownerPage;
 

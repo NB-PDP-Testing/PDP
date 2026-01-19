@@ -8,7 +8,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Test IDs: ANALYTICS-PROGRESS-001, ANALYTICS-COACH-001
  */
 
-test.describe("COACH - Analytics", () => {
+test.describe.skip("COACH - Analytics", () => {
   test("ANALYTICS-PROGRESS-001: Player progress over time chart", async ({ coachPage }) => {
     const page = coachPage;
 

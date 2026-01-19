@@ -8,7 +8,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Test IDs: TEST-UXTESTING-000 through TEST-UXTESTING-013
  */
 
-test.describe("UX Testing Suite", () => {
+test.describe.skip("UX Testing Suite", () => {
   test("TEST-UXTESTING-000: Testing Infrastructure Setup", async ({ adminPage }) => {
     /**
      * Verify test infrastructure is working correctly

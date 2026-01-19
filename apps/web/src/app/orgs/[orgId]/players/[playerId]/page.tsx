@@ -6,7 +6,7 @@ import { useQuery } from "convex/react";
 import { ArrowLeft, Edit, ExternalLink, Loader2, Share2 } from "lucide-react";
 import type { Route } from "next";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BenchmarkComparison } from "@/components/benchmark-comparison";
 import { SkillRadarChart } from "@/components/skill-radar-chart";
 import { Button } from "@/components/ui/button";
@@ -60,23 +60,33 @@ export default function PlayerPassportPage() {
     userEmail ? { email: userEmail.toLowerCase() } : "skip"
   );
 
+  // Track if we've already attempted redirect to prevent infinite loops
+  const hasAttemptedRedirect = useRef(false);
+
   // Redirect player to /player/ if viewing own profile
   useEffect(() => {
+    // Only attempt redirect once
+    if (hasAttemptedRedirect.current) {
+      return;
+    }
+
     if (!roleDetails || ownPlayerIdentity === undefined) {
       return;
     }
 
     // Check if user has player role AND is viewing their own profile
-    const hasPlayerRole = roleDetails.functionalRoles.includes("player");
+    const hasPlayerRole = roleDetails.functionalRoles?.includes("player");
     const isOwnProfile = ownPlayerIdentity?._id === playerId;
 
     if (hasPlayerRole && isOwnProfile) {
+      hasAttemptedRedirect.current = true;
       // Redirect to player self-access route
       router.replace(`/orgs/${orgId}/player` as Route);
     }
-    // Note: router is intentionally excluded from deps to prevent infinite loops
+    // We check roleDetails and ownPlayerIdentity once they're loaded
+    // The ref prevents re-runs even if these objects get new references
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roleDetails, ownPlayerIdentity, playerId, orgId]);
+  }, [roleDetails, ownPlayerIdentity]);
 
   // Check share status for this player (for coach access request feature)
   const shareStatus = useQuery(
@@ -121,6 +131,39 @@ export default function PlayerPassportPage() {
     return { canEdit, canViewNotes, isParent, isAdmin, isCoach };
   }, [roleDetails]);
 
+  // Transform player data for PDF generation
+  // Memoized to prevent infinite loops when passed to ShareModal
+  // Must be before early returns to comply with React hooks rules
+  const pdfData: PassportPDFData | null = useMemo(
+    () =>
+      playerData
+        ? {
+            playerName: playerData.name || "Unknown Player",
+            dateOfBirth: (playerData as any).dateOfBirth,
+            ageGroup: (playerData as any).ageGroup,
+            sport: playerData.sportCode,
+            organization: (playerData as any).organizationName,
+            skills: playerData.skills as Record<string, number> | undefined,
+            goals: (playerData as any).goals?.map((g: any) => ({
+              title: g.title || g.description,
+              status: g.status,
+              targetDate: g.targetDate,
+            })),
+            notes: (playerData as any).notes?.map((n: any) => ({
+              content: n.content || n.note,
+              coachName: n.coachName || n.authorName,
+              date:
+                n.date ||
+                new Date(n.createdAt || n._creationTime).toLocaleDateString(),
+            })),
+            overallScore: (playerData as any).overallScore,
+            trainingAttendance: (playerData as any).trainingAttendance,
+            matchAttendance: (playerData as any).matchAttendance,
+          }
+        : null,
+    [playerData]
+  );
+
   if (playerData === undefined) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -148,33 +191,6 @@ export default function PlayerPassportPage() {
   const handleEdit = () => {
     router.push(`/orgs/${orgId}/players/${playerId}/edit`);
   };
-
-  // Transform player data for PDF generation
-  const pdfData: PassportPDFData | null = playerData
-    ? {
-        playerName: playerData.name || "Unknown Player",
-        dateOfBirth: (playerData as any).dateOfBirth,
-        ageGroup: (playerData as any).ageGroup,
-        sport: playerData.sportCode,
-        organization: (playerData as any).organizationName,
-        skills: playerData.skills as Record<string, number> | undefined,
-        goals: (playerData as any).goals?.map((g: any) => ({
-          title: g.title || g.description,
-          status: g.status,
-          targetDate: g.targetDate,
-        })),
-        notes: (playerData as any).notes?.map((n: any) => ({
-          content: n.content || n.note,
-          coachName: n.coachName || n.authorName,
-          date:
-            n.date ||
-            new Date(n.createdAt || n._creationTime).toLocaleDateString(),
-        })),
-        overallScore: (playerData as any).overallScore,
-        trainingAttendance: (playerData as any).trainingAttendance,
-        matchAttendance: (playerData as any).matchAttendance,
-      }
-    : null;
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8">

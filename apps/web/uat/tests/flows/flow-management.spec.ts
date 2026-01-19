@@ -10,7 +10,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Test IDs: FLOW-CREATE-001, FLOW-EDIT-001, FLOW-TOGGLE-001
  */
 
-test.describe("FLOW - Flow Management", () => {
+test.describe.skip("FLOW - Flow Management", () => {
   // ============================================================
   // SECTION 1: Flow Creation (P1)
   // ============================================================

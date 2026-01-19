@@ -43,6 +43,8 @@ import type * as models_orgJoinRequests from "../models/orgJoinRequests.js";
 import type * as models_orgPlayerEnrollments from "../models/orgPlayerEnrollments.js";
 import type * as models_organizationScraper from "../models/organizationScraper.js";
 import type * as models_organizations from "../models/organizations.js";
+import type * as models_passportComparison from "../models/passportComparison.js";
+import type * as models_passportEnquiries from "../models/passportEnquiries.js";
 import type * as models_passportGoals from "../models/passportGoals.js";
 import type * as models_passportSharing from "../models/passportSharing.js";
 import type * as models_playerEmergencyContacts from "../models/playerEmergencyContacts.js";
@@ -134,6 +136,8 @@ declare const fullApi: ApiFromModules<{
   "models/orgPlayerEnrollments": typeof models_orgPlayerEnrollments;
   "models/organizationScraper": typeof models_organizationScraper;
   "models/organizations": typeof models_organizations;
+  "models/passportComparison": typeof models_passportComparison;
+  "models/passportEnquiries": typeof models_passportEnquiries;
   "models/passportGoals": typeof models_passportGoals;
   "models/passportSharing": typeof models_passportSharing;
   "models/playerEmergencyContacts": typeof models_playerEmergencyContacts;
@@ -319,10 +323,9 @@ export declare const components: {
                   metadata?: null | string;
                   name: string;
                   sharingContactEmail?: string;
-                  sharingContactMode?: "direct" | "form";
+                  sharingContactMode?: "direct" | "enquiry";
                   sharingContactName?: string;
                   sharingContactPhone?: string;
-                  sharingEnquiriesUrl?: string;
                   slug: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -648,7 +651,6 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
-                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1023,7 +1025,6 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
-                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1544,10 +1545,9 @@ export declare const components: {
                   metadata?: null | string;
                   name?: string;
                   sharingContactEmail?: string;
-                  sharingContactMode?: "direct" | "form";
+                  sharingContactMode?: "direct" | "enquiry";
                   sharingContactName?: string;
                   sharingContactPhone?: string;
-                  sharingEnquiriesUrl?: string;
                   slug?: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -1575,7 +1575,6 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
-                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -2049,10 +2048,9 @@ export declare const components: {
                   metadata?: null | string;
                   name?: string;
                   sharingContactEmail?: string;
-                  sharingContactMode?: "direct" | "form";
+                  sharingContactMode?: "direct" | "enquiry";
                   sharingContactName?: string;
                   sharingContactPhone?: string;
-                  sharingEnquiriesUrl?: string;
                   slug?: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -2080,7 +2078,6 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
-                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"

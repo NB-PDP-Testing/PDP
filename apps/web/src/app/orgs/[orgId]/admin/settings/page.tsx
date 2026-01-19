@@ -231,9 +231,7 @@ export default function OrgSettingsPage() {
       setSocialInstagram(orgData.socialLinks?.instagram || "");
       setSocialLinkedin(orgData.socialLinks?.linkedin || "");
       setSelectedSports(orgData.supportedSports || []);
-      setSharingContactMode(
-        (orgData.sharingContactMode as "direct" | "enquiry" | "") || ""
-      );
+      setSharingContactMode(orgData.sharingContactMode || "");
       setSharingContactName(orgData.sharingContactName || "");
       setSharingContactEmail(orgData.sharingContactEmail || "");
       setSharingContactPhone(orgData.sharingContactPhone || "");
@@ -365,10 +363,7 @@ export default function OrgSettingsPage() {
     try {
       await updateOrganizationSharingContact({
         organizationId: orgId,
-        sharingContactMode: (sharingContactMode || null) as
-          | "direct"
-          | "enquiry"
-          | null,
+        sharingContactMode: sharingContactMode || null,
         sharingContactName: sharingContactName.trim() || null,
         sharingContactEmail: sharingContactEmail.trim() || null,
         sharingContactPhone: sharingContactPhone.trim() || null,

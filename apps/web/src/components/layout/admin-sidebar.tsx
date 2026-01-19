@@ -1,5 +1,7 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
@@ -8,6 +10,7 @@ import {
   ClipboardList,
   GraduationCap,
   Home,
+  Inbox,
   Key,
   LineChart,
   Megaphone,
@@ -49,11 +52,20 @@ type NavGroup = {
   items: NavItem[];
 };
 
+type NavGroupOptions = {
+  /** Whether to show the Enquiries link (shown when enquiry mode is enabled or default) */
+  showEnquiries?: boolean;
+};
+
 /**
  * Generate admin navigation structure for an organization
  * Groups items into logical categories for better UX
  */
-export function getAdminNavGroups(orgId: string): NavGroup[] {
+export function getAdminNavGroups(
+  orgId: string,
+  options: NavGroupOptions = {}
+): NavGroup[] {
+  const { showEnquiries = true } = options;
   return [
     {
       label: "People",
@@ -137,6 +149,16 @@ export function getAdminNavGroups(orgId: string): NavGroup[] {
           label: "Passport Sharing",
           icon: Share2,
         },
+        // Enquiries link - only shown when enquiry mode is enabled (or default)
+        ...(showEnquiries
+          ? [
+              {
+                href: `/orgs/${orgId}/admin/enquiries`,
+                label: "Enquiries",
+                icon: Inbox,
+              },
+            ]
+          : []),
         {
           href: `/orgs/${orgId}/admin/player-import`,
           label: "Import Players",
@@ -196,7 +218,18 @@ export function AdminSidebar({
   isResizable = false,
 }: AdminSidebarProps) {
   const pathname = usePathname();
-  const navGroups = getAdminNavGroups(orgId);
+
+  // Fetch org data to determine if enquiries should be shown
+  const organization = useQuery(api.models.organizations.getOrganization, {
+    organizationId: orgId,
+  });
+
+  // Show enquiries when mode is "enquiry" or not set (null/undefined = default to enquiry)
+  const showEnquiries =
+    !organization?.sharingContactMode ||
+    organization.sharingContactMode === "enquiry";
+
+  const navGroups = getAdminNavGroups(orgId, { showEnquiries });
 
   // Track which groups are expanded - auto-expand group containing current page
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
@@ -346,7 +379,18 @@ export function AdminMobileNav({
   trigger,
 }: AdminMobileNavProps) {
   const pathname = usePathname();
-  const navGroups = getAdminNavGroups(orgId);
+
+  // Fetch org data to determine if enquiries should be shown
+  const organization = useQuery(api.models.organizations.getOrganization, {
+    organizationId: orgId,
+  });
+
+  // Show enquiries when mode is "enquiry" or not set (null/undefined = default to enquiry)
+  const showEnquiries =
+    !organization?.sharingContactMode ||
+    organization.sharingContactMode === "enquiry";
+
+  const navGroups = getAdminNavGroups(orgId, { showEnquiries });
   const [open, setOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {

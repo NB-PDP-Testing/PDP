@@ -102,15 +102,17 @@ const customOrganizationTable = defineTable({
   // Passport sharing contact configuration
   // Allows other organizations to contact this org for coordination about shared players
   // NOTE: Changed from "form" to "enquiry" on 2026-01-19 (deployed to Convex backend)
+  // NOTE: Added "none" option on 2026-01-19 to allow explicit opt-out (null = default to enquiry)
   sharingContactMode: v.optional(
     v.union(
       v.literal("direct"), // Direct contact with name/email/phone
-      v.literal("enquiry") // Built-in enquiry system (managed by admins)
+      v.literal("enquiry"), // Built-in enquiry system (managed by admins)
+      v.literal("none") // Explicitly disabled - no contact allowed
     )
   ),
-  sharingContactName: v.optional(v.string()),
-  sharingContactEmail: v.optional(v.string()),
-  sharingContactPhone: v.optional(v.string()),
+  sharingContactName: v.optional(v.union(v.null(), v.string())),
+  sharingContactEmail: v.optional(v.union(v.null(), v.string())),
+  sharingContactPhone: v.optional(v.union(v.null(), v.string())),
 })
   .index("name", ["name"])
   .index("slug", ["slug"]);

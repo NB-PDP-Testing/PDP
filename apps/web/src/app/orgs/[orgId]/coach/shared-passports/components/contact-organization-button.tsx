@@ -42,22 +42,30 @@ export function ContactOrganizationButton({
     return null;
   }
 
-  const {
-    sharingContactMode,
-    sharingContactName,
-    sharingContactEmail,
-    sharingContactPhone,
-  } = organization;
+  const { sharingContactName, sharingContactEmail, sharingContactPhone } =
+    organization;
 
-  // Don't show button if no contact mode is set
-  if (!sharingContactMode) {
+  // Get the sharing contact mode with proper typing
+  // The schema supports: "direct" | "enquiry" | "none" | null | undefined
+  const sharingContactMode = organization.sharingContactMode as
+    | "direct"
+    | "enquiry"
+    | "none"
+    | null
+    | undefined;
+
+  // Don't show button if contact is explicitly disabled
+  if (sharingContactMode === "none") {
     return null;
   }
 
+  // Default to "enquiry" mode when not set (null/undefined)
+  const effectiveMode = sharingContactMode ?? "enquiry";
+
   const handleClick = () => {
-    if (sharingContactMode === "direct") {
+    if (effectiveMode === "direct") {
       setShowContactInfo(true);
-    } else if (sharingContactMode === "enquiry") {
+    } else if (effectiveMode === "enquiry") {
       setShowEnquiryModal(true);
     }
   };
@@ -123,7 +131,7 @@ export function ContactOrganizationButton({
       </Dialog>
 
       {/* Enquiry Modal */}
-      {sharingContactMode === "enquiry" && (
+      {effectiveMode === "enquiry" && (
         <EnquiryModal
           onOpenChange={setShowEnquiryModal}
           open={showEnquiryModal}

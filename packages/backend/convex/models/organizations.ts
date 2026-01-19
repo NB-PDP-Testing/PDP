@@ -34,7 +34,12 @@ export const getOrganization = query({
       socialLinks: socialLinksValidator,
       supportedSports: v.optional(v.array(v.string())),
       sharingContactMode: v.optional(
-        v.union(v.null(), v.union(v.literal("direct"), v.literal("enquiry")))
+        v.union(
+          v.null(),
+          v.literal("direct"),
+          v.literal("enquiry"),
+          v.literal("none")
+        )
       ),
       sharingContactName: v.optional(v.union(v.null(), v.string())),
       sharingContactEmail: v.optional(v.union(v.null(), v.string())),
@@ -393,7 +398,12 @@ export const updateOrganizationSharingContact = mutation({
   args: {
     organizationId: v.string(),
     sharingContactMode: v.optional(
-      v.union(v.null(), v.union(v.literal("direct"), v.literal("enquiry")))
+      v.union(
+        v.null(),
+        v.literal("direct"),
+        v.literal("enquiry"),
+        v.literal("none")
+      )
     ),
     sharingContactName: v.optional(v.union(v.null(), v.string())),
     sharingContactEmail: v.optional(v.union(v.null(), v.string())),

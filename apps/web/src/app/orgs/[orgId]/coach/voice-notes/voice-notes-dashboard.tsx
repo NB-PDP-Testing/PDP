@@ -502,7 +502,6 @@ Example: 'Emma Murphy had a great session today. Her left foot passing is really
                     <Button
                       onClick={() => {
                         const url = `/orgs/${orgId}/coach/messages/compose?type=insight&voiceNoteId=${insight.noteId}&insightId=${insight.id}&playerIdentityId=${insight.playerIdentityId}`;
-                        // @ts-expect-error - Next.js route types haven't regenerated yet
                         router.push(url);
                       }}
                       size="sm"

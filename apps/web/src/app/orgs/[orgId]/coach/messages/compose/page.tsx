@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Loader2, MessageSquare, Send } from "lucide-react";
+import type { Route } from "next";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -188,8 +189,7 @@ export default function ComposeMessagePage() {
       });
 
       toast.success("Message sent successfully!");
-      // @ts-expect-error - Next.js route types need regeneration after new route creation
-      router.push(`/orgs/${orgId}/coach/messages`);
+      router.push(`/orgs/${orgId}/coach/messages` as Route);
     } catch (error) {
       console.error("Failed to send message:", error);
       toast.error("Failed to send message. Please try again.");
@@ -208,10 +208,7 @@ export default function ComposeMessagePage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button
-            onClick={() =>
-              // @ts-expect-error - Next.js route types need regeneration after new route creation
-              router.push(`/orgs/${orgId}/coach/messages`)
-            }
+            onClick={() => router.push(`/orgs/${orgId}/coach/messages`)}
             variant="ghost"
           >
             <ArrowLeft size={20} />
@@ -576,10 +573,7 @@ export default function ComposeMessagePage() {
             <div className="flex justify-end gap-3">
               <Button
                 disabled={isSubmitting}
-                onClick={() =>
-                  // @ts-expect-error - Next.js route types need regeneration after new route creation
-                  router.push(`/orgs/${orgId}/coach/messages`)
-                }
+                onClick={() => router.push(`/orgs/${orgId}/coach/messages`)}
                 type="button"
                 variant="outline"
               >

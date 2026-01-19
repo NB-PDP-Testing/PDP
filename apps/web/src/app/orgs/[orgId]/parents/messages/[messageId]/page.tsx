@@ -5,6 +5,7 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Check } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -63,8 +64,7 @@ export default function ParentMessageDetailPage() {
       });
       toast.success("Message acknowledged");
       // Navigate back to messages list
-      // @ts-expect-error - Route exists but Next.js types haven't regenerated
-      router.push(`/orgs/${orgId as string}/parents/messages`);
+      router.push(`/orgs/${orgId as string}/parents/messages` as Route);
     } catch (error) {
       console.error("Failed to acknowledge message:", error);
       toast.error("Failed to acknowledge message");
@@ -108,8 +108,7 @@ export default function ParentMessageDetailPage() {
       {/* Back button */}
       <div className="mb-6">
         <Button asChild variant="ghost">
-          {/* @ts-expect-error - Route exists but Next.js types haven't regenerated */}
-          <Link href={`/orgs/${orgId as string}/parents/messages`}>
+          <Link href={`/orgs/${orgId as string}/parents/messages` as Route}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Messages
           </Link>

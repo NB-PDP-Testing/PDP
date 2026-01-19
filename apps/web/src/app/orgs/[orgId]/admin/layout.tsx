@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
 import { Authenticated, AuthLoading, Unauthenticated } from "convex/react";
 import { ClipboardList, Home, Menu, Settings, Users } from "lucide-react";
 import type { Route } from "next";
@@ -257,7 +258,22 @@ function LegacyNavigation({
 }) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { usePathname } = require("next/navigation");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { useQuery: useLegacyQuery } = require("convex/react");
   const pathname = usePathname();
+
+  // Fetch org data to determine if enquiries should be shown
+  const organization = useLegacyQuery(
+    api.models.organizations.getOrganization,
+    {
+      organizationId: orgId,
+    }
+  );
+
+  // Show enquiries when mode is "enquiry" or not set (null/undefined = default to enquiry)
+  const showEnquiries =
+    !organization?.sharingContactMode ||
+    organization.sharingContactMode === "enquiry";
 
   const navItems = [
     { href: `/orgs/${orgId}/admin`, label: "Overview" },
@@ -273,6 +289,10 @@ function LegacyNavigation({
     { href: `/orgs/${orgId}/admin/benchmarks`, label: "Benchmarks" },
     { href: `/orgs/${orgId}/admin/analytics`, label: "Analytics" },
     { href: `/orgs/${orgId}/admin/sharing`, label: "Sharing" },
+    // Enquiries link - only shown when enquiry mode is enabled (or default)
+    ...(showEnquiries
+      ? [{ href: `/orgs/${orgId}/admin/enquiries`, label: "Enquiries" }]
+      : []),
     { href: `/orgs/${orgId}/admin/announcements`, label: "Announcements" },
     { href: `/orgs/${orgId}/admin/player-access`, label: "Player Access" },
     { href: `/orgs/${orgId}/admin/settings`, label: "Settings" },

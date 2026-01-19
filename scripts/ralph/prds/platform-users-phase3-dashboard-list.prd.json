@@ -1,0 +1,146 @@
+{
+  "projectName": "Platform Staff User Management - Phase 3: Dashboard & User List UI",
+  "branchName": "ralph/platform-users-phase3",
+  "description": "Create the platform users dashboard home page and user list page with search/filters. Requires Phase 2 backend to be complete.",
+  "planReference": "/Users/neil/.claude/plans/starry-yawning-crane.md",
+  "prerequisite": "Phase 2 (backend) must be merged to main first",
+  "verificationSteps": [
+    "Navigate to /platform/users and verify dashboard renders",
+    "Test search and filters on user list page",
+    "Verify all stats cards show correct data"
+  ],
+  "userStories": [
+    {
+      "id": "US-024",
+      "title": "Create platform users dashboard page layout",
+      "priority": 1,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform/users/page.tsx",
+        "Add gradient background matching other platform pages (from-[#1E3A5F] via-[#1E3A5F] to-white)",
+        "Add header with back button to /platform and title 'User Management'",
+        "Verify platform staff access check in useEffect"
+      ]
+    },
+    {
+      "id": "US-025",
+      "title": "Add platform health metrics stats cards",
+      "priority": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Call getPlatformHealthMetrics query",
+        "Display first row: Total Users, Active (7d), New (30d), Platform Staff using StatCard",
+        "Display second row: Verified, Suspended, Dormant, Total Orgs",
+        "Use appropriate colors: blue, green, purple, amber, red"
+      ]
+    },
+    {
+      "id": "US-026",
+      "title": "Add signups over time chart",
+      "priority": 3,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Install recharts: npm install recharts",
+        "Create components/signups-chart.tsx with LineChart",
+        "Display last 30 days of signups from signupsOverTime data",
+        "Add chart below stats cards in responsive grid"
+      ]
+    },
+    {
+      "id": "US-027",
+      "title": "Add users by organization chart",
+      "priority": 4,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Create components/org-distribution-chart.tsx with BarChart or PieChart",
+        "Display top 10 organizations by member count",
+        "Show organization name and count on hover",
+        "Add to dashboard in grid alongside signups chart"
+      ]
+    },
+    {
+      "id": "US-028",
+      "title": "Add quick links and pending approvals badge",
+      "priority": 5,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add Card links: User List (/platform/users/list), Pending Approvals (/platform/users/pending-approvals)",
+        "Add Card links: Error Logs (/platform/users/error-logs), Org Health (future)",
+        "Show pending approval count badge on Pending Approvals card",
+        "Use consistent card styling with icons (Users, Clock, AlertTriangle, Building)"
+      ]
+    },
+    {
+      "id": "US-029",
+      "title": "Create user list page with basic search",
+      "priority": 6,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform/users/list/page.tsx",
+        "Add search input with Search icon",
+        "Call searchPlatformUsers with searchQuery state",
+        "Display loading skeleton while fetching"
+      ]
+    },
+    {
+      "id": "US-030",
+      "title": "Add user list results table",
+      "priority": 7,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Use SmartDataView or Table component for results",
+        "Columns: Name, Email, Status badges, Created date",
+        "Status badges: Verified (green), Staff (purple), Suspended (red)",
+        "Empty state with message when no results"
+      ]
+    },
+    {
+      "id": "US-031",
+      "title": "Add user list filter dropdowns",
+      "priority": 8,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add organization filter dropdown (fetch orgs from getAllOrganizations)",
+        "Add functional role filter (coach, parent, admin, player)",
+        "Add account status filter (all, active, suspended, dormant)",
+        "Add platform staff only toggle/checkbox"
+      ]
+    },
+    {
+      "id": "US-032",
+      "title": "Add user list child name search",
+      "priority": 9,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add secondary search input labeled 'Search by child name'",
+        "Pass childName to searchPlatformUsers query",
+        "Show loading indicator during search",
+        "Display helpful text explaining this searches parent accounts"
+      ]
+    },
+    {
+      "id": "US-033",
+      "title": "Add user list row actions",
+      "priority": 10,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add View Details action that navigates to /platform/users/[userId]",
+        "Add View as User action that opens impersonation dialog (implement in Phase 5)",
+        "Use DropdownMenu for actions on each row",
+        "Include icons for each action"
+      ]
+    },
+    {
+      "id": "US-034",
+      "title": "Add navigation link from platform dashboard",
+      "priority": 11,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add User Management link/card to /platform page",
+        "Add link from /platform/staff page to /platform/users",
+        "Use Users icon for consistency",
+        "Maintain existing platform page layout"
+      ]
+    }
+  ]
+}

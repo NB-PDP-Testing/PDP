@@ -25,14 +25,14 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
-interface EnquiryModalProps {
+type EnquiryModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   playerIdentityId: Id<"playerIdentities">;
   playerName: string;
   targetOrgId: string;
   targetOrgName: string;
-}
+};
 
 const SUBJECT_OPTIONS = [
   "Request training schedule information",

@@ -15,13 +15,13 @@ import {
 } from "@/components/ui/dialog";
 import { EnquiryModal } from "./enquiry-modal";
 
-interface ContactOrganizationButtonProps {
+type ContactOrganizationButtonProps = {
   organizationId: string;
   playerIdentityId: Id<"playerIdentities">;
   playerName: string;
   variant?: "default" | "outline" | "ghost";
   size?: "default" | "sm" | "lg";
-}
+};
 
 export function ContactOrganizationButton({
   organizationId,

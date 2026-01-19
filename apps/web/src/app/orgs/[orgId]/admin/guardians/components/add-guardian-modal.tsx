@@ -127,7 +127,7 @@ export function AddGuardianModal({
       });
 
       // Success message depends on whether guardian existed
-      if (isExistingGuardian) {
+      if (isExistingGuardian && existingGuardian) {
         toast.success("Existing guardian linked successfully", {
           description: `${existingGuardian.firstName} ${existingGuardian.lastName} has been linked to ${playerName}`,
         });

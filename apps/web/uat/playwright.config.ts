@@ -11,10 +11,10 @@ const configDir = __dirname;
  */
 export default defineConfig({
   testDir: path.join(configDir, "tests"),
-  fullyParallel: true, // Enable parallel test execution for speed
+  fullyParallel: false, // Disable parallel execution to prevent state pollution
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1, // 1 retry for local, 2 for CI to handle intermittent failures
-  workers: process.env.CI ? 1 : undefined, // Use all available CPU cores locally, 1 for CI stability
+  workers: 1, // Run tests serially to avoid race conditions and auth state conflicts
   reporter: [
     ["html", { outputFolder: "playwright-report" }],
     ["json", { outputFile: "test-results/results.json" }],

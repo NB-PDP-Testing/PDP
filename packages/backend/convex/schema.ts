@@ -2184,6 +2184,52 @@ export default defineSchema({
     .index("by_requesting_org", ["requestingOrgId"])
     .index("by_expiry", ["status", "expiresAt"]),
 
+  // Organization-to-Organization Passport Enquiries
+  // Coaches can send enquiries to other organizations about shared players
+  passportEnquiries: defineTable({
+    // Target player
+    playerIdentityId: v.id("playerIdentities"),
+    playerName: v.string(), // Denormalized for display
+
+    // Source organization (where the enquiry is coming FROM)
+    sourceOrgId: v.string(), // Better Auth organization ID
+    sourceOrgName: v.string(), // Denormalized for display
+    sourceUserId: v.string(), // Coach sending enquiry
+    sourceUserName: v.string(), // Denormalized
+    sourceUserEmail: v.string(), // Denormalized
+
+    // Target organization (where the enquiry is going TO)
+    targetOrgId: v.string(), // Organization being enquired about
+    targetOrgName: v.string(), // Denormalized for display
+
+    // Enquiry details
+    subject: v.string(), // e.g., "Request training schedule info"
+    message: v.string(), // Full enquiry message
+    contactPreference: v.union(v.literal("email"), v.literal("phone")), // How coach wants to be contacted
+
+    // Enquiry lifecycle
+    status: v.union(
+      v.literal("open"), // New enquiry
+      v.literal("processing"), // Admin is working on it
+      v.literal("closed") // Admin has resolved it
+    ),
+
+    // Resolution details
+    closedAt: v.optional(v.number()),
+    closedBy: v.optional(v.string()), // userId of admin who closed it
+    closedByName: v.optional(v.string()), // Denormalized
+    resolution: v.optional(v.string()), // What action was taken (required when closing)
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_target_org", ["targetOrgId"])
+    .index("by_target_org_and_status", ["targetOrgId", "status"])
+    .index("by_source_org", ["sourceOrgId"])
+    .index("by_player", ["playerIdentityId"])
+    .index("by_status", ["status"]),
+
   // Parent Notification Preferences
   // Customizable notification settings for parents
   parentNotificationPreferences: defineTable({
@@ -2315,6 +2361,19 @@ export default defineSchema({
         v.literal("comfortable"),
         v.literal("spacious")
       )
+    ),
+
+    // Coach Comparison View Preferences
+    coachComparisonSettings: v.optional(
+      v.object({
+        defaultViewMode: v.union(
+          v.literal("insights"),
+          v.literal("split"),
+          v.literal("overlay")
+        ),
+        highlightDivergence: v.boolean(),
+        divergenceThreshold: v.number(), // e.g., 1.0 - skills with rating diff > this are highlighted
+      })
     ),
 
     // Timestamps

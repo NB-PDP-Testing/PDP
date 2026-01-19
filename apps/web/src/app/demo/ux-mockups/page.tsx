@@ -235,6 +235,41 @@ export default function UXMockupsPage() {
 
         {/* Mockup 23: Enhanced Profile Button - 6 Options */}
         <EnhancedProfileButton6OptionsMockup />
+
+        {/* Divider - Coach Passport Sharing */}
+        <div className="border-t pt-8">
+          <div className="flex items-center gap-3">
+            <ArrowLeftRight className="h-6 w-6 text-primary" />
+            <div>
+              <h2 className="font-bold text-2xl">
+                Coach Shared Passport Comparison
+              </h2>
+              <p className="text-muted-foreground">
+                Exploring how coaches can view and compare player data from
+                their own organization alongside shared data from other clubs
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Mockup 24: Coach Passport Comparison Options */}
+        <CoachPassportComparisonMockup />
+
+        {/* Divider - Implementation Showcase */}
+        <div className="border-t pt-8">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-6 w-6 text-green-600" />
+            <div>
+              <h2 className="font-bold text-2xl">Implementation Showcase</h2>
+              <p className="text-muted-foreground">
+                What was actually built based on the mockups above
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Mockup 25: Actual Implementation */}
+        <ComparisonImplementationShowcase />
       </div>
     </div>
   );
@@ -6043,5 +6078,2625 @@ function EnhancedProfileButton6OptionsMockup() {
         ]}
       />
     </section>
+  );
+}
+
+// ============================================
+// MOCKUP 24: COACH PASSPORT COMPARISON
+// ============================================
+
+// Sample data for mockups
+const mockOwnPassportData = {
+  orgName: "Dublin FC",
+  orgColor: "#1E3A5F",
+  skills: [
+    { name: "Ball Control", rating: 4.0, category: "Technical" },
+    { name: "Passing", rating: 3.5, category: "Technical" },
+    { name: "Shooting", rating: 4.5, category: "Technical" },
+    { name: "Speed", rating: 4.0, category: "Physical" },
+    { name: "Positioning", rating: 3.0, category: "Tactical" },
+  ],
+  goals: [
+    { title: "Improve left foot", status: "in_progress" },
+    { title: "Work on defensive headers", status: "not_started" },
+  ],
+  lastUpdated: "7 days ago",
+};
+
+const mockSharedPassportData = {
+  orgName: "Cork Academy",
+  orgColor: "#FF5722",
+  skills: [
+    { name: "Ball Control", rating: 3.5, category: "Technical" },
+    { name: "Passing", rating: 4.0, category: "Technical" },
+    { name: "Shooting", rating: 4.0, category: "Technical" },
+    { name: "Speed", rating: 3.5, category: "Physical" },
+    { name: "Positioning", rating: 4.0, category: "Tactical" },
+  ],
+  goals: [
+    { title: "Work on positioning", status: "complete" },
+    { title: "Build stamina", status: "in_progress" },
+  ],
+  lastUpdated: "1 month ago",
+};
+
+// Cross-sport mock data (different sport = different skills entirely)
+const mockCrossSportSharedData = {
+  orgName: "Dublin Rugby Academy",
+  orgColor: "#2E7D32",
+  sport: "Rugby",
+  skills: [
+    { name: "Passing & Handling", rating: 4.0, category: "Core Skills" },
+    { name: "Tackling", rating: 3.5, category: "Contact" },
+    { name: "Rucking", rating: 3.0, category: "Contact" },
+    { name: "Game Reading", rating: 4.5, category: "Tactical" },
+  ],
+  universalData: {
+    attendanceRate: 92,
+    trainingSessionsPerWeek: 2,
+    coachNotes: "Shows great leadership. Communicates well with teammates.",
+    developmentFocus: "Building confidence in contact situations",
+    lastInjury: "Minor ankle sprain - fully recovered",
+  },
+  lastUpdated: "2 weeks ago",
+};
+
+/**
+ * OPTION 5: View Mode Selector
+ * Gives coaches a unified control to toggle between different comparison modes
+ */
+function ViewModeSelectorMockup() {
+  const [viewMode, setViewMode] = useState<
+    "default" | "overlay" | "split" | "insights"
+  >("default");
+
+  return (
+    <Card className="border-2 border-primary/30">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <SwitchCamera className="h-5 w-5 text-primary" />
+          Option 5: View Mode Selector (Coach-Controlled)
+        </CardTitle>
+        <CardDescription>
+          A unified control that lets coaches toggle between their preferred
+          comparison mode. Persists across sessions.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-6 md:grid-cols-2">
+          <PhoneMockup highlighted title="Mobile - Mode Selector">
+            <div className="flex h-full flex-col bg-background">
+              {/* Header with Mode Selector */}
+              <div className="border-b bg-primary px-4 py-3 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold">Cian Murphy</h3>
+                    <p className="text-primary-foreground/70 text-xs">
+                      U12 • Forward
+                    </p>
+                  </div>
+                  <Badge className="bg-white/20" variant="secondary">
+                    1 shared passport
+                  </Badge>
+                </div>
+              </div>
+
+              {/* View Mode Toggle Strip */}
+              <div className="flex items-center justify-between border-b bg-muted/50 px-2 py-2">
+                <span className="text-muted-foreground text-xs">View:</span>
+                <div className="flex gap-1">
+                  {[
+                    { id: "default", icon: Eye, label: "Mine" },
+                    { id: "overlay", icon: ChevronRight, label: "Overlay" },
+                    { id: "split", icon: Columns, label: "Split" },
+                    { id: "insights", icon: TrendingUp, label: "Insights" },
+                  ].map((mode) => (
+                    <button
+                      className={cn(
+                        "flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
+                        viewMode === mode.id
+                          ? "bg-primary text-white"
+                          : "bg-background text-muted-foreground hover:bg-muted"
+                      )}
+                      key={mode.id}
+                      onClick={() => setViewMode(mode.id as typeof viewMode)}
+                    >
+                      <mode.icon className="h-3 w-3" />
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Content changes based on mode */}
+              <div className="flex-1 overflow-auto p-4">
+                {viewMode === "default" && (
+                  <div className="space-y-3">
+                    <p className="text-muted-foreground text-xs">
+                      Your assessment only
+                    </p>
+                    {mockOwnPassportData.skills.slice(0, 4).map((skill) => (
+                      <div
+                        className="flex items-center justify-between text-sm"
+                        key={skill.name}
+                      >
+                        <span>{skill.name}</span>
+                        <span className="font-medium">{skill.rating}/5</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {viewMode === "overlay" && (
+                  <div className="relative space-y-3">
+                    <p className="text-muted-foreground text-xs">
+                      Your data + overlay panel
+                    </p>
+                    {mockOwnPassportData.skills.slice(0, 3).map((skill) => (
+                      <div
+                        className="flex items-center justify-between text-sm"
+                        key={skill.name}
+                      >
+                        <span>{skill.name}</span>
+                        <span className="font-medium">{skill.rating}/5</span>
+                      </div>
+                    ))}
+                    {/* Overlay panel */}
+                    <div className="absolute top-0 right-0 w-28 rounded-l-lg border-orange-400 border-l-2 bg-orange-50 p-2 shadow-lg">
+                      <p className="mb-1 font-medium text-orange-800 text-xs">
+                        Cork Academy
+                      </p>
+                      {mockSharedPassportData.skills
+                        .slice(0, 3)
+                        .map((skill) => (
+                          <div
+                            className="flex justify-between text-orange-700 text-xs"
+                            key={skill.name}
+                          >
+                            <span className="truncate">{skill.name}</span>
+                            <span>{skill.rating}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+                {viewMode === "split" && (
+                  <div className="flex gap-2">
+                    <div className="flex-1 rounded border-blue-500 border-l-2 bg-blue-50/50 p-2">
+                      <p className="mb-1 font-medium text-blue-800 text-xs">
+                        Dublin FC
+                      </p>
+                      {mockOwnPassportData.skills.slice(0, 3).map((skill) => (
+                        <div
+                          className="flex justify-between text-xs"
+                          key={skill.name}
+                        >
+                          <span className="truncate">{skill.name}</span>
+                          <span>{skill.rating}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex-1 rounded border-orange-500 border-l-2 bg-orange-50/50 p-2">
+                      <p className="mb-1 font-medium text-orange-800 text-xs">
+                        Cork Academy
+                      </p>
+                      {mockSharedPassportData.skills
+                        .slice(0, 3)
+                        .map((skill) => (
+                          <div
+                            className="flex justify-between text-xs"
+                            key={skill.name}
+                          >
+                            <span className="truncate">{skill.name}</span>
+                            <span>{skill.rating}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+                {viewMode === "insights" && (
+                  <div className="space-y-3">
+                    <div className="rounded-lg bg-green-50 p-2">
+                      <p className="mb-1 flex items-center gap-1 font-medium text-green-800 text-xs">
+                        <CheckCircle2 className="h-3 w-3" /> Agreement Areas
+                      </p>
+                      <p className="text-green-700 text-xs">
+                        Both clubs rate Shooting highly (4-4.5)
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-amber-50 p-2">
+                      <p className="mb-1 flex items-center gap-1 font-medium text-amber-800 text-xs">
+                        <AlertCircle className="h-3 w-3" /> Divergence
+                      </p>
+                      <p className="text-amber-700 text-xs">
+                        Positioning: You rate 3.0, Cork rates 4.0
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-blue-50 p-2">
+                      <p className="mb-1 flex items-center gap-1 font-medium text-blue-800 text-xs">
+                        <TrendingUp className="h-3 w-3" /> Insight
+                      </p>
+                      <p className="text-blue-700 text-xs">
+                        Cork focuses on positioning drills - consider
+                        collaboration
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </PhoneMockup>
+
+          <div className="space-y-4">
+            <div className="rounded-lg bg-primary/10 p-4">
+              <h4 className="mb-3 font-medium">Key Innovation</h4>
+              <p className="mb-3 text-sm">
+                The coach chooses their preferred viewing style via a persistent
+                toggle. The selection is saved to their preferences and
+                remembered across sessions.
+              </p>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <Eye className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <strong>Mine:</strong> Focus on your own data, shared
+                    passport indicator only
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <ChevronRight className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <strong>Overlay:</strong> Your data primary, slide-out panel
+                    for comparison
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Columns className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <strong>Split:</strong> Side-by-side view for direct
+                    comparison
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <TrendingUp className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <strong>Insights:</strong> AI-summarized differences and
+                    recommendations
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg bg-green-50 p-4">
+              <h4 className="mb-2 font-medium text-green-800">
+                Why This Works
+              </h4>
+              <ul className="space-y-1 text-green-700 text-sm">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Coach has full control
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Non-disruptive default (own
+                  data)
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Overlay toggleable on demand
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Preference persists
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * OPTION 6: Cross-Sport Aware Comparison
+ * When shared passport is from different sport, show only comparable data
+ */
+function CrossSportAwareMockup() {
+  const [showSportSpecific, setShowSportSpecific] = useState(false);
+
+  return (
+    <Card className="border-2 border-amber-300">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <AlertCircle className="h-5 w-5 text-amber-600" />
+          Option 6: Cross-Sport Aware Comparison
+        </CardTitle>
+        <CardDescription>
+          When shared passport is from a <strong>different sport</strong>,
+          skills cannot be directly compared. This view highlights what CAN be
+          compared.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-4 rounded-lg bg-amber-50 p-4">
+          <h4 className="mb-2 font-medium text-amber-800">
+            The Cross-Sport Challenge
+          </h4>
+          <p className="text-amber-700 text-sm">
+            Cian plays GAA Football at Dublin FC, but also plays Rugby at Dublin
+            Rugby Academy. The skill categories are completely different (Solo
+            Run vs Tackling), so direct comparison is meaningless. However,
+            universal data IS comparable.
+          </p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <PhoneMockup title="Mobile - Cross-Sport View">
+            <div className="flex h-full flex-col bg-background">
+              {/* Header */}
+              <div className="border-b bg-primary px-4 py-3 text-white">
+                <h3 className="font-semibold">Cian Murphy</h3>
+                <p className="text-primary-foreground/70 text-xs">
+                  Multi-Sport Athlete
+                </p>
+              </div>
+
+              {/* Sport Indicator */}
+              <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2">
+                <Badge className="bg-blue-600 text-white">GAA Football</Badge>
+                <span className="text-muted-foreground text-xs">+</span>
+                <Badge className="bg-green-600 text-white">Rugby</Badge>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-auto p-4">
+                {/* Universal Data - Always Comparable */}
+                <div className="mb-4">
+                  <h4 className="mb-2 flex items-center gap-2 font-medium text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    Comparable Across Sports
+                  </h4>
+                  <div className="space-y-2 rounded-lg bg-green-50 p-3">
+                    <div className="flex justify-between text-sm">
+                      <span>Attendance Rate</span>
+                      <div className="flex gap-2">
+                        <Badge className="text-xs" variant="outline">
+                          GAA: 88%
+                        </Badge>
+                        <Badge className="text-xs" variant="outline">
+                          Rugby: 92%
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Training Load</span>
+                      <div className="flex gap-2">
+                        <Badge className="text-xs" variant="outline">
+                          2x/wk
+                        </Badge>
+                        <Badge className="text-xs" variant="outline">
+                          2x/wk
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="mt-2 border-t pt-2 text-xs">
+                      <p className="font-medium">Combined Weekly Load:</p>
+                      <p className="text-muted-foreground">
+                        4 sessions/week - monitor for overtraining
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Coach Notes - Universal */}
+                <div className="mb-4">
+                  <h4 className="mb-2 font-medium text-sm">
+                    Coach Observations
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="rounded border-blue-500 border-l-2 bg-blue-50 p-2 text-xs">
+                      <p className="font-medium text-blue-800">
+                        Dublin FC (GAA)
+                      </p>
+                      <p className="text-blue-700">
+                        "Great work rate, needs to slow down decision making"
+                      </p>
+                    </div>
+                    <div className="rounded border-green-500 border-l-2 bg-green-50 p-2 text-xs">
+                      <p className="font-medium text-green-800">
+                        Rugby Academy
+                      </p>
+                      <p className="text-green-700">
+                        "Shows great leadership. Communicates well with
+                        teammates."
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sport-Specific Toggle */}
+                <div className="mb-4">
+                  <button
+                    className="flex w-full items-center justify-between rounded-lg border p-3 text-left hover:bg-muted/50"
+                    onClick={() => setShowSportSpecific(!showSportSpecific)}
+                  >
+                    <span className="font-medium text-sm">
+                      View Sport-Specific Skills
+                    </span>
+                    {showSportSpecific ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </button>
+                  {showSportSpecific && (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <div className="rounded-lg border-2 border-blue-200 bg-blue-50/50 p-2">
+                        <p className="mb-1 font-medium text-blue-800 text-xs">
+                          GAA Skills
+                        </p>
+                        {mockOwnPassportData.skills.slice(0, 3).map((s) => (
+                          <div
+                            className="flex justify-between text-xs"
+                            key={s.name}
+                          >
+                            <span className="truncate">{s.name}</span>
+                            <span>{s.rating}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="rounded-lg border-2 border-green-200 bg-green-50/50 p-2">
+                        <p className="mb-1 font-medium text-green-800 text-xs">
+                          Rugby Skills
+                        </p>
+                        {mockCrossSportSharedData.skills
+                          .slice(0, 3)
+                          .map((s) => (
+                            <div
+                              className="flex justify-between text-xs"
+                              key={s.name}
+                            >
+                              <span className="truncate">{s.name}</span>
+                              <span>{s.rating}</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                  {showSportSpecific && (
+                    <p className="mt-2 text-amber-600 text-xs">
+                      ⚠️ Different skill frameworks - not directly comparable
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </PhoneMockup>
+
+          <div className="space-y-4">
+            <div className="rounded-lg bg-green-50 p-4">
+              <h4 className="mb-2 font-medium text-green-800">
+                What CAN Be Compared (Universal)
+              </h4>
+              <ul className="space-y-1 text-green-700 text-sm">
+                <li>✓ Attendance patterns across both sports</li>
+                <li>✓ Training load (risk of overtraining)</li>
+                <li>✓ Coach observations about attitude/character</li>
+                <li>✓ Injury history (recovery considerations)</li>
+                <li>✓ Development goal structure (not content)</li>
+                <li>✓ Athletic attributes (speed, agility)</li>
+              </ul>
+            </div>
+            <div className="rounded-lg bg-red-50 p-4">
+              <h4 className="mb-2 font-medium text-red-800">
+                What CANNOT Be Compared
+              </h4>
+              <ul className="space-y-1 text-red-700 text-sm">
+                <li>✗ Skill ratings (different skill definitions)</li>
+                <li>✗ Benchmarks (different NGB standards)</li>
+                <li>✗ Position preferences (sport-specific)</li>
+                <li>✗ Technical assessments</li>
+              </ul>
+            </div>
+            <div className="rounded-lg bg-blue-50 p-4">
+              <h4 className="mb-2 font-medium text-blue-800">Key Insight</h4>
+              <p className="text-blue-700 text-sm">
+                Cross-sport data helps coaches understand the{" "}
+                <strong>whole athlete</strong>: their total training load,
+                transferable soft skills (leadership, communication), and
+                potential injury risks from combined activities.
+              </p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * OPTION 7: Insights Dashboard
+ * Instead of raw comparison, show actionable insights coaches care about
+ */
+function InsightsDashboardMockup() {
+  return (
+    <Card className="border-2 border-purple-300">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-purple-600" />
+          Option 7: Insights Dashboard
+        </CardTitle>
+        <CardDescription>
+          Instead of showing raw data side-by-side, surface the{" "}
+          <strong>insights coaches actually want</strong>: agreement areas,
+          blind spots, and actionable recommendations.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-6 md:grid-cols-2">
+          <DesktopMockup highlighted title="Desktop - Insights View">
+            <div className="flex h-full flex-col bg-background p-4">
+              {/* Header */}
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold">
+                    Cian Murphy - Multi-Org Insights
+                  </h3>
+                  <p className="text-muted-foreground text-xs">
+                    Comparing: Dublin FC (you) vs Cork Academy
+                  </p>
+                </div>
+                <Badge variant="outline">Same Sport: GAA</Badge>
+              </div>
+
+              {/* Insight Cards Grid */}
+              <div className="grid flex-1 grid-cols-2 gap-3">
+                {/* Agreement */}
+                <div className="rounded-lg bg-green-50 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <h4 className="font-medium text-green-800 text-sm">
+                      Strong Agreement
+                    </h4>
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    <p className="text-green-700">
+                      <strong>Shooting:</strong> Both rate 4.0+ (high
+                      confidence)
+                    </p>
+                    <p className="text-green-700">
+                      <strong>Speed:</strong> Consistent at 3.5-4.0
+                    </p>
+                  </div>
+                  <p className="mt-2 border-green-200 border-t pt-2 text-green-600 text-xs">
+                    → Build on these strengths
+                  </p>
+                </div>
+
+                {/* Divergence */}
+                <div className="rounded-lg bg-amber-50 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <ArrowUpDown className="h-4 w-4 text-amber-600" />
+                    <h4 className="font-medium text-amber-800 text-sm">
+                      Notable Differences
+                    </h4>
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    <p className="text-amber-700">
+                      <strong>Positioning:</strong> You: 3.0 / Cork: 4.0
+                    </p>
+                    <p className="text-amber-700">
+                      <strong>Ball Control:</strong> You: 4.0 / Cork: 3.5
+                    </p>
+                  </div>
+                  <p className="mt-2 border-amber-200 border-t pt-2 text-amber-600 text-xs">
+                    → Discuss with Cork coach?
+                  </p>
+                </div>
+
+                {/* Your Blind Spots */}
+                <div className="rounded-lg bg-blue-50 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <Eye className="h-4 w-4 text-blue-600" />
+                    <h4 className="font-medium text-blue-800 text-sm">
+                      Potential Blind Spots
+                    </h4>
+                  </div>
+                  <div className="text-xs">
+                    <p className="text-blue-700">
+                      Cork rates <strong>Positioning</strong> a full point
+                      higher. They may see aspects of his positioning you
+                      haven't observed in your training environment.
+                    </p>
+                  </div>
+                  <p className="mt-2 border-blue-200 border-t pt-2 text-blue-600 text-xs">
+                    → Watch positioning in next session
+                  </p>
+                </div>
+
+                {/* Development Trajectory */}
+                <div className="rounded-lg bg-purple-50 p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-purple-600" />
+                    <h4 className="font-medium text-purple-800 text-sm">
+                      Development Trajectory
+                    </h4>
+                  </div>
+                  <div className="text-xs">
+                    <p className="text-purple-700">
+                      Cork's last update: 1 month ago
+                    </p>
+                    <p className="text-purple-700">
+                      Your last update: 7 days ago
+                    </p>
+                    <p className="mt-1 text-purple-700">
+                      <strong>Combined:</strong> Consistently improving in
+                      technical skills across both clubs.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <div className="mt-3 border-t pt-3">
+                <Button className="w-full gap-2" size="sm" variant="outline">
+                  <Building2 className="h-4 w-4" />
+                  Contact Cork Academy Coach
+                </Button>
+              </div>
+            </div>
+          </DesktopMockup>
+
+          <div className="space-y-4">
+            <div className="rounded-lg bg-purple-50 p-4">
+              <h4 className="mb-2 font-medium text-purple-800">
+                Why Insights Over Raw Data?
+              </h4>
+              <p className="mb-3 text-purple-700 text-sm">
+                Coaches don't want to manually compare numbers. They want
+                answers to questions:
+              </p>
+              <ul className="space-y-2 text-purple-700 text-sm">
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 text-purple-400">•</span>
+                  <span>
+                    "Does this other coach see something I'm missing?"
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 text-purple-400">•</span>
+                  <span>"Where do we agree this player excels?"</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 text-purple-400">•</span>
+                  <span>"Is this player developing consistently?"</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-1 text-purple-400">•</span>
+                  <span>"Should I reach out to collaborate?"</span>
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-lg bg-gray-50 p-4">
+              <h4 className="mb-2 font-medium text-gray-800">
+                Implementation Notes
+              </h4>
+              <ul className="space-y-1 text-gray-600 text-sm">
+                <li>• Agreement threshold: ratings within 0.5 points</li>
+                <li>• Divergence threshold: ratings differ by 1+ point</li>
+                <li>• Blind spot: other coach rates 1+ higher</li>
+                <li>• Could be AI-enhanced for smarter insights</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * OPTION 8: Hybrid Adaptive View
+ * Combines best of all options - adapts based on context
+ */
+function HybridAdaptiveMockup() {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <Card className="border-2 border-green-300">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <RefreshCw className="h-5 w-5 text-green-600" />
+          Option 8: Hybrid Adaptive (Recommended)
+        </CardTitle>
+        <CardDescription>
+          Combines the best of all options: default view with toggleable
+          overlay, expandable to full comparison, with insights always
+          accessible.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-6 md:grid-cols-2">
+          <PhoneMockup highlighted title="Mobile - Hybrid Approach">
+            <div className="flex h-full flex-col bg-background">
+              {/* Header */}
+              <div className="border-b bg-primary px-4 py-3 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold">Cian Murphy</h3>
+                    <p className="text-primary-foreground/70 text-xs">
+                      U12 • Forward • Dublin FC
+                    </p>
+                  </div>
+                  {/* Shared passport indicator - non-intrusive */}
+                  <button
+                    className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-1 text-xs"
+                    onClick={() => setExpanded(!expanded)}
+                  >
+                    <Building2 className="h-3 w-3" />
+                    <span>+1 shared</span>
+                    {expanded ? (
+                      <ChevronUp className="h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Expandable Shared Data Summary */}
+              {expanded && (
+                <div className="border-b bg-orange-50 px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-orange-800 text-sm">
+                        Cork Academy
+                      </p>
+                      <p className="text-orange-600 text-xs">
+                        Last updated: 1 month ago
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        className="h-7 text-xs"
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Eye className="mr-1 h-3 w-3" />
+                        View
+                      </Button>
+                      <Button
+                        className="h-7 text-xs"
+                        size="sm"
+                        variant="outline"
+                      >
+                        <TrendingUp className="mr-1 h-3 w-3" />
+                        Insights
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Quick comparison preview */}
+                  <div className="mt-2 flex gap-2">
+                    <Badge
+                      className="bg-green-100 text-green-700 text-xs"
+                      variant="secondary"
+                    >
+                      2 agreements
+                    </Badge>
+                    <Badge
+                      className="bg-amber-100 text-amber-700 text-xs"
+                      variant="secondary"
+                    >
+                      1 difference
+                    </Badge>
+                  </div>
+                </div>
+              )}
+
+              {/* Main Content - Your Assessment */}
+              <div className="flex-1 overflow-auto p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h4 className="font-medium text-sm">Your Assessment</h4>
+                  <span className="text-muted-foreground text-xs">
+                    Updated 7 days ago
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {mockOwnPassportData.skills.map((skill, idx) => {
+                    const sharedSkill = mockSharedPassportData.skills[idx];
+                    const diff = Math.abs(skill.rating - sharedSkill.rating);
+                    const hasDivergence = diff >= 1;
+
+                    return (
+                      <div
+                        className="flex items-center justify-between"
+                        key={skill.name}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{skill.name}</span>
+                          {expanded && hasDivergence && (
+                            <Badge
+                              className="bg-amber-100 text-amber-700 text-xs"
+                              variant="secondary"
+                            >
+                              ↕
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {expanded && (
+                            <span className="text-orange-500 text-xs">
+                              ({sharedSkill.rating})
+                            </span>
+                          )}
+                          <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-200">
+                            <div
+                              className="h-full rounded-full bg-blue-600"
+                              style={{
+                                width: `${(skill.rating / 5) * 100}%`,
+                              }}
+                            />
+                          </div>
+                          <span className="w-8 text-right text-sm">
+                            {skill.rating}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </PhoneMockup>
+
+          <div className="space-y-4">
+            <div className="rounded-lg bg-green-50 p-4">
+              <h4 className="mb-2 font-medium text-green-800">
+                Why This Is the Best of All Worlds
+              </h4>
+              <ul className="space-y-2 text-green-700 text-sm">
+                <li className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    <strong>Non-intrusive default:</strong> Own data is primary,
+                    shared is indicated subtly
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    <strong>One-tap expand:</strong> Coach toggles comparison
+                    when ready
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    <strong>Inline indicators:</strong> Divergence badges show
+                    where to look
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    <strong>Quick actions:</strong> Full view or insights just
+                    one tap away
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    <strong>Works everywhere:</strong> Mobile and desktop
+                    friendly
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="rounded-lg bg-blue-50 p-4">
+              <h4 className="mb-2 font-medium text-blue-800">
+                The User Journey
+              </h4>
+              <ol className="space-y-2 text-blue-700 text-sm">
+                <li>
+                  <strong>1.</strong> Coach opens player passport (sees "+1
+                  shared" badge)
+                </li>
+                <li>
+                  <strong>2.</strong> Reviews their own assessment as normal
+                </li>
+                <li>
+                  <strong>3.</strong> Taps badge to expand shared data summary
+                </li>
+                <li>
+                  <strong>4.</strong> Sees quick comparison (agreements/diffs)
+                </li>
+                <li>
+                  <strong>5.</strong> Can tap "View" for full data or "Insights"
+                  for analysis
+                </li>
+                <li>
+                  <strong>6.</strong> Collapses when done - returns to focus on
+                  own data
+                </li>
+              </ol>
+            </div>
+
+            <PreferenceVoting
+              comparisonId="hybrid-adaptive-approach"
+              comparisonName="Hybrid Adaptive Approach"
+              optionALabel="Yes, this is the right approach"
+              optionBLabel="Prefer a simpler option"
+            />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CoachPassportComparisonMockup() {
+  const [activeTab, setActiveTab] = useState<"own" | "shared">("own");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mergeFilter, setMergeFilter] = useState<"all" | "own" | "external">(
+    "all"
+  );
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">
+          24. Coach Shared Passport Comparison
+        </h2>
+        <p className="mt-1 text-muted-foreground">
+          When a coach views a player's passport, they may also have access to
+          shared data from other organizations. These mockups explore different
+          ways to present both data sources without losing context.
+        </p>
+        <p className="mt-1 text-muted-foreground text-xs">
+          Source: Cross-Organization Passport Sharing Feature
+        </p>
+      </div>
+
+      {/* Problem Statement */}
+      <Card className="border-amber-200 bg-amber-50/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-800">
+            <AlertCircle className="h-5 w-5" />
+            Current Pain Point
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-amber-900 text-sm">
+          <p>
+            Coaches currently navigate between <strong>separate pages</strong>{" "}
+            to view their own player data vs. shared data from other clubs:
+          </p>
+          <ul className="mt-2 ml-4 list-disc space-y-1">
+            <li>
+              <code>/players/[id]</code> - Own passport view
+            </li>
+            <li>
+              <code>/players/[id]/shared?consentId=X</code> - Shared data view
+            </li>
+          </ul>
+          <p className="mt-2">
+            This makes it hard to compare assessments and identify where
+            different coaches agree or disagree about a player's abilities.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Option 1: Side-by-Side */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Columns className="h-5 w-5 text-blue-600" />
+            Option 1: Side-by-Side Split View
+          </CardTitle>
+          <CardDescription>
+            Desktop-optimized split screen with both views visible
+            simultaneously
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-hidden rounded-lg border-2 border-gray-300 bg-gray-100">
+            {/* Browser chrome */}
+            <div className="flex items-center gap-2 border-b bg-gray-200 px-3 py-2">
+              <div className="flex gap-1.5">
+                <div className="h-3 w-3 rounded-full bg-red-400" />
+                <div className="h-3 w-3 rounded-full bg-yellow-400" />
+                <div className="h-3 w-3 rounded-full bg-green-400" />
+              </div>
+              <div className="flex-1 rounded bg-white px-3 py-1 text-center text-muted-foreground text-xs">
+                playerarc.com/orgs/dublin-fc/players/cian-murphy/compare
+              </div>
+            </div>
+            {/* Split View Content */}
+            <div className="flex bg-background">
+              {/* Left: Own Data */}
+              <div
+                className="flex-1 border-r p-4"
+                style={{ borderColor: mockOwnPassportData.orgColor }}
+              >
+                <div
+                  className="mb-3 flex items-center gap-2 rounded-t-lg px-3 py-2 text-white"
+                  style={{ backgroundColor: mockOwnPassportData.orgColor }}
+                >
+                  <Building2 className="h-4 w-4" />
+                  <span className="font-medium text-sm">
+                    {mockOwnPassportData.orgName}
+                  </span>
+                  <Badge
+                    className="ml-auto bg-white/20 text-white text-xs"
+                    variant="secondary"
+                  >
+                    Your Club
+                  </Badge>
+                </div>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <p className="mb-2 font-medium text-muted-foreground text-xs uppercase">
+                      Skills
+                    </p>
+                    {mockOwnPassportData.skills.slice(0, 3).map((skill) => (
+                      <div
+                        className="mb-1 flex items-center justify-between"
+                        key={skill.name}
+                      >
+                        <span>{skill.name}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-20 overflow-hidden rounded-full bg-gray-200">
+                            <div
+                              className="h-full rounded-full bg-blue-600"
+                              style={{ width: `${(skill.rating / 5) * 100}%` }}
+                            />
+                          </div>
+                          <span className="w-8 text-right text-xs">
+                            {skill.rating}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    Updated: {mockOwnPassportData.lastUpdated}
+                  </p>
+                </div>
+              </div>
+              {/* Right: Shared Data */}
+              <div
+                className="flex-1 p-4"
+                style={{
+                  borderLeftWidth: 3,
+                  borderLeftColor: mockSharedPassportData.orgColor,
+                }}
+              >
+                <div
+                  className="mb-3 flex items-center gap-2 rounded-t-lg px-3 py-2 text-white"
+                  style={{ backgroundColor: mockSharedPassportData.orgColor }}
+                >
+                  <Building2 className="h-4 w-4" />
+                  <span className="font-medium text-sm">
+                    {mockSharedPassportData.orgName}
+                  </span>
+                  <Badge
+                    className="ml-auto bg-white/20 text-white text-xs"
+                    variant="secondary"
+                  >
+                    Shared
+                  </Badge>
+                </div>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <p className="mb-2 font-medium text-muted-foreground text-xs uppercase">
+                      Skills
+                    </p>
+                    {mockSharedPassportData.skills.slice(0, 3).map((skill) => (
+                      <div
+                        className="mb-1 flex items-center justify-between"
+                        key={skill.name}
+                      >
+                        <span>{skill.name}</span>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-20 overflow-hidden rounded-full bg-gray-200">
+                            <div
+                              className="h-full rounded-full bg-orange-500"
+                              style={{ width: `${(skill.rating / 5) * 100}%` }}
+                            />
+                          </div>
+                          <span className="w-8 text-right text-xs">
+                            {skill.rating}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    Updated: {mockSharedPassportData.lastUpdated}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex gap-4 text-sm">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <span>Both views visible simultaneously</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <X className="h-4 w-4 text-red-500" />
+              <span>Desktop only (needs width)</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Option 2: Tabbed View */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ArrowLeftRight className="h-5 w-5 text-purple-600" />
+            Option 2: Tabbed View (In-Page)
+          </CardTitle>
+          <CardDescription>
+            Single page with tabs for each data source - works on mobile and
+            desktop
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-2">
+            <PhoneMockup title="Mobile - Tabbed">
+              <div className="flex h-full flex-col bg-background">
+                {/* Header */}
+                <div className="border-b bg-primary px-4 py-3 text-white">
+                  <h3 className="font-semibold">Cian Murphy</h3>
+                  <p className="text-primary-foreground/70 text-xs">
+                    U12 • Forward
+                  </p>
+                </div>
+                {/* Tabs */}
+                <div className="flex border-b">
+                  <button
+                    className={cn(
+                      "flex-1 px-4 py-3 text-center font-medium text-sm transition-colors",
+                      activeTab === "own"
+                        ? "border-blue-600 border-b-2 text-blue-600"
+                        : "text-muted-foreground"
+                    )}
+                    onClick={() => setActiveTab("own")}
+                  >
+                    Dublin FC
+                    <Badge className="ml-2 text-xs" variant="secondary">
+                      You
+                    </Badge>
+                  </button>
+                  <button
+                    className={cn(
+                      "flex-1 px-4 py-3 text-center font-medium text-sm transition-colors",
+                      activeTab === "shared"
+                        ? "border-orange-500 border-b-2 text-orange-600"
+                        : "text-muted-foreground"
+                    )}
+                    onClick={() => setActiveTab("shared")}
+                  >
+                    Cork Academy
+                    <Badge className="ml-2 text-xs" variant="outline">
+                      Shared
+                    </Badge>
+                  </button>
+                </div>
+                {/* Tab Content */}
+                <div className="flex-1 overflow-auto p-4">
+                  {activeTab === "own" ? (
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="mb-2 font-medium text-sm">Skills</h4>
+                        {mockOwnPassportData.skills.map((skill) => (
+                          <div
+                            className="mb-2 flex items-center justify-between"
+                            key={skill.name}
+                          >
+                            <span className="text-sm">{skill.name}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-200">
+                                <div
+                                  className="h-full rounded-full bg-blue-600"
+                                  style={{
+                                    width: `${(skill.rating / 5) * 100}%`,
+                                  }}
+                                />
+                              </div>
+                              <span className="w-6 text-right text-xs">
+                                {skill.rating}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <h4 className="mb-2 font-medium text-sm">Goals</h4>
+                        {mockOwnPassportData.goals.map((goal) => (
+                          <div
+                            className="mb-2 flex items-center gap-2 text-sm"
+                            key={goal.title}
+                          >
+                            <div
+                              className={cn(
+                                "h-2 w-2 rounded-full",
+                                goal.status === "complete"
+                                  ? "bg-green-500"
+                                  : goal.status === "in_progress"
+                                    ? "bg-yellow-500"
+                                    : "bg-gray-300"
+                              )}
+                            />
+                            <span>{goal.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="mb-2 font-medium text-sm">Skills</h4>
+                        {mockSharedPassportData.skills.map((skill) => (
+                          <div
+                            className="mb-2 flex items-center justify-between"
+                            key={skill.name}
+                          >
+                            <span className="text-sm">{skill.name}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-200">
+                                <div
+                                  className="h-full rounded-full bg-orange-500"
+                                  style={{
+                                    width: `${(skill.rating / 5) * 100}%`,
+                                  }}
+                                />
+                              </div>
+                              <span className="w-6 text-right text-xs">
+                                {skill.rating}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="rounded-lg bg-amber-50 p-3 text-amber-800 text-xs">
+                        <p className="font-medium">Read-only data</p>
+                        <p>
+                          Updated: {mockSharedPassportData.lastUpdated} at Cork
+                          Academy
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </PhoneMockup>
+            <div className="space-y-4">
+              <div className="rounded-lg bg-purple-50 p-4">
+                <h4 className="mb-2 font-medium text-purple-800">
+                  Tabbed View Benefits
+                </h4>
+                <ul className="space-y-1 text-purple-700 text-sm">
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Works on mobile and desktop
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Familiar navigation pattern
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Quick switch between sources
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Clear visual separation
+                  </li>
+                </ul>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-4">
+                <h4 className="mb-2 font-medium text-gray-800">Trade-offs</h4>
+                <ul className="space-y-1 text-gray-600 text-sm">
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 text-red-400" /> Cannot see both
+                    simultaneously
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 text-red-400" /> Requires mental model
+                    switching
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Option 3: Merged View */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5 text-green-600" />
+            Option 3: Unified Merged View
+          </CardTitle>
+          <CardDescription>
+            Single passport that merges all data sources with source badges and
+            agreement indicators
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-2">
+            <PhoneMockup highlighted title="Mobile - Merged">
+              <div className="flex h-full flex-col bg-background">
+                {/* Header */}
+                <div className="border-b bg-primary px-4 py-3 text-white">
+                  <h3 className="font-semibold">Cian Murphy</h3>
+                  <p className="text-primary-foreground/70 text-xs">
+                    U12 • Forward • 2 data sources
+                  </p>
+                </div>
+                {/* Filter Bar */}
+                <div className="flex gap-2 border-b px-4 py-2">
+                  <Button
+                    className={cn(
+                      "h-7 text-xs",
+                      mergeFilter === "all" && "bg-primary text-white"
+                    )}
+                    onClick={() => setMergeFilter("all")}
+                    size="sm"
+                    variant={mergeFilter === "all" ? "default" : "outline"}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    className={cn(
+                      "h-7 text-xs",
+                      mergeFilter === "own" && "bg-blue-600 text-white"
+                    )}
+                    onClick={() => setMergeFilter("own")}
+                    size="sm"
+                    variant={mergeFilter === "own" ? "default" : "outline"}
+                  >
+                    Your Club
+                  </Button>
+                  <Button
+                    className={cn(
+                      "h-7 text-xs",
+                      mergeFilter === "external" && "bg-orange-500 text-white"
+                    )}
+                    onClick={() => setMergeFilter("external")}
+                    size="sm"
+                    variant={mergeFilter === "external" ? "default" : "outline"}
+                  >
+                    External
+                  </Button>
+                </div>
+                {/* Merged Content */}
+                <div className="flex-1 overflow-auto p-4">
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="mb-2 font-medium text-sm">
+                        Skills Comparison
+                      </h4>
+                      {mockOwnPassportData.skills.map((skill, idx) => {
+                        const sharedSkill = mockSharedPassportData.skills[idx];
+                        const diff = skill.rating - sharedSkill.rating;
+                        const agrees = Math.abs(diff) <= 0.5;
+
+                        return (
+                          <div
+                            className="mb-3 rounded-lg border p-2"
+                            key={skill.name}
+                          >
+                            <div className="mb-1 flex items-center justify-between">
+                              <span className="font-medium text-sm">
+                                {skill.name}
+                              </span>
+                              {agrees ? (
+                                <Badge
+                                  className="bg-green-100 text-green-700 text-xs"
+                                  variant="secondary"
+                                >
+                                  Agree
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  className="bg-amber-100 text-amber-700 text-xs"
+                                  variant="secondary"
+                                >
+                                  {diff > 0 ? "↑" : "↓"} Differs
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="space-y-1">
+                              {(mergeFilter === "all" ||
+                                mergeFilter === "own") && (
+                                <div className="flex items-center gap-2 text-xs">
+                                  <div
+                                    className="h-2 w-2 rounded-full"
+                                    style={{
+                                      backgroundColor:
+                                        mockOwnPassportData.orgColor,
+                                    }}
+                                  />
+                                  <span className="w-20 truncate">
+                                    Dublin FC
+                                  </span>
+                                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">
+                                    <div
+                                      className="h-full rounded-full bg-blue-600"
+                                      style={{
+                                        width: `${(skill.rating / 5) * 100}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="w-6 text-right">
+                                    {skill.rating}
+                                  </span>
+                                </div>
+                              )}
+                              {(mergeFilter === "all" ||
+                                mergeFilter === "external") && (
+                                <div className="flex items-center gap-2 text-xs">
+                                  <div
+                                    className="h-2 w-2 rounded-full"
+                                    style={{
+                                      backgroundColor:
+                                        mockSharedPassportData.orgColor,
+                                    }}
+                                  />
+                                  <span className="w-20 truncate">
+                                    Cork Academy
+                                  </span>
+                                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">
+                                    <div
+                                      className="h-full rounded-full bg-orange-500"
+                                      style={{
+                                        width: `${(sharedSkill.rating / 5) * 100}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="w-6 text-right">
+                                    {sharedSkill.rating}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </PhoneMockup>
+            <div className="space-y-4">
+              <div className="rounded-lg bg-green-50 p-4">
+                <h4 className="mb-2 font-medium text-green-800">
+                  Merged View Benefits
+                </h4>
+                <ul className="space-y-1 text-green-700 text-sm">
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Immediately see
+                    agreement/divergence
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Holistic player picture
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Filter by source as needed
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Single scroll experience
+                  </li>
+                </ul>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-4">
+                <h4 className="mb-2 font-medium text-gray-800">Trade-offs</h4>
+                <ul className="space-y-1 text-gray-600 text-sm">
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 text-red-400" /> Visually complex with
+                    many sources
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 text-red-400" /> More complex data
+                    merging logic
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Option 4: Drawer/Panel */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ChevronRight className="h-5 w-5 text-indigo-600" />
+            Option 4: Drawer/Panel Overlay
+          </CardTitle>
+          <CardDescription>
+            Keep current passport view, add slide-out panel for shared data
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-4">
+              <DesktopMockup title="Desktop - Drawer Pattern">
+                <div className="relative flex h-full">
+                  {/* Main Content */}
+                  <div
+                    className={cn(
+                      "flex-1 overflow-auto p-4 transition-all",
+                      drawerOpen && "pr-48"
+                    )}
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="font-semibold">Cian Murphy - Passport</h3>
+                      <Button
+                        className="gap-2"
+                        onClick={() => setDrawerOpen(!drawerOpen)}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <ArrowLeftRight className="h-4 w-4" />
+                        {drawerOpen ? "Hide" : "Compare"}
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="rounded-lg border p-3">
+                        <h4 className="mb-2 font-medium text-sm">
+                          Your Assessment
+                        </h4>
+                        {mockOwnPassportData.skills.slice(0, 3).map((skill) => (
+                          <div
+                            className="mb-1 flex items-center justify-between text-sm"
+                            key={skill.name}
+                          >
+                            <span>{skill.name}</span>
+                            <span>{skill.rating}/5</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Slide-out Drawer */}
+                  {drawerOpen && (
+                    <div className="absolute top-0 right-0 h-full w-44 border-l bg-orange-50 p-3 shadow-lg">
+                      <div className="mb-2 flex items-center justify-between">
+                        <h4 className="font-medium text-orange-800 text-xs">
+                          Cork Academy
+                        </h4>
+                        <button
+                          className="text-orange-600 hover:text-orange-800"
+                          onClick={() => setDrawerOpen(false)}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {mockSharedPassportData.skills
+                          .slice(0, 3)
+                          .map((skill) => (
+                            <div
+                              className="text-orange-700 text-xs"
+                              key={skill.name}
+                            >
+                              <span>{skill.name}</span>
+                              <span className="float-right">
+                                {skill.rating}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </DesktopMockup>
+            </div>
+            <div className="space-y-4">
+              <div className="rounded-lg bg-indigo-50 p-4">
+                <h4 className="mb-2 font-medium text-indigo-800">
+                  Drawer Benefits
+                </h4>
+                <ul className="space-y-1 text-indigo-700 text-sm">
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Minimal change to existing UX
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Users choose when to compare
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Works on desktop and mobile
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="h-4 w-4" /> Non-intrusive for quick views
+                  </li>
+                </ul>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-4">
+                <h4 className="mb-2 font-medium text-gray-800">Trade-offs</h4>
+                <ul className="space-y-1 text-gray-600 text-sm">
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 text-red-400" /> Reduced space for
+                    shared data
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <X className="h-4 w-4 text-red-400" /> May feel like
+                    secondary feature
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* REFINED OPTIONS BASED ON DEEP RESEARCH */}
+      <div className="my-8 border-primary/30 border-t-4 border-dashed pt-8">
+        <div className="mb-6 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 p-6">
+          <h3 className="mb-2 font-bold text-xl">
+            Refined Concepts (Based on Research)
+          </h3>
+          <p className="text-muted-foreground">
+            The following mockups incorporate deeper understanding of the data
+            model, cross-sport limitations, and coach workflows.
+          </p>
+        </div>
+      </div>
+
+      {/* Option 5: View Mode Selector */}
+      <ViewModeSelectorMockup />
+
+      {/* Option 6: Cross-Sport Aware */}
+      <CrossSportAwareMockup />
+
+      {/* Option 7: Insights Dashboard */}
+      <InsightsDashboardMockup />
+
+      {/* Option 8: Hybrid Adaptive */}
+      <HybridAdaptiveMockup />
+
+      {/* Comparison Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Option Comparison Summary</CardTitle>
+          <CardDescription>
+            Comparing all 8 options across key criteria
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b">
+                  <th className="p-2 text-left">Criteria</th>
+                  <th className="p-2 text-center">1. Split</th>
+                  <th className="p-2 text-center">2. Tabs</th>
+                  <th className="p-2 text-center">3. Merged</th>
+                  <th className="p-2 text-center">4. Drawer</th>
+                  <th className="bg-primary/10 p-2 text-center">5. Modes</th>
+                  <th className="bg-amber-50 p-2 text-center">6. X-Sport</th>
+                  <th className="bg-purple-50 p-2 text-center">7. Insights</th>
+                  <th className="bg-green-50 p-2 text-center font-bold">
+                    8. Hybrid
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b">
+                  <td className="p-2">Mobile Friendly</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="bg-primary/10 p-2 text-center">★★★</td>
+                  <td className="bg-amber-50 p-2 text-center">★★★</td>
+                  <td className="bg-purple-50 p-2 text-center">★★</td>
+                  <td className="bg-green-50 p-2 text-center">★★★</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="p-2">Direct Comparison</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="bg-primary/10 p-2 text-center">★★★</td>
+                  <td className="bg-amber-50 p-2 text-center">★</td>
+                  <td className="bg-purple-50 p-2 text-center">★★</td>
+                  <td className="bg-green-50 p-2 text-center">★★★</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="p-2">Coach Control</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="bg-primary/10 p-2 text-center">★★★</td>
+                  <td className="bg-amber-50 p-2 text-center">★★</td>
+                  <td className="bg-purple-50 p-2 text-center">★</td>
+                  <td className="bg-green-50 p-2 text-center">★★★</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="p-2">Cross-Sport</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="bg-primary/10 p-2 text-center">★★</td>
+                  <td className="bg-amber-50 p-2 text-center">★★★</td>
+                  <td className="bg-purple-50 p-2 text-center">★★★</td>
+                  <td className="bg-green-50 p-2 text-center">★★★</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="p-2">Actionable Insights</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="bg-primary/10 p-2 text-center">★★</td>
+                  <td className="bg-amber-50 p-2 text-center">★★</td>
+                  <td className="bg-purple-50 p-2 text-center">★★★</td>
+                  <td className="bg-green-50 p-2 text-center">★★★</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="p-2">Non-Intrusive</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="bg-primary/10 p-2 text-center">★★★</td>
+                  <td className="bg-amber-50 p-2 text-center">★★★</td>
+                  <td className="bg-purple-50 p-2 text-center">★★</td>
+                  <td className="bg-green-50 p-2 text-center">★★★</td>
+                </tr>
+                <tr>
+                  <td className="p-2">Implementation</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="p-2 text-center">★★★</td>
+                  <td className="p-2 text-center">★</td>
+                  <td className="p-2 text-center">★★</td>
+                  <td className="bg-primary/10 p-2 text-center">★★</td>
+                  <td className="bg-amber-50 p-2 text-center">★★</td>
+                  <td className="bg-purple-50 p-2 text-center">★</td>
+                  <td className="bg-green-50 p-2 text-center">★★</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 text-muted-foreground text-xs">
+            ★★★ = Excellent | ★★ = Good | ★ = Fair
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Voting */}
+      <MultiOptionVoting
+        comparisonId="coach-passport-comparison-v2"
+        comparisonName="Coach Shared Passport Comparison View"
+        options={[
+          {
+            id: "side-by-side",
+            label: "Option 1: Side-by-Side Split",
+            description: "Desktop-optimized with both views visible",
+          },
+          {
+            id: "tabbed",
+            label: "Option 2: Tabbed View",
+            description: "Mobile-friendly with quick tab switching",
+          },
+          {
+            id: "merged",
+            label: "Option 3: Unified Merged View",
+            description: "Single view with agreement indicators (same-sport)",
+          },
+          {
+            id: "drawer",
+            label: "Option 4: Drawer/Panel Overlay",
+            description: "Minimal change with slide-out comparison",
+          },
+          {
+            id: "mode-selector",
+            label: "Option 5: View Mode Selector",
+            description: "Coach chooses their preferred view mode",
+          },
+          {
+            id: "cross-sport",
+            label: "Option 6: Cross-Sport Aware",
+            description: "Smart handling of different sports",
+          },
+          {
+            id: "insights",
+            label: "Option 7: Insights Dashboard",
+            description: "Actionable insights instead of raw data",
+          },
+          {
+            id: "hybrid",
+            label: "Option 8: Hybrid Adaptive (Recommended)",
+            description: "Best of all - toggleable overlay with inline hints",
+          },
+        ]}
+      />
+    </section>
+  );
+}
+
+// ============================================
+// MOCKUP 25: ACTUAL IMPLEMENTATION SHOWCASE
+// ============================================
+
+// Mock data for the implementation showcase
+const mockImplementationData = {
+  player: {
+    firstName: "Cian",
+    lastName: "Murphy",
+    dateOfBirth: "2012-03-15",
+    gender: "Male",
+  },
+  local: {
+    organizationName: "Dublin GAA Academy",
+    sport: "Gaelic Football",
+    skills: [
+      {
+        skillCode: "PASS",
+        skillName: "Passing",
+        rating: 4.2,
+        category: "Technical",
+      },
+      {
+        skillCode: "KICK",
+        skillName: "Kicking",
+        rating: 3.8,
+        category: "Technical",
+      },
+      {
+        skillCode: "CATCH",
+        skillName: "Catching",
+        rating: 4.5,
+        category: "Technical",
+      },
+      {
+        skillCode: "SOLO",
+        skillName: "Solo Run",
+        rating: 3.5,
+        category: "Technical",
+      },
+      {
+        skillCode: "SPEED",
+        skillName: "Speed",
+        rating: 4.0,
+        category: "Physical",
+      },
+      {
+        skillCode: "ENDR",
+        skillName: "Endurance",
+        rating: 3.7,
+        category: "Physical",
+      },
+      {
+        skillCode: "FOCUS",
+        skillName: "Focus",
+        rating: 4.3,
+        category: "Mental",
+      },
+    ],
+    lastUpdated: Date.now() - 86_400_000 * 7,
+  },
+  shared: {
+    sourceOrgs: [
+      { id: "org1", name: "Cork Youth GAA", sport: "Gaelic Football" },
+    ],
+    sport: "Gaelic Football",
+    skills: [
+      {
+        skillCode: "PASS",
+        skillName: "Passing",
+        rating: 3.5,
+        category: "Technical",
+      },
+      {
+        skillCode: "KICK",
+        skillName: "Kicking",
+        rating: 4.2,
+        category: "Technical",
+      },
+      {
+        skillCode: "CATCH",
+        skillName: "Catching",
+        rating: 4.3,
+        category: "Technical",
+      },
+      {
+        skillCode: "SOLO",
+        skillName: "Solo Run",
+        rating: 4.0,
+        category: "Technical",
+      },
+      {
+        skillCode: "SPEED",
+        skillName: "Speed",
+        rating: 4.2,
+        category: "Physical",
+      },
+      {
+        skillCode: "AGIL",
+        skillName: "Agility",
+        rating: 4.1,
+        category: "Physical",
+      },
+      {
+        skillCode: "TACT",
+        skillName: "Tactical Awareness",
+        rating: 3.8,
+        category: "Mental",
+      },
+    ],
+    lastUpdated: Date.now() - 86_400_000 * 3,
+  },
+  insights: {
+    sportsMatch: true,
+    agreementCount: 3,
+    divergenceCount: 2,
+    agreements: [
+      {
+        skillName: "Catching",
+        skillCode: "CATCH",
+        localRating: 4.5,
+        sharedRating: 4.3,
+        delta: 0.2,
+      },
+      {
+        skillName: "Speed",
+        skillCode: "SPEED",
+        localRating: 4.0,
+        sharedRating: 4.2,
+        delta: 0.2,
+      },
+      {
+        skillName: "Kicking",
+        skillCode: "KICK",
+        localRating: 3.8,
+        sharedRating: 4.2,
+        delta: 0.4,
+      },
+    ],
+    divergences: [
+      {
+        skillName: "Passing",
+        skillCode: "PASS",
+        localRating: 4.2,
+        sharedRating: 3.5,
+        delta: 0.7,
+      },
+      {
+        skillName: "Solo Run",
+        skillCode: "SOLO",
+        localRating: 3.5,
+        sharedRating: 4.0,
+        delta: 0.5,
+      },
+    ],
+    blindSpots: {
+      localOnly: ["Focus", "Endurance"],
+      sharedOnly: ["Agility", "Tactical Awareness"],
+    },
+    recommendations: [
+      {
+        type: "investigate" as const,
+        title: "Investigate Passing Difference",
+        description:
+          "Your assessment (4.2) is higher than Cork's (3.5). Discuss to understand context.",
+        priority: "high" as const,
+        skillCode: "PASS",
+      },
+      {
+        type: "leverage" as const,
+        title: "Build on Catching Strength",
+        description:
+          "Both assessments agree this is strong. Use as foundation for advanced drills.",
+        priority: "medium" as const,
+        skillCode: "CATCH",
+      },
+      {
+        type: "explore" as const,
+        title: "Assess Agility",
+        description:
+          "Cork assessed agility at 4.1. Consider adding this to your assessment.",
+        priority: "low" as const,
+        skillCode: "AGIL",
+      },
+    ],
+  },
+};
+
+function ComparisonImplementationShowcase() {
+  const [activeView, setActiveView] = useState<
+    "insights" | "split" | "overlay"
+  >("insights");
+  const [isDivergencesOpen, setIsDivergencesOpen] = useState(true);
+  const [isAgreementsOpen, setIsAgreementsOpen] = useState(false);
+  const [isBlindSpotsOpen, setIsBlindSpotsOpen] = useState(false);
+
+  const { insights, local, shared } = mockImplementationData;
+
+  const totalCompared = insights.agreementCount + insights.divergenceCount;
+  const agreementPercentage =
+    totalCompared > 0
+      ? Math.round((insights.agreementCount / totalCompared) * 100)
+      : 0;
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="font-semibold text-2xl">
+          25. Implementation Showcase: Coach Passport Comparison
+        </h2>
+        <p className="mt-1 text-muted-foreground">
+          This is what was actually built based on the mockup options above. We
+          implemented <strong>Option 5 (View Mode Selector)</strong> combined
+          with <strong>Option 7 (Insights Dashboard)</strong> and{" "}
+          <strong>Option 6 (Cross-Sport Aware)</strong>, with{" "}
+          <strong>AI-Powered Insights</strong> for actionable recommendations.
+        </p>
+        <p className="mt-1 text-muted-foreground text-xs">
+          Route: /orgs/[orgId]/coach/shared-passports/[playerId]/compare
+        </p>
+      </div>
+
+      {/* What Was Built Card */}
+      <Card className="border-green-200 bg-green-50/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-green-800">
+            <CheckCircle2 className="h-5 w-5" />
+            What Was Implemented
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-green-900 text-sm">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <h4 className="mb-2 font-semibold">View Modes</h4>
+              <ul className="space-y-1">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Insights Dashboard (Primary)
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Split View (Side-by-side)
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Overlay View (Radar chart)
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="mb-2 font-semibold">Features</h4>
+              <ul className="space-y-1">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> AI-Powered Insights (Claude)
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Cross-Sport Detection
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Preference Persistence
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="mb-2 font-semibold">Responsive</h4>
+              <ul className="space-y-1">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Mobile tabs for Split View
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Desktop resizable panels
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4" /> Touch-friendly controls
+                </li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Interactive Demo */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>
+              Compare: {mockImplementationData.player.firstName}{" "}
+              {mockImplementationData.player.lastName}
+            </span>
+            <Badge
+              className={insights.sportsMatch ? "bg-green-600" : "bg-amber-600"}
+            >
+              {insights.sportsMatch ? "Same Sport" : "Cross-Sport"}
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            Comparing your assessment with data shared from{" "}
+            {shared.sourceOrgs[0].name}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* View Mode Tabs */}
+          <div className="mb-6 flex rounded-lg border bg-muted p-1">
+            <button
+              className={cn(
+                "flex-1 rounded-md px-4 py-2 font-medium text-sm transition-colors",
+                activeView === "insights"
+                  ? "bg-background shadow"
+                  : "hover:bg-background/50"
+              )}
+              onClick={() => setActiveView("insights")}
+            >
+              <Target className="mr-2 inline h-4 w-4" />
+              Insights
+            </button>
+            <button
+              className={cn(
+                "flex-1 rounded-md px-4 py-2 font-medium text-sm transition-colors",
+                activeView === "split"
+                  ? "bg-background shadow"
+                  : "hover:bg-background/50"
+              )}
+              onClick={() => setActiveView("split")}
+            >
+              <Columns className="mr-2 inline h-4 w-4" />
+              Split View
+            </button>
+            <button
+              className={cn(
+                "flex-1 rounded-md px-4 py-2 font-medium text-sm transition-colors",
+                activeView === "overlay"
+                  ? "bg-background shadow"
+                  : "hover:bg-background/50"
+              )}
+              onClick={() => setActiveView("overlay")}
+            >
+              <BarChart3 className="mr-2 inline h-4 w-4" />
+              Overlay
+            </button>
+          </div>
+
+          {/* Insights View */}
+          {activeView === "insights" && (
+            <div className="space-y-6">
+              {/* Summary Stats */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg bg-green-50 p-4 text-center">
+                  <div className="font-bold text-3xl text-green-700">
+                    {agreementPercentage}%
+                  </div>
+                  <div className="text-green-600 text-sm">Agreement Rate</div>
+                  <div className="mt-1 text-green-500 text-xs">
+                    {insights.agreementCount} of {totalCompared} skills
+                  </div>
+                </div>
+                <div className="rounded-lg bg-red-50 p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 font-bold text-3xl text-red-700">
+                    {insights.divergenceCount}
+                    <TrendingUp className="h-6 w-6 rotate-180" />
+                  </div>
+                  <div className="text-red-600 text-sm">Divergences</div>
+                  <div className="mt-1 text-red-500 text-xs">
+                    Needs attention
+                  </div>
+                </div>
+                <div className="rounded-lg bg-blue-50 p-4 text-center">
+                  <div className="font-bold text-3xl text-blue-700">
+                    {local.skills.length}
+                  </div>
+                  <div className="text-blue-600 text-sm">Your Assessments</div>
+                </div>
+                <div className="rounded-lg bg-purple-50 p-4 text-center">
+                  <div className="font-bold text-3xl text-purple-700">
+                    {shared.skills.length}
+                  </div>
+                  <div className="text-purple-600 text-sm">
+                    Shared Assessments
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Insights Panel */}
+              <div className="rounded-lg border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 p-6">
+                <div className="flex items-center gap-2 text-purple-700">
+                  <Star className="h-5 w-5" />
+                  <h3 className="font-semibold">AI-Powered Insights</h3>
+                  <Badge className="bg-purple-600">Beta</Badge>
+                </div>
+                <p className="mt-2 text-muted-foreground text-sm">
+                  Click to generate AI analysis using Claude. The AI will
+                  analyze divergences, identify development opportunities, and
+                  provide actionable coaching recommendations.
+                </p>
+                <Button className="mt-4 bg-purple-600 hover:bg-purple-700">
+                  <Star className="mr-2 h-4 w-4" />
+                  Generate AI Insights
+                </Button>
+              </div>
+
+              {/* Divergences */}
+              <div className="rounded-lg border-2 border-red-200">
+                <button
+                  className="flex w-full items-center justify-between p-4 hover:bg-red-50"
+                  onClick={() => setIsDivergencesOpen(!isDivergencesOpen)}
+                >
+                  <div className="flex items-center gap-2 text-red-700">
+                    <TrendingUp className="h-5 w-5 rotate-180" />
+                    <span className="font-semibold">Divergences</span>
+                    <Badge className="bg-red-600">
+                      {insights.divergences.length}
+                    </Badge>
+                  </div>
+                  {isDivergencesOpen ? (
+                    <ChevronUp className="h-5 w-5" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5" />
+                  )}
+                </button>
+                {isDivergencesOpen && (
+                  <div className="space-y-3 border-t p-4">
+                    {insights.divergences.map((d) => (
+                      <SkillRowDemo
+                        key={d.skillCode}
+                        {...d}
+                        type="divergence"
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Agreements */}
+              <div className="rounded-lg border-2 border-green-200">
+                <button
+                  className="flex w-full items-center justify-between p-4 hover:bg-green-50"
+                  onClick={() => setIsAgreementsOpen(!isAgreementsOpen)}
+                >
+                  <div className="flex items-center gap-2 text-green-700">
+                    <TrendingUp className="h-5 w-5" />
+                    <span className="font-semibold">Agreements</span>
+                    <Badge className="bg-green-600">
+                      {insights.agreements.length}
+                    </Badge>
+                  </div>
+                  {isAgreementsOpen ? (
+                    <ChevronUp className="h-5 w-5" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5" />
+                  )}
+                </button>
+                {isAgreementsOpen && (
+                  <div className="space-y-3 border-t p-4">
+                    {insights.agreements.map((a) => (
+                      <SkillRowDemo key={a.skillCode} {...a} type="agreement" />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Blind Spots */}
+              <div className="rounded-lg border-2 border-blue-200">
+                <button
+                  className="flex w-full items-center justify-between p-4 hover:bg-blue-50"
+                  onClick={() => setIsBlindSpotsOpen(!isBlindSpotsOpen)}
+                >
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <Eye className="h-5 w-5" />
+                    <span className="font-semibold">Blind Spots</span>
+                    <Badge className="bg-blue-600">
+                      {insights.blindSpots.localOnly.length +
+                        insights.blindSpots.sharedOnly.length}
+                    </Badge>
+                  </div>
+                  {isBlindSpotsOpen ? (
+                    <ChevronUp className="h-5 w-5" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5" />
+                  )}
+                </button>
+                {isBlindSpotsOpen && (
+                  <div className="grid gap-4 border-t p-4 sm:grid-cols-2">
+                    <div className="rounded-lg bg-blue-50 p-4">
+                      <h4 className="mb-2 font-medium text-blue-700">
+                        Only in Your Assessment
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {insights.blindSpots.localOnly.map((s) => (
+                          <Badge
+                            className="bg-blue-100 text-blue-700"
+                            key={s}
+                            variant="outline"
+                          >
+                            {s}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-lg bg-purple-50 p-4">
+                      <h4 className="mb-2 font-medium text-purple-700">
+                        Only in Shared Data
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {insights.blindSpots.sharedOnly.map((s) => (
+                          <Badge
+                            className="bg-purple-100 text-purple-700"
+                            key={s}
+                            variant="outline"
+                          >
+                            {s}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Recommendations */}
+              <div>
+                <h3 className="mb-4 font-semibold text-lg">Recommendations</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {insights.recommendations.map((rec, i) => (
+                    <RecCardDemo key={i} rec={rec} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Split View */}
+          {activeView === "split" && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-lg border-2 border-green-500 p-4">
+                <h3 className="mb-4 flex items-center gap-2 font-semibold text-green-700">
+                  <div className="h-3 w-3 rounded-full bg-green-500" />
+                  Your Assessment ({local.organizationName})
+                </h3>
+                <div className="space-y-2">
+                  {local.skills.map((skill) => (
+                    <div
+                      className="flex items-center justify-between rounded bg-gray-50 p-2"
+                      key={skill.skillCode}
+                    >
+                      <span className="text-sm">{skill.skillName}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-200">
+                          <div
+                            className="h-full rounded-full bg-green-500"
+                            style={{ width: `${(skill.rating / 5) * 100}%` }}
+                          />
+                        </div>
+                        <span className="w-8 text-right font-mono text-sm">
+                          {skill.rating}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-lg border-2 border-blue-500 border-dashed p-4">
+                <h3 className="mb-4 flex items-center gap-2 font-semibold text-blue-700">
+                  <div className="h-3 w-3 rounded-full border-2 border-blue-500 border-dashed" />
+                  Shared Data ({shared.sourceOrgs[0].name})
+                </h3>
+                <div className="space-y-2">
+                  {shared.skills.map((skill) => (
+                    <div
+                      className="flex items-center justify-between rounded bg-gray-50 p-2"
+                      key={skill.skillCode}
+                    >
+                      <span className="text-sm">{skill.skillName}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-200">
+                          <div
+                            className="h-full rounded-full bg-blue-500"
+                            style={{ width: `${(skill.rating / 5) * 100}%` }}
+                          />
+                        </div>
+                        <span className="w-8 text-right font-mono text-sm">
+                          {skill.rating}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Overlay View */}
+          {activeView === "overlay" && (
+            <div className="space-y-6">
+              <div className="mb-4 flex flex-wrap justify-center gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-green-500" />
+                  <span>{local.organizationName}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full border-2 border-blue-500 border-dashed" />
+                  <span>{shared.sourceOrgs[0].name}</span>
+                </div>
+              </div>
+              <div className="mx-auto flex h-64 w-64 items-center justify-center rounded-full border-2 border-gray-300 border-dashed bg-gray-50">
+                <div className="text-center text-muted-foreground">
+                  <BarChart3 className="mx-auto mb-2 h-12 w-12 opacity-50" />
+                  <p className="text-sm">Radar Chart</p>
+                  <p className="text-xs">(Recharts Visualization)</p>
+                </div>
+              </div>
+              <div className="overflow-hidden rounded-lg border">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="p-3 text-left font-medium">Skill</th>
+                      <th className="p-3 text-center font-medium text-green-700">
+                        You
+                      </th>
+                      <th className="p-3 text-center font-medium text-blue-700">
+                        Shared
+                      </th>
+                      <th className="p-3 text-center font-medium">Delta</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...insights.agreements, ...insights.divergences]
+                      .sort((a, b) => b.delta - a.delta)
+                      .map((skill) => (
+                        <tr className="border-t" key={skill.skillCode}>
+                          <td className="p-3 font-medium">{skill.skillName}</td>
+                          <td className="p-3 text-center font-mono">
+                            {skill.localRating.toFixed(1)}
+                          </td>
+                          <td className="p-3 text-center font-mono">
+                            {skill.sharedRating.toFixed(1)}
+                          </td>
+                          <td className="p-3 text-center">
+                            <Badge
+                              className={cn(
+                                skill.delta <= 0.5
+                                  ? "bg-green-100 text-green-700"
+                                  : skill.delta <= 1.0
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : "bg-red-100 text-red-700"
+                              )}
+                              variant="outline"
+                            >
+                              {skill.delta.toFixed(1)}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Files Created */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Files Created for This Feature</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <h4 className="mb-2 font-semibold">Backend</h4>
+              <ul className="space-y-1 font-mono text-muted-foreground text-xs">
+                <li>packages/backend/convex/models/passportComparison.ts</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="mb-2 font-semibold">Frontend Components</h4>
+              <ul className="space-y-1 font-mono text-muted-foreground text-xs">
+                <li>compare/page.tsx</li>
+                <li>compare/comparison-view.tsx</li>
+                <li>compare/components/view-mode-selector.tsx</li>
+                <li>compare/components/insights-dashboard.tsx</li>
+                <li>compare/components/ai-insights-panel.tsx</li>
+                <li>compare/components/split-view.tsx</li>
+                <li>compare/components/overlay-view.tsx</li>
+                <li>compare/components/skill-comparison-row.tsx</li>
+                <li>compare/components/recommendation-card.tsx</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
+function SkillRowDemo({
+  skillName,
+  localRating,
+  sharedRating,
+  delta,
+  type,
+}: {
+  skillName: string;
+  localRating: number;
+  sharedRating: number;
+  delta: number;
+  type: "agreement" | "divergence";
+}) {
+  const bg =
+    type === "agreement"
+      ? "bg-green-100 border-green-300"
+      : "bg-yellow-100 border-yellow-300";
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between rounded-lg border p-3",
+        bg
+      )}
+    >
+      <span className="font-medium">{skillName}</span>
+      <div className="flex items-center gap-3">
+        <div className="text-center">
+          <div className="font-semibold text-sm">{localRating.toFixed(1)}</div>
+          <div className="text-muted-foreground text-xs">You</div>
+        </div>
+        <div className="hidden w-24 flex-col gap-1 sm:flex">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+            <div
+              className="h-full rounded-full bg-green-500"
+              style={{ width: `${(localRating / 5) * 100}%` }}
+            />
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+            <div
+              className="h-full rounded-full bg-blue-500"
+              style={{ width: `${(sharedRating / 5) * 100}%` }}
+            />
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="font-semibold text-sm">{sharedRating.toFixed(1)}</div>
+          <div className="text-muted-foreground text-xs">Shared</div>
+        </div>
+        <Badge
+          className={type === "agreement" ? "bg-green-600" : "bg-yellow-600"}
+        >
+          Δ {delta.toFixed(1)}
+        </Badge>
+      </div>
+    </div>
+  );
+}
+
+function RecCardDemo({
+  rec,
+}: {
+  rec: (typeof mockImplementationData.insights.recommendations)[0];
+}) {
+  const icons = {
+    investigate: AlertCircle,
+    leverage: TrendingUp,
+    explore: Search,
+    align: ArrowUpDown,
+  };
+  const colors = {
+    investigate: "border-red-200 bg-red-50 text-red-700",
+    leverage: "border-green-200 bg-green-50 text-green-700",
+    explore: "border-blue-200 bg-blue-50 text-blue-700",
+    align: "border-amber-200 bg-amber-50 text-amber-700",
+  };
+  const priColors = {
+    high: "bg-red-600",
+    medium: "bg-amber-500",
+    low: "bg-green-600",
+  };
+  const Icon = icons[rec.type] || HelpCircle;
+  return (
+    <div className={cn("rounded-lg border-2 p-4", colors[rec.type])}>
+      <div className="mb-2 flex items-start justify-between">
+        <div className="flex items-center gap-2">
+          <Icon className="h-5 w-5" />
+          <span className="font-semibold">{rec.title}</span>
+        </div>
+        <Badge className={priColors[rec.priority]}>{rec.priority}</Badge>
+      </div>
+      <p className="text-sm">{rec.description}</p>
+    </div>
   );
 }

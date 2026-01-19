@@ -7,6 +7,7 @@ import {
   Crown,
   Heart,
   Mail,
+  MessageSquare,
   Shield,
   UserCheck,
   Users,
@@ -55,13 +56,17 @@ export default function OrgAdminOverviewPage() {
   const currentOwner = useQuery(api.models.members.getCurrentOwner, {
     organizationId: orgId,
   });
+  const enquiryCount = useQuery(api.models.passportEnquiries.getEnquiryCount, {
+    organizationId: orgId,
+  });
 
   const isLoading =
     pendingRequests === undefined ||
     pendingInvitations === undefined ||
     playerEnrollments === undefined ||
     teams === undefined ||
-    memberCounts === undefined;
+    memberCounts === undefined ||
+    enquiryCount === undefined;
 
   return (
     <div className="w-full max-w-full space-y-6 overflow-hidden sm:space-y-8">
@@ -124,6 +129,16 @@ export default function OrgAdminOverviewPage() {
               value={teams?.length || 0}
               variant="secondary"
             />
+            {enquiryCount && enquiryCount > 0 && (
+              <StatCard
+                description="Passport enquiries from other orgs"
+                href={`/orgs/${orgId}/admin/enquiries` as Route}
+                icon={MessageSquare}
+                title="Open Enquiries"
+                value={enquiryCount}
+                variant="warning"
+              />
+            )}
             <StatCard
               description="Registered players"
               href={`/orgs/${orgId}/admin/players` as Route}

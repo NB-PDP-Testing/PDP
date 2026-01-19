@@ -130,10 +130,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   metadata?: null | string;
                   name: string;
                   sharingContactEmail?: string;
-                  sharingContactMode?: "direct" | "form";
+                  sharingContactMode?: "direct" | "enquiry";
                   sharingContactName?: string;
                   sharingContactPhone?: string;
-                  sharingEnquiriesUrl?: string;
                   slug: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -460,7 +459,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
-                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -836,7 +834,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
-                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1360,10 +1357,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   metadata?: null | string;
                   name?: string;
                   sharingContactEmail?: string;
-                  sharingContactMode?: "direct" | "form";
+                  sharingContactMode?: "direct" | "enquiry";
                   sharingContactName?: string;
                   sharingContactPhone?: string;
-                  sharingEnquiriesUrl?: string;
                   slug?: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -1391,7 +1387,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
-                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1866,10 +1861,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   metadata?: null | string;
                   name?: string;
                   sharingContactEmail?: string;
-                  sharingContactMode?: "direct" | "form";
+                  sharingContactMode?: "direct" | "enquiry";
                   sharingContactName?: string;
                   sharingContactPhone?: string;
-                  sharingEnquiriesUrl?: string;
                   slug?: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -1897,7 +1891,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
-                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"

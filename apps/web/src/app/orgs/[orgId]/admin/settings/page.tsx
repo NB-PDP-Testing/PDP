@@ -367,12 +367,12 @@ export default function OrgSettingsPage() {
 
     setSavingSharingContact(true);
     try {
+      // Type assertion to work around CI type inference issue
+      const mode: "direct" | "enquiry" | null = (sharingContactMode ||
+        null) as unknown as "direct" | "enquiry" | null;
       await updateOrganizationSharingContact({
         organizationId: orgId,
-        sharingContactMode: (sharingContactMode || null) as
-          | "direct"
-          | "enquiry"
-          | null,
+        sharingContactMode: mode,
         sharingContactName: sharingContactName.trim() || null,
         sharingContactEmail: sharingContactEmail.trim() || null,
         sharingContactPhone: sharingContactPhone.trim() || null,

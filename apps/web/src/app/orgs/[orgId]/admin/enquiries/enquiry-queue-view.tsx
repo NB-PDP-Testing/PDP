@@ -99,6 +99,8 @@ export function EnquiryQueueView({ organizationId }: EnquiryQueueViewProps) {
         );
       case "closed":
         return <Badge variant="secondary">Closed</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
     }
   };
 

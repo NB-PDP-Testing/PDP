@@ -231,7 +231,13 @@ export default function OrgSettingsPage() {
       setSocialInstagram(orgData.socialLinks?.instagram || "");
       setSocialLinkedin(orgData.socialLinks?.linkedin || "");
       setSelectedSports(orgData.supportedSports || []);
-      setSharingContactMode(orgData.sharingContactMode || "");
+      setSharingContactMode(
+        (orgData.sharingContactMode as
+          | "direct"
+          | "enquiry"
+          | null
+          | undefined) || ""
+      );
       setSharingContactName(orgData.sharingContactName || "");
       setSharingContactEmail(orgData.sharingContactEmail || "");
       setSharingContactPhone(orgData.sharingContactPhone || "");

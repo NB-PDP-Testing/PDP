@@ -34,12 +34,11 @@ export const getOrganization = query({
       socialLinks: socialLinksValidator,
       supportedSports: v.optional(v.array(v.string())),
       sharingContactMode: v.optional(
-        v.union(v.null(), v.union(v.literal("direct"), v.literal("form")))
+        v.union(v.null(), v.union(v.literal("direct"), v.literal("enquiry")))
       ),
       sharingContactName: v.optional(v.union(v.null(), v.string())),
       sharingContactEmail: v.optional(v.union(v.null(), v.string())),
       sharingContactPhone: v.optional(v.union(v.null(), v.string())),
-      sharingEnquiriesUrl: v.optional(v.union(v.null(), v.string())),
     })
   ),
   handler: async (ctx, args) => {
@@ -69,13 +68,12 @@ export const getOrganization = query({
       supportedSports: org.supportedSports as string[] | undefined,
       sharingContactMode: org.sharingContactMode as
         | "direct"
-        | "form"
+        | "enquiry"
         | null
         | undefined,
       sharingContactName: org.sharingContactName as string | null | undefined,
       sharingContactEmail: org.sharingContactEmail as string | null | undefined,
       sharingContactPhone: org.sharingContactPhone as string | null | undefined,
-      sharingEnquiriesUrl: org.sharingEnquiriesUrl as string | null | undefined,
     };
   },
 });
@@ -395,12 +393,11 @@ export const updateOrganizationSharingContact = mutation({
   args: {
     organizationId: v.string(),
     sharingContactMode: v.optional(
-      v.union(v.null(), v.union(v.literal("direct"), v.literal("form")))
+      v.union(v.null(), v.union(v.literal("direct"), v.literal("enquiry")))
     ),
     sharingContactName: v.optional(v.union(v.null(), v.string())),
     sharingContactEmail: v.optional(v.union(v.null(), v.string())),
     sharingContactPhone: v.optional(v.union(v.null(), v.string())),
-    sharingEnquiriesUrl: v.optional(v.union(v.null(), v.string())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -455,9 +452,6 @@ export const updateOrganizationSharingContact = mutation({
     }
     if (args.sharingContactPhone !== undefined) {
       update.sharingContactPhone = args.sharingContactPhone || null;
-    }
-    if (args.sharingEnquiriesUrl !== undefined) {
-      update.sharingEnquiriesUrl = args.sharingEnquiriesUrl || null;
     }
 
     // Update the organization using Better Auth component adapter

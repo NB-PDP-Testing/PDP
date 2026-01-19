@@ -55,6 +55,14 @@ export default function OrgLayout({
     }
 
     if (user === null && !isCheckingInvitation) {
+      // Save the intended URL so we can return here after login
+      if (typeof window !== "undefined" && pathname && pathname !== "/login") {
+        sessionStorage.setItem("intendedUrl", pathname);
+        console.log(
+          "[OrgLayout] Saving intended URL before login redirect:",
+          pathname
+        );
+      }
       redirect("/login");
     }
   }, [user, isCheckingInvitation, pathname]);

@@ -3,17 +3,26 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import type { Route } from "next";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { PageSkeleton } from "@/components/loading/page-skeleton";
 import { authClient } from "@/lib/auth-client";
 
+// Regex to detect if we're on a role-specific route (not the org root)
+const ROLE_ROUTE_REGEX = /\/orgs\/[^/]+\/(admin|coach|parents|player)/;
+
 export default function Home() {
   const router = useRouter();
   const params = useParams();
+  const pathname = usePathname();
   const orgId = params.orgId as string;
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Check if we're actually on a role-specific route
+  // This can happen during Next.js navigation when the OrgDashboard layout renders
+  // before the nested route
+  const isOnRoleRoute = pathname ? ROLE_ROUTE_REGEX.test(pathname) : false;
 
   // Use Better Auth session instead of Convex auth components
   const { data: session, isPending: isSessionLoading } =
@@ -67,6 +76,17 @@ export default function Home() {
       return;
     }
 
+    // Don't redirect if user is already navigating to a role-specific route
+    // This prevents the OrgDashboard from interfering with direct URL navigation
+    // to routes like /parents or /admin
+    if (isOnRoleRoute) {
+      console.log(
+        "[OrgDashboard] Already on role route, skipping redirect:",
+        pathname
+      );
+      return;
+    }
+
     // Determine which dashboard to show based on active functional role
     const activeFunctionalRole =
       member.activeFunctionalRole || member.functionalRoles?.[0];
@@ -95,7 +115,16 @@ export default function Home() {
     console.log("[OrgDashboard] Redirecting to:", targetRoute);
     setIsRedirecting(true);
     router.push(targetRoute as Route);
-  }, [router, orgId, session, isSessionLoading, member, isRedirecting]);
+  }, [
+    router,
+    orgId,
+    session,
+    isSessionLoading,
+    member,
+    isRedirecting,
+    isOnRoleRoute,
+    pathname,
+  ]);
 
   // Timeout protection: if page is stuck loading for >10 seconds, show error
   useEffect(() => {

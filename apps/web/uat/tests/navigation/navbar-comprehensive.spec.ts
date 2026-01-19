@@ -1,5 +1,5 @@
 import { test, expect } from "../../fixtures/test-fixtures";
-import { waitForPageLoad, getOrgIdFromUrl, navigateToAdmin, navigateToCoach } from "../../fixtures/test-fixtures";
+import { waitForPageLoad, getOrgIdFromUrl } from "../../fixtures/test-fixtures";
 import type { Page } from "@playwright/test";
 
 /**
@@ -14,40 +14,36 @@ function getOrgId(page: Page): string {
 }
 
 /**
+ * Helper to navigate to admin dashboard
+ * Uses /orgs/current/admin which redirects to user's current org
+ */
+async function navigateToAdmin(page: Page): Promise<void> {
+  await page.goto("/orgs/current/admin");
+  await waitForPageLoad(page);
+  // Wait a bit for any redirects to complete
+  await page.waitForTimeout(1000);
+}
+
+/**
+ * Helper to navigate to coach dashboard
+ * Uses /orgs/current/coach which redirects to user's current org
+ */
+async function navigateToCoach(page: Page): Promise<void> {
+  await page.goto("/orgs/current/coach");
+  await waitForPageLoad(page);
+  // Wait a bit for any redirects to complete
+  await page.waitForTimeout(1000);
+}
+
+/**
  * Helper to navigate to parent dashboard
+ * Uses /orgs/current/parents which redirects to user's current org
  */
 async function navigateToParent(page: Page): Promise<void> {
-  // Navigate to /orgs first to get organization
-  await page.goto("/orgs");
+  await page.goto("/orgs/current/parents");
   await waitForPageLoad(page);
-
-  // Try to find and click parent portal link
-  const parentPortal = page.getByText(/Parent Portal|Parents/i).first();
-  if (await parentPortal.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await parentPortal.click();
-    await waitForPageLoad(page);
-  } else {
-    // Fallback: try to navigate directly if we can extract orgId from page
-    const currentUrl = page.url();
-    const currentOrgId = getOrgIdFromUrl(currentUrl);
-    if (currentOrgId && currentOrgId !== "current") {
-      await page.goto(`/orgs/${currentOrgId}/parents`);
-      await waitForPageLoad(page);
-    } else {
-      // Last resort: look for any org card and extract orgId from it
-      const orgCard = page.locator('[data-testid="org-card"]').first();
-      if (await orgCard.isVisible({ timeout: 3000 }).catch(() => false)) {
-        const href = await orgCard.locator('a').first().getAttribute('href');
-        if (href) {
-          const match = href.match(/\/orgs\/([^\/]+)/);
-          if (match && match[1]) {
-            await page.goto(`/orgs/${match[1]}/parents`);
-            await waitForPageLoad(page);
-          }
-        }
-      }
-    }
-  }
+  // Wait a bit for any redirects to complete
+  await page.waitForTimeout(1000);
 }
 
 /**

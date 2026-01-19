@@ -15,6 +15,7 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
+import type { Route } from "next";
 import { useParams, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import {
@@ -501,8 +502,9 @@ Example: 'Emma Murphy had a great session today. Her left foot passing is really
                   {insight.playerIdentityId && (
                     <Button
                       onClick={() => {
-                        const url = `/orgs/${orgId}/coach/messages/compose?type=insight&voiceNoteId=${insight.noteId}&insightId=${insight.id}&playerIdentityId=${insight.playerIdentityId}`;
-                        router.push(url);
+                        router.push(
+                          `/orgs/${orgId}/coach/messages/compose?type=insight&voiceNoteId=${insight.noteId}&insightId=${insight.id}&playerIdentityId=${insight.playerIdentityId}` as Route
+                        );
                       }}
                       size="sm"
                       title="Share with Parent"

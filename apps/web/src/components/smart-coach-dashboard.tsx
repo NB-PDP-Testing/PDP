@@ -19,6 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { FABQuickActions } from "@/components/quick-actions/fab-variant";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,15 @@ type TeamData = {
   _id: string;
   name: string;
   coachNotes?: string;
+};
+
+// Top-level regex constants for performance
+const CAMEL_CASE_REGEX = /([A-Z])/g;
+const FIRST_CHAR_REGEX = /^./;
+
+// No-op function for optional handlers
+const noop = () => {
+  // Intentionally empty - used as fallback for optional handlers
 };
 
 type SmartCoachDashboardProps = {
@@ -296,13 +306,13 @@ export function SmartCoachDashboard({
     );
     const averages: Record<string, number> = {};
 
-    skillKeys.forEach((skillKey) => {
+    for (const skillKey of skillKeys) {
       const sum = teamPlayers.reduce((acc, player) => {
         const value = (player.skills as any)[skillKey];
         return acc + (typeof value === "number" ? value : 0);
       }, 0);
       averages[skillKey] = sum / teamPlayers.length;
-    });
+    }
 
     return averages;
   };
@@ -320,13 +330,13 @@ export function SmartCoachDashboard({
 
   const formatSkillName = (key: string): string =>
     key
-      .replace(/([A-Z])/g, " $1")
-      .replace(/^./, (str) => str.toUpperCase())
+      .replace(CAMEL_CASE_REGEX, " $1")
+      .replace(FIRST_CHAR_REGEX, (str) => str.toUpperCase())
       .trim();
 
   const generateCorrelationInsights = () => {
     const allPlayers = players;
-    const insights: CorrelationInsight[] = [];
+    const newInsights: CorrelationInsight[] = [];
 
     // Team-specific skills analysis (for coaches)
     if (!isClubView && allPlayers.length > 0) {
@@ -344,7 +354,7 @@ export function SmartCoachDashboard({
             ([skill, avg]) => `${formatSkillName(skill)} (${avg.toFixed(1)})`
           )
           .join(", ");
-        insights.push({
+        newInsights.push({
           type: "improvement",
           message: `🏆 Team strengths: ${skillList}. Build training sessions around these strong areas.`,
           severity: "success",
@@ -362,7 +372,7 @@ export function SmartCoachDashboard({
             ([skill, avg]) => `${formatSkillName(skill)} (${avg.toFixed(1)})`
           )
           .join(", ");
-        insights.push({
+        newInsights.push({
           type: "improvement",
           message: `📊 Focus areas for development: ${skillList}. Consider dedicating practice time to these skills.`,
           severity: "warning",
@@ -391,7 +401,7 @@ export function SmartCoachDashboard({
         lowAttendance.length;
       const diff = highAvg - lowAvg;
 
-      insights.push({
+      newInsights.push({
         type: "attendance",
         message: `📊 Players with 90%+ attendance average ${diff.toFixed(1)} points higher in skills (${highAttendance.length} players) vs <60% attendance (${lowAttendance.length} players).`,
         severity: diff > 1.0 ? "warning" : "info",
@@ -427,20 +437,20 @@ export function SmartCoachDashboard({
       }
       message += `. Review completion rate: ${reviewRate.toFixed(0)}%.`;
 
-      insights.push({
+      newInsights.push({
         type: "attendance",
         message,
         severity: "warning",
       });
     } else if (reviewRate >= 80) {
-      insights.push({
+      newInsights.push({
         type: "attendance",
         message: `✅ Excellent review completion rate: ${reviewRate.toFixed(0)}%. All players are on track with regular assessments.`,
         severity: "success",
       });
     }
 
-    setInsights(insights);
+    setInsights(newInsights);
   };
 
   // Calculate analytics when dependencies change
@@ -561,14 +571,14 @@ export function SmartCoachDashboard({
     <div className="space-y-4 md:space-y-6">
       {/* Quick Actions - Connects header buttons to handler functions */}
       <FABQuickActions
-        onAssessPlayers={onAssessPlayers || (() => {})}
+        onAssessPlayers={onAssessPlayers || noop}
         onGenerateSessionPlan={handleGenerateSessionPlan}
-        onGoals={onViewGoals || (() => {})}
-        onInjuries={onViewInjuries || (() => {})}
-        onMatchDay={onViewMatchDay || (() => {})}
-        onMedical={onViewMedical || (() => {})}
-        onViewAnalytics={() => {}}
-        onVoiceNotes={onViewVoiceNotes || (() => {})}
+        onGoals={onViewGoals || noop}
+        onInjuries={onViewInjuries || noop}
+        onMatchDay={onViewMatchDay || noop}
+        onMedical={onViewMedical || noop}
+        onViewAnalytics={noop}
+        onVoiceNotes={onViewVoiceNotes || noop}
       />
 
       {/* My Teams Section */}
@@ -836,8 +846,11 @@ export function SmartCoachDashboard({
                           Top Strengths
                         </div>
                         <div className="space-y-1">
-                          {team.strengths.map((s, i) => (
-                            <div className="flex items-center gap-2" key={i}>
+                          {team.strengths.map((s) => (
+                            <div
+                              className="flex items-center gap-2"
+                              key={s.skill}
+                            >
                               <div className="min-w-0 flex-1">
                                 <div className="truncate text-gray-700 text-xs">
                                   {s.skill}
@@ -873,8 +886,11 @@ export function SmartCoachDashboard({
                           Areas to Improve
                         </div>
                         <div className="space-y-1">
-                          {team.weaknesses.map((w, i) => (
-                            <div className="flex items-center gap-2" key={i}>
+                          {team.weaknesses.map((w) => (
+                            <div
+                              className="flex items-center gap-2"
+                              key={w.skill}
+                            >
                               <div className="min-w-0 flex-1">
                                 <div className="truncate text-gray-700 text-xs">
                                   {w.skill}
@@ -964,7 +980,7 @@ export function SmartCoachDashboard({
         </CardHeader>
         <CardContent className="space-y-2 md:space-y-3">
           {insights.length > 0 ? (
-            insights.map((insight, idx) => (
+            insights.map((insight) => (
               <div
                 className={`flex items-start gap-2 rounded-lg p-3 md:gap-3 ${
                   insight.severity === "warning"
@@ -973,7 +989,7 @@ export function SmartCoachDashboard({
                       ? "border border-green-200 bg-green-50"
                       : "border border-blue-200 bg-blue-50"
                 }`}
-                key={idx}
+                key={`${insight.type}-${insight.message.slice(0, 50)}`}
               >
                 {insight.severity === "warning" ? (
                   <AlertCircle
@@ -1050,10 +1066,10 @@ export function SmartCoachDashboard({
           ) : (
             <div className="space-y-3 md:space-y-4">
               {aiRecommendations.length > 0 ? (
-                aiRecommendations.map((rec, idx) => (
+                aiRecommendations.map((rec) => (
                   <div
                     className="rounded-lg border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-3 md:p-4"
-                    key={idx}
+                    key={`${rec.priority}-${rec.title}`}
                   >
                     <div className="mb-3 flex items-start gap-2 md:gap-3">
                       <div
@@ -1082,10 +1098,10 @@ export function SmartCoachDashboard({
                               : "Recommended Actions:"}
                           </div>
                           <ul className="space-y-1.5">
-                            {rec.actionItems.map((action, i) => (
+                            {rec.actionItems.map((action) => (
                               <li
                                 className="flex items-start gap-2 text-gray-600 text-xs"
-                                key={i}
+                                key={action}
                               >
                                 <CheckCircle
                                   className="mt-0.5 flex-shrink-0 text-green-600"
@@ -1217,10 +1233,10 @@ export function SmartCoachDashboard({
               <div className="space-y-3">
                 {selectedTeamData.coachNotes
                   .split("\n\n")
-                  .map((note: string, idx: number) => (
+                  .map((note: string) => (
                     <div
                       className="rounded-lg border border-blue-200 bg-white p-3"
-                      key={idx}
+                      key={note.slice(0, 100)}
                     >
                       <p className="whitespace-pre-wrap text-gray-700 text-sm">
                         {note}
@@ -1281,7 +1297,7 @@ export function SmartCoachDashboard({
                     );
                   } catch (error) {
                     console.error("Error downloading PDF:", error);
-                    alert("Failed to download PDF. Please try again.");
+                    toast.error("Failed to download PDF. Please try again.");
                   }
                 }}
               >
@@ -1304,7 +1320,7 @@ export function SmartCoachDashboard({
                     setShowShareModal(false);
                   } catch (error) {
                     console.error("Error sharing via email:", error);
-                    alert(
+                    toast.error(
                       "Failed to open email client. Please try downloading instead."
                     );
                   }
@@ -1329,7 +1345,7 @@ export function SmartCoachDashboard({
                     setShowShareModal(false);
                   } catch (error) {
                     console.error("Error sharing via WhatsApp:", error);
-                    alert(
+                    toast.error(
                       "Failed to open WhatsApp. Please try another method."
                     );
                   }
@@ -1354,7 +1370,7 @@ export function SmartCoachDashboard({
                     setShowShareModal(false);
                   } catch (error) {
                     console.error("Error using native share:", error);
-                    alert(
+                    toast.error(
                       "Native sharing not supported. Please use another method."
                     );
                   }

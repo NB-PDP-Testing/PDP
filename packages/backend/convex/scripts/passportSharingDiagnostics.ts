@@ -258,7 +258,7 @@ export const findMultiOrgPlayers = query({
       if (!playerOrgMap.has(playerId)) {
         playerOrgMap.set(playerId, []);
       }
-      playerOrgMap.get(playerId)!.push({
+      playerOrgMap.get(playerId)?.push({
         orgId: e.organizationId,
         sport: e.sport,
         ageGroup: e.ageGroup,

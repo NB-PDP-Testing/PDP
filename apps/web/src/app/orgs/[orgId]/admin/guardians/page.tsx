@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import {
   AlertCircle,
@@ -38,6 +39,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { AddGuardianModal } from "./components/add-guardian-modal";
 
 type ViewMode = "players" | "guardians" | "status";
 type StatusFilter = "all" | "claimed" | "pending" | "missing";
@@ -51,6 +53,11 @@ export default function GuardianManagementPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [groupByFamily, setGroupByFamily] = useState(false);
+  const [addGuardianModalOpen, setAddGuardianModalOpen] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   // Queries
   const stats = useQuery(api.models.guardianManagement.getGuardianStatsForOrg, {
@@ -1094,7 +1101,17 @@ export default function GuardianManagementPage() {
                         {player.ageGroup} • DOB: {player.dateOfBirth}
                       </div>
                     </div>
-                    <Button size="sm" variant="outline">
+                    <Button
+                      onClick={() => {
+                        setSelectedPlayer({
+                          id: player.playerId,
+                          name: player.playerName,
+                        });
+                        setAddGuardianModalOpen(true);
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
                       <Plus className="mr-2 h-4 w-4" />
                       Add Guardian
                     </Button>
@@ -1105,6 +1122,16 @@ export default function GuardianManagementPage() {
           </div>
         )}
       </div>
+
+      {/* Add Guardian Modal */}
+      {selectedPlayer && (
+        <AddGuardianModal
+          onOpenChange={setAddGuardianModalOpen}
+          open={addGuardianModalOpen}
+          playerId={selectedPlayer.id as Id<"playerIdentities">}
+          playerName={selectedPlayer.name}
+        />
+      )}
 
       {/* Contextual Help & Recommendations */}
       <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30">

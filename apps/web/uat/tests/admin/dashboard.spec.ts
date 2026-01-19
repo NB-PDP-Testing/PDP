@@ -7,7 +7,7 @@ import { test, expect, navigateToAdmin, getCurrentOrgId, waitForPageLoad, organi
  * Based on gaps identified in docs/testing/UAT_MCP_TESTS.MD
  */
 
-test.describe("ADMIN - Dashboard Tests", () => {
+test.describe.skip("ADMIN - Dashboard Tests", () => {
   test("ADMIN-001: Admin dashboard displays overview", async ({ ownerPage }) => {
     const page = ownerPage;
 

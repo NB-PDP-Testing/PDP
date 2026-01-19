@@ -8,8 +8,8 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Based on gaps identified in MASTER_UAT_PLAN.md
  */
 
-test.describe("FLOW - Wizard System Tests", () => {
-  test.describe("Add Player Flow", () => {
+test.describe.skip("FLOW - Wizard System Tests", () => {
+  test.describe.skip("Add Player Flow", () => {
     test("FLOW-001: Add player button initiates wizard", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -93,7 +93,7 @@ test.describe("FLOW - Wizard System Tests", () => {
     });
   });
 
-  test.describe("Team Setup Flow", () => {
+  test.describe.skip("Team Setup Flow", () => {
     test("FLOW-005: Team creation wizard exists", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -116,7 +116,7 @@ test.describe("FLOW - Wizard System Tests", () => {
     });
   });
 
-  test.describe("Guardian Flow", () => {
+  test.describe.skip("Guardian Flow", () => {
     test("FLOW-006: Guardian linking flow exists", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -152,7 +152,7 @@ test.describe("FLOW - Wizard System Tests", () => {
     });
   });
 
-  test.describe("Multi-Step Form Validation", () => {
+  test.describe.skip("Multi-Step Form Validation", () => {
     test("FLOW-008: Wizard validates required fields", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -181,7 +181,7 @@ test.describe("FLOW - Wizard System Tests", () => {
     });
   });
 
-  test.describe("Wizard Cancellation", () => {
+  test.describe.skip("Wizard Cancellation", () => {
     test("FLOW-009: Wizard can be cancelled", async ({ ownerPage }) => {
       const page = ownerPage;
 

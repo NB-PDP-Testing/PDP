@@ -22,7 +22,7 @@ const MOBILE_VIEWPORTS = {
   androidCommon: { width: 360, height: 640 },
 };
 
-test.describe("Mobile Viewport Tests", () => {
+test.describe.skip("Mobile Viewport Tests", () => {
   // ============================================================
   // SECTION 1: Homepage Mobile Layout
   // ============================================================

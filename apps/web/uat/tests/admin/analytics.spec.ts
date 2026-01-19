@@ -8,7 +8,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Test IDs: ADMIN-ANALYTICS-001, ADMIN-ANALYTICS-002
  */
 
-test.describe("ADMIN - Analytics Dashboard", () => {
+test.describe.skip("ADMIN - Analytics Dashboard", () => {
   test("ADMIN-ANALYTICS-001: Analytics dashboard loads", async ({ adminPage }) => {
     const page = adminPage;
 

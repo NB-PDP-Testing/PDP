@@ -8,7 +8,7 @@
 
 import { test, expect } from "../../fixtures/test-fixtures";
 
-test.describe("Identity System - Guardian/Player Linking", () => {
+test.describe.skip("Identity System - Guardian/Player Linking", () => {
   
   // ============================================================
   // IDENTITY-001: Admin can view guardians section

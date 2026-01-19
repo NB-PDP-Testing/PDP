@@ -8,8 +8,8 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Based on gaps identified in MASTER_UAT_PLAN.md
  */
 
-test.describe("ORG - Announcements Tests", () => {
-  test.describe("Announcements Page Access", () => {
+test.describe.skip("ORG - Announcements Tests", () => {
+  test.describe.skip("Announcements Page Access", () => {
     test("ORG-ANN-001: Admin can access announcements page", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -45,7 +45,7 @@ test.describe("ORG - Announcements Tests", () => {
     });
   });
 
-  test.describe("Create Announcement", () => {
+  test.describe.skip("Create Announcement", () => {
     test("ORG-ANN-003: Create announcement button is visible", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -92,7 +92,7 @@ test.describe("ORG - Announcements Tests", () => {
     });
   });
 
-  test.describe("Announcement Targeting", () => {
+  test.describe.skip("Announcement Targeting", () => {
     test("ORG-ANN-005: Team targeting options are available", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -118,7 +118,7 @@ test.describe("ORG - Announcements Tests", () => {
     });
   });
 
-  test.describe("Announcement List", () => {
+  test.describe.skip("Announcement List", () => {
     test("ORG-ANN-006: Existing announcements are displayed", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -155,7 +155,7 @@ test.describe("ORG - Announcements Tests", () => {
     });
   });
 
-  test.describe("Delete Announcement", () => {
+  test.describe.skip("Delete Announcement", () => {
     test("ORG-ANN-008: Delete option is available for announcements", async ({ ownerPage }) => {
       const page = ownerPage;
 

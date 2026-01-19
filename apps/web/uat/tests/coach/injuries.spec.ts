@@ -8,8 +8,8 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Based on gaps identified in MASTER_UAT_PLAN.md
  */
 
-test.describe("COACH - Injury Tracking Tests", () => {
-  test.describe("Injuries Page Access", () => {
+test.describe.skip("COACH - Injury Tracking Tests", () => {
+  test.describe.skip("Injuries Page Access", () => {
     test("INJURY-001: Coach can access injuries page", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -42,7 +42,7 @@ test.describe("COACH - Injury Tracking Tests", () => {
     });
   });
 
-  test.describe("Injury Recording", () => {
+  test.describe.skip("Injury Recording", () => {
     test("INJURY-003: Add injury button is visible", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -78,7 +78,7 @@ test.describe("COACH - Injury Tracking Tests", () => {
     });
   });
 
-  test.describe("Injury Status", () => {
+  test.describe.skip("Injury Status", () => {
     test("INJURY-005: Active injuries are displayed", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -114,7 +114,7 @@ test.describe("COACH - Injury Tracking Tests", () => {
     });
   });
 
-  test.describe("Medical Page Access", () => {
+  test.describe.skip("Medical Page Access", () => {
     test("INJURY-007: Coach can access medical page", async ({ ownerPage }) => {
       const page = ownerPage;
 

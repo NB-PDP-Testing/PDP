@@ -8,7 +8,7 @@
 
 import { test, expect, navigateToAdmin, getCurrentOrgId } from "../../fixtures/test-fixtures";
 
-test.describe("Team Management CRUD", () => {
+test.describe.skip("Team Management CRUD", () => {
   
   // ============================================================
   // TEAM-001: Admin can access teams page

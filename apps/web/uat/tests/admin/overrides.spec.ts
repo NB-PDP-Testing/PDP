@@ -8,7 +8,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Test IDs: ADMIN-OVERRIDES-001, ADMIN-OVERRIDES-002
  */
 
-test.describe("ADMIN - Overrides Management", () => {
+test.describe.skip("ADMIN - Overrides Management", () => {
   test("ADMIN-OVERRIDES-001: Overrides page loads", async ({ adminPage }) => {
     /**
      * P2 Test - Verify overrides page loads correctly

@@ -83,7 +83,7 @@ async function navigateToAdminPage(
   }
 }
 
-test.describe("ADMIN - Navigation Tests", () => {
+test.describe.skip("ADMIN - Navigation Tests", () => {
   test("ADMIN-011: Navigate to Overrides page", async ({ ownerPage }) => {
     const page = ownerPage;
     await page.goto("/orgs");

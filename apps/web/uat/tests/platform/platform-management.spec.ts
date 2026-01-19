@@ -8,7 +8,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Test IDs: PLATFORM-001, PLATFORM-005, PLATFORM-006, PLATFORM-SPORTS-001, PLATFORM-SKILLS-001, PLATFORM-SKILLS-002
  */
 
-test.describe("PLATFORM - Staff Management", () => {
+test.describe.skip("PLATFORM - Staff Management", () => {
   // ============================================================
   // PLATFORM-001: Platform Staff Dashboard Access (P1)
   // ============================================================

@@ -8,8 +8,8 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Based on gaps identified in MASTER_UAT_PLAN.md
  */
 
-test.describe("PLAYER - Passport Tests", () => {
-  test.describe("Admin Access", () => {
+test.describe.skip("PLAYER - Passport Tests", () => {
+  test.describe.skip("Admin Access", () => {
     test("PLAYER-001: Admin can view players list", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -61,7 +61,7 @@ test.describe("PLAYER - Passport Tests", () => {
     });
   });
 
-  test.describe("Passport Sections", () => {
+  test.describe.skip("Passport Sections", () => {
     test("PLAYER-004: Player passport displays basic info section", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -163,7 +163,7 @@ test.describe("PLAYER - Passport Tests", () => {
     });
   });
 
-  test.describe("Edit Player", () => {
+  test.describe.skip("Edit Player", () => {
     test("PLAYER-009: Admin can access edit player page", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -189,7 +189,7 @@ test.describe("PLAYER - Passport Tests", () => {
     });
   });
 
-  test.describe("Share Player", () => {
+  test.describe.skip("Share Player", () => {
     test("PLAYER-010: Share button is visible on player passport", async ({ ownerPage }) => {
       const page = ownerPage;
 

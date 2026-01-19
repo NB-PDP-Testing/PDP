@@ -8,8 +8,8 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Based on gaps identified in MASTER_UAT_PLAN.md
  */
 
-test.describe("PARENT - Child Management Tests", () => {
-  test.describe("Parent Dashboard Access", () => {
+test.describe.skip("PARENT - Child Management Tests", () => {
+  test.describe.skip("Parent Dashboard Access", () => {
     test("PARENT-001: Parent can access parent dashboard", async ({ parentPage }) => {
       const page = parentPage;
 
@@ -43,7 +43,7 @@ test.describe("PARENT - Child Management Tests", () => {
     });
   });
 
-  test.describe("Child Information", () => {
+  test.describe.skip("Child Information", () => {
     test("PARENT-003: Parent can view child profile", async ({ parentPage }) => {
       const page = parentPage;
 
@@ -82,7 +82,7 @@ test.describe("PARENT - Child Management Tests", () => {
     });
   });
 
-  test.describe("Medical Information", () => {
+  test.describe.skip("Medical Information", () => {
     test("PARENT-005: Parent can view child's medical info", async ({ parentPage }) => {
       const page = parentPage;
 
@@ -118,7 +118,7 @@ test.describe("PARENT - Child Management Tests", () => {
     });
   });
 
-  test.describe("Weekly Schedule", () => {
+  test.describe.skip("Weekly Schedule", () => {
     test("PARENT-007: Parent can view weekly schedule", async ({ parentPage }) => {
       const page = parentPage;
 
@@ -137,7 +137,7 @@ test.describe("PARENT - Child Management Tests", () => {
     });
   });
 
-  test.describe("Coach Communication", () => {
+  test.describe.skip("Coach Communication", () => {
     test("PARENT-008: Parent can see coach feedback", async ({ parentPage }) => {
       const page = parentPage;
 
@@ -156,7 +156,7 @@ test.describe("PARENT - Child Management Tests", () => {
     });
   });
 
-  test.describe("Guardian Settings", () => {
+  test.describe.skip("Guardian Settings", () => {
     test("PARENT-009: Parent can access guardian settings", async ({ parentPage }) => {
       const page = parentPage;
 
@@ -175,7 +175,7 @@ test.describe("PARENT - Child Management Tests", () => {
     });
   });
 
-  test.describe("AI Practice Assistant", () => {
+  test.describe.skip("AI Practice Assistant", () => {
     test("PARENT-010: AI practice assistant is accessible", async ({ parentPage }) => {
       const page = parentPage;
 

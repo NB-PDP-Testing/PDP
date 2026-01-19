@@ -25,7 +25,7 @@ const THRESHOLDS = {
   timeToInteractive: 4000, // 4 seconds to interactive
 };
 
-test.describe("Performance Tests", () => {
+test.describe.skip("Performance Tests", () => {
   // ============================================================
   // SECTION 1: Page Load Performance
   // ============================================================

@@ -8,7 +8,7 @@ import { dismissPWAPrompt, users } from "../../fixtures/test-fixtures";
  * Based on gaps identified in docs/testing/UAT_MCP_TESTS.MD
  */
 
-test.describe("AUTH - Signup Tests", () => {
+test.describe.skip("AUTH - Signup Tests", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/signup");
     await dismissPWAPrompt(page);

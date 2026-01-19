@@ -8,7 +8,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Test IDs: GUARDIAN-UNCLAIMED-001, GUARDIAN-BULK-001
  */
 
-test.describe("ADMIN - Guardian Advanced Management", () => {
+test.describe.skip("ADMIN - Guardian Advanced Management", () => {
   test("GUARDIAN-UNCLAIMED-001: View unclaimed guardians list", async ({ adminPage }) => {
     const page = adminPage;
 

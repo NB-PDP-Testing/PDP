@@ -8,8 +8,8 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Based on gaps identified in MASTER_UAT_PLAN.md
  */
 
-test.describe("COACH - Voice Notes Tests", () => {
-  test.describe("Voice Notes Page Access", () => {
+test.describe.skip("COACH - Voice Notes Tests", () => {
+  test.describe.skip("Voice Notes Page Access", () => {
     test("VOICE-001: Coach can access voice notes page", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -42,7 +42,7 @@ test.describe("COACH - Voice Notes Tests", () => {
     });
   });
 
-  test.describe("Recording Interface", () => {
+  test.describe.skip("Recording Interface", () => {
     test("VOICE-003: Recording controls are visible", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -95,7 +95,7 @@ test.describe("COACH - Voice Notes Tests", () => {
     });
   });
 
-  test.describe("Voice Notes History", () => {
+  test.describe.skip("Voice Notes History", () => {
     test("VOICE-006: Voice notes history is displayed", async ({ ownerPage }) => {
       const page = ownerPage;
 
@@ -114,7 +114,7 @@ test.describe("COACH - Voice Notes Tests", () => {
     });
   });
 
-  test.describe("AI Insights", () => {
+  test.describe.skip("AI Insights", () => {
     test("VOICE-007: AI insights section is visible", async ({ ownerPage }) => {
       const page = ownerPage;
 

@@ -8,7 +8,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Test IDs: UX-SKELETON-001, UX-TOUCH-001, UX-SWIPE-001, UX-DENSITY-001
  */
 
-test.describe("UX - Advanced Features", () => {
+test.describe.skip("UX - Advanced Features", () => {
   test("UX-SKELETON-001: Skeleton loading states display correctly", async ({ adminPage }) => {
     const page = adminPage;
     

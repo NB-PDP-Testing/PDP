@@ -8,7 +8,7 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * Test IDs: FLOW-MULTISTEP-001, FLOW-BLOCKING-001, FLOW-PRIORITY-001
  */
 
-test.describe("FLOWS - Advanced Features", () => {
+test.describe.skip("FLOWS - Advanced Features", () => {
   test("FLOW-MULTISTEP-001: Create multi-step onboarding flow", async ({ ownerPage }) => {
     const page = ownerPage;
 

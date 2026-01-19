@@ -369,7 +369,10 @@ export default function OrgSettingsPage() {
     try {
       await updateOrganizationSharingContact({
         organizationId: orgId,
-        sharingContactMode: sharingContactMode || null,
+        sharingContactMode: (sharingContactMode || null) as
+          | "direct"
+          | "enquiry"
+          | null,
         sharingContactName: sharingContactName.trim() || null,
         sharingContactEmail: sharingContactEmail.trim() || null,
         sharingContactPhone: sharingContactPhone.trim() || null,

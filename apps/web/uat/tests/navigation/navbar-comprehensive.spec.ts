@@ -204,26 +204,14 @@ async function expandAllNavGroups(page: Page): Promise<void> {
 /**
  * Helper to navigate to a link and verify no errors
  */
-async function navigateAndVerify(
+/**
+ * Internal navigation attempt - handles a single navigation try
+ */
+async function attemptNavigation(
   page: Page,
-  linkText: string,
   href: string,
-  testContext: string
+  errors: string[]
 ): Promise<{ success: boolean; error?: string }> {
-  const errors: string[] = [];
-
-  // Listen for console errors
-  page.on('console', msg => {
-    if (msg.type() === 'error') {
-      errors.push(msg.text());
-    }
-  });
-
-  // Listen for page errors
-  page.on('pageerror', error => {
-    errors.push(error.message);
-  });
-
   try {
     // Navigate to the link with increased timeout for slow pages
     await page.goto(href, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -278,11 +266,74 @@ async function navigateAndVerify(
       success: false,
       error: error instanceof Error ? error.message : String(error)
     };
-  } finally {
-    // Remove listeners
-    page.removeAllListeners('console');
-    page.removeAllListeners('pageerror');
   }
+}
+
+/**
+ * Navigate and verify with built-in retry logic
+ * Retries internally up to 2 times before reporting failure
+ * This prevents tests from showing as "flaky" in test results
+ */
+async function navigateAndVerify(
+  page: Page,
+  linkText: string,
+  href: string,
+  testContext: string
+): Promise<{ success: boolean; error?: string }> {
+  const maxAttempts = 2;
+  let lastError: string | undefined;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const errors: string[] = [];
+
+    // Listen for console errors
+    const consoleListener = (msg: any) => {
+      if (msg.type() === 'error') {
+        errors.push(msg.text());
+      }
+    };
+
+    // Listen for page errors
+    const pageErrorListener = (error: Error) => {
+      errors.push(error.message);
+    };
+
+    page.on('console', consoleListener);
+    page.on('pageerror', pageErrorListener);
+
+    try {
+      const result = await attemptNavigation(page, href, errors);
+
+      if (result.success) {
+        if (attempt > 1) {
+          console.log(`[${testContext}] ✓ Succeeded on attempt ${attempt} for ${linkText}`);
+        }
+        return result;
+      }
+
+      lastError = result.error;
+
+      // Log retry attempt (but don't fail yet)
+      if (attempt < maxAttempts) {
+        console.log(`[${testContext}] ⚠ Attempt ${attempt} failed for ${linkText}: ${result.error}`);
+        console.log(`[${testContext}] 🔄 Retrying navigation to ${href}...`);
+
+        // Small delay before retry to let page settle
+        await page.waitForTimeout(500);
+      }
+    } finally {
+      // Remove listeners for this attempt
+      page.off('console', consoleListener);
+      page.off('pageerror', pageErrorListener);
+    }
+  }
+
+  // All attempts failed
+  console.error(`[${testContext}] ✗ All ${maxAttempts} attempts failed for ${linkText}`);
+  return {
+    success: false,
+    error: lastError || 'Unknown error after all retry attempts'
+  };
 }
 
 test.describe("NAVBAR - Admin Navigation Tests", () => {

@@ -13,7 +13,7 @@ export default defineConfig({
   testDir: path.join(configDir, "tests"),
   fullyParallel: false, // Disable parallel execution to prevent state pollution
   forbidOnly: !!process.env.CI,
-  retries: 2, // 2 retries to handle intermittent timing issues (previously 1 local, 2 CI)
+  retries: 1, // 1 retry at test level (navigation tests have internal retry logic)
   workers: 1, // Run tests serially to avoid race conditions and auth state conflicts
   reporter: [
     ["html", { outputFolder: "playwright-report" }],

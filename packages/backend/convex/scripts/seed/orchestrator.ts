@@ -18,7 +18,7 @@
  */
 
 import { v } from "convex/values";
-import { components, internal } from "../../_generated/api";
+import { api, components, internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { mutation, query } from "../../_generated/server";
 import type { PlayerStage } from "./helpers/playerStages";
@@ -435,18 +435,15 @@ export const seedProductionDemo = mutation({
           console.log(`    [DRY RUN] Would create team: ${teamConfig.name}`);
           teamMap[teamConfig.name] = `dry-run-team-${teamConfig.name}`;
         } else {
-          const teamId = await ctx.runMutation(
-            internal.models.teams.createTeam,
-            {
-              name: teamConfig.name,
-              organizationId: orgId,
-              sport: teamConfig.sport,
-              ageGroup: teamConfig.ageGroup,
-              gender: teamConfig.gender,
-              season: "2026",
-              isActive: true,
-            }
-          );
+          const teamId = await ctx.runMutation(api.models.teams.createTeam, {
+            name: teamConfig.name,
+            organizationId: orgId,
+            sport: teamConfig.sport,
+            ageGroup: teamConfig.ageGroup,
+            gender: teamConfig.gender,
+            season: "2026",
+            isActive: true,
+          });
 
           teamMap[teamConfig.name] = teamId;
           createdTeamIds.push(teamId);
@@ -489,7 +486,7 @@ export const seedProductionDemo = mutation({
           _isNewPlayer = true;
           // Create player identity
           const result = await ctx.runMutation(
-            internal.models.playerIdentities.findOrCreatePlayer,
+            api.models.playerIdentities.findOrCreatePlayer,
             {
               firstName: playerConfig.firstName,
               lastName: playerConfig.lastName,
@@ -511,17 +508,14 @@ export const seedProductionDemo = mutation({
 
         if (!args.dryRun) {
           // Enroll in organization with sport (for both new and existing players)
-          await ctx.runMutation(
-            internal.models.orgPlayerEnrollments.enrollPlayer,
-            {
-              playerIdentityId,
-              organizationId: orgId,
-              ageGroup: playerConfig.ageGroup,
-              season: "2026",
-              sportCode: playerConfig.sport,
-              status: "active" as const,
-            }
-          );
+          await ctx.runMutation(api.models.orgPlayerEnrollments.enrollPlayer, {
+            playerIdentityId,
+            organizationId: orgId,
+            ageGroup: playerConfig.ageGroup,
+            season: "2026",
+            sportCode: playerConfig.sport,
+            status: "active" as const,
+          });
 
           // Assign to teams
           for (const teamName of playerConfig.teams) {
@@ -584,7 +578,7 @@ export const seedProductionDemo = mutation({
         console.log("  [DRY RUN] Would create 38 session plans");
       } else {
         const sessionResult = await ctx.runMutation(
-          internal.seed.sessionPlansSeed.seedSessionPlans,
+          api.seed.sessionPlansSeed.seedSessionPlans,
           {
             organizationId: orgId,
             coachId: user._id,
@@ -752,34 +746,31 @@ export const seedProductionDemo = mutation({
               ]
             : [];
 
-          await ctx.runMutation(
-            internal.models.medicalProfiles.upsertForIdentity,
-            {
-              playerIdentityId,
-              organizationId: orgId,
-              ageGroup: playerConfig.ageGroup,
-              sport: playerConfig.sport,
-              bloodType:
-                bloodTypes[Math.floor(Math.random() * bloodTypes.length)] ??
-                undefined,
-              allergies,
-              medications,
-              conditions,
-              doctorName: Math.random() > 0.7 ? "Dr. Smith" : undefined,
-              doctorPhone: Math.random() > 0.7 ? "+1 555-0100" : undefined,
-              emergencyContact1Name: "Emergency Contact 1",
-              emergencyContact1Phone: "+1 555-0101",
-              emergencyContact2Name:
-                Math.random() > 0.5 ? "Emergency Contact 2" : undefined,
-              emergencyContact2Phone:
-                Math.random() > 0.5 ? "+1 555-0102" : undefined,
-              lastMedicalCheck: Math.random() > 0.6 ? "2025-09-01" : undefined,
-              insuranceCovered: Math.random() > 0.3, // 70% have insurance
-              notes: hasConditions
-                ? "Please see coach notes for specific accommodations"
-                : undefined,
-            }
-          );
+          await ctx.runMutation(api.models.medicalProfiles.upsertForIdentity, {
+            playerIdentityId,
+            organizationId: orgId,
+            ageGroup: playerConfig.ageGroup,
+            sport: playerConfig.sport,
+            bloodType:
+              bloodTypes[Math.floor(Math.random() * bloodTypes.length)] ??
+              undefined,
+            allergies,
+            medications,
+            conditions,
+            doctorName: Math.random() > 0.7 ? "Dr. Smith" : undefined,
+            doctorPhone: Math.random() > 0.7 ? "+1 555-0100" : undefined,
+            emergencyContact1Name: "Emergency Contact 1",
+            emergencyContact1Phone: "+1 555-0101",
+            emergencyContact2Name:
+              Math.random() > 0.5 ? "Emergency Contact 2" : undefined,
+            emergencyContact2Phone:
+              Math.random() > 0.5 ? "+1 555-0102" : undefined,
+            lastMedicalCheck: Math.random() > 0.6 ? "2025-09-01" : undefined,
+            insuranceCovered: Math.random() > 0.3, // 70% have insurance
+            notes: hasConditions
+              ? "Please see coach notes for specific accommodations"
+              : undefined,
+          });
 
           stats.medicalProfiles = (stats.medicalProfiles || 0) + 1;
         }

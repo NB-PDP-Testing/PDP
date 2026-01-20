@@ -800,36 +800,35 @@ export const recordAssessmentWithBenchmark = mutation({
         ageGroupCode = "senior";
       }
 
-      // Look up benchmark
-      const level = args.benchmarkLevel ?? "recreational";
-      const benchmark = await ctx.db
-        .query("skillBenchmarks")
-        .withIndex("by_context", (q) => {
-          const ageGroup = ageGroupCode;
-          return q
-            .eq("sportCode", passport.sportCode)
-            .eq("skillCode", args.skillCode)
-            .eq("ageGroup", ageGroup)
-            .eq("gender", "all")
-            .eq("level", level);
-        })
-        .first();
+      // Look up benchmark (only if we have an age group)
+      if (ageGroupCode) {
+        const level = args.benchmarkLevel ?? "recreational";
+        const benchmark = await ctx.db
+          .query("skillBenchmarks")
+          .withIndex("by_context", (q) =>
+            q
+              .eq("sportCode", passport.sportCode)
+              .eq("skillCode", args.skillCode)
+              .eq("ageGroup", ageGroupCode)
+              .eq("gender", "all")
+              .eq("level", level)
+          )
+          .first();
 
-      if (benchmark?.isActive) {
-        benchmarkRating = benchmark.expectedRating;
-        benchmarkDelta = args.rating - benchmarkRating;
+        if (benchmark?.isActive) {
+          benchmarkRating = benchmark.expectedRating;
+          benchmarkDelta = args.rating - benchmarkRating;
 
-        // Determine status based on thresholds
-        if (args.rating < benchmark.minAcceptable) {
-          benchmarkStatus = "below";
-        } else if (args.rating < benchmark.developingThreshold) {
-          benchmarkStatus = "developing";
-        } else if (args.rating < benchmark.excellentThreshold) {
-          benchmarkStatus = "on_track";
-        } else if (args.rating < 5) {
-          benchmarkStatus = "exceeding";
-        } else {
-          benchmarkStatus = "exceptional";
+          // Determine status based on thresholds
+          if (args.rating < benchmark.minAcceptable) {
+            benchmarkStatus = "below";
+          } else if (args.rating < benchmark.developingThreshold) {
+            benchmarkStatus = "developing";
+          } else if (args.rating < benchmark.excellentThreshold) {
+            benchmarkStatus = "on_track";
+          } else if (args.rating >= benchmark.excellentThreshold) {
+            benchmarkStatus = "exceeding";
+          }
         }
       }
     }

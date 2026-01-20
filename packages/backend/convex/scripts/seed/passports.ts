@@ -6,7 +6,7 @@
  */
 
 import { v } from "convex/values";
-import { internal } from "../../_generated/api";
+import { api } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { mutation } from "../../_generated/server";
 import {
@@ -52,7 +52,7 @@ export const seedPassportForPlayer = mutation({
 
     // 1. Create or get sport passport
     const passportResult = await ctx.runMutation(
-      internal.models.sportPassports.findOrCreatePassport,
+      api.models.sportPassports.findOrCreatePassport,
       {
         playerIdentityId: args.playerIdentityId as Id<"playerIdentities">,
         sportCode: args.sportCode,
@@ -64,7 +64,7 @@ export const seedPassportForPlayer = mutation({
 
     // 2. Add coach notes based on stage
     const coachNotes = randomPick(config.passport.coachNotesTemplates);
-    await ctx.runMutation(internal.models.sportPassports.updateNotes, {
+    await ctx.runMutation(api.models.sportPassports.updateNotes, {
       passportId,
       coachNotes,
     });
@@ -87,7 +87,7 @@ export const seedPassportForPlayer = mutation({
         config.passport.overallRating.max
       );
 
-      await ctx.runMutation(internal.models.sportPassports.updateRatings, {
+      await ctx.runMutation(api.models.sportPassports.updateRatings, {
         passportId,
         currentOverallRating: overallRating,
         incrementAssessmentCount: false, // We've already counted assessments
@@ -197,18 +197,15 @@ async function generateAssessments(
       notes: i === count - 1 && idx === 0 ? "Latest assessment" : undefined,
     }));
 
-    await ctx.runMutation(
-      internal.models.skillAssessments.recordBatchAssessments,
-      {
-        passportId,
-        assessmentDate: date,
-        assessmentType,
-        assessedBy: coachId,
-        assessedByName: coachName || "Coach",
-        assessorRole: "coach" as const,
-        ratings: assessmentData,
-      }
-    );
+    await ctx.runMutation(api.models.skillAssessments.recordBatchAssessments, {
+      passportId,
+      assessmentDate: date,
+      assessmentType,
+      assessedBy: coachId,
+      assessedByName: coachName || "Coach",
+      assessorRole: "coach" as const,
+      ratings: assessmentData,
+    });
 
     totalAssessments += assessmentData.length;
   }
@@ -274,24 +271,21 @@ async function generateGoals(
     }
 
     // Create the goal
-    const goalId = await ctx.runMutation(
-      internal.models.passportGoals.createGoal,
-      {
-        passportId,
-        title,
-        description: `Work on improving ${title.toLowerCase()} through focused practice and application in training sessions.`,
-        category: mapCategoryToValidator(category),
-        priority: determinePriority(stage, status),
-        targetDate: generateTargetDate(status, progress),
-        linkedSkills: getLinkedSkills(category),
-        parentCanView: true,
-        createdBy: coachId,
-      }
-    );
+    const goalId = await ctx.runMutation(api.models.passportGoals.createGoal, {
+      passportId,
+      title,
+      description: `Work on improving ${title.toLowerCase()} through focused practice and application in training sessions.`,
+      category: mapCategoryToValidator(category),
+      priority: determinePriority(stage, status),
+      targetDate: generateTargetDate(status, progress),
+      linkedSkills: getLinkedSkills(category),
+      parentCanView: true,
+      createdBy: coachId,
+    });
 
     // Update progress if not default 0
     if (progress > 0) {
-      await ctx.runMutation(internal.models.passportGoals.updateGoalProgress, {
+      await ctx.runMutation(api.models.passportGoals.updateGoalProgress, {
         goalId,
         progress,
       });
@@ -304,7 +298,7 @@ async function generateGoals(
 
       for (let m = 0; m < milestoneCount; m++) {
         const milestoneDesc = generateMilestoneDescription(title, m);
-        await ctx.runMutation(internal.models.passportGoals.addMilestone, {
+        await ctx.runMutation(api.models.passportGoals.addMilestone, {
           goalId,
           description: milestoneDesc,
         });
@@ -318,13 +312,10 @@ async function generateGoals(
           const goal = await ctx.db.get(goalId);
           if (goal?.milestones && goal.milestones.length > m) {
             const milestoneId = goal.milestones[m].id;
-            await ctx.runMutation(
-              internal.models.passportGoals.completeMilestone,
-              {
-                goalId,
-                milestoneId,
-              }
-            );
+            await ctx.runMutation(api.models.passportGoals.completeMilestone, {
+              goalId,
+              milestoneId,
+            });
           }
         }
 
@@ -334,7 +325,7 @@ async function generateGoals(
 
     // Mark as completed if status is completed
     if (status === "completed") {
-      await ctx.runMutation(internal.models.passportGoals.updateGoal, {
+      await ctx.runMutation(api.models.passportGoals.updateGoal, {
         goalId,
         status: "completed",
       });

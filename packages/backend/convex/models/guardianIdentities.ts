@@ -688,6 +688,7 @@ export const findAllClaimableForCurrentUser = query({
     }
 
     const userEmail = identity.email;
+    const userId = identity.subject;
     if (!userEmail) {
       return [];
     }
@@ -704,13 +705,16 @@ export const findAllClaimableForCurrentUser = query({
     const results: any[] = [];
 
     for (const guardian of matchingGuardians) {
-      // Get all linked children
-      const links = await ctx.db
+      // Get all linked children (excluding links declined by current user)
+      const allLinks = await ctx.db
         .query("guardianPlayerLinks")
         .withIndex("by_guardian", (q) =>
           q.eq("guardianIdentityId", guardian._id)
         )
         .collect();
+
+      // Filter out links that current user has declined
+      const links = allLinks.filter((link) => link.declinedByUserId !== userId);
 
       const children: any[] = [];
       const orgSet = new Set<string>();
@@ -740,18 +744,21 @@ export const findAllClaimableForCurrentUser = query({
         }
       }
 
-      const organizations = Array.from(orgSet).map((orgId) => ({
-        organizationId: orgId,
-        organizationName: undefined,
-      }));
+      // Only include this guardian if they have non-declined children
+      if (children.length > 0) {
+        const organizations = Array.from(orgSet).map((orgId) => ({
+          organizationId: orgId,
+          organizationName: undefined,
+        }));
 
-      // Email match = high confidence
-      results.push({
-        guardianIdentity: guardian,
-        children,
-        organizations,
-        confidence: 100,
-      });
+        // Email match = high confidence
+        results.push({
+          guardianIdentity: guardian,
+          children,
+          organizations,
+          confidence: 100,
+        });
+      }
     }
 
     return results;

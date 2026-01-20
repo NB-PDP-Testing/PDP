@@ -300,6 +300,9 @@ export default defineSchema({
     // Cross-org consent
     consentedToSharing: v.boolean(), // Allow other orgs to see this link
 
+    // Decline tracking
+    declinedByUserId: v.optional(v.string()), // User who declined this connection (clicked "This Isn't Me")
+
     // Metadata
     createdAt: v.number(),
     updatedAt: v.number(),

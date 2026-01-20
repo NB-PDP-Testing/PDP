@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   CheckCircle,
@@ -13,7 +13,8 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Suspense, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { GuardianIdentityClaimDialog } from "@/components/guardian-identity-claim-dialog";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,12 @@ function ParentDashboardContent() {
   const orgId = params.orgId as string;
   const { data: activeOrganization } = authClient.useActiveOrganization();
   const { data: session } = authClient.useSession();
+  const [showClaimDialog, setShowClaimDialog] = useState(false);
+  const [currentClaimIndex, setCurrentClaimIndex] = useState(0);
+  const [dismissedIdentityIds, setDismissedIdentityIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
   // Get user's role details in this organization
   const roleDetails = useQuery(
@@ -48,6 +55,21 @@ function ParentDashboardContent() {
       : "skip"
   );
 
+  // Check for unclaimed guardian identities
+  const allClaimableIdentities = useQuery(
+    api.models.guardianIdentities.findAllClaimableForCurrentUser
+  );
+
+  // Filter out dismissed identities
+  const claimableIdentities = useMemo(() => {
+    if (!allClaimableIdentities) {
+      return;
+    }
+    return allClaimableIdentities.filter(
+      (identity) => !dismissedIdentityIds.has(identity.guardianIdentity._id)
+    );
+  }, [allClaimableIdentities, dismissedIdentityIds]);
+
   // Get children from guardian identity system
   // Pass user email to enable fallback lookup for unclaimed guardian identities
   const {
@@ -55,6 +77,96 @@ function ParentDashboardContent() {
     children: identityChildren,
     isLoading: identityLoading,
   } = useGuardianChildrenInOrg(orgId, session?.user?.email);
+
+  // Show claim dialog if there are unclaimed identities (only auto-open once)
+  // Note: Don't check !guardianIdentity because useGuardianIdentity returns
+  // unclaimed identities too (via email lookup)
+  useEffect(() => {
+    console.log("Claimable identities check:", {
+      claimableIdentities,
+      count: claimableIdentities?.length,
+      showClaimDialog,
+      hasAutoOpened,
+    });
+    if (
+      claimableIdentities &&
+      claimableIdentities.length > 0 &&
+      !showClaimDialog &&
+      !hasAutoOpened
+    ) {
+      console.log(
+        "Auto-opening claim dialog for",
+        claimableIdentities.length,
+        "identities"
+      );
+      setShowClaimDialog(true);
+      setHasAutoOpened(true);
+    }
+  }, [claimableIdentities, showClaimDialog, hasAutoOpened]);
+
+  // Handle successful claim
+  const handleClaimComplete = () => {
+    // Move to next claimable identity if there are more
+    if (
+      claimableIdentities &&
+      currentClaimIndex < claimableIdentities.length - 1
+    ) {
+      setCurrentClaimIndex(currentClaimIndex + 1);
+      setShowClaimDialog(true);
+    } else {
+      // All claims processed - refresh page to load new guardian data
+      setShowClaimDialog(false);
+      router.refresh();
+    }
+  };
+
+  // Mutation to decline guardian-player links
+  const declineGuardianPlayerLink = useMutation(
+    api.models.guardianPlayerLinks.declineGuardianPlayerLink
+  );
+
+  // Handle dialog dismissal (user clicks "This Isn't Me")
+  const handleDismiss = async () => {
+    if (!(currentClaimable && session?.user?.id)) {
+      return;
+    }
+
+    try {
+      // Decline all children in this guardian identity
+      for (const child of currentClaimable.children) {
+        await declineGuardianPlayerLink({
+          guardianIdentityId: currentClaimable.guardianIdentity._id,
+          playerIdentityId: child.playerIdentityId,
+          userId: session.user.id,
+        });
+      }
+
+      // Add this identity to the dismissed list (for immediate UI update)
+      const newDismissedIds = new Set(dismissedIdentityIds);
+      newDismissedIds.add(currentClaimable.guardianIdentity._id);
+      setDismissedIdentityIds(newDismissedIds);
+
+      // Move to next claimable identity if there are more
+      if (
+        claimableIdentities &&
+        currentClaimIndex < claimableIdentities.length - 1
+      ) {
+        setCurrentClaimIndex(currentClaimIndex + 1);
+        setShowClaimDialog(true);
+      } else {
+        // No more identities to show - close dialog
+        setShowClaimDialog(false);
+        setCurrentClaimIndex(0);
+      }
+    } catch (error) {
+      console.error("Failed to decline guardian connection:", error);
+      // Still close the dialog even if backend call fails
+      setShowClaimDialog(false);
+    }
+  };
+
+  // Get current claimable identity to display
+  const currentClaimable = claimableIdentities?.[currentClaimIndex];
 
   // Check if user has parent functional role or is admin/owner
   const hasParentRole = useMemo(() => {
@@ -159,6 +271,52 @@ function ParentDashboardContent() {
           )}
         </div>
       </div>
+
+      {/* Pending Guardian Claims Notification */}
+      {claimableIdentities && claimableIdentities.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-6 w-6 text-blue-600" />
+              <CardTitle className="text-blue-800">
+                Pending Guardian Connection
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-blue-700">
+              We found an existing guardian profile that matches your email
+              address. Please review and claim your connection to access your
+              children's information.
+            </p>
+            <div className="mt-4 space-y-2">
+              <p className="font-medium text-blue-800 text-sm">
+                Guardian Profile Found:
+              </p>
+              <ul className="list-inside list-disc space-y-1 text-blue-700 text-sm">
+                <li>
+                  {currentClaimable?.guardianIdentity.firstName}{" "}
+                  {currentClaimable?.guardianIdentity.lastName}
+                </li>
+                <li>
+                  {currentClaimable?.children.length}{" "}
+                  {currentClaimable?.children.length === 1
+                    ? "child"
+                    : "children"}{" "}
+                  linked
+                </li>
+              </ul>
+            </div>
+            <Button
+              className="mt-4"
+              onClick={() => setShowClaimDialog(true)}
+              variant="default"
+            >
+              Review & Claim Connection
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -352,6 +510,21 @@ function ParentDashboardContent() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Guardian Identity Claim Dialog */}
+      {currentClaimable && session?.user?.id && (
+        <GuardianIdentityClaimDialog
+          childrenList={currentClaimable.children}
+          guardianIdentityId={currentClaimable.guardianIdentity._id}
+          guardianName={`${currentClaimable.guardianIdentity.firstName} ${currentClaimable.guardianIdentity.lastName}`}
+          onClaimComplete={handleClaimComplete}
+          onDismiss={handleDismiss}
+          onOpenChange={setShowClaimDialog}
+          open={showClaimDialog}
+          organizations={currentClaimable.organizations}
+          userId={session.user.id}
+        />
       )}
     </div>
   );

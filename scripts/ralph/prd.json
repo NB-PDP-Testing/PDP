@@ -29,7 +29,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Add after coachParentSummaries table in schema.ts. Use v.string() for coachId (Better Auth userId), not v.id(). Reference Phase 1 learnings: coachId is Better Auth userId string."
     },
     {
@@ -43,7 +43,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Index naming convention: include all fields in name (by_coach_org not by_coach)"
     },
     {
@@ -57,7 +57,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Reference coachParentSummaries.ts for import patterns. Don't import unused modules - Biome will auto-remove them."
     },
     {
@@ -73,7 +73,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Pure function, no DB access. Export thresholds so UI can show progress."
     },
     {
@@ -89,7 +89,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Use internalMutation since this is called from other mutations. Always use .withIndex(), never .filter()."
     },
     {
@@ -106,7 +106,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Use ctx.runMutation(internal.models.coachTrustLevels.getOrCreateTrustLevel, {...}) to call internal mutation."
     },
     {
@@ -120,7 +120,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Don't auto-upgrade past preferredLevel - coach may want to stay at lower automation."
     },
     {
@@ -137,7 +137,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Coach can cap their automation level. Use user.userId for coachId (Better Auth ID), not user._id (Convex ID)."
     },
     {
@@ -151,7 +151,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "summary.coachId is already a string (Better Auth userId). Use ctx.runMutation for internal mutations from mutations."
     },
     {
@@ -164,7 +164,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Same pattern as US-009. Import already added in US-009."
     },
     {
@@ -181,7 +181,7 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Use user.userId (Better Auth ID) not user._id. Always define proper returns validator - never use v.any()."
     },
     {

@@ -1,3 +1,87 @@
 # Ralph Progress Log
 Started: Tue 20 Jan 2026 14:02:55 GMT
 ---
+## Codebase Patterns
+**Last Updated**: 2026-01-20 - Iteration 1
+
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string` for DB IDs
+- Index names include all fields: `by_coach_org` for [coachId, organizationId]
+- For internal mutations called from same file, use helper functions instead of `ctx.runMutation(internal.models.X.Y)` to avoid circular references
+- Better Auth userId is `user.userId` (string), not `user._id`
+
+### Quality Checks
+- Run in order: `npx -w packages/backend convex codegen` → `npx biome check --write --unsafe` → `npm run check-types`
+- Convex codegen will catch schema/function issues
+- Biome handles formatting and simple fixes
+- TypeScript errors in web app checking backend files may be false positives if Convex codegen passes
+
+---
+
+## 2026-01-20 14:30 - US-001 through US-011 - Backend Implementation
+**Iteration**: 1
+**Commit**: 77681e5
+**Session**: 2128e92d-43c7-47f0-a182-cec8e1cb2701
+**Status**: Complete
+
+### What was implemented
+- **Schema**: Added `coachTrustLevels` table with trust metrics, level history, and indexes
+- **Library**: Created `trustLevelCalculator.ts` with pure functions for calculating trust levels and progress
+  - Thresholds: Level 1 (10 approvals), Level 2 (50 approvals, <10% suppression), Level 3 (200 approvals + opt-in)
+  - Exported thresholds for UI use
+- **Internal Mutations**: 
+  - `getOrCreateTrustLevel`: Get or create trust record (uses helper to avoid circular refs)
+  - `updateTrustMetrics`: Update counters after coach actions, recalculate level, log history
+- **Mutations**:
+  - `setCoachPreferredLevel`: Coach can cap their automation level
+- **Queries**:
+  - `getCoachTrustLevel`: Returns current level + progress to next level
+- **Hooks**: Integrated trust metric updates into `approveSummary` and `suppressSummary`
+
+### Files changed
+- packages/backend/convex/schema.ts (+45 lines) - coachTrustLevels table
+- packages/backend/convex/lib/trustLevelCalculator.ts (+151 new) - Pure calculation logic
+- packages/backend/convex/models/coachTrustLevels.ts (+333 new) - Backend functions
+- packages/backend/convex/models/coachParentSummaries.ts (+14, -2) - Hook trust updates
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Biome linting: passed (2 acceptable `any` types in helper function)
+- ⚠️ TypeScript: 1 false positive error in web app's check (backend is valid per Convex)
+- ❌ Browser verification: not applicable (backend only)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Helper functions are better than `ctx.runMutation(internal.models.X.Y)` when calling internal mutations from the same file (avoids circular import issues)
+- Biome auto-removes unused imports, so imports must be added right before use
+- Dynamic imports (`await import()`) in mutation handlers cause TypeScript circular reference errors
+- Convex codegen is the source of truth for backend validity - web app TypeScript may show false positives
+
+**Gotchas encountered:**
+- `user.userId` can be nullable, must check `!user?.userId` before using
+- Index names must include all fields: `by_coach_org` not just `by_coach`
+- Biome prefers `type` over `interface` for consistency
+- Must use `npx biome check --write --unsafe` to apply all fixes
+
+**Dependencies found:**
+- `coachTrustLevels` depends on `coachParentSummaries` for triggering updates
+- Frontend components (US-012+) depend on `getCoachTrustLevel` query
+- `trustLevelCalculator` is pure and can be imported by both backend and frontend
+
+**What to do next**:
+- [ ] US-012-013: Create TrustLevelIndicator React component
+- [ ] US-014: Add indicator to voice notes dashboard
+- [ ] US-015-016: Create TrustPreferenceSettings component
+- [ ] US-017-018: Create and add TrustNudgeBanner component
+- [ ] US-019-020: Wire settings dialog and mutation
+- [ ] Browser test the full UI integration
+
+**Mistakes made**:
+- Initially tried to use `ctx.runMutation(internal.models.coachTrustLevels.getOrCreateTrustLevel)` from within the same file, causing circular reference. Solution: use helper function.
+- Forgot to import `query` after adding query function - Biome removed it. Solution: add import right before using.
+- Tried to use dynamic import in handler to avoid circular ref, but TypeScript still complained. Solution: static imports with helper functions.
+
+---

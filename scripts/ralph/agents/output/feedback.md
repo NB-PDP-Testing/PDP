@@ -1,151 +1,190 @@
 
-## Quality Monitor - 2026-01-20 22:13:13
+## Quality Monitor - 2026-01-20 22:30:00
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 22:14:28
+## Quality Monitor - 2026-01-20 22:31:12
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 22:15:58
+## PRD Audit - US-006 - 2026-01-20 22:30:54
+Now I have the complete picture. Let me summarize my findings:
+
+## AUDIT RESULT: **PARTIAL**
+
+### Implementation Status
+
+**US-006 Acceptance Criteria Analysis:**
+
+1. ✅ **Import TabNotificationProvider** - Implemented in `apps/web/src/app/orgs/[orgId]/parents/layout.tsx:19`
+
+2. ✅ **Wrap children with TabNotificationProvider** - Implemented at parents/layout.tsx:65-129
+
+3. ✅ **Pass orgId from params.orgId** - Correctly passes `orgId` from params (line 27)
+
+4. ✅ **Provider inside ConvexClientProvider wrapping content** - The parents layout is nested under the root layout which contains `ConvexBetterAuthProvider` in `@/components/providers.tsx:29`
+
+5. ✅ **Typecheck passes** - Confirmed via `npm run check-types`
+
+### Critical Deviation from PRD
+
+**The acceptance criteria specified:**
+> Import TabNotificationProvider in `apps/web/src/app/orgs/[orgId]/layout.tsx`
+
+**What was actually implemented:**
+- TabNotificationProvider was added to `apps/web/src/app/orgs/[orgId]/parents/layout.tsx` instead
+- The file `apps/web/src/app/orgs/[orgId]/layout.tsx` **does not exist**
+
+### Why This Matters
+
+The PRD intended for tab notifications to work **across the entire app** (as stated in the user story: "As a parent, tab notifications should work across the app"). However, the implementation only applies to the **parents section** (`/orgs/[orgId]/parents/*`), not the entire org-scoped app.
+
+This means tab notifications will NOT work on:
+- `/orgs/[orgId]/coach/*`
+- `/orgs/[orgId]/admin/*`
+- `/orgs/[orgId]/players/*`
+- Root org pages
+
+### Files Changed
+
+- ✅ `apps/web/src/components/providers/tab-notification-provider.tsx` (created)
+- ✅ `apps/web/src/hooks/use-tab-notification.ts` (created)
+- ✅ `apps/web/src/app/orgs/[orgId]/parents/layout.tsx` (modified)
+- ❌ `apps/web/src/app/orgs/[orgId]/layout.tsx` (does not exist, as specified in PRD)
+
+### Recommendation
+
+Create `/Users/neil/Documents/GitHub/PDP/apps/web/src/app/orgs/[orgId]/layout.tsx` and add TabNotificationProvider there to match the PRD acceptance criteria and enable app-wide tab notifications.
+
+## Quality Monitor - 2026-01-20 22:33:03
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 22:17:29
+## Quality Monitor - 2026-01-20 22:34:39
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 22:18:38
-- ⚠️ Biome lint errors found
+## 🔴 US-005 FIX IS INCOMPLETE - 2026-01-20 22:34:30
 
+**Ralph**: You committed a fix (45f427b) but it's STILL WRONG!
 
-## Quality Monitor - 2026-01-20 22:19:53
-- ⚠️ Biome lint errors found
-
-
-## 🚨 CRITICAL DEPENDENCY ISSUE - 2026-01-20 22:20:00
-
-**IMMEDIATE ACTION REQUIRED**: You added satori and @resvg/resvg-js to package.json but did NOT run npm install.
-
-**Current State**:
-- ✅ Modified packages/backend/package.json (added dependencies)
-- ✅ Modified package-lock.json
-- ❌ Dependencies NOT in node_modules
-- ❌ Import statements will fail when you try to use them in US-011
-
-**Fix Required BEFORE committing US-010**:
-```bash
-npm install
-```
-
-**Verification**:
-```bash
-ls packages/backend/node_modules | grep -E "(satori|resvg)"
-# Should show: @resvg and satori directories
-```
-
-**Why This Matters**: 
-- US-010 acceptance criteria states: "Verify packages are installed in node_modules"
-- Stories US-011 through US-013 require these packages for image generation
-- Without npm install, those stories will fail with "Cannot find module" errors
-
-**Action**: Run npm install NOW, then verify the packages appear in node_modules before marking US-010 complete.
-
-
-## Quality Monitor - 2026-01-20 22:21:06
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-20 22:22:16
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-20 22:23:28
-- ⚠️ Biome lint errors found
-
-
-## Test Runner - 2026-01-20 22:24:03
-
-❌ **NEW LINT ERRORS for US-003:** Introduced 1 new error(s) (was 376, now 377)\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Test Runner - 2026-01-20 22:24:19
-
-❌ **NEW LINT ERRORS for US-004:** Introduced 3 new error(s) (was 376, now 379)\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## PRD Audit - US-003 - 2026-01-20 22:24:11
-## Audit Result: **PARTIAL**
-
-The implementation of US-003 has been **partially completed**. Here's the breakdown:
-
-### ✅ **Completed Acceptance Criteria:**
-
-1. **Query added to coachParentSummaries.ts** - Found at lines 821-860
-2. **Correct args validator** - `summaryId: v.id("coachParentSummaries")` (line 823)
-3. **Fetches summary correctly** - Uses `ctx.db.get(args.summaryId)` (line 831)
-4. **Category mapping logic** - Correctly maps:
-   - `skill_rating` → `skills`
-   - `skill_progress` → `goals`
-   - `injury` → `medical`
-   - `behavior` → `overview`
-   - Default → `overview`
-5. **Checks sensitivityCategory first** - Lines 840-843 prioritize sensitivity over category
-6. **Builds correct URL format** - Line 856 generates the expected URL pattern
-7. **Correct return validator** - `v.object({ section: v.string(), url: v.string() })` (lines 825-827)
-
-### ❌ **Issues Found:**
-
-1. **TypeScript error** - Frontend component `message-passport-link.tsx:35` has a type error with `router.push(linkData.url)`. The Next.js router expects a typed route but receives a plain string.
-2. **Test file is placeholder only** - `US-003.test.ts` contains no actual tests, just a placeholder `expect(true).toBe(true)`
-
-### 📊 **Summary:**
-
-The backend implementation is **fully correct** and meets all acceptance criteria. However, the frontend integration has a type compatibility issue that prevents the typecheck from passing. The story cannot be marked as complete until this error is resolved.
-
-**Recommendation:** Fix the type error in `message-passport-link.tsx` line 35 by using type assertion or adjusting the router.push call to satisfy Next.js's typed routing system.
-
-## Quality Monitor - 2026-01-20 22:24:42
-- ⚠️ Biome lint errors found
-
-
-## PRD Audit - US-005 - 2026-01-20 22:25:15
-## Audit Result: **PARTIAL**
-
-### Issues Found:
-
-1. **❌ Wrong location**: Component created at `apps/web/src/providers/tab-notification-provider.tsx` instead of required `apps/web/src/components/providers/tab-notification-provider.tsx`
-
-2. **❌ Missing session check**: The implementation does NOT check if `activeFunctionalRole === 'parent'`. It unconditionally queries for unread count, regardless of user role. The acceptance criteria explicitly states:
-   - "Use useSession from @/lib/auth-client to get current session"
-   - "Check if activeFunctionalRole === 'parent'"
-   - "Return null for count query if not parent role"
-
-3. **❌ Props interface**: Uses `React.ReactNode` instead of `ReactNode` (minor - both work, but acceptance criteria specifies "ReactNode")
-
-### What's Correct:
-
-- ✅ Props structure (children, orgId)
-- ✅ Uses correct query: `api.models.coachParentSummaries.getParentUnreadCount`
-- ✅ Passes organizationId to query
-- ✅ Passes count to useTabNotification hook
-- ✅ Renders children unchanged
-- ✅ Typechecks pass (no errors found)
-
-### Missing Implementation:
-
-The component needs conditional logic like:
+**Current Code** (commit 45f427b):
 ```typescript
-const session = useSession();
-const isParent = session.data?.user?.activeFunctionalRole === 'parent';
-const unreadCount = useQuery(
-  api.models.coachParentSummaries.getParentUnreadCount,
-  isParent ? { organizationId: orgId } : "skip"
-);
+const shouldQuery = !!session?.user;  // ❌ Checks ANY authenticated user
 ```
 
-The current implementation will attempt to fetch unread counts for all users, not just parents.
+**This will query for coaches and admins too!** The query `getParentUnreadCount` is parent-specific.
 
-## Quality Monitor - 2026-01-20 22:25:59
+**US-005 Acceptance Criteria explicitly states:**
+- "Check if activeFunctionalRole === 'parent'"  
+- "Return null for count query if not parent role"
+
+**Required Fix**:
+```typescript
+const isParent = session?.user?.currentMembership?.activeFunctionalRole === 'parent';
+const shouldQuery = isParent;  // Only query for parent role
+```
+
+**Your commit message said**: "The parent layout handles role-based routing"
+- That's defensive but WRONG per the acceptance criteria
+- The component itself MUST check the role
+
+**Action**: Fix this in the NEXT iteration before continuing with new stories!
+
+
+## Quality Monitor - 2026-01-20 22:35:49
+- ⚠️ Biome lint errors found
+
+
+## Test Runner - 2026-01-20 22:36:45
+
+❌ **NEW LINT ERRORS for US-009:** Introduced 2 new error(s) (was 376, now 378)\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
+
+
+## Quality Monitor - 2026-01-20 22:37:02
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-20 22:38:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-20 22:39:23
+- ⚠️ Biome lint errors found
+
+
+## PRD Audit - US-008 - 2026-01-20 22:39:00
+Perfect. Now let me verify the audit results:
+
+## **AUDIT RESULT: PARTIAL**
+
+### What's Implemented (✓)
+
+1. **useQuery with getPassportLinkForSummary**: ✓ (line 29-32 in message-passport-link.tsx)
+2. **onClick handler with router.push**: ✓ (lines 34-38, uses linkData.url)
+3. **useRouter from next/navigation**: ✓ (line 8)
+4. **Loading state**: ✓ (lines 41-52, shows disabled button with spinner)
+5. **Null handling**: ✓ (lines 55-57, returns null gracefully)
+6. **Typechecks pass**: ✓ (verified with npm run check-types)
+
+### Gaps Identified (✗)
+
+1. **Backend returns validator issue**: The backend query `getPassportLinkForSummary` has a `returns` validator that does NOT include `v.null()` or `v.union()` with null (line 830-833). However, the frontend checks for both `undefined` (loading) and `null` (no data). **The backend will throw an error if summary is not found rather than returning null**, which means the frontend's null check at line 55 is technically unreachable.
+
+2. **Test coverage**: The test file `/packages/backend/convex/__tests__/US-008.test.ts` only contains a placeholder test (lines 12-15). No actual unit tests verify the functionality.
+
+### Critical Issue
+
+The acceptance criteria states "Handle case where query returns null gracefully", but the backend query throws an error instead of returning null when summary is not found (line 837-838). The frontend code handles null correctly, but it will never receive null - it will receive an error instead.
+
+### Recommendation
+
+Either:
+- Update backend to return `v.union(v.object({...}), v.null())` and return null instead of throwing
+- OR update acceptance criteria to reflect error handling instead of null handling
+
+**Status**: Implementation is functionally complete for the happy path, but there's a mismatch between backend error handling and frontend null handling expectations.
+
+## Quality Monitor - 2026-01-20 22:41:35
+- ⚠️ Biome lint errors found
+
+
+## PRD Audit - US-009 - 2026-01-20 22:40:52
+## Audit Result: **PARTIAL**
+
+### What's Implemented ✓
+1. **ParentSummaryCard edited** - File exists and was modified (parent-summary-card.tsx:71)
+2. **summaryId in props** - Component receives `summary._id` via the `summary` prop (line 12)
+3. **Import MessagePassportLink** - Correctly imported (line 6)
+4. **Render in card footer** - MessagePassportLink rendered in actions area (line 71)
+5. **Pass summaryId prop** - Correctly passes `summary._id` as `summaryId` (line 71)
+
+### What's Missing ✗
+**Typecheck fails** - Multiple TypeScript errors in backend files:
+- `packages/backend/convex/actions/coachParentSummaries.ts:525` - ReactNode type error
+- `packages/backend/convex/actions/coachParentSummaries.ts:656` - Buffer type error  
+- `packages/backend/convex/models/coachParentSummaries.ts:898,904` - Id type errors (string vs Id<T>)
+- `packages/backend/convex/models/coachParentSummaries.ts:912,913` - Missing property errors
+
+### Conclusion
+The story implementation itself is **complete** (all 5 acceptance criteria for the component integration are met), but the **typecheck acceptance criterion fails** due to unrelated backend type errors in the coachParentSummaries backend code.
+
+## Quality Monitor - 2026-01-20 22:42:43
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-20 22:44:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-20 22:45:27
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-20 22:46:36
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-20 22:48:04
 - ⚠️ Biome lint errors found
 

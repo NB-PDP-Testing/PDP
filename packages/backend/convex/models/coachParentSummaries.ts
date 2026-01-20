@@ -1,7 +1,12 @@
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { internalMutation, mutation, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 import { authComponent } from "../auth";
 
 // ============================================================
@@ -856,5 +861,50 @@ export const getPassportLinkForSummary = query({
     const url = `/orgs/${summary.organizationId}/parents/children/${summary.playerIdentityId}/passport?section=${section}`;
 
     return { section, url };
+  },
+});
+
+/**
+ * Internal query: Fetch summary data for image generation
+ * Fetches summary with player, coach, and org names
+ */
+export const getSummaryForImage = internalQuery({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+  },
+  returns: v.union(
+    v.object({
+      content: v.string(),
+      playerFirstName: v.string(),
+      coachFirstName: v.string(),
+      orgName: v.string(),
+      generatedAt: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      return null;
+    }
+
+    // Fetch player
+    const player = await ctx.db.get(summary.playerIdentityId);
+    if (!player) {
+      return null;
+    }
+
+    // Fetch coach and org names (Better Auth tables)
+    // Better Auth tables aren't in our schema, use raw db access
+    const coach = (await (ctx.db as any).get(summary.coachId)) || null;
+    const org = (await (ctx.db as any).get(summary.organizationId)) || null;
+
+    return {
+      content: summary.publicSummary.content,
+      playerFirstName: player.firstName,
+      coachFirstName: coach?.firstName || "Coach",
+      orgName: org?.name || "Organization",
+      generatedAt: summary.publicSummary.generatedAt,
+    };
   },
 });

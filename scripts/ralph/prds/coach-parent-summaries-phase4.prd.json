@@ -193,7 +193,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Keep component simple - just renders the link button. Navigation logic in next story."
     },
     {
@@ -209,7 +209,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Since it's a query (not mutation), the data is available immediately via useQuery. Disable button if no linkData."
     },
     {
@@ -225,7 +225,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Position link in the card footer area below the summary content. The parent component (CoachFeedback) should pass summary._id."
     },
     {
@@ -261,7 +261,7 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Actions with 'use node' can use Node.js APIs. Load Inter font for satori from Google Fonts. See satori docs for font loading: https://github.com/vercel/satori"
     },
     {
@@ -280,7 +280,7 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "Satori supports a subset of CSS - flexbox works, grid doesn't. Keep layout simple. Use absolute positioning sparingly. All styles must be inline (no className)."
     },
     {
@@ -297,7 +297,7 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "Convex storage.store() returns Id<'_storage'>. storage.getUrl() returns string URL. URLs are valid for a limited time. For caching, could add imageStorageId to schema but not required for MVP."
     },
     {

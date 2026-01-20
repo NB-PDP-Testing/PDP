@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
-import { internalAction } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 
 /**
  * AI Model Configuration for Parent Summaries
@@ -473,5 +473,198 @@ export const processVoiceNoteInsight = internalAction({
     }
 
     return null;
+  },
+});
+
+/**
+ * Generate a shareable image card for a parent summary (US-011, US-012, US-013)
+ * Creates a branded 1200x630 PNG image using satori (JSX to SVG) and resvg (SVG to PNG)
+ *
+ * Image design:
+ * - Gradient background (PlayerARC brand colors: blue to purple)
+ * - PlayerARC logo/text at top
+ * - Quote-styled message content with player first name
+ * - Attribution: "From Coach [FirstName] at [Organization]"
+ * - Date in subtle text at bottom
+ *
+ * Storage: Uploads to Convex storage and returns URL
+ */
+export const generateShareableImage = action({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    // Dynamically import satori and resvg WASM for compatibility
+    const satori = (await import("satori")).default;
+    const { Resvg } = await import("@resvg/resvg-wasm");
+
+    // Fetch summary data with player, coach, org names
+    const summary = await ctx.runQuery(
+      internal.models.coachParentSummaries.getSummaryForImage,
+      {
+        summaryId: args.summaryId,
+      }
+    );
+
+    if (!summary) {
+      throw new Error("Summary not found");
+    }
+
+    // Format date (e.g., "January 20, 2026")
+    const date = new Date(summary.generatedAt);
+    const formattedDate = date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    // Generate SVG using satori (US-012)
+    // Satori supports flexbox layout, inline styles only
+    // Type assertion needed as satori has its own JSX-like type system
+    const svg = await satori(
+      {
+        type: "div",
+        props: {
+          style: {
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            alignItems: "center",
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            padding: "60px",
+            fontFamily: "Inter, sans-serif",
+          },
+          children: [
+            {
+              type: "div",
+              props: {
+                style: {
+                  fontSize: "48px",
+                  fontWeight: "bold",
+                  color: "white",
+                  marginBottom: "40px",
+                },
+                children: "PlayerARC",
+              },
+            },
+            {
+              type: "div",
+              props: {
+                style: {
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  textAlign: "center",
+                  maxWidth: "900px",
+                },
+                children: [
+                  {
+                    type: "div",
+                    props: {
+                      style: {
+                        fontSize: "36px",
+                        color: "white",
+                        marginBottom: "20px",
+                        lineHeight: "1.4",
+                      },
+                      children: `"${summary.content}"`,
+                    },
+                  },
+                  {
+                    type: "div",
+                    props: {
+                      style: {
+                        fontSize: "28px",
+                        color: "rgba(255, 255, 255, 0.9)",
+                        fontStyle: "italic",
+                      },
+                      children: `— for ${summary.playerFirstName}`,
+                    },
+                  },
+                ],
+              },
+            },
+            {
+              type: "div",
+              props: {
+                style: {
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  marginTop: "40px",
+                },
+                children: [
+                  {
+                    type: "div",
+                    props: {
+                      style: {
+                        fontSize: "24px",
+                        color: "rgba(255, 255, 255, 0.8)",
+                        marginBottom: "10px",
+                      },
+                      children: `From Coach ${summary.coachFirstName} at ${summary.orgName}`,
+                    },
+                  },
+                  {
+                    type: "div",
+                    props: {
+                      style: {
+                        fontSize: "18px",
+                        color: "rgba(255, 255, 255, 0.6)",
+                      },
+                      children: formattedDate,
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        // biome-ignore lint/suspicious/noExplicitAny: satori JSX-like type system
+      } as any,
+      {
+        width: 1200,
+        height: 630,
+        fonts: [
+          {
+            name: "Inter",
+            data: await fetch(
+              "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.woff"
+            ).then((res) => res.arrayBuffer()),
+            weight: 400,
+            style: "normal",
+          },
+          {
+            name: "Inter",
+            data: await fetch(
+              "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hjp-Ek-_EeA.woff"
+            ).then((res) => res.arrayBuffer()),
+            weight: 700,
+            style: "normal",
+          },
+        ],
+      }
+    );
+
+    // Convert SVG to PNG using resvg (US-013)
+    const resvg = new Resvg(svg);
+    const pngData = resvg.render();
+    const pngBuffer = pngData.asPng();
+
+    // Store in Convex storage (US-013)
+    // Convert Buffer to Uint8Array for Blob
+    const pngArray = new Uint8Array(pngBuffer);
+    const blob = new Blob([pngArray], { type: "image/png" });
+    const storageId = await ctx.storage.store(blob);
+    const url = await ctx.storage.getUrl(storageId);
+
+    if (!url) {
+      throw new Error("Failed to generate storage URL");
+    }
+
+    return url;
   },
 });

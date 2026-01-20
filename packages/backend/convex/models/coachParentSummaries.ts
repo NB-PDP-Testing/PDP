@@ -5,6 +5,91 @@ import { internalMutation, mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 
 // ============================================================
+// VALIDATORS
+// ============================================================
+
+const summaryValidator = v.object({
+  _id: v.id("coachParentSummaries"),
+  _creationTime: v.number(),
+  voiceNoteId: v.id("voiceNotes"),
+  insightId: v.string(),
+  coachId: v.string(),
+  playerIdentityId: v.id("playerIdentities"),
+  organizationId: v.string(),
+  sportId: v.id("sports"),
+  privateInsight: v.object({
+    title: v.string(),
+    description: v.string(),
+    category: v.string(),
+    sentiment: v.union(
+      v.literal("positive"),
+      v.literal("neutral"),
+      v.literal("concern")
+    ),
+  }),
+  publicSummary: v.object({
+    content: v.string(),
+    confidenceScore: v.number(),
+    generatedAt: v.number(),
+  }),
+  sensitivityCategory: v.union(
+    v.literal("normal"),
+    v.literal("injury"),
+    v.literal("behavior")
+  ),
+  status: v.union(
+    v.literal("pending_review"),
+    v.literal("approved"),
+    v.literal("suppressed"),
+    v.literal("auto_approved"),
+    v.literal("delivered"),
+    v.literal("viewed")
+  ),
+  createdAt: v.number(),
+  approvedAt: v.optional(v.number()),
+  approvedBy: v.optional(v.string()),
+  deliveredAt: v.optional(v.number()),
+  viewedAt: v.optional(v.number()),
+});
+
+const playerIdentityValidator = v.object({
+  _id: v.id("playerIdentities"),
+  _creationTime: v.number(),
+  firstName: v.string(),
+  lastName: v.string(),
+  dateOfBirth: v.string(),
+  gender: v.union(v.literal("male"), v.literal("female"), v.literal("other")),
+  playerType: v.union(v.literal("youth"), v.literal("adult")),
+  userId: v.optional(v.string()),
+  email: v.optional(v.string()),
+  phone: v.optional(v.string()),
+  address: v.optional(v.string()),
+  town: v.optional(v.string()),
+  postcode: v.optional(v.string()),
+  country: v.optional(v.string()),
+  verificationStatus: v.union(
+    v.literal("unverified"),
+    v.literal("guardian_verified"),
+    v.literal("self_verified"),
+    v.literal("document_verified")
+  ),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+  createdFrom: v.optional(v.string()),
+});
+
+const sportValidator = v.object({
+  _id: v.id("sports"),
+  _creationTime: v.number(),
+  code: v.string(),
+  name: v.string(),
+  governingBody: v.optional(v.string()),
+  description: v.optional(v.string()),
+  isActive: v.boolean(),
+  createdAt: v.number(),
+});
+
+// ============================================================
 // HELPER FUNCTIONS
 // ============================================================
 
@@ -193,7 +278,13 @@ export const getCoachPendingSummaries = query({
   args: {
     organizationId: v.string(),
   },
-  returns: v.array(v.any()),
+  returns: v.array(
+    v.object({
+      ...summaryValidator.fields,
+      player: v.union(playerIdentityValidator, v.null()),
+      sport: v.union(sportValidator, v.null()),
+    })
+  ),
   handler: async (ctx, args) => {
     // Authenticate user
     const user = await authComponent.safeGetAuthUser(ctx);
@@ -204,12 +295,11 @@ export const getCoachPendingSummaries = query({
     // Query summaries by coach with pending_review status
     const summaries = await ctx.db
       .query("coachParentSummaries")
-      .withIndex("by_coach", (q) => q.eq("coachId", user.userId || ""))
-      .filter((q) =>
-        q.and(
-          q.eq(q.field("organizationId"), args.organizationId),
-          q.eq(q.field("status"), "pending_review")
-        )
+      .withIndex("by_coach_org_status", (q) =>
+        q
+          .eq("coachId", user.userId || "")
+          .eq("organizationId", args.organizationId)
+          .eq("status", "pending_review")
       )
       .collect();
 
@@ -269,26 +359,32 @@ export const getParentUnreadCount = query({
     }
 
     // Count unread summaries across all linked players
+    // Query for approved and delivered statuses separately (no viewedAt)
     let count = 0;
     for (const link of links) {
-      const summaries = await ctx.db
+      const approvedSummaries = await ctx.db
         .query("coachParentSummaries")
-        .withIndex("by_player", (q) =>
-          q.eq("playerIdentityId", link.playerIdentityId)
-        )
-        .filter((q) =>
-          q.and(
-            q.eq(q.field("organizationId"), args.organizationId),
-            q.or(
-              q.eq(q.field("status"), "approved"),
-              q.eq(q.field("status"), "delivered")
-            ),
-            q.eq(q.field("viewedAt"), undefined)
-          )
+        .withIndex("by_player_org_status", (q) =>
+          q
+            .eq("playerIdentityId", link.playerIdentityId)
+            .eq("organizationId", args.organizationId)
+            .eq("status", "approved")
         )
         .collect();
 
-      count += summaries.length;
+      const deliveredSummaries = await ctx.db
+        .query("coachParentSummaries")
+        .withIndex("by_player_org_status", (q) =>
+          q
+            .eq("playerIdentityId", link.playerIdentityId)
+            .eq("organizationId", args.organizationId)
+            .eq("status", "delivered")
+        )
+        .collect();
+
+      // Count only unread ones (no viewedAt)
+      count += approvedSummaries.filter((s) => !s.viewedAt).length;
+      count += deliveredSummaries.filter((s) => !s.viewedAt).length;
     }
 
     return count;
@@ -303,7 +399,18 @@ export const getParentSummariesByChildAndSport = query({
   args: {
     organizationId: v.string(),
   },
-  returns: v.array(v.any()),
+  returns: v.array(
+    v.object({
+      player: playerIdentityValidator,
+      sportGroups: v.array(
+        v.object({
+          sport: v.union(sportValidator, v.null()),
+          summaries: v.array(summaryValidator),
+          unreadCount: v.number(),
+        })
+      ),
+    })
+  ),
   handler: async (ctx, args) => {
     // Authenticate user
     const user = await authComponent.safeGetAuthUser(ctx);
@@ -337,23 +444,42 @@ export const getParentSummariesByChildAndSport = query({
           return null;
         }
 
-        // Get all summaries for this player
-        const playerSummaries = await ctx.db
+        // Get all summaries for this player (query each status separately)
+        const approvedSummaries = await ctx.db
           .query("coachParentSummaries")
-          .withIndex("by_player", (q) =>
-            q.eq("playerIdentityId", link.playerIdentityId)
-          )
-          .filter((q) =>
-            q.and(
-              q.eq(q.field("organizationId"), args.organizationId),
-              q.or(
-                q.eq(q.field("status"), "approved"),
-                q.eq(q.field("status"), "delivered"),
-                q.eq(q.field("status"), "viewed")
-              )
-            )
+          .withIndex("by_player_org_status", (q) =>
+            q
+              .eq("playerIdentityId", link.playerIdentityId)
+              .eq("organizationId", args.organizationId)
+              .eq("status", "approved")
           )
           .collect();
+
+        const deliveredSummaries = await ctx.db
+          .query("coachParentSummaries")
+          .withIndex("by_player_org_status", (q) =>
+            q
+              .eq("playerIdentityId", link.playerIdentityId)
+              .eq("organizationId", args.organizationId)
+              .eq("status", "delivered")
+          )
+          .collect();
+
+        const viewedSummaries = await ctx.db
+          .query("coachParentSummaries")
+          .withIndex("by_player_org_status", (q) =>
+            q
+              .eq("playerIdentityId", link.playerIdentityId)
+              .eq("organizationId", args.organizationId)
+              .eq("status", "viewed")
+          )
+          .collect();
+
+        const playerSummaries = [
+          ...approvedSummaries,
+          ...deliveredSummaries,
+          ...viewedSummaries,
+        ];
 
         // Group by sport
         const sportMap = new Map<string, typeof playerSummaries>();

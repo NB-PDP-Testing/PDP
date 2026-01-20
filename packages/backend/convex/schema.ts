@@ -1652,6 +1652,12 @@ export default defineSchema({
       "organizationId",
       "playerIdentityId",
       "sportId",
+    ])
+    .index("by_coach_org_status", ["coachId", "organizationId", "status"])
+    .index("by_player_org_status", [
+      "playerIdentityId",
+      "organizationId",
+      "status",
     ]),
 
   // Track when parents view summaries

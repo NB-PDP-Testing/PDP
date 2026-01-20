@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as actions_coachParentSummaries from "../actions/coachParentSummaries.js";
 import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_messaging from "../actions/messaging.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
@@ -21,13 +22,17 @@ import type * as lib_ageGroupUtils from "../lib/ageGroupUtils.js";
 import type * as lib_analytics from "../lib/analytics.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
+import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
 import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
 import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
+import type * as models_aiModelConfig from "../models/aiModelConfig.js";
 import type * as models_checkUserRoles from "../models/checkUserRoles.js";
 import type * as models_coachParentMessages from "../models/coachParentMessages.js";
+import type * as models_coachParentSummaries from "../models/coachParentSummaries.js";
 import type * as models_coachTasks from "../models/coachTasks.js";
+import type * as models_coachTrustLevels from "../models/coachTrustLevels.js";
 import type * as models_coaches from "../models/coaches.js";
 import type * as models_demoAsks from "../models/demoAsks.js";
 import type * as models_diagnosticIdentityCheck from "../models/diagnosticIdentityCheck.js";
@@ -107,6 +112,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "actions/coachParentSummaries": typeof actions_coachParentSummaries;
   "actions/invitations": typeof actions_invitations;
   "actions/messaging": typeof actions_messaging;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
@@ -120,13 +126,17 @@ declare const fullApi: ApiFromModules<{
   "lib/analytics": typeof lib_analytics;
   "lib/consentGateway": typeof lib_consentGateway;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
+  "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;
   "migrations/cleanSlate": typeof migrations_cleanSlate;
   "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
+  "models/aiModelConfig": typeof models_aiModelConfig;
   "models/checkUserRoles": typeof models_checkUserRoles;
   "models/coachParentMessages": typeof models_coachParentMessages;
+  "models/coachParentSummaries": typeof models_coachParentSummaries;
   "models/coachTasks": typeof models_coachTasks;
+  "models/coachTrustLevels": typeof models_coachTrustLevels;
   "models/coaches": typeof models_coaches;
   "models/demoAsks": typeof models_demoAsks;
   "models/diagnosticIdentityCheck": typeof models_diagnosticIdentityCheck;

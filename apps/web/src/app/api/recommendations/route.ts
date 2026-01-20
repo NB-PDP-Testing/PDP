@@ -6,7 +6,28 @@ import { type NextRequest, NextResponse } from "next/server";
  *
  * This route acts as a server-side proxy to the Anthropic Claude API
  * to keep API keys secure and avoid CORS issues.
+ *
+ * Configuration (via environment variables):
+ * - ANTHROPIC_MODEL_RECOMMENDATIONS: Model to use (default: claude-3-5-haiku-20241022)
+ * - ANTHROPIC_MAX_TOKENS_RECOMMENDATIONS: Max tokens (default: 1500)
+ * - ANTHROPIC_TEMPERATURE_RECOMMENDATIONS: Temperature (default: 0.7)
  */
+
+const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
+const DEFAULT_MAX_TOKENS = 1500;
+const DEFAULT_TEMPERATURE = 0.7;
+
+function getConfig() {
+  return {
+    model: process.env.ANTHROPIC_MODEL_RECOMMENDATIONS || DEFAULT_MODEL,
+    maxTokens: process.env.ANTHROPIC_MAX_TOKENS_RECOMMENDATIONS
+      ? Number.parseInt(process.env.ANTHROPIC_MAX_TOKENS_RECOMMENDATIONS, 10)
+      : DEFAULT_MAX_TOKENS,
+    temperature: process.env.ANTHROPIC_TEMPERATURE_RECOMMENDATIONS
+      ? Number.parseFloat(process.env.ANTHROPIC_TEMPERATURE_RECOMMENDATIONS)
+      : DEFAULT_TEMPERATURE,
+  };
+}
 
 function buildCoachingPrompt(teamData: any): string {
   const playerSummaries = (teamData.players || [])
@@ -114,6 +135,9 @@ export async function POST(request: NextRequest) {
     // Build the prompt for Claude
     const prompt = buildCoachingPrompt(teamData);
 
+    // Get model configuration
+    const config = getConfig();
+
     // Call Claude API from server-side (no CORS issues)
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -123,9 +147,9 @@ export async function POST(request: NextRequest) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-3-5-haiku-20241022",
-        max_tokens: 1500,
-        temperature: 0.7,
+        model: config.model,
+        max_tokens: config.maxTokens,
+        temperature: config.temperature,
         messages: [
           {
             role: "user",

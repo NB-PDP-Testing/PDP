@@ -2942,7 +2942,7 @@
     </div>
 
     <script>"use strict";
-      function showToast(message) {
+      function _showToast(message) {
         const toast = document.getElementById("toast");
         toast.textContent = message;
         toast.classList.add("show");
@@ -2959,7 +2959,7 @@
         let current = "";
         sections.forEach((section) => {
           const sectionTop = section.offsetTop;
-          const sectionHeight = section.clientHeight;
+          const _sectionHeight = section.clientHeight;
           if (pageYOffset >= sectionTop - 200) {
             current = section.getAttribute("id");
           }

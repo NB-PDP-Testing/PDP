@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   Calendar,
+  CheckSquare,
   ChevronDown,
   ClipboardList,
   HeartPulse,
@@ -81,6 +82,11 @@ export function getCoachNavGroups(orgId: string): NavGroup[] {
           href: `/orgs/${orgId}/coach/goals`,
           label: "Goals",
           icon: TrendingUp,
+        },
+        {
+          href: `/orgs/${orgId}/coach/todos`,
+          label: "My Tasks",
+          icon: CheckSquare,
         },
         {
           href: `/orgs/${orgId}/coach/voice-notes`,

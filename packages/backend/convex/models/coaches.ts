@@ -296,6 +296,96 @@ export const updateCoachAssignments = mutation({
 });
 
 /**
+ * Get fellow coaches who share at least one team with the current coach
+ * Useful for task assignment dropdown
+ */
+export const getFellowCoachesForTeams = query({
+  args: {
+    userId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      userId: v.string(),
+      userName: v.string(),
+      email: v.optional(v.string()),
+      teams: v.array(v.string()),
+      sharedTeamCount: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // 1. Get current coach's teams
+    const myAssignment = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", args.userId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!myAssignment || myAssignment.teams.length === 0) {
+      return [];
+    }
+
+    const myTeamSet = new Set(myAssignment.teams);
+
+    // 2. Get all coach assignments in this org
+    const allAssignments = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // 3. Filter to coaches with shared teams (excluding self)
+    const fellowCoaches: {
+      userId: string;
+      teams: string[];
+      sharedTeamCount: number;
+    }[] = [];
+
+    for (const assignment of allAssignments) {
+      if (assignment.userId === args.userId) {
+        continue;
+      }
+
+      const sharedTeams = assignment.teams.filter((t) => myTeamSet.has(t));
+      if (sharedTeams.length > 0) {
+        fellowCoaches.push({
+          userId: assignment.userId,
+          teams: assignment.teams,
+          sharedTeamCount: sharedTeams.length,
+        });
+      }
+    }
+
+    // 4. Get user details from Better Auth
+    const results = [];
+    for (const coach of fellowCoaches) {
+      const userResult = await ctx.runQuery(
+        components.betterAuth.adapter.findOne,
+        {
+          model: "user",
+          where: [{ field: "id", value: coach.userId, operator: "eq" }],
+        }
+      );
+
+      if (userResult) {
+        results.push({
+          userId: coach.userId,
+          userName: userResult.name || userResult.email || "Unknown",
+          email: userResult.email,
+          teams: coach.teams,
+          sharedTeamCount: coach.sharedTeamCount,
+        });
+      }
+    }
+
+    // Sort by shared team count (most shared first)
+    return results.sort((a, b) => b.sharedTeamCount - a.sharedTeamCount);
+  },
+});
+
+/**
  * Migration: Convert coach assignments from team NAMES to team IDs
  * This fixes the issue where team renames break coach dashboards
  */
@@ -388,7 +478,7 @@ export const migrateCoachAssignmentsToTeamIds = mutation({
           teams: updatedTeams,
           updatedAt: Date.now(),
         });
-        assignmentsUpdated++;
+        assignmentsUpdated += 1;
       }
     }
 

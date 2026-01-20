@@ -1,0 +1,355 @@
+{
+  "phase": 5,
+  "name": "Advanced Trust & Automation",
+  "description": "Enable auto-approval based on trust levels and implement coach review dashboard",
+  "estimatedSprints": 1,
+  "dependencies": ["phase-2-trust-curve", "phase-3-sensitive-topics"],
+  "featureFlag": "auto-approval-enabled",
+
+  "objectives": [
+    "Enable auto-approval for high-trust coaches (level 2-3)",
+    "Implement confidence-based routing for level 2",
+    "Build review dashboard for auto-approved messages",
+    "Add activity-based nudging toward higher automation",
+    "Ensure sensitive topics always bypass auto-approval"
+  ],
+
+  "trustLevelBehaviors": {
+    "level0": {
+      "name": "New",
+      "behavior": "All summaries require manual approval",
+      "autoApprove": false,
+      "confidenceThreshold": null
+    },
+    "level1": {
+      "name": "Learning",
+      "behavior": "All summaries require manual approval, nudges shown",
+      "autoApprove": false,
+      "confidenceThreshold": null
+    },
+    "level2": {
+      "name": "Trusted",
+      "behavior": "High-confidence summaries auto-approve, low-confidence require review",
+      "autoApprove": true,
+      "confidenceThreshold": 80,
+      "note": "Only NORMAL sensitivity auto-approves"
+    },
+    "level3": {
+      "name": "Expert",
+      "behavior": "All NORMAL summaries auto-approve, coach can review",
+      "autoApprove": true,
+      "confidenceThreshold": 0,
+      "note": "Injury/Behavior NEVER auto-approve"
+    }
+  },
+
+  "deliverables": {
+    "backend": [
+      {
+        "id": "BE-5.1",
+        "name": "Auto-approval decision logic",
+        "type": "internal",
+        "file": "packages/backend/convex/lib/autoApprovalDecision.ts",
+        "description": "Determine if summary should auto-approve",
+        "inputs": [
+          "trustLevel (number)",
+          "confidenceScore (number)",
+          "sensitivityCategory (string)"
+        ],
+        "outputs": ["shouldAutoApprove (boolean)", "reason (string)"],
+        "rules": [
+          "If sensitivityCategory is injury or behavior: return false",
+          "If trustLevel < 2: return false",
+          "If trustLevel === 2 and confidenceScore < 80: return false",
+          "Otherwise: return true"
+        ]
+      },
+      {
+        "id": "BE-5.2",
+        "name": "Integrate auto-approval into pipeline",
+        "type": "mutation-modification",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Apply auto-approval decision when creating summary",
+        "changes": [
+          "After creating summary, call autoApprovalDecision",
+          "If shouldAutoApprove: set status to auto_approved",
+          "Store autoApproved: true and reason in record",
+          "Trigger notification pipeline immediately"
+        ]
+      },
+      {
+        "id": "BE-5.3",
+        "name": "getAutoApprovedSummaries query",
+        "type": "query",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Get recently auto-approved summaries for coach review",
+        "inputs": ["coachId", "organizationId", "timeRange (optional)"],
+        "outputs": ["Array of auto-approved summaries with delivery status"],
+        "defaultTimeRange": "last 7 days"
+      },
+      {
+        "id": "BE-5.4",
+        "name": "revokeAutoApproval mutation",
+        "type": "mutation",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Allow coach to revoke a recently auto-approved message",
+        "inputs": ["summaryId"],
+        "validation": "Only if status is auto_approved or delivered (not viewed)",
+        "outputs": ["success", "wasAlreadyViewed"],
+        "sideEffects": [
+          "If not viewed: change status to suppressed",
+          "If viewed: log revocation attempt but cannot undo"
+        ]
+      },
+      {
+        "id": "BE-5.5",
+        "name": "adjustAutoApprovalThreshold mutation",
+        "type": "mutation",
+        "file": "packages/backend/convex/models/coachTrustLevels.ts",
+        "description": "Allow coach to adjust their confidence threshold",
+        "inputs": ["coachId", "organizationId", "newThreshold (50-100)"],
+        "outputs": ["success"],
+        "note": "Higher threshold = more manual reviews"
+      },
+      {
+        "id": "BE-5.6",
+        "name": "Activity nudge calculation",
+        "type": "query",
+        "file": "packages/backend/convex/models/coachTrustLevels.ts",
+        "description": "Calculate if coach should see automation nudge",
+        "inputs": ["coachId", "organizationId"],
+        "outputs": ["shouldShowNudge", "nudgeType", "nudgeMessage"],
+        "nudgeTypes": [
+          "ELIGIBLE_FOR_LEVEL_2: 'You've approved 48/50 messages...'",
+          "SUGGEST_LEVEL_3: 'Enable full automation?'",
+          "REVIEW_AUTO_APPROVED: 'Review your 15 auto-sent messages'"
+        ]
+      }
+    ],
+
+    "frontend": [
+      {
+        "id": "FE-5.1",
+        "name": "AutoApprovedReviewDashboard component",
+        "type": "component",
+        "file": "apps/web/src/app/orgs/[orgId]/coach/voice-notes/auto-approved-review.tsx",
+        "description": "Dashboard for reviewing auto-approved messages",
+        "features": [
+          "List of recently auto-approved messages",
+          "Filter by date range, player, sport",
+          "Revoke button for unviewed messages",
+          "View parent reaction (if viewed)",
+          "Stats: total auto-approved, viewed rate"
+        ]
+      },
+      {
+        "id": "FE-5.2",
+        "name": "Navigation to review dashboard",
+        "type": "component-modification",
+        "file": "apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx",
+        "description": "Add link to auto-approved review for trust level 2+ coaches",
+        "changes": [
+          "Show 'Review Auto-Sent' button in header",
+          "Badge with count of recent auto-approved",
+          "Only visible for trust level 2+"
+        ]
+      },
+      {
+        "id": "FE-5.3",
+        "name": "AutomationNudgeBanner component",
+        "type": "component",
+        "file": "apps/web/src/components/coach/automation-nudge-banner.tsx",
+        "description": "Contextual nudge encouraging automation adoption",
+        "props": ["nudgeType", "nudgeMessage", "onDismiss", "onAction"],
+        "variants": {
+          "ELIGIBLE_FOR_LEVEL_2": {
+            "style": "info",
+            "action": "Enable Auto-Approval"
+          },
+          "SUGGEST_LEVEL_3": {
+            "style": "success",
+            "action": "Go Full Auto"
+          },
+          "REVIEW_AUTO_APPROVED": {
+            "style": "neutral",
+            "action": "Review Messages"
+          }
+        }
+      },
+      {
+        "id": "FE-5.4",
+        "name": "ConfidenceThresholdSlider component",
+        "type": "component",
+        "file": "apps/web/src/components/coach/confidence-threshold-slider.tsx",
+        "description": "Allow coach to adjust auto-approval sensitivity",
+        "props": ["currentThreshold", "onUpdate"],
+        "range": "50-100",
+        "labels": {
+          "50": "More automation (review fewer)",
+          "80": "Balanced (default)",
+          "100": "Maximum control (review all)"
+        }
+      },
+      {
+        "id": "FE-5.5",
+        "name": "Trust settings integration",
+        "type": "component-modification",
+        "file": "apps/web/src/components/coach/trust-preference-settings.tsx",
+        "description": "Add confidence threshold control to settings",
+        "changes": [
+          "Show ConfidenceThresholdSlider for level 2+ coaches",
+          "Explain what threshold means",
+          "Preview of current month's auto-approval stats"
+        ]
+      },
+      {
+        "id": "FE-5.6",
+        "name": "Auto-approval indicator on cards",
+        "type": "component",
+        "file": "apps/web/src/components/coach/auto-approval-badge.tsx",
+        "description": "Show when a summary will be auto-approved",
+        "displays": [
+          "For level 2+: 'Will auto-send' badge if conditions met",
+          "For pending review: 'Requires review' badge if below threshold"
+        ]
+      }
+    ]
+  },
+
+  "acceptanceCriteria": [
+    {
+      "id": "AC-5.1",
+      "description": "Trust level 2 coach's high-confidence summaries auto-approve",
+      "testType": "integration"
+    },
+    {
+      "id": "AC-5.2",
+      "description": "Trust level 2 coach's low-confidence summaries require review",
+      "testType": "integration"
+    },
+    {
+      "id": "AC-5.3",
+      "description": "Trust level 3 coach's all NORMAL summaries auto-approve",
+      "testType": "integration"
+    },
+    {
+      "id": "AC-5.4",
+      "description": "Injury summaries NEVER auto-approve regardless of trust level",
+      "testType": "integration"
+    },
+    {
+      "id": "AC-5.5",
+      "description": "Behavior summaries NEVER auto-approve regardless of trust level",
+      "testType": "integration"
+    },
+    {
+      "id": "AC-5.6",
+      "description": "Coach can review auto-approved messages in dashboard",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-5.7",
+      "description": "Coach can revoke auto-approved message before parent views",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-5.8",
+      "description": "Coach can adjust confidence threshold",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-5.9",
+      "description": "Activity-based nudges appear at appropriate times",
+      "testType": "e2e"
+    }
+  ],
+
+  "testCases": [
+    {
+      "id": "TC-5.1",
+      "name": "Level 2 auto-approval with high confidence",
+      "steps": [
+        "Coach is at trust level 2",
+        "Coach records positive skill observation",
+        "AI generates summary with confidence 92",
+        "System categorizes as NORMAL",
+        "System auto-approves (confidence 92 > threshold 80)",
+        "Parent receives notification immediately",
+        "Coach sees message in auto-approved review list"
+      ]
+    },
+    {
+      "id": "TC-5.2",
+      "name": "Level 2 requires review with low confidence",
+      "steps": [
+        "Coach is at trust level 2",
+        "Coach records ambiguous observation",
+        "AI generates summary with confidence 65",
+        "System categorizes as NORMAL",
+        "System does NOT auto-approve (65 < 80)",
+        "Coach sees message in pending review queue",
+        "Coach must approve manually"
+      ]
+    },
+    {
+      "id": "TC-5.3",
+      "name": "Level 3 injury still requires review",
+      "steps": [
+        "Coach is at trust level 3 (full automation)",
+        "Coach records injury observation",
+        "AI generates summary with confidence 95",
+        "System categorizes as INJURY",
+        "System does NOT auto-approve (injury always manual)",
+        "Coach sees injury card with checklist"
+      ]
+    },
+    {
+      "id": "TC-5.4",
+      "name": "Revoke auto-approved before view",
+      "steps": [
+        "Coach at level 3",
+        "Message auto-approved and delivered",
+        "Parent has NOT yet viewed",
+        "Coach goes to review dashboard",
+        "Coach clicks Revoke on message",
+        "Message status changed to suppressed",
+        "Parent no longer sees message"
+      ]
+    },
+    {
+      "id": "TC-5.5",
+      "name": "Cannot revoke after parent viewed",
+      "steps": [
+        "Coach at level 3",
+        "Message auto-approved and delivered",
+        "Parent views message",
+        "Coach goes to review dashboard",
+        "Revoke button is disabled or shows 'Already viewed'",
+        "System logs attempted revocation"
+      ]
+    },
+    {
+      "id": "TC-5.6",
+      "name": "Adjust confidence threshold",
+      "steps": [
+        "Coach at level 2 with default threshold 80",
+        "Coach changes threshold to 95",
+        "New message generated with confidence 88",
+        "System does NOT auto-approve (88 < 95)",
+        "Coach reviews manually"
+      ]
+    }
+  ],
+
+  "metrics": {
+    "tracking": [
+      "auto_approvals_by_trust_level (count)",
+      "auto_approval_revocations (count)",
+      "revocation_before_view_rate",
+      "revocation_after_view_attempts",
+      "confidence_threshold_adjustments (count)",
+      "nudge_shown_to_action_rate",
+      "time_from_eligible_to_level_up"
+    ]
+  }
+}

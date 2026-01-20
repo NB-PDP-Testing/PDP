@@ -6,7 +6,28 @@ import { type NextRequest, NextResponse } from "next/server";
  *
  * This route generates AI-powered insights by analyzing the comparison
  * between a coach's local assessments and shared passport data from other organizations.
+ *
+ * Configuration (via environment variables):
+ * - ANTHROPIC_MODEL_COMPARISON: Model to use (default: claude-3-5-haiku-20241022)
+ * - ANTHROPIC_MAX_TOKENS_COMPARISON: Max tokens (default: 2000)
+ * - ANTHROPIC_TEMPERATURE_COMPARISON: Temperature (default: 0.7)
  */
+
+const DEFAULT_MODEL = "claude-3-5-haiku-20241022";
+const DEFAULT_MAX_TOKENS = 2000;
+const DEFAULT_TEMPERATURE = 0.7;
+
+function getConfig() {
+  return {
+    model: process.env.ANTHROPIC_MODEL_COMPARISON || DEFAULT_MODEL,
+    maxTokens: process.env.ANTHROPIC_MAX_TOKENS_COMPARISON
+      ? Number.parseInt(process.env.ANTHROPIC_MAX_TOKENS_COMPARISON, 10)
+      : DEFAULT_MAX_TOKENS,
+    temperature: process.env.ANTHROPIC_TEMPERATURE_COMPARISON
+      ? Number.parseFloat(process.env.ANTHROPIC_TEMPERATURE_COMPARISON)
+      : DEFAULT_TEMPERATURE,
+  };
+}
 
 type ComparisonData = {
   playerName: string;
@@ -144,6 +165,9 @@ export async function POST(request: NextRequest) {
 
     const prompt = buildComparisonPrompt(comparisonData);
 
+    // Get model configuration
+    const config = getConfig();
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -152,9 +176,9 @@ export async function POST(request: NextRequest) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-3-5-haiku-20241022",
-        max_tokens: 2000,
-        temperature: 0.7,
+        model: config.model,
+        max_tokens: config.maxTokens,
+        temperature: config.temperature,
         messages: [
           {
             role: "user",

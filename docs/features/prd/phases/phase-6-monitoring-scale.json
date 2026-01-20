@@ -1,0 +1,433 @@
+{
+  "phase": 6,
+  "name": "Monitoring & Scale",
+  "description": "Implement cost monitoring, rate limiting, admin controls, and graceful degradation",
+  "estimatedSprints": 1,
+  "dependencies": ["phase-1-core-pipeline", "phase-5-advanced-automation"],
+  "featureFlag": "messaging-admin-controls",
+
+  "objectives": [
+    "Build cost monitoring dashboard for AI usage",
+    "Implement rate limiting at platform and org levels",
+    "Create platform admin controls for feature management",
+    "Implement graceful degradation under load or cost limits",
+    "Ensure audit trail completeness for compliance"
+  ],
+
+  "deliverables": {
+    "backend": [
+      {
+        "id": "BE-6.1",
+        "name": "messagingCosts schema",
+        "type": "schema",
+        "file": "packages/backend/convex/schema.ts",
+        "description": "Track AI API costs per organization",
+        "fields": [
+          "organizationId (string)",
+          "date (string, YYYY-MM-DD)",
+          "summaryGenerations (number)",
+          "classifications (number)",
+          "qualityReviews (number)",
+          "totalTokensInput (number)",
+          "totalTokensOutput (number)",
+          "estimatedCostUsd (number)",
+          "createdAt, updatedAt"
+        ],
+        "indexes": ["by_org_date"]
+      },
+      {
+        "id": "BE-6.2",
+        "name": "messagingRateLimits schema",
+        "type": "schema",
+        "file": "packages/backend/convex/schema.ts",
+        "description": "Configure rate limits per organization",
+        "fields": [
+          "organizationId (string, or 'platform' for global)",
+          "maxMessagesPerDay (number)",
+          "maxMessagesPerCoach (number)",
+          "maxCostPerDayUsd (number)",
+          "currentDayCount (number)",
+          "currentDayDate (string)",
+          "isThrottled (boolean)",
+          "throttledReason (optional string)",
+          "createdAt, updatedAt"
+        ],
+        "indexes": ["by_org"]
+      },
+      {
+        "id": "BE-6.3",
+        "name": "trackAICost internal function",
+        "type": "internal",
+        "file": "packages/backend/convex/lib/costTracking.ts",
+        "description": "Track costs after each AI call",
+        "inputs": [
+          "organizationId",
+          "operationType (summary|classification|quality)",
+          "tokensInput",
+          "tokensOutput"
+        ],
+        "costRates": {
+          "haiku_input": 0.00025,
+          "haiku_output": 0.00125,
+          "sonnet_input": 0.003,
+          "sonnet_output": 0.015,
+          "opus_input": 0.015,
+          "opus_output": 0.075
+        },
+        "sideEffects": ["Update messagingCosts for org/date"]
+      },
+      {
+        "id": "BE-6.4",
+        "name": "checkRateLimit query",
+        "type": "query",
+        "file": "packages/backend/convex/models/messagingRateLimits.ts",
+        "description": "Check if org can generate new summaries",
+        "inputs": ["organizationId"],
+        "outputs": ["isAllowed", "reason", "remainingToday", "resetAt"],
+        "checks": [
+          "Platform-level enabled flag",
+          "Org daily message count < limit",
+          "Org daily cost < limit",
+          "Global daily count < limit"
+        ]
+      },
+      {
+        "id": "BE-6.5",
+        "name": "Integrate rate limiting into pipeline",
+        "type": "mutation-modification",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Check rate limits before generating summaries",
+        "changes": [
+          "Call checkRateLimit before AI generation",
+          "If not allowed: return appropriate error",
+          "If approaching limit: log warning",
+          "Increment daily counters after success"
+        ]
+      },
+      {
+        "id": "BE-6.6",
+        "name": "Platform messaging settings",
+        "type": "mutation",
+        "file": "packages/backend/convex/models/platformSettings.ts",
+        "description": "Platform-level messaging configuration",
+        "settings": {
+          "coachParentMessagingEnabled": "boolean",
+          "globalMaxMessagesPerDay": "number",
+          "globalMaxCostPerDayUsd": "number",
+          "degradationMode": "none|throttle|pause",
+          "throttleDelayMs": "number"
+        }
+      },
+      {
+        "id": "BE-6.7",
+        "name": "getMessagingAnalytics query",
+        "type": "query",
+        "file": "packages/backend/convex/models/messagingAnalytics.ts",
+        "description": "Comprehensive analytics for platform admins",
+        "inputs": ["dateRange", "organizationId (optional)"],
+        "outputs": {
+          "totalMessages": "number",
+          "totalCostUsd": "number",
+          "messagesByOrg": "array",
+          "approvalRates": "object",
+          "trustLevelDistribution": "object",
+          "topCoaches": "array"
+        }
+      },
+      {
+        "id": "BE-6.8",
+        "name": "Audit log enhancements",
+        "type": "schema-modification",
+        "file": "packages/backend/convex/schema.ts",
+        "description": "Enhanced audit logging for compliance",
+        "newFields": {
+          "coachParentSummaries": [
+            "auditLog (array of events)",
+            "costAllocation (object with cost breakdown)"
+          ]
+        },
+        "eventTypes": [
+          "created",
+          "auto_approved",
+          "manually_approved",
+          "suppressed",
+          "delivered",
+          "viewed",
+          "revoked",
+          "cost_tracked"
+        ]
+      }
+    ],
+
+    "frontend": [
+      {
+        "id": "FE-6.1",
+        "name": "MessagingCostDashboard component",
+        "type": "component",
+        "file": "apps/web/src/app/platform/messaging/cost-dashboard.tsx",
+        "description": "Platform admin view of AI costs",
+        "features": [
+          "Daily/weekly/monthly cost charts",
+          "Cost breakdown by organization",
+          "Cost breakdown by operation type",
+          "Projected monthly cost",
+          "Alerts when approaching limits"
+        ]
+      },
+      {
+        "id": "FE-6.2",
+        "name": "RateLimitSettings component",
+        "type": "component",
+        "file": "apps/web/src/app/platform/messaging/rate-limit-settings.tsx",
+        "description": "Configure rate limits",
+        "features": [
+          "Set global daily limits",
+          "Set per-org overrides",
+          "View current usage vs limits",
+          "Enable/disable throttling",
+          "Configure throttle parameters"
+        ]
+      },
+      {
+        "id": "FE-6.3",
+        "name": "MessagingFeatureToggle component",
+        "type": "component",
+        "file": "apps/web/src/app/platform/messaging/feature-toggle.tsx",
+        "description": "Master on/off and degradation controls",
+        "features": [
+          "Enable/disable entire feature",
+          "Switch degradation modes",
+          "View current status",
+          "Emergency disable button"
+        ]
+      },
+      {
+        "id": "FE-6.4",
+        "name": "OrgMessagingAnalytics component",
+        "type": "component",
+        "file": "apps/web/src/app/orgs/[orgId]/admin/messaging-analytics.tsx",
+        "description": "Org admin view of messaging stats",
+        "features": [
+          "Messages sent this period",
+          "Approval/suppression rates",
+          "Parent engagement metrics",
+          "Coach activity leaderboard"
+        ]
+      },
+      {
+        "id": "FE-6.5",
+        "name": "ThrottledBanner component",
+        "type": "component",
+        "file": "apps/web/src/components/messaging/throttled-banner.tsx",
+        "description": "User-facing banner when system is throttled",
+        "variants": {
+          "throttled": "Message delivery may be delayed",
+          "paused": "Coach messages are temporarily paused"
+        },
+        "placement": "Coach voice notes dashboard"
+      },
+      {
+        "id": "FE-6.6",
+        "name": "Platform messaging admin page",
+        "type": "page",
+        "file": "apps/web/src/app/platform/messaging/page.tsx",
+        "description": "Central admin page for messaging feature",
+        "sections": [
+          "Feature status and toggle",
+          "Cost dashboard",
+          "Rate limit settings",
+          "Analytics overview"
+        ]
+      }
+    ]
+  },
+
+  "degradationModes": {
+    "none": {
+      "description": "Normal operation",
+      "behavior": "All features work normally"
+    },
+    "throttle": {
+      "description": "Delayed processing",
+      "behavior": [
+        "New summaries queued instead of immediate",
+        "Process queue every X minutes",
+        "Coach sees delay warning",
+        "Parent notifications batched"
+      ]
+    },
+    "pause": {
+      "description": "Feature temporarily disabled",
+      "behavior": [
+        "No new summaries generated",
+        "Voice notes still transcribed",
+        "Insights still extracted",
+        "Summaries queued for when resumed",
+        "Banner shown to coaches"
+      ]
+    }
+  },
+
+  "acceptanceCriteria": [
+    {
+      "id": "AC-6.1",
+      "description": "AI costs are tracked per organization per day",
+      "testType": "integration"
+    },
+    {
+      "id": "AC-6.2",
+      "description": "Platform admin can view cost dashboard with breakdown",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-6.3",
+      "description": "Rate limits prevent exceeding daily message count",
+      "testType": "integration"
+    },
+    {
+      "id": "AC-6.4",
+      "description": "Rate limits prevent exceeding daily cost limit",
+      "testType": "integration"
+    },
+    {
+      "id": "AC-6.5",
+      "description": "Platform admin can enable/disable feature globally",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-6.6",
+      "description": "Throttle mode delays but eventually delivers messages",
+      "testType": "integration"
+    },
+    {
+      "id": "AC-6.7",
+      "description": "Pause mode shows appropriate user banners",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-6.8",
+      "description": "Audit logs capture complete message lifecycle",
+      "testType": "integration"
+    }
+  ],
+
+  "testCases": [
+    {
+      "id": "TC-6.1",
+      "name": "Cost tracking accuracy",
+      "steps": [
+        "Generate 10 summaries for org",
+        "Check messagingCosts record",
+        "Verify token counts match API responses",
+        "Verify estimated cost calculation",
+        "Compare with actual Anthropic invoice"
+      ]
+    },
+    {
+      "id": "TC-6.2",
+      "name": "Daily message limit enforcement",
+      "steps": [
+        "Set org limit to 5 messages/day",
+        "Generate 5 summaries",
+        "Attempt 6th summary",
+        "System returns rate limit error",
+        "Coach sees appropriate message",
+        "After midnight: limit resets"
+      ]
+    },
+    {
+      "id": "TC-6.3",
+      "name": "Cost limit enforcement",
+      "steps": [
+        "Set org limit to $0.10/day",
+        "Generate summaries until approaching limit",
+        "System warns when at 80%",
+        "System blocks when at 100%",
+        "Messages queued for next day"
+      ]
+    },
+    {
+      "id": "TC-6.4",
+      "name": "Throttle mode behavior",
+      "steps": [
+        "Platform admin enables throttle mode",
+        "Coach records voice note",
+        "Summary generated but queued",
+        "Coach sees delay banner",
+        "After throttle delay: summary delivered",
+        "Parent eventually notified"
+      ]
+    },
+    {
+      "id": "TC-6.5",
+      "name": "Pause mode behavior",
+      "steps": [
+        "Platform admin enables pause mode",
+        "Coach records voice note",
+        "Transcription works normally",
+        "Insights extracted normally",
+        "Summary generation skipped",
+        "Coach sees paused banner",
+        "Platform admin resumes feature",
+        "Queued insights get summaries generated"
+      ]
+    },
+    {
+      "id": "TC-6.6",
+      "name": "Audit log completeness",
+      "steps": [
+        "Generate summary",
+        "Coach approves",
+        "Parent views",
+        "Check audit log",
+        "Verify events: created, approved, delivered, viewed",
+        "Verify timestamps and actor IDs"
+      ]
+    }
+  ],
+
+  "alertConfiguration": {
+    "costAlerts": [
+      {
+        "threshold": 0.8,
+        "action": "Log warning",
+        "message": "Org approaching 80% of daily cost limit"
+      },
+      {
+        "threshold": 1.0,
+        "action": "Block + notify admin",
+        "message": "Org has reached daily cost limit"
+      },
+      {
+        "thresholdUsd": 100,
+        "scope": "platform",
+        "action": "Alert platform admin",
+        "message": "Platform daily AI cost exceeds $100"
+      }
+    ],
+    "volumeAlerts": [
+      {
+        "metric": "messages_per_hour",
+        "threshold": 500,
+        "action": "Log warning + consider throttle"
+      }
+    ]
+  },
+
+  "metrics": {
+    "tracking": [
+      "daily_cost_usd (gauge)",
+      "daily_messages (gauge)",
+      "cost_per_message (histogram)",
+      "rate_limit_hits (count)",
+      "throttle_duration_minutes (gauge)",
+      "pause_duration_minutes (gauge)",
+      "audit_log_events (count by type)"
+    ],
+    "dashboards": [
+      "Platform Messaging Overview",
+      "Per-Org Cost Breakdown",
+      "System Health & Limits"
+    ]
+  }
+}

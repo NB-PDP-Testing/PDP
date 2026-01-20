@@ -2,6 +2,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 
 /**
@@ -180,5 +181,111 @@ Respond in JSON format:
       confidenceScore: Number(result.confidenceScore),
       flags: result.flags || [],
     };
+  },
+});
+
+/**
+ * Process voice note insight and create parent summary
+ * Orchestrates the full pipeline: classify → generate → store
+ */
+export const processVoiceNoteInsight = internalAction({
+  args: {
+    voiceNoteId: v.id("voiceNotes"),
+    insightId: v.string(),
+    insightTitle: v.string(),
+    insightDescription: v.string(),
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    sportId: v.id("sports"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      console.log("🔄 Processing voice note insight for parent summary", {
+        voiceNoteId: args.voiceNoteId,
+        insightId: args.insightId,
+        playerIdentityId: args.playerIdentityId,
+      });
+
+      // Step 1: Classify sensitivity
+      const classification = await ctx.runAction(
+        internal.actions.coachParentSummaries.classifyInsightSensitivity,
+        {
+          insightTitle: args.insightTitle,
+          insightDescription: args.insightDescription,
+        }
+      );
+
+      console.log("📊 Classification result:", classification);
+
+      // Step 2: Get player info for context
+      const player = await ctx.runQuery(
+        internal.models.playerIdentities.getById,
+        { id: args.playerIdentityId }
+      );
+
+      if (!player) {
+        console.error("❌ Player not found:", args.playerIdentityId);
+        return null;
+      }
+
+      // Step 3: Get sport info for context
+      const sport = await ctx.runQuery(internal.models.sports.getById, {
+        sportId: args.sportId,
+      });
+
+      if (!sport) {
+        console.error("❌ Sport not found:", args.sportId);
+        return null;
+      }
+
+      // Step 4: Generate parent-friendly summary
+      const summary = await ctx.runAction(
+        internal.actions.coachParentSummaries.generateParentSummary,
+        {
+          insightTitle: args.insightTitle,
+          insightDescription: args.insightDescription,
+          playerFirstName: player.firstName,
+          sportName: sport.name,
+        }
+      );
+
+      console.log("✍️ Generated summary:", {
+        summaryLength: summary.summary.length,
+        confidenceScore: summary.confidenceScore,
+        flags: summary.flags,
+      });
+
+      // Step 5: Create summary record
+      await ctx.runMutation(
+        internal.models.coachParentSummaries.createParentSummary,
+        {
+          voiceNoteId: args.voiceNoteId,
+          insightId: args.insightId,
+          privateInsight: {
+            title: args.insightTitle,
+            description: args.insightDescription,
+            category: classification.category,
+            sentiment: "neutral", // Default sentiment
+          },
+          publicSummary: {
+            content: summary.summary,
+            confidenceScore: summary.confidenceScore,
+            generatedAt: Date.now(),
+          },
+          sensitivityCategory: classification.category,
+          playerIdentityId: args.playerIdentityId,
+          sportId: args.sportId,
+        }
+      );
+
+      console.log("✅ Parent summary created successfully");
+    } catch (error) {
+      console.error("❌ Error processing voice note insight:", error);
+      // Don't throw - we don't want to break the voice note pipeline
+      // Log the error and continue
+    }
+
+    return null;
   },
 });

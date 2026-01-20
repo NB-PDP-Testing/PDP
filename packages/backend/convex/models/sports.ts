@@ -6,7 +6,7 @@
  */
 
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { internalQuery, mutation, query } from "../_generated/server";
 
 /**
  * Get all sports
@@ -179,4 +179,26 @@ export const remove = mutation({
 
     return null;
   },
+});
+
+/**
+ * Internal query to get sport by ID
+ * Used by actions that cannot access ctx.db directly
+ */
+export const getById = internalQuery({
+  args: { sportId: v.id("sports") },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("sports"),
+      _creationTime: v.number(),
+      code: v.string(),
+      name: v.string(),
+      governingBody: v.optional(v.string()),
+      description: v.optional(v.string()),
+      isActive: v.boolean(),
+      createdAt: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => await ctx.db.get(args.sportId),
 });

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { TrustLevelIcon } from "@/components/coach/trust-level-icon";
 import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -209,6 +210,14 @@ export function VoiceNotesDashboard() {
                 </div>
               )}
             </div>
+            {/* Trust Level Icon */}
+            {trustLevel && (
+              <TrustLevelIcon
+                level={trustLevel.currentLevel}
+                onClick={() => setActiveTab("settings")}
+                totalApprovals={trustLevel.totalApprovals}
+              />
+            )}
             {/* Settings button */}
             <Button
               className={`h-8 w-8 p-0 sm:h-9 sm:w-9 ${activeTab === "settings" ? "bg-gray-100 text-green-600" : ""}`}

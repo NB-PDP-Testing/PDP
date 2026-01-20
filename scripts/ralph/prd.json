@@ -303,7 +303,7 @@
         "Typecheck passes"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": "Import Dialog, DialogContent, DialogHeader, DialogTitle from shadcn/ui. Import Settings from lucide-react."
     },
     {
@@ -318,7 +318,7 @@
         "Typecheck passes"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "Import toast from 'sonner'. Handle mutation loading state to prevent double-submit."
     }
   ]

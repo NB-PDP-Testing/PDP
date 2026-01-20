@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
+import { ContactOrganizationButton } from "./contact-organization-button";
 import { RequestAccessModal } from "./request-access-modal";
 
 type MyPlayersTabProps = {
@@ -206,11 +207,18 @@ export function MyPlayersTab({ organizationId, userId }: MyPlayersTabProps) {
                           </div>
                         </div>
 
-                        <div className="ml-3">
+                        <div className="ml-3 flex gap-2">
                           <EnrollmentStatusBadge
                             enrollment={enrollment}
                             onRequestAccess={handleRequestAccess}
                             player={player}
+                          />
+                          <ContactOrganizationButton
+                            organizationId={enrollment.organizationId}
+                            playerIdentityId={
+                              player._id as Id<"playerIdentities">
+                            }
+                            playerName={`${player.firstName} ${player.lastName}`}
                           />
                         </div>
                       </div>

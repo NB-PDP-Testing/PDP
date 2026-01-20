@@ -17,12 +17,26 @@ function LoginContent() {
   useEffect(() => {
     if (user) {
       // If there's a redirect parameter (e.g., from invitation link), use it
-      // Otherwise go to home page (which will redirect appropriately)
       if (redirect) {
         router.push(redirect as Route);
-      } else {
-        router.push("/" as Route);
+        return;
       }
+
+      // Check if there's a stored intended URL (from direct navigation)
+      const intendedUrl =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("intendedUrl")
+          : null;
+
+      if (intendedUrl) {
+        sessionStorage.removeItem("intendedUrl");
+        console.log("[Login] Redirecting to intended URL:", intendedUrl);
+        router.push(intendedUrl as Route);
+        return;
+      }
+
+      // Otherwise go to home page (which will redirect appropriately)
+      router.push("/" as Route);
     }
   }, [user, router, redirect]);
 

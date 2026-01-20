@@ -34,12 +34,16 @@ export const getOrganization = query({
       socialLinks: socialLinksValidator,
       supportedSports: v.optional(v.array(v.string())),
       sharingContactMode: v.optional(
-        v.union(v.null(), v.union(v.literal("direct"), v.literal("form")))
+        v.union(
+          v.null(),
+          v.literal("direct"),
+          v.literal("enquiry"),
+          v.literal("none")
+        )
       ),
       sharingContactName: v.optional(v.union(v.null(), v.string())),
       sharingContactEmail: v.optional(v.union(v.null(), v.string())),
       sharingContactPhone: v.optional(v.union(v.null(), v.string())),
-      sharingEnquiriesUrl: v.optional(v.union(v.null(), v.string())),
     })
   ),
   handler: async (ctx, args) => {
@@ -69,13 +73,12 @@ export const getOrganization = query({
       supportedSports: org.supportedSports as string[] | undefined,
       sharingContactMode: org.sharingContactMode as
         | "direct"
-        | "form"
+        | "enquiry"
         | null
         | undefined,
       sharingContactName: org.sharingContactName as string | null | undefined,
       sharingContactEmail: org.sharingContactEmail as string | null | undefined,
       sharingContactPhone: org.sharingContactPhone as string | null | undefined,
-      sharingEnquiriesUrl: org.sharingEnquiriesUrl as string | null | undefined,
     };
   },
 });
@@ -395,12 +398,16 @@ export const updateOrganizationSharingContact = mutation({
   args: {
     organizationId: v.string(),
     sharingContactMode: v.optional(
-      v.union(v.null(), v.union(v.literal("direct"), v.literal("form")))
+      v.union(
+        v.null(),
+        v.literal("direct"),
+        v.literal("enquiry"),
+        v.literal("none")
+      )
     ),
     sharingContactName: v.optional(v.union(v.null(), v.string())),
     sharingContactEmail: v.optional(v.union(v.null(), v.string())),
     sharingContactPhone: v.optional(v.union(v.null(), v.string())),
-    sharingEnquiriesUrl: v.optional(v.union(v.null(), v.string())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -455,9 +462,6 @@ export const updateOrganizationSharingContact = mutation({
     }
     if (args.sharingContactPhone !== undefined) {
       update.sharingContactPhone = args.sharingContactPhone || null;
-    }
-    if (args.sharingEnquiriesUrl !== undefined) {
-      update.sharingEnquiriesUrl = args.sharingEnquiriesUrl || null;
     }
 
     // Update the organization using Better Auth component adapter
@@ -1266,5 +1270,118 @@ export const deleteOrganization = mutation({
     throw new Error(
       "Direct organization deletion is no longer supported. Please use the deletion request workflow which requires platform staff approval."
     );
+  },
+});
+
+/**
+ * Generate a presigned upload URL for logo upload
+ * Verifies user is an admin of the organization
+ */
+export const generateLogoUploadUrl = mutation({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    // Verify user is authenticated
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify user is a member of the organization
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: user._id, operator: "eq" },
+        {
+          field: "organizationId",
+          value: args.organizationId,
+          operator: "eq",
+          connector: "AND",
+        },
+      ],
+    });
+
+    if (!member) {
+      throw new Error("Not a member of this organization");
+    }
+
+    // Verify user has admin permissions (owner or admin role)
+    const hasAdminPermission = ["owner", "admin"].includes(
+      (member as any).role
+    );
+
+    if (!hasAdminPermission) {
+      throw new Error("Only organization admins can upload logos");
+    }
+
+    // Generate upload URL
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Save uploaded logo storage ID to organization
+ * Updates organization logo field with Convex storage URL
+ */
+export const saveUploadedLogo = mutation({
+  args: {
+    organizationId: v.string(),
+    storageId: v.id("_storage"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Verify user is authenticated
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Verify user is an admin
+    const member = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "member",
+      where: [
+        { field: "userId", value: user._id, operator: "eq" },
+        {
+          field: "organizationId",
+          value: args.organizationId,
+          operator: "eq",
+          connector: "AND",
+        },
+      ],
+    });
+
+    if (!member) {
+      throw new Error("Not a member of this organization");
+    }
+
+    const hasAdminPermission = ["owner", "admin"].includes(
+      (member as any).role
+    );
+
+    if (!hasAdminPermission) {
+      throw new Error("Only organization admins can update logos");
+    }
+
+    // Get public URL from storage ID
+    const logoUrl = await ctx.storage.getUrl(args.storageId);
+
+    if (!logoUrl) {
+      throw new Error("Could not generate logo URL from storage ID");
+    }
+
+    // Update organization logo
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "organization",
+        where: [{ field: "_id", value: args.organizationId, operator: "eq" }],
+        update: {
+          logo: logoUrl,
+        },
+      },
+    });
+
+    return null;
   },
 });

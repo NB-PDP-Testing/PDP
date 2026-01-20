@@ -232,11 +232,10 @@ export default function SharedPassportPage() {
                 (contact: {
                   organizationId: string;
                   organizationName: string;
-                  sharingContactMode: "direct" | "form";
+                  sharingContactMode: "direct" | "enquiry";
                   sharingContactName?: string;
                   sharingContactEmail?: string;
                   sharingContactPhone?: string;
-                  sharingEnquiriesUrl?: string;
                 }) => (
                   <div
                     className="rounded-lg border p-4"
@@ -279,20 +278,14 @@ export default function SharedPassportPage() {
                       </div>
                     )}
 
-                    {contact.sharingContactMode === "form" &&
-                      contact.sharingEnquiriesUrl && (
-                        <div>
-                          <a
-                            className="inline-flex items-center gap-2 text-blue-600 hover:underline"
-                            href={contact.sharingEnquiriesUrl}
-                            rel="noopener noreferrer"
-                            target="_blank"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                            Contact via enquiries form
-                          </a>
-                        </div>
-                      )}
+                    {contact.sharingContactMode === "enquiry" && (
+                      <div>
+                        <p className="text-muted-foreground text-sm">
+                          <ExternalLink className="mr-1 inline h-4 w-4" />
+                          Contact this organization via their enquiry system
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )
               )}

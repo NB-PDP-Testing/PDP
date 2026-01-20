@@ -1,0 +1,127 @@
+{
+  "projectName": "Platform Staff User Management - Phase 5: Advanced Features",
+  "branchName": "ralph/platform-users-phase5",
+  "description": "Implement advanced features: impersonation UI, approval workflow UI, bulk operations, and error logs. Requires Phase 4 to be complete.",
+  "planReference": "/Users/neil/.claude/plans/starry-yawning-crane.md",
+  "prerequisite": "Phase 4 (user detail) must be merged to main first",
+  "verificationSteps": [
+    "Test impersonation flow end-to-end",
+    "Test approval request and review flow",
+    "Test bulk export functionality"
+  ],
+  "userStories": [
+    {
+      "id": "US-046",
+      "title": "Add Suspend User dialog with approval workflow",
+      "priority": 1,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Create ResponsiveDialog that opens from Suspend button",
+        "Add organization selector for per-org suspend or platform-wide option",
+        "Required reason field with minimum 10 characters",
+        "Submit calls requestApproval mutation (not direct suspend)",
+        "Show message that request is pending approval from another staff member"
+      ]
+    },
+    {
+      "id": "US-047",
+      "title": "Create pending approvals page",
+      "priority": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform/users/pending-approvals/page.tsx",
+        "Call getPendingApprovalRequests query",
+        "Display requests in cards with: action type badge, requester info, target user info",
+        "Show request reason and created timestamp"
+      ]
+    },
+    {
+      "id": "US-048",
+      "title": "Add approve/reject actions to pending approvals",
+      "priority": 3,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add Approve and Reject buttons to each request card",
+        "Hide Approve button if requester is current user (show disabled with tooltip)",
+        "Reject opens dialog for optional notes",
+        "Approve opens confirmation dialog",
+        "Call reviewApprovalRequest mutation, refresh list on success"
+      ]
+    },
+    {
+      "id": "US-049",
+      "title": "Add impersonation start dialog",
+      "priority": 4,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Create ImpersonationDialog component",
+        "Open from View as User button on user detail or list row action",
+        "Display target user info: name, email",
+        "Required reason field with minimum 10 characters",
+        "Call startImpersonation mutation"
+      ]
+    },
+    {
+      "id": "US-050",
+      "title": "Add impersonation banner component",
+      "priority": 5,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Create components/impersonation-banner.tsx",
+        "Fixed position banner at top of viewport",
+        "Display: Viewing as [email], Time remaining: [mm:ss]",
+        "Add End Session button that calls endImpersonation",
+        "Use warning color scheme (yellow/orange)"
+      ]
+    },
+    {
+      "id": "US-051",
+      "title": "Integrate impersonation banner in header",
+      "priority": 6,
+      "passes": false,
+      "acceptanceCriteria": [
+        "In header.tsx or layout, call getCurrentImpersonation query",
+        "Render ImpersonationBanner if session is active",
+        "Pass session data to banner for countdown timer",
+        "Consider adding body padding to account for banner height"
+      ]
+    },
+    {
+      "id": "US-052",
+      "title": "Add bulk selection to user list",
+      "priority": 7,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add checkbox column to user list table",
+        "Add select all checkbox in table header",
+        "Track selected user IDs in state",
+        "Show bulk action bar when rows selected with selected count"
+      ]
+    },
+    {
+      "id": "US-053",
+      "title": "Add bulk action dropdown and export",
+      "priority": 8,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add DropdownMenu with: Export Selected, Suspend Selected",
+        "Export calls bulkExportUsers with selected IDs",
+        "Generate JSON file and trigger download",
+        "Suspend Selected opens approval request dialog for bulk action"
+      ]
+    },
+    {
+      "id": "US-054",
+      "title": "Add error logs page",
+      "priority": 9,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform/users/error-logs/page.tsx",
+        "Call getErrorLogs query",
+        "Display errors in table: type, message, severity badge, user email, timestamp",
+        "Add filters: severity dropdown, resolved toggle, user email search",
+        "Link user email to user detail page"
+      ]
+    }
+  ]
+}

@@ -9,6 +9,7 @@
  */
 
 import type * as actions_invitations from "../actions/invitations.js";
+import type * as actions_messaging from "../actions/messaging.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
 import type * as actions_sessionPlans from "../actions/sessionPlans.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
@@ -25,6 +26,7 @@ import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyD
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
 import type * as models_checkUserRoles from "../models/checkUserRoles.js";
+import type * as models_coachParentMessages from "../models/coachParentMessages.js";
 import type * as models_coachTasks from "../models/coachTasks.js";
 import type * as models_coaches from "../models/coaches.js";
 import type * as models_demoAsks from "../models/demoAsks.js";
@@ -43,6 +45,8 @@ import type * as models_orgJoinRequests from "../models/orgJoinRequests.js";
 import type * as models_orgPlayerEnrollments from "../models/orgPlayerEnrollments.js";
 import type * as models_organizationScraper from "../models/organizationScraper.js";
 import type * as models_organizations from "../models/organizations.js";
+import type * as models_passportComparison from "../models/passportComparison.js";
+import type * as models_passportEnquiries from "../models/passportEnquiries.js";
 import type * as models_passportGoals from "../models/passportGoals.js";
 import type * as models_passportSharing from "../models/passportSharing.js";
 import type * as models_playerEmergencyContacts from "../models/playerEmergencyContacts.js";
@@ -80,6 +84,7 @@ import type * as scripts_fullReset from "../scripts/fullReset.js";
 import type * as scripts_fullResetOptimized from "../scripts/fullResetOptimized.js";
 import type * as scripts_getOrgId from "../scripts/getOrgId.js";
 import type * as scripts_migrateEnrollmentSport from "../scripts/migrateEnrollmentSport.js";
+import type * as scripts_passportSharingDiagnostics from "../scripts/passportSharingDiagnostics.js";
 import type * as scripts_previewOrgCleanup from "../scripts/previewOrgCleanup.js";
 import type * as scripts_queryExisting from "../scripts/queryExisting.js";
 import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSportRules.js";
@@ -100,6 +105,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "actions/invitations": typeof actions_invitations;
+  "actions/messaging": typeof actions_messaging;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
   "actions/sessionPlans": typeof actions_sessionPlans;
   "actions/voiceNotes": typeof actions_voiceNotes;
@@ -116,6 +122,7 @@ declare const fullApi: ApiFromModules<{
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
   "models/checkUserRoles": typeof models_checkUserRoles;
+  "models/coachParentMessages": typeof models_coachParentMessages;
   "models/coachTasks": typeof models_coachTasks;
   "models/coaches": typeof models_coaches;
   "models/demoAsks": typeof models_demoAsks;
@@ -134,6 +141,8 @@ declare const fullApi: ApiFromModules<{
   "models/orgPlayerEnrollments": typeof models_orgPlayerEnrollments;
   "models/organizationScraper": typeof models_organizationScraper;
   "models/organizations": typeof models_organizations;
+  "models/passportComparison": typeof models_passportComparison;
+  "models/passportEnquiries": typeof models_passportEnquiries;
   "models/passportGoals": typeof models_passportGoals;
   "models/passportSharing": typeof models_passportSharing;
   "models/playerEmergencyContacts": typeof models_playerEmergencyContacts;
@@ -171,6 +180,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/fullResetOptimized": typeof scripts_fullResetOptimized;
   "scripts/getOrgId": typeof scripts_getOrgId;
   "scripts/migrateEnrollmentSport": typeof scripts_migrateEnrollmentSport;
+  "scripts/passportSharingDiagnostics": typeof scripts_passportSharingDiagnostics;
   "scripts/previewOrgCleanup": typeof scripts_previewOrgCleanup;
   "scripts/queryExisting": typeof scripts_queryExisting;
   "scripts/seedDefaultSportRules": typeof scripts_seedDefaultSportRules;
@@ -318,11 +328,10 @@ export declare const components: {
                   logo?: null | string;
                   metadata?: null | string;
                   name: string;
-                  sharingContactEmail?: string;
-                  sharingContactMode?: "direct" | "form";
-                  sharingContactName?: string;
-                  sharingContactPhone?: string;
-                  sharingEnquiriesUrl?: string;
+                  sharingContactEmail?: null | string;
+                  sharingContactMode?: "direct" | "enquiry" | "none";
+                  sharingContactName?: null | string;
+                  sharingContactPhone?: null | string;
                   slug: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -648,7 +657,6 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
-                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1023,7 +1031,6 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
-                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -1543,11 +1550,10 @@ export declare const components: {
                   logo?: null | string;
                   metadata?: null | string;
                   name?: string;
-                  sharingContactEmail?: string;
-                  sharingContactMode?: "direct" | "form";
-                  sharingContactName?: string;
-                  sharingContactPhone?: string;
-                  sharingEnquiriesUrl?: string;
+                  sharingContactEmail?: null | string;
+                  sharingContactMode?: "direct" | "enquiry" | "none";
+                  sharingContactName?: null | string;
+                  sharingContactPhone?: null | string;
                   slug?: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -1575,7 +1581,6 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
-                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"
@@ -2048,11 +2053,10 @@ export declare const components: {
                   logo?: null | string;
                   metadata?: null | string;
                   name?: string;
-                  sharingContactEmail?: string;
-                  sharingContactMode?: "direct" | "form";
-                  sharingContactName?: string;
-                  sharingContactPhone?: string;
-                  sharingEnquiriesUrl?: string;
+                  sharingContactEmail?: null | string;
+                  sharingContactMode?: "direct" | "enquiry" | "none";
+                  sharingContactName?: null | string;
+                  sharingContactPhone?: null | string;
                   slug?: string;
                   socialFacebook?: null | string;
                   socialInstagram?: null | string;
@@ -2080,7 +2084,6 @@ export declare const components: {
                     | "sharingContactName"
                     | "sharingContactEmail"
                     | "sharingContactPhone"
-                    | "sharingEnquiriesUrl"
                     | "_id";
                   operator?:
                     | "lt"

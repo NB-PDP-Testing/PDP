@@ -1,7 +1,8 @@
 "use client";
 
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { Calendar, MapPin, User } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +11,8 @@ import {
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";
+import { authClient } from "@/lib/auth-client";
+import { ContactOrganizationButton } from "./contact-organization-button";
 import { RequestAccessModal } from "./request-access-modal";
 
 type PlayerSearchCardProps = {
@@ -18,8 +21,8 @@ type PlayerSearchCardProps = {
     firstName: string;
     lastName: string;
     ageGroup?: string;
-    organizationName?: string;
     enrollmentCount?: number;
+    organizationIds: string[];
     hasActivePassport?: boolean;
     hasExistingRequest?: boolean;
   };
@@ -32,6 +35,17 @@ export function PlayerSearchCard({
 }: PlayerSearchCardProps) {
   const [showModal, setShowModal] = useState(false);
 
+  // Get organization names
+  const { data: organizations } = authClient.useListOrganizations();
+
+  const orgNames = useMemo(() => {
+    if (!organizations) return "";
+    const nameMap = new Map(organizations.map((org) => [org.id, org.name]));
+    return player.organizationIds.map((id) => nameMap.get(id) || id).join(", ");
+  }, [organizations, player.organizationIds]);
+
+  const playerName = `${player.firstName} ${player.lastName}`;
+
   return (
     <>
       <Card className="transition-shadow hover:shadow-md">
@@ -41,9 +55,7 @@ export function PlayerSearchCard({
               <User className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <h3 className="font-semibold">
-                {player.firstName} {player.lastName}
-              </h3>
+              <h3 className="font-semibold">{playerName}</h3>
               <p className="text-muted-foreground text-sm">
                 {player.ageGroup || "Age group not set"}
               </p>
@@ -52,10 +64,12 @@ export function PlayerSearchCard({
         </CardHeader>
 
         <CardContent className="space-y-2">
-          {player.organizationName && (
+          {orgNames && (
             <div className="flex items-center gap-2 text-sm">
               <MapPin className="h-4 w-4 text-muted-foreground" />
-              <span>{player.organizationName}</span>
+              <span className="truncate" title={orgNames}>
+                {orgNames}
+              </span>
             </div>
           )}
 
@@ -79,7 +93,7 @@ export function PlayerSearchCard({
           )}
         </CardContent>
 
-        <CardFooter>
+        <CardFooter className="flex flex-col gap-2">
           <Button
             className="w-full"
             disabled={player.hasExistingRequest}
@@ -87,6 +101,20 @@ export function PlayerSearchCard({
           >
             {player.hasExistingRequest ? "Request Pending" : "Request Access"}
           </Button>
+          {player.organizationIds.length > 0 && (
+            <div className="flex w-full flex-wrap gap-1">
+              {player.organizationIds.map((orgId) => (
+                <ContactOrganizationButton
+                  key={orgId}
+                  organizationId={orgId}
+                  playerIdentityId={player._id as Id<"playerIdentities">}
+                  playerName={playerName}
+                  size="sm"
+                  variant="ghost"
+                />
+              ))}
+            </div>
+          )}
         </CardFooter>
       </Card>
 
@@ -95,7 +123,7 @@ export function PlayerSearchCard({
         open={showModal}
         organizationId={organizationId}
         playerIdentityId={player._id}
-        playerName={`${player.firstName} ${player.lastName}`}
+        playerName={playerName}
       />
     </>
   );

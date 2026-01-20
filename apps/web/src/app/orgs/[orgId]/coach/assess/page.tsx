@@ -1053,15 +1053,7 @@ export default function AssessPlayerPage() {
                           {assessment.rating} - {ratingConfig.label}
                         </Badge>
                         <div>
-                          <p className="font-medium">
-                            {assessment.skillName}
-                            {selectedSportCode === "all" &&
-                              assessment.sportName && (
-                                <span className="ml-2 text-muted-foreground text-xs">
-                                  ({assessment.sportName})
-                                </span>
-                              )}
-                          </p>
+                          <p className="font-medium">{assessment.skillName}</p>
                           {assessment.notes && (
                             <p className="text-muted-foreground text-xs">
                               {assessment.notes}

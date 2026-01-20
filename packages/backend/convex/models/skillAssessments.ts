@@ -803,13 +803,14 @@ export const recordAssessmentWithBenchmark = mutation({
       // Look up benchmark (only if we have an age group)
       if (ageGroupCode) {
         const level = args.benchmarkLevel ?? "recreational";
+        const ageGroup = ageGroupCode; // Capture for use in callback
         const benchmark = await ctx.db
           .query("skillBenchmarks")
           .withIndex("by_context", (q) =>
             q
               .eq("sportCode", passport.sportCode)
               .eq("skillCode", args.skillCode)
-              .eq("ageGroup", ageGroupCode)
+              .eq("ageGroup", ageGroup)
               .eq("gender", "all")
               .eq("level", level)
           )

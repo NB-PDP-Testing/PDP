@@ -7,7 +7,9 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronUp,
+  Edit2,
   Lock,
+  X,
   XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -20,6 +22,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Textarea } from "@/components/ui/textarea";
 
 type BehaviorApprovalCardProps = {
   summary: {
@@ -51,6 +54,13 @@ export function BehaviorApprovalCard({
   onApprove,
   onSuppress,
 }: BehaviorApprovalCardProps) {
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(
+    summary.publicSummary.content
+  );
+  const [isSaving, setIsSaving] = useState(false);
+
   // Collapsible state - collapsed by default on mobile
   const [isInsightExpanded, setIsInsightExpanded] = useState(false);
 
@@ -60,16 +70,46 @@ export function BehaviorApprovalCard({
     setIsInsightExpanded(isDesktop);
   }, []);
 
-  // Use standard approve/suppress mutations
+  // Mutations
   const approveSummary = useMutation(
     api.models.coachParentSummaries.approveSummary
   );
   const suppressSummary = useMutation(
     api.models.coachParentSummaries.suppressSummary
   );
+  const editSummaryContent = useMutation(
+    api.models.coachParentSummaries.editSummaryContent
+  );
 
   const [isApproving, setIsApproving] = useState(false);
   const [isSuppressing, setIsSuppressing] = useState(false);
+
+  const handleSaveEdit = async () => {
+    if (editedContent.trim() === summary.publicSummary.content) {
+      setIsEditing(false);
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await editSummaryContent({
+        summaryId: summary._id,
+        newContent: editedContent.trim(),
+      });
+      toast.success("Summary updated");
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Failed to save edit:", error);
+      toast.error("Failed to save changes");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditedContent(summary.publicSummary.content);
+    setIsEditing(false);
+  };
 
   const handleApprove = async () => {
     try {
@@ -141,14 +181,57 @@ export function BehaviorApprovalCard({
       </CardHeader>
 
       <CardContent className="space-y-3 pt-0 sm:space-y-4">
-        {/* Parent-Friendly Summary - Constructively framed */}
+        {/* Parent-Friendly Summary with Edit */}
         <div className="rounded-lg bg-muted p-3 sm:p-4">
-          <p className="mb-1 font-medium text-muted-foreground text-xs sm:mb-2 sm:text-sm">
-            Summary for Parent:
-          </p>
-          <p className="text-xs leading-relaxed sm:text-sm">
-            {summary.publicSummary.content}
-          </p>
+          <div className="mb-1 flex items-center justify-between sm:mb-2">
+            <p className="font-medium text-muted-foreground text-xs sm:text-sm">
+              Summary for Parent:
+            </p>
+            {!isEditing && (
+              <Button
+                className="h-6 px-2 text-xs"
+                onClick={() => setIsEditing(true)}
+                size="sm"
+                variant="ghost"
+              >
+                <Edit2 className="mr-1 h-3 w-3" />
+                Edit
+              </Button>
+            )}
+          </div>
+          {isEditing ? (
+            <div className="space-y-2">
+              <Textarea
+                className="min-h-[80px] text-xs sm:text-sm"
+                onChange={(e) => setEditedContent(e.target.value)}
+                value={editedContent}
+              />
+              <div className="flex gap-2">
+                <Button
+                  className="h-7 text-xs"
+                  disabled={isSaving}
+                  onClick={handleSaveEdit}
+                  size="sm"
+                >
+                  {isSaving ? "Saving..." : "Save"}
+                </Button>
+                <Button
+                  className="h-7 text-xs"
+                  disabled={isSaving}
+                  onClick={handleCancelEdit}
+                  size="sm"
+                  variant="outline"
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs leading-relaxed sm:text-sm">
+              {summary.publicSummary.content}
+            </p>
+          )}
         </div>
 
         {/* Collapsible Original Insight */}
@@ -186,7 +269,7 @@ export function BehaviorApprovalCard({
         <div className="flex xs:flex-row flex-col gap-2 pt-1 sm:pt-2">
           <Button
             className="h-9 flex-1 text-xs sm:h-10 sm:text-sm"
-            disabled={isApproving || isSuppressing}
+            disabled={isApproving || isSuppressing || isEditing}
             onClick={handleApprove}
             variant="default"
           >
@@ -204,7 +287,7 @@ export function BehaviorApprovalCard({
           </Button>
           <Button
             className="h-9 flex-1 text-xs sm:h-10 sm:text-sm"
-            disabled={isApproving || isSuppressing}
+            disabled={isApproving || isSuppressing || isEditing}
             onClick={handleSuppress}
             variant="outline"
           >

@@ -7,9 +7,10 @@ import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   CheckCircle,
-  Filter,
+  Lightbulb,
   Loader2,
   Mic,
+  Quote,
   Search,
   Trash2,
   X,
@@ -43,13 +44,6 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 type HistoryTabProps = {
   orgId: BetterAuthId<"organization">;
@@ -57,12 +51,34 @@ type HistoryTabProps = {
   onError: (message: string) => void;
 };
 
-type NoteTypeFilter = "all" | "training" | "match" | "general";
+type NoteType = "training" | "match" | "general";
+const NOTE_TYPES: NoteType[] = ["training", "match", "general"];
+
+// Parse search query for smart filtering
+function parseSearchQuery(query: string): {
+  textQuery: string;
+  typeFilter: NoteType | null;
+} {
+  const lower = query.toLowerCase().trim();
+
+  // Check if query starts with or contains a type keyword
+  for (const type of NOTE_TYPES) {
+    // Match "training:", "training ", or just "training" at start
+    if (
+      lower === type ||
+      lower.startsWith(`${type}:`) ||
+      lower.startsWith(`${type} `)
+    ) {
+      const remaining = lower.replace(new RegExp(`^${type}:?\\s*`), "").trim();
+      return { textQuery: remaining, typeFilter: type };
+    }
+  }
+
+  return { textQuery: query.trim(), typeFilter: null };
+}
 
 export function HistoryTab({ orgId, onSuccess, onError }: HistoryTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState<NoteTypeFilter>("all");
-  const [showFilters, setShowFilters] = useState(false);
 
   // Convex queries and mutations
   const voiceNotes = useQuery(api.models.voiceNotes.getAllVoiceNotes, {
@@ -80,16 +96,19 @@ export function HistoryTab({ orgId, onSuccess, onError }: HistoryTabProps) {
     }
   };
 
+  // Parse the search query for smart filtering
+  const { textQuery, typeFilter } = parseSearchQuery(searchQuery);
+
   // Filter notes
   const filteredNotes = voiceNotes?.filter((note) => {
-    // Type filter
-    if (typeFilter !== "all" && note.type !== typeFilter) {
+    // Type filter (from smart search)
+    if (typeFilter && note.type !== typeFilter) {
       return false;
     }
 
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    // Text search filter
+    if (textQuery) {
+      const query = textQuery.toLowerCase();
       const matchesTranscription = note.transcription
         ?.toLowerCase()
         .includes(query);
@@ -129,32 +148,16 @@ export function HistoryTab({ orgId, onSuccess, onError }: HistoryTabProps) {
               {(voiceNotes?.length ?? 0) !== 1 ? "s" : ""} recorded
             </CardDescription>
           </div>
-          <Button
-            className="sm:hidden"
-            onClick={() => setShowFilters(!showFilters)}
-            size="sm"
-            variant="outline"
-          >
-            <Filter className="mr-2 h-4 w-4" />
-            Filters
-            {(searchQuery || typeFilter !== "all") && (
-              <Badge className="ml-2" variant="secondary">
-                Active
-              </Badge>
-            )}
-          </Button>
         </div>
 
-        {/* Filters - always visible on desktop, toggleable on mobile */}
-        <div
-          className={`mt-3 flex flex-col gap-2 sm:mt-4 sm:flex sm:flex-row sm:gap-3 ${showFilters ? "flex" : "hidden sm:flex"}`}
-        >
-          <div className="relative flex-1">
+        {/* Smart search with type filter chips */}
+        <div className="mt-3 space-y-2 sm:mt-4">
+          <div className="relative">
             <Search className="-translate-y-1/2 absolute top-1/2 left-3 h-4 w-4 text-gray-400" />
             <Input
-              className="pl-9 text-sm"
+              className="pr-9 pl-9 text-sm"
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search notes, players, insights..."
+              placeholder="Search... (try: training, match, general)"
               value={searchQuery}
             />
             {searchQuery && (
@@ -167,20 +170,40 @@ export function HistoryTab({ orgId, onSuccess, onError }: HistoryTabProps) {
               </button>
             )}
           </div>
-          <Select
-            onValueChange={(v) => setTypeFilter(v as NoteTypeFilter)}
-            value={typeFilter}
-          >
-            <SelectTrigger className="w-full text-sm sm:w-36">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="training">Training</SelectItem>
-              <SelectItem value="match">Match</SelectItem>
-              <SelectItem value="general">General</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Quick filter chips */}
+          <div className="flex flex-wrap gap-1.5">
+            {NOTE_TYPES.map((type) => (
+              <button
+                className={`rounded-full px-2.5 py-0.5 font-medium text-xs transition-colors ${
+                  typeFilter === type
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+                key={type}
+                onClick={() => {
+                  if (typeFilter === type) {
+                    // Remove type filter
+                    setSearchQuery(textQuery);
+                  } else {
+                    // Set type filter
+                    setSearchQuery(textQuery ? `${type} ${textQuery}` : type);
+                  }
+                }}
+                type="button"
+              >
+                {type.charAt(0).toUpperCase() + type.slice(1)}
+              </button>
+            ))}
+            {(typeFilter || textQuery) && (
+              <button
+                className="rounded-full bg-gray-100 px-2.5 py-0.5 text-gray-500 text-xs hover:bg-gray-200"
+                onClick={() => setSearchQuery("")}
+                type="button"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -297,25 +320,29 @@ export function HistoryTab({ orgId, onSuccess, onError }: HistoryTabProps) {
                   </div>
                 </div>
 
-                {/* Summary */}
-                {note.summary && (
-                  <p className="mb-2 text-gray-600 text-xs italic sm:text-sm">
-                    {note.summary}
-                  </p>
-                )}
-
-                {/* Transcription */}
+                {/* Transcription - What the coach actually said */}
                 {note.transcription && (
-                  <p className="line-clamp-3 whitespace-pre-wrap text-gray-700 text-xs sm:line-clamp-none sm:text-sm">
-                    {note.transcription}
-                  </p>
+                  <div className="mb-3 rounded-lg border-gray-200 border-l-4 bg-gray-50 p-3">
+                    <div className="mb-1 flex items-center gap-1.5 text-gray-500 text-xs">
+                      <Quote className="h-3.5 w-3.5" />
+                      <span className="font-medium uppercase tracking-wide">
+                        Your words
+                      </span>
+                    </div>
+                    <p className="line-clamp-3 whitespace-pre-wrap text-gray-700 text-xs sm:line-clamp-none sm:text-sm">
+                      {note.transcription}
+                    </p>
+                  </div>
                 )}
                 {!note.transcription &&
                   (note.transcriptionStatus === "pending" ||
                     note.transcriptionStatus === "processing") && (
-                    <p className="text-gray-400 text-xs italic sm:text-sm">
-                      Transcribing audio...
-                    </p>
+                    <div className="mb-3 rounded-lg border-gray-200 border-l-4 bg-gray-50 p-3">
+                      <div className="flex items-center gap-1.5 text-gray-400 text-xs">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span className="italic">Transcribing audio...</span>
+                      </div>
+                    </div>
                   )}
                 {!note.transcription &&
                   note.transcriptionStatus !== "pending" &&
@@ -326,32 +353,47 @@ export function HistoryTab({ orgId, onSuccess, onError }: HistoryTabProps) {
                     </p>
                   )}
 
-                {/* Insights preview */}
-                {note.insights.length > 0 && (
-                  <div className="mt-2 border-gray-200 border-t pt-2 sm:mt-3 sm:pt-3">
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                      {note.insights.map((insight) => {
-                        const variantMap = {
-                          applied: "default",
-                          dismissed: "secondary",
-                        } as const;
-                        const variant =
-                          variantMap[
-                            insight.status as keyof typeof variantMap
-                          ] ?? "outline";
-                        return (
-                          <Badge
-                            className="text-xs"
-                            key={insight.id}
-                            variant={variant}
-                          >
-                            {insight.status === "applied" && "✓ "}
-                            {insight.status === "dismissed" && "✗ "}
-                            {insight.title}
-                          </Badge>
-                        );
-                      })}
+                {/* AI Summary & Insights - What the AI extracted */}
+                {(note.summary || note.insights.length > 0) && (
+                  <div className="rounded-lg border-blue-200 border-l-4 bg-blue-50 p-3">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-blue-600 text-xs">
+                      <Lightbulb className="h-3.5 w-3.5" />
+                      <span className="font-medium uppercase tracking-wide">
+                        AI Insights
+                      </span>
                     </div>
+                    {/* Summary */}
+                    {note.summary && (
+                      <p className="mb-2 text-blue-900 text-xs italic sm:text-sm">
+                        {note.summary}
+                      </p>
+                    )}
+                    {/* Insights badges */}
+                    {note.insights.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                        {note.insights.map((insight) => {
+                          const variantMap = {
+                            applied: "default",
+                            dismissed: "secondary",
+                          } as const;
+                          const variant =
+                            variantMap[
+                              insight.status as keyof typeof variantMap
+                            ] ?? "outline";
+                          return (
+                            <Badge
+                              className="text-xs"
+                              key={insight.id}
+                              variant={variant}
+                            >
+                              {insight.status === "applied" && "✓ "}
+                              {insight.status === "dismissed" && "✗ "}
+                              {insight.title}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

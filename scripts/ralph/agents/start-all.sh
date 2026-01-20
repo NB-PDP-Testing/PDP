@@ -25,6 +25,20 @@ nohup ./prd-auditor.sh > /dev/null 2>&1 &
 echo $! > "$OUTPUT_DIR/prd-auditor.pid"
 echo "  PID: $(cat $OUTPUT_DIR/prd-auditor.pid)"
 
+# Start Documenter Agent (with slight delay)
+sleep 2
+echo "Starting Documenter..."
+nohup ./documenter.sh > /dev/null 2>&1 &
+echo $! > "$OUTPUT_DIR/documenter.pid"
+echo "  PID: $(cat $OUTPUT_DIR/documenter.pid)"
+
+# Start Test Runner Agent (replaces uat-tester, runs tests in real-time)
+sleep 2
+echo "Starting Test Runner (UAT + Unit tests)..."
+nohup ./test-runner.sh > /dev/null 2>&1 &
+echo $! > "$OUTPUT_DIR/test-runner.pid"
+echo "  PID: $(cat $OUTPUT_DIR/test-runner.pid)"
+
 echo ""
 echo "✅ All agents started!"
 echo ""

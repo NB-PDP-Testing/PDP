@@ -341,6 +341,7 @@ export const processVoiceNoteInsight = internalAction({
     insightDescription: v.string(),
     playerIdentityId: v.id("playerIdentities"),
     organizationId: v.string(),
+    coachId: v.optional(v.string()), // Added to check skip settings
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -361,6 +362,28 @@ export const processVoiceNoteInsight = internalAction({
       );
 
       console.log("📊 Classification result:", classification);
+
+      // Step 1.5: Check if sensitive insights should be skipped
+      if (
+        args.coachId &&
+        (classification.category === "injury" ||
+          classification.category === "behavior")
+      ) {
+        const shouldSkip = await ctx.runQuery(
+          internal.models.coachTrustLevels.shouldSkipSensitiveInsights,
+          {
+            coachId: args.coachId,
+            organizationId: args.organizationId,
+          }
+        );
+
+        if (shouldSkip) {
+          console.log(
+            `⏭️ SKIPPING: Sensitive insight (${classification.category}) - coach has disabled sensitive parent summaries`
+          );
+          return null;
+        }
+      }
 
       // Step 2: Get player info for context
       const player = await ctx.runQuery(

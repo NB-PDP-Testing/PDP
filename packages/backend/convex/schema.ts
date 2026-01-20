@@ -832,22 +832,49 @@ export default defineSchema({
     completed: v.boolean(),
   }),
 
-  // Coach tasks - personal task management for coaches
+  // Coach tasks - personal and team task management for coaches
   coachTasks: defineTable({
     text: v.string(), // Task description
     completed: v.boolean(),
-    coachEmail: v.string(), // Coach's email (from Better Auth user)
     organizationId: v.string(), // Org scope
+
+    // Assignment - who the task is assigned to
+    assignedToUserId: v.string(), // Better Auth user ID of assigned coach
+    assignedToName: v.optional(v.string()), // Denormalized name for display
+    createdByUserId: v.string(), // Better Auth user ID of task creator
+
+    // Legacy field - keep for backward compatibility during migration
+    coachEmail: v.optional(v.string()), // Deprecated: Coach's email
+
+    // Task metadata
     priority: v.optional(
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
     ),
     dueDate: v.optional(v.number()), // Timestamp
+
+    // Source tracking - where did this task come from?
+    source: v.union(v.literal("manual"), v.literal("voice_note")),
+    voiceNoteId: v.optional(v.id("voiceNotes")), // If created from voice note
+    insightId: v.optional(v.string()), // Insight ID within the voice note
+
+    // Player linking - optional association with a player
+    playerIdentityId: v.optional(v.id("orgPlayerEnrollments")),
+    playerName: v.optional(v.string()), // Denormalized for display
+
+    // Team scope - if set, this is a team task visible to all team members
+    teamId: v.optional(v.string()), // Better Auth team ID for team tasks
+
+    // Timestamps
     createdAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_coach_and_org", ["coachEmail", "organizationId"])
+    .index("by_assigned_user_and_org", ["assignedToUserId", "organizationId"])
+    .index("by_team_and_org", ["teamId", "organizationId"])
     .index("by_org", ["organizationId"])
-    .index("by_completed", ["completed"]),
+    .index("by_completed", ["completed"])
+    .index("by_voice_note", ["voiceNoteId"])
+    // Legacy index for migration period
+    .index("by_coach_and_org", ["coachEmail", "organizationId"]),
 
   // Coach assignments - stores team/age group assignments for coaches
   coachAssignments: defineTable({
@@ -1363,6 +1390,13 @@ export default defineSchema({
           v.literal("dismissed")
         ),
         appliedDate: v.optional(v.string()),
+        // Team/TODO classification fields
+        teamId: v.optional(v.string()), // For team_culture insights
+        teamName: v.optional(v.string()),
+        assigneeUserId: v.optional(v.string()), // For todo insights
+        assigneeName: v.optional(v.string()),
+        // Task linking - set when TODO insight creates a task
+        linkedTaskId: v.optional(v.id("coachTasks")),
       })
     ),
     insightsStatus: v.optional(
@@ -1690,6 +1724,10 @@ export default defineSchema({
     // Current trust state
     currentLevel: v.number(), // 0-3, current automation level
     preferredLevel: v.optional(v.number()), // 0-3, coach's max desired level (caps auto-upgrade)
+
+    // Feature toggles
+    parentSummariesEnabled: v.optional(v.boolean()), // Whether to generate parent summaries (default true)
+    skipSensitiveInsights: v.optional(v.boolean()), // Skip injury/behavior insights from parent summaries (default false)
 
     // Metrics for calculating trust level
     totalApprovals: v.number(), // Count of approved summaries

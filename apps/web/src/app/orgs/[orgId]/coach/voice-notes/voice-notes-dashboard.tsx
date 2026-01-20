@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { useQuery } from "convex/react";
 import {
+  AlertTriangle,
   ArrowLeft,
   History,
   Lightbulb,
@@ -58,6 +59,15 @@ export function VoiceNotesDashboard() {
     ).length ?? 0;
   const pendingSummariesCount = pendingSummaries?.length ?? 0;
 
+  // Count sensitive summaries (injury or behavior) that need manual review
+  const sensitiveSummariesCount =
+    pendingSummaries?.filter(
+      (s) =>
+        s.sensitivityCategory === "injury" ||
+        s.sensitivityCategory === "behavior"
+    ).length ?? 0;
+  const hasSensitiveSummaries = sensitiveSummariesCount > 0;
+
   // Auto-switch to first tab with pending items (only once on load)
   useEffect(() => {
     if (!hasAutoSwitched) {
@@ -95,14 +105,35 @@ export function VoiceNotesDashboard() {
   };
 
   // Count stats
-  const notesWithInsights =
-    voiceNotes?.filter((n) => n.insights.length > 0).length ?? 0;
   const processingCount =
     voiceNotes?.filter(
       (n) =>
         n.transcriptionStatus === "processing" ||
         n.insightsStatus === "processing"
     ).length ?? 0;
+
+  // Count pending insights that need attention (unmatched players or uncategorized)
+  const TEAM_LEVEL_CATEGORIES = ["team_culture", "todo"];
+  const allPendingInsights =
+    voiceNotes?.flatMap((note) =>
+      note.insights
+        .filter((i) => i.status === "pending")
+        .map((i) => ({ ...i, noteId: note._id }))
+    ) ?? [];
+
+  const needsAttentionCount = allPendingInsights.filter(
+    (i) =>
+      // Unmatched: has playerName but no playerIdentityId
+      (!i.playerIdentityId && i.playerName) ||
+      // Uncategorized: no player and not a team-level category
+      !(
+        i.playerIdentityId ||
+        i.playerName ||
+        (i.category && TEAM_LEVEL_CATEGORIES.includes(i.category))
+      )
+  ).length;
+
+  const readyToApplyCount = pendingInsightsCount - needsAttentionCount;
 
   const showSuccessMessage = (message: string) => {
     setSuccessMessage(message);
@@ -123,6 +154,7 @@ export function VoiceNotesDashboard() {
       label: string;
       icon: typeof Mic;
       badge?: number;
+      hasAlert?: boolean;
     }[] = [{ id: "new", label: "New", icon: Mic }];
 
     // Only show Parents tab if there are pending summaries
@@ -132,6 +164,7 @@ export function VoiceNotesDashboard() {
         label: "Parents",
         icon: MessageSquare,
         badge: pendingSummariesCount,
+        hasAlert: hasSensitiveSummaries,
       });
     }
 
@@ -149,7 +182,7 @@ export function VoiceNotesDashboard() {
     baseTabs.push({ id: "history", label: "History", icon: History });
 
     return baseTabs;
-  }, [pendingSummariesCount, pendingInsightsCount]);
+  }, [pendingSummariesCount, pendingInsightsCount, hasSensitiveSummaries]);
 
   // If current tab is no longer available (e.g., approved all summaries), switch to New
   // Settings is a special case - it's always available via header icon, not in tabs array
@@ -192,12 +225,24 @@ export function VoiceNotesDashboard() {
                 </div>
                 <div className="text-gray-600 text-xs sm:text-sm">Notes</div>
               </div>
-              <div className="text-center">
-                <div className="font-bold text-green-600 text-lg sm:text-2xl">
-                  {notesWithInsights}
+              {readyToApplyCount > 0 && (
+                <div className="text-center">
+                  <div className="font-bold text-green-600 text-lg sm:text-2xl">
+                    {readyToApplyCount}
+                  </div>
+                  <div className="text-gray-600 text-xs sm:text-sm">Ready</div>
                 </div>
-                <div className="text-gray-600 text-xs sm:text-sm">Insights</div>
-              </div>
+              )}
+              {needsAttentionCount > 0 && (
+                <div className="text-center">
+                  <div className="font-bold text-amber-600 text-lg sm:text-2xl">
+                    {needsAttentionCount}
+                  </div>
+                  <div className="text-gray-600 text-xs sm:text-sm">
+                    Attention
+                  </div>
+                </div>
+              )}
               {processingCount > 0 && (
                 <div className="text-center">
                   <div className="flex items-center gap-1 font-bold text-lg text-orange-600 sm:text-2xl">
@@ -206,6 +251,17 @@ export function VoiceNotesDashboard() {
                   </div>
                   <div className="text-gray-600 text-xs sm:text-sm">
                     Processing
+                  </div>
+                </div>
+              )}
+              {sensitiveSummariesCount > 0 && (
+                <div className="text-center">
+                  <div className="flex items-center gap-1 font-bold text-lg text-red-600 sm:text-2xl">
+                    <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
+                    {sensitiveSummariesCount}
+                  </div>
+                  <div className="text-gray-600 text-xs sm:text-sm">
+                    Sensitive
                   </div>
                 </div>
               )}
@@ -262,12 +318,21 @@ export function VoiceNotesDashboard() {
                 <Icon className="h-4 w-4" />
                 {tab.label}
                 {tab.badge && (
-                  <Badge
-                    className="ml-0.5 h-4 min-w-[16px] px-1 text-xs sm:ml-1 sm:h-5 sm:min-w-[20px] sm:px-1.5"
-                    variant={isActive ? "default" : "secondary"}
-                  >
-                    {tab.badge > 9 ? "9+" : tab.badge}
-                  </Badge>
+                  <span className="flex items-center gap-0.5">
+                    {tab.hasAlert && (
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                    )}
+                    <Badge
+                      className={`ml-0.5 h-4 min-w-[16px] px-1 text-xs sm:ml-1 sm:h-5 sm:min-w-[20px] sm:px-1.5 ${
+                        tab.hasAlert && !isActive
+                          ? "border-amber-400 bg-amber-100 text-amber-700"
+                          : ""
+                      }`}
+                      variant={isActive ? "default" : "secondary"}
+                    >
+                      {tab.badge > 9 ? "9+" : tab.badge}
+                    </Badge>
+                  </span>
                 )}
               </button>
             );

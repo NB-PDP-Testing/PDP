@@ -1,6 +1,11 @@
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
-import { internalMutation, mutation, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 import { authComponent } from "../auth";
 import {
   calculateProgressToNextLevel,
@@ -34,6 +39,8 @@ const trustLevelValidator = v.object({
   organizationId: v.string(),
   currentLevel: v.number(),
   preferredLevel: v.optional(v.number()),
+  parentSummariesEnabled: v.optional(v.boolean()),
+  skipSensitiveInsights: v.optional(v.boolean()),
   totalApprovals: v.number(),
   totalSuppressed: v.number(),
   consecutiveApprovals: v.number(),
@@ -262,6 +269,76 @@ export const setCoachPreferredLevel = mutation({
   },
 });
 
+/**
+ * Toggle parent summaries generation on/off.
+ * When disabled, insights are still captured but no parent summaries are generated.
+ */
+export const setParentSummariesEnabled = mutation({
+  args: {
+    organizationId: v.string(),
+    enabled: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user?.userId) {
+      throw new Error("Not authenticated");
+    }
+    const coachId = user.userId;
+
+    // Get or create trust record
+    const trustRecord = await getOrCreateTrustLevelHelper(
+      ctx,
+      coachId,
+      args.organizationId
+    );
+
+    // Update the setting
+    await ctx.db.patch(trustRecord._id, {
+      parentSummariesEnabled: args.enabled,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Toggle skipping sensitive insights (injury/behavior) from parent summaries.
+ * When enabled, only normal insights generate parent summaries.
+ */
+export const setSkipSensitiveInsights = mutation({
+  args: {
+    organizationId: v.string(),
+    skip: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Get authenticated user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user?.userId) {
+      throw new Error("Not authenticated");
+    }
+    const coachId = user.userId;
+
+    // Get or create trust record
+    const trustRecord = await getOrCreateTrustLevelHelper(
+      ctx,
+      coachId,
+      args.organizationId
+    );
+
+    // Update the setting
+    await ctx.db.patch(trustRecord._id, {
+      skipSensitiveInsights: args.skip,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
 // ============================================================
 // QUERIES
 // ============================================================
@@ -277,6 +354,8 @@ export const getCoachTrustLevel = query({
   returns: v.object({
     currentLevel: v.number(),
     preferredLevel: v.optional(v.number()),
+    parentSummariesEnabled: v.boolean(),
+    skipSensitiveInsights: v.boolean(),
     totalApprovals: v.number(),
     totalSuppressed: v.number(),
     consecutiveApprovals: v.number(),
@@ -295,6 +374,8 @@ export const getCoachTrustLevel = query({
       return {
         currentLevel: 0,
         preferredLevel: undefined,
+        parentSummariesEnabled: true,
+        skipSensitiveInsights: false,
         totalApprovals: 0,
         totalSuppressed: 0,
         consecutiveApprovals: 0,
@@ -321,6 +402,8 @@ export const getCoachTrustLevel = query({
       return {
         currentLevel: 0,
         preferredLevel: undefined,
+        parentSummariesEnabled: true,
+        skipSensitiveInsights: false,
         totalApprovals: 0,
         totalSuppressed: 0,
         consecutiveApprovals: 0,
@@ -343,10 +426,72 @@ export const getCoachTrustLevel = query({
     return {
       currentLevel: trustRecord.currentLevel,
       preferredLevel: trustRecord.preferredLevel,
+      parentSummariesEnabled: trustRecord.parentSummariesEnabled ?? true,
+      skipSensitiveInsights: trustRecord.skipSensitiveInsights ?? false,
       totalApprovals: trustRecord.totalApprovals,
       totalSuppressed: trustRecord.totalSuppressed,
       consecutiveApprovals: trustRecord.consecutiveApprovals,
       progressToNextLevel,
     };
+  },
+});
+
+// ============================================================
+// INTERNAL QUERIES
+// ============================================================
+
+/**
+ * Check if parent summaries are enabled for a coach.
+ * Used by voice note processing to decide whether to generate summaries.
+ * @internal
+ */
+export const isParentSummariesEnabled = internalQuery({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const trustRecord = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    // Default to true if no record exists
+    if (!trustRecord) {
+      return true;
+    }
+
+    return trustRecord.parentSummariesEnabled ?? true;
+  },
+});
+
+/**
+ * Check if sensitive insights (injury/behavior) should be skipped from parent summaries.
+ * Used by voice note processing to decide whether to generate summaries for sensitive insights.
+ * @internal
+ */
+export const shouldSkipSensitiveInsights = internalQuery({
+  args: {
+    coachId: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const trustRecord = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach_org", (q) =>
+        q.eq("coachId", args.coachId).eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    // Default to false if no record exists (process all insights)
+    if (!trustRecord) {
+      return false;
+    }
+
+    return trustRecord.skipSensitiveInsights ?? false;
   },
 });

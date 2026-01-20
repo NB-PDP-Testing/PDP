@@ -37,6 +37,8 @@ const summaryValidator = v.object({
     v.literal("injury"),
     v.literal("behavior")
   ),
+  sensitivityConfidence: v.optional(v.number()),
+  sensitivityReason: v.optional(v.string()),
   status: v.union(
     v.literal("pending_review"),
     v.literal("approved"),
@@ -372,6 +374,52 @@ export const suppressSummary = mutation({
       coachId: summary.coachId,
       organizationId: summary.organizationId,
       action: "suppressed",
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Edit the public summary content before approval
+ * Allows coach to modify the AI-generated parent summary
+ * Only available for pending_review summaries
+ */
+export const editSummaryContent = mutation({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+    newContent: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Fetch the summary
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      throw new Error("Summary not found");
+    }
+
+    // Verify user is the coach for this summary
+    if (summary.coachId !== user.userId) {
+      throw new Error("Only the coach can edit this summary");
+    }
+
+    // Only allow editing of pending_review summaries
+    if (summary.status !== "pending_review") {
+      throw new Error("Can only edit summaries that are pending review");
+    }
+
+    // Update the public summary content
+    await ctx.db.patch(args.summaryId, {
+      publicSummary: {
+        ...summary.publicSummary,
+        content: args.newContent,
+      },
     });
 
     return null;

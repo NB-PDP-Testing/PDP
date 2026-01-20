@@ -116,6 +116,19 @@ export function ParentsTab({ orgId, onSuccess, onError }: ParentsTabProps) {
     );
   }
 
+  // Sort summaries: injury first, then behavior, then normal
+  const sortedSummaries = [...pendingSummaries].sort((a, b) => {
+    const priority: Record<string, number> = {
+      injury: 0,
+      behavior: 1,
+      normal: 2,
+    };
+    return (
+      (priority[a.sensitivityCategory] ?? 2) -
+      (priority[b.sensitivityCategory] ?? 2)
+    );
+  });
+
   return (
     <Card>
       <CardHeader className="pb-3 sm:pb-6">
@@ -129,7 +142,7 @@ export function ParentsTab({ orgId, onSuccess, onError }: ParentsTabProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4">
-        {pendingSummaries.map((item) => {
+        {sortedSummaries.map((item) => {
           // Common props for all card types (key handled separately per React)
           const commonProps = {
             onApprove: () => handleApproveSummary(item._id),

@@ -34,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SharingContactSettings } from "./sharing-contact-settings";
 
 type ActivityType =
   | "consent_created"
@@ -256,6 +257,7 @@ export default function AdminSharingStatistics() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="outgoing">Outgoing Shares</TabsTrigger>
           <TabsTrigger value="incoming">Incoming Shares</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -546,6 +548,11 @@ export default function AdminSharingStatistics() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Settings Tab */}
+        <TabsContent className="space-y-6" value="settings">
+          <SharingContactSettings organizationId={orgId} />
         </TabsContent>
       </Tabs>
     </div>

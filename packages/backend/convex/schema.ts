@@ -1378,6 +1378,216 @@ export default defineSchema({
     .index("by_orgId", ["orgId"])
     .index("by_orgId_and_coachId", ["orgId", "coachId"]),
 
+  // ============================================================
+  // COACH-PARENT MESSAGING
+  // Secure, auditable messaging between coaches and parents
+  // ============================================================
+
+  // Main message storage
+  coachParentMessages: defineTable({
+    // Message classification
+    messageType: v.union(
+      v.literal("direct"), // Coach-initiated message
+      v.literal("insight") // Derived from voice note insight
+    ),
+
+    // Organization and team context
+    organizationId: v.string(), // Better Auth organization ID
+    teamId: v.optional(v.string()), // Better Auth team ID (optional)
+
+    // Sender info
+    senderId: v.string(), // Better Auth user ID of coach
+    senderName: v.string(), // Coach name for display
+
+    // Recipients (multiple guardians can receive same message)
+    recipientGuardianIds: v.array(v.id("guardianIdentities")),
+
+    // Player context
+    playerIdentityId: v.id("playerIdentities"),
+    playerName: v.string(), // Denormalized for display
+
+    // Message content
+    subject: v.string(),
+    body: v.string(),
+
+    // Session context (optional)
+    context: v.optional(
+      v.object({
+        sessionType: v.optional(v.string()), // "training", "match", "general"
+        sessionDate: v.optional(v.string()),
+        developmentArea: v.optional(v.string()),
+      })
+    ),
+
+    // Source tracking (for insight-derived messages)
+    sourceVoiceNoteId: v.optional(v.id("voiceNotes")),
+    sourceInsightId: v.optional(v.string()), // insight.id from voiceNote.insights array
+    originalInsight: v.optional(
+      v.object({
+        title: v.string(),
+        description: v.string(),
+        category: v.optional(v.string()),
+        recommendedUpdate: v.optional(v.string()),
+      })
+    ),
+
+    // AI-generated discussion prompts for parents
+    discussionPrompts: v.optional(v.array(v.string())),
+    actionItems: v.optional(v.array(v.string())),
+
+    // Delivery configuration
+    deliveryMethod: v.union(
+      v.literal("in_app"), // In-app notification only
+      v.literal("email"), // Email only
+      v.literal("both") // Both channels
+    ),
+    priority: v.union(v.literal("normal"), v.literal("high")),
+
+    // Status tracking
+    status: v.union(
+      v.literal("draft"), // Not yet sent
+      v.literal("pending_approval"), // Awaiting admin approval
+      v.literal("sent"), // Sent to recipients
+      v.literal("delivered"), // All recipients delivered
+      v.literal("failed") // Delivery failed
+    ),
+
+    // Timestamps
+    createdAt: v.number(),
+    sentAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index("by_org", ["organizationId"])
+    .index("by_sender", ["senderId"])
+    .index("by_player", ["playerIdentityId"])
+    .index("by_status", ["status"])
+    .index("by_org_and_status", ["organizationId", "status"])
+    .index("by_sender_and_createdAt", ["senderId", "createdAt"])
+    .index("by_voiceNote", ["sourceVoiceNoteId"]),
+
+  // Per-recipient delivery tracking
+  messageRecipients: defineTable({
+    messageId: v.id("coachParentMessages"),
+    guardianIdentityId: v.id("guardianIdentities"),
+    guardianUserId: v.optional(v.string()), // Better Auth user ID (if guardian is registered)
+
+    // Delivery status
+    deliveryStatus: v.union(
+      v.literal("pending"), // Not yet sent
+      v.literal("sent"), // Sent but not confirmed delivered
+      v.literal("delivered"), // Confirmed delivered
+      v.literal("failed"), // Delivery failed
+      v.literal("bounced") // Email bounced
+    ),
+    deliveryMethod: v.union(v.literal("in_app"), v.literal("email")),
+
+    // Email tracking
+    emailSentAt: v.optional(v.number()),
+    emailDeliveredAt: v.optional(v.number()),
+    emailOpenedAt: v.optional(v.number()),
+    emailBouncedAt: v.optional(v.number()),
+    emailBounceReason: v.optional(v.string()),
+
+    // In-app tracking
+    inAppNotifiedAt: v.optional(v.number()),
+    inAppViewedAt: v.optional(v.number()),
+
+    // Parent acknowledgment
+    acknowledgedAt: v.optional(v.number()),
+    acknowledgmentNote: v.optional(v.string()),
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_message", ["messageId"])
+    .index("by_guardian", ["guardianIdentityId"])
+    .index("by_guardianUser", ["guardianUserId"])
+    .index("by_status", ["deliveryStatus"])
+    .index("by_guardian_and_viewed", ["guardianIdentityId", "inAppViewedAt"]),
+
+  // Audit trail for compliance
+  messageAuditLog: defineTable({
+    messageId: v.id("coachParentMessages"),
+    organizationId: v.string(), // Denormalized for efficient org-wide queries
+
+    // Action type
+    action: v.union(
+      v.literal("created"),
+      v.literal("edited"),
+      v.literal("sent"),
+      v.literal("viewed"),
+      v.literal("acknowledged"),
+      v.literal("deleted"),
+      v.literal("exported"),
+      v.literal("flagged"),
+      v.literal("reviewed")
+    ),
+
+    // Actor
+    actorId: v.string(), // Better Auth user ID
+    actorType: v.union(
+      v.literal("coach"),
+      v.literal("parent"),
+      v.literal("admin"),
+      v.literal("system")
+    ),
+    actorName: v.string(),
+
+    // Action details
+    details: v.optional(
+      v.object({
+        previousContent: v.optional(v.string()),
+        newContent: v.optional(v.string()),
+        reason: v.optional(v.string()),
+        ipAddress: v.optional(v.string()),
+        userAgent: v.optional(v.string()),
+      })
+    ),
+
+    // Timestamp
+    timestamp: v.number(),
+  })
+    .index("by_message", ["messageId"])
+    .index("by_org", ["organizationId"])
+    .index("by_actor", ["actorId"])
+    .index("by_org_and_timestamp", ["organizationId", "timestamp"])
+    .index("by_action", ["action"]),
+
+  // Organization-level messaging configuration
+  orgMessagingSettings: defineTable({
+    organizationId: v.string(), // Better Auth organization ID
+
+    // Feature toggles
+    messagingEnabled: v.boolean(),
+    voiceNoteInsightsEnabled: v.boolean(),
+
+    // Default settings
+    defaultDeliveryMethod: v.union(
+      v.literal("in_app"),
+      v.literal("email"),
+      v.literal("both")
+    ),
+    allowCoachToChangeDelivery: v.boolean(),
+
+    // Message requirements
+    requireSubject: v.boolean(),
+    maxMessageLength: v.optional(v.number()),
+
+    // Approval workflow
+    requireAdminApproval: v.boolean(),
+
+    // Data retention
+    retentionDays: v.optional(v.number()), // Auto-delete messages after N days
+
+    // Audit settings
+    enableDetailedAuditLog: v.boolean(),
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_org", ["organizationId"]),
+
   // Organization Deletion Requests
   // Requires platform staff approval before deletion is executed
   orgDeletionRequests: defineTable({
@@ -2184,6 +2394,52 @@ export default defineSchema({
     .index("by_requesting_org", ["requestingOrgId"])
     .index("by_expiry", ["status", "expiresAt"]),
 
+  // Organization-to-Organization Passport Enquiries
+  // Coaches can send enquiries to other organizations about shared players
+  passportEnquiries: defineTable({
+    // Target player
+    playerIdentityId: v.id("playerIdentities"),
+    playerName: v.string(), // Denormalized for display
+
+    // Source organization (where the enquiry is coming FROM)
+    sourceOrgId: v.string(), // Better Auth organization ID
+    sourceOrgName: v.string(), // Denormalized for display
+    sourceUserId: v.string(), // Coach sending enquiry
+    sourceUserName: v.string(), // Denormalized
+    sourceUserEmail: v.string(), // Denormalized
+
+    // Target organization (where the enquiry is going TO)
+    targetOrgId: v.string(), // Organization being enquired about
+    targetOrgName: v.string(), // Denormalized for display
+
+    // Enquiry details
+    subject: v.string(), // e.g., "Request training schedule info"
+    message: v.string(), // Full enquiry message
+    contactPreference: v.union(v.literal("email"), v.literal("phone")), // How coach wants to be contacted
+
+    // Enquiry lifecycle
+    status: v.union(
+      v.literal("open"), // New enquiry
+      v.literal("processing"), // Admin is working on it
+      v.literal("closed") // Admin has resolved it
+    ),
+
+    // Resolution details
+    closedAt: v.optional(v.number()),
+    closedBy: v.optional(v.string()), // userId of admin who closed it
+    closedByName: v.optional(v.string()), // Denormalized
+    resolution: v.optional(v.string()), // What action was taken (required when closing)
+
+    // Timestamps
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_target_org", ["targetOrgId"])
+    .index("by_target_org_and_status", ["targetOrgId", "status"])
+    .index("by_source_org", ["sourceOrgId"])
+    .index("by_player", ["playerIdentityId"])
+    .index("by_status", ["status"]),
+
   // Parent Notification Preferences
   // Customizable notification settings for parents
   parentNotificationPreferences: defineTable({
@@ -2315,6 +2571,19 @@ export default defineSchema({
         v.literal("comfortable"),
         v.literal("spacious")
       )
+    ),
+
+    // Coach Comparison View Preferences
+    coachComparisonSettings: v.optional(
+      v.object({
+        defaultViewMode: v.union(
+          v.literal("insights"),
+          v.literal("split"),
+          v.literal("overlay")
+        ),
+        highlightDivergence: v.boolean(),
+        divergenceThreshold: v.number(), // e.g., 1.0 - skills with rating diff > this are highlighted
+      })
     ),
 
     // Timestamps

@@ -1,0 +1,230 @@
+{
+  "projectName": "Platform Staff User Management - Phase 2: Core Backend",
+  "branchName": "ralph/platform-users-phase2",
+  "description": "Implement all backend queries and mutations for platform staff user management. Requires Phase 1 schema to be complete.",
+  "planReference": "/Users/neil/.claude/plans/starry-yawning-crane.md",
+  "prerequisite": "Phase 1 (schema) must be merged to main first",
+  "verificationSteps": [
+    "Run: npx -w packages/backend convex codegen",
+    "Test queries in Convex dashboard",
+    "Verify platform staff check works"
+  ],
+  "userStories": [
+    {
+      "id": "US-007",
+      "title": "Create platformStaff.ts with requirePlatformStaff helper",
+      "priority": 1,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/models/platformStaff.ts",
+        "Import authComponent from auth.ts",
+        "Add requirePlatformStaff async helper that gets auth user and throws if not isPlatformStaff",
+        "Export helper for use in other functions"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Add getPlatformHealthMetrics query - core stats",
+      "priority": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add query with args: {} and returns validator with all metric fields",
+        "Fetch all users from Better Auth adapter",
+        "Calculate: totalUsers, platformStaffCount, verifiedUsersCount, unverifiedUsersCount",
+        "Calculate: newUsersLast30Days (createdAt >= 30 days ago)"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Add getPlatformHealthMetrics query - activity and org stats",
+      "priority": 3,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Fetch all members and count suspended (isDisabled = true)",
+        "Fetch all organizations and return totalOrganizations count",
+        "Fetch pending approval requests count",
+        "Fetch recent errors (last 24 hours) count",
+        "Calculate usersByOrganization array with orgId, orgName, memberCount sorted by count"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Add getPlatformHealthMetrics query - chart data",
+      "priority": 4,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Calculate signupsOverTime array for last 30 days",
+        "Group users by createdAt date (YYYY-MM-DD format)",
+        "Sort by date ascending",
+        "Return complete metrics object"
+      ]
+    },
+    {
+      "id": "US-011",
+      "title": "Add searchPlatformUsers query - basic search",
+      "priority": 5,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add query with args: searchQuery, isPlatformStaff, verificationStatus, cursor, limit",
+        "Fetch users with pagination",
+        "Filter by searchQuery (name, email, phone lowercase match)",
+        "Filter by isPlatformStaff boolean if provided",
+        "Return users array and nextCursor"
+      ]
+    },
+    {
+      "id": "US-012",
+      "title": "Add searchPlatformUsers query - org and role filters",
+      "priority": 6,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add args: organizationId, functionalRole, betterAuthRole, accountStatus",
+        "For org/role filters, fetch member records for each user",
+        "Filter by organizationId membership",
+        "Filter by functionalRole (coach/parent/admin/player in functionalRoles array)",
+        "Filter by accountStatus suspended (any member.isDisabled = true)"
+      ]
+    },
+    {
+      "id": "US-013",
+      "title": "Add searchPlatformUsers query - child name search",
+      "priority": 7,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add childName arg for searching by linked child's name",
+        "For each user, fetch guardianIdentities by userId",
+        "Fetch guardianPlayerLinks for each guardian",
+        "Fetch player details and match firstName/lastName",
+        "Return only users with matching children"
+      ]
+    },
+    {
+      "id": "US-014",
+      "title": "Add getPlatformUserDetails query - auth layer",
+      "priority": 8,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add query with userId arg",
+        "Fetch user from Better Auth adapter",
+        "Fetch all member records for user",
+        "Enrich each member with organization details",
+        "Log view action to platformStaffAuditLog"
+      ]
+    },
+    {
+      "id": "US-015",
+      "title": "Add getPlatformUserDetails query - player layer",
+      "priority": 9,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Fetch playerIdentities where userId matches",
+        "For each player, fetch orgPlayerEnrollments by playerIdentityId",
+        "Fetch teamPlayerIdentities for team assignments",
+        "Fetch sportPassports by playerIdentityId"
+      ]
+    },
+    {
+      "id": "US-016",
+      "title": "Add getPlatformUserDetails query - guardian layer",
+      "priority": 10,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Fetch guardianIdentities where userId matches",
+        "Fetch guardianPlayerLinks for each guardian",
+        "Fetch player details for each linked child",
+        "Include child's organization enrollments"
+      ]
+    },
+    {
+      "id": "US-017",
+      "title": "Add getPlatformUserDetails query - coach and stats",
+      "priority": 11,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Fetch coachAssignments by userId",
+        "Fetch team details for each assignment",
+        "Fetch activity counts: voiceNotes, sessionPlans, skillAssessments",
+        "Calculate stats: accountCreatedDays, lastActivityDays, lastLoginDays",
+        "Return complete user details object"
+      ]
+    },
+    {
+      "id": "US-018",
+      "title": "Add impersonation mutations",
+      "priority": 12,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add startImpersonation mutation with targetUserId and reason args",
+        "Require reason minimum 10 characters",
+        "Create session with 30-minute expiry, end existing active session",
+        "Add endImpersonation mutation to end session",
+        "Add getCurrentImpersonation query to check for active session"
+      ]
+    },
+    {
+      "id": "US-019",
+      "title": "Add requestApproval mutation",
+      "priority": 13,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Accept actionType, targetUserId/targetUserIds, organizationId, reason, additionalNotes",
+        "Require reason minimum 10 characters",
+        "Create pending request with 7-day expiry",
+        "Fetch target user emails for record",
+        "Log to audit trail"
+      ]
+    },
+    {
+      "id": "US-020",
+      "title": "Add reviewApprovalRequest mutation",
+      "priority": 14,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Accept requestId, decision (approved/rejected), notes",
+        "Cannot approve own request (requestedBy !== caller)",
+        "Update request status with reviewer info",
+        "If approved for suspend_user, update member.isDisabled via Better Auth adapter",
+        "Create platformUserNotification for target user"
+      ]
+    },
+    {
+      "id": "US-021",
+      "title": "Add getPendingApprovalRequests query",
+      "priority": 15,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Query platformStaffApprovalRequests with status = pending",
+        "Enrich with requester user details",
+        "Enrich with target user details",
+        "Order by createdAt descending"
+      ]
+    },
+    {
+      "id": "US-022",
+      "title": "Add bulkExportUsers query",
+      "priority": 16,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Accept optional userIds array, includeIdentities, includeActivity booleans",
+        "Fetch users (all or specific IDs)",
+        "Include memberships for all users",
+        "If includeIdentities, include player/guardian/coach identities",
+        "If includeActivity, include session count and last login",
+        "Log export to audit trail"
+      ]
+    },
+    {
+      "id": "US-023",
+      "title": "Add getErrorLogs and getAuditLog queries",
+      "priority": 17,
+      "passes": false,
+      "acceptanceCriteria": [
+        "getErrorLogs: accept userId, severity, errorType, isResolved, limit filters",
+        "getErrorLogs: use appropriate indexes based on filters",
+        "getAuditLog: accept targetUserId, performedBy, action, startDate, endDate, limit",
+        "getAuditLog: use appropriate indexes based on filters",
+        "Both require platform staff access"
+      ]
+    }
+  ]
+}

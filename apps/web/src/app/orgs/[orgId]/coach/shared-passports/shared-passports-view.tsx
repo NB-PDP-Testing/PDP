@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { authClient } from "@/lib/auth-client";
 import { BrowsePlayersTab } from "./components/browse-players-tab";
+import { ContactOrganizationButton } from "./components/contact-organization-button";
 import { MyPlayersTab } from "./components/my-players-tab";
 import { ShareAcceptanceModal } from "./components/share-acceptance-modal";
 
@@ -263,6 +264,32 @@ export function SharedPassportsView({ orgId }: SharedPassportsProps) {
                           >
                             View Passport
                           </Button>
+                          <Button
+                            onClick={() =>
+                              router.push(
+                                `/orgs/${organizationId}/coach/shared-passports/${passport.playerIdentityId}/compare?consentId=${passport.consentId}`
+                              )
+                            }
+                            size="sm"
+                            variant="outline"
+                          >
+                            Compare
+                          </Button>
+                          {passport.sourceOrgMode === "specific_orgs" &&
+                            passport.sourceOrgIds.length > 0 && (
+                              <div className="flex flex-col gap-1">
+                                {passport.sourceOrgIds.map((sourceOrgId) => (
+                                  <ContactOrganizationButton
+                                    key={sourceOrgId}
+                                    organizationId={sourceOrgId}
+                                    playerIdentityId={passport.playerIdentityId}
+                                    playerName={passport.playerName}
+                                    size="sm"
+                                    variant="outline"
+                                  />
+                                ))}
+                              </div>
+                            )}
                         </div>
                       </div>
                     </div>

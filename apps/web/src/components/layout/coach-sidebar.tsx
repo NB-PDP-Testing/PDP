@@ -9,6 +9,7 @@ import {
   HeartPulse,
   Home,
   Menu,
+  MessageSquare,
   Mic,
   Share2,
   TrendingUp,
@@ -85,6 +86,11 @@ export function getCoachNavGroups(orgId: string): NavGroup[] {
           href: `/orgs/${orgId}/coach/voice-notes`,
           label: "Voice Notes",
           icon: Mic,
+        },
+        {
+          href: `/orgs/${orgId}/coach/messages`,
+          label: "Messages",
+          icon: MessageSquare,
         },
         {
           href: `/orgs/${orgId}/coach/session-plans`,
@@ -176,6 +182,7 @@ export function CoachSidebar({ orgId, primaryColor }: CoachSidebarProps) {
                     hasActiveItem && "text-primary"
                   )}
                   onClick={() => toggleGroup(group.label)}
+                  type="button"
                 >
                   <div className="flex items-center gap-2">
                     <GroupIcon className="h-4 w-4" />
@@ -312,6 +319,7 @@ export function CoachMobileNav({
                       hasActiveItem && "text-primary"
                     )}
                     onClick={() => toggleGroup(group.label)}
+                    type="button"
                   >
                     <div className="flex items-center gap-3">
                       <GroupIcon className="h-5 w-5" />

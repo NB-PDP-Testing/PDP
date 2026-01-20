@@ -884,11 +884,13 @@ export const getSharedPassportData = query({
         v.object({
           organizationId: v.string(),
           organizationName: v.string(),
-          sharingContactMode: v.union(v.literal("direct"), v.literal("form")),
+          sharingContactMode: v.union(
+            v.literal("direct"),
+            v.literal("enquiry")
+          ),
           sharingContactName: v.optional(v.string()),
           sharingContactEmail: v.optional(v.string()),
           sharingContactPhone: v.optional(v.string()),
-          sharingEnquiriesUrl: v.optional(v.string()),
         })
       ),
       // Data sections (only populated if shared)
@@ -1014,7 +1016,6 @@ export const getSharedPassportData = query({
           sharingContactName: org.sharingContactName,
           sharingContactEmail: org.sharingContactEmail,
           sharingContactPhone: org.sharingContactPhone,
-          sharingEnquiriesUrl: org.sharingEnquiriesUrl,
         };
       })
     );
@@ -2210,6 +2211,285 @@ export const updateNotificationPreferences = mutation({
     });
 
     return preferencesId;
+  },
+});
+
+// ============================================================
+// ENROLLMENT VISIBILITY CONTROLS
+// Privacy settings for whether coaches at other orgs can see enrollments
+// ============================================================
+
+/**
+ * Update enrollment visibility preference for a guardian's child
+ * Controls whether coaches at other orgs can see this player is enrolled elsewhere
+ *
+ * @param guardianIdentityId - The guardian making the change
+ * @param playerIdentityId - Optional: specific child (undefined = global default)
+ * @param allowEnrollmentVisibility - Whether to allow visibility
+ * @returns The preferences record ID
+ */
+export const updateEnrollmentVisibility = mutation({
+  args: {
+    guardianIdentityId: v.id("guardianIdentities"),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+    allowEnrollmentVisibility: v.boolean(),
+  },
+  returns: v.id("parentNotificationPreferences"),
+  handler: async (ctx, args) => {
+    // Authentication check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    // Validate guardian exists
+    const guardian = await ctx.db.get(args.guardianIdentityId);
+    if (!guardian) {
+      throw new Error("Guardian identity not found");
+    }
+
+    // Validate guardian has parental responsibility for this player (if specified)
+    if (args.playerIdentityId) {
+      const link = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", args.guardianIdentityId)
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("playerIdentityId"), args.playerIdentityId),
+            q.eq(q.field("hasParentalResponsibility"), true)
+          )
+        )
+        .first();
+
+      if (!link) {
+        throw new Error(
+          "You do not have parental responsibility for this player"
+        );
+      }
+    }
+
+    // Check if preferences already exist using by_guardian index
+    const allPreferences = await ctx.db
+      .query("parentNotificationPreferences")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", args.guardianIdentityId)
+      )
+      .collect();
+
+    // Find matching record (player-specific or global)
+    const existing = allPreferences.find((pref) =>
+      args.playerIdentityId
+        ? pref.playerIdentityId === args.playerIdentityId
+        : pref.playerIdentityId === undefined
+    );
+
+    const now = Date.now();
+
+    if (existing) {
+      // Update existing preferences
+      await ctx.db.patch(existing._id, {
+        allowEnrollmentVisibility: args.allowEnrollmentVisibility,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+
+    // Create new preferences record with default notification settings
+    const preferencesId = await ctx.db.insert("parentNotificationPreferences", {
+      guardianIdentityId: args.guardianIdentityId,
+      playerIdentityId: args.playerIdentityId,
+      accessNotificationFrequency: "weekly", // Default
+      allowEnrollmentVisibility: args.allowEnrollmentVisibility,
+      updatedAt: now,
+    });
+
+    return preferencesId;
+  },
+});
+
+/**
+ * Get enrollment visibility settings for a specific player or global default
+ * Returns the explicit setting if exists, or indicates fallback behavior
+ *
+ * @param guardianIdentityId - The guardian to get settings for
+ * @param playerIdentityId - Optional: specific child (undefined = get global)
+ * @returns Visibility setting with hasExplicitSetting flag
+ */
+export const getEnrollmentVisibilitySettings = query({
+  args: {
+    guardianIdentityId: v.id("guardianIdentities"),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
+  },
+  returns: v.object({
+    allowEnrollmentVisibility: v.boolean(),
+    hasExplicitSetting: v.boolean(),
+    source: v.union(
+      v.literal("player_specific"),
+      v.literal("global"),
+      v.literal("default")
+    ),
+  }),
+  handler: async (ctx, args) => {
+    // Authentication check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      // Return default for unauthenticated (shouldn't happen in practice)
+      return {
+        allowEnrollmentVisibility: true,
+        hasExplicitSetting: false,
+        source: "default" as const,
+      };
+    }
+
+    // Get all preferences for this guardian
+    const allPreferences = await ctx.db
+      .query("parentNotificationPreferences")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", args.guardianIdentityId)
+      )
+      .collect();
+
+    // 1. Check for player-specific setting if playerIdentityId provided
+    if (args.playerIdentityId) {
+      const playerSpecific = allPreferences.find(
+        (pref) => pref.playerIdentityId === args.playerIdentityId
+      );
+      if (playerSpecific?.allowEnrollmentVisibility !== undefined) {
+        return {
+          allowEnrollmentVisibility: playerSpecific.allowEnrollmentVisibility,
+          hasExplicitSetting: true,
+          source: "player_specific" as const,
+        };
+      }
+    }
+
+    // 2. Check for global setting (playerIdentityId = undefined)
+    const globalPref = allPreferences.find(
+      (pref) => pref.playerIdentityId === undefined
+    );
+    if (globalPref?.allowEnrollmentVisibility !== undefined) {
+      return {
+        allowEnrollmentVisibility: globalPref.allowEnrollmentVisibility,
+        hasExplicitSetting: true,
+        source: "global" as const,
+      };
+    }
+
+    // 3. Default to true (allow visibility)
+    return {
+      allowEnrollmentVisibility: true,
+      hasExplicitSetting: false,
+      source: "default" as const,
+    };
+  },
+});
+
+/**
+ * Get enrollment visibility settings for all of a guardian's children
+ * Batch operation for efficient dashboard loading
+ *
+ * @param guardianIdentityId - The guardian to get settings for
+ * @returns Array of settings per child with computed visibility
+ */
+export const getEnrollmentVisibilityForAllChildren = query({
+  args: {
+    guardianIdentityId: v.id("guardianIdentities"),
+  },
+  returns: v.array(
+    v.object({
+      playerIdentityId: v.id("playerIdentities"),
+      playerName: v.string(),
+      allowEnrollmentVisibility: v.boolean(),
+      hasExplicitSetting: v.boolean(),
+      source: v.union(
+        v.literal("player_specific"),
+        v.literal("global"),
+        v.literal("default")
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Authentication check
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Authentication required");
+    }
+
+    // Get all children for this guardian with parental responsibility
+    const links = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", args.guardianIdentityId)
+      )
+      .filter((q) => q.eq(q.field("hasParentalResponsibility"), true))
+      .collect();
+
+    if (links.length === 0) {
+      return [];
+    }
+
+    // Get all preferences for this guardian (single query)
+    const allPreferences = await ctx.db
+      .query("parentNotificationPreferences")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", args.guardianIdentityId)
+      )
+      .collect();
+
+    // Find global preference
+    const globalPref = allPreferences.find(
+      (pref) => pref.playerIdentityId === undefined
+    );
+    const globalVisibility = globalPref?.allowEnrollmentVisibility;
+
+    // Build results for each child
+    const results: Array<{
+      playerIdentityId: Id<"playerIdentities">;
+      playerName: string;
+      allowEnrollmentVisibility: boolean;
+      hasExplicitSetting: boolean;
+      source: "player_specific" | "global" | "default";
+    }> = [];
+
+    for (const link of links) {
+      const player = await ctx.db.get(link.playerIdentityId);
+      if (!player) continue;
+
+      // Check player-specific setting
+      const playerSpecific = allPreferences.find(
+        (pref) => pref.playerIdentityId === link.playerIdentityId
+      );
+
+      let allowEnrollmentVisibility: boolean;
+      let hasExplicitSetting: boolean;
+      let source: "player_specific" | "global" | "default";
+
+      if (playerSpecific?.allowEnrollmentVisibility !== undefined) {
+        allowEnrollmentVisibility = playerSpecific.allowEnrollmentVisibility;
+        hasExplicitSetting = true;
+        source = "player_specific";
+      } else if (globalVisibility !== undefined) {
+        allowEnrollmentVisibility = globalVisibility;
+        hasExplicitSetting = true;
+        source = "global";
+      } else {
+        allowEnrollmentVisibility = true; // Default
+        hasExplicitSetting = false;
+        source = "default";
+      }
+
+      results.push({
+        playerIdentityId: link.playerIdentityId,
+        playerName: `${player.firstName} ${player.lastName}`,
+        allowEnrollmentVisibility,
+        hasExplicitSetting,
+        source,
+      });
+    }
+
+    return results;
   },
 });
 

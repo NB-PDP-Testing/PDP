@@ -40,6 +40,7 @@ import {
   EnableSharingWizard,
 } from "./enable-sharing-wizard";
 import { NotificationPreferences } from "./notification-preferences";
+import { PrivacySettingsCard } from "./privacy-settings-card";
 
 type ParentSharingDashboardProps = {
   orgId: string;
@@ -375,6 +376,11 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Privacy Settings */}
+      {identityChildren.length > 0 && guardianIdentity?._id && (
+        <PrivacySettingsCard guardianIdentityId={guardianIdentity._id} />
       )}
 
       {/* Children List */}

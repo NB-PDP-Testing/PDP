@@ -79,6 +79,38 @@ export const getAllVoiceNotes = query({
 });
 
 /**
+ * Get a single voice note by ID
+ */
+export const getVoiceNoteById = query({
+  args: {
+    noteId: v.id("voiceNotes"),
+  },
+  returns: v.union(
+    v.object({
+      _id: v.id("voiceNotes"),
+      _creationTime: v.number(),
+      orgId: v.string(),
+      coachId: v.optional(v.string()),
+      date: v.string(),
+      type: noteTypeValidator,
+      audioStorageId: v.optional(v.id("_storage")),
+      transcription: v.optional(v.string()),
+      transcriptionStatus: v.optional(statusValidator),
+      transcriptionError: v.optional(v.string()),
+      summary: v.optional(v.string()),
+      insights: v.array(insightValidator),
+      insightsStatus: v.optional(statusValidator),
+      insightsError: v.optional(v.string()),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const note = await ctx.db.get(args.noteId);
+    return note;
+  },
+});
+
+/**
  * Get voice notes by coach
  * Limited to 100 most recent notes to reduce bandwidth usage
  */

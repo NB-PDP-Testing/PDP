@@ -11,9 +11,11 @@ import {
   Loader2,
   Mic,
   MicOff,
+  Send,
   Trash2,
   XCircle,
 } from "lucide-react";
+import type { Route } from "next";
 import { useParams, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import {
@@ -497,6 +499,20 @@ Example: 'Emma Murphy had a great session today. Her left foot passing is really
                   </div>
                 </div>
                 <div className="flex gap-2">
+                  {insight.playerIdentityId && (
+                    <Button
+                      onClick={() => {
+                        router.push(
+                          `/orgs/${orgId}/coach/messages/compose?type=insight&voiceNoteId=${insight.noteId}&insightId=${insight.id}&playerIdentityId=${insight.playerIdentityId}` as Route
+                        );
+                      }}
+                      size="sm"
+                      title="Share with Parent"
+                      variant="secondary"
+                    >
+                      <Send size={16} />
+                    </Button>
+                  )}
                   <Button
                     onClick={() =>
                       handleApplyInsight(insight.noteId, insight.id)

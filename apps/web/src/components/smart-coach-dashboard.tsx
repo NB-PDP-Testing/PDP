@@ -1,17 +1,14 @@
 "use client";
 
-import { api } from "@pdp/backend/convex/_generated/api";
-import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useConvex, useQuery } from "convex/react";
 import {
   AlertCircle,
   BarChart3,
   Brain,
   CheckCircle,
-  Clock,
   Download,
   Edit,
   FileText,
+  Mail,
   MessageCircle,
   Share,
   Share2,
@@ -21,32 +18,24 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { FABQuickActions } from "@/components/quick-actions/fab-variant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   type AIRecommendation,
   generateCoachingRecommendations,
   generateSessionPlan,
 } from "@/lib/ai-service";
 import {
-  trackPlanCached,
-  trackPlanGenerated,
-  trackPlanRegenerated,
-  trackPlanShared,
-} from "@/lib/analytics-tracker";
-import {
   downloadPDF,
   generateSessionPlanPDF,
+  shareViaEmail,
   shareViaNative,
   shareViaWhatsApp,
 } from "@/lib/pdf-generator";
-import { sessionPlanConfig } from "@/lib/session-plan-config";
-import { cn } from "@/lib/utils";
 
 type TeamAnalytics = {
   teamId: string;
@@ -73,6 +62,15 @@ type TeamData = {
   coachNotes?: string;
 };
 
+// Top-level regex constants for performance
+const CAMEL_CASE_REGEX = /([A-Z])/g;
+const FIRST_CHAR_REGEX = /^./;
+
+// No-op function for optional handlers
+const noop = () => {
+  // Intentionally empty - used as fallback for optional handlers
+};
+
 type SmartCoachDashboardProps = {
   players: any[];
   allPlayers?: any[]; // Unfiltered list for stat counts - if not provided, uses players
@@ -94,77 +92,6 @@ type SmartCoachDashboardProps = {
   onSaveTeamNote?: (teamId: string, note: string) => Promise<boolean>;
   isClubView?: boolean;
 };
-
-// Regex constants at module scope for performance
-const FIRST_CHAR_REGEX = /^./;
-
-// Pure helper functions moved outside component to prevent recreation on each render
-// This fixes the infinite loop issue caused by useCallback dependency changes
-
-/**
- * Format a camelCase skill key into readable text
- * e.g., "kickingAccuracy" → "Kicking Accuracy"
- */
-function formatSkillName(key: string): string {
-  return key
-    .replace(/([A-Z])/g, " $1")
-    .replace(FIRST_CHAR_REGEX, (str) => str.toUpperCase())
-    .trim();
-}
-
-/**
- * Calculate average skill level for a player
- */
-function calculatePlayerAvgSkill(player: any): number {
-  const skills = player.skills || {};
-  const skillValues = Object.values(skills).filter(
-    (v) => typeof v === "number"
-  ) as number[];
-  if (skillValues.length === 0) {
-    return 0;
-  }
-  return skillValues.reduce((a, b) => a + b, 0) / skillValues.length;
-}
-
-/**
- * Calculate average skill values across a team
- */
-function calculateSkillAverages(teamPlayers: any[]): Record<string, number> {
-  if (teamPlayers.length === 0) {
-    return {};
-  }
-  const skillKeys = Object.keys(teamPlayers[0].skills || {}).filter(
-    (k) => k !== "kickingDistanceMax"
-  );
-  const averages: Record<string, number> = {};
-
-  for (const skillKey of skillKeys) {
-    const sum = teamPlayers.reduce((acc, player) => {
-      const value = (player.skills as any)[skillKey];
-      return acc + (typeof value === "number" ? value : 0);
-    }, 0);
-    averages[skillKey] = sum / teamPlayers.length;
-  }
-
-  return averages;
-}
-
-/**
- * Get all team names for a player
- */
-function getPlayerTeams(player: any): string[] {
-  // First check if player has explicit teams array (from updated coach dashboard)
-  if (player.teams && Array.isArray(player.teams) && player.teams.length > 0) {
-    return player.teams;
-  }
-
-  // Fallback to single team (backwards compatibility)
-  const teamName = player.teamName || player.team;
-  if (teamName) {
-    return [teamName];
-  }
-  return [];
-}
 
 export function SmartCoachDashboard({
   players,
@@ -202,45 +129,10 @@ export function SmartCoachDashboard({
   const [showShareModal, setShowShareModal] = useState(false);
   const [planToShare, setPlanToShare] = useState<any>(null);
 
-  // Session plan caching state
-  const [currentPlanId, setCurrentPlanId] = useState<Id<"sessionPlans"> | null>(
-    null
-  );
-  const [showCachedBadge, setShowCachedBadge] = useState(false);
-  const [cachedBadgeDismissed, setCachedBadgeDismissed] = useState(false);
-  const [cachedPlanAge, setCachedPlanAge] = useState<string | null>(null);
-
   // Team notes state
   const [showAddTeamNote, setShowAddTeamNote] = useState(false);
   const [newTeamNote, setNewTeamNote] = useState("");
   const [savingTeamNote, setSavingTeamNote] = useState(false);
-
-  // Responsive layout detection
-  const isMobile = useMediaQuery("(max-width: 640px)");
-
-  // Convex client for database operations
-  const convex = useConvex();
-
-  // Query sports for sport name lookup
-  const sports = useQuery(api.models.referenceData.getSports);
-
-  // Helper: Sport code to display name mapping
-  const sportCodeToName = useMemo(() => {
-    const map = new Map<string, string>();
-    if (sports) {
-      for (const sport of sports) {
-        map.set(sport.code, sport.name);
-      }
-    }
-    return map;
-  }, [sports]);
-
-  const getSportDisplayName = (sportCode: string | undefined) => {
-    if (!sportCode) {
-      return "GAA Football"; // Fallback
-    }
-    return sportCodeToName.get(sportCode) || sportCode;
-  };
 
   // Handle saving team note
   const handleSaveTeamNote = async () => {
@@ -263,11 +155,26 @@ export function SmartCoachDashboard({
     }
   };
 
-  // Note: Helper functions (getPlayerTeams, calculateSkillAverages, calculatePlayerAvgSkill, formatSkillName)
-  // are defined at module scope above to prevent recreation on each render and fix infinite loop issues
+  // Helper to get all teams for a player
+  const getPlayerTeams = (player: any): string[] => {
+    // First check if player has explicit teams array (from updated coach dashboard)
+    if (
+      player.teams &&
+      Array.isArray(player.teams) &&
+      player.teams.length > 0
+    ) {
+      return player.teams;
+    }
 
-  // Main analytics calculation
-  const calculateTeamAnalytics = useCallback(() => {
+    // Fallback to single team (backwards compatibility)
+    const teamName = player.teamName || player.team;
+    if (teamName) {
+      return [teamName];
+    }
+    return [];
+  };
+
+  const calculateTeamAnalytics = () => {
     // Use coach's assigned teams if provided, otherwise extract from player data
     let uniqueTeams: string[];
     if (coachTeams && coachTeams.length > 0 && !isClubView) {
@@ -275,10 +182,16 @@ export function SmartCoachDashboard({
       uniqueTeams = [...coachTeams].sort();
     } else {
       // For club view or when no coach teams provided, get from player data
+      // Get team names from teamPlayers links - we'll need to get this from the backend
+      // For now, extract from player data if available
       uniqueTeams = Array.from(
         new Set(
           players
-            .map((p) => (p as any).teamName || (p as any).team)
+            .map((p) => {
+              // Players might have team info in different formats
+              // Check if player has a team property or if we need to look it up
+              return (p as any).teamName || (p as any).team;
+            })
             .filter(Boolean)
         )
       ).sort();
@@ -292,6 +205,7 @@ export function SmartCoachDashboard({
 
     const analytics = dynamicTeams.map((team) => {
       const teamPlayers = players.filter((p) => {
+        // Check if player is on this team (supports multi-team)
         const playerTeamsList = getPlayerTeams(p);
         return playerTeamsList.includes(team.name) && p;
       });
@@ -311,24 +225,29 @@ export function SmartCoachDashboard({
         };
       }
 
+      // Calculate skill averages
       const skillAverages = calculateSkillAverages(teamPlayers);
 
+      // Find strengths (avg >= 4.0)
       const strengths = Object.entries(skillAverages)
         .filter(([_, avg]) => avg >= 4.0)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
         .map(([skill, avg]) => ({ skill: formatSkillName(skill), avg }));
 
+      // Find weaknesses (avg < 2.5)
       const weaknesses = Object.entries(skillAverages)
         .filter(([_, avg]) => avg < 2.5)
         .sort((a, b) => a[1] - b[1])
         .slice(0, 3)
         .map(([skill, avg]) => ({ skill: formatSkillName(skill), avg }));
 
+      // Count overdue reviews
       const overdueReviews = teamPlayers.filter(
         (p) => p.reviewStatus === "Overdue"
       ).length;
 
+      // Count attendance issues (<70%)
       const attendanceIssues = teamPlayers.filter((p) => {
         const trainPct = Number.parseInt(
           (p.attendance?.training as string) || "100",
@@ -337,11 +256,13 @@ export function SmartCoachDashboard({
         return trainPct < 70;
       }).length;
 
+      // Find top performers (avg skill > 4.0)
       const topPerformers = teamPlayers
         .filter((p) => calculatePlayerAvgSkill(p) >= 4.0)
         .map((p) => p.name)
         .slice(0, 3);
 
+      // Find players needing attention (avg < 2.5 OR low attendance)
       const needsAttention = teamPlayers
         .filter((p) => {
           const avgSkill = calculatePlayerAvgSkill(p);
@@ -354,6 +275,7 @@ export function SmartCoachDashboard({
         .map((p) => p.name)
         .slice(0, 5);
 
+      // Overall avg skill level
       const avgSkillLevel =
         teamPlayers.reduce((sum, p) => sum + calculatePlayerAvgSkill(p), 0) /
         teamPlayers.length;
@@ -373,12 +295,48 @@ export function SmartCoachDashboard({
     });
 
     setTeamAnalytics(analytics);
-    // Note: Helper functions are now at module scope, so they don't need to be dependencies
-  }, [players, coachTeams, isClubView]);
+  };
 
-  const generateCorrelationInsights = useCallback(() => {
+  const calculateSkillAverages = (teamPlayers: any[]) => {
+    if (teamPlayers.length === 0) {
+      return {};
+    }
+    const skillKeys = Object.keys(teamPlayers[0].skills || {}).filter(
+      (k) => k !== "kickingDistanceMax"
+    );
+    const averages: Record<string, number> = {};
+
+    for (const skillKey of skillKeys) {
+      const sum = teamPlayers.reduce((acc, player) => {
+        const value = (player.skills as any)[skillKey];
+        return acc + (typeof value === "number" ? value : 0);
+      }, 0);
+      averages[skillKey] = sum / teamPlayers.length;
+    }
+
+    return averages;
+  };
+
+  const calculatePlayerAvgSkill = (player: any): number => {
+    const skills = player.skills || {};
+    const skillValues = Object.values(skills).filter(
+      (v) => typeof v === "number"
+    ) as number[];
+    if (skillValues.length === 0) {
+      return 0;
+    }
+    return skillValues.reduce((a, b) => a + b, 0) / skillValues.length;
+  };
+
+  const formatSkillName = (key: string): string =>
+    key
+      .replace(CAMEL_CASE_REGEX, " $1")
+      .replace(FIRST_CHAR_REGEX, (str) => str.toUpperCase())
+      .trim();
+
+  const generateCorrelationInsights = () => {
     const allPlayers = players;
-    const correlationInsights: CorrelationInsight[] = [];
+    const newInsights: CorrelationInsight[] = [];
 
     // Team-specific skills analysis (for coaches)
     if (!isClubView && allPlayers.length > 0) {
@@ -396,7 +354,7 @@ export function SmartCoachDashboard({
             ([skill, avg]) => `${formatSkillName(skill)} (${avg.toFixed(1)})`
           )
           .join(", ");
-        correlationInsights.push({
+        newInsights.push({
           type: "improvement",
           message: `🏆 Team strengths: ${skillList}. Build training sessions around these strong areas.`,
           severity: "success",
@@ -414,7 +372,7 @@ export function SmartCoachDashboard({
             ([skill, avg]) => `${formatSkillName(skill)} (${avg.toFixed(1)})`
           )
           .join(", ");
-        correlationInsights.push({
+        newInsights.push({
           type: "improvement",
           message: `📊 Focus areas for development: ${skillList}. Consider dedicating practice time to these skills.`,
           severity: "warning",
@@ -443,14 +401,14 @@ export function SmartCoachDashboard({
         lowAttendance.length;
       const diff = highAvg - lowAvg;
 
-      correlationInsights.push({
+      newInsights.push({
         type: "attendance",
         message: `📊 Players with 90%+ attendance average ${diff.toFixed(1)} points higher in skills (${highAttendance.length} players) vs <60% attendance (${lowAttendance.length} players).`,
         severity: diff > 1.0 ? "warning" : "info",
       });
     }
 
-    // Review status
+    // Review status - count players who need review (overdue OR never reviewed)
     const needsReviewCount = allPlayers.filter(
       (p) =>
         p.reviewStatus === "Overdue" || !p.reviewStatus || !p.lastReviewDate
@@ -479,60 +437,29 @@ export function SmartCoachDashboard({
       }
       message += `. Review completion rate: ${reviewRate.toFixed(0)}%.`;
 
-      correlationInsights.push({
+      newInsights.push({
         type: "attendance",
         message,
         severity: "warning",
       });
     } else if (reviewRate >= 80) {
-      correlationInsights.push({
+      newInsights.push({
         type: "attendance",
         message: `✅ Excellent review completion rate: ${reviewRate.toFixed(0)}%. All players are on track with regular assessments.`,
         severity: "success",
       });
     }
 
-    setInsights(correlationInsights);
-    // Note: Helper functions are now at module scope, so they don't need to be dependencies
-  }, [players, isClubView]);
+    setInsights(newInsights);
+  };
 
-  // Run analytics when data dependencies change (not when callbacks change)
-  // CRITICAL: Do NOT include calculateTeamAnalytics or generateCorrelationInsights in deps
-  // as they are recreated each render, causing infinite loops
+  // Calculate analytics when dependencies change
+  // Note: useEffect must be placed after function declarations
   useEffect(() => {
     calculateTeamAnalytics();
     generateCorrelationInsights();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, coachTeams, isClubView]);
-
-  // Stable callback wrappers for Quick Actions (prevents infinite re-registration)
-  const handleAssessPlayers = useCallback(() => {
-    onAssessPlayers?.();
-  }, [onAssessPlayers]);
-
-  const handleViewAnalytics = useCallback(() => {
-    onViewAnalytics?.();
-  }, [onViewAnalytics]);
-
-  const handleVoiceNotes = useCallback(() => {
-    onViewVoiceNotes?.();
-  }, [onViewVoiceNotes]);
-
-  const handleInjuries = useCallback(() => {
-    onViewInjuries?.();
-  }, [onViewInjuries]);
-
-  const handleGoals = useCallback(() => {
-    onViewGoals?.();
-  }, [onViewGoals]);
-
-  const handleMedical = useCallback(() => {
-    onViewMedical?.();
-  }, [onViewMedical]);
-
-  const handleMatchDay = useCallback(() => {
-    onViewMatchDay?.();
-  }, [onViewMatchDay]);
 
   const generateAIRecommendations = async () => {
     // Prevent duplicate calls if already loading
@@ -594,213 +521,65 @@ export function SmartCoachDashboard({
     }
   };
 
-  const handleGenerateSessionPlan = useCallback(
-    async (bypassCache = false, isRegeneration = false) => {
-      setLoadingSessionPlan(true);
-      setShowSessionPlan(true);
-      setCachedBadgeDismissed(false); // Reset dismissed state for new/regenerated plans
+  const handleGenerateSessionPlan = async () => {
+    setLoadingSessionPlan(true);
+    setShowSessionPlan(true);
 
-      try {
-        // Use first team with players for session plan
-        const team = teamAnalytics.find((t) => t.playerCount > 0);
-        if (!team) {
-          setSessionPlan("No teams with players found.");
-          return;
-        }
-
-        const teamPlayers = players.filter((p) => {
-          // Check if player is on this team (supports multi-team)
-          const playerTeamsList = getPlayerTeams(p);
-          return playerTeamsList.includes(team.teamName) && p;
-        });
-
-        // Team data for AI generation (includes teamName)
-        const teamDataForAI = {
-          teamName: team.teamName,
-          playerCount: teamPlayers.length,
-          ageGroup: teamPlayers[0]?.ageGroup || "U12",
-          avgSkillLevel: team.avgSkillLevel,
-          strengths: team.strengths,
-          weaknesses: team.weaknesses,
-          attendanceIssues: team.attendanceIssues,
-          overdueReviews: team.overdueReviews,
-        };
-
-        // Team data for database (without teamName - it's passed separately)
-        const teamDataForDB = {
-          playerCount: teamPlayers.length,
-          ageGroup: teamPlayers[0]?.ageGroup || "U12",
-          avgSkillLevel: team.avgSkillLevel,
-          strengths: team.strengths,
-          weaknesses: team.weaknesses,
-          attendanceIssues: team.attendanceIssues,
-          overdueReviews: team.overdueReviews,
-        };
-
-        // Check for cached plan first (unless bypassing cache for regeneration)
-        if (bypassCache) {
-          setShowCachedBadge(false);
-          setCachedPlanAge(null);
-        } else {
-          const cacheDuration = sessionPlanConfig.cacheDurationHours;
-
-          const cachedPlan = await convex.query(
-            api.models.sessionPlans.getRecentPlanForTeam,
-            {
-              teamId: team.teamId,
-              maxAgeHours: cacheDuration,
-            }
-          );
-
-          if (cachedPlan) {
-            const ageMs = Date.now() - cachedPlan.generatedAt;
-            const ageMinutes = Math.floor(ageMs / (1000 * 60));
-            const ageHours = Math.floor(ageMinutes / 60);
-            const ageStr =
-              ageHours > 0
-                ? `${ageHours} hour${ageHours > 1 ? "s" : ""}`
-                : `${ageMinutes} minute${ageMinutes > 1 ? "s" : ""}`;
-
-            setSessionPlan(cachedPlan.sessionPlan || "");
-            setCurrentPlanId(cachedPlan._id);
-            setShowCachedBadge(true);
-            setCachedPlanAge(ageStr);
-
-            // Track cache hit in PostHog
-            trackPlanCached({
-              teamId: team.teamId,
-              teamName: team.teamName,
-              playerCount: teamDataForDB.playerCount,
-              ageGroup: teamDataForDB.ageGroup,
-              creationMethod: "ai_generated",
-              usedRealAI: cachedPlan.usedRealAI,
-              cacheAge: ageMs,
-              planId: cachedPlan._id,
-            });
-
-            // Increment view count
-            await convex.mutation(api.models.sessionPlans.incrementViewCount, {
-              planId: cachedPlan._id,
-            });
-
-            return;
-          }
-        }
-
-        // Generate new plan
-        const focus =
-          team.weaknesses.length > 0 ? team.weaknesses[0].skill : undefined;
-        const plan = await generateSessionPlan(teamDataForAI, focus);
-
-        setSessionPlan(plan);
-
-        // Save plan to database
-        const planId = await convex.mutation(api.models.sessionPlans.savePlan, {
-          teamId: team.teamId,
-          teamName: team.teamName,
-          sessionPlan: plan,
-          focus,
-          teamData: teamDataForDB,
-          usedRealAI: true, // TODO: Track from API response
-          creationMethod: "ai_generated",
-        });
-
-        setCurrentPlanId(planId);
-
-        // Track plan generation in PostHog (skip if this is a regeneration - already tracked)
-        if (!isRegeneration) {
-          trackPlanGenerated({
-            teamId: team.teamId,
-            teamName: team.teamName,
-            playerCount: teamDataForDB.playerCount,
-            ageGroup: teamDataForDB.ageGroup,
-            creationMethod: "ai_generated",
-            usedRealAI: true,
-            focus,
-            planId,
-          });
-        }
-      } catch (error) {
-        console.error("Error generating session plan:", error);
-        setSessionPlan("Error generating session plan. Please try again.");
-      } finally {
-        setLoadingSessionPlan(false);
-      }
-    },
-    [teamAnalytics, players, convex]
-  );
-
-  // Keyboard shortcuts for session plan modal
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Only handle shortcuts when modal is open
-      if (!showSessionPlan || loadingSessionPlan) {
+    try {
+      // Use first team with players for session plan
+      const team = teamAnalytics.find((t) => t.playerCount > 0);
+      if (!team) {
+        setSessionPlan("No teams with players found.");
         return;
       }
 
-      // Don't interfere with input fields
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
-      ) {
-        return;
-      }
+      const teamPlayers = players.filter((p) => {
+        // Check if player is on this team (supports multi-team)
+        const playerTeamsList = getPlayerTeams(p);
+        return playerTeamsList.includes(team.teamName) && p;
+      });
 
-      // CMD/Ctrl + R: Regenerate plan
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") {
-        e.preventDefault();
-        handleGenerateSessionPlan(true);
-      }
+      // ⚡ OPTIMIZED: Only send minimal data needed by backend (not full player objects)
+      const teamData = {
+        teamName: team.teamName,
+        playerCount: teamPlayers.length,
+        ageGroup: teamPlayers[0]?.ageGroup || "U12",
+        avgSkillLevel: team.avgSkillLevel,
+        strengths: team.strengths,
+        weaknesses: team.weaknesses,
+        attendanceIssues: team.attendanceIssues,
+        overdueReviews: team.overdueReviews,
+      };
 
-      // CMD/Ctrl + S: Share plan
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
-        e.preventDefault();
-        const team = teamAnalytics.find((t) => t.playerCount > 0);
-        if (team) {
-          const teamPlayers = players.filter((p) => {
-            const playerTeamsList = getPlayerTeams(p);
-            return playerTeamsList.includes(team.teamName);
-          });
-          setPlanToShare({
-            player: {
-              name: `${team.teamName} Session Plan`,
-              sport: teamPlayers[0]?.sport || "GAA Football",
-              ageGroup: teamPlayers[0]?.ageGroup || "U12",
-            },
-            sessionPlan,
-            teamName: team.teamName,
-            teamId: team.teamId,
-            playerCount: teamPlayers.length,
-          });
-          setShowShareModal(true);
-        }
-      }
-    };
+      console.log(
+        `📊 Generating session plan for ${team.teamName} (${teamPlayers.length} players)`
+      );
 
-    window.addEventListener("keydown", handleKeyPress);
-    return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [
-    showSessionPlan,
-    loadingSessionPlan,
-    sessionPlan,
-    teamAnalytics,
-    players,
-    handleGenerateSessionPlan,
-    getPlayerTeams,
-  ]);
+      // Use weaknesses as focus if available
+      const focus =
+        team.weaknesses.length > 0 ? team.weaknesses[0].skill : undefined;
+      const plan = await generateSessionPlan(teamData, focus);
+      setSessionPlan(plan);
+    } catch (error) {
+      console.error("Error generating session plan:", error);
+      setSessionPlan("Error generating session plan. Please try again.");
+    } finally {
+      setLoadingSessionPlan(false);
+    }
+  };
 
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Quick Actions - Connects header buttons to handler functions */}
       <FABQuickActions
-        onAssessPlayers={handleAssessPlayers}
+        onAssessPlayers={onAssessPlayers || noop}
         onGenerateSessionPlan={handleGenerateSessionPlan}
-        onGoals={handleGoals}
-        onInjuries={handleInjuries}
-        onMatchDay={handleMatchDay}
-        onMedical={handleMedical}
-        onViewAnalytics={handleViewAnalytics}
-        onVoiceNotes={handleVoiceNotes}
+        onGoals={onViewGoals || noop}
+        onInjuries={onViewInjuries || noop}
+        onMatchDay={onViewMatchDay || noop}
+        onMedical={onViewMedical || noop}
+        onViewAnalytics={noop}
+        onVoiceNotes={onViewVoiceNotes || noop}
       />
 
       {/* My Teams Section */}
@@ -1291,7 +1070,7 @@ export function SmartCoachDashboard({
                 aiRecommendations.map((rec) => (
                   <div
                     className="rounded-lg border border-gray-200 bg-gradient-to-r from-purple-50 to-white p-3 md:p-4"
-                    key={rec.title}
+                    key={`${rec.priority}-${rec.title}`}
                   >
                     <div className="mb-3 flex items-start gap-2 md:gap-3">
                       <div
@@ -1484,7 +1263,7 @@ export function SmartCoachDashboard({
 
       {/* Share Practice Plan Modal */}
       {showShareModal && planToShare && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-2 md:p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-2 md:p-4">
           <Card className="w-full max-w-md">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -1501,142 +1280,106 @@ export function SmartCoachDashboard({
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Primary Action - Download */}
+            <CardContent className="space-y-3">
               <Button
-                className="h-12 w-full bg-blue-600 font-semibold text-base transition-colors hover:bg-blue-700"
+                className="w-full bg-red-600 font-medium transition-colors hover:bg-red-700"
                 onClick={async () => {
                   try {
                     const pdfBlob = await generateSessionPlanPDF({
                       teamName: planToShare.teamName,
                       sessionPlan: planToShare.sessionPlan,
-                      sport: getSportDisplayName(planToShare.player.sport),
+                      sport: planToShare.player.sport,
                       ageGroup: planToShare.player.ageGroup,
                       playerCount: planToShare.playerCount,
-                      generatedBy: "ai",
                     });
                     await downloadPDF(
                       pdfBlob,
                       `${planToShare.teamName}_Session_Plan.pdf`
                     );
-                    toast.success("PDF Downloaded!", {
-                      description: "Session plan saved to your device",
-                    });
-
-                    // Track download (happens AFTER successful download, not at share button click)
-                    if (currentPlanId && planToShare.teamId) {
-                      trackPlanShared({
-                        teamId: planToShare.teamId,
-                        teamName: planToShare.teamName,
-                        creationMethod: "ai_generated",
-                        planId: currentPlanId,
-                        shareMethod: "download",
-                      });
-                    }
-
-                    setShowShareModal(false);
                   } catch (error) {
                     console.error("Error downloading PDF:", error);
-                    toast.error("Failed to download PDF", {
-                      description:
-                        "Please try again or contact support if the issue persists.",
-                    });
+                    toast.error("Failed to download PDF. Please try again.");
                   }
                 }}
               >
-                <Download size={20} />
+                <Download size={18} />
                 Download as PDF
               </Button>
 
-              {/* Secondary Actions - Quick Share */}
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  className="w-full bg-green-600 font-medium transition-colors hover:bg-green-700"
-                  onClick={async () => {
-                    try {
-                      const pdfBlob = await generateSessionPlanPDF({
-                        teamName: planToShare.teamName,
-                        sessionPlan: planToShare.sessionPlan,
-                        sport: planToShare.player.sport,
-                        ageGroup: planToShare.player.ageGroup,
-                        playerCount: planToShare.playerCount,
-                        generatedBy: "ai",
-                      });
-                      await shareViaWhatsApp(pdfBlob, planToShare.teamName);
-                      toast.success("Opening WhatsApp...", {
-                        description: "Select a chat to share the plan",
-                      });
+              <Button
+                className="w-full bg-blue-600 font-medium transition-colors hover:bg-blue-700"
+                onClick={async () => {
+                  try {
+                    const pdfBlob = await generateSessionPlanPDF({
+                      teamName: planToShare.teamName,
+                      sessionPlan: planToShare.sessionPlan,
+                      sport: planToShare.player.sport,
+                      ageGroup: planToShare.player.ageGroup,
+                      playerCount: planToShare.playerCount,
+                    });
+                    await shareViaEmail(pdfBlob, planToShare.teamName);
+                    setShowShareModal(false);
+                  } catch (error) {
+                    console.error("Error sharing via email:", error);
+                    toast.error(
+                      "Failed to open email client. Please try downloading instead."
+                    );
+                  }
+                }}
+              >
+                <Mail size={18} />
+                Share via Email
+              </Button>
 
-                      // Track WhatsApp share
-                      if (currentPlanId && planToShare.teamId) {
-                        trackPlanShared({
-                          teamId: planToShare.teamId,
-                          teamName: planToShare.teamName,
-                          creationMethod: "ai_generated",
-                          planId: currentPlanId,
-                          shareMethod: "whatsapp",
-                        });
-                      }
+              <Button
+                className="w-full bg-green-600 font-medium transition-colors hover:bg-green-700"
+                onClick={async () => {
+                  try {
+                    const pdfBlob = await generateSessionPlanPDF({
+                      teamName: planToShare.teamName,
+                      sessionPlan: planToShare.sessionPlan,
+                      sport: planToShare.player.sport,
+                      ageGroup: planToShare.player.ageGroup,
+                      playerCount: planToShare.playerCount,
+                    });
+                    await shareViaWhatsApp(pdfBlob, planToShare.teamName);
+                    setShowShareModal(false);
+                  } catch (error) {
+                    console.error("Error sharing via WhatsApp:", error);
+                    toast.error(
+                      "Failed to open WhatsApp. Please try another method."
+                    );
+                  }
+                }}
+              >
+                <MessageCircle size={18} />
+                Share via WhatsApp
+              </Button>
 
-                      setShowShareModal(false);
-                    } catch (error) {
-                      console.error("Error sharing via WhatsApp:", error);
-                      toast.error("Failed to open WhatsApp", {
-                        description: "Please try another sharing method.",
-                      });
-                    }
-                  }}
-                >
-                  <MessageCircle size={18} />
-                  WhatsApp
-                </Button>
-
-                <Button
-                  className="w-full bg-gray-700 font-medium transition-colors hover:bg-gray-800"
-                  onClick={async () => {
-                    try {
-                      const pdfBlob = await generateSessionPlanPDF({
-                        teamName: planToShare.teamName,
-                        sessionPlan: planToShare.sessionPlan,
-                        sport: planToShare.player.sport,
-                        ageGroup: planToShare.player.ageGroup,
-                        playerCount: planToShare.playerCount,
-                        generatedBy: "ai",
-                      });
-                      await shareViaNative(pdfBlob, planToShare.teamName);
-                      toast.success("Share sheet opened!", {
-                        description: "Choose how to share your plan",
-                      });
-
-                      // Track native share
-                      if (currentPlanId && planToShare.teamId) {
-                        trackPlanShared({
-                          teamId: planToShare.teamId,
-                          teamName: planToShare.teamName,
-                          creationMethod: "ai_generated",
-                          planId: currentPlanId,
-                          shareMethod: "native",
-                        });
-                      }
-
-                      setShowShareModal(false);
-                    } catch (error) {
-                      console.error("Error using native share:", error);
-                      toast.error("Native sharing not supported", {
-                        description: "Please download the PDF instead.",
-                      });
-                    }
-                  }}
-                >
-                  <Share2 size={18} />
-                  Share...
-                </Button>
-              </div>
-
-              {/* Tip */}
-              <p className="text-center text-muted-foreground text-xs">
-                💡 Share with your team via WhatsApp or messaging apps
-              </p>
+              <Button
+                className="w-full bg-purple-600 font-medium transition-colors hover:bg-purple-700"
+                onClick={async () => {
+                  try {
+                    const pdfBlob = await generateSessionPlanPDF({
+                      teamName: planToShare.teamName,
+                      sessionPlan: planToShare.sessionPlan,
+                      sport: planToShare.player.sport,
+                      ageGroup: planToShare.player.ageGroup,
+                      playerCount: planToShare.playerCount,
+                    });
+                    await shareViaNative(pdfBlob, planToShare.teamName);
+                    setShowShareModal(false);
+                  } catch (error) {
+                    console.error("Error using native share:", error);
+                    toast.error(
+                      "Native sharing not supported. Please use another method."
+                    );
+                  }
+                }}
+              >
+                <Share2 size={18} />
+                More Share Options
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -1644,218 +1387,101 @@ export function SmartCoachDashboard({
 
       {/* Session Plan Modal */}
       {showSessionPlan && (
-        <div
-          aria-describedby="session-plan-description"
-          aria-labelledby="session-plan-title"
-          aria-modal="true"
-          className="fixed inset-0 z-[100] bg-black/50"
-          role="dialog"
-        >
-          {/* Mobile: Full-screen from bottom | Desktop: Centered modal */}
-          <div
-            className={cn(
-              "fixed flex flex-col overflow-hidden bg-background shadow-2xl",
-              // Desktop: centered modal
-              "sm:-translate-x-1/2 sm:-translate-y-1/2 sm:top-1/2 sm:left-1/2 sm:max-h-[90vh] sm:max-w-3xl sm:rounded-lg",
-              // Mobile: full-screen - covers entire viewport including bottom nav
-              "max-sm:inset-0 max-sm:h-full max-sm:w-full max-sm:rounded-none"
-            )}
-          >
-            <Card className="flex h-full flex-col overflow-hidden border-0 shadow-none">
-              <CardHeader
-                className={cn(
-                  "sticky top-0 z-10 flex-shrink-0 border-b bg-background",
-                  "max-sm:px-3 max-sm:py-2",
-                  "sm:px-6 sm:py-4"
-                )}
-              >
-                <div className="flex items-start gap-2">
-                  {/* Close button - left on mobile, right on desktop */}
-                  <Button
-                    aria-label="Close session plan"
-                    className={cn(
-                      "h-8 w-8 flex-shrink-0",
-                      "max-sm:order-first",
-                      "sm:order-last sm:h-9 sm:w-9"
-                    )}
-                    onClick={() => setShowSessionPlan(false)}
-                    size="icon"
-                    variant="ghost"
-                  >
-                    <X size={18} />
-                  </Button>
-
-                  <div className="min-w-0 flex-1">
-                    <CardTitle
-                      className="flex items-center gap-2 text-base leading-tight sm:text-lg md:text-xl"
-                      id="session-plan-title"
-                    >
-                      <FileText
-                        className="flex-shrink-0 text-green-600"
-                        size={20}
-                      />
-                      <span className="line-clamp-1">
-                        AI Training Session Plan
-                      </span>
-                    </CardTitle>
-
-                    {/* Only show subtitle on desktop, or when no cached badge on mobile */}
-                    {(!(isMobile && showCachedBadge) ||
-                      cachedBadgeDismissed) && (
-                      <p
-                        className="mt-1 text-muted-foreground text-xs leading-snug sm:text-sm"
-                        id="session-plan-description"
-                      >
-                        Personalized for your team's needs
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Compact Cached Badge - Centered full width */}
-                {showCachedBadge && cachedPlanAge && !cachedBadgeDismissed && (
-                  <div className="mt-2 flex items-center gap-2 rounded-md bg-blue-50/80 px-2.5 py-1.5 text-xs">
-                    <Clock className="flex-shrink-0 text-blue-600" size={14} />
-                    <div className="flex-1 text-blue-700">
-                      <div className="font-semibold text-[13px] leading-tight">
-                        You generated this {cachedPlanAge} ago
-                      </div>
-                      <div className="mt-0.5 text-[11px] leading-tight opacity-85">
-                        Tap Regenerate to create a fresh plan
-                      </div>
-                    </div>
-                    <button
-                      aria-label="Dismiss"
-                      className="flex-shrink-0 rounded-sm p-1 text-blue-600 transition-colors hover:bg-blue-100/50"
-                      onClick={() => setCachedBadgeDismissed(true)}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                )}
-              </CardHeader>
-              <CardContent
-                className={cn(
-                  "flex-1 overflow-y-auto",
-                  "max-sm:px-3 max-sm:py-2",
-                  "sm:px-6 sm:py-4"
-                )}
-              >
-                {loadingSessionPlan ? (
-                  <div className="py-8 text-center md:py-12">
-                    <Brain
-                      className="mx-auto mb-4 animate-pulse text-green-600"
-                      size={40}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 md:p-4">
+          <Card className="max-h-[95vh] w-full max-w-3xl overflow-y-auto shadow-xl md:max-h-[90vh]">
+            <CardHeader className="sticky top-0 z-10 border-gray-200 border-b bg-white shadow-sm">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0 flex-1 pr-3">
+                  <CardTitle className="flex items-center gap-2 leading-tight">
+                    <FileText
+                      className="flex-shrink-0 text-green-600"
+                      size={20}
                     />
-                    <p className="text-muted-foreground text-sm md:text-base">
-                      AI is generating your personalized training session
-                      plan...
-                    </p>
-                    <p className="mt-2 text-muted-foreground text-xs opacity-75 md:text-sm">
-                      This may take a few moments
-                    </p>
-                  </div>
-                ) : (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <div className="whitespace-pre-wrap text-[15px] leading-relaxed md:text-base">
-                      {sessionPlan}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-              {!loadingSessionPlan && (
-                <div
-                  className={cn(
-                    "sticky bottom-0 z-10 flex-shrink-0 border-t bg-background shadow-[0_-4px_12px_rgba(0,0,0,0.08)]",
-                    "max-sm:px-3 max-sm:py-2",
-                    "sm:px-6 sm:py-4"
-                  )}
+                    <span className="line-clamp-2">
+                      AI Training Session Plan
+                    </span>
+                  </CardTitle>
+                  <p className="mt-1 text-gray-600 text-xs md:text-sm">
+                    Personalized for your team's needs
+                  </p>
+                </div>
+                <Button
+                  className="flex-shrink-0"
+                  onClick={() => setShowSessionPlan(false)}
+                  size="icon"
+                  variant="ghost"
                 >
-                  {/* Action Buttons */}
-                  <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
-                    <Button
-                      className="flex h-10 w-full items-center justify-center gap-2 bg-blue-600 font-medium text-sm shadow-sm transition-colors hover:bg-blue-700 sm:flex-1 md:text-base"
-                      onClick={async () => {
-                        const team = teamAnalytics.find(
-                          (t) => t.playerCount > 0
-                        );
-                        if (team) {
-                          const teamPlayers = players.filter((p) => {
-                            const playerTeamsList = getPlayerTeams(p);
-                            return playerTeamsList.includes(team.teamName) && p;
-                          });
-                          setPlanToShare({
-                            player: {
-                              name: `${team.teamName} Session Plan`,
-                              sport: teamPlayers[0]?.sport || "GAA Football",
-                              ageGroup: teamPlayers[0]?.ageGroup || "U12",
-                            },
-                            sessionPlan,
-                            teamName: team.teamName,
-                            teamId: team.teamId,
-                            playerCount: teamPlayers.length,
-                          });
-                          setShowShareModal(true);
-
-                          // Increment share count in database (tracks share intent)
-                          if (currentPlanId) {
-                            await convex.mutation(
-                              api.models.sessionPlans.incrementShareCount,
-                              {
-                                planId: currentPlanId,
-                              }
-                            );
-                          }
-                          // Note: Actual share method tracking happens in the share modal buttons
-                        }
-                      }}
-                    >
-                      <Share2 className="flex-shrink-0" size={18} />
-                      <span>Share Plan</span>
-                    </Button>
-                    <Button
-                      className="flex h-10 w-full items-center justify-center gap-2 bg-green-600 font-medium text-sm shadow-sm transition-colors hover:bg-green-700 sm:flex-1 md:text-base"
-                      onClick={async () => {
-                        // Track regeneration before generating
-                        if (currentPlanId) {
-                          await convex.mutation(
-                            api.models.sessionPlans.incrementRegenerateCount,
-                            {
-                              planId: currentPlanId,
-                            }
-                          );
-
-                          const team = teamAnalytics.find(
-                            (t) => t.playerCount > 0
-                          );
-                          if (team) {
-                            trackPlanRegenerated({
-                              teamId: team.teamId,
-                              teamName: team.teamName,
-                              creationMethod: "ai_generated",
-                              planId: currentPlanId,
-                            });
-                          }
-                        }
-
-                        // Regenerate with cache bypass (pass isRegeneration=true to avoid double-tracking)
-                        await handleGenerateSessionPlan(true, true);
-                      }}
-                    >
-                      <Brain className="flex-shrink-0" size={18} />
-                      <span>Regenerate Plan</span>
-                    </Button>
-                    <Button
-                      className="h-10 w-full bg-gray-600 font-medium text-sm shadow-sm transition-colors hover:bg-gray-700 sm:flex-1 md:text-base"
-                      onClick={() => setShowSessionPlan(false)}
-                    >
-                      Close
-                    </Button>
+                  ×
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 md:p-6">
+              {loadingSessionPlan ? (
+                <div className="py-8 text-center md:py-12">
+                  <Brain
+                    className="mx-auto mb-4 animate-pulse text-green-600"
+                    size={40}
+                  />
+                  <p className="text-gray-600 text-sm md:text-base">
+                    AI is generating your personalized training session plan...
+                  </p>
+                  <p className="mt-2 text-gray-500 text-xs md:text-sm">
+                    This may take a few moments
+                  </p>
+                </div>
+              ) : (
+                <div className="prose prose-sm max-w-none">
+                  <div className="whitespace-pre-wrap text-[15px] text-gray-700 leading-relaxed md:text-base">
+                    {sessionPlan}
                   </div>
                 </div>
               )}
-            </Card>
-          </div>
+            </CardContent>
+            {!loadingSessionPlan && (
+              <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-gray-200 border-t bg-gray-50 p-4 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] sm:flex-row md:p-4">
+                <Button
+                  className="flex w-full items-center justify-center gap-2 bg-blue-600 font-medium transition-colors hover:bg-blue-700 sm:flex-1"
+                  onClick={() => {
+                    const team = teamAnalytics.find((t) => t.playerCount > 0);
+                    if (team) {
+                      const teamPlayers = players.filter((p) => {
+                        // Check if player is on this team (supports multi-team)
+                        const playerTeamsList = getPlayerTeams(p);
+                        return playerTeamsList.includes(team.teamName) && p;
+                      });
+                      setPlanToShare({
+                        player: {
+                          name: `${team.teamName} Session Plan`,
+                          sport: teamPlayers[0]?.sport || "GAA Football",
+                          ageGroup: teamPlayers[0]?.ageGroup || "U12",
+                        },
+                        sessionPlan,
+                        teamName: team.teamName,
+                        playerCount: teamPlayers.length,
+                      });
+                      setShowShareModal(true);
+                    }
+                  }}
+                >
+                  <Share2 className="flex-shrink-0" size={16} />
+                  <span>Share Plan</span>
+                </Button>
+                <Button
+                  className="flex w-full items-center justify-center gap-2 bg-green-600 font-medium transition-colors hover:bg-green-700 sm:flex-1"
+                  onClick={handleGenerateSessionPlan}
+                >
+                  <Brain className="flex-shrink-0" size={16} />
+                  <span>Regenerate Plan</span>
+                </Button>
+                <Button
+                  className="w-full bg-gray-600 font-medium transition-colors hover:bg-gray-700 sm:flex-1"
+                  onClick={() => setShowSessionPlan(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            )}
+          </Card>
         </div>
       )}
     </div>

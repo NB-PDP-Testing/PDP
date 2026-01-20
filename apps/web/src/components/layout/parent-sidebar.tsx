@@ -1,5 +1,7 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
 import type { LucideIcon } from "lucide-react";
 import {
   Award,
@@ -19,6 +21,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -34,6 +37,7 @@ type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  badge?: number; // Optional badge count (e.g., unread messages)
 };
 
 type NavGroup = {
@@ -45,7 +49,10 @@ type NavGroup = {
 /**
  * Generate parent navigation structure for an organization
  */
-export function getParentNavGroups(orgId: string): NavGroup[] {
+export function getParentNavGroups(
+  orgId: string,
+  unreadMessagesCount?: number
+): NavGroup[] {
   return [
     {
       label: "Children",
@@ -86,6 +93,7 @@ export function getParentNavGroups(orgId: string): NavGroup[] {
           href: `/orgs/${orgId}/parents/messages`,
           label: "Messages",
           icon: MessageSquare,
+          badge: unreadMessagesCount,
         },
         {
           href: `/orgs/${orgId}/parents/announcements`,
@@ -124,7 +132,13 @@ type ParentSidebarProps = {
  */
 export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
   const pathname = usePathname();
-  const navGroups = getParentNavGroups(orgId);
+
+  // Fetch unread message count
+  const unreadCount = useQuery(api.models.coachParentMessages.getUnreadCount, {
+    organizationId: orgId,
+  });
+
+  const navGroups = getParentNavGroups(orgId, unreadCount ?? 0);
 
   // Track which groups are expanded - auto-expand group containing current page
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
@@ -211,6 +225,14 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
                           >
                             <ItemIcon className="h-4 w-4" />
                             {item.label}
+                            {item.badge && item.badge > 0 && (
+                              <Badge
+                                className="ml-auto bg-red-500 text-white hover:bg-red-600"
+                                variant="default"
+                              >
+                                {item.badge}
+                              </Badge>
+                            )}
                           </Button>
                         </Link>
                       );
@@ -241,7 +263,13 @@ export function ParentMobileNav({
   trigger,
 }: ParentMobileNavProps) {
   const pathname = usePathname();
-  const navGroups = getParentNavGroups(orgId);
+
+  // Fetch unread message count
+  const unreadCount = useQuery(api.models.coachParentMessages.getUnreadCount, {
+    organizationId: orgId,
+  });
+
+  const navGroups = getParentNavGroups(orgId, unreadCount ?? 0);
   const [open, setOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {
@@ -346,6 +374,14 @@ export function ParentMobileNav({
                             >
                               <ItemIcon className="h-4 w-4" />
                               {item.label}
+                              {item.badge && item.badge > 0 && (
+                                <Badge
+                                  className="ml-auto bg-red-500 text-white hover:bg-red-600"
+                                  variant="default"
+                                >
+                                  {item.badge}
+                                </Badge>
+                              )}
                             </Button>
                           </Link>
                         );

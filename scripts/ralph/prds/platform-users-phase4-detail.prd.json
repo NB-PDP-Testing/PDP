@@ -1,0 +1,146 @@
+{
+  "projectName": "Platform Staff User Management - Phase 4: User Detail UI",
+  "branchName": "ralph/platform-users-phase4",
+  "description": "Create the comprehensive user detail page with all tabs for viewing user information. Requires Phase 3 UI to be complete.",
+  "planReference": "/Users/neil/.claude/plans/starry-yawning-crane.md",
+  "prerequisite": "Phase 3 (dashboard & list) must be merged to main first",
+  "verificationSteps": [
+    "Navigate to /platform/users/[userId] for a test user",
+    "Verify all tabs render correctly",
+    "Test conditional tabs appear only when identity data exists"
+  ],
+  "userStories": [
+    {
+      "id": "US-035",
+      "title": "Create user detail page layout",
+      "priority": 1,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform/users/[userId]/page.tsx",
+        "Add header with user name, email, back button to /platform/users/list",
+        "Call getPlatformUserDetails query with userId from params",
+        "Add action buttons placeholder: Edit Profile, Suspend, View as User"
+      ]
+    },
+    {
+      "id": "US-036",
+      "title": "Add user detail stats cards",
+      "priority": 2,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Display stats cards: Organizations count, Teams coached, Account age (days)",
+        "Display: Children linked (if guardian), Last login (days ago)",
+        "Show verification badge (Verified/Not Verified)",
+        "Show Platform Staff badge if applicable"
+      ]
+    },
+    {
+      "id": "US-037",
+      "title": "Add user detail Overview tab",
+      "priority": 3,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Create Tabs component with Overview as default tab",
+        "Display profile fields: firstName, lastName, email, phone",
+        "Display account dates: createdAt, updatedAt",
+        "Display verification and onboarding status"
+      ]
+    },
+    {
+      "id": "US-038",
+      "title": "Add user detail Organizations tab",
+      "priority": 4,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Add Organizations tab with count in label",
+        "List all organization memberships in cards",
+        "Show org name, role (owner/admin/member), functional roles as badges",
+        "Show Suspended badge if member.isDisabled, add per-org action buttons placeholder"
+      ]
+    },
+    {
+      "id": "US-039",
+      "title": "Add user detail Player Identity tab",
+      "priority": 5,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Only show tab if playerIdentities.length > 0",
+        "Display player identity details: name, DOB, playerType",
+        "List organization enrollments with status",
+        "List team assignments with team names"
+      ]
+    },
+    {
+      "id": "US-040",
+      "title": "Add user detail Guardian Identity tab",
+      "priority": 6,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Only show tab if guardianIdentities.length > 0",
+        "Display guardian identity details",
+        "List linked children with name, relationship, isPrimary badge",
+        "Show each child's organization enrollments"
+      ]
+    },
+    {
+      "id": "US-041",
+      "title": "Add user detail Coach Identity tab",
+      "priority": 7,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Only show tab if coachAssignments.length > 0",
+        "List coach assignments grouped by organization",
+        "Show teams coached with team names",
+        "Show age groups and sports"
+      ]
+    },
+    {
+      "id": "US-042",
+      "title": "Add user detail Sessions tab",
+      "priority": 8,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Display active sessions count and list",
+        "Show session details: device, browser, OS, IP, location",
+        "Display login history (last 20 sessions) with timestamps",
+        "Add Force Logout button placeholder for active sessions"
+      ]
+    },
+    {
+      "id": "US-043",
+      "title": "Add user detail Activity tab",
+      "priority": 9,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Display recent activity timeline from recentActivity data",
+        "Show activity type icon, description, timestamp",
+        "Show organization context where applicable",
+        "Add simple activity type filter"
+      ]
+    },
+    {
+      "id": "US-044",
+      "title": "Add user detail Audit Log tab",
+      "priority": 10,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Display platform staff actions on this user from recentAuditLog",
+        "Show action type, performer name/email, timestamp",
+        "Show reason for each action",
+        "Make expandable to show before/after snapshots if available"
+      ]
+    },
+    {
+      "id": "US-045",
+      "title": "Add Edit Profile dialog",
+      "priority": 11,
+      "passes": false,
+      "acceptanceCriteria": [
+        "Create ResponsiveDialog that opens from Edit Profile button",
+        "Form fields: firstName, lastName, phone (editable)",
+        "Required reason field with minimum 10 characters",
+        "Submit calls updateUserProfile mutation (create if needed), show toast on success"
+      ]
+    }
+  ]
+}

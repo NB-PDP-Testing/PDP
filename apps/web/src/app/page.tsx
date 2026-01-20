@@ -39,6 +39,11 @@ function RedirectToOrgs() {
   const router = useRouter();
 
   useEffect(() => {
+    // Only redirect if we're actually on the root path
+    // This prevents interfering with direct URL navigation to other routes
+    if (typeof window !== "undefined" && window.location.pathname !== "/") {
+      return;
+    }
     // Check for pending invitation FIRST (highest priority)
     // This handles OAuth redirects that might not preserve the invitation URL
     const pendingInvitationId =

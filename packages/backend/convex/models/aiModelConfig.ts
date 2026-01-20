@@ -280,7 +280,7 @@ export const upsertConfig = mutation({
 
     // Find existing config
     let existingConfig: {
-      _id: import("../schema").Id<"aiModelConfig">;
+      _id: import("../_generated/dataModel").Id<"aiModelConfig">;
       feature: string;
       scope: string;
       organizationId?: string;

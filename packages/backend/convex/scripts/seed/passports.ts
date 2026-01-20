@@ -51,16 +51,14 @@ export const seedPassportForPlayer = mutation({
     const config = STAGE_CONFIGS[stage];
 
     // 1. Create or get sport passport
-    const passportResult = await ctx.runMutation(
-      api.models.sportPassports.findOrCreatePassport,
-      {
+    const passportResult: { passportId: Id<"sportPassports"> } =
+      await ctx.runMutation(api.models.sportPassports.findOrCreatePassport, {
         playerIdentityId: args.playerIdentityId as Id<"playerIdentities">,
         sportCode: args.sportCode,
         organizationId: args.organizationId,
-      }
-    );
+      });
 
-    const passportId = passportResult.passportId;
+    const passportId: Id<"sportPassports"> = passportResult.passportId;
 
     // 2. Add coach notes based on stage
     const coachNotes = randomPick(config.passport.coachNotesTemplates);

@@ -18,7 +18,7 @@
  */
 
 import { v } from "convex/values";
-import { api, components, internal } from "../../_generated/api";
+import { api, components } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import { mutation, query } from "../../_generated/server";
 import type { PlayerStage } from "./helpers/playerStages";
@@ -419,7 +419,7 @@ export const seedProductionDemo = mutation({
           where: [{ field: "organizationId", value: orgId, operator: "eq" }],
         }
       );
-      const existingTeamsMap = new Map(
+      const existingTeamsMap = new Map<string, { _id: string; name: string }>(
         existingTeamsResult.page.map((team: any) => [team.name, team])
       );
 
@@ -429,8 +429,8 @@ export const seedProductionDemo = mutation({
 
         if (existingTeam) {
           console.log(`    ✓ Team exists: ${teamConfig.name}`);
-          teamMap[teamConfig.name] = existingTeam._id as string;
-          createdTeamIds.push(existingTeam._id as string);
+          teamMap[teamConfig.name] = existingTeam._id;
+          createdTeamIds.push(existingTeam._id);
         } else if (args.dryRun) {
           console.log(`    [DRY RUN] Would create team: ${teamConfig.name}`);
           teamMap[teamConfig.name] = `dry-run-team-${teamConfig.name}`;
@@ -550,7 +550,7 @@ export const seedProductionDemo = mutation({
             `      📋 Generating passport data (${playerConfig.stage})...`
           );
           const passportResult = await ctx.runMutation(
-            internal.scripts.seed.passports.seedPassportForPlayer,
+            api.scripts.seed.passports.seedPassportForPlayer as any,
             {
               playerIdentityId: playerIdentityId as string,
               organizationId: orgId,
@@ -1139,14 +1139,16 @@ export const resetProductionDemo = mutation({
       return {
         success: false,
         deleted: {
-          players: 0,
           teams: 0,
-          organizations: 0,
+          players: 0,
+          injuries: 0,
+          medicalProfiles: 0,
           members: 0,
           passports: 0,
           assessments: 0,
           goals: 0,
           sessions: 0,
+          organizations: 0,
         },
         message: "Reset cancelled - confirmReset must be true",
       };

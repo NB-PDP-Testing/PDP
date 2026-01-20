@@ -1,18 +1,19 @@
-# UAT Test: US-014 - Create ShareModal component
+# UAT Test: US-017 - Add native share to ShareModal
 
-> Auto-generated: 2026-01-20 22:55
+> Auto-generated: 2026-01-20 22:54
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, I want a modal to preview and share images.
+As a parent, I want to use native share if available.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Create apps/web/src/components/parent/share-modal.tsx
-- [ ] Props: summaryId (Id<'coachParentSummaries'>), isOpen (boolean), onClose (() => void)
-- [ ] Use Dialog, DialogContent, DialogHeader, DialogTitle from @/components/ui/dialog
-- [ ] Add local state: imageUrl (string | null), isLoading (boolean), error (string | null)
-- [ ] Show loading spinner (Loader2 icon) while image generates
+- [ ] Check navigator.share availability: typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+- [ ] Only show 'Share' button if native share available
+- [ ] Use Share2 icon from lucide-react
+- [ ] On click: fetch image as blob, then call navigator.share({ files: [new File([blob], 'feedback.png', { type: 'image/png' })] })
+- [ ] Call trackShareEvent with shareDestination: 'native_share'
+- [ ] Handle share cancellation gracefully (user closes share sheet)
 - [ ] Typecheck passes
 
 ## Test Scenarios

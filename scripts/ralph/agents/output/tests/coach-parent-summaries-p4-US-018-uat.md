@@ -1,18 +1,21 @@
-# UAT Test: US-014 - Create ShareModal component
+# UAT Test: US-018 - Add share button to ParentSummaryCard
 
-> Auto-generated: 2026-01-20 22:55
+> Auto-generated: 2026-01-20 22:54
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, I want a modal to preview and share images.
+As a parent, I want to share from summary cards.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Create apps/web/src/components/parent/share-modal.tsx
-- [ ] Props: summaryId (Id<'coachParentSummaries'>), isOpen (boolean), onClose (() => void)
-- [ ] Use Dialog, DialogContent, DialogHeader, DialogTitle from @/components/ui/dialog
-- [ ] Add local state: imageUrl (string | null), isLoading (boolean), error (string | null)
-- [ ] Show loading spinner (Loader2 icon) while image generates
+- [ ] Edit parent-summary-card.tsx
+- [ ] Add local state: isShareModalOpen (boolean, default false)
+- [ ] Add Share button with Share2 icon from lucide-react
+- [ ] Button variant='ghost', size='icon' (or 'sm')
+- [ ] Position in card footer/actions area
+- [ ] On click: setIsShareModalOpen(true)
+- [ ] Render ShareModal with isOpen={isShareModalOpen}, onClose={() => setIsShareModalOpen(false)}
+- [ ] Pass summaryId to ShareModal
 - [ ] Typecheck passes
 
 ## Test Scenarios

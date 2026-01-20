@@ -3,7 +3,15 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Sparkles } from "lucide-react";
+import {
+  Activity,
+  Bike,
+  Dumbbell,
+  type LucideIcon,
+  Sparkles,
+  Trophy,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -17,6 +25,17 @@ type CoachFeedbackProps = {
   orgId: string;
 };
 
+// Sport icon mapping (US-019)
+const sportCodeToIcon: Record<string, LucideIcon> = {
+  GAA: Trophy, // Gaelic Athletic Association
+  soccer: Trophy,
+  football: Trophy,
+  basketball: Dumbbell,
+  rugby: Trophy,
+  cycling: Bike,
+  athletics: Activity,
+};
+
 export function CoachFeedback({ orgId }: CoachFeedbackProps) {
   // Fetch AI-generated summaries grouped by child and sport
   const summariesData = useQuery(
@@ -25,6 +44,14 @@ export function CoachFeedback({ orgId }: CoachFeedbackProps) {
       organizationId: orgId,
     }
   );
+
+  // Get sport icon or default
+  const getSportIcon = (sportCode?: string) => {
+    if (!sportCode) {
+      return Activity;
+    }
+    return sportCodeToIcon[sportCode.toLowerCase()] || Activity;
+  };
 
   // Mark summary as viewed mutation
   const markViewed = useMutation(
@@ -74,14 +101,18 @@ export function CoachFeedback({ orgId }: CoachFeedbackProps) {
               <div className="space-y-4">
                 {childData.sportGroups.map((sportGroup) => (
                   <div key={sportGroup.sport?._id || `sport-${Math.random()}`}>
-                    {/* Sport name subheader */}
+                    {/* Sport name subheader with icon (US-019) and badge (US-020) */}
                     {sportGroup.sport && (
                       <h4 className="mb-2 flex items-center gap-2 font-medium text-muted-foreground text-sm">
+                        {(() => {
+                          const SportIcon = getSportIcon(sportGroup.sport.code);
+                          return <SportIcon className="h-4 w-4" />;
+                        })()}
                         {sportGroup.sport.name}
                         {sportGroup.unreadCount > 0 && (
-                          <span className="rounded-full bg-red-500 px-2 py-0.5 text-white text-xs">
-                            {sportGroup.unreadCount} new
-                          </span>
+                          <Badge variant="destructive">
+                            {sportGroup.unreadCount}
+                          </Badge>
                         )}
                       </h4>
                     )}

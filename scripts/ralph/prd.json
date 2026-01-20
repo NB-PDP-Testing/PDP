@@ -400,7 +400,7 @@
         "Typecheck passes"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": "lucide-react has: Activity, Trophy, Target, Goal, Dribbble (basketball-like). May need to use generic icons for GAA/rugby. Check existing sport icon usage in codebase first."
     },
     {
@@ -418,7 +418,7 @@
         "Typecheck passes"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "The query response structure includes sports array with each sport having unreadCount. Access it via sport.unreadCount in the map function."
     }
   ]

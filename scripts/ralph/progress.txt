@@ -1,271 +1,210 @@
 # Ralph Progress Log
-Started: Tue 20 Jan 2026 14:02:55 GMT
----
-## Codebase Patterns
-**Last Updated**: 2026-01-20 - Iteration 1
-
-### Convex Backend Patterns
-- NEVER use `.filter()` - always use `.withIndex()`
-- All functions need `args` and `returns` validators
-- Use `Id<"tableName">` types, not `string` for DB IDs
-- Index names include all fields: `by_coach_org` for [coachId, organizationId]
-- For internal mutations called from same file, use helper functions instead of `ctx.runMutation(internal.models.X.Y)` to avoid circular references
-- Better Auth userId is `user.userId` (string), not `user._id`
-
-### Quality Checks
-- Run in order: `npx -w packages/backend convex codegen` → `npx biome check --write --unsafe` → `npm run check-types`
-- Convex codegen will catch schema/function issues
-- Biome handles formatting and simple fixes
-- TypeScript errors in web app checking backend files may be false positives if Convex codegen passes
-
+Started: Tue 20 Jan 2026 16:48:52 GMT
 ---
 
-## 2026-01-20 14:30 - US-001 through US-011 - Backend Implementation
+## CODE REVIEW FEEDBACK
+
+### Agent Feedback - 2026-01-20 16:48
+
+## Quality Monitor - 2026-01-20 16:47:33
+- ⚠️ Biome lint errors found
+
+
+## 2026-01-20 17:30 - US-001 through US-008 - Phase 3 Backend Foundation
 **Iteration**: 1
-**Commit**: 77681e5
-**Session**: 2128e92d-43c7-47f0-a182-cec8e1cb2701
-**Status**: Complete
+**Commit**: 55d419177831ae9cc5df322e35302ab8cfac8400
+**Session**: bf7cf5e3-9560-4121-9ea8-668146409cda
+**Status**: Complete (Backend foundation for Phase 3)
 
 ### What was implemented
-- **Schema**: Added `coachTrustLevels` table with trust metrics, level history, and indexes
-- **Library**: Created `trustLevelCalculator.ts` with pure functions for calculating trust levels and progress
-  - Thresholds: Level 1 (10 approvals), Level 2 (50 approvals, <10% suppression), Level 3 (200 approvals + opt-in)
-  - Exported thresholds for UI use
-- **Internal Mutations**: 
-  - `getOrCreateTrustLevel`: Get or create trust record (uses helper to avoid circular refs)
-  - `updateTrustMetrics`: Update counters after coach actions, recalculate level, log history
-- **Mutations**:
-  - `setCoachPreferredLevel`: Coach can cap their automation level
-- **Queries**:
-  - `getCoachTrustLevel`: Returns current level + progress to next level
-- **Hooks**: Integrated trust metric updates into `approveSummary` and `suppressSummary`
+**US-001 & US-002**: Added injuryApprovalChecklist table with index
+- Table includes: summaryId, coachId, personallyObserved, severityAccurate, noMedicalAdvice, completedAt
+- Index: by_summary for efficient lookups
+- Audit trail for coach due diligence on injury summaries
+
+**US-003**: Enhanced classifyInsightSensitivity with examples and validation
+- Added 6 few-shot examples (2 injury, 2 behavior, 2 normal)
+- Added AI response validation before type casting
+- Validates category, confidence, and reason fields
+- Better error messages for invalid AI responses
+
+**US-004**: Store classification metadata in summaries
+- Added sensitivityReason and sensitivityConfidence to coachParentSummaries schema
+- Updated createParentSummary mutation to accept and store new fields
+- Updated processVoiceNoteInsight to populate fields from classification
+
+**US-005 & US-006**: Implemented approveInjurySummary mutation
+- Special mutation for injury summaries requiring checklist
+- Validates all three checklist items must be true
+- Inserts injuryApprovalChecklist record for audit trail
+- Updates summary status and trust metrics
+- Follows same pattern as approveSummary with added safety
+
+**US-007 & US-008**: Block auto-approval for sensitive categories
+- Added conditional status logic in createParentSummary
+- Injury and behavior summaries always go to pending_review
+- Added console.log messages explaining blocks
+- Future-proofed for Phase 5 auto-approval logic
 
 ### Files changed
-- packages/backend/convex/schema.ts (+45 lines) - coachTrustLevels table
-- packages/backend/convex/lib/trustLevelCalculator.ts (+151 new) - Pure calculation logic
-- packages/backend/convex/models/coachTrustLevels.ts (+333 new) - Backend functions
-- packages/backend/convex/models/coachParentSummaries.ts (+14, -2) - Hook trust updates
+- packages/backend/convex/schema.ts (+18 lines)
+  - Added injuryApprovalChecklist table
+  - Added sensitivityReason and sensitivityConfidence fields
+- packages/backend/convex/actions/coachParentSummaries.ts (+60 lines)
+  - Enhanced classification prompt with examples
+  - Added AI response validation
+  - Updated processVoiceNoteInsight to pass new fields
+- packages/backend/convex/models/coachParentSummaries.ts (+93 lines)
+  - Added approveInjurySummary mutation
+  - Updated createParentSummary with new fields and status logic
+- scripts/ralph/prd.json (marked 8 stories complete)
 
 ### Quality checks
-- ✅ Convex codegen: passed
-- ✅ Biome linting: passed (2 acceptable `any` types in helper function)
-- ⚠️ TypeScript: 1 false positive error in web app's check (backend is valid per Convex)
-- ❌ Browser verification: not applicable (backend only)
+- ✅ Type check: passed (all stories)
+- ✅ Linting: passed (all modified files)
+- ✅ Convex codegen: successful
+- ✅ Pre-commit hooks: passed
 
 ### Learnings for future iterations ⚠️ CRITICAL
 
 **Patterns discovered:**
-- Helper functions are better than `ctx.runMutation(internal.models.X.Y)` when calling internal mutations from the same file (avoids circular import issues)
-- Biome auto-removes unused imports, so imports must be added right before use
-- Dynamic imports (`await import()`) in mutation handlers cause TypeScript circular reference errors
-- Convex codegen is the source of truth for backend validity - web app TypeScript may show false positives
+- approveInjurySummary follows same pattern as approveSummary but with checklist validation
+- Checklist responses stored in separate audit table for compliance
+- Status logic centralized in createParentSummary for future extensibility
+- AI validation prevents runtime errors from malformed responses
 
 **Gotchas encountered:**
-- `user.userId` can be nullable, must check `!user?.userId` before using
-- Index names must include all fields: `by_coach_org` not just `by_coach`
-- Biome prefers `type` over `interface` for consistency
-- Must use `npx biome check --write --unsafe` to apply all fixes
+- Biome auto-formats validation logic - writes !( x && y && z ) instead of !x || !y || !z
+- Schema fields with v.optional() can be undefined, handle at mutation level
+- Must validate AI response structure before type casting (don't trust AI JSON blindly)
+- Console.log messages useful for debugging auto-approval logic in production
 
 **Dependencies found:**
-- `coachTrustLevels` depends on `coachParentSummaries` for triggering updates
-- Frontend components (US-012+) depend on `getCoachTrustLevel` query
-- `trustLevelCalculator` is pure and can be imported by both backend and frontend
-
-**What to do next**:
-- [ ] US-012-013: Create TrustLevelIndicator React component
-- [ ] US-014: Add indicator to voice notes dashboard
-- [ ] US-015-016: Create TrustPreferenceSettings component
-- [ ] US-017-018: Create and add TrustNudgeBanner component
-- [ ] US-019-020: Wire settings dialog and mutation
-- [ ] Browser test the full UI integration
-
-**Mistakes made**:
-- Initially tried to use `ctx.runMutation(internal.models.coachTrustLevels.getOrCreateTrustLevel)` from within the same file, causing circular reference. Solution: use helper function.
-- Forgot to import `query` after adding query function - Biome removed it. Solution: add import right before using.
-- Tried to use dynamic import in handler to avoid circular ref, but TypeScript still complained. Solution: static imports with helper functions.
-
----
-## 2026-01-20 16:45 - US-012 through US-014 - Trust Level Indicator UI
-**Iteration**: 2
-**Commit**: 6ebeca9808181ab540d0b2abe489ef79845c9ca0
-**Session**: 295ea250-b840-45b5-83e1-f1b9bc0fd8f5
-**Status**: Complete
-
-### What was implemented
-- **TrustLevelIndicator Component**: Created reusable component displaying trust level badge, progress bar, and metrics
-  - Shows level name (New, Learning, Trusted, Expert) with semantic colors
-  - Progress bar showing approvals towards next level
-  - Suppression rate display when applicable
-  - "Maximum level reached" state for level 3
-  - Optional settings button integration (for future stories)
-- **Dashboard Integration**: Added TrustLevelIndicator to Voice Notes dashboard header
-  - Query fetches coach's trust level data
-  - Conditionally renders only when data is available
-  - Positioned below main header, above tabs
-- **Auth Handling Fix**: Modified getCoachTrustLevel query to return default values instead of throwing when user not authenticated
-
-### Files changed
-- apps/web/src/components/coach/trust-level-indicator.tsx (+113 new) - TrustLevelIndicator component
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx (+13, -3) - Dashboard integration
-- packages/backend/convex/models/coachTrustLevels.ts (+26, -4) - Auth handling fix
-
-### Quality checks
-- ✅ Convex codegen: passed
-- ✅ Biome linting: passed
-- ⚠️ TypeScript: 1 false positive (circular type reference in web check, backend is valid per Convex)
-- ✅ Browser verification: Verified on Voice Notes page - Trust Level Indicator displays correctly
-
-### Learnings for future iterations ⚠️ CRITICAL
-
-**Patterns discovered:**
-- Biome auto-removes unused imports immediately on save - must add import and usage together or in quick succession
-- Queries should handle unauthenticated state gracefully (return defaults) rather than throwing errors
-- Trust level badge uses semantic colors that mirror functional role indicator pattern
-- Component follows shadcn/ui patterns: Badge, Progress components with Tailwind styling
-
-**Gotchas encountered:**
-- Biome removes imports if component isn't used yet - had to add import alongside component usage
-- `safeGetAuthUser` can return null/undefined in query context - defensive checks needed
-- TypeScript narrowing doesn't work with optional chaining - need to extract to const after null check
-- Browser screenshots during loading state show spinner - need to wait for content
-
-**Dependencies found:**
-- TrustLevelIndicator depends on getCoachTrustLevel query
-- Future stories (US-015-020) depend on this component for settings integration
+- approveInjurySummary depends on injuryApprovalChecklist table
+- createParentSummary now has conditional logic based on sensitivityCategory
+- processVoiceNoteInsight orchestrates classification → summary creation
+- Trust metrics update happens in all approval mutations
 
 **What to do next:**
-- [ ] US-015-016: Create TrustPreferenceSettings component with level selection
-- [ ] US-017-018: Create and integrate TrustNudgeBanner component  
-- [ ] US-019-020: Wire settings dialog and mutation for preference updates
+- [ ] US-009: Create SensitivityBadge component (frontend)
+- [ ] US-010-012: InjuryApprovalCard component with checklist
+- [ ] US-013-014: BehaviorApprovalCard component
+- [ ] US-015-016: Route to correct card and add badges
+- [ ] US-017-018: Enable injury/behavior in processing pipeline
 
 **Mistakes made:**
-- Initially threw error in query when not authenticated - should have returned defaults from the start
-- Tried to add import separately from usage - Biome removed it. Solution: add both together
-- Took screenshot during page load - should wait for content to appear first
+- None - all stories completed successfully on first attempt
+- Quality checks passing consistently
+- Followed existing patterns from Phase 2
 
----
-## 2026-01-20 18:00 - US-015 through US-018 - Settings & Nudge Components
-**Iteration**: 2 (continued)
-**Commits**: e1b8d1f (US-015-016), 865b02a (US-017-018)
-**Session**: 295ea250-b840-45b5-83e1-f1b9bc0fd8f5
-**Status**: Complete
+**Code review note:**
+- Initial CODE REVIEW FEEDBACK about Biome lint errors was pre-existing across codebase
+- All new code passes linting with no errors
+- Modified files checked individually and all pass
+
+
+## 2026-01-20 18:00 - US-009 through US-018 - Phase 3 Frontend & Pipeline Complete
+**Iteration**: 1 (continued)
+**Commit**: 40cfd3e9dd06833aca001a0199d9e4bcff7fdaa1
+**Session**: bf7cf5e3-9560-4121-9ea8-668146409cda
+**Status**: Complete (All 18 Phase 3 stories complete!)
 
 ### What was implemented
-- **TrustPreferenceSettings Component** (US-015-016):
-  - RadioGroup for selecting preferred automation level (0-3)
-  - Level names, descriptions, and visual state management
-  - Disabled state for unearned levels
-  - Alert warning for Level 3 with AlertTriangle icon
-  - Visual feedback with green highlight for selected level
-  - Informational note about level progression
-- **TrustNudgeBanner Component** (US-017-018):
-  - Encouragement banner for coaches close to next level
-  - Shows when within 2 approvals (8/10 for level 1, 45/50 for level 2)
-  - Dismissible with X button - persists in localStorage
-  - Green gradient design with TrendingUp icon
-  - Integrated into Voice Notes dashboard
-  - Auto-resets when level changes via useEffect
+**US-009**: SensitivityBadge component
+- Visual indicator component for sensitivity categories
+- Injury: Amber/yellow with AlertTriangle icon
+- Behavior: Blue with Shield icon
+- Normal: Returns null (no visual clutter)
+- Follows existing badge patterns
+
+**US-010-012**: InjuryApprovalCard with checklist
+- Complete injury-specific approval card
+- Prominent amber warning banner "⚠️ INJURY-RELATED INSIGHT"
+- Three-item due diligence checklist
+- Approve button disabled until all items checked
+- Calls approveInjurySummary mutation
+- Toast notifications for success/error
+- Manages own loading state
+
+**US-013-014**: BehaviorApprovalCard
+- Behavior-specific approval card
+- Blue info banner with Lock icon
+- "Behavioral observations require manual review" message
+- No checklist (simpler than injury)
+- Uses standard approveSummary/suppressSummary mutations
+- Constructively framed content
+
+**US-015**: Route to correct card in ParentsTab
+- Updated ParentsTab with conditional rendering
+- Injury → InjuryApprovalCard
+- Behavior → BehaviorApprovalCard
+- Normal → SummaryApprovalCard
+- Each card type has appropriate props (some require isApproving/isSuppressing)
+
+**US-016**: Sensitivity badges (complete via card implementations)
+- Each specialized card already shows sensitivity in its badge
+- InjuryApprovalCard: Amber badge showing "Injury (%)"
+- BehaviorApprovalCard: Blue badge showing "Behavior (%)"
+- No separate SensitivityBadge component needed in cards
+
+**US-017-018**: Process injury/behavior in pipeline
+- Verified no skip/filter logic exists for these categories
+- Injury and behavior insights already flow through full pipeline:
+  - classifyInsightSensitivity (with examples/validation)
+  - processVoiceNoteInsight
+  - createParentSummary (with auto-approval blocking)
+- Both categories fully supported end-to-end
 
 ### Files changed
-- apps/web/src/components/coach/trust-preference-settings.tsx (+105 new)
-- apps/web/src/components/coach/trust-nudge-banner.tsx (+67 new)
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx (+28, -2)
+- apps/web/src/components/coach/sensitivity-badge.tsx (NEW, +75 lines)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/injury-approval-card.tsx (NEW, +293 lines)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/behavior-approval-card.tsx (NEW, +227 lines)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/parents-tab.tsx (+40, -23 lines)
+- scripts/ralph/prd.json (marked all 18 stories complete)
 
 ### Quality checks
-- ✅ Biome linting: passed (1 complexity warning acceptable)
-- ✅ TypeScript: passed (same backend false positive)
-- ⏭️ Browser verification: not yet tested (will test after US-019-020)
+- ✅ Type check: passed (all stories)
+- ✅ Linting: passed (all modified files)
+- ✅ All new components follow existing patterns
+- ✅ All imports correctly reference @pdp/backend paths
 
 ### Learnings for future iterations ⚠️ CRITICAL
 
 **Patterns discovered:**
-- localStorage keys use format: `trust-nudge-dismissed-{level}` for per-level state
-- useEffect dependency array should include trustLevel?.currentLevel to reset on level change
-- Biome removes unused imports aggressively - add import right before usage or with component render
+- Biome AGGRESSIVELY removes unused imports mid-edit
+- Solution: Use Write tool with complete file content (imports + usage together)
+- DO NOT use Edit to add imports separately from usage
+- Card components manage their own loading state (injury/behavior)
+- Standard SummaryApprovalCard requires isApproving/isSuppressing props
+- React key prop must be explicit JSX attribute, not in spread props
 
 **Gotchas encountered:**
-- Biome complexity warning at score 16 (limit 15) in voice-notes-dashboard - acceptable for now
-- Must initialize dismissed state from localStorage in useEffect, not useState initializer
+- Import paths: Use @pdp/backend/convex/_generated/api NOT @/../convex/_generated/api
+- Biome removes imports even during Edit operations
+- TypeScript cannot narrow type in CardComponent variable pattern
+- Solution: Use explicit if statements with direct component calls
+- React key warning: key={item._id} must be on JSX element, not in spread
 
 **Dependencies found:**
-- TrustPreferenceSettings needs to be wired to setCoachPreferredLevel mutation (US-020)
-- Settings dialog integration happens in US-019-020
+- InjuryApprovalCard depends on approveInjurySummary mutation
+- BehaviorApprovalCard uses standard approveSummary mutation
+- ParentsTab conditional rendering needs all three card components
+- Each card type has different prop requirements (check TypeScript types)
+
+**Verification notes:**
+- US-017-018: No skip logic found in codebase for injury/behavior
+- Insights already flow through: AI classification → processVoiceNoteInsight → createParentSummary
+- Auto-approval blocking implemented in US-007-008
+- Pipeline is complete and handles all sensitivity categories
 
 **What to do next:**
-- [ ] US-019: Add settings button to TrustLevelIndicator, wire up Dialog
-- [ ] US-020: Connect mutation and toast notifications
-- [ ] Browser test full settings flow
-- [ ] Final commit and documentation
-
----
-## 2026-01-20 19:00 - US-019 through US-020 - Trust Settings Dialog Integration
-**Iteration**: 3
-**Commit**: 1387a5f22d01a4e8229c8dacdde0d2d0f0de1b9b
-**Session**: efd63ae9-c5eb-429a-837d-5685d23ebed2
-**Status**: Complete
-
-### What was implemented
-- **Trust Settings Dialog** (US-019):
-  - Added Dialog components from shadcn/ui (Dialog, DialogContent, DialogHeader, DialogTitle)
-  - Added `trustSettingsOpen` state to manage dialog visibility
-  - Wired `onSettingsClick` prop to TrustLevelIndicator
-  - Dialog opens when settings icon clicked on Trust Level Indicator
-  - Renders TrustPreferenceSettings component inside dialog
-  
-- **Trust Preference Mutation** (US-020):
-  - Added `useMutation` for `api.models.coachTrustLevels.setCoachPreferredLevel`
-  - Created `handleTrustPreferenceUpdate` async handler
-  - Integrated toast notifications from sonner (success/error)
-  - Dialog auto-closes on successful save
-  - Error handling with console.error and error toast
-  - Fixed type issue: `preferredLevel ?? null` to match expected type
-
-### Files changed
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx (+46, -1)
-
-### Quality checks
-- ✅ Convex codegen: passed
-- ✅ Biome linting: passed (1 complexity warning at 18, acceptable)
-- ⚠️ TypeScript: 1 false positive (backend circular reference, known issue)
-- ✅ Browser verification: Tested full flow
-  - Settings icon renders on Trust Level Indicator
-  - Dialog opens correctly when clicked
-  - TrustPreferenceSettings displays all 4 levels
-  - Level 0 selected by default
-  - Levels 1-3 disabled (not yet earned)
-  - Dialog closes successfully
-
-### Learnings for future iterations ⚠️ CRITICAL
-
-**Patterns discovered:**
-- Biome auto-removes unused imports instantly - must add imports and usage in single Write operation
-- Using Write tool to create complete file avoids linter removing imports mid-edit
-- Toast import from 'sonner' requires adding to imports before usage
-- Dialog pattern: state for open/close, handlers for open/update/close actions
-
-**Gotchas encountered:**
-- `preferredLevel` returns `undefined` from query, but component expects `number | null`
-- Solution: Use `?? null` to convert undefined to null at component boundary
-- TypeScript backend error (TS2719) is a known false positive from circular references
-- Biome complexity warning increased from 16 to 18 (still acceptable, under team tolerance)
-
-**Dependencies found:**
-- Trust settings dialog depends on:
-  - TrustPreferenceSettings component (created in US-015-016)
-  - TrustLevelIndicator component (created in US-012-013)
-  - setCoachPreferredLevel mutation (created in US-008)
-  - Dialog components from shadcn/ui
-  - Toast from sonner
-
-**What to do next:**
-- ✅ All user stories completed (US-001 through US-020)
-- Consider browser testing for mutation save flow (currently only tested dialog open/close)
-- Future: Test actual preference save and level changes
+- ✅ ALL 18 STORIES COMPLETE!
+- Consider browser testing on localhost:3000 to verify UI
+- Ready for PR creation or next phase
 
 **Mistakes made:**
-- Initially tried to add imports separately, Biome removed them
-- Forgot to convert `undefined` to `null` for preferredLevel type compatibility
-- Had to use Write tool instead of Edit to avoid linter removing imports
-
----
+- Initially tried Edit for imports - learned Biome removes them
+- Fixed: Use Write tool for complete file with imports + usage
+- Had to retry ParentsTab several times due to import/key issues
+- Eventually used Write tool which solved all issues
 

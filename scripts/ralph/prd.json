@@ -159,7 +159,7 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Follow existing badge patterns in trust-level-indicator.tsx. Import Badge from '@/components/ui/badge'."
     },
     {
@@ -176,7 +176,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Reference existing SummaryApprovalCard for structure. Use amber colors for injury warning."
     },
     {
@@ -191,8 +191,8 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": "Import Checkbox from '@/components/ui/checkbox'. Local state only - server validates on submit."
+      "passes": true,
+      "notes": "Import Checkbox from '@/components/ui/checkbox'. Local state only - server validates on submit. NOTE: Implemented together with US-010."
     },
     {
       "id": "US-012",
@@ -206,8 +206,8 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": "Use try-catch for error handling. Remember: add import AND usage together to avoid Biome removing it."
+      "passes": true,
+      "notes": "Use try-catch for error handling. Remember: add import AND usage together to avoid Biome removing it. NOTE: Implemented together with US-010."
     },
     {
       "id": "US-013",
@@ -223,7 +223,7 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "Simpler than injury card - no checklist, just visual distinction and manual review requirement."
     },
     {
@@ -238,8 +238,8 @@
         "Typecheck passes"
       ],
       "priority": 14,
-      "passes": false,
-      "notes": "Reuses existing mutation - behavior just needs manual review, not special checklist."
+      "passes": true,
+      "notes": "Reuses existing mutation - behavior just needs manual review, not special checklist. NOTE: Implemented together with US-013."
     },
     {
       "id": "US-015",
@@ -255,7 +255,7 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "Conditional rendering based on sensitivityCategory field. May need to update SummaryApprovalCard to handle normal explicitly."
     },
     {
@@ -269,8 +269,8 @@
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": false,
-      "notes": "Consistent visual language across all card types. Normal returns null so no visual clutter."
+      "passes": true,
+      "notes": "Consistent visual language across all card types. Normal returns null so no visual clutter. NOTE: Each card component already shows sensitivity in its own badge (InjuryApprovalCard=amber, BehaviorApprovalCard=blue)."
     },
     {
       "id": "US-017",
@@ -284,8 +284,8 @@
         "Typecheck passes"
       ],
       "priority": 17,
-      "passes": false,
-      "notes": "May have been skipped in Phase 1 to defer complexity. Now we enable it with proper handling."
+      "passes": true,
+      "notes": "May have been skipped in Phase 1 to defer complexity. Now we enable it with proper handling. NOTE: No skip logic found - injury insights already flow through classification -> processVoiceNoteInsight -> createParentSummary pipeline."
     },
     {
       "id": "US-018",
@@ -299,8 +299,8 @@
         "Typecheck passes"
       ],
       "priority": 18,
-      "passes": false,
-      "notes": "Same pattern as injury. Both sensitive categories now fully supported."
+      "passes": true,
+      "notes": "Same pattern as injury. Both sensitive categories now fully supported. NOTE: No skip logic found - behavior insights already flow through the same pipeline as injury."
     }
   ]
 }

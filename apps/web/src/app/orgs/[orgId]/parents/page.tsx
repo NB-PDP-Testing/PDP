@@ -13,7 +13,8 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Suspense, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { GuardianIdentityClaimDialog } from "@/components/guardian-identity-claim-dialog";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,8 @@ function ParentDashboardContent() {
   const orgId = params.orgId as string;
   const { data: activeOrganization } = authClient.useActiveOrganization();
   const { data: session } = authClient.useSession();
+  const [showClaimDialog, setShowClaimDialog] = useState(false);
+  const [currentClaimIndex, setCurrentClaimIndex] = useState(0);
 
   // Get user's role details in this organization
   const roleDetails = useQuery(
@@ -48,6 +51,11 @@ function ParentDashboardContent() {
       : "skip"
   );
 
+  // Check for unclaimed guardian identities
+  const claimableIdentities = useQuery(
+    api.models.guardianIdentities.findAllClaimableForCurrentUser
+  );
+
   // Get children from guardian identity system
   // Pass user email to enable fallback lookup for unclaimed guardian identities
   const {
@@ -55,6 +63,36 @@ function ParentDashboardContent() {
     children: identityChildren,
     isLoading: identityLoading,
   } = useGuardianChildrenInOrg(orgId, session?.user?.email);
+
+  // Show claim dialog if there are unclaimed identities
+  useEffect(() => {
+    if (
+      claimableIdentities &&
+      claimableIdentities.length > 0 &&
+      !guardianIdentity
+    ) {
+      setShowClaimDialog(true);
+    }
+  }, [claimableIdentities, guardianIdentity]);
+
+  // Handle successful claim
+  const handleClaimComplete = () => {
+    // Move to next claimable identity if there are more
+    if (
+      claimableIdentities &&
+      currentClaimIndex < claimableIdentities.length - 1
+    ) {
+      setCurrentClaimIndex(currentClaimIndex + 1);
+      setShowClaimDialog(true);
+    } else {
+      // All claims processed - refresh page to load new guardian data
+      setShowClaimDialog(false);
+      router.refresh();
+    }
+  };
+
+  // Get current claimable identity to display
+  const currentClaimable = claimableIdentities?.[currentClaimIndex];
 
   // Check if user has parent functional role or is admin/owner
   const hasParentRole = useMemo(() => {
@@ -352,6 +390,20 @@ function ParentDashboardContent() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Guardian Identity Claim Dialog */}
+      {currentClaimable && session?.user?.id && (
+        <GuardianIdentityClaimDialog
+          childrenList={currentClaimable.children}
+          guardianIdentityId={currentClaimable.guardianIdentity._id}
+          guardianName={`${currentClaimable.guardianIdentity.firstName} ${currentClaimable.guardianIdentity.lastName}`}
+          onClaimComplete={handleClaimComplete}
+          onOpenChange={setShowClaimDialog}
+          open={showClaimDialog}
+          organizations={currentClaimable.organizations}
+          userId={session.user.id}
+        />
       )}
     </div>
   );

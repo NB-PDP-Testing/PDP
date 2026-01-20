@@ -1588,6 +1588,86 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_org", ["organizationId"]),
 
+  // AI-generated parent summaries from coach voice notes
+  // Coach reviews and approves summaries before they reach parents
+  coachParentSummaries: defineTable({
+    // Source references
+    voiceNoteId: v.id("voiceNotes"),
+    insightId: v.string(), // ID of the insight within the voiceNote
+
+    // Context
+    coachId: v.string(), // Better Auth user ID
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(), // Better Auth organization ID
+    sportId: v.id("sports"),
+
+    // Private coach insight (not shown to parents)
+    privateInsight: v.object({
+      title: v.string(),
+      description: v.string(),
+      category: v.string(), // e.g., "Skill Development", "Tactical Awareness"
+      sentiment: v.union(
+        v.literal("positive"),
+        v.literal("neutral"),
+        v.literal("concern")
+      ),
+    }),
+
+    // Public parent-friendly summary
+    publicSummary: v.object({
+      content: v.string(), // AI-generated parent-friendly text
+      confidenceScore: v.number(), // 0-1, how confident AI is in the summary
+      generatedAt: v.number(),
+    }),
+
+    // Sensitivity classification
+    sensitivityCategory: v.union(
+      v.literal("normal"), // Standard feedback
+      v.literal("injury"), // Injury-related, requires manual review
+      v.literal("behavior") // Behavioral concern, requires manual review
+    ),
+
+    // Workflow status
+    status: v.union(
+      v.literal("pending_review"), // Awaiting coach approval
+      v.literal("approved"), // Coach approved, ready for delivery
+      v.literal("suppressed"), // Coach chose not to share
+      v.literal("auto_approved"), // Auto-approved (not in phase 1)
+      v.literal("delivered"), // Delivered to parent
+      v.literal("viewed") // Parent has viewed
+    ),
+
+    // Timestamps
+    createdAt: v.number(),
+    approvedAt: v.optional(v.number()),
+    approvedBy: v.optional(v.string()), // Better Auth user ID
+    deliveredAt: v.optional(v.number()),
+    viewedAt: v.optional(v.number()),
+  })
+    .index("by_voiceNote", ["voiceNoteId"])
+    .index("by_player", ["playerIdentityId"])
+    .index("by_coach", ["coachId"])
+    .index("by_org_status", ["organizationId", "status"])
+    .index("by_org_player_sport", [
+      "organizationId",
+      "playerIdentityId",
+      "sportId",
+    ]),
+
+  // Track when parents view summaries
+  parentSummaryViews: defineTable({
+    summaryId: v.id("coachParentSummaries"),
+    guardianIdentityId: v.id("guardianIdentities"),
+    viewedAt: v.number(),
+    viewSource: v.union(
+      v.literal("dashboard"),
+      v.literal("notification_click"),
+      v.literal("direct_link")
+    ),
+  })
+    .index("by_summary", ["summaryId"])
+    .index("by_guardian", ["guardianIdentityId"]),
+
   // Organization Deletion Requests
   // Requires platform staff approval before deletion is executed
   orgDeletionRequests: defineTable({

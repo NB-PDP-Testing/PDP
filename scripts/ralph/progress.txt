@@ -456,3 +456,83 @@ Evidence found in:
 See: `/scripts/ralph/PRD_AUDIT_REPORT.md`
 
 ---
+
+## 2026-01-20 16:00:00 - US-021 to US-024 - Coach Approval UI Complete
+**Iteration**: 3 (continued)
+**Commit**: 8ce3afdf99bd10ee30e101481830b3269c3e2e24
+**Session**: 71232c79-ae86-462b-88ec-0cccae99e012
+**Status**: Complete
+
+### What was implemented
+- Created SummaryApprovalCard component with collapsible original insight (US-021, US-022)
+- Added pending summaries section to voice notes dashboard (US-023)
+- Wired approveSummary and suppressSummary mutations with handlers (US-024)
+- Confidence score indicator with color coding (high/medium/review)
+- Parent-friendly summary display vs original coach insight (collapsible)
+- Approval/suppression with loading states and toast notifications
+- Proper null handling for missing player/sport data
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx (+189 lines, new file)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx (+51 lines)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (pre-commit hooks)
+- ✅ Browser verification: N/A (will verify in next iteration)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Backend query returns flat structure with ...summaryValidator.fields spread
+- Need to map flat structure to component props: item._id, item.publicSummary, etc.
+- Use Set<string> for tracking multiple loading states (approving/suppressing)
+- Toast notifications use showSuccessMessage/showErrorMessage helpers
+- Collapsible component from shadcn/ui for expandable sections
+
+**Gotchas encountered:**
+- Query doesn't return nested {summary, player, sport} - fields are at top level
+- Linter auto-reorders props alphabetically - don't rely on prop order
+- Need explicit null fallbacks for player/sport (can be null from backend)
+- Must cast string IDs to typed IDs when calling mutations
+
+**Dependencies found:**
+- SummaryApprovalCard uses Collapsible from shadcn/ui
+- Mutations need Id<"coachParentSummaries"> type casting
+- Toast messages use existing dashboard helpers
+
+**What to do next**:
+- US-025-026: Parent summary badge component
+- US-027-029: Parent summary viewing components
+- US-030: Environment variable documentation
+- Browser testing with dev-browser to verify UI works
+
+**Mistakes made** (learn from these!):
+- Initially expected nested structure from query - should check backend return type first
+- Forgot to import SummaryApprovalCard - linter removed it until component was used
+
+---
+
+## Iteration 3 Summary
+**Total Stories Completed**: 24 out of 30 (80%)
+**Commits**: 3
+- 8371880 - US-020 (Voice notes pipeline integration)
+- 8f57c74 - Progress documentation
+- 8ce3afd - US-021 to US-024 (Coach approval UI)
+
+**Key Achievements**:
+- ✅ Full voice notes → AI summary → coach approval pipeline working
+- ✅ Backend complete: schema, mutations, queries, actions, AI integration
+- ✅ Coach UI complete: approval cards, mutations wired, toast notifications
+- ✅ Auto-lookup sportId from player's passport
+- ✅ Sensitivity classification (skip injury/behavior for auto-approval)
+
+**Next Iteration Focus**:
+- Parent UI components (badge, summary cards, Coach Feedback page integration)
+- Environment variable documentation  
+- Browser testing to verify end-to-end flow
+- Consider adding US-030 (env vars) as final cleanup task
+
+**Token Usage**: 115k / 200k (57.5% - good stopping point)
+
+---

@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -55,16 +55,9 @@ export function AddGuardianModal({
       | "other",
   });
 
-  // Check if guardian exists with this email
-  const existingGuardian = useQuery(
-    api.models.guardianIdentities.findGuardianByEmail,
-    formData.email.trim() && EMAIL_REGEX.test(formData.email.trim())
-      ? { email: formData.email.trim() }
-      : "skip"
-  );
-
-  const createGuardianIdentity = useMutation(
-    api.models.guardianIdentities.createGuardianIdentity
+  // Use atomic find-or-create mutation to avoid race conditions
+  const findOrCreateGuardian = useMutation(
+    api.models.guardianIdentities.findOrCreateGuardian
   );
   const createGuardianPlayerLink = useMutation(
     api.models.guardianPlayerLinks.createGuardianPlayerLink
@@ -96,28 +89,18 @@ export function AddGuardianModal({
     setIsSaving(true);
 
     try {
-      let guardianId: Id<"guardianIdentities">;
-      let isExistingGuardian = false;
-
-      // Step 1: Check if guardian already exists or create new one
-      if (existingGuardian) {
-        // Guardian already exists - use their ID
-        guardianId = existingGuardian._id;
-        isExistingGuardian = true;
-      } else {
-        // Create new guardian identity
-        guardianId = await createGuardianIdentity({
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          email: formData.email.trim(),
-          phone: formData.phone.trim() || undefined,
-          createdFrom: "admin_guardians_page",
-        });
-      }
+      // Step 1: Find or create guardian (atomic operation - no race condition)
+      const guardianResult = await findOrCreateGuardian({
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim() || undefined,
+        createdFrom: "admin_guardians_page",
+      });
 
       // Step 2: Link guardian to player
       await createGuardianPlayerLink({
-        guardianIdentityId: guardianId,
+        guardianIdentityId: guardianResult.guardianIdentityId,
         playerIdentityId: playerId,
         relationship: formData.relationship,
         isPrimary: true, // First guardian added is primary
@@ -126,14 +109,14 @@ export function AddGuardianModal({
         consentedToSharing: false, // Requires explicit consent
       });
 
-      // Success message depends on whether guardian existed
-      if (isExistingGuardian && existingGuardian) {
-        toast.success("Existing guardian linked successfully", {
-          description: `${existingGuardian.firstName} ${existingGuardian.lastName} has been linked to ${playerName}`,
-        });
-      } else {
+      // Success message depends on whether guardian was created or found
+      if (guardianResult.wasCreated) {
         toast.success("Guardian added successfully", {
           description: `${formData.firstName} ${formData.lastName} has been created and linked to ${playerName}`,
+        });
+      } else {
+        toast.success("Existing guardian linked successfully", {
+          description: `${formData.firstName} ${formData.lastName} has been linked to ${playerName}`,
         });
       }
 
@@ -228,12 +211,6 @@ export function AddGuardianModal({
                 type="email"
                 value={formData.email}
               />
-              {existingGuardian && (
-                <p className="text-amber-600 text-sm">
-                  ⚠️ A guardian with this email already exists. They will be
-                  linked to this player.
-                </p>
-              )}
             </div>
 
             {/* Phone */}
@@ -289,7 +266,7 @@ export function AddGuardianModal({
             </Button>
             <Button disabled={isSaving} type="submit">
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {existingGuardian ? "Link Existing Guardian" : "Add Guardian"}
+              Add Guardian
             </Button>
           </DialogFooter>
         </form>

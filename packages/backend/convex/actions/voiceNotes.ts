@@ -6,26 +6,67 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import type { ActionCtx } from "../_generated/server";
 import { internalAction } from "../_generated/server";
 
 /**
  * AI Model Configuration for Voice Notes
  *
- * Environment variables (set in Convex dashboard):
+ * Configuration is read from the database (aiModelConfig table) with:
+ * - Platform-wide defaults
+ * - Optional per-organization overrides
+ *
+ * Falls back to environment variables if database config is not available:
  * - OPENAI_MODEL_TRANSCRIPTION: Model for audio transcription (default: gpt-4o-mini-transcribe)
  * - OPENAI_MODEL_INSIGHTS: Model for extracting insights from transcription (default: gpt-4o)
  */
 const DEFAULT_MODEL_TRANSCRIPTION = "gpt-4o-mini-transcribe";
 const DEFAULT_MODEL_INSIGHTS = "gpt-4o";
 
-/** Get the model for audio transcription */
-function getTranscriptionModel(): string {
-  return process.env.OPENAI_MODEL_TRANSCRIPTION || DEFAULT_MODEL_TRANSCRIPTION;
-}
+/**
+ * Get AI config from database with fallback to env vars
+ */
+async function getAIConfig(
+  ctx: ActionCtx,
+  feature: "voice_transcription" | "voice_insights",
+  organizationId?: string
+): Promise<{
+  modelId: string;
+  maxTokens?: number;
+  temperature?: number;
+}> {
+  // Try to get config from database
+  try {
+    const dbConfig = await ctx.runQuery(
+      internal.models.aiModelConfig.getConfigForFeatureInternal,
+      { feature, organizationId }
+    );
 
-/** Get the model for insight extraction */
-function getInsightsModel(): string {
-  return process.env.OPENAI_MODEL_INSIGHTS || DEFAULT_MODEL_INSIGHTS;
+    if (dbConfig) {
+      return {
+        modelId: dbConfig.modelId,
+        maxTokens: dbConfig.maxTokens,
+        temperature: dbConfig.temperature,
+      };
+    }
+  } catch (error) {
+    console.warn(
+      `Failed to get AI config from database for ${feature}, using fallback:`,
+      error
+    );
+  }
+
+  // Fallback to environment variables
+  if (feature === "voice_transcription") {
+    return {
+      modelId:
+        process.env.OPENAI_MODEL_TRANSCRIPTION || DEFAULT_MODEL_TRANSCRIPTION,
+    };
+  }
+
+  return {
+    modelId: process.env.OPENAI_MODEL_INSIGHTS || DEFAULT_MODEL_INSIGHTS,
+  };
 }
 
 // Schema for AI-extracted insights
@@ -110,11 +151,14 @@ export const transcribeAudio = internalAction({
       }
       const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
 
+      // Get model config from database with fallback
+      const config = await getAIConfig(ctx, "voice_transcription", note.orgId);
+
       // Transcribe with OpenAI
       const client = getOpenAI();
       const file = await OpenAI.toFile(audioBuffer, "voice-note.webm");
       const transcription = await client.audio.transcriptions.create({
-        model: getTranscriptionModel(),
+        model: config.modelId,
         file,
       });
 
@@ -204,10 +248,13 @@ export const buildInsights = internalAction({
             .join("\n")
         : "No roster context provided.";
 
+      // Get model config from database with fallback
+      const config = await getAIConfig(ctx, "voice_insights", note.orgId);
+
       // Call OpenAI to extract insights
       const client = getOpenAI();
       const response = await client.responses.create({
-        model: getInsightsModel(),
+        model: config.modelId,
         input: [
           {
             role: "system",

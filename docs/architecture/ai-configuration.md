@@ -323,29 +323,38 @@ OpenRouter doesn't add markup - same prices as direct. Value is in:
 
 ---
 
-## Future Improvements
+## Implementation Status
 
-### 1. Database-Backed Model Config (Priority: High)
+### ✅ Database-Backed Model Config (Complete)
 
-Create `aiModelConfig` table and Platform Staff UI:
-- View all AI features and current models
+Created `aiModelConfig` table and Platform Staff UI:
+- View all AI features and current models at `/platform/ai-config`
 - Edit model, maxTokens, temperature per feature
 - Set per-organization overrides
 - View change audit log
+- Seed defaults button for initial setup
 
-**Location:** `/platform/ai-config`
+**Convex Backend Features (read from database):**
+- `voice_transcription` - Voice note audio to text
+- `voice_insights` - Extract insights from transcription
+- `sensitivity_classification` - Classify insight sensitivity
+- `parent_summary` - Generate parent-friendly summaries
 
-### 2. Make Next.js Routes Configurable (Priority: Medium)
+### ✅ Next.js Routes Configurable (Complete)
 
-Update the API routes to read from database instead of hardcoded:
+API routes now configurable via environment variables:
 
-| Route | Feature Key |
-|-------|-------------|
-| `/api/session-plan` | `session_plan` |
-| `/api/recommendations` | `recommendations` |
-| `/api/comparison-insights` | `comparison_insights` |
+| Route | Environment Variables |
+|-------|----------------------|
+| `/api/session-plan` | `ANTHROPIC_MODEL_SESSION_PLAN`, `ANTHROPIC_MAX_TOKENS_SESSION_PLAN`, `ANTHROPIC_TEMPERATURE_SESSION_PLAN` |
+| `/api/recommendations` | `ANTHROPIC_MODEL_RECOMMENDATIONS`, `ANTHROPIC_MAX_TOKENS_RECOMMENDATIONS`, `ANTHROPIC_TEMPERATURE_RECOMMENDATIONS` |
+| `/api/comparison-insights` | `ANTHROPIC_MODEL_COMPARISON`, `ANTHROPIC_MAX_TOKENS_COMPARISON`, `ANTHROPIC_TEMPERATURE_COMPARISON` |
 
-### 3. PostHog Feature Flags for AI (Priority: Medium)
+---
+
+## Future Improvements
+
+### 1. PostHog Feature Flags for AI (Priority: Medium)
 
 Add feature flags to control AI feature availability:
 
@@ -356,7 +365,7 @@ Add feature flags to control AI feature availability:
 | `ai_session_plans_enabled` | Enable/disable session plan generation |
 | `ai_recommendations_enabled` | Enable/disable coaching recommendations |
 
-### 4. OpenRouter Migration (Priority: Low - Future)
+### 2. OpenRouter Migration (Priority: Low - Future)
 
 - Create abstraction layer
 - Add OpenRouter as provider option
@@ -405,8 +414,18 @@ ANTHROPIC_MODEL_SUMMARY=claude-3-5-haiku-20241022
 # Required
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Future - when routes are updated
+# Optional - Session Plan API (default: claude-3-5-haiku-20241022)
 ANTHROPIC_MODEL_SESSION_PLAN=claude-3-5-haiku-20241022
+ANTHROPIC_MAX_TOKENS_SESSION_PLAN=1200
+ANTHROPIC_TEMPERATURE_SESSION_PLAN=0.7
+
+# Optional - Recommendations API (default: claude-3-5-haiku-20241022)
 ANTHROPIC_MODEL_RECOMMENDATIONS=claude-3-5-haiku-20241022
+ANTHROPIC_MAX_TOKENS_RECOMMENDATIONS=1500
+ANTHROPIC_TEMPERATURE_RECOMMENDATIONS=0.7
+
+# Optional - Comparison Insights API (default: claude-3-5-haiku-20241022)
 ANTHROPIC_MODEL_COMPARISON=claude-3-5-haiku-20241022
+ANTHROPIC_MAX_TOKENS_COMPARISON=2000
+ANTHROPIC_TEMPERATURE_COMPARISON=0.7
 ```

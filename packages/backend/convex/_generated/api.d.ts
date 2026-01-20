@@ -26,6 +26,7 @@ import type * as migrations_cleanSlate from "../migrations/cleanSlate.js";
 import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyData.js";
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
+import type * as models_aiModelConfig from "../models/aiModelConfig.js";
 import type * as models_checkUserRoles from "../models/checkUserRoles.js";
 import type * as models_coachParentMessages from "../models/coachParentMessages.js";
 import type * as models_coachParentSummaries from "../models/coachParentSummaries.js";
@@ -124,6 +125,7 @@ declare const fullApi: ApiFromModules<{
   "migrations/migrateLegacyData": typeof migrations_migrateLegacyData;
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
+  "models/aiModelConfig": typeof models_aiModelConfig;
   "models/checkUserRoles": typeof models_checkUserRoles;
   "models/coachParentMessages": typeof models_coachParentMessages;
   "models/coachParentSummaries": typeof models_coachParentSummaries;

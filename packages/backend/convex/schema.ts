@@ -2676,4 +2676,91 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_userId", ["userId"]),
+
+  // ============================================================
+  // AI MODEL CONFIGURATION
+  // Platform-level and per-organization AI model settings
+  // Managed by Platform Staff via /platform/ai-config
+  // ============================================================
+
+  aiModelConfig: defineTable({
+    // Feature identifier - which AI feature this config applies to
+    feature: v.union(
+      v.literal("voice_transcription"), // Audio to text (OpenAI)
+      v.literal("voice_insights"), // Extract insights from transcription (OpenAI)
+      v.literal("sensitivity_classification"), // Classify insight sensitivity (Anthropic)
+      v.literal("parent_summary"), // Generate parent-friendly summary (Anthropic)
+      v.literal("session_plan"), // Generate training session plans (Anthropic)
+      v.literal("recommendations"), // Coaching recommendations (Anthropic)
+      v.literal("comparison_insights") // Passport comparison analysis (Anthropic)
+    ),
+
+    // Scope: platform-wide default or organization-specific override
+    scope: v.union(v.literal("platform"), v.literal("organization")),
+    organizationId: v.optional(v.string()), // Required if scope is "organization"
+
+    // Provider and model configuration
+    provider: v.union(
+      v.literal("openai"),
+      v.literal("anthropic"),
+      v.literal("openrouter") // Future: unified gateway
+    ),
+    modelId: v.string(), // e.g., "gpt-4o", "claude-3-5-haiku-20241022"
+
+    // Model parameters
+    maxTokens: v.optional(v.number()),
+    temperature: v.optional(v.number()), // 0.0 - 1.0
+
+    // Status
+    isActive: v.boolean(),
+
+    // Audit trail
+    updatedBy: v.string(), // User ID of who made the change
+    updatedAt: v.number(),
+    notes: v.optional(v.string()), // E.g., "Testing sonnet for better quality"
+
+    createdAt: v.number(),
+  })
+    .index("by_feature", ["feature"])
+    .index("by_scope", ["scope"])
+    .index("by_feature_and_scope", ["feature", "scope"])
+    .index("by_feature_scope_org", ["feature", "scope", "organizationId"])
+    .index("by_organization", ["organizationId"]),
+
+  // AI Model Config Change Log - audit trail of all changes
+  aiModelConfigLog: defineTable({
+    configId: v.id("aiModelConfig"),
+    feature: v.string(),
+    action: v.union(
+      v.literal("created"),
+      v.literal("updated"),
+      v.literal("deactivated")
+    ),
+
+    // What changed
+    previousValue: v.optional(
+      v.object({
+        provider: v.optional(v.string()),
+        modelId: v.optional(v.string()),
+        maxTokens: v.optional(v.number()),
+        temperature: v.optional(v.number()),
+        isActive: v.optional(v.boolean()),
+      })
+    ),
+    newValue: v.object({
+      provider: v.string(),
+      modelId: v.string(),
+      maxTokens: v.optional(v.number()),
+      temperature: v.optional(v.number()),
+      isActive: v.boolean(),
+    }),
+
+    // Who and when
+    changedBy: v.string(), // User ID
+    changedAt: v.number(),
+    reason: v.optional(v.string()), // Why the change was made
+  })
+    .index("by_config", ["configId"])
+    .index("by_feature", ["feature"])
+    .index("by_changedAt", ["changedAt"]),
 });

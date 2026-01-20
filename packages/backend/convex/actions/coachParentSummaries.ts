@@ -3,20 +3,26 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { ActionCtx } from "../_generated/server";
 import { internalAction } from "../_generated/server";
 
 /**
  * AI Model Configuration for Parent Summaries
  *
- * Environment variables (set in Convex dashboard):
+ * Configuration is read from the database (aiModelConfig table) with:
+ * - Platform-wide defaults
+ * - Optional per-organization overrides
+ *
+ * Falls back to environment variables if database config is not available:
  * - ANTHROPIC_MODEL_SENSITIVITY: Model for classifying insight sensitivity
  * - ANTHROPIC_MODEL_SUMMARY: Model for generating parent-friendly summaries
  *
- * Defaults to claude-3-5-haiku for cost efficiency.
- * Use claude-sonnet-4-20250514 for higher quality at increased cost.
+ * Final fallback uses claude-3-5-haiku for cost efficiency.
  */
 const DEFAULT_MODEL_SENSITIVITY = "claude-3-5-haiku-20241022";
 const DEFAULT_MODEL_SUMMARY = "claude-3-5-haiku-20241022";
+const DEFAULT_MAX_TOKENS_SENSITIVITY = 500;
+const DEFAULT_MAX_TOKENS_SUMMARY = 500;
 
 /**
  * Get Anthropic client with API key from environment
@@ -32,14 +38,56 @@ function getAnthropicClient(): Anthropic {
   return new Anthropic({ apiKey });
 }
 
-/** Get the model for sensitivity classification */
-function getSensitivityModel(): string {
-  return process.env.ANTHROPIC_MODEL_SENSITIVITY || DEFAULT_MODEL_SENSITIVITY;
-}
+/**
+ * Get AI config from database with fallback to env vars
+ */
+async function getAIConfig(
+  ctx: ActionCtx,
+  feature: "sensitivity_classification" | "parent_summary",
+  organizationId?: string
+): Promise<{
+  modelId: string;
+  maxTokens: number;
+  temperature?: number;
+}> {
+  // Try to get config from database
+  try {
+    const dbConfig = await ctx.runQuery(
+      internal.models.aiModelConfig.getConfigForFeatureInternal,
+      { feature, organizationId }
+    );
 
-/** Get the model for parent summary generation */
-function getSummaryModel(): string {
-  return process.env.ANTHROPIC_MODEL_SUMMARY || DEFAULT_MODEL_SUMMARY;
+    if (dbConfig) {
+      return {
+        modelId: dbConfig.modelId,
+        maxTokens:
+          dbConfig.maxTokens ||
+          (feature === "sensitivity_classification"
+            ? DEFAULT_MAX_TOKENS_SENSITIVITY
+            : DEFAULT_MAX_TOKENS_SUMMARY),
+        temperature: dbConfig.temperature,
+      };
+    }
+  } catch (error) {
+    console.warn(
+      `Failed to get AI config from database for ${feature}, using fallback:`,
+      error
+    );
+  }
+
+  // Fallback to environment variables
+  if (feature === "sensitivity_classification") {
+    return {
+      modelId:
+        process.env.ANTHROPIC_MODEL_SENSITIVITY || DEFAULT_MODEL_SENSITIVITY,
+      maxTokens: DEFAULT_MAX_TOKENS_SENSITIVITY,
+    };
+  }
+
+  return {
+    modelId: process.env.ANTHROPIC_MODEL_SUMMARY || DEFAULT_MODEL_SUMMARY,
+    maxTokens: DEFAULT_MAX_TOKENS_SUMMARY,
+  };
 }
 
 // Regex for extracting JSON from Claude responses
@@ -54,6 +102,7 @@ export const classifyInsightSensitivity = internalAction({
   args: {
     insightTitle: v.string(),
     insightDescription: v.string(),
+    organizationId: v.optional(v.string()),
   },
   returns: v.object({
     category: v.union(
@@ -64,8 +113,15 @@ export const classifyInsightSensitivity = internalAction({
     confidence: v.number(),
     reason: v.string(),
   }),
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
     const client = getAnthropicClient();
+
+    // Get model config from database with fallback
+    const config = await getAIConfig(
+      ctx,
+      "sensitivity_classification",
+      args.organizationId
+    );
 
     const prompt = `You are a sensitivity classifier for youth sports coaching insights.
 
@@ -87,8 +143,8 @@ Respond in JSON format:
 }`;
 
     const response = await client.messages.create({
-      model: getSensitivityModel(),
-      max_tokens: 500,
+      model: config.modelId,
+      max_tokens: config.maxTokens,
       messages: [
         {
           role: "user",
@@ -130,14 +186,22 @@ export const generateParentSummary = internalAction({
     insightDescription: v.string(),
     playerFirstName: v.string(),
     sportName: v.string(),
+    organizationId: v.optional(v.string()),
   },
   returns: v.object({
     summary: v.string(),
     confidenceScore: v.number(),
     flags: v.array(v.string()),
   }),
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
     const client = getAnthropicClient();
+
+    // Get model config from database with fallback
+    const config = await getAIConfig(
+      ctx,
+      "parent_summary",
+      args.organizationId
+    );
 
     const prompt = `You are a youth sports communication assistant helping coaches share feedback with parents.
 
@@ -174,8 +238,8 @@ Respond in JSON format:
 }`;
 
     const response = await client.messages.create({
-      model: getSummaryModel(),
-      max_tokens: 500,
+      model: config.modelId,
+      max_tokens: config.maxTokens,
       messages: [
         {
           role: "user",

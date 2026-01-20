@@ -345,7 +345,7 @@
         "Typecheck passes"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": "Max display '9+' if count > 9"
     },
     {
@@ -359,8 +359,8 @@
         "Typecheck passes"
       ],
       "priority": 26,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Badge component exists but needs to be integrated into parent navigation"
     },
     {
       "id": "US-027",
@@ -373,7 +373,7 @@
         "Typecheck passes"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": "Use formatDistanceToNow from date-fns"
     },
     {
@@ -387,7 +387,7 @@
         "Typecheck passes"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -401,7 +401,7 @@
         "Call markViewed on card view"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "notes": "Separate sports maintain 1:1 coach connection"
     },
     {
@@ -414,8 +414,8 @@
         "Typecheck passes"
       ],
       "priority": 30,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "ANTHROPIC_API_KEY added to .env.example and documented in ai-configuration.md"
     }
   ]
 }

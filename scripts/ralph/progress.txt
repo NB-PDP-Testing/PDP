@@ -373,3 +373,62 @@ const validSportId: Id<"sports"> = sportId!; // if you're confident it's set
 **FIX THESE BEFORE CONTINUING** - The build is broken.
 
 ---
+
+## 2026-01-20 14:30:00 - US-020 - Voice Notes Pipeline Integration
+**Iteration**: 3
+**Commit**: 8371880856fa899e6862f9aa69a10db9fdf80cf2
+**Session**: 71232c79-ae86-462b-88ec-0cccae99e012
+**Status**: Complete
+
+### What was implemented
+- Hooked summary generation into voice notes pipeline after insight extraction
+- Added scheduling of processVoiceNoteInsight for each insight with playerIdentityId
+- Skips injury and behavior categories (require manual coach review)
+- Added internal query getByPlayerIdentityId to sportPassports model
+- Added internal query getByCodeInternal to sports model
+- Modified processVoiceNoteInsight to auto-lookup sportId from player's passport
+- Full pipeline: insight extraction → classify sensitivity → generate summary → store
+
+### Files changed
+- packages/backend/convex/actions/voiceNotes.ts (+22 lines)
+- packages/backend/convex/actions/coachParentSummaries.ts (+30, -20)
+- packages/backend/convex/models/sportPassports.ts (+30 lines)
+- packages/backend/convex/models/sports.ts (+23 lines)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (modified files only)
+- ✅ Pre-commit hooks: passed
+- ✅ Browser verification: N/A (backend only)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Use ctx.scheduler.runAfter(0, action) to schedule actions after mutation completes
+- sportPassports table uses sportCode (string), not sportId
+- Need internal queries for both getById and getByCode for sports lookups
+- Actions can't access ctx.db directly - must query through internal queries
+
+**Gotchas encountered:**
+- Linter auto-removes unused imports - write full function before linter runs
+- sportId field doesn't exist in sportPassports schema - uses sportCode
+- Need to lookup sport by code, then use sport._id for foreign key references
+- Type narrowing doesn't work with reassignment - use conditional return instead
+
+**Dependencies found:**
+- Voice notes pipeline triggers at line 268-273 in actions/voiceNotes.ts
+- After updateInsights with status "completed", can schedule follow-up actions
+- Player's sport comes from sportPassports.sportCode, not enrollment
+- Sports table has both by_code index and by_id access
+
+**What to do next**:
+- US-021-024: Coach UI for approving/suppressing summaries
+- US-025-029: Parent UI for viewing summaries
+- US-030: Environment variable documentation
+
+**Mistakes made** (learn from these!):
+- Initially expected sportId field in sportPassports - it uses sportCode
+- Tried to use sportId directly from args - need to lookup from passport
+- Didn't realize need to create getByCodeInternal - regular query can't be called from actions
+
+---

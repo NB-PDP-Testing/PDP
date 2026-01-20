@@ -229,10 +229,100 @@ const shouldQuery = isParent;  // ✅ Only query for parent role
 
 ---
 
+## [2026-01-20 22:46] - US-011 to US-013 - Shareable Image Generation
+**Iteration**: 2 (continued)
+**Commit**: 0a4afe283e1cc73762ad12d8477081aeee370718
+**Session**: fa4d4b02-e71a-49bc-8b0f-a38e7357c193
+**Status**: Complete
+
+### What was implemented
+**Implemented shareable image generation for parent summaries (3 stories combined):**
+
+**US-011**: Created generateShareableImage action in coachParentSummaries.ts
+- Fetches summary data with player, coach, and org names via internal query
+- Uses satori to render JSX-like objects to SVG
+- Converts SVG to PNG using @resvg/resvg-wasm
+- Uploads to Convex storage and returns URL
+
+**US-012**: Designed shareable image template (inline in action)
+- Gradient background: PlayerARC brand colors (blue #667eea to purple #764ba2)
+- PlayerARC branding at top
+- Quote-styled message with player first name
+- Attribution showing coach and organization
+- Formatted date at bottom
+- 1200x630 OG image dimensions, flexbox layout
+
+**US-013**: Storage implementation
+- Converts resvg PNG Buffer to Uint8Array for Blob
+- Stores in Convex storage via ctx.storage.store()
+- Returns public URL via ctx.storage.getUrl()
+
+**Backend helper**: Added getSummaryForImage internal query
+- Fetches summary, player, coach (Better Auth), org (Better Auth)
+- Returns formatted data for image generation
+- Uses raw db access for Better Auth tables (not in schema)
+
+### Files changed
+- packages/backend/convex/actions/coachParentSummaries.ts (+180 lines, generateShareableImage action)
+- packages/backend/convex/models/coachParentSummaries.ts (+56 lines, getSummaryForImage query, internalQuery import)
+- packages/backend/package.json (-1 dep, +1 dep: switched @resvg/resvg-js to @resvg/resvg-wasm)
+- package-lock.json (dependency update)
+- scripts/ralph/prd.json (US-011, US-012, US-013 marked passes: true)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Convex codegen: passed (no bundling errors with WASM version)
+- ✅ Linting: passed (used biome-ignore for necessary `as any` assertions)
+- ✅ Pre-commit hooks: passed
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Satori JSX-like syntax requires `as any` type assertion (not React types)
+- Better Auth tables (user, organization) require raw db access: `(ctx.db as any).get(id)`
+- Convex actions can't directly access ctx.db for Better Auth tables (they're in Better Auth schema)
+- Dynamic imports work well in actions: `const satori = (await import("satori")).default`
+- Font loading in satori: fetch Google Fonts woff files, convert to arrayBuffer
+- WASM packages work in Convex, native Node modules don't
+
+**Gotchas encountered:**
+- **CRITICAL**: @resvg/resvg-js has native `.node` files that can't be bundled by Convex esbuild
+- Solution: Use @resvg/resvg-wasm instead (pure WASM, no native dependencies)
+- Buffer type from resvg needs conversion to Uint8Array for Blob: `new Uint8Array(pngBuffer)`
+- Better Auth table types not available in schema, need type assertions for field access
+- satori expects specific JSX object shape, not React.ReactElement
+
+**Dependencies found:**
+- generateShareableImage depends on getSummaryForImage internal query
+- Font loading via fetch requires "use node" directive in action
+- Storage URLs from Convex are temporary (time-limited)
+
+**What to do next:**
+- [ ] US-014-018: ShareModal component (preview & download image)
+- [ ] US-019-020: UI enhancements (sport icons, unread badges)
+- Future optimization: Cache imageStorageId in summaries table to avoid regeneration
+
+**Mistakes made:**
+- Initially tried @resvg/resvg-js which failed in Convex due to native modules
+- Had to read Convex bundling error and switch to WASM version
+- Type errors with Better Auth tables - learned they're not in our schema
+
+---
+
 ## Session Summary
-**Completed**: 9/20 stories (45%)
-**Context**: ~52% used
+**Completed**: 13/20 stories (65%)
+**Context**: ~57% used
 **Status**: Ready for next iteration
+
+**Key achievements this session:**
+- ✅ Fixed CODE REVIEW FEEDBACK bugs (US-003, US-005)
+- ✅ Implemented shareable image generation (US-011, US-012, US-013)
+- ✅ Solved native module bundling issue by switching to WASM
+- ✅ Updated PRD for completed stories from iteration 1 (US-007, US-008, US-009)
+
+**Next priorities:**
+1. US-014-018: ShareModal component with preview, download, and native share
+2. US-019-020: UI enhancements (sport icons, unread badges per sport)
 
 
 ### Agent Feedback - 2026-01-20 22:29

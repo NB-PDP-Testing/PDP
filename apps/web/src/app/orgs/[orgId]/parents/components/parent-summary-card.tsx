@@ -2,9 +2,12 @@
 
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { formatDistanceToNow } from "date-fns";
-import { Sparkles } from "lucide-react";
+import { Share2, Sparkles } from "lucide-react";
+import { useState } from "react";
 import { MessagePassportLink } from "@/components/parent/message-passport-link";
+import { ShareModal } from "@/components/parent/share-modal";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 type ParentSummaryCardProps = {
@@ -27,10 +30,17 @@ export function ParentSummaryCard({
   isUnread,
   onView,
 }: ParentSummaryCardProps) {
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
   const handleView = () => {
     if (isUnread) {
       onView(summary._id);
     }
+  };
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    setIsShareModalOpen(true);
   };
 
   return (
@@ -69,10 +79,20 @@ export function ParentSummaryCard({
             {/* Card footer actions */}
             <div className="mt-3 flex items-center gap-2">
               <MessagePassportLink summaryId={summary._id} />
+              <Button onClick={handleShare} size="sm" variant="ghost">
+                <Share2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
       </CardContent>
+
+      {/* Share modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        summaryId={summary._id}
+      />
     </Card>
   );
 }

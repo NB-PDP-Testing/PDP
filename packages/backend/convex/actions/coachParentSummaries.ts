@@ -6,6 +6,12 @@ import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 
 /**
+ * Default Claude model for parent summary generation
+ * Can be overridden via ANTHROPIC_MODEL environment variable in Convex dashboard
+ */
+const DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-20241022";
+
+/**
  * Get Anthropic client with API key from environment
  * Throws if ANTHROPIC_API_KEY is not configured
  */
@@ -17,6 +23,14 @@ function getAnthropicClient(): Anthropic {
     );
   }
   return new Anthropic({ apiKey });
+}
+
+/**
+ * Get the Claude model to use for AI operations
+ * Uses ANTHROPIC_MODEL env var if set, otherwise defaults to claude-3-5-haiku
+ */
+function getAnthropicModel(): string {
+  return process.env.ANTHROPIC_MODEL || DEFAULT_ANTHROPIC_MODEL;
 }
 
 // Regex for extracting JSON from Claude responses
@@ -64,7 +78,7 @@ Respond in JSON format:
 }`;
 
     const response = await client.messages.create({
-      model: "claude-3-5-haiku-20241022",
+      model: getAnthropicModel(),
       max_tokens: 500,
       messages: [
         {
@@ -151,7 +165,7 @@ Respond in JSON format:
 }`;
 
     const response = await client.messages.create({
-      model: "claude-3-5-haiku-20241022",
+      model: getAnthropicModel(),
       max_tokens: 500,
       messages: [
         {

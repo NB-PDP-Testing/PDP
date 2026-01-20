@@ -297,6 +297,48 @@ export async function navigateToOrgAndClickPanel(
 }
 
 /**
+ * Helper to navigate to parent dashboard
+ * Improved to handle timing issues and feature flags
+ */
+export async function navigateToParent(page: Page, orgId?: string): Promise<void> {
+  if (!orgId) {
+    // Get orgId first using the /orgs/current route
+    orgId = await getCurrentOrgId(page);
+  }
+
+  // Navigate directly to parent dashboard
+  await page.goto(`/orgs/${orgId}/parents`);
+  await waitForPageLoad(page);
+}
+
+/**
+ * Helper to navigate to a specific parent sub-page
+ *
+ * Parent navigation may include:
+ * - Main dashboard with children cards
+ * - Coach feedback / summaries view
+ * - Child details pages
+ *
+ * @example
+ * await navigateToParentPage(page, orgId, 'coach-feedback');
+ * await navigateToParentPage(page, undefined, 'children'); // Gets orgId automatically
+ */
+export async function navigateToParentPage(
+  page: Page,
+  orgId: string | undefined,
+  subPage: 'coach-feedback' | 'children' | 'settings'
+): Promise<void> {
+  if (!orgId) {
+    // Get orgId first using the /orgs/current route
+    orgId = await getCurrentOrgId(page);
+  }
+
+  // Navigate directly to parent sub-page
+  await page.goto(`/orgs/${orgId}/parents/${subPage}`);
+  await waitForPageLoad(page);
+}
+
+/**
  * Test data helpers
  */
 export const users = testData.users;

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { internalQuery, mutation, query } from "../_generated/server";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -901,4 +901,18 @@ export const getPlayerAgeGroup = query({
     }
     return determineAgeGroup(player.dateOfBirth);
   },
+});
+
+// ============================================================
+// INTERNAL QUERIES (for actions)
+// ============================================================
+
+/**
+ * Internal query to get player identity by ID
+ * Used by actions that cannot access ctx.db directly
+ */
+export const getById = internalQuery({
+  args: { id: v.id("playerIdentities") },
+  returns: v.union(playerIdentityValidator, v.null()),
+  handler: async (ctx, args) => await ctx.db.get(args.id),
 });

@@ -1,0 +1,309 @@
+{
+  "phase": 3,
+  "name": "Sensitive Topic Handling",
+  "description": "Implement special workflows for injury and behavior-related insights",
+  "estimatedSprints": 1,
+  "dependencies": ["phase-1-core-pipeline"],
+  "featureFlag": "sensitive-topic-handling",
+
+  "objectives": [
+    "Automatically classify insights into sensitivity categories",
+    "Enforce manual review for injury-related insights regardless of trust level",
+    "Enforce manual review for behavior-related insights regardless of trust level",
+    "Provide enhanced UI for sensitive topic approval with appropriate guardrails"
+  ],
+
+  "sensitivityCategories": {
+    "normal": {
+      "description": "General skill, effort, progress, and technique observations",
+      "examples": [
+        "Great passing technique today",
+        "Working on ball control",
+        "Showed excellent teamwork",
+        "Building stamina"
+      ],
+      "autoApproveEligible": true
+    },
+    "injury": {
+      "description": "Any physical health concern, pain, injury, or physical limitation mention",
+      "examples": [
+        "Complained about knee pain",
+        "Sat out due to ankle",
+        "Recovering from last week's injury",
+        "Seemed to be favoring left leg"
+      ],
+      "autoApproveEligible": false,
+      "requiresChecklist": true
+    },
+    "behavior": {
+      "description": "Attitude, discipline, social interaction, focus, or conduct observations",
+      "examples": [
+        "Wasn't listening to instructions",
+        "Had conflict with teammate",
+        "Distracted during drills",
+        "Showing frustration"
+      ],
+      "autoApproveEligible": false,
+      "requiresChecklist": false
+    }
+  },
+
+  "deliverables": {
+    "backend": [
+      {
+        "id": "BE-3.1",
+        "name": "classifyInsightSensitivity action",
+        "type": "action",
+        "file": "packages/backend/convex/actions/coachParentMessaging.ts",
+        "description": "AI classification of insight sensitivity category",
+        "inputs": ["insightTitle", "insightDescription", "insightCategory"],
+        "outputs": ["sensitivityCategory", "reason", "confidence"],
+        "aiModel": "claude-3-haiku",
+        "temperature": 0,
+        "maxTokens": 100,
+        "systemPrompt": "Classify sports coaching insight into NORMAL, INJURY, or BEHAVIOR. Output JSON with category and brief reason."
+      },
+      {
+        "id": "BE-3.2",
+        "name": "Integrate classification into summary generation",
+        "type": "action-modification",
+        "file": "packages/backend/convex/actions/coachParentMessaging.ts",
+        "description": "Run classification as part of summary generation pipeline",
+        "changes": [
+          "Call classifyInsightSensitivity before generateParentSummary",
+          "Pass sensitivityCategory to createParentSummary mutation",
+          "Store classification reason and confidence"
+        ]
+      },
+      {
+        "id": "BE-3.3",
+        "name": "Enforce sensitivity rules in approval logic",
+        "type": "mutation-modification",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Block auto-approval for sensitive categories",
+        "changes": [
+          "Add check: if sensitivityCategory in [injury, behavior], always require manual approval",
+          "Override trust level for sensitive topics",
+          "Log override reason"
+        ]
+      },
+      {
+        "id": "BE-3.4",
+        "name": "approveInjurySummary mutation",
+        "type": "mutation",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Special approval mutation for injury-related summaries",
+        "inputs": [
+          "summaryId",
+          "checklistConfirmations (object with boolean fields)",
+          "additionalNotes (optional string)"
+        ],
+        "validation": {
+          "personallyObserved": "must be true",
+          "severityAccurate": "must be true",
+          "noMedicalAdvice": "must be true"
+        },
+        "outputs": ["success"],
+        "sideEffects": ["Store checklist responses in audit log"]
+      }
+    ],
+
+    "frontend": [
+      {
+        "id": "FE-3.1",
+        "name": "InjurySummaryApprovalCard component",
+        "type": "component",
+        "file": "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/injury-approval-card.tsx",
+        "description": "Enhanced approval card for injury-related insights with checklist",
+        "props": ["summary", "onApprove", "onSuppress"],
+        "displays": [
+          "Warning banner: INJURY-RELATED INSIGHT",
+          "Original insight",
+          "AI-generated summary with cautionary language",
+          "Due diligence checklist (3 checkboxes)",
+          "Approve button (disabled until checklist complete)",
+          "Don't Share button"
+        ],
+        "checklistItems": [
+          "I have personally observed this situation",
+          "The severity description is accurate",
+          "No medical advice is implied in the message"
+        ]
+      },
+      {
+        "id": "FE-3.2",
+        "name": "BehaviorSummaryApprovalCard component",
+        "type": "component",
+        "file": "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/behavior-approval-card.tsx",
+        "description": "Enhanced approval card for behavior-related insights",
+        "props": ["summary", "onApprove", "onSuppress"],
+        "displays": [
+          "Lock icon: BEHAVIOR-RELATED INSIGHT",
+          "Message: Auto-approval disabled for behavioral observations",
+          "Original insight",
+          "AI-generated summary with constructive framing",
+          "Approve button",
+          "Don't Share button"
+        ]
+      },
+      {
+        "id": "FE-3.3",
+        "name": "Voice notes dashboard card routing",
+        "type": "component-modification",
+        "file": "apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx",
+        "description": "Route to appropriate card component based on sensitivity",
+        "changes": [
+          "Check summary.sensitivityCategory",
+          "Render InjurySummaryApprovalCard for injury",
+          "Render BehaviorSummaryApprovalCard for behavior",
+          "Render standard CoachSummaryApprovalCard for normal"
+        ]
+      },
+      {
+        "id": "FE-3.4",
+        "name": "Sensitivity badge on cards",
+        "type": "component",
+        "file": "apps/web/src/components/coach/sensitivity-badge.tsx",
+        "description": "Visual badge indicating sensitivity category",
+        "props": ["category"],
+        "styles": {
+          "normal": "hidden or subtle",
+          "injury": "amber/orange warning style",
+          "behavior": "blue/purple locked style"
+        }
+      }
+    ]
+  },
+
+  "acceptanceCriteria": [
+    {
+      "id": "AC-3.1",
+      "description": "Injury-related insights are correctly classified 99% of the time",
+      "testType": "ai-evaluation"
+    },
+    {
+      "id": "AC-3.2",
+      "description": "Behavior-related insights are correctly classified 99% of the time",
+      "testType": "ai-evaluation"
+    },
+    {
+      "id": "AC-3.3",
+      "description": "Injury insights always require manual approval regardless of trust level",
+      "testType": "unit"
+    },
+    {
+      "id": "AC-3.4",
+      "description": "Behavior insights always require manual approval regardless of trust level",
+      "testType": "unit"
+    },
+    {
+      "id": "AC-3.5",
+      "description": "Injury approval requires completing due diligence checklist",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-3.6",
+      "description": "Appropriate visual treatment differentiates sensitive topics",
+      "testType": "manual"
+    }
+  ],
+
+  "testCases": [
+    {
+      "id": "TC-3.1",
+      "name": "Injury detection and workflow",
+      "steps": [
+        "Coach records: 'Jack complained about knee pain after the drill'",
+        "AI extracts insight about knee pain",
+        "Classifier categorizes as INJURY",
+        "Coach sees injury-specific card with warning",
+        "Checklist items shown unchecked",
+        "Approve button is disabled",
+        "Coach checks all 3 items",
+        "Approve button becomes enabled",
+        "Coach approves",
+        "Checklist responses stored in audit log"
+      ]
+    },
+    {
+      "id": "TC-3.2",
+      "name": "Behavior detection and workflow",
+      "steps": [
+        "Coach records: 'Emma wasn't paying attention during tactics'",
+        "AI extracts insight about attention",
+        "Classifier categorizes as BEHAVIOR",
+        "Coach sees behavior-specific card with lock icon",
+        "Message explains auto-approval is disabled",
+        "Coach can approve without checklist",
+        "Summary uses constructive language"
+      ]
+    },
+    {
+      "id": "TC-3.3",
+      "name": "High trust coach still requires approval for injury",
+      "steps": [
+        "Coach is at trust level 3 (full automation)",
+        "Coach records injury-related observation",
+        "System does NOT auto-approve",
+        "Coach sees injury card in pending queue",
+        "Coach must complete checklist and approve"
+      ]
+    },
+    {
+      "id": "TC-3.4",
+      "name": "Normal insight at trust level 3",
+      "steps": [
+        "Coach is at trust level 3",
+        "Coach records: 'Great passing from Sarah today'",
+        "Classifier categorizes as NORMAL",
+        "System auto-approves (phase 5 feature)",
+        "Parent sees message without coach manual action"
+      ]
+    }
+  ],
+
+  "classificationExamples": {
+    "training": [
+      {
+        "input": "Jack was limping after the sprint drill",
+        "category": "INJURY",
+        "reason": "Physical pain/limitation mentioned"
+      },
+      {
+        "input": "Sarah wasn't listening to instructions and disrupted the session",
+        "category": "BEHAVIOR",
+        "reason": "Discipline/conduct issue"
+      },
+      {
+        "input": "Tom showed great improvement in his passing accuracy",
+        "category": "NORMAL",
+        "reason": "Skill progress observation"
+      },
+      {
+        "input": "Emma sat out the last 20 minutes due to feeling dizzy",
+        "category": "INJURY",
+        "reason": "Physical health concern"
+      },
+      {
+        "input": "Jake got into an argument with his teammate",
+        "category": "BEHAVIOR",
+        "reason": "Social/interpersonal issue"
+      },
+      {
+        "input": "Really pleased with the team's energy today",
+        "category": "NORMAL",
+        "reason": "General positive observation"
+      }
+    ]
+  },
+
+  "metrics": {
+    "tracking": [
+      "insights_by_sensitivity (count per category)",
+      "classification_accuracy (manual review comparison)",
+      "injury_checklist_completion_rate",
+      "sensitive_topic_suppression_rate",
+      "time_to_approve_sensitive_vs_normal"
+    ]
+  }
+}

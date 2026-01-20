@@ -1,83 +1,139 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import {
   AlertTriangle,
   ArrowLeft,
-  CheckCircle,
+  History,
+  Lightbulb,
   Loader2,
+  MessageSquare,
   Mic,
-  MicOff,
-  Send,
-  Trash2,
-  XCircle,
+  Settings,
 } from "lucide-react";
-import type { Route } from "next";
 import { useParams, useRouter } from "next/navigation";
-import { useRef, useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { useEffect, useMemo, useState } from "react";
+import { TrustLevelIcon } from "@/components/coach/trust-level-icon";
+import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
-import { Textarea } from "@/components/ui/textarea";
+import { HistoryTab } from "./components/history-tab";
+import { InsightsTab } from "./components/insights-tab";
+import { NewNoteTab } from "./components/new-note-tab";
+import { ParentsTab } from "./components/parents-tab";
+import { SettingsTab } from "./components/settings-tab";
 
-type NoteType = "training" | "match" | "general";
+type TabId = "new" | "parents" | "insights" | "history" | "settings";
 
 export function VoiceNotesDashboard() {
   const params = useParams();
   const router = useRouter();
   const orgId = params.orgId as BetterAuthId<"organization">;
 
-  const [noteText, setNoteText] = useState("");
-  const [noteType, setNoteType] = useState<NoteType>("training");
-  const [isRecording, setIsRecording] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>("new");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasAutoSwitched, setHasAutoSwitched] = useState(false);
+  const [nudgeDismissed, setNudgeDismissed] = useState<Record<number, boolean>>(
+    {}
+  );
 
-  // Audio recording refs
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-
-  // Convex queries and mutations
+  // Queries for stats and conditional tab logic
   const voiceNotes = useQuery(api.models.voiceNotes.getAllVoiceNotes, {
     orgId,
   });
-  const createTypedNote = useMutation(api.models.voiceNotes.createTypedNote);
-  const createRecordedNote = useMutation(
-    api.models.voiceNotes.createRecordedNote
+  const pendingSummaries = useQuery(
+    api.models.coachParentSummaries.getCoachPendingSummaries,
+    { organizationId: orgId }
   );
-  const generateUploadUrl = useAction(api.models.voiceNotes.generateUploadUrl);
-  const updateInsightStatus = useMutation(
-    api.models.voiceNotes.updateInsightStatus
-  );
-  const deleteVoiceNote = useMutation(api.models.voiceNotes.deleteVoiceNote);
+  const trustLevel = useQuery(api.models.coachTrustLevels.getCoachTrustLevel, {
+    organizationId: orgId,
+  });
+
+  // Calculate counts
+  const pendingInsightsCount =
+    voiceNotes?.flatMap((note) =>
+      note.insights.filter((i) => i.status === "pending")
+    ).length ?? 0;
+  const pendingSummariesCount = pendingSummaries?.length ?? 0;
+
+  // Count sensitive summaries (injury or behavior) that need manual review
+  const sensitiveSummariesCount =
+    pendingSummaries?.filter(
+      (s) =>
+        s.sensitivityCategory === "injury" ||
+        s.sensitivityCategory === "behavior"
+    ).length ?? 0;
+  const hasSensitiveSummaries = sensitiveSummariesCount > 0;
+
+  // Auto-switch to first tab with pending items (only once on load)
+  useEffect(() => {
+    if (!hasAutoSwitched) {
+      if (pendingSummariesCount > 0) {
+        setActiveTab("parents");
+        setHasAutoSwitched(true);
+      } else if (pendingInsightsCount > 0) {
+        setActiveTab("insights");
+        setHasAutoSwitched(true);
+      }
+    }
+  }, [pendingSummariesCount, pendingInsightsCount, hasAutoSwitched]);
+
+  // Load nudge dismissed state from localStorage
+  useEffect(() => {
+    if (trustLevel) {
+      const dismissed: Record<number, boolean> = {};
+      for (let level = 0; level < 3; level++) {
+        const key = `trust-nudge-dismissed-${level}`;
+        dismissed[level] = localStorage.getItem(key) === "true";
+      }
+      setNudgeDismissed(dismissed);
+    }
+  }, [trustLevel?.currentLevel, trustLevel]);
+
+  const handleNudgeDismiss = () => {
+    if (trustLevel) {
+      const key = `trust-nudge-dismissed-${trustLevel.currentLevel}`;
+      localStorage.setItem(key, "true");
+      setNudgeDismissed((prev) => ({
+        ...prev,
+        [trustLevel.currentLevel]: true,
+      }));
+    }
+  };
+
+  // Count stats
+  const processingCount =
+    voiceNotes?.filter(
+      (n) =>
+        n.transcriptionStatus === "processing" ||
+        n.insightsStatus === "processing"
+    ).length ?? 0;
+
+  // Count pending insights that need attention (unmatched players or uncategorized)
+  const TEAM_LEVEL_CATEGORIES = ["team_culture", "todo"];
+  const allPendingInsights =
+    voiceNotes?.flatMap((note) =>
+      note.insights
+        .filter((i) => i.status === "pending")
+        .map((i) => ({ ...i, noteId: note._id }))
+    ) ?? [];
+
+  const needsAttentionCount = allPendingInsights.filter(
+    (i) =>
+      // Unmatched: has playerName but no playerIdentityId
+      (!i.playerIdentityId && i.playerName) ||
+      // Uncategorized: no player and not a team-level category
+      !(
+        i.playerIdentityId ||
+        i.playerName ||
+        (i.category && TEAM_LEVEL_CATEGORIES.includes(i.category))
+      )
+  ).length;
+
+  const readyToApplyCount = pendingInsightsCount - needsAttentionCount;
 
   const showSuccessMessage = (message: string) => {
     setSuccessMessage(message);
@@ -91,243 +147,207 @@ export function VoiceNotesDashboard() {
     setTimeout(() => setErrorMessage(null), 5000);
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm",
+  // Build tabs array - only include Parents/Insights when there's content
+  const tabs = useMemo(() => {
+    const baseTabs: {
+      id: TabId;
+      label: string;
+      icon: typeof Mic;
+      badge?: number;
+      hasAlert?: boolean;
+    }[] = [{ id: "new", label: "New", icon: Mic }];
+
+    // Only show Parents tab if there are pending summaries
+    if (pendingSummariesCount > 0) {
+      baseTabs.push({
+        id: "parents",
+        label: "Parents",
+        icon: MessageSquare,
+        badge: pendingSummariesCount,
+        hasAlert: hasSensitiveSummaries,
       });
-
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        // Stop all tracks
-        for (const track of stream.getTracks()) {
-          track.stop();
-        }
-
-        // Create blob and upload
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: "audio/webm",
-        });
-
-        await uploadAudio(audioBlob);
-      };
-
-      mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start();
-      setIsRecording(true);
-      showSuccessMessage("🎤 Recording started...");
-    } catch (error) {
-      console.error("Failed to start recording:", error);
-      showErrorMessage(
-        "⚠️ Could not access microphone. Please check permissions."
-      );
     }
-  };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
-
-  const uploadAudio = async (audioBlob: Blob) => {
-    setIsUploading(true);
-    try {
-      // Get upload URL
-      const uploadUrl = await generateUploadUrl();
-
-      // Upload the audio
-      const response = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": audioBlob.type },
-        body: audioBlob,
+    // Only show Insights tab if there are pending insights
+    if (pendingInsightsCount > 0) {
+      baseTabs.push({
+        id: "insights",
+        label: "Insights",
+        icon: Lightbulb,
+        badge: pendingInsightsCount,
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to upload audio");
-      }
-
-      const { storageId } = await response.json();
-
-      // Create the voice note
-      await createRecordedNote({
-        orgId,
-        noteType,
-        audioStorageId: storageId,
-      });
-
-      showSuccessMessage(
-        "✓ Recording saved! AI is transcribing and analyzing..."
-      );
-    } catch (error) {
-      console.error("Failed to upload audio:", error);
-      showErrorMessage("⚠️ Failed to save recording. Please try again.");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleSaveTypedNote = async () => {
-    if (!noteText.trim()) {
-      return;
     }
 
-    try {
-      await createTypedNote({
-        orgId,
-        noteType,
-        noteText: noteText.trim(),
-      });
+    // Always show History (Settings is now in header)
+    baseTabs.push({ id: "history", label: "History", icon: History });
 
-      setNoteText("");
-      showSuccessMessage("✓ Note saved! AI is analyzing for insights...");
-    } catch (error) {
-      console.error("Failed to save note:", error);
-      showErrorMessage("⚠️ Failed to save note. Please try again.");
+    return baseTabs;
+  }, [pendingSummariesCount, pendingInsightsCount, hasSensitiveSummaries]);
+
+  // If current tab is no longer available (e.g., approved all summaries), switch to New
+  // Settings is a special case - it's always available via header icon, not in tabs array
+  useEffect(() => {
+    const tabIds = tabs.map((t) => t.id);
+    if (activeTab !== "settings" && !tabIds.includes(activeTab)) {
+      setActiveTab("new");
     }
-  };
-
-  const handleApplyInsight = async (
-    noteId: Id<"voiceNotes">,
-    insightId: string
-  ) => {
-    try {
-      const result = await updateInsightStatus({
-        noteId,
-        insightId,
-        status: "applied",
-      });
-
-      // Build success message based on where it was routed
-      let message = "✓ Insight applied!";
-      if (result.appliedTo && result.message) {
-        // Show where the insight was routed
-        const destinationMap: Record<string, string> = {
-          playerInjuries: "🩹 Injury Record Created",
-          passportGoals: "🎯 Development Goal Created",
-          "orgPlayerEnrollments.coachNotes": "📝 Added to Player Notes",
-          "sportPassports.coachNotes": "📝 Added to Passport Notes",
-          "team.coachNotes": "🏆 Added to Team Notes",
-          skillAssessments: "📊 Skill Rating Updated",
-        };
-        const destination = destinationMap[result.appliedTo] ?? "📋 Applied";
-        message = `${destination}: ${result.message}`;
-      } else if (result.message) {
-        message = `⚠️ ${result.message}`;
-      }
-
-      showSuccessMessage(message);
-    } catch (error) {
-      console.error("Failed to apply insight:", error);
-      showErrorMessage("⚠️ Failed to apply insight.");
-    }
-  };
-
-  const handleDismissInsight = async (
-    noteId: Id<"voiceNotes">,
-    insightId: string
-  ) => {
-    try {
-      await updateInsightStatus({
-        noteId,
-        insightId,
-        status: "dismissed",
-      });
-    } catch (error) {
-      console.error("Failed to dismiss insight:", error);
-      showErrorMessage("⚠️ Failed to dismiss insight.");
-    }
-  };
-
-  const handleDeleteNote = async (noteId: Id<"voiceNotes">) => {
-    try {
-      await deleteVoiceNote({ noteId });
-      showSuccessMessage("✓ Voice note deleted.");
-    } catch (error) {
-      console.error("Failed to delete note:", error);
-      showErrorMessage("⚠️ Failed to delete note.");
-    }
-  };
-
-  // Get pending insights from all notes
-  const pendingInsights =
-    voiceNotes?.flatMap((note) =>
-      note.insights
-        .filter((i) => i.status === "pending")
-        .map((i) => ({ ...i, noteId: note._id, noteDate: note.date }))
-    ) ?? [];
-
-  // Count stats
-  const notesWithInsights =
-    voiceNotes?.filter((n) => n.insights.length > 0).length ?? 0;
-  const processingCount =
-    voiceNotes?.filter(
-      (n) =>
-        n.transcriptionStatus === "processing" ||
-        n.insightsStatus === "processing"
-    ).length ?? 0;
+  }, [tabs, activeTab]);
 
   return (
-    <div className="space-y-6">
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => router.push(`/orgs/${orgId}/coach`)}
-            variant="ghost"
-          >
-            <ArrowLeft size={20} />
-          </Button>
-          <Mic className="text-green-600" size={32} />
-          <div>
-            <h1 className="font-bold text-3xl text-foreground">
-              Coach Voice Notes
-            </h1>
-            <p className="text-gray-600 text-sm">
-              Record and analyze training observations
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-center">
-            <div className="font-bold text-2xl text-blue-600">
-              {voiceNotes?.length ?? 0}
+      <div className="mb-4 flex flex-col gap-4 sm:mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Button
+              className="h-8 w-8 p-0 sm:h-9 sm:w-9"
+              onClick={() => router.push(`/orgs/${orgId}/coach`)}
+              size="sm"
+              variant="ghost"
+            >
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
+            <Mic className="h-6 w-6 text-green-600 sm:h-8 sm:w-8" />
+            <div>
+              <h1 className="font-bold text-foreground text-xl sm:text-3xl">
+                Voice Notes
+              </h1>
+              <p className="hidden text-gray-600 text-sm sm:block">
+                Record and analyze training observations
+              </p>
             </div>
-            <div className="text-gray-600 text-sm">Total Notes</div>
           </div>
-          <div className="text-center">
-            <div className="font-bold text-2xl text-green-600">
-              {notesWithInsights}
-            </div>
-            <div className="text-gray-600 text-sm">With Insights</div>
-          </div>
-          {processingCount > 0 && (
-            <div className="text-center">
-              <div className="flex items-center gap-1 font-bold text-2xl text-orange-600">
-                <Loader2 className="animate-spin" size={20} />
-                {processingCount}
+          <div className="flex items-center justify-end gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="text-center">
+                <div className="font-bold text-blue-600 text-lg sm:text-2xl">
+                  {voiceNotes?.length ?? 0}
+                </div>
+                <div className="text-gray-600 text-xs sm:text-sm">Notes</div>
               </div>
-              <div className="text-gray-600 text-sm">Processing</div>
+              {readyToApplyCount > 0 && (
+                <div className="text-center">
+                  <div className="font-bold text-green-600 text-lg sm:text-2xl">
+                    {readyToApplyCount}
+                  </div>
+                  <div className="text-gray-600 text-xs sm:text-sm">Ready</div>
+                </div>
+              )}
+              {needsAttentionCount > 0 && (
+                <div className="text-center">
+                  <div className="font-bold text-amber-600 text-lg sm:text-2xl">
+                    {needsAttentionCount}
+                  </div>
+                  <div className="text-gray-600 text-xs sm:text-sm">
+                    Attention
+                  </div>
+                </div>
+              )}
+              {processingCount > 0 && (
+                <div className="text-center">
+                  <div className="flex items-center gap-1 font-bold text-lg text-orange-600 sm:text-2xl">
+                    <Loader2 className="h-4 w-4 animate-spin sm:h-5 sm:w-5" />
+                    {processingCount}
+                  </div>
+                  <div className="text-gray-600 text-xs sm:text-sm">
+                    Processing
+                  </div>
+                </div>
+              )}
+              {sensitiveSummariesCount > 0 && (
+                <div className="text-center">
+                  <div className="flex items-center gap-1 font-bold text-lg text-red-600 sm:text-2xl">
+                    <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" />
+                    {sensitiveSummariesCount}
+                  </div>
+                  <div className="text-gray-600 text-xs sm:text-sm">
+                    Sensitive
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+            {/* Trust Level Icon */}
+            {trustLevel && (
+              <TrustLevelIcon
+                level={trustLevel.currentLevel}
+                onClick={() => setActiveTab("settings")}
+                totalApprovals={trustLevel.totalApprovals}
+              />
+            )}
+            {/* Settings button */}
+            <Button
+              className={`h-8 w-8 p-0 sm:h-9 sm:w-9 ${activeTab === "settings" ? "bg-gray-100 text-green-600" : ""}`}
+              onClick={() => setActiveTab("settings")}
+              size="sm"
+              title="AI Settings"
+              variant="ghost"
+            >
+              <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
+          </div>
         </div>
+
+        {/* Trust Nudge Banner - shows when close to next level */}
+        {trustLevel && !nudgeDismissed[trustLevel.currentLevel] && (
+          <TrustNudgeBanner
+            currentLevel={trustLevel.currentLevel}
+            onDismiss={handleNudgeDismiss}
+            threshold={trustLevel.progressToNextLevel.threshold}
+            totalApprovals={trustLevel.totalApprovals}
+          />
+        )}
+      </div>
+
+      {/* Tabs - scrollable on mobile, standard on desktop */}
+      <div className="mb-4 border-b">
+        <nav className="-mb-px scrollbar-hide flex gap-1 overflow-x-auto">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 font-medium text-xs transition-colors sm:gap-2 sm:px-4 sm:py-3 sm:text-sm ${
+                  isActive
+                    ? "border-green-600 text-green-600"
+                    : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                }`}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                type="button"
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+                {tab.badge && (
+                  <span className="flex items-center gap-0.5">
+                    {tab.hasAlert && (
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                    )}
+                    <Badge
+                      className={`ml-0.5 h-4 min-w-[16px] px-1 text-xs sm:ml-1 sm:h-5 sm:min-w-[20px] sm:px-1.5 ${
+                        tab.hasAlert && !isActive
+                          ? "border-amber-400 bg-amber-100 text-amber-700"
+                          : ""
+                      }`}
+                      variant={isActive ? "default" : "secondary"}
+                    >
+                      {tab.badge > 9 ? "9+" : tab.badge}
+                    </Badge>
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
       {/* Success/Error Messages */}
       {successMessage && (
-        <div className="flex items-center justify-between rounded-lg border-2 border-green-500 bg-green-100 px-6 py-4 text-green-800">
-          <span className="font-semibold">{successMessage}</span>
+        <div className="mb-4 flex items-center justify-between rounded-lg border-2 border-green-500 bg-green-100 px-4 py-3 text-green-800 sm:px-6 sm:py-4">
+          <span className="font-semibold text-sm sm:text-base">
+            {successMessage}
+          </span>
           <button
-            className="font-bold text-green-600 text-xl hover:text-green-800"
+            className="ml-2 font-bold text-green-600 text-lg hover:text-green-800 sm:text-xl"
             onClick={() => setSuccessMessage(null)}
             type="button"
           >
@@ -337,10 +357,12 @@ export function VoiceNotesDashboard() {
       )}
 
       {errorMessage && (
-        <div className="flex items-start justify-between rounded-lg border-2 border-red-500 bg-red-100 px-6 py-4 text-red-800">
-          <div className="flex-1 font-semibold">{errorMessage}</div>
+        <div className="mb-4 flex items-start justify-between rounded-lg border-2 border-red-500 bg-red-100 px-4 py-3 text-red-800 sm:px-6 sm:py-4">
+          <div className="flex-1 font-semibold text-sm sm:text-base">
+            {errorMessage}
+          </div>
           <button
-            className="ml-4 flex-shrink-0 font-bold text-red-600 text-xl hover:text-red-800"
+            className="ml-2 flex-shrink-0 font-bold text-lg text-red-600 hover:text-red-800 sm:text-xl"
             onClick={() => setErrorMessage(null)}
             type="button"
           >
@@ -349,376 +371,38 @@ export function VoiceNotesDashboard() {
         </div>
       )}
 
-      {/* Record/Type Note */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>New Voice Note</CardTitle>
-            <div className="flex gap-2">
-              {(["training", "match", "general"] as const).map((type) => (
-                <Button
-                  key={type}
-                  onClick={() => setNoteType(type)}
-                  variant={noteType === type ? "default" : "outline"}
-                >
-                  {type.charAt(0).toUpperCase() + type.slice(1)}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Voice Recording Button */}
-          <div className="flex justify-center">
-            <button
-              className={`relative rounded-full p-6 shadow-lg transition-all ${
-                isRecording
-                  ? "bg-red-600 hover:bg-red-700"
-                  : isUploading
-                    ? "cursor-not-allowed bg-gray-400"
-                    : "bg-green-600 hover:bg-green-700"
-              } text-white`}
-              disabled={isUploading}
-              onClick={isRecording ? stopRecording : startRecording}
-              title={
-                isRecording
-                  ? "Click to stop recording"
-                  : "Click to start voice recording"
-              }
-              type="button"
-            >
-              {isUploading ? (
-                <Loader2 className="animate-spin" size={32} />
-              ) : isRecording ? (
-                <MicOff size={32} />
-              ) : (
-                <Mic size={32} />
-              )}
-              {isRecording && (
-                <div className="absolute inset-0 animate-ping rounded-full border-4 border-red-400" />
-              )}
-            </button>
-          </div>
-
-          {/* Recording status */}
-          {isRecording && (
-            <div className="text-center">
-              <div className="inline-flex items-center gap-3 rounded-full bg-red-100 px-4 py-2 text-red-700">
-                <div className="h-2 w-2 animate-pulse rounded-full bg-red-600" />
-                <span className="font-semibold">
-                  Recording... click to stop
-                </span>
-              </div>
-            </div>
-          )}
-
-          {isUploading && (
-            <div className="text-center">
-              <div className="inline-flex items-center gap-3 rounded-full bg-blue-100 px-4 py-2 text-blue-700">
-                <Loader2 className="animate-spin" size={16} />
-                <span className="font-semibold">Uploading recording...</span>
-              </div>
-            </div>
-          )}
-
-          <div className="text-center text-gray-500 text-sm">
-            or type your note below
-          </div>
-
-          <Textarea
-            className="h-48"
-            onChange={(e) => setNoteText(e.target.value)}
-            placeholder="Type your coaching notes here... Mention player names and the AI will extract insights automatically.
-
-Example: 'Emma Murphy had a great session today. Her left foot passing is really improving. Liam seemed a bit tired in the last 15 minutes. Jack O'Brien took a knock to the ankle around the halfway point but finished the session.'"
-            value={noteText}
+      {/* Tab Content */}
+      <div className="flex-1">
+        {activeTab === "new" && (
+          <NewNoteTab
+            onError={showErrorMessage}
+            onSuccess={showSuccessMessage}
+            orgId={orgId}
           />
-
-          <div className="flex items-center justify-between">
-            <p className="text-gray-600 text-sm">
-              AI will extract player insights, injuries, skill progress, and
-              more
-            </p>
-            <Button
-              className="bg-green-600 hover:bg-green-700"
-              disabled={!noteText.trim()}
-              onClick={handleSaveTypedNote}
-            >
-              Save & Analyze
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Pending Insights */}
-      {pendingInsights.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>
-                  AI Detected Insights ({pendingInsights.length})
-                </CardTitle>
-                <CardDescription>
-                  Review and apply insights to player profiles
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pendingInsights.map((insight) => (
-              <div
-                className="flex items-start justify-between rounded-lg border-2 border-blue-200 bg-blue-50 p-4"
-                key={insight.id}
-              >
-                <div className="flex flex-1 items-start gap-3">
-                  <div className="flex-1">
-                    <div className="mb-1 flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-gray-800">
-                        {insight.title}
-                      </span>
-                      {insight.playerName ? (
-                        <Badge variant="secondary">{insight.playerName}</Badge>
-                      ) : (
-                        <Badge className="bg-purple-100 text-purple-700">
-                          🏆 Team
-                        </Badge>
-                      )}
-                      {insight.category && (
-                        <Badge variant="outline">{insight.category}</Badge>
-                      )}
-                    </div>
-                    <p className="mb-2 text-gray-700 text-sm">
-                      {insight.description}
-                    </p>
-                    {insight.recommendedUpdate && (
-                      <p className="text-gray-500 text-xs italic">
-                        💡 {insight.recommendedUpdate}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {insight.playerIdentityId && (
-                    <Button
-                      onClick={() => {
-                        router.push(
-                          `/orgs/${orgId}/coach/messages/compose?type=insight&voiceNoteId=${insight.noteId}&insightId=${insight.id}&playerIdentityId=${insight.playerIdentityId}` as Route
-                        );
-                      }}
-                      size="sm"
-                      title="Share with Parent"
-                      variant="secondary"
-                    >
-                      <Send size={16} />
-                    </Button>
-                  )}
-                  <Button
-                    onClick={() =>
-                      handleApplyInsight(insight.noteId, insight.id)
-                    }
-                    size="sm"
-                    title="Apply insight"
-                    variant="default"
-                  >
-                    <CheckCircle size={16} />
-                  </Button>
-                  <Button
-                    onClick={() =>
-                      handleDismissInsight(insight.noteId, insight.id)
-                    }
-                    size="sm"
-                    title="Dismiss insight"
-                    variant="outline"
-                  >
-                    <XCircle size={16} />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Voice Note History */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Voice Note History</CardTitle>
-          <CardDescription>
-            {voiceNotes?.length ?? 0} note
-            {(voiceNotes?.length ?? 0) !== 1 ? "s" : ""} recorded
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {voiceNotes ? (
-            voiceNotes.length === 0 ? (
-              <Empty>
-                <EmptyContent>
-                  <EmptyMedia variant="icon">
-                    <Mic className="h-6 w-6" />
-                  </EmptyMedia>
-                  <EmptyTitle>No recordings yet</EmptyTitle>
-                  <EmptyDescription>
-                    Start recording your first voice note using the form above
-                    to capture your coaching insights
-                  </EmptyDescription>
-                </EmptyContent>
-              </Empty>
-            ) : (
-              <div className="space-y-4">
-                {voiceNotes.map((note) => (
-                  <div
-                    className="rounded-lg border-2 border-gray-200 p-4"
-                    key={note._id}
-                  >
-                    <div className="mb-2 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge>{note.type}</Badge>
-                        {note.audioStorageId && (
-                          <Badge variant="outline">🎤 Recorded</Badge>
-                        )}
-                        <span className="text-gray-500 text-sm">
-                          {new Date(note.date).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {/* Processing status */}
-                        {(note.transcriptionStatus === "processing" ||
-                          note.insightsStatus === "processing") && (
-                          <Badge
-                            className="flex items-center gap-1"
-                            variant="secondary"
-                          >
-                            <Loader2 className="animate-spin" size={12} />
-                            Processing
-                          </Badge>
-                        )}
-                        {/* Error status */}
-                        {(note.transcriptionStatus === "failed" ||
-                          note.insightsStatus === "failed") && (
-                          <Badge
-                            className="flex items-center gap-1"
-                            variant="destructive"
-                          >
-                            <AlertTriangle size={12} />
-                            Error
-                          </Badge>
-                        )}
-                        {/* Insights count */}
-                        {note.insights.length > 0 ? (
-                          <Badge variant="default">
-                            <CheckCircle className="mr-1" size={14} />
-                            {note.insights.length} insight
-                            {note.insights.length > 1 ? "s" : ""}
-                          </Badge>
-                        ) : note.insightsStatus === "completed" ? (
-                          <Badge variant="secondary">No insights</Badge>
-                        ) : null}
-
-                        {/* Delete button */}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                              size="sm"
-                              title="Delete note"
-                              variant="ghost"
-                            >
-                              <Trash2 size={16} />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                Delete Voice Note?
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete this voice note and
-                                all its insights. This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-red-600 hover:bg-red-700"
-                                onClick={() => handleDeleteNote(note._id)}
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
-
-                    {/* Summary */}
-                    {note.summary && (
-                      <p className="mb-2 text-gray-600 text-sm italic">
-                        {note.summary}
-                      </p>
-                    )}
-
-                    {/* Transcription */}
-                    {note.transcription && (
-                      <p className="whitespace-pre-wrap text-gray-700">
-                        {note.transcription}
-                      </p>
-                    )}
-                    {!note.transcription &&
-                      (note.transcriptionStatus === "pending" ||
-                        note.transcriptionStatus === "processing") && (
-                        <p className="text-gray-400 italic">
-                          Transcribing audio...
-                        </p>
-                      )}
-                    {!note.transcription &&
-                      note.transcriptionStatus !== "pending" &&
-                      note.transcriptionStatus !== "processing" &&
-                      note.transcriptionError && (
-                        <p className="text-red-500 text-sm">
-                          ⚠️ Transcription failed: {note.transcriptionError}
-                        </p>
-                      )}
-
-                    {/* Insights preview */}
-                    {note.insights.length > 0 && (
-                      <div className="mt-3 border-gray-200 border-t pt-3">
-                        <div className="flex flex-wrap gap-2">
-                          {note.insights.map((insight) => {
-                            const variantMap = {
-                              applied: "default",
-                              dismissed: "secondary",
-                            } as const;
-                            const variant =
-                              variantMap[
-                                insight.status as keyof typeof variantMap
-                              ] ?? "outline";
-                            return (
-                              <Badge key={insight.id} variant={variant}>
-                                {insight.status === "applied" && "✓ "}
-                                {insight.status === "dismissed" && "✗ "}
-                                {insight.title}
-                              </Badge>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )
-          ) : (
-            <div className="py-8 text-center text-gray-500">
-              <Loader2
-                className="mx-auto mb-4 animate-spin text-gray-400"
-                size={48}
-              />
-              <p>Loading notes...</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        )}
+        {activeTab === "parents" && (
+          <ParentsTab
+            onError={showErrorMessage}
+            onSuccess={showSuccessMessage}
+            orgId={orgId}
+          />
+        )}
+        {activeTab === "insights" && (
+          <InsightsTab
+            onError={showErrorMessage}
+            onSuccess={showSuccessMessage}
+            orgId={orgId}
+          />
+        )}
+        {activeTab === "history" && (
+          <HistoryTab
+            onError={showErrorMessage}
+            onSuccess={showSuccessMessage}
+            orgId={orgId}
+          />
+        )}
+        {activeTab === "settings" && <SettingsTab orgId={orgId} />}
+      </div>
     </div>
   );
 }

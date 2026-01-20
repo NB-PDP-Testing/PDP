@@ -2455,7 +2455,9 @@ export const getEnrollmentVisibilityForAllChildren = query({
 
     for (const link of links) {
       const player = await ctx.db.get(link.playerIdentityId);
-      if (!player) continue;
+      if (!player) {
+        continue;
+      }
 
       // Check player-specific setting
       const playerSpecific = allPreferences.find(

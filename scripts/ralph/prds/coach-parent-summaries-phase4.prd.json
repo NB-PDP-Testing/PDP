@@ -2,45 +2,95 @@
   "project": "Coach-Parent AI Summaries - Phase 4 (Enhanced Parent Experience)",
   "branchName": "ralph/coach-parent-summaries-p4",
   "description": "Browser tab notifications, shareable images, and passport deep links. Builds on Phase 1-3 infrastructure.",
+  "readinessLevel": "35%",
   "contextFromPreviousPhases": {
     "existingTables": [
-      "coachParentSummaries - AI-generated summaries with sensitivityCategory (normal/injury/behavior), status (pending_review/approved/suppressed/auto_approved/delivered/viewed)",
-      "parentSummaryViews - Tracks when parents view summaries (viewSource: dashboard/notification_click/direct_link)",
-      "guardianIdentities - Parent records linked to users",
-      "guardianPlayerLinks - Parent-to-child relationships (by_guardian, by_player indexes)",
-      "coachTrustLevels - Coach automation preferences including parentSummariesEnabled, skipSensitiveInsights"
+      "coachParentSummaries - AI summaries with sensitivityCategory (normal/injury/behavior), status (pending_review/approved/suppressed/auto_approved/delivered/viewed). Fields include: voiceNoteId, insightId, coachId, playerIdentityId, organizationId, sportId, privateInsight (title/description/category/sentiment), publicSummary (content/confidenceScore/generatedAt), sensitivityReason, sensitivityConfidence. Indexes: by_voiceNote, by_player, by_coach, by_org_status, by_org_player_sport, by_coach_org_status, by_player_org_status",
+      "parentSummaryViews - Tracks when parents view summaries. Fields: summaryId (id coachParentSummaries), guardianIdentityId (id guardianIdentities), viewedAt (number), viewSource (dashboard/notification_click/direct_link). Indexes: by_summary, by_guardian",
+      "guardianIdentities - Parent records linked to users. Fields: firstName, lastName, email, phone, address fields, userId (optional, links to Better Auth user), verificationStatus (unverified/email_verified/id_verified). Indexes: by_email, by_userId, by_phone, by_name",
+      "guardianPlayerLinks - Parent-to-child relationships. Fields: guardianIdentityId, playerIdentityId, relationship (mother/father/guardian/grandparent/other), isPrimary, hasParentalResponsibility, canCollectFromTraining, consentedToSharing. Indexes: by_guardian, by_player, by_guardian_and_player",
+      "coachTrustLevels - Coach automation preferences. Fields: coachId, organizationId, currentLevel, preferredLevel, parentSummariesEnabled (v.optional(v.boolean())), skipSensitiveInsights (v.optional(v.boolean())), totalApprovals, totalSuppressed, consecutiveApprovals, levelHistory. Indexes: by_coach_org, by_org"
     ],
     "existingQueries": [
-      "getParentUnreadCount(organizationId) - Badge count for parents in coachParentSummaries.ts",
-      "getParentSummariesByChildAndSport(organizationId) - Grouped summaries for parent dashboard",
-      "markSummaryViewed(summaryId, viewSource) - Records parent view in parentSummaryViews table"
+      "getParentUnreadCount(organizationId) - Badge count for parents. Queries approved and delivered statuses separately, counts via player links. Located in coachParentSummaries.ts",
+      "getParentSummariesByChildAndSport(organizationId) - Grouped summaries for parent dashboard. Groups by child, then by sport. Returns array with child info, sports array containing summaries and unreadCount per sport. Located in coachParentSummaries.ts",
+      "markSummaryViewed(summaryId, viewSource) - Records parent view in parentSummaryViews table and updates summary status to 'viewed'. Does auth check and verifies guardian access. Located in coachParentSummaries.ts",
+      "approveSummary(summaryId) - Coach approves pending summary. Updates status to approved",
+      "approveInjurySummary(summaryId, checklist) - Coach approves injury summary with safety checklist",
+      "suppressSummary(summaryId, reason) - Coach suppresses a summary (won't be sent to parent)",
+      "editSummaryContent(summaryId, content) - Coach edits pending summary content",
+      "getCoachPendingSummaries(organizationId) - Coach's pending approval queue"
+    ],
+    "existingMutations": [
+      "setParentSummariesEnabled(organizationId, enabled) - Toggle parent summaries on/off for coach. Located in coachTrustLevels.ts",
+      "setSkipSensitiveInsights(organizationId, skip) - Toggle skipping injury/behavior insights. Located in coachTrustLevels.ts"
+    ],
+    "existingActions": [
+      "classifyInsightSensitivity - Classifies insight as normal/injury/behavior using AI. Located in actions/coachParentSummaries.ts",
+      "generateParentSummary - Generates parent-friendly summary from insight. Located in actions/coachParentSummaries.ts",
+      "processVoiceNoteInsight - Orchestrates insight processing (classify + generate). Checks skipSensitiveInsights setting. Located in actions/coachParentSummaries.ts"
     ],
     "existingComponents": [
-      "parent-summary-card.tsx at /apps/web/src/app/orgs/[orgId]/parents/components/",
-      "coach-feedback.tsx at /apps/web/src/app/orgs/[orgId]/parents/components/",
-      "parent-sidebar.tsx at /apps/web/src/components/layout/ - Already fetches getParentUnreadCount"
+      "parent-summary-card.tsx at apps/web/src/app/orgs/[orgId]/parents/components/ - Renders individual summary card. Current props: summary with _id, publicSummary, status, viewedAt. NOTE: Will need playerIdentityId and organizationId added for Phase 4",
+      "coach-feedback.tsx at apps/web/src/app/orgs/[orgId]/parents/components/ - Groups summaries by child and sport. Already receives grouped data with unreadCount per sport from getParentSummariesByChildAndSport query",
+      "parent-sidebar.tsx at apps/web/src/components/layout/ - Already fetches getParentUnreadCount, shows badge count in nav",
+      "parent-summary-badge.tsx at apps/web/src/components/layout/ - Badge component for showing unread count"
+    ],
+    "existingApprovalCards": [
+      "summary-approval-card.tsx - Normal summary approval card for coaches (approve/suppress)",
+      "injury-approval-card.tsx - Injury summary approval with safety checklist",
+      "behavior-approval-card.tsx - Behavior summary approval card"
     ],
     "keyPatterns": [
       "Use .withIndex() for all queries, never .filter()",
       "All mutations/queries need args and returns validators",
       "Auth check: authComponent.safeGetAuthUser(ctx) pattern",
-      "Guardian lookup via guardianIdentities table with by_userId index"
-    ]
+      "Guardian lookup: query guardianIdentities table with by_userId index to find guardian from user.userId",
+      "Access verification: Check guardianPlayerLinks with by_guardian_and_player index to verify guardian has access to player",
+      "Storage pattern: ctx.storage.store() returns storageId, ctx.storage.getUrl(storageId) returns URL",
+      "Local variable narrowing: When using optional args in callbacks, assign to const first (e.g., const status = args.status; if(status){...})"
+    ],
+    "schemaLocation": "packages/backend/convex/schema.ts - coachParentSummaries at line ~1630, parentSummaryViews at ~1703, coachTrustLevels at ~1722, guardianIdentities at ~166, guardianPlayerLinks at ~282",
+    "fileLocations": {
+      "schema": "packages/backend/convex/schema.ts",
+      "coachParentSummariesModel": "packages/backend/convex/models/coachParentSummaries.ts (754 lines)",
+      "coachParentSummariesActions": "packages/backend/convex/actions/coachParentSummaries.ts (477 lines)",
+      "coachTrustLevelsModel": "packages/backend/convex/models/coachTrustLevels.ts (498 lines)",
+      "parentComponents": "apps/web/src/app/orgs/[orgId]/parents/components/",
+      "layoutComponents": "apps/web/src/components/layout/",
+      "orgLayout": "apps/web/src/app/orgs/[orgId]/layout.tsx"
+    }
   },
+  "implementationOrder": [
+    "1. Install dependencies (US-010) - FIRST: npm install satori @resvg/resvg-js",
+    "2. Schema: Add summaryShares table (US-001)",
+    "3. Backend: trackShareEvent mutation (US-002)",
+    "4. Backend: getPassportLinkForSummary query (US-003)",
+    "5. Frontend hook: useTabNotification (US-004)",
+    "6. Frontend provider: TabNotificationProvider (US-005)",
+    "7. Integration: Add provider to layout (US-006)",
+    "8. Component: MessagePassportLink (US-007, US-008)",
+    "9. Integration: Add to ParentSummaryCard (US-009)",
+    "10. Backend: generateShareableImage action (US-011, US-012, US-013)",
+    "11. Component: ShareModal (US-014, US-015, US-016, US-017)",
+    "12. Integration: Add share button to ParentSummaryCard (US-018)",
+    "13. Enhancement: Sport icons in CoachFeedback (US-019)",
+    "14. Enhancement: Unread badges per sport (US-020)"
+  ],
   "userStories": [
     {
       "id": "US-001",
       "title": "Add summaryShares table",
       "description": "As a developer, I need to track when parents share summaries.",
       "acceptanceCriteria": [
-        "Add summaryShares table to schema.ts",
-        "Fields: summaryId (id coachParentSummaries), guardianIdentityId (id guardianIdentities), sharedAt (number), shareDestination (string literal union)",
-        "Add indexes: by_summary, by_guardian",
+        "Add summaryShares table to schema.ts after coachParentSummaries table",
+        "Fields: summaryId (v.id('coachParentSummaries')), guardianIdentityId (v.id('guardianIdentities')), sharedAt (v.number()), shareDestination (v.union of literals)",
+        "Add indexes: by_summary (summaryId), by_guardian (guardianIdentityId)",
         "Typecheck passes: npx -w packages/backend convex codegen"
       ],
       "priority": 1,
       "passes": false,
-      "notes": "shareDestination: 'download' | 'native_share' | 'copy_link'. Follow existing table patterns in schema.ts"
+      "notes": "shareDestination: v.union(v.literal('download'), v.literal('native_share'), v.literal('copy_link')). Follow existing table patterns in schema.ts. Place after parentSummaryViews table definition."
     },
     {
       "id": "US-002",
@@ -48,17 +98,18 @@
       "description": "As the system, I need to track share events for analytics.",
       "acceptanceCriteria": [
         "Add trackShareEvent mutation to coachParentSummaries.ts",
-        "Args: summaryId (v.id('coachParentSummaries')), shareDestination (v.union of literals)",
+        "Args: summaryId (v.id('coachParentSummaries')), shareDestination (v.union of 3 literals)",
         "Get authenticated user via authComponent.safeGetAuthUser(ctx)",
-        "Look up guardianIdentity via by_userId index",
-        "Verify guardian has access to this summary (summary's playerIdentityId must be linked to guardian via guardianPlayerLinks)",
-        "Insert summaryShares record with sharedAt: Date.now()",
+        "Look up guardianIdentity via by_userId index: ctx.db.query('guardianIdentities').withIndex('by_userId', q => q.eq('userId', user.userId)).first()",
+        "Fetch summary to get playerIdentityId",
+        "Verify guardian has access via by_guardian_and_player index on guardianPlayerLinks",
+        "Insert summaryShares record: { summaryId, guardianIdentityId, sharedAt: Date.now(), shareDestination }",
         "Returns: v.null()",
         "Typecheck passes"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Follow existing mutation patterns like markSummaryViewed"
+      "notes": "Follow existing mutation pattern from markSummaryViewed which does similar auth/access checks."
     },
     {
       "id": "US-003",
@@ -67,15 +118,17 @@
       "acceptanceCriteria": [
         "Add getPassportLinkForSummary query to coachParentSummaries.ts",
         "Args: summaryId (v.id('coachParentSummaries'))",
-        "Fetch summary to get privateInsight.category and playerIdentityId",
-        "Map category to passport section: skill_rating→'skills', skill_progress→'goals', injury→'medical', behavior→'overview', default→'overview'",
-        "Build URL: /orgs/{orgId}/parents/children/{playerIdentityId}/passport?section={section}",
+        "Fetch summary via ctx.db.get(args.summaryId)",
+        "Get category from summary.privateInsight.category",
+        "Map category to passport section: skill_rating->'skills', skill_progress->'goals', injury->'medical', behavior->'overview', default->'overview'",
+        "Also check sensitivityCategory: if 'injury' use 'medical', if 'behavior' use 'overview'",
+        "Build URL: `/orgs/${summary.organizationId}/parents/children/${summary.playerIdentityId}/passport?section=${section}`",
         "Returns: v.object({ section: v.string(), url: v.string() })",
         "Typecheck passes"
       ],
       "priority": 3,
       "passes": false,
-      "notes": "The privateInsight.category field contains the insight type. Use sensitivityCategory for injury/behavior routing."
+      "notes": "The summary record has organizationId and playerIdentityId fields directly. privateInsight.category contains insight type (skill_rating, injury, behavior, etc.)."
     },
     {
       "id": "US-004",
@@ -86,12 +139,13 @@
         "Accept unreadCount: number parameter",
         "Use useEffect to update document.title",
         "Format: count > 0 ? `(${count}) Messages | PlayerARC` : 'PlayerARC'",
-        "Store original title and restore on unmount",
+        "Store original title in useRef and restore on unmount",
+        "Add cleanup function in useEffect return",
         "Typecheck passes"
       ],
       "priority": 4,
       "passes": false,
-      "notes": "Simple hook - no providers needed for basic functionality"
+      "notes": "Simple hook using 'use client' directive. Store original title on mount to restore properly on unmount."
     },
     {
       "id": "US-005",
@@ -99,15 +153,18 @@
       "description": "As a developer, I need to wrap app with tab notification logic.",
       "acceptanceCriteria": [
         "Create apps/web/src/components/providers/tab-notification-provider.tsx",
-        "Use useQuery to fetch getParentUnreadCount for current org (from params)",
-        "Check user's functional role - only activate for parent role",
+        "Props: children (ReactNode), orgId (string)",
+        "Use useSession from @/lib/auth-client to get current session",
+        "Check if activeFunctionalRole === 'parent' (from session)",
+        "Use useQuery(api.models.coachParentSummaries.getParentUnreadCount, { organizationId: orgId }) when parent",
         "Pass count to useTabNotification hook",
         "Render children unchanged",
+        "Return null for count query if not parent role",
         "Typecheck passes"
       ],
       "priority": 5,
       "passes": false,
-      "notes": "Check session.activeFunctionalRole === 'parent' or similar. Existing parent-sidebar already queries getParentUnreadCount - follow same pattern."
+      "notes": "Follow same pattern as parent-sidebar.tsx which already queries getParentUnreadCount. Check currentMembership.activeFunctionalRole from session."
     },
     {
       "id": "US-006",
@@ -116,12 +173,13 @@
       "acceptanceCriteria": [
         "Import TabNotificationProvider in apps/web/src/app/orgs/[orgId]/layout.tsx",
         "Wrap children with TabNotificationProvider",
-        "Pass orgId from params",
+        "Pass orgId from params.orgId",
+        "Provider should be inside ConvexClientProvider but wrapping the main content",
         "Typecheck passes"
       ],
       "priority": 6,
       "passes": false,
-      "notes": "Provider should be inside ConvexClientProvider but outside page content"
+      "notes": "The layout already has several providers. Add TabNotificationProvider as an inner wrapper where it has access to Convex client."
     },
     {
       "id": "US-007",
@@ -129,29 +187,30 @@
       "description": "As a parent, I want to click through to passport from a message.",
       "acceptanceCriteria": [
         "Create apps/web/src/components/parent/message-passport-link.tsx",
-        "Props: summaryId (Id<'coachParentSummaries'>), playerIdentityId (Id<'playerIdentities'>), className (optional)",
-        "Show 'View in Passport →' link with ExternalLink or ArrowRight icon from lucide-react",
-        "Use Button component with variant='link' or variant='ghost'",
+        "Props: summaryId (Id<'coachParentSummaries'>), className (optional string)",
+        "Show 'View in Passport' text with ArrowRight icon from lucide-react",
+        "Use Button component with variant='link' and size='sm'",
         "Typecheck passes"
       ],
       "priority": 7,
       "passes": false,
-      "notes": "Component just renders the link - navigation logic in next story"
+      "notes": "Keep component simple - just renders the link button. Navigation logic in next story."
     },
     {
       "id": "US-008",
       "title": "Wire MessagePassportLink navigation",
       "description": "As a parent, clicking passport link navigates correctly.",
       "acceptanceCriteria": [
-        "In MessagePassportLink, use useMutation or useAction to call getPassportLinkForSummary",
-        "On click, fetch the link data and use router.push() to navigate",
-        "Show loading state during fetch (small spinner or disabled state)",
-        "Handle error gracefully (toast or console.error)",
+        "In MessagePassportLink, use useQuery to call getPassportLinkForSummary with summaryId",
+        "Add onClick handler that uses router.push(linkData.url)",
+        "Show loading state while query resolves (disabled button or spinner)",
+        "Handle case where query returns null gracefully",
+        "Use useRouter from next/navigation",
         "Typecheck passes"
       ],
       "priority": 8,
       "passes": false,
-      "notes": "Use useRouter from next/navigation. Can make getPassportLinkForSummary a query and call it directly if simpler."
+      "notes": "Since it's a query (not mutation), the data is available immediately via useQuery. Disable button if no linkData."
     },
     {
       "id": "US-009",
@@ -159,14 +218,15 @@
       "description": "As a parent, summary cards show passport links.",
       "acceptanceCriteria": [
         "Edit apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx",
+        "Add summaryId to component props type",
         "Import MessagePassportLink component",
-        "Render MessagePassportLink below the summary content",
-        "Pass summaryId from summary._id and playerIdentityId from summary.playerIdentityId",
+        "Render MessagePassportLink in the card footer/actions area",
+        "Pass summary._id as summaryId prop",
         "Typecheck passes"
       ],
       "priority": 9,
       "passes": false,
-      "notes": "Position link in the card footer area or after the message content"
+      "notes": "Position link in the card footer area below the summary content. The parent component (CoachFeedback) should pass summary._id."
     },
     {
       "id": "US-010",
@@ -174,12 +234,13 @@
       "description": "As a developer, I need image generation libraries.",
       "acceptanceCriteria": [
         "Run: npm install satori @resvg/resvg-js -w packages/backend",
-        "Verify packages appear in packages/backend/package.json",
-        "Typecheck passes: npm run check-types"
+        "Verify packages appear in packages/backend/package.json dependencies",
+        "Verify packages are installed in node_modules",
+        "Run: npm run check-types to ensure no type errors"
       ],
       "priority": 10,
       "passes": false,
-      "notes": "satori converts React components to SVG, resvg converts SVG to PNG. Both work in Node.js (Convex actions)."
+      "notes": "CRITICAL: This must be done BEFORE US-011. satori converts React-like JSX to SVG, resvg converts SVG to PNG in Node.js. Both work in Convex actions with 'use node' directive."
     },
     {
       "id": "US-011",
@@ -187,47 +248,57 @@
       "description": "As a parent, I want to generate shareable image cards.",
       "acceptanceCriteria": [
         "Add generateShareableImage action to packages/backend/convex/actions/coachParentSummaries.ts",
+        "Add 'use node' at top of file if not present",
         "Args: summaryId (v.id('coachParentSummaries'))",
-        "Fetch summary data, player name, coach name, org name",
-        "Use satori to render React component to SVG (1200x630 dimensions)",
+        "Fetch summary using ctx.runQuery",
+        "Fetch player name from playerIdentities table",
+        "Fetch coach name from Better Auth user table",
+        "Fetch org name from organization table",
+        "Use satori to render JSX to SVG (1200x630 dimensions, OG image size)",
         "Convert SVG to PNG using resvg",
-        "Returns PNG buffer or storage URL",
+        "Upload to Convex storage using ctx.storage.store(new Blob([pngBuffer]))",
+        "Return storage URL from ctx.storage.getUrl(storageId)",
         "Typecheck passes"
       ],
       "priority": 11,
       "passes": false,
-      "notes": "Actions have 'use node' directive. May need to load Inter font for satori. See satori docs for font loading."
+      "notes": "Actions with 'use node' can use Node.js APIs. Load Inter font for satori from Google Fonts. See satori docs for font loading: https://github.com/vercel/satori"
     },
     {
       "id": "US-012",
       "title": "Design shareable image template",
       "description": "As a parent, shareable images should be well-branded.",
       "acceptanceCriteria": [
-        "Create React component for satori rendering (inline in action or separate file)",
-        "Design: gradient background (use org colors if available), PlayerARC logo/text",
-        "Quote-styled message content with player name",
-        "Attribution: 'From Coach [Name] at [Organization]'",
-        "Date/timestamp in subtle text",
+        "Create JSX component structure for satori rendering (can be inline in action)",
+        "Design: gradient background (PlayerARC brand colors: blue to purple)",
+        "PlayerARC logo/text at top",
+        "Quote-styled message content with player first name",
+        "Attribution: 'From Coach [FirstName] at [Organization]'",
+        "Date in subtle text at bottom (formatted: 'January 20, 2026')",
+        "Use flexbox layout (satori supports flexbox, not grid)",
+        "Image dimensions: 1200x630 (standard OG image size)",
         "Typecheck passes"
       ],
       "priority": 12,
       "passes": false,
-      "notes": "Satori supports a subset of CSS - flexbox works, grid doesn't. Keep layout simple."
+      "notes": "Satori supports a subset of CSS - flexbox works, grid doesn't. Keep layout simple. Use absolute positioning sparingly. All styles must be inline (no className)."
     },
     {
       "id": "US-013",
       "title": "Store generated image in Convex storage",
       "description": "As the system, generated images should be stored.",
       "acceptanceCriteria": [
-        "In generateShareableImage action, upload PNG buffer to Convex storage using ctx.storage.store()",
-        "Generate a storage URL using ctx.storage.getUrl()",
-        "Return the URL from the action",
-        "Consider caching: store imageStorageId on summary record to avoid regenerating",
+        "In generateShareableImage action, after generating PNG buffer",
+        "Create Blob: new Blob([pngBuffer], { type: 'image/png' })",
+        "Upload: const storageId = await ctx.storage.store(blob)",
+        "Get URL: const url = await ctx.storage.getUrl(storageId)",
+        "Return url from action",
+        "Consider adding imageStorageId field to coachParentSummaries schema for caching (optional optimization)",
         "Typecheck passes"
       ],
       "priority": 13,
       "passes": false,
-      "notes": "Convex storage returns a storageId which can be converted to URL. Consider adding imageStorageId field to coachParentSummaries schema."
+      "notes": "Convex storage.store() returns Id<'_storage'>. storage.getUrl() returns string URL. URLs are valid for a limited time. For caching, could add imageStorageId to schema but not required for MVP."
     },
     {
       "id": "US-014",
@@ -236,59 +307,65 @@
       "acceptanceCriteria": [
         "Create apps/web/src/components/parent/share-modal.tsx",
         "Props: summaryId (Id<'coachParentSummaries'>), isOpen (boolean), onClose (() => void)",
-        "Use Dialog component from @/components/ui/dialog",
-        "Show loading spinner while image generates",
+        "Use Dialog, DialogContent, DialogHeader, DialogTitle from @/components/ui/dialog",
+        "Add local state: imageUrl (string | null), isLoading (boolean), error (string | null)",
+        "Show loading spinner (Loader2 icon) while image generates",
         "Typecheck passes"
       ],
       "priority": 14,
       "passes": false,
-      "notes": "Follow existing modal patterns in the codebase. Use DialogContent, DialogHeader, DialogTitle from shadcn."
+      "notes": "Follow existing modal patterns in the codebase. Use DialogContent with max-w-md or max-w-lg. Import Loader2 from lucide-react for spinner."
     },
     {
       "id": "US-015",
       "title": "Add image preview to ShareModal",
       "description": "As a parent, I want to see the image before sharing.",
       "acceptanceCriteria": [
-        "Call generateShareableImage action when modal opens (useAction)",
+        "Use useAction hook from convex/react to call generateShareableImage",
+        "Trigger action when modal opens (useEffect with isOpen dependency)",
         "Store image URL in local state",
-        "Display generated image in modal body using <img> tag",
-        "Handle error state with user-friendly message",
+        "Display image using <img src={imageUrl} alt='Share preview' /> with proper styling",
+        "Show error message if generation fails",
+        "Add loading skeleton or spinner while generating",
         "Typecheck passes"
       ],
       "priority": 15,
       "passes": false,
-      "notes": "Use useAction hook from convex/react. Show loading skeleton while generating."
+      "notes": "Use useAction for one-time action call. Pattern: const generateImage = useAction(api.actions.coachParentSummaries.generateShareableImage). Call in useEffect when isOpen becomes true."
     },
     {
       "id": "US-016",
       "title": "Add download button to ShareModal",
       "description": "As a parent, I want to download the image.",
       "acceptanceCriteria": [
-        "Add 'Download Image' button with Download icon",
-        "On click, trigger file download using <a download> or fetch+blob pattern",
-        "Filename: 'playerarc-feedback-{date}.png'",
-        "Call trackShareEvent mutation with destination: 'download'",
+        "Add 'Download Image' button with Download icon from lucide-react",
+        "Button variant='outline' or 'secondary'",
+        "On click: create anchor element, set href to imageUrl, set download attribute to filename",
+        "Filename format: 'playerarc-feedback-{YYYY-MM-DD}.png'",
+        "Call trackShareEvent mutation with shareDestination: 'download'",
+        "Disable button while image is loading",
         "Typecheck passes"
       ],
       "priority": 16,
       "passes": false,
-      "notes": "Use anchor element with download attribute and href pointing to image URL"
+      "notes": "Download pattern: const a = document.createElement('a'); a.href = imageUrl; a.download = filename; a.click();"
     },
     {
       "id": "US-017",
       "title": "Add native share to ShareModal",
       "description": "As a parent, I want to use native share if available.",
       "acceptanceCriteria": [
-        "Check navigator.share availability (typeof navigator.share === 'function')",
-        "If available, show 'Share' button with Share2 icon",
-        "On click, use Web Share API: navigator.share({ files: [imageBlob] })",
-        "Call trackShareEvent with destination: 'native_share'",
-        "Fallback: hide button if share not available, or show copy link option",
+        "Check navigator.share availability: typeof navigator !== 'undefined' && typeof navigator.share === 'function'",
+        "Only show 'Share' button if native share available",
+        "Use Share2 icon from lucide-react",
+        "On click: fetch image as blob, then call navigator.share({ files: [new File([blob], 'feedback.png', { type: 'image/png' })] })",
+        "Call trackShareEvent with shareDestination: 'native_share'",
+        "Handle share cancellation gracefully (user closes share sheet)",
         "Typecheck passes"
       ],
       "priority": 17,
       "passes": false,
-      "notes": "Web Share API requires HTTPS. File sharing may require converting URL to Blob first."
+      "notes": "Web Share API requires HTTPS. Must convert URL to Blob first: const response = await fetch(imageUrl); const blob = await response.blob(); Then create File from blob for sharing."
     },
     {
       "id": "US-018",
@@ -296,14 +373,18 @@
       "description": "As a parent, I want to share from summary cards.",
       "acceptanceCriteria": [
         "Edit parent-summary-card.tsx",
-        "Add Share button/icon (Share2 from lucide-react) in card actions area",
-        "Add local state: isShareModalOpen",
-        "Open ShareModal on click",
+        "Add local state: isShareModalOpen (boolean, default false)",
+        "Add Share button with Share2 icon from lucide-react",
+        "Button variant='ghost', size='icon' (or 'sm')",
+        "Position in card footer/actions area",
+        "On click: setIsShareModalOpen(true)",
+        "Render ShareModal with isOpen={isShareModalOpen}, onClose={() => setIsShareModalOpen(false)}",
+        "Pass summaryId to ShareModal",
         "Typecheck passes"
       ],
       "priority": 18,
       "passes": false,
-      "notes": "Position share button alongside other card actions. Use Button with variant='ghost' and size='icon'."
+      "notes": "Import ShareModal from @/components/parent/share-modal. Position share button next to the passport link from US-009."
     },
     {
       "id": "US-019",
@@ -311,30 +392,34 @@
       "description": "As a parent, sport sections should have visual icons.",
       "acceptanceCriteria": [
         "Edit apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx",
-        "Import sport icons or create sportCodeToIcon mapping",
+        "Create sportCodeToIcon mapping object: { GAA: GAA-specific-icon, soccer: Football, basketball: Basketball, rugby: Rugby, etc. }",
+        "Import icons from lucide-react: Activity (fallback), and sport-specific if available",
         "Render sport icon next to sport name in section headers",
-        "Use appropriate icons: soccer→Football, basketball→Basketball, etc.",
-        "Fallback to generic Activity icon for unknown sports",
+        "Use generic Activity icon for unknown sports",
+        "Icon size: h-5 w-5 or h-4 w-4",
         "Typecheck passes"
       ],
       "priority": 19,
       "passes": false,
-      "notes": "Check existing sport icon patterns in codebase. May already have SportIcon component."
+      "notes": "lucide-react has: Activity, Trophy, Target, Goal, Dribbble (basketball-like). May need to use generic icons for GAA/rugby. Check existing sport icon usage in codebase first."
     },
     {
       "id": "US-020",
       "title": "Add unread badge to sport headers",
       "description": "As a parent, I want to see unread count per sport.",
       "acceptanceCriteria": [
-        "In coach-feedback.tsx, calculate unread count per sport section",
-        "Show Badge component next to sport header with unread count",
-        "Only show badge if count > 0",
-        "Style consistently with navigation badges (use Badge variant='secondary' or 'destructive' for attention)",
+        "In coach-feedback.tsx, access unreadCount from sport section data",
+        "The getParentSummariesByChildAndSport query already returns unreadCount per sport group",
+        "Import Badge from @/components/ui/badge",
+        "Render Badge next to sport header text showing count",
+        "Only render badge if unreadCount > 0",
+        "Use Badge variant='destructive' or variant='secondary' for visibility",
+        "Format: just the number (e.g., '3' not '3 unread')",
         "Typecheck passes"
       ],
       "priority": 20,
       "passes": false,
-      "notes": "The query getParentSummariesByChildAndSport already groups by sport. Check if unreadCount is included in response or needs calculation."
+      "notes": "The query response structure includes sports array with each sport having unreadCount. Access it via sport.unreadCount in the map function."
     }
   ]
 }

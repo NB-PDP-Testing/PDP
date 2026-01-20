@@ -222,11 +222,12 @@ export const setCoachPreferredLevel = mutation({
     if (!user?.userId) {
       throw new Error("Not authenticated");
     }
+    const coachId = user.userId;
 
     // Get or create trust record
     const trustRecord = await getOrCreateTrustLevelHelper(
       ctx,
-      user.userId,
+      coachId,
       args.organizationId
     );
 
@@ -289,14 +290,28 @@ export const getCoachTrustLevel = query({
     // Get authenticated user
     const user = await authComponent.safeGetAuthUser(ctx);
     if (!user?.userId) {
-      throw new Error("Not authenticated");
+      // Return default values if not authenticated
+      return {
+        currentLevel: 0,
+        preferredLevel: undefined,
+        totalApprovals: 0,
+        totalSuppressed: 0,
+        consecutiveApprovals: 0,
+        progressToNextLevel: {
+          currentCount: 0,
+          threshold: 10,
+          percentage: 0,
+          blockedBySuppressionRate: false,
+        },
+      };
     }
+    const coachId = user.userId;
 
     // Try to find existing trust record
     const trustRecord = await ctx.db
       .query("coachTrustLevels")
       .withIndex("by_coach_org", (q) =>
-        q.eq("coachId", user.userId).eq("organizationId", args.organizationId)
+        q.eq("coachId", coachId).eq("organizationId", args.organizationId)
       )
       .first();
 

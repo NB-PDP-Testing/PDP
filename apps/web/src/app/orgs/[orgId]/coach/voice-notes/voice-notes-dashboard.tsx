@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { TrustLevelIndicator } from "@/components/coach/trust-level-indicator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HistoryTab } from "./components/history-tab";
@@ -42,6 +43,9 @@ export function VoiceNotesDashboard() {
     api.models.coachParentSummaries.getCoachPendingSummaries,
     { organizationId: orgId }
   );
+  const trustLevel = useQuery(api.models.coachTrustLevels.getCoachTrustLevel, {
+    organizationId: orgId,
+  });
 
   // Calculate counts
   const pendingInsightsCount =
@@ -132,63 +136,75 @@ export function VoiceNotesDashboard() {
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">
       {/* Header */}
-      <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Button
-            className="h-8 w-8 p-0 sm:h-9 sm:w-9"
-            onClick={() => router.push(`/orgs/${orgId}/coach`)}
-            size="sm"
-            variant="ghost"
-          >
-            <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-          </Button>
-          <Mic className="h-6 w-6 text-green-600 sm:h-8 sm:w-8" />
-          <div>
-            <h1 className="font-bold text-foreground text-xl sm:text-3xl">
-              Voice Notes
-            </h1>
-            <p className="hidden text-gray-600 text-sm sm:block">
-              Record and analyze training observations
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center justify-end gap-2 sm:gap-4">
+      <div className="mb-4 flex flex-col gap-4 sm:mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="text-center">
-              <div className="font-bold text-blue-600 text-lg sm:text-2xl">
-                {voiceNotes?.length ?? 0}
-              </div>
-              <div className="text-gray-600 text-xs sm:text-sm">Notes</div>
+            <Button
+              className="h-8 w-8 p-0 sm:h-9 sm:w-9"
+              onClick={() => router.push(`/orgs/${orgId}/coach`)}
+              size="sm"
+              variant="ghost"
+            >
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
+            <Mic className="h-6 w-6 text-green-600 sm:h-8 sm:w-8" />
+            <div>
+              <h1 className="font-bold text-foreground text-xl sm:text-3xl">
+                Voice Notes
+              </h1>
+              <p className="hidden text-gray-600 text-sm sm:block">
+                Record and analyze training observations
+              </p>
             </div>
-            <div className="text-center">
-              <div className="font-bold text-green-600 text-lg sm:text-2xl">
-                {notesWithInsights}
-              </div>
-              <div className="text-gray-600 text-xs sm:text-sm">Insights</div>
-            </div>
-            {processingCount > 0 && (
-              <div className="text-center">
-                <div className="flex items-center gap-1 font-bold text-lg text-orange-600 sm:text-2xl">
-                  <Loader2 className="h-4 w-4 animate-spin sm:h-5 sm:w-5" />
-                  {processingCount}
-                </div>
-                <div className="text-gray-600 text-xs sm:text-sm">
-                  Processing
-                </div>
-              </div>
-            )}
           </div>
-          {/* Settings button */}
-          <Button
-            className={`h-8 w-8 p-0 sm:h-9 sm:w-9 ${activeTab === "settings" ? "bg-gray-100 text-green-600" : ""}`}
-            onClick={() => setActiveTab("settings")}
-            size="sm"
-            title="AI Settings"
-            variant="ghost"
-          >
-            <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
-          </Button>
+          <div className="flex items-center justify-end gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="text-center">
+                <div className="font-bold text-blue-600 text-lg sm:text-2xl">
+                  {voiceNotes?.length ?? 0}
+                </div>
+                <div className="text-gray-600 text-xs sm:text-sm">Notes</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold text-green-600 text-lg sm:text-2xl">
+                  {notesWithInsights}
+                </div>
+                <div className="text-gray-600 text-xs sm:text-sm">Insights</div>
+              </div>
+              {processingCount > 0 && (
+                <div className="text-center">
+                  <div className="flex items-center gap-1 font-bold text-lg text-orange-600 sm:text-2xl">
+                    <Loader2 className="h-4 w-4 animate-spin sm:h-5 sm:w-5" />
+                    {processingCount}
+                  </div>
+                  <div className="text-gray-600 text-xs sm:text-sm">
+                    Processing
+                  </div>
+                </div>
+              )}
+            </div>
+            {/* Settings button */}
+            <Button
+              className={`h-8 w-8 p-0 sm:h-9 sm:w-9 ${activeTab === "settings" ? "bg-gray-100 text-green-600" : ""}`}
+              onClick={() => setActiveTab("settings")}
+              size="sm"
+              title="AI Settings"
+              variant="ghost"
+            >
+              <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+            </Button>
+          </div>
         </div>
+
+        {/* Trust Level Indicator */}
+        {trustLevel && (
+          <TrustLevelIndicator
+            progressToNextLevel={trustLevel.progressToNextLevel}
+            totalApprovals={trustLevel.totalApprovals}
+            totalSuppressed={trustLevel.totalSuppressed}
+            trustLevel={trustLevel.currentLevel}
+          />
+        )}
       </div>
 
       {/* Tabs - scrollable on mobile, standard on desktop */}

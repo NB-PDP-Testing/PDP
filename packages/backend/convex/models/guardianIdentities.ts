@@ -744,18 +744,21 @@ export const findAllClaimableForCurrentUser = query({
         }
       }
 
-      const organizations = Array.from(orgSet).map((orgId) => ({
-        organizationId: orgId,
-        organizationName: undefined,
-      }));
+      // Only include this guardian if they have non-declined children
+      if (children.length > 0) {
+        const organizations = Array.from(orgSet).map((orgId) => ({
+          organizationId: orgId,
+          organizationName: undefined,
+        }));
 
-      // Email match = high confidence
-      results.push({
-        guardianIdentity: guardian,
-        children,
-        organizations,
-        confidence: 100,
-      });
+        // Email match = high confidence
+        results.push({
+          guardianIdentity: guardian,
+          children,
+          organizations,
+          confidence: 100,
+        });
+      }
     }
 
     return results;

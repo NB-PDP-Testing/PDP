@@ -481,7 +481,33 @@ export default function GuardianManagementPage() {
     );
   };
 
-  const getGuardianStatusBadge = (hasAccount: boolean) => {
+  const getGuardianStatusBadge = (
+    hasAccount: boolean,
+    declinedByUserId?: string
+  ) => {
+    // Declined state
+    if (declinedByUserId) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge className="gap-1 bg-red-600" variant="destructive">
+                <X className="h-3 w-3" />
+                Declined
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="max-w-xs text-sm">
+                This guardian declined the connection (clicked "This Isn't Me"
+                on the claim dialog). They indicated this is not their profile.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    // Claimed state
     if (hasAccount) {
       return (
         <TooltipProvider>
@@ -502,6 +528,8 @@ export default function GuardianManagementPage() {
         </TooltipProvider>
       );
     }
+
+    // Pending state
     return (
       <TooltipProvider>
         <Tooltip>
@@ -967,7 +995,8 @@ export default function GuardianManagementPage() {
                                       </Badge>
                                     )}
                                     {getGuardianStatusBadge(
-                                      guardian.userAccount?.hasAccount
+                                      guardian.userAccount?.hasAccount,
+                                      guardian.declinedByUserId
                                     )}
                                   </div>
                                   <div className="mt-1 space-y-1 text-muted-foreground text-sm">

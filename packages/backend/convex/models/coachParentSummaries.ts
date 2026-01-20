@@ -171,6 +171,24 @@ export const createParentSummary = internalMutation({
       throw new Error("Voice note not found");
     }
 
+    // Determine initial status based on sensitivity category
+    // INJURY and BEHAVIOR categories NEVER auto-approve (even in future phases)
+    let status: "pending_review" | "auto_approved" = "pending_review";
+
+    if (args.sensitivityCategory === "injury") {
+      console.log(
+        "Auto-approval blocked: injury sensitivity requires manual review"
+      );
+      status = "pending_review";
+    } else if (args.sensitivityCategory === "behavior") {
+      console.log(
+        "Auto-approval blocked: behavior sensitivity requires manual review"
+      );
+      status = "pending_review";
+    }
+    // Future Phase 5: Normal category may auto-approve based on trust level
+    // For now, all summaries go to pending_review
+
     // Create the summary record
     const summaryId = await ctx.db.insert("coachParentSummaries", {
       voiceNoteId: args.voiceNoteId,
@@ -184,7 +202,7 @@ export const createParentSummary = internalMutation({
       sensitivityCategory: args.sensitivityCategory,
       sensitivityReason: args.sensitivityReason,
       sensitivityConfidence: args.sensitivityConfidence,
-      status: "pending_review",
+      status,
       createdAt: Date.now(),
     });
 

@@ -144,61 +144,231 @@ Transforms coach insights into positive, encouraging messages for parents:
 
 ---
 
+## Architecture Decision: Feature Flags vs Model Config
+
+We use a **separation of concerns** approach:
+
+| Concern | Tool | Purpose |
+|---------|------|---------|
+| **Feature on/off** | PostHog Feature Flags | Control rollout, A/B test features |
+| **Model configuration** | Database (Convex) | Which model, parameters, per-org overrides |
+
+### Flow Diagram
+
+```
+User triggers AI feature
+        ↓
+PostHog: Is feature enabled? ──→ No → Hide/disable feature
+        ↓ Yes
+Convex: Read aiModelConfig ──→ Get model, maxTokens, temperature
+        ↓
+Call AI provider with configured settings
+```
+
+### Why This Separation?
+
+- **PostHog** is great for: rollout %, A/B testing, user targeting
+- **PostHog** is NOT for: complex config (maxTokens, temperature, prompts)
+- **Database** gives: instant updates, per-org config, audit trail, no external latency
+
+---
+
+## Roadmap: AI Infrastructure Evolution
+
+### Phase 1: Current State (Environment Variables) ✅
+- Model names in env vars
+- Simple, works, no UI needed
+- Good for: small team, few changes
+
+### Phase 2: Database-Backed Config (Planned)
+- `aiModelConfig` table in Convex
+- Platform Staff UI to manage settings
+- Per-org overrides (premium orgs get better models)
+- Audit trail of changes
+
+**Schema:**
+```typescript
+// packages/backend/convex/schema.ts
+aiModelConfig: defineTable({
+  feature: v.string(),        // "voice_insights", "parent_summary", etc.
+  scope: v.string(),          // "platform" or "organization"
+  organizationId: v.optional(v.string()),
+
+  provider: v.string(),       // "openai", "anthropic", "openrouter"
+  modelId: v.string(),        // "gpt-4o", "claude-3-5-haiku-20241022"
+  maxTokens: v.optional(v.number()),
+  temperature: v.optional(v.number()),
+
+  isActive: v.boolean(),
+  updatedBy: v.string(),
+  updatedAt: v.number(),
+  notes: v.optional(v.string()),
+})
+```
+
+### Phase 3: OpenRouter Migration (Future)
+
+[OpenRouter](https://openrouter.ai/) is a unified API gateway that routes to multiple AI providers.
+
+#### Why OpenRouter?
+
+| Benefit | Description |
+|---------|-------------|
+| **Single API** | One endpoint for OpenAI, Anthropic, Google, Meta, Mistral, etc. |
+| **Automatic fallback** | If Claude is down, automatically route to GPT-4 |
+| **Cost optimization** | Route to cheapest provider that meets quality threshold |
+| **No vendor lock-in** | Switch models without code changes |
+| **Open source access** | Use Llama, Mistral, etc. at lower cost |
+| **Built-in analytics** | Usage tracking across all providers |
+
+#### Migration Path
+
+**Step 1: Create abstraction layer**
+```typescript
+// packages/backend/convex/lib/ai-client.ts
+
+export async function callAI(options: {
+  feature: string;
+  prompt: string;
+  organizationId?: string;
+}) {
+  // 1. Read config from database
+  const config = await getAIConfig(options.feature, options.organizationId);
+
+  // 2. Route to appropriate provider
+  if (config.provider === "openrouter") {
+    return callOpenRouter(config, options.prompt);
+  } else if (config.provider === "anthropic") {
+    return callAnthropic(config, options.prompt);
+  } else {
+    return callOpenAI(config, options.prompt);
+  }
+}
+```
+
+**Step 2: OpenRouter client**
+```typescript
+// packages/backend/convex/lib/openrouter.ts
+
+import OpenAI from "openai";
+
+export function getOpenRouterClient() {
+  return new OpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY,
+    defaultHeaders: {
+      "HTTP-Referer": "https://playerarc.com",
+      "X-Title": "PlayerARC",
+    },
+  });
+}
+
+// OpenRouter uses OpenAI-compatible API, so same SDK works!
+export async function callOpenRouter(config: AIConfig, prompt: string) {
+  const client = getOpenRouterClient();
+
+  return client.chat.completions.create({
+    model: config.modelId,  // e.g., "anthropic/claude-3.5-haiku"
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: config.maxTokens,
+    temperature: config.temperature,
+  });
+}
+```
+
+**Step 3: Model naming with OpenRouter**
+
+OpenRouter uses provider-prefixed model names:
+
+| Current (Direct) | OpenRouter Equivalent |
+|------------------|----------------------|
+| `claude-3-5-haiku-20241022` | `anthropic/claude-3.5-haiku` |
+| `claude-sonnet-4-20250514` | `anthropic/claude-sonnet-4` |
+| `gpt-4o` | `openai/gpt-4o` |
+| `gpt-4o-mini` | `openai/gpt-4o-mini` |
+| N/A | `meta-llama/llama-3.1-70b-instruct` |
+| N/A | `mistralai/mistral-large` |
+
+**Step 4: Gradual migration**
+
+1. Add `OPENROUTER_API_KEY` to environment
+2. Update `aiModelConfig` to support `provider: "openrouter"`
+3. Migrate one feature at a time (start with non-critical)
+4. Monitor cost/quality
+5. Eventually deprecate direct API keys
+
+#### Environment Variables After Migration
+
+```bash
+# Convex Dashboard
+OPENROUTER_API_KEY=sk-or-...
+
+# Keep these as fallback during migration
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+#### Cost Comparison
+
+| Model | Direct API | OpenRouter | Savings |
+|-------|------------|------------|---------|
+| claude-3-5-haiku | $0.25/$1.25 | $0.25/$1.25 | 0% |
+| gpt-4o | $2.50/$10.00 | $2.50/$10.00 | 0% |
+| llama-3.1-70b | N/A | $0.40/$0.40 | New option |
+
+OpenRouter doesn't add markup - same prices as direct. Value is in:
+- Fallback routing
+- Single integration
+- Access to more models
+
+---
+
 ## Future Improvements
 
-### 1. OpenRouter Integration
+### 1. Database-Backed Model Config (Priority: High)
 
-Consider using [OpenRouter](https://openrouter.ai/) as a unified gateway:
+Create `aiModelConfig` table and Platform Staff UI:
+- View all AI features and current models
+- Edit model, maxTokens, temperature per feature
+- Set per-organization overrides
+- View change audit log
 
-**Benefits:**
-- Single API key for multiple providers
-- Automatic fallback if one provider fails
-- Cost optimization with model routing
-- Usage analytics across all providers
-- Access to open-source models (Llama, Mistral)
+**Location:** `/platform/ai-config`
 
-**Implementation:**
-```typescript
-// Example OpenRouter configuration
-const OPENROUTER_CONFIG = {
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-  defaultModel: "anthropic/claude-3.5-haiku",
-  fallbackModel: "openai/gpt-4o-mini",
-};
-```
+### 2. Make Next.js Routes Configurable (Priority: Medium)
 
-### 2. Centralized AI Configuration
+Update the API routes to read from database instead of hardcoded:
 
-Create a shared AI configuration module:
+| Route | Feature Key |
+|-------|-------------|
+| `/api/session-plan` | `session_plan` |
+| `/api/recommendations` | `recommendations` |
+| `/api/comparison-insights` | `comparison_insights` |
 
-```
-packages/backend/convex/lib/ai-config.ts
-```
+### 3. PostHog Feature Flags for AI (Priority: Medium)
 
-This would:
-- Centralize all model configurations
-- Provide consistent error handling
-- Enable feature flags for A/B testing models
-- Track usage/costs per feature
+Add feature flags to control AI feature availability:
 
-### 3. Make Next.js Routes Configurable
+| Flag | Purpose |
+|------|---------|
+| `ai_voice_notes_enabled` | Enable/disable voice note AI |
+| `ai_parent_summaries_enabled` | Enable/disable parent summaries |
+| `ai_session_plans_enabled` | Enable/disable session plan generation |
+| `ai_recommendations_enabled` | Enable/disable coaching recommendations |
 
-Update the API routes to support environment variables:
+### 4. OpenRouter Migration (Priority: Low - Future)
 
-| Route | New Variable | Default |
-|-------|--------------|---------|
-| `/api/session-plan` | `ANTHROPIC_MODEL_SESSION_PLAN` | `claude-3-5-haiku-20241022` |
-| `/api/recommendations` | `ANTHROPIC_MODEL_RECOMMENDATIONS` | `claude-3-5-haiku-20241022` |
-| `/api/comparison-insights` | `ANTHROPIC_MODEL_COMPARISON` | `claude-3-5-haiku-20241022` |
+- Create abstraction layer
+- Add OpenRouter as provider option
+- Migrate features one by one
+- Deprecate direct API integrations
 
-### 4. Usage Tracking & Budgets
+### 5. Usage Tracking & Budgets (Priority: Low)
 
-Implement:
-- Per-org AI usage tracking
-- Monthly budget limits
-- Usage dashboards for platform staff
-- Cost allocation by feature
+- Track AI usage per organization
+- Set monthly token/cost budgets
+- Alert when approaching limits
+- Dashboard for Platform Staff
 
 ---
 

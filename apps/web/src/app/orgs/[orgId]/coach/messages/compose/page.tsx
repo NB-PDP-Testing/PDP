@@ -208,7 +208,9 @@ export default function ComposeMessagePage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button
-            onClick={() => router.push(`/orgs/${orgId}/coach/messages`)}
+            onClick={() =>
+              router.push(`/orgs/${orgId}/coach/messages` as Route)
+            }
             variant="ghost"
           >
             <ArrowLeft size={20} />
@@ -573,7 +575,9 @@ export default function ComposeMessagePage() {
             <div className="flex justify-end gap-3">
               <Button
                 disabled={isSubmitting}
-                onClick={() => router.push(`/orgs/${orgId}/coach/messages`)}
+                onClick={() =>
+                  router.push(`/orgs/${orgId}/coach/messages` as Route)
+                }
                 type="button"
                 variant="outline"
               >

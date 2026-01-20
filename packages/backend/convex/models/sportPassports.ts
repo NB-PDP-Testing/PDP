@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { components } from "../_generated/api";
-import { mutation, query } from "../_generated/server";
+import { internalQuery, mutation, query } from "../_generated/server";
 import type { Doc as BetterAuthDoc } from "../betterAuth/_generated/dataModel";
 
 // ============================================================
@@ -875,5 +875,39 @@ export const getSportsForPlayer = query({
       .collect();
 
     return passports.map((p) => p.sportCode);
+  },
+});
+
+// ============================================================
+// INTERNAL QUERIES (for actions)
+// ============================================================
+
+/**
+ * Get passport by player identity ID (for internal use by actions)
+ * Returns the first active passport found for the player
+ */
+export const getByPlayerIdentityId = internalQuery({
+  args: { playerIdentityId: v.id("playerIdentities") },
+  returns: v.union(
+    v.object({
+      _id: v.id("sportPassports"),
+      sportCode: v.string(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const passport = await ctx.db
+      .query("sportPassports")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+    if (!passport) {
+      return null;
+    }
+    return {
+      _id: passport._id,
+      sportCode: passport.sportCode,
+    };
   },
 });

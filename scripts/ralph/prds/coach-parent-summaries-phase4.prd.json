@@ -1,0 +1,283 @@
+{
+  "project": "Coach-Parent AI Summaries - Phase 4 (Enhanced Parent Experience)",
+  "branchName": "ralph/coach-parent-summaries-p4",
+  "description": "Browser tab notifications, shareable images, and passport deep links. Depends on Phase 1.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add summaryShares table",
+      "description": "As a developer, I need to track when parents share summaries.",
+      "acceptanceCriteria": [
+        "Add summaryShares table to schema.ts",
+        "Fields: summaryId, guardianIdentityId, sharedAt, shareDestination",
+        "Add index: by_summary",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "shareDestination: download | native_share | copy_link"
+    },
+    {
+      "id": "US-002",
+      "title": "Implement trackShareEvent mutation",
+      "description": "As the system, I need to track share events for analytics.",
+      "acceptanceCriteria": [
+        "Add trackShareEvent mutation to coachParentSummaries.ts",
+        "Args: summaryId, shareDestination",
+        "Verify guardian is authorized, insert summaryShares record",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Implement getPassportLinkForSummary query",
+      "description": "As a parent, I want to navigate to relevant passport section.",
+      "acceptanceCriteria": [
+        "Add getPassportLinkForSummary query to coachParentSummaries.ts",
+        "Args: summaryId, return passportSection and URL",
+        "Map: skill_rating→skills, skill_progress→goals, injury→medical, default→overview",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Create useTabNotification hook",
+      "description": "As a parent, I want browser tab to show unread count.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/hooks/use-tab-notification.ts",
+        "Accept unreadCount parameter",
+        "Update document.title: count > 0 ? '(N) Messages | PlayerARC' : 'PlayerARC'",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Create TabNotificationProvider component",
+      "description": "As a developer, I need to wrap app with tab notification logic.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/providers/tab-notification-provider.tsx",
+        "Query getParentUnreadCount for current org",
+        "Pass count to useTabNotification hook",
+        "Only activate for users with parent functional role"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Add TabNotificationProvider to app layout",
+      "description": "As a parent, tab notifications should work across the app.",
+      "acceptanceCriteria": [
+        "Import TabNotificationProvider in org layout",
+        "Wrap children with provider",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Create MessagePassportLink component",
+      "description": "As a parent, I want to click through to passport from a message.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/parent/message-passport-link.tsx",
+        "Props: summaryId, playerIdentityId",
+        "Show 'View Passport →' link with icon",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Wire MessagePassportLink navigation",
+      "description": "As a parent, clicking passport link navigates correctly.",
+      "acceptanceCriteria": [
+        "Query getPassportLinkForSummary on click",
+        "Navigate to passport URL with section parameter",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Add MessagePassportLink to ParentSummaryCard",
+      "description": "As a parent, summary cards show passport links.",
+      "acceptanceCriteria": [
+        "Edit parent-summary-card.tsx",
+        "Import and render MessagePassportLink",
+        "Pass summaryId and playerIdentityId",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Install satori and resvg dependencies",
+      "description": "As a developer, I need image generation libraries.",
+      "acceptanceCriteria": [
+        "Run: npm install satori @resvg/resvg-js -w packages/backend",
+        "Verify packages in package.json",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "For server-side image generation"
+    },
+    {
+      "id": "US-011",
+      "title": "Create generateShareableImage action",
+      "description": "As a parent, I want to generate shareable image cards.",
+      "acceptanceCriteria": [
+        "Add generateShareableImage action to coachParentSummaries.ts",
+        "Args: summaryId",
+        "Use satori to render React component to SVG",
+        "Convert to PNG using resvg"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "1200x630 social media optimized"
+    },
+    {
+      "id": "US-012",
+      "title": "Design shareable image template",
+      "description": "As a parent, shareable images should be well-branded.",
+      "acceptanceCriteria": [
+        "Create image template: gradient background, PlayerARC logo",
+        "Quote-styled message content",
+        "Attribution: Coach name, Organization name",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Store generated image in Convex storage",
+      "description": "As the system, generated images should be stored.",
+      "acceptanceCriteria": [
+        "Upload PNG buffer to Convex storage",
+        "Return storage URL from action",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Create ShareModal component",
+      "description": "As a parent, I want a modal to preview and share images.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/parent/share-modal.tsx",
+        "Props: summaryId, isOpen, onClose",
+        "Show loading state while image generates",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Add image preview to ShareModal",
+      "description": "As a parent, I want to see the image before sharing.",
+      "acceptanceCriteria": [
+        "Call generateShareableImage action on mount",
+        "Display generated image preview",
+        "Handle error state",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Add download button to ShareModal",
+      "description": "As a parent, I want to download the image.",
+      "acceptanceCriteria": [
+        "Add Download PNG button",
+        "Trigger file download with appropriate filename",
+        "Call trackShareEvent with destination: download",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Add native share to ShareModal",
+      "description": "As a parent, I want to use native share if available.",
+      "acceptanceCriteria": [
+        "Check for navigator.share availability",
+        "If available, show Share button that uses Web Share API",
+        "Call trackShareEvent with destination: native_share",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Add share button to ParentSummaryCard",
+      "description": "As a parent, I want to share from summary cards.",
+      "acceptanceCriteria": [
+        "Edit parent-summary-card.tsx",
+        "Add Share button/icon",
+        "Open ShareModal on click",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Add sport icon to CoachFeedback grouping",
+      "description": "As a parent, sport sections should have visual icons.",
+      "acceptanceCriteria": [
+        "Edit coach-feedback.tsx sport header rendering",
+        "Add sport icon next to sport name",
+        "Use appropriate icon per sport type",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Add unread badge to sport headers",
+      "description": "As a parent, I want to see unread count per sport.",
+      "acceptanceCriteria": [
+        "Show unread count badge next to each sport header",
+        "Use sport.unreadCount from query",
+        "Style consistently with navigation badge",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

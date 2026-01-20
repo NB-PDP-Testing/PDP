@@ -271,6 +271,29 @@ Important:
         insights: resolvedInsights,
         status: "completed",
       });
+
+      // Schedule parent summary generation for each insight with a player
+      // Skip injury and behavior categories for now (they require manual review)
+      for (const insight of resolvedInsights) {
+        if (
+          insight.playerIdentityId &&
+          insight.category !== "injury" &&
+          insight.category !== "behavior"
+        ) {
+          await ctx.scheduler.runAfter(
+            0,
+            internal.actions.coachParentSummaries.processVoiceNoteInsight,
+            {
+              voiceNoteId: args.noteId,
+              insightId: insight.id,
+              insightTitle: insight.title,
+              insightDescription: insight.description,
+              playerIdentityId: insight.playerIdentityId,
+              organizationId: note.orgId,
+            }
+          );
+        }
+      }
     } catch (error) {
       console.error("Failed to build insights:", error);
       await ctx.runMutation(internal.models.voiceNotes.updateInsights, {

@@ -324,3 +324,52 @@ Started: Tue 20 Jan 2026 00:23:16 GMT
 - Then frontend components for coach approval UI
 
 ---
+
+## ⚠️ CODE REVIEW FEEDBACK - TYPE ERRORS DETECTED ⚠️
+**Reviewer**: Code Quality Agent
+**Date**: 2026-01-20 01:17
+
+### Critical: Build is BROKEN - Type Errors in coachParentSummaries.ts
+
+Running `npm run check-types` fails with 3 errors:
+
+**1. Line 237: Convex codegen not regenerated**
+```
+error TS2339: Property 'sportPassports' does not exist on type...
+```
+You added `getByPlayerIdentityId` to `sportPassports.ts` but the Convex API types haven't been regenerated.
+
+**Fix**: Run `npx -w packages/backend convex codegen` to regenerate the API types.
+
+**2. Lines 253 & 297: sportId possibly undefined**
+```
+error TS2322: Type 'Id<"sports"> | undefined' is not assignable to type 'Id<"sports">'
+```
+The `getByPlayerIdentityId` query returns `sportId: v.optional(v.id("sports"))` - it CAN be undefined.
+TypeScript can't narrow the type after reassignment inside the if-block.
+
+**Fix**: Add explicit check for sportId from passport:
+```typescript
+if (passport && passport.sportId) {
+  sportId = passport.sportId;
+} else {
+  console.error("No sportId found");
+  return null;
+}
+// After this block, sportId is still `Id<"sports"> | undefined` to TypeScript
+
+// Use a non-null assertion or assign to new variable:
+const validSportId: Id<"sports"> = sportId!; // if you're confident it's set
+// Or use type guard with explicit return
+```
+
+**Alternative**: Change the return type of `getByPlayerIdentityId` to require `sportId` (non-optional) if that's always expected.
+
+### Action Required
+1. Run `npx -w packages/backend convex codegen`
+2. Fix the sportId type narrowing issue
+3. Run `npm run check-types` to verify fixes
+
+**FIX THESE BEFORE CONTINUING** - The build is broken.
+
+---

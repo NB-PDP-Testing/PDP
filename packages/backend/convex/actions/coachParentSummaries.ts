@@ -196,7 +196,6 @@ export const processVoiceNoteInsight = internalAction({
     insightDescription: v.string(),
     playerIdentityId: v.id("playerIdentities"),
     organizationId: v.string(),
-    sportId: v.id("sports"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -229,13 +228,30 @@ export const processVoiceNoteInsight = internalAction({
         return null;
       }
 
-      // Step 3: Get sport info for context
-      const sport = await ctx.runQuery(internal.models.sports.getById, {
-        sportId: args.sportId,
-      });
+      // Step 3: Get player's sport from passport
+      const passport = await ctx.runQuery(
+        internal.models.sportPassports.getByPlayerIdentityId,
+        { playerIdentityId: args.playerIdentityId }
+      );
+
+      if (!passport) {
+        console.error(
+          "❌ No sport passport found for player:",
+          args.playerIdentityId
+        );
+        return null;
+      }
+
+      // Step 4: Get sport info for context
+      const sport = await ctx.runQuery(
+        internal.models.sports.getByCodeInternal,
+        {
+          code: passport.sportCode,
+        }
+      );
 
       if (!sport) {
-        console.error("❌ Sport not found:", args.sportId);
+        console.error("❌ Sport not found:", passport.sportCode);
         return null;
       }
 
@@ -275,7 +291,7 @@ export const processVoiceNoteInsight = internalAction({
           },
           sensitivityCategory: classification.category,
           playerIdentityId: args.playerIdentityId,
-          sportId: args.sportId,
+          sportId: sport._id,
         }
       );
 

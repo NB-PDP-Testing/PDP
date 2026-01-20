@@ -1,0 +1,256 @@
+{
+  "project": "Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)",
+  "branchName": "ralph/coach-parent-summaries-p3",
+  "description": "Special workflows for injury and behavior-related insights. Depends on Phase 1.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add injuryApprovalChecklist table",
+      "description": "As a developer, I need to track coach checklist responses for injury summaries.",
+      "acceptanceCriteria": [
+        "Add injuryApprovalChecklist table to schema.ts",
+        "Fields: summaryId, coachId, personallyObserved, severityAccurate, noMedicalAdvice",
+        "Add timestamps: completedAt",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Audit trail for injury due diligence"
+    },
+    {
+      "id": "US-002",
+      "title": "Add index to injuryApprovalChecklist",
+      "description": "As a developer, I need efficient checklist lookups.",
+      "acceptanceCriteria": [
+        "Add index: by_summary for looking up checklist by summaryId",
+        "Run: npx -w packages/backend convex codegen",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Update classifyInsightSensitivity with examples",
+      "description": "As the system, I need better classification accuracy.",
+      "acceptanceCriteria": [
+        "Edit classifyInsightSensitivity action in coachParentSummaries.ts",
+        "Add few-shot examples to prompt: injury examples, behavior examples, normal examples",
+        "Return { category, confidence, reason }",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Examples from phase-3 spec: limping, dizzy, argument, not listening"
+    },
+    {
+      "id": "US-004",
+      "title": "Store classification reason in summary",
+      "description": "As a coach, I want to know why a summary was classified as sensitive.",
+      "acceptanceCriteria": [
+        "Ensure sensitivityReason field is populated when creating summary",
+        "Store classification confidence score",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Implement approveInjurySummary mutation",
+      "description": "As a coach, I need to complete a checklist to approve injury summaries.",
+      "acceptanceCriteria": [
+        "Add approveInjurySummary mutation to coachParentSummaries.ts",
+        "Args: summaryId, checklist: { personallyObserved, severityAccurate, noMedicalAdvice }",
+        "Validate all three booleans are true",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Store checklist responses in approveInjurySummary",
+      "description": "As the system, I need to audit checklist completions.",
+      "acceptanceCriteria": [
+        "Insert injuryApprovalChecklist record with all fields",
+        "Update summary status to approved",
+        "Set approvedAt and approvedBy",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Block auto-approval for injury category",
+      "description": "As the system, injury summaries must never auto-approve.",
+      "acceptanceCriteria": [
+        "In processVoiceNoteInsight, check sensitivityCategory",
+        "If injury: always set status to pending_review regardless of trust level",
+        "Log: auto-approval blocked due to injury sensitivity",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Connects to Phase 5 auto-approval logic"
+    },
+    {
+      "id": "US-008",
+      "title": "Block auto-approval for behavior category",
+      "description": "As the system, behavior summaries must never auto-approve.",
+      "acceptanceCriteria": [
+        "In processVoiceNoteInsight, check sensitivityCategory",
+        "If behavior: always set status to pending_review regardless of trust level",
+        "Log: auto-approval blocked due to behavior sensitivity",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Create SensitivityBadge component",
+      "description": "As a coach, I want visual indication of sensitivity category.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/coach/sensitivity-badge.tsx",
+        "Props: category (normal | injury | behavior)",
+        "Injury: amber warning style, Behavior: blue locked style",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Normal category renders nothing or subtle"
+    },
+    {
+      "id": "US-010",
+      "title": "Create InjuryApprovalCard component",
+      "description": "As a coach, I need a special card for injury summaries.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/injury-approval-card.tsx",
+        "Props: summary, onApprove, onSuppress",
+        "Show warning banner: INJURY-RELATED INSIGHT",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Add checklist to InjuryApprovalCard",
+      "description": "As a coach, I must complete checklist before approving injury.",
+      "acceptanceCriteria": [
+        "Add 3 checkboxes: personally observed, severity accurate, no medical advice",
+        "Track checkbox state locally",
+        "Disable Approve button until all 3 checked",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Wire InjuryApprovalCard to mutation",
+      "description": "As a coach, approving injury card should call the special mutation.",
+      "acceptanceCriteria": [
+        "Add useMutation for approveInjurySummary",
+        "Pass checklist values on approve",
+        "Show toast on success/error",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Create BehaviorApprovalCard component",
+      "description": "As a coach, I need a distinct card for behavior summaries.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/behavior-approval-card.tsx",
+        "Props: summary, onApprove, onSuppress",
+        "Show lock icon and message: Auto-approval disabled for behavioral observations",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "No checklist required, just manual review"
+    },
+    {
+      "id": "US-014",
+      "title": "Wire BehaviorApprovalCard to standard approve",
+      "description": "As a coach, behavior cards use standard approval flow.",
+      "acceptanceCriteria": [
+        "Use existing approveSummary mutation",
+        "Show constructive framing of summary",
+        "Show toast on success/error",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Route to correct card in dashboard",
+      "description": "As a coach, I see the appropriate card based on sensitivity.",
+      "acceptanceCriteria": [
+        "Edit voice-notes-dashboard.tsx pending summaries section",
+        "Check summary.sensitivityCategory",
+        "Render InjuryApprovalCard for injury, BehaviorApprovalCard for behavior",
+        "Render standard SummaryApprovalCard for normal"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Add SensitivityBadge to all approval cards",
+      "description": "As a coach, all cards show their sensitivity category.",
+      "acceptanceCriteria": [
+        "Import SensitivityBadge into each approval card component",
+        "Render badge in card header",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Process injury insights in pipeline",
+      "description": "As the system, injury insights should now go through the pipeline.",
+      "acceptanceCriteria": [
+        "Edit voiceNotes.ts hook to include injury category in processing",
+        "Remove injury from skip list (was skipped in Phase 1)",
+        "Verify injury insights create summaries with sensitivityCategory: injury",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Process behavior insights in pipeline",
+      "description": "As the system, behavior insights should now go through the pipeline.",
+      "acceptanceCriteria": [
+        "Edit voiceNotes.ts hook to include behavior category in processing",
+        "Remove behavior from skip list (was skipped in Phase 1)",
+        "Verify behavior insights create summaries with sensitivityCategory: behavior",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

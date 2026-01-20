@@ -1,0 +1,379 @@
+{
+  "phase": 1,
+  "name": "COACH-PARENT-AI-Core Pipeline (MVP)",
+  "description": "Voice note to AI summary generation with basic coach approval and parent notification",
+  "estimatedSprints": 2,
+  "dependencies": [],
+  "featureFlag": "coach-parent-messaging-v1",
+
+  "objectives": [
+    "Enable AI transformation of coach insights into parent-friendly summaries",
+    "Provide coach approval interface for summaries",
+    "Store summaries with proper linking to source insights",
+    "Basic parent notification via badge",
+    "Display messages in existing Coach Feedback section"
+  ],
+
+  "deliverables": {
+    "backend": [
+      {
+        "id": "BE-1.1",
+        "name": "coachParentSummaries schema",
+        "type": "schema",
+        "file": "packages/backend/convex/schema.ts",
+        "description": "Add new table for storing parent summaries with full lifecycle tracking",
+        "fields": [
+          "voiceNoteId (id ref)",
+          "insightId (string)",
+          "privateInsight (object)",
+          "publicSummary (object with content, confidenceScore, generatedAt)",
+          "status (pending_review|approved|suppressed|delivered|viewed)",
+          "sensitivityCategory (normal|injury|behavior)",
+          "coachId, playerIdentityId, organizationId",
+          "sportId (for per-sport summaries)",
+          "timestamps (createdAt, approvedAt, deliveredAt, viewedAt)",
+          "autoApproved (boolean)"
+        ],
+        "indexes": [
+          "by_voiceNote",
+          "by_player",
+          "by_org_status",
+          "by_coach",
+          "by_org_player_sport_status"
+        ]
+      },
+      {
+        "id": "BE-1.2",
+        "name": "generateParentSummary action",
+        "type": "action",
+        "file": "packages/backend/convex/actions/coachParentMessaging.ts",
+        "description": "Claude API integration for transforming coach insights into positive parent summaries",
+        "inputs": [
+          "insightTitle",
+          "insightDescription",
+          "insightCategory",
+          "playerFirstName",
+          "sportName"
+        ],
+        "outputs": [
+          "summary (string)",
+          "confidenceScore (number)",
+          "sensitivityCategory"
+        ],
+        "aiModel": "claude-3-haiku",
+        "temperature": 0.3,
+        "maxTokens": 500
+      },
+      {
+        "id": "BE-1.3",
+        "name": "createParentSummary mutation",
+        "type": "mutation",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Create summary record after AI generation",
+        "inputs": [
+          "voiceNoteId",
+          "insightId",
+          "privateInsight",
+          "publicSummary",
+          "sensitivityCategory",
+          "sportId"
+        ],
+        "outputs": ["summaryId"],
+        "sideEffects": [
+          "Creates coachParentSummaries record with status: pending_review"
+        ]
+      },
+      {
+        "id": "BE-1.4",
+        "name": "approveSummary mutation",
+        "type": "mutation",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Coach approves summary for parent delivery",
+        "inputs": ["summaryId"],
+        "outputs": ["success"],
+        "sideEffects": [
+          "Updates status to approved",
+          "Sets approvedAt timestamp"
+        ]
+      },
+      {
+        "id": "BE-1.5",
+        "name": "suppressSummary mutation",
+        "type": "mutation",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Coach suppresses summary (Don't Share)",
+        "inputs": ["summaryId"],
+        "outputs": ["success"],
+        "sideEffects": ["Updates status to suppressed"]
+      },
+      {
+        "id": "BE-1.6",
+        "name": "getCoachPendingSummaries query",
+        "type": "query",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Get all pending summaries for coach review",
+        "inputs": ["coachId", "organizationId"],
+        "outputs": ["Array of pending summaries with player info"],
+        "index": "by_coach + by_org_status"
+      },
+      {
+        "id": "BE-1.7",
+        "name": "getParentUnreadSummaries query",
+        "type": "query",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Get unread message count and summaries for parent",
+        "inputs": ["guardianIdentityId", "organizationId"],
+        "outputs": ["unreadCount", "summaries grouped by player and sport"],
+        "index": "by_org_player_sport_status"
+      },
+      {
+        "id": "BE-1.8",
+        "name": "markSummaryViewed mutation",
+        "type": "mutation",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Mark summary as viewed when parent opens it",
+        "inputs": ["summaryId", "guardianIdentityId"],
+        "outputs": ["success"],
+        "sideEffects": [
+          "Updates status to viewed",
+          "Creates parentMessageViews record"
+        ]
+      },
+      {
+        "id": "BE-1.9",
+        "name": "Voice note insight hook",
+        "type": "mutation-modification",
+        "file": "packages/backend/convex/models/voiceNotes.ts",
+        "description": "Modify buildInsights completion to trigger summary generation",
+        "trigger": "When insight extraction completes",
+        "action": "Schedule generateParentSummary for each shareable insight"
+      }
+    ],
+
+    "frontend": [
+      {
+        "id": "FE-1.1",
+        "name": "CoachSummaryApprovalCard component",
+        "type": "component",
+        "file": "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx",
+        "description": "Inline card showing AI summary with approve/suppress actions",
+        "props": ["summary", "onApprove", "onSuppress"],
+        "displays": [
+          "Player name and sport",
+          "Original insight (collapsed)",
+          "AI-generated summary (prominent)",
+          "Confidence score indicator",
+          "Approve button (primary)",
+          "Don't Share button (secondary)"
+        ]
+      },
+      {
+        "id": "FE-1.2",
+        "name": "Voice notes dashboard integration",
+        "type": "component-modification",
+        "file": "apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx",
+        "description": "Add pending summaries section to dashboard",
+        "changes": [
+          "Add query for pending summaries",
+          "Render CoachSummaryApprovalCard for each pending",
+          "Handle approve/suppress actions with toast feedback"
+        ]
+      },
+      {
+        "id": "FE-1.3",
+        "name": "Parent notification badge",
+        "type": "component",
+        "file": "apps/web/src/components/layout/parent-nav-badge.tsx",
+        "description": "Real-time badge showing unread message count",
+        "props": ["orgId"],
+        "features": [
+          "Real-time subscription to unread count",
+          "Red dot with count",
+          "Animate on new messages"
+        ]
+      },
+      {
+        "id": "FE-1.4",
+        "name": "Navigation integration",
+        "type": "component-modification",
+        "file": "apps/web/src/components/layout/org-sidebar.tsx",
+        "description": "Add badge to Parents navigation item",
+        "changes": ["Import ParentNavBadge", "Render next to Parents link"]
+      },
+      {
+        "id": "FE-1.5",
+        "name": "Enhanced CoachFeedback component",
+        "type": "component-modification",
+        "file": "apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx",
+        "description": "Display AI summaries alongside existing coach notes",
+        "changes": [
+          "Add query for approved summaries",
+          "Group by child and sport",
+          "Show NEW badge for unviewed",
+          "Mark as viewed on render",
+          "Add timestamp display",
+          "Distinguish from raw coach notes"
+        ]
+      }
+    ],
+
+    "integrations": [
+      {
+        "id": "INT-1.1",
+        "name": "Claude SDK setup",
+        "type": "configuration",
+        "description": "Configure Claude SDK for summary generation",
+        "requirements": [
+          "Add @anthropic-ai/sdk to backend dependencies",
+          "Configure ANTHROPIC_API_KEY environment variable",
+          "Set up error handling and retry logic"
+        ]
+      }
+    ]
+  },
+
+  "acceptanceCriteria": [
+    {
+      "id": "AC-1.1",
+      "description": "When a voice note insight is extracted, an AI summary is generated within 5 seconds",
+      "testType": "integration"
+    },
+    {
+      "id": "AC-1.2",
+      "description": "Coach sees pending summaries as inline cards in voice notes dashboard",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-1.3",
+      "description": "Coach can approve a summary with one click and it appears for parent",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-1.4",
+      "description": "Coach can suppress a summary with 'Don't Share' and it never appears for parent",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-1.5",
+      "description": "Parent sees notification badge with count of unread messages",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-1.6",
+      "description": "Parent sees approved summaries in Coach Feedback section grouped by child and sport",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-1.7",
+      "description": "Badge count decreases in real-time as parent views messages",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-1.8",
+      "description": "AI-generated summaries use positive, constructive language",
+      "testType": "manual"
+    }
+  ],
+
+  "testCases": [
+    {
+      "id": "TC-1.1",
+      "name": "End-to-end summary flow",
+      "steps": [
+        "Coach records voice note about player skill",
+        "System transcribes and extracts insights",
+        "System generates AI summary",
+        "Coach sees summary in dashboard",
+        "Coach approves summary",
+        "Parent sees badge update",
+        "Parent views summary in Coach Feedback",
+        "Badge count decreases"
+      ]
+    },
+    {
+      "id": "TC-1.2",
+      "name": "Suppress flow",
+      "steps": [
+        "Coach records voice note",
+        "System generates summary",
+        "Coach clicks 'Don't Share'",
+        "Summary marked as suppressed",
+        "Parent never sees the message",
+        "No badge update for parent"
+      ]
+    },
+    {
+      "id": "TC-1.3",
+      "name": "Multi-child parent",
+      "steps": [
+        "Parent has 2 children in org",
+        "Coach sends summary for Child A",
+        "Coach sends summary for Child B",
+        "Parent sees badge: 2",
+        "Messages grouped by child in Coach Feedback"
+      ]
+    },
+    {
+      "id": "TC-1.4",
+      "name": "Multi-sport child",
+      "steps": [
+        "Child plays football and hurling",
+        "Coach sends football summary",
+        "Coach sends hurling summary",
+        "Parent sees separate summaries per sport",
+        "Each sport context preserved"
+      ]
+    }
+  ],
+
+  "rolloutPlan": {
+    "stages": [
+      {
+        "stage": 1,
+        "name": "Internal testing",
+        "audience": "Development team",
+        "duration": "1 week",
+        "criteria": "All tests passing, no critical bugs"
+      },
+      {
+        "stage": 2,
+        "name": "Beta organization",
+        "audience": "1-2 friendly organizations",
+        "duration": "2 weeks",
+        "criteria": "Positive coach feedback, parent engagement"
+      },
+      {
+        "stage": 3,
+        "name": "General availability",
+        "audience": "All organizations",
+        "duration": "Ongoing",
+        "criteria": "Feature flag enabled platform-wide"
+      }
+    ]
+  },
+
+  "metrics": {
+    "tracking": [
+      "summaries_generated (count)",
+      "summaries_approved (count)",
+      "summaries_suppressed (count)",
+      "approval_rate (approved / total)",
+      "ai_latency_ms (histogram)",
+      "ai_confidence_scores (histogram)",
+      "parent_view_rate (viewed / delivered)",
+      "time_to_view_minutes (histogram)"
+    ],
+    "alerts": [
+      {
+        "metric": "ai_latency_ms",
+        "threshold": 10000,
+        "action": "Notify engineering"
+      },
+      {
+        "metric": "approval_rate",
+        "threshold": 0.5,
+        "action": "Review AI quality"
+      }
+    ]
+  }
+}

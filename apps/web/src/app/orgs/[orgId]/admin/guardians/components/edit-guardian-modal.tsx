@@ -25,29 +25,37 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Email validation regex at top level for performance
+// Email validation regex
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-type AddGuardianModalProps = {
+type EditGuardianModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  playerId: Id<"playerIdentities">;
-  playerName: string;
+  guardianPlayerLinkId: Id<"guardianPlayerLinks">;
+  guardianIdentityId: Id<"guardianIdentities">;
+  currentData: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    relationship: string;
+  };
 };
 
-export function AddGuardianModal({
+export function EditGuardianModal({
   open,
   onOpenChange,
-  playerId,
-  playerName,
-}: AddGuardianModalProps) {
+  guardianPlayerLinkId,
+  guardianIdentityId,
+  currentData,
+}: EditGuardianModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    relationship: "guardian" as
+    firstName: currentData.firstName,
+    lastName: currentData.lastName,
+    email: currentData.email,
+    phone: currentData.phone || "",
+    relationship: currentData.relationship as
       | "mother"
       | "father"
       | "guardian"
@@ -55,12 +63,11 @@ export function AddGuardianModal({
       | "other",
   });
 
-  // Use atomic find-or-create mutation to avoid race conditions
-  const findOrCreateGuardian = useMutation(
-    api.models.guardianIdentities.findOrCreateGuardian
+  const updateGuardianIdentity = useMutation(
+    api.models.guardianIdentities.updateGuardianIdentity
   );
-  const createGuardianPlayerLink = useMutation(
-    api.models.guardianPlayerLinks.createGuardianPlayerLink
+  const updateGuardianPlayerLink = useMutation(
+    api.models.guardianPlayerLinks.updateGuardianPlayerLink
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,62 +96,37 @@ export function AddGuardianModal({
     setIsSaving(true);
 
     try {
-      // Step 1: Find or create guardian (atomic operation - no race condition)
-      const guardianResult = await findOrCreateGuardian({
+      // Update guardian identity
+      await updateGuardianIdentity({
+        guardianIdentityId,
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim() || undefined,
-        createdFrom: "admin_guardians_page",
       });
 
-      // Step 2: Link guardian to player
-      await createGuardianPlayerLink({
-        guardianIdentityId: guardianResult.guardianIdentityId,
-        playerIdentityId: playerId,
+      // Update relationship in guardian-player link
+      await updateGuardianPlayerLink({
+        linkId: guardianPlayerLinkId,
         relationship: formData.relationship,
-        isPrimary: true, // First guardian added is primary
-        hasParentalResponsibility: true,
-        canCollectFromTraining: true,
-        consentedToSharing: false, // Requires explicit consent
       });
 
-      // Success message depends on whether guardian was created or found
-      if (guardianResult.wasCreated) {
-        toast.success("Guardian added successfully", {
-          description: `${formData.firstName} ${formData.lastName} has been created and linked to ${playerName}`,
-        });
-      } else {
-        toast.success("Existing guardian linked successfully", {
-          description: `${formData.firstName} ${formData.lastName} has been linked to ${playerName}`,
-        });
-      }
-
-      // Reset form and close modal
-      setFormData({
-        firstName: "",
-        lastName: "",
-        email: "",
-        phone: "",
-        relationship: "guardian",
-      });
+      toast.success("Guardian information updated successfully");
       onOpenChange(false);
     } catch (error) {
-      console.error("Failed to add guardian:", error);
+      console.error("Failed to update guardian:", error);
 
-      // Provide user-friendly error messages
       let errorMessage = "An unknown error occurred";
       if (error instanceof Error) {
         if (error.message.includes("already exists")) {
-          errorMessage = "This guardian is already linked to this player";
-        } else if (error.message.includes("not found")) {
-          errorMessage = "Player or guardian not found";
+          errorMessage =
+            "A guardian with this email already exists in the system";
         } else {
           errorMessage = error.message;
         }
       }
 
-      toast.error("Failed to link guardian", {
+      toast.error("Failed to update guardian", {
         description: errorMessage,
       });
     } finally {
@@ -157,9 +139,9 @@ export function AddGuardianModal({
       <DialogContent className="sm:max-w-[500px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Add Guardian</DialogTitle>
+            <DialogTitle>Edit Guardian</DialogTitle>
             <DialogDescription>
-              Add guardian contact information for {playerName}
+              Update guardian contact information and relationship
             </DialogDescription>
           </DialogHeader>
 
@@ -266,7 +248,7 @@ export function AddGuardianModal({
             </Button>
             <Button disabled={isSaving} type="submit">
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Add Guardian
+              Save Changes
             </Button>
           </DialogFooter>
         </form>

@@ -1,0 +1,779 @@
+{
+  "metadata": {
+    "title": "UAT Pre-Test Linting Validation PRD",
+    "version": "1.2.0",
+    "date": "2026-01-20",
+    "author": "Engineering Team",
+    "status": "implemented",
+    "category": "testing_infrastructure",
+    "implementationDate": "2026-01-20",
+    "lastUpdated": "2026-01-20"
+  },
+  "executiveSummary": {
+    "overview": "Add a pre-test linting validation check to the UAT test suite that runs the same biome linting check as the pre-commit hook, but scoped to files changed in the current branch. If linting fails, the entire UAT test suite stops with a clear error message, preventing tests from running on code with linting errors.",
+    "totalEffort": "~2 hours",
+    "timeline": "Single implementation session",
+    "goals": [
+      "Ensure code quality before running UAT tests",
+      "Catch linting errors early in the testing process",
+      "Prevent wasted time running tests on broken code",
+      "Match pre-commit linting validation behavior (check only changed files)",
+      "Allow tests to pass when all commits have passed linting"
+    ],
+    "motivation": "UAT tests should validate the quality of code changes in the current branch, matching the pre-commit hook behavior. By checking only files changed in the branch (vs main), we ensure consistency: if all commits passed linting, UAT will also pass linting."
+  },
+  "currentState": {
+    "testFlow": [
+      "User runs: npm run test",
+      "Playwright loads playwright.config.ts",
+      "globalSetup() executes (global-setup.ts)",
+      "  1. Verifies app running at localhost:3000",
+      "  2. Authenticates 4 user roles (owner, admin, coach, parent)",
+      "  3. Saves auth states to .auth/*.json",
+      "Tests run (navbar-comprehensive.spec.ts)",
+      "Reports generated"
+    ],
+    "preCommitCheck": {
+      "command": "npx lint-staged",
+      "lintStagedConfig": {
+        "pattern": "*.{ts,tsx,js,jsx}",
+        "command": "npx biome check --diagnostic-level=error --files-ignore-unknown=true --no-errors-on-unmatched"
+      },
+      "behavior": {
+        "errors": "Block commit (exit code 1)",
+        "warnings": "Allow commit (exit code 0)"
+      }
+    },
+    "limitations": [
+      "UAT tests run regardless of linting errors",
+      "Developers may run tests on broken code",
+      "Auth setup (expensive) runs even if code has errors",
+      "Test failures may be due to linting issues, not actual bugs"
+    ]
+  },
+  "proposedSolution": {
+    "approach": "Add linting check in global-setup.ts after app verification",
+    "executionFlow": [
+      "npm run test",
+      "Playwright loads config",
+      "globalSetup() executes:",
+      "  1. ✅ Verify app running (existing check)",
+      "  2. 🔍 Run linting check (NEW - fails if errors)",
+      "  3. 🔐 Authenticate users (only if linting passed)",
+      "Tests run (only if all setup passed)",
+      "Reports generated"
+    ],
+    "benefits": [
+      "Catches linting errors before expensive auth setup",
+      "Matches pre-commit validation exactly",
+      "Clear error messages guide developers to fix issues",
+      "Cannot be bypassed (always enforced)",
+      "Minimal code changes (single function addition)",
+      "Follows existing global setup patterns"
+    ]
+  },
+  "implementation": {
+    "files": [
+      {
+        "path": "apps/web/uat/global-setup.ts",
+        "changes": "Add runLintingCheck() function and call it after app verification",
+        "effort": "1.5 hours"
+      }
+    ],
+    "codeChanges": {
+      "globalSetup": {
+        "file": "apps/web/uat/global-setup.ts",
+        "imports": {
+          "add": ["import { execSync } from 'child_process';"]
+        },
+        "functions": {
+          "add": [
+            {
+              "name": "runLintingCheck",
+              "signature": "async function runLintingCheck(): Promise<void>",
+              "description": "Runs biome linting check on production codebase",
+              "implementation": {
+                "command": "npx biome check --diagnostic-level=error --files-ignore-unknown=true --no-errors-on-unmatched .",
+                "workingDirectory": "Project root (../../ from uat folder)",
+                "stdio": "inherit (show biome output directly)",
+                "errorHandling": "throw Error if linting fails (exit code !== 0)"
+              },
+              "errorMessage": {
+                "format": "bordered box with clear instructions",
+                "sections": [
+                  "❌ LINTING FAILED - UAT tests cannot proceed",
+                  "",
+                  "Fix linting errors before running tests:",
+                  "  npx biome check --write <file>   # Auto-fix safe issues",
+                  "  npx biome check <file>           # View all issues"
+                ]
+              }
+            }
+          ]
+        },
+        "execution": {
+          "insertionPoint": "After line 134 (after app verification succeeds)",
+          "beforeCode": "console.log('✅ Application is running at', baseURL);\nawait page.close();",
+          "newCode": "// INSERT LINTING CHECK HERE\nawait runLintingCheck();",
+          "afterCode": "console.log('\\n🎉 Global setup complete!\\n');"
+        }
+      }
+    }
+  },
+  "technicalSpecification": {
+    "lintingScope": {
+      "description": "Same validation as pre-commit hook, but scoped to files changed in current branch (vs main)",
+      "scopingStrategy": "Check only files changed in current branch compared to main branch",
+      "gitCommand": "git diff --name-only --diff-filter=ACM main...HEAD",
+      "fileFiltering": "Filter for .ts, .tsx, .js, .jsx files only",
+      "included": [
+        "Only TypeScript/JavaScript files changed in current branch (.ts, .tsx, .js, .jsx)",
+        "Files must be Added, Changed, or Modified (--diff-filter=ACM)",
+        "Respects all biome.json exclusions automatically"
+      ],
+      "excluded": [
+        "Files not changed in current branch (old code with existing errors)",
+        "apps/web/uat - Test code (line 36 of biome.json)",
+        "Generated files: .next, _generated, dist",
+        "Third-party code: node_modules, apps/web/src/components/ui",
+        "MVP reference app: mvp-app",
+        "Test results: test-results, playwright-report"
+      ],
+      "command": "npx biome check --diagnostic-level=error --files-ignore-unknown=true --no-errors-on-unmatched <changed-files>",
+      "flags": {
+        "--diagnostic-level=error": "Only report errors, not warnings",
+        "--files-ignore-unknown=true": "Skip unknown file types",
+        "--no-errors-on-unmatched": "Don't fail if no files match",
+        "<changed-files>": "Space-separated list of files changed in branch"
+      },
+      "rationale": "Matches pre-commit behavior: pre-commit checks only staged files, UAT checks only branch changes. This ensures consistency - if all commits passed linting, UAT will pass linting."
+    },
+    "timing": {
+      "placement": "After app verification, before authentication setup",
+      "rationale": [
+        "Ensures app is running before linting (don't lint if app isn't available)",
+        "Runs before expensive auth setup (don't create 4 user sessions if code has errors)",
+        "Optimal fail-fast timing"
+      ]
+    },
+    "errorHandling": {
+      "success": {
+        "exitCode": 0,
+        "action": "Continue to authentication setup",
+        "logging": "✅ Linting check passed!"
+      },
+      "failure": {
+        "exitCode": 1,
+        "action": "throw new Error('Linting check failed - UAT tests blocked')",
+        "effect": "Stops all tests immediately, no auth setup, no tests run",
+        "logging": [
+          "Clear bordered error message",
+          "Instructions for fixing errors",
+          "Commands to run for auto-fix"
+        ]
+      }
+    },
+    "enforcement": {
+      "skipOption": "None - always enforced",
+      "bypass": "Not possible without modifying global-setup.ts",
+      "rationale": "User confirmed: 'Always enforce (Recommended)'"
+    }
+  },
+  "userRequirements": {
+    "confirmed": [
+      {
+        "requirement": "Lint Scope",
+        "answer": "Same test that happens when we commit code to the repo",
+        "implementation": "Use npx biome check with same flags as pre-commit, check entire codebase, respect biome.json exclusions"
+      },
+      {
+        "requirement": "Check Timing",
+        "answer": "After app check, before auth (Recommended)",
+        "implementation": "Insert linting check between app verification and authentication setup"
+      },
+      {
+        "requirement": "Skip Option",
+        "answer": "Always enforce (Recommended)",
+        "implementation": "No environment variable or flag to skip the check"
+      },
+      {
+        "requirement": "Error Level",
+        "answer": "Implied from pre-commit behavior",
+        "implementation": "--diagnostic-level=error (warnings don't block tests)"
+      }
+    ]
+  },
+  "testing": {
+    "scenarios": [
+      {
+        "test": "Linting Passes",
+        "setup": "Ensure code is clean (npx biome check passes)",
+        "action": "Run npm run test",
+        "expected": [
+          "Linting check passes",
+          "✅ Linting check passed! message shown",
+          "Auth setup runs",
+          "Tests run normally",
+          "Exit code 0"
+        ],
+        "effort": "10 minutes"
+      },
+      {
+        "test": "Linting Fails",
+        "setup": "Introduce linting error (e.g., unused variable in apps/web/src/app/page.tsx)",
+        "action": "Run npm run test",
+        "expected": [
+          "Linting check fails with clear error message",
+          "Biome output shown (lists specific errors)",
+          "❌ LINTING FAILED banner displayed",
+          "Fix instructions shown",
+          "Auth setup does NOT run",
+          "No tests execute",
+          "Exit code 1"
+        ],
+        "effort": "10 minutes"
+      },
+      {
+        "test": "App Not Running",
+        "setup": "Stop dev server (pkill -f 'next dev')",
+        "action": "Run npm run test",
+        "expected": [
+          "App check fails BEFORE linting",
+          "❌ Application not running error shown",
+          "Neither linting nor auth runs",
+          "Exit code 1"
+        ],
+        "effort": "5 minutes"
+      },
+      {
+        "test": "Linting Check Timing",
+        "setup": "Add console.time in global setup to measure timing",
+        "action": "Run npm run test with clean code",
+        "expected": [
+          "Linting check completes in < 5 seconds on typical codebase",
+          "Total global setup time increases by ~3-5 seconds",
+          "Acceptable overhead for validation benefit"
+        ],
+        "effort": "10 minutes"
+      }
+    ],
+    "acceptanceCriteria": [
+      "Linting check runs after app verification succeeds",
+      "Linting check runs before authentication setup begins",
+      "Biome output is displayed to user (stdio: inherit)",
+      "Clear error message shown if linting fails",
+      "Error message includes fix instructions",
+      "Tests do not run if linting fails",
+      "Auth states not created if linting fails",
+      "Clean code allows tests to proceed normally",
+      "No way to bypass the linting check",
+      "Error exit code (1) returned on linting failure"
+    ]
+  },
+  "errorMessaging": {
+    "success": {
+      "format": "Single line confirmation",
+      "message": "✅ Linting check passed!",
+      "color": "Green text"
+    },
+    "failure": {
+      "format": "Bordered box with clear sections",
+      "sections": [
+        {
+          "type": "separator",
+          "content": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        },
+        {
+          "type": "header",
+          "content": "❌ LINTING FAILED - UAT tests cannot proceed"
+        },
+        {
+          "type": "blank"
+        },
+        {
+          "type": "instructions",
+          "content": [
+            "Fix linting errors before running tests:",
+            "  npx biome check --write <file>   # Auto-fix safe issues",
+            "  npx biome check <file>           # View all issues"
+          ]
+        },
+        {
+          "type": "separator",
+          "content": "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        },
+        {
+          "type": "blank"
+        }
+      ],
+      "precedingOutput": "Biome diagnostic output (shown via stdio: inherit)",
+      "followingOutput": "throw new Error('Linting check failed - UAT tests blocked')"
+    }
+  },
+  "performanceConsiderations": {
+    "lintingDuration": {
+      "typical": "2-5 seconds for standard codebase",
+      "large": "5-10 seconds for large codebase (many files)",
+      "optimization": "Biome is very fast compared to ESLint"
+    },
+    "overallImpact": {
+      "before": "Global setup: ~60-90 seconds (app check + auth setup)",
+      "after": "Global setup: ~65-95 seconds (app check + linting + auth setup)",
+      "increase": "+5 seconds typical, acceptable for validation benefit"
+    },
+    "comparisonToAlternatives": {
+      "separateNpmScript": "Would run linting regardless of app status (wasted time if app not running)",
+      "afterAuthSetup": "Would waste time creating 4 auth states if linting fails",
+      "currentImplementation": "Optimal timing - only lints if app is running, before expensive auth"
+    }
+  },
+  "risks": {
+    "technicalRisks": [
+      {
+        "risk": "Linting check adds too much overhead",
+        "likelihood": "Low",
+        "impact": "Low",
+        "mitigation": [
+          "Biome is extremely fast (2-5 seconds typical)",
+          "Saves time by preventing test runs on broken code",
+          "Net time savings when accounting for avoided test failures"
+        ],
+        "monitoring": "Measure global setup duration in test runs"
+      },
+      {
+        "risk": "Developers bypass the check",
+        "likelihood": "Low",
+        "impact": "Low",
+        "mitigation": [
+          "No skip flag or environment variable provided",
+          "Would require modifying global-setup.ts to bypass",
+          "Same level of bypass difficulty as pre-commit hook"
+        ],
+        "monitoring": "Code review for any changes to global-setup.ts"
+      },
+      {
+        "risk": "False positives from biome",
+        "likelihood": "Very Low",
+        "impact": "Medium",
+        "mitigation": [
+          "Uses same biome config as pre-commit (already validated)",
+          "Only errors block tests (warnings allowed)",
+          "Biome exclusions already configured in biome.json"
+        ],
+        "monitoring": "User feedback on unexpected linting failures"
+      }
+    ],
+    "uxRisks": [
+      {
+        "risk": "Developers annoyed by linting check during rapid iteration",
+        "likelihood": "Medium",
+        "impact": "Low",
+        "mitigation": [
+          "Linting errors should be fixed before running tests anyway",
+          "Saves time by preventing test runs that would fail",
+          "Clear error messages guide quick fixes",
+          "Can use 'npx biome check --write' for auto-fix"
+        ],
+        "monitoring": "Developer feedback on workflow impact"
+      }
+    ]
+  },
+  "rollbackPlan": {
+    "trigger": "If linting check causes issues or too much friction",
+    "steps": [
+      "Comment out the runLintingCheck() call in global-setup.ts",
+      "Commit and push",
+      "Tests will skip linting check and run as before"
+    ],
+    "effort": "5 minutes",
+    "note": "Easy to disable if needed, but unlikely to be necessary given biome's speed and accuracy"
+  },
+  "deployment": {
+    "strategy": "Single commit and push",
+    "steps": [
+      {
+        "step": 1,
+        "action": "Modify apps/web/uat/global-setup.ts",
+        "validation": "Code review"
+      },
+      {
+        "step": 2,
+        "action": "Test locally with clean code",
+        "validation": "Tests pass normally"
+      },
+      {
+        "step": 3,
+        "action": "Test locally with linting error",
+        "validation": "Linting check fails and blocks tests"
+      },
+      {
+        "step": 4,
+        "action": "Commit and push to UATNavBarTesting branch",
+        "validation": "Git commit succeeds"
+      },
+      {
+        "step": 5,
+        "action": "Document in test documentation",
+        "validation": "README updated (optional)"
+      }
+    ],
+    "preDeploymentChecklist": [
+      "Code changes reviewed",
+      "Local testing completed (clean code scenario)",
+      "Local testing completed (linting error scenario)",
+      "Error messages are clear and helpful",
+      "No TypeScript errors in modified files",
+      "Biome passes on global-setup.ts changes"
+    ]
+  },
+  "successMetrics": {
+    "immediate": {
+      "testsPrevented": {
+        "description": "Number of test runs blocked due to linting errors",
+        "target": "Track occurrences to validate usefulness",
+        "measure": "Developer reports or logs"
+      },
+      "timeToFix": {
+        "description": "Time to fix linting errors when caught",
+        "target": "< 2 minutes typical",
+        "measure": "Time from error to clean run"
+      }
+    },
+    "longTerm": {
+      "codeQuality": {
+        "description": "Reduction in linting-related test failures",
+        "target": "Zero test failures due to linting issues",
+        "measure": "Test failure analysis"
+      },
+      "developerSatisfaction": {
+        "description": "Developer feedback on feature usefulness",
+        "target": "Neutral to positive",
+        "measure": "Informal feedback"
+      }
+    }
+  },
+  "documentation": {
+    "updates": [
+      {
+        "file": "apps/web/uat/README.md",
+        "section": "Test Execution Flow",
+        "content": "Add note about pre-test linting validation"
+      },
+      {
+        "file": "docs/testing/UAT_MCP_TESTS.MD",
+        "section": "Prerequisites",
+        "content": "Add note: 'Code must pass biome linting check before tests run'"
+      }
+    ],
+    "optional": [
+      {
+        "file": "docs/features/UAT_LINTING_CHECK_PRD.json",
+        "description": "This PRD document (already created)"
+      }
+    ]
+  },
+  "futureEnhancements": {
+    "potential": [
+      {
+        "feature": "Configurable linting level",
+        "description": "Allow environment variable to control error level (error vs warn)",
+        "effort": "Low",
+        "priority": "P3",
+        "note": "Only add if users request more flexibility"
+      },
+      {
+        "feature": "Linting cache",
+        "description": "Cache linting results to speed up repeated runs",
+        "effort": "Medium",
+        "priority": "P3",
+        "note": "Biome is already very fast, likely not needed"
+      },
+      {
+        "feature": "Selective file linting",
+        "description": "Only lint files changed since last commit",
+        "effort": "Medium",
+        "priority": "P3",
+        "note": "Would require git integration, adds complexity"
+      }
+    ],
+    "notPlanned": [
+      {
+        "feature": "Skip flag via environment variable",
+        "reason": "User explicitly chose 'Always enforce' option"
+      },
+      {
+        "feature": "Warning-level blocking",
+        "reason": "Matches pre-commit behavior (only errors block)"
+      }
+    ]
+  },
+  "alternativesConsidered": [
+    {
+      "approach": "Separate pre-test npm script",
+      "description": "Create npm run test:lint-and-run wrapper script",
+      "pros": [
+        "Simple to implement (no code changes)",
+        "Clear separation of concerns"
+      ],
+      "cons": [
+        "Not enforced (can run npm test directly)",
+        "Lints before app verification (wastes time if app not running)",
+        "Creates auth states even if linting will fail",
+        "Less integrated with test flow"
+      ],
+      "rejected": true,
+      "reason": "Not enforced, suboptimal timing"
+    },
+    {
+      "approach": "Playwright webServer hook",
+      "description": "Add linting to webServer config in playwright.config.ts",
+      "pros": ["Built-in Playwright feature"],
+      "cons": [
+        "webServer is for starting servers, not validation (API misuse)",
+        "Less clear error messaging",
+        "Still runs if app not available"
+      ],
+      "rejected": true,
+      "reason": "API misuse, less clear implementation"
+    },
+    {
+      "approach": "Custom test fixture with skip logic",
+      "description": "Create conditional skip based on linting result",
+      "pros": ["Tests show as 'skipped' not 'failed'"],
+      "cons": [
+        "Requires modifying all test files",
+        "Linting check runs in each test worker",
+        "Tests load even if they'll be skipped",
+        "More complex to maintain"
+      ],
+      "rejected": true,
+      "reason": "Too complex, requires changes to many files"
+    },
+    {
+      "approach": "Linting check in global setup (SELECTED)",
+      "description": "Add runLintingCheck() to global-setup.ts after app verification",
+      "pros": [
+        "Matches pre-commit exactly",
+        "Fail fast with optimal timing",
+        "Single point of control",
+        "Cannot be bypassed",
+        "Clear error messages",
+        "Minimal code changes"
+      ],
+      "cons": ["Adds ~3-5 seconds to global setup"],
+      "selected": true,
+      "reason": "Best combination of enforcement, timing, and developer experience"
+    }
+  ],
+  "implementationResults": {
+    "implementationDate": "2026-01-20",
+    "actualEffort": "~1.5 hours (including scope correction)",
+    "filesModified": [
+      {
+        "file": "apps/web/uat/global-setup.ts",
+        "changes": [
+          "Added import: execSync from child_process",
+          "Added runLintingCheck() function (lines 110-197)",
+          "Function detects main/master branch automatically",
+          "Function uses git diff to get changed files in branch",
+          "Function filters for .ts/.tsx/.js/.jsx files only",
+          "Function skips linting if no changed files",
+          "Added function call after app verification (line 228)"
+        ],
+        "linesAdded": 90,
+        "linesModified": 3
+      },
+      {
+        "file": "docs/features/UAT_LINTING_CHECK_PRD.json",
+        "changes": [
+          "Updated status to 'implemented'",
+          "Added implementationResults section",
+          "Updated to reflect scope correction"
+        ]
+      }
+    ],
+    "testingResults": {
+      "test1_initialImplementation": {
+        "description": "Initial test checked entire codebase",
+        "result": "ISSUE FOUND",
+        "details": {
+          "errorsFound": 430,
+          "scope": "Entire codebase",
+          "issue": "Blocked tests even though all commits had passed linting",
+          "rootCause": "Pre-commit uses lint-staged (checks only staged files), but UAT was checking all files"
+        },
+        "resolution": "Updated implementation to check only files changed in current branch"
+      },
+      "test2_correctedImplementation": {
+        "description": "Tested with corrected scope (changed files only)",
+        "result": "SUCCESS",
+        "details": {
+          "branchName": "UATNavBarTesting",
+          "changedFiles": 5,
+          "filesChecked": 2,
+          "filesExcluded": 3,
+          "exclusionReason": "UAT test files excluded by biome.json",
+          "errorsFound": 0,
+          "testsBlocked": false,
+          "authSetupRan": true,
+          "testsExecuted": true,
+          "exitCode": 0
+        },
+        "observations": [
+          "App verification passed successfully",
+          "Linting check identified 5 changed files in branch",
+          "Only 2 production files checked (3 test files excluded)",
+          "No linting errors found in changed files",
+          "Auth setup proceeded normally",
+          "Tests executed successfully",
+          "Behavior now matches pre-commit: if commits pass, UAT passes"
+        ]
+      },
+      "test3_executionFlow": {
+        "description": "Verified execution order with corrected implementation",
+        "result": "SUCCESS",
+        "actualFlow": [
+          "1. App verification (passed)",
+          "2. Git branch detection (found 'main')",
+          "3. Git diff to find changed files (5 files)",
+          "4. Filter for .ts/.tsx/.js/.jsx (5 files)",
+          "5. Linting check on changed files (passed - 0 errors)",
+          "6. Auth setup (executed - 4 users authenticated)",
+          "7. Tests (executed normally)"
+        ]
+      }
+    },
+    "discoveredIssues": {
+      "scopingMismatch": {
+        "severity": "high",
+        "description": "Initial implementation checked entire codebase instead of only changed files",
+        "impact": "Tests blocked even when all commits had passed linting",
+        "rootCause": "Pre-commit uses lint-staged (staged files only), UAT was checking all files",
+        "resolution": "Updated to check only files changed in current branch (git diff main...HEAD)",
+        "status": "RESOLVED",
+        "dateResolved": "2026-01-20"
+      },
+      "existingLintingErrors": {
+        "severity": "low",
+        "description": "Codebase has 430 existing linting errors in old files not touched by current branch",
+        "impact": "None - these files are not checked by UAT linting (matches pre-commit behavior)",
+        "status": "NOT BLOCKING",
+        "note": "Old errors will be addressed when those files are modified and committed"
+      }
+    },
+    "deviationsFromPlan": {
+      "scopeCorrection": {
+        "original": "Check entire codebase (.)",
+        "corrected": "Check only files changed in current branch (git diff main...HEAD)",
+        "reason": "User correctly identified that pre-commit only checks staged files, not entire codebase",
+        "benefit": "Now matches pre-commit behavior: if commits pass linting, UAT passes linting"
+      },
+      "additionalLogic": [
+        "Added git branch detection (main vs master)",
+        "Added git diff command to get changed files",
+        "Added file filtering for TypeScript/JavaScript files",
+        "Added skip logic when no files changed",
+        "Added file count logging for visibility"
+      ]
+    },
+    "successCriteria": {
+      "met": true,
+      "checklistResults": [
+        {
+          "criterion": "Linting check runs after app verification",
+          "status": "PASSED"
+        },
+        {
+          "criterion": "Linting check runs before auth setup",
+          "status": "PASSED"
+        },
+        {
+          "criterion": "Only checks files changed in branch (matches pre-commit)",
+          "status": "PASSED"
+        },
+        { "criterion": "Biome output displayed to user", "status": "PASSED" },
+        {
+          "criterion": "Clear error message if linting fails",
+          "status": "PASSED"
+        },
+        { "criterion": "Error includes fix instructions", "status": "PASSED" },
+        { "criterion": "Tests blocked if linting fails", "status": "PASSED" },
+        {
+          "criterion": "Auth states not created if linting fails",
+          "status": "PASSED"
+        },
+        { "criterion": "Cannot bypass check", "status": "PASSED" },
+        { "criterion": "Exit code 1 on failure", "status": "PASSED" },
+        {
+          "criterion": "Tests pass when all commits passed linting",
+          "status": "PASSED"
+        }
+      ]
+    },
+    "finalImplementation": {
+      "summary": "UAT linting check now validates only files changed in the current branch (compared to main), matching the pre-commit hook behavior which checks only staged files. This ensures consistency: if all commits passed linting, UAT tests will also pass linting.",
+      "behaviorComparison": {
+        "preCommit": {
+          "scope": "Staged files only",
+          "tool": "lint-staged",
+          "command": "npx biome check <staged-files>",
+          "behavior": "Blocks commit if staged files have errors"
+        },
+        "uatCheck": {
+          "scope": "Files changed in current branch (vs main)",
+          "tool": "git diff + biome",
+          "command": "git diff main...HEAD | npx biome check <changed-files>",
+          "behavior": "Blocks tests if changed files have errors"
+        },
+        "consistency": "Both check only new/modified code, ignore existing errors in untouched files"
+      },
+      "example": {
+        "scenario": "Developer working on UATNavBarTesting branch",
+        "changedFiles": [
+          "apps/web/src/app/orgs/[orgId]/admin/guardians/page.tsx (production)",
+          "apps/web/src/hooks/use-org-theme.ts (production)",
+          "apps/web/uat/global-setup.ts (UAT - excluded)",
+          "apps/web/uat/playwright.config.ts (UAT - excluded)",
+          "apps/web/uat/tests/navigation/navbar-comprehensive.spec.ts (UAT - excluded)"
+        ],
+        "filesChecked": 2,
+        "filesExcluded": 3,
+        "oldFilesWithErrors": 430,
+        "oldFilesChecked": 0,
+        "result": "Linting passed, tests proceed",
+        "outcome": "Developer can run UAT tests successfully because their branch changes have no errors"
+      }
+    }
+  },
+  "appendix": {
+    "relatedDocuments": [
+      "apps/web/uat/playwright.config.ts - Playwright configuration",
+      "apps/web/uat/global-setup.ts - Current global setup implementation",
+      "biome.json - Biome linting configuration",
+      ".husky/pre-commit - Pre-commit hook implementation",
+      ".lintstagedrc.json - Lint-staged configuration"
+    ],
+    "keyDecisions": [
+      {
+        "decision": "Use exact same linting command as pre-commit",
+        "rationale": "Consistency between commit-time and test-time validation",
+        "date": "2026-01-20"
+      },
+      {
+        "decision": "Run linting after app check, before auth",
+        "rationale": "Optimal fail-fast timing, saves time on auth setup",
+        "date": "2026-01-20"
+      },
+      {
+        "decision": "Always enforce, no skip option",
+        "rationale": "User preference, maintains code quality",
+        "date": "2026-01-20"
+      },
+      {
+        "decision": "Only errors block tests, not warnings",
+        "rationale": "Matches pre-commit behavior",
+        "date": "2026-01-20"
+      }
+    ]
+  }
+}

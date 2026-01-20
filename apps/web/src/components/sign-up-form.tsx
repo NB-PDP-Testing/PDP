@@ -206,10 +206,11 @@ export default function SignUpForm({ redirect }: { redirect?: string | null }) {
       {/* Guardian Identity Claiming Dialog */}
       {showClaimDialog && pendingClaim && (
         <GuardianIdentityClaimDialog
-          children={claimableIdentity.children}
+          childrenList={claimableIdentity.children}
           guardianIdentityId={claimableIdentity.guardianIdentity._id}
           guardianName={`${claimableIdentity.guardianIdentity.firstName} ${claimableIdentity.guardianIdentity.lastName}`}
           onClaimComplete={handleClaimComplete}
+          onDismiss={() => handleClaimDialogClose(false)}
           onOpenChange={handleClaimDialogClose}
           open={true}
           organizations={claimableIdentity.organizations}
@@ -366,6 +367,7 @@ export default function SignUpForm({ redirect }: { redirect?: string | null }) {
                 variant="outline"
               >
                 <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
+                  <title>Google logo</title>
                   <path
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                     fill="#4285F4"
@@ -396,6 +398,7 @@ export default function SignUpForm({ redirect }: { redirect?: string | null }) {
                   fill="#00A4EF"
                   viewBox="0 0 24 24"
                 >
+                  <title>Microsoft logo</title>
                   <path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zm12.6 0H12.6V0H24v11.4z" />
                 </svg>
                 Sign up with Microsoft

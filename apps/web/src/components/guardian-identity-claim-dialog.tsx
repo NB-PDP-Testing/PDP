@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation } from "convex/react";
+import { X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../packages/backend/convex/_generated/api";
@@ -36,10 +37,11 @@ type GuardianIdentityClaimDialogProps = {
   onOpenChange: (open: boolean) => void;
   guardianIdentityId: Id<"guardianIdentities">;
   guardianName: string;
-  children: Child[];
+  childrenList: Child[];
   organizations: Organization[];
   userId: string;
   onClaimComplete: () => void;
+  onDismiss: () => void;
 };
 
 export function GuardianIdentityClaimDialog({
@@ -47,10 +49,11 @@ export function GuardianIdentityClaimDialog({
   onOpenChange,
   guardianIdentityId,
   guardianName,
-  children,
+  childrenList,
   organizations,
   userId,
   onClaimComplete,
+  onDismiss,
 }: GuardianIdentityClaimDialogProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [consentToSharing, setConsentToSharing] = useState(false);
@@ -71,8 +74,8 @@ export function GuardianIdentityClaimDialog({
         userId,
       });
 
-      // Update consent for all children
-      for (const child of children) {
+      // Update consent for all childrenList
+      for (const child of childrenList) {
         await updateLinkConsent({
           guardianIdentityId,
           playerIdentityId: child.playerIdentityId,
@@ -105,7 +108,7 @@ export function GuardianIdentityClaimDialog({
       monthDiff < 0 ||
       (monthDiff === 0 && today.getDate() < birthDate.getDate())
     ) {
-      age--;
+      age -= 1;
     }
     return age;
   };
@@ -113,6 +116,14 @@ export function GuardianIdentityClaimDialog({
   return (
     <AlertDialog onOpenChange={onOpenChange} open={open}>
       <AlertDialogContent className="max-w-2xl">
+        <button
+          className="absolute top-4 right-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+          onClick={() => onOpenChange(false)}
+          type="button"
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </button>
         <AlertDialogHeader>
           <AlertDialogTitle className="text-2xl">
             We Found Your Profile!
@@ -145,13 +156,13 @@ export function GuardianIdentityClaimDialog({
           )}
 
           {/* Children */}
-          {children.length > 0 && (
+          {childrenList.length > 0 && (
             <div>
               <h3 className="mb-3 font-semibold text-muted-foreground text-sm">
-                Your {children.length === 1 ? "Child" : "Children"}
+                Your {childrenList.length === 1 ? "Child" : "Children"}
               </h3>
               <div className="space-y-2">
-                {children.map((child) => (
+                {childrenList.map((child) => (
                   <div
                     className="flex items-center justify-between rounded-lg border bg-card p-3"
                     key={child.playerIdentityId}
@@ -190,13 +201,13 @@ export function GuardianIdentityClaimDialog({
                   htmlFor="consent-sharing"
                 >
                   Allow other clubs/organizations to see my relationship with{" "}
-                  {children.length === 1 ? "this child" : "these children"}
+                  {childrenList.length === 1 ? "this child" : "these children"}
                 </Label>
                 <p className="mt-1 text-muted-foreground text-xs">
                   This helps other clubs your{" "}
-                  {children.length === 1 ? "child" : "children"} may join in the
-                  future to identify you as their guardian. You can change this
-                  setting anytime in your dashboard.
+                  {childrenList.length === 1 ? "child" : "children"} may join in
+                  the future to identify you as their guardian. You can change
+                  this setting anytime in your dashboard.
                 </p>
               </div>
             </div>
@@ -214,7 +225,8 @@ export function GuardianIdentityClaimDialog({
                 <span className="text-primary">✓</span>
                 <span>
                   You'll have access to your{" "}
-                  {children.length === 1 ? "child's" : "children's"} information
+                  {childrenList.length === 1 ? "child's" : "children's"}{" "}
+                  information
                 </span>
               </li>
               <li className="flex gap-2">
@@ -226,7 +238,13 @@ export function GuardianIdentityClaimDialog({
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isProcessing}>
+          <AlertDialogCancel
+            disabled={isProcessing}
+            onClick={(e) => {
+              e.preventDefault();
+              onDismiss();
+            }}
+          >
             This Isn't Me
           </AlertDialogCancel>
           <AlertDialogAction

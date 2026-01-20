@@ -100,7 +100,9 @@ export function getParentNavGroups(
           href: `/orgs/${orgId}/parents/messages`,
           label: "Messages",
           icon: MessageSquare,
-          badge: unreadMessagesCount,
+          ...(unreadMessagesCount && unreadMessagesCount > 0
+            ? { badge: unreadMessagesCount }
+            : {}),
         },
         {
           href: `/orgs/${orgId}/parents/announcements`,

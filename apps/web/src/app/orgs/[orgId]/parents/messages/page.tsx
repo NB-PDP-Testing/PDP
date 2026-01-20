@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { MessageSquare } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -94,7 +95,9 @@ export default function ParentMessagesPage() {
         <div className="space-y-4">
           {messages.map((item) => (
             <Link
-              href={`/orgs/${orgId as string}/parents/messages/${item.message._id as string}`}
+              href={
+                `/orgs/${orgId as string}/parents/messages/${item.message._id as string}` as Route
+              }
               key={item.message._id}
             >
               <Card

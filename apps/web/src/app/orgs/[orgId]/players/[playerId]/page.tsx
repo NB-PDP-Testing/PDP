@@ -86,7 +86,13 @@ export default function PlayerPassportPage() {
     // We check roleDetails and ownPlayerIdentity once they're loaded
     // The ref prevents re-runs even if these objects get new references
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roleDetails, ownPlayerIdentity]);
+  }, [
+    roleDetails,
+    ownPlayerIdentity,
+    orgId,
+    playerId, // Redirect to player self-access route
+    router.replace,
+  ]);
 
   // Check share status for this player (for coach access request feature)
   const shareStatus = useQuery(

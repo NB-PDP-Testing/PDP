@@ -59,7 +59,9 @@ export function EnhancedUserMenu() {
 
   // Get user initials for avatar fallback
   const getInitials = () => {
-    if (!user?.name) return "U";
+    if (!user?.name) {
+      return "U";
+    }
     const nameParts = user.name.split(" ");
     if (nameParts.length >= 2) {
       return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
@@ -80,7 +82,7 @@ export function EnhancedUserMenu() {
   };
 
   const themeIcon = getThemeIcon();
-  const ThemeIcon = themeIcon.icon;
+  const _ThemeIcon = themeIcon.icon;
 
   // Handle theme change with analytics
   const handleThemeChange = (newTheme: "light" | "dark" | "system") => {

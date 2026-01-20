@@ -2,9 +2,8 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
-import { MessageSquare, User } from "lucide-react";
-import { useMemo } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { Sparkles } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -12,47 +11,42 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ParentSummaryCard } from "./parent-summary-card";
 
 type CoachFeedbackProps = {
-  playerData: Array<{
-    player: {
-      _id: Id<"playerIdentities">;
-      firstName: string;
-      lastName: string;
-    };
-  }>;
   orgId: string;
 };
 
-export function CoachFeedback({ playerData, orgId }: CoachFeedbackProps) {
-  // Get passport data for all playerData to access coach notes
-  const childPassports = playerData.map((child) => {
-    const passportData = useQuery(
-      api.models.sportPassports.getFullPlayerPassportView,
-      {
-        playerIdentityId: child.player._id,
-        organizationId: orgId,
-      }
-    );
-    return { child, passportData };
-  });
-
-  // Extract children who have coach notes
-  const childrenWithNotes = useMemo(
-    () =>
-      childPassports
-        .filter(({ passportData }) => {
-          const notes = passportData?.coachNotes;
-          return notes && notes.length > 0;
-        })
-        .map(({ child, passportData }) => ({
-          player: child.player,
-          notes: passportData?.coachNotes || "",
-        })),
-    [childPassports]
+export function CoachFeedback({ orgId }: CoachFeedbackProps) {
+  // Fetch AI-generated summaries grouped by child and sport
+  const summariesData = useQuery(
+    api.models.coachParentSummaries.getParentSummariesByChildAndSport,
+    {
+      organizationId: orgId,
+    }
   );
 
-  if (childrenWithNotes.length === 0) {
+  // Mark summary as viewed mutation
+  const markViewed = useMutation(
+    api.models.coachParentSummaries.markSummaryViewed
+  );
+
+  const handleViewSummary = async (summaryId: Id<"coachParentSummaries">) => {
+    try {
+      await markViewed({
+        summaryId,
+        viewSource: "dashboard",
+      });
+      // Silently mark as viewed - no toast needed
+    } catch (error) {
+      console.error("Failed to mark summary as read:", error);
+    }
+  };
+
+  // Show only if we have AI summaries
+  const hasSummaries = summariesData && summariesData.length > 0;
+
+  if (!hasSummaries) {
     return null;
   }
 
@@ -60,31 +54,51 @@ export function CoachFeedback({ playerData, orgId }: CoachFeedbackProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-blue-600" />
-          Latest Coach Feedback
+          <Sparkles className="h-5 w-5 text-blue-600" />
+          AI Coach Summaries
         </CardTitle>
         <CardDescription>
-          Recent notes from your children's coaches
+          AI-generated summaries from your coach's voice notes
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {childrenWithNotes.map(({ player, notes }) => (
-            <div key={player._id}>
-              <div className="rounded-lg border-l-4 border-l-blue-500 bg-blue-50/50 p-4">
-                <div className="mb-2 flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-                    <User className="h-4 w-4 text-blue-600" />
+        <div className="space-y-6">
+          {summariesData?.map((childData) => (
+            <div key={childData.player._id}>
+              {/* Child name header */}
+              <h3 className="mb-3 font-semibold text-lg">
+                {childData.player.firstName} {childData.player.lastName}
+              </h3>
+
+              {/* Sport groups for this child */}
+              <div className="space-y-4">
+                {childData.sportGroups.map((sportGroup) => (
+                  <div key={sportGroup.sport?._id || `sport-${Math.random()}`}>
+                    {/* Sport name subheader */}
+                    {sportGroup.sport && (
+                      <h4 className="mb-2 flex items-center gap-2 font-medium text-muted-foreground text-sm">
+                        {sportGroup.sport.name}
+                        {sportGroup.unreadCount > 0 && (
+                          <span className="rounded-full bg-red-500 px-2 py-0.5 text-white text-xs">
+                            {sportGroup.unreadCount} new
+                          </span>
+                        )}
+                      </h4>
+                    )}
+
+                    {/* Summary cards */}
+                    <div className="space-y-2">
+                      {sportGroup.summaries.map((summary) => (
+                        <ParentSummaryCard
+                          isUnread={!summary.viewedAt}
+                          key={summary._id}
+                          onView={handleViewSummary}
+                          summary={summary}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-sm">
-                      {player.firstName} {player.lastName}
-                    </p>
-                  </div>
-                </div>
-                <p className="whitespace-pre-wrap text-muted-foreground text-sm">
-                  {notes}
-                </p>
+                ))}
               </div>
             </div>
           ))}

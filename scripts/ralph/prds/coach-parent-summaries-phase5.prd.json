@@ -1,0 +1,312 @@
+{
+  "project": "Coach-Parent AI Summaries - Phase 5 (Advanced Automation)",
+  "branchName": "ralph/coach-parent-summaries-p5",
+  "description": "Auto-approval based on trust levels with review dashboard. Depends on Phase 2 and Phase 3.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Create autoApprovalDecision lib",
+      "description": "As a developer, I need logic to determine auto-approval eligibility.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/lib/autoApprovalDecision.ts",
+        "Export shouldAutoApprove(trustLevel, confidenceScore, sensitivityCategory, preferredLevel)",
+        "Return { shouldAutoApprove: boolean, reason: string }",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Implement auto-approval rules",
+      "description": "As the system, I need correct auto-approval logic.",
+      "acceptanceCriteria": [
+        "If sensitivityCategory is injury or behavior: return false",
+        "If trustLevel < 2: return false",
+        "If trustLevel === 2 and confidenceScore < threshold (80): return false",
+        "Otherwise: return true"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Level 3 auto-approves all NORMAL summaries"
+    },
+    {
+      "id": "US-003",
+      "title": "Respect coach preferredLevel",
+      "description": "As a coach, my preferred level caps automation.",
+      "acceptanceCriteria": [
+        "In shouldAutoApprove, use Math.min(trustLevel, preferredLevel)",
+        "If preferredLevel is null/undefined, use trustLevel",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add confidenceThreshold to coachTrustLevels",
+      "description": "As a coach, I want to customize my confidence threshold.",
+      "acceptanceCriteria": [
+        "Add confidenceThreshold field to coachTrustLevels table (default 80)",
+        "Run: npx -w packages/backend convex codegen",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Implement adjustConfidenceThreshold mutation",
+      "description": "As a coach, I want to adjust my confidence threshold.",
+      "acceptanceCriteria": [
+        "Add adjustConfidenceThreshold mutation to coachTrustLevels.ts",
+        "Args: organizationId, newThreshold (50-100)",
+        "Validate threshold range, update record",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Integrate auto-approval into pipeline",
+      "description": "As the system, summaries should auto-approve when eligible.",
+      "acceptanceCriteria": [
+        "Edit createParentSummary mutation",
+        "Fetch coach's trust level and confidenceThreshold",
+        "Call shouldAutoApprove with all parameters",
+        "If true: set status to auto_approved, set autoApproved: true"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Store auto-approval reason",
+      "description": "As a coach, I want to know why a summary was auto-approved.",
+      "acceptanceCriteria": [
+        "Add autoApprovalReason field to coachParentSummaries table",
+        "Store reason from shouldAutoApprove result",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Implement getAutoApprovedSummaries query",
+      "description": "As a coach, I want to see recently auto-approved messages.",
+      "acceptanceCriteria": [
+        "Add getAutoApprovedSummaries query to coachParentSummaries.ts",
+        "Args: organizationId, timeRange (default 7 days)",
+        "Return summaries with status auto_approved or viewed where autoApproved: true",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Implement revokeAutoApproval mutation",
+      "description": "As a coach, I want to revoke auto-approved messages before viewing.",
+      "acceptanceCriteria": [
+        "Add revokeAutoApproval mutation with args: summaryId",
+        "Verify coach owns the summary",
+        "If not viewed: change status to suppressed",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Handle revoke after parent viewed",
+      "description": "As the system, I need to handle revoke attempts after viewing.",
+      "acceptanceCriteria": [
+        "If summary.viewedAt is set, return { success: false, wasAlreadyViewed: true }",
+        "Do not change status",
+        "Log revocation attempt for audit",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Implement getNudgeStatus query",
+      "description": "As a coach, I want contextual nudges toward automation.",
+      "acceptanceCriteria": [
+        "Add getNudgeStatus query to coachTrustLevels.ts",
+        "Args: organizationId",
+        "Return { shouldShowNudge, nudgeType, nudgeMessage }",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Calculate nudge conditions",
+      "description": "As the system, I need correct nudge logic.",
+      "acceptanceCriteria": [
+        "ELIGIBLE_FOR_LEVEL_2: level 1 with 48+ approvals",
+        "SUGGEST_LEVEL_3: level 2 with 195+ approvals",
+        "REVIEW_AUTO_APPROVED: level 2+ with 10+ unreviewed auto-approved",
+        "Return appropriate message"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Create AutoApprovedReviewDashboard page",
+      "description": "As a coach, I need a page to review auto-approved messages.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/auto-approved-review.tsx",
+        "Query getAutoApprovedSummaries",
+        "Show list of auto-approved messages with player, date, status",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Add filters to AutoApprovedReviewDashboard",
+      "description": "As a coach, I want to filter the review list.",
+      "acceptanceCriteria": [
+        "Add date range filter",
+        "Add player filter",
+        "Add sport filter",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Add revoke action to review dashboard",
+      "description": "As a coach, I want to revoke from the review dashboard.",
+      "acceptanceCriteria": [
+        "Add Revoke button to each unviewed message",
+        "Wire to revokeAutoApproval mutation",
+        "Disable button for viewed messages",
+        "Show toast on success/error"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Add navigation to review dashboard",
+      "description": "As a coach, I want easy access to the review dashboard.",
+      "acceptanceCriteria": [
+        "Edit voice-notes-dashboard.tsx",
+        "Add 'Review Auto-Sent' button for trust level 2+ coaches",
+        "Show badge with count of recent auto-approved",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Create AutomationNudgeBanner component",
+      "description": "As a coach, I want to see contextual automation nudges.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/coach/automation-nudge-banner.tsx",
+        "Props: nudgeType, nudgeMessage, onDismiss, onAction",
+        "Style variants: info, success, neutral",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Wire nudge banner to dashboard",
+      "description": "As a coach, nudge banners show in my dashboard.",
+      "acceptanceCriteria": [
+        "Query getNudgeStatus in voice-notes-dashboard.tsx",
+        "Conditionally render AutomationNudgeBanner",
+        "Handle dismiss and action callbacks",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Create ConfidenceThresholdSlider component",
+      "description": "As a coach, I want to adjust my confidence threshold.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/coach/confidence-threshold-slider.tsx",
+        "Props: currentThreshold, onUpdate",
+        "Range: 50-100, labels at key points",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Add threshold slider to trust settings",
+      "description": "As a coach, I want threshold control in my settings.",
+      "acceptanceCriteria": [
+        "Edit trust-preference-settings.tsx",
+        "Show ConfidenceThresholdSlider for trust level 2+ coaches",
+        "Wire to adjustConfidenceThreshold mutation",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Create AutoApprovalBadge component",
+      "description": "As a coach, I want to see auto-approval status on cards.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/coach/auto-approval-badge.tsx",
+        "Show 'Will auto-send' for eligible summaries",
+        "Show 'Requires review' if below threshold",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Add AutoApprovalBadge to pending summaries",
+      "description": "As a coach, pending cards show auto-approval prediction.",
+      "acceptanceCriteria": [
+        "Edit summary-approval-card.tsx",
+        "Calculate if summary would auto-approve",
+        "Render AutoApprovalBadge",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

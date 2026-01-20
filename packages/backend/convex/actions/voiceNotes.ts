@@ -6,7 +6,68 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import type { ActionCtx } from "../_generated/server";
 import { internalAction } from "../_generated/server";
+
+/**
+ * AI Model Configuration for Voice Notes
+ *
+ * Configuration is read from the database (aiModelConfig table) with:
+ * - Platform-wide defaults
+ * - Optional per-organization overrides
+ *
+ * Falls back to environment variables if database config is not available:
+ * - OPENAI_MODEL_TRANSCRIPTION: Model for audio transcription (default: gpt-4o-mini-transcribe)
+ * - OPENAI_MODEL_INSIGHTS: Model for extracting insights from transcription (default: gpt-4o)
+ */
+const DEFAULT_MODEL_TRANSCRIPTION = "gpt-4o-mini-transcribe";
+const DEFAULT_MODEL_INSIGHTS = "gpt-4o";
+
+/**
+ * Get AI config from database with fallback to env vars
+ */
+async function getAIConfig(
+  ctx: ActionCtx,
+  feature: "voice_transcription" | "voice_insights",
+  organizationId?: string
+): Promise<{
+  modelId: string;
+  maxTokens?: number;
+  temperature?: number;
+}> {
+  // Try to get config from database
+  try {
+    const dbConfig = await ctx.runQuery(
+      internal.models.aiModelConfig.getConfigForFeatureInternal,
+      { feature, organizationId }
+    );
+
+    if (dbConfig) {
+      return {
+        modelId: dbConfig.modelId,
+        maxTokens: dbConfig.maxTokens,
+        temperature: dbConfig.temperature,
+      };
+    }
+  } catch (error) {
+    console.warn(
+      `Failed to get AI config from database for ${feature}, using fallback:`,
+      error
+    );
+  }
+
+  // Fallback to environment variables
+  if (feature === "voice_transcription") {
+    return {
+      modelId:
+        process.env.OPENAI_MODEL_TRANSCRIPTION || DEFAULT_MODEL_TRANSCRIPTION,
+    };
+  }
+
+  return {
+    modelId: process.env.OPENAI_MODEL_INSIGHTS || DEFAULT_MODEL_INSIGHTS,
+  };
+}
 
 // Schema for AI-extracted insights
 const insightSchema = z.object({
@@ -28,7 +89,7 @@ const insightSchema = z.object({
           .string()
           .nullable()
           .describe(
-            "Category: injury, skill_rating, skill_progress, behavior, performance, attendance, team_culture. Use 'skill_rating' when the coach mentions a specific skill rating (e.g., 'hand_pass is now 4/5' or 'ball_control improved to rating 3')."
+            "Category: injury, skill_rating, skill_progress, behavior, performance, attendance, team_culture, todo. Use 'skill_rating' when the coach mentions a specific skill rating (e.g., 'hand_pass is now 4/5'). Use 'todo' for action items the coach needs to do (e.g., 'need to order cones', 'schedule parent meeting', 'book pitch')."
           ),
         recommendedUpdate: z
           .string()
@@ -90,11 +151,14 @@ export const transcribeAudio = internalAction({
       }
       const audioBuffer = Buffer.from(await audioResponse.arrayBuffer());
 
+      // Get model config from database with fallback
+      const config = await getAIConfig(ctx, "voice_transcription", note.orgId);
+
       // Transcribe with OpenAI
       const client = getOpenAI();
       const file = await OpenAI.toFile(audioBuffer, "voice-note.webm");
       const transcription = await client.audio.transcriptions.create({
-        model: "gpt-4o-mini-transcribe",
+        model: config.modelId,
         file,
       });
 
@@ -166,11 +230,18 @@ export const buildInsights = internalAction({
         status: "processing",
       });
 
-      // Get players for context (using identity system)
-      const players = await ctx.runQuery(
-        internal.models.orgPlayerEnrollments.getPlayersForOrgInternal,
-        { organizationId: note.orgId }
-      );
+      // Get players for context (scoped to coach's assigned teams)
+      // This ensures voice note matching only considers players the coach actually works with
+      const players = note.coachId
+        ? await ctx.runQuery(
+            internal.models.orgPlayerEnrollments
+              .getPlayersForCoachTeamsInternal,
+            { organizationId: note.orgId, coachUserId: note.coachId }
+          )
+        : await ctx.runQuery(
+            internal.models.orgPlayerEnrollments.getPlayersForOrgInternal,
+            { organizationId: note.orgId }
+          );
 
       // Build roster context for AI
       const rosterContext = players.length
@@ -184,10 +255,13 @@ export const buildInsights = internalAction({
             .join("\n")
         : "No roster context provided.";
 
+      // Get model config from database with fallback
+      const config = await getAIConfig(ctx, "voice_insights", note.orgId);
+
       // Call OpenAI to extract insights
       const client = getOpenAI();
       const response = await client.responses.create({
-        model: "gpt-4o",
+        model: config.modelId,
         input: [
           {
             role: "system",
@@ -201,16 +275,21 @@ Your task is to:
 2. Extract specific insights about individual players or the team
 3. Match player names to the roster when possible
 4. Categorize insights:
-   - injury: physical injuries, knocks, strains
-   - skill_rating: when coach mentions a specific numeric rating/score for a skill (e.g., "set to 3", "rating 4/5", "improved to level 4")
-   - skill_progress: general skill improvement comments without specific numeric ratings
-   - behavior: attitude, effort, teamwork
-   - performance: match/training performance observations
-   - attendance: presence/absence at sessions
-   - team_culture: team morale, culture, collective behavior
+   - injury: physical injuries, knocks, strains (PLAYER-SPECIFIC)
+   - skill_rating: when coach mentions a specific numeric rating/score for a skill (PLAYER-SPECIFIC)
+   - skill_progress: general skill improvement comments without specific numeric ratings (PLAYER-SPECIFIC)
+   - behavior: attitude, effort, teamwork issues (PLAYER-SPECIFIC)
+   - performance: match/training performance observations (PLAYER-SPECIFIC)
+   - attendance: presence/absence at sessions (PLAYER-SPECIFIC)
+   - team_culture: team morale, culture, collective behavior (TEAM-WIDE, no player)
+   - todo: action items the coach needs to do - NOT about players (e.g., "order new cones", "book pitch", "schedule parent meeting", "prepare training plan")
 5. Suggest concrete actions the coach should take
 
-IMPORTANT for skill_rating: When the coach mentions setting or updating a skill to a specific number (1-5), use category "skill_rating" and include the rating number in the recommendedUpdate field like "Set to 3/5" or "Rating: 4".
+CATEGORIZATION RULES:
+- If it's about a specific player → must have playerName
+- If it's about the whole team → use team_culture, playerName should be null
+- If it's a task/action for the coach to do → use todo, playerName should be null
+- skill_rating: include the rating number in recommendedUpdate (e.g., "Set to 3/5")
 
 Team Roster:
 ${rosterContext}
@@ -218,7 +297,7 @@ ${rosterContext}
 Important:
 - Always try to match mentioned player names to the roster and include their exact ID
 - If a player name doesn't match the roster exactly, still extract the insight with the playerName field
-- Include insights about the whole team with playerName and playerId as null
+- For team_culture and todo categories, playerName and playerId should be null
 - Be specific and actionable in your recommendations`,
               },
             ],
@@ -271,6 +350,60 @@ Important:
         insights: resolvedInsights,
         status: "completed",
       });
+
+      // Log summary of matching results
+      const matchedCount = resolvedInsights.filter(
+        (i) => i.playerIdentityId
+      ).length;
+      const unmatchedCount = resolvedInsights.filter(
+        (i) => !i.playerIdentityId && i.playerName
+      ).length;
+      console.log(
+        `[Voice Note ${args.noteId}] Insights: ${resolvedInsights.length} total, ${matchedCount} matched to players, ${unmatchedCount} unmatched with names`
+      );
+
+      // Check if parent summaries are enabled for this coach
+      const parentSummariesEnabled = await ctx.runQuery(
+        internal.models.coachTrustLevels.isParentSummariesEnabled,
+        {
+          coachId: note.coachId || "",
+          organizationId: note.orgId,
+        }
+      );
+
+      // Schedule parent summary generation for each insight with a player
+      // Phase 3: Injury and behavior categories now flow through with manual review required
+      if (parentSummariesEnabled) {
+        for (const insight of resolvedInsights) {
+          if (insight.playerIdentityId) {
+            console.log(
+              `[Parent Summary] Scheduling: "${insight.title}" for player ${insight.playerName} (category: ${insight.category})`
+            );
+            await ctx.scheduler.runAfter(
+              0,
+              internal.actions.coachParentSummaries.processVoiceNoteInsight,
+              {
+                voiceNoteId: args.noteId,
+                insightId: insight.id,
+                insightTitle: insight.title,
+                insightDescription: insight.description,
+                playerIdentityId: insight.playerIdentityId,
+                organizationId: note.orgId,
+                coachId: note.coachId || undefined,
+              }
+            );
+          } else if (insight.playerName) {
+            // Log insights that have a player name but couldn't be matched
+            console.warn(
+              `[Parent Summary] ⚠️ SKIPPED: "${insight.title}" - player "${insight.playerName}" not matched to team. No parent summary will be created.`
+            );
+          }
+        }
+      } else {
+        console.log(
+          `[Parent Summary] ⚠️ DISABLED: Coach has disabled parent summaries. ${resolvedInsights.filter((i) => i.playerIdentityId).length} insights will be captured without parent summaries.`
+        );
+      }
     } catch (error) {
       console.error("Failed to build insights:", error);
       await ctx.runMutation(internal.models.voiceNotes.updateInsights, {
@@ -309,7 +442,12 @@ function findMatchingPlayer(
   insight: z.infer<typeof insightSchema>["insights"][number],
   players: PlayerFromOrg[]
 ): PlayerFromOrg | undefined {
+  const searchName = insight.playerName;
+
   if (!players.length) {
+    console.log(
+      `[Player Matching] No players in roster to match against for insight: "${insight.title}"`
+    );
     return;
   }
 
@@ -319,20 +457,28 @@ function findMatchingPlayer(
       (player) => player.playerIdentityId === insight.playerId
     );
     if (matchById) {
+      console.log(
+        `[Player Matching] ✅ Matched by ID: ${matchById.name} (${insight.playerId})`
+      );
       return matchById;
     }
+    console.log(
+      `[Player Matching] ID "${insight.playerId}" not found in roster`
+    );
   }
 
   // Try to match by name
-  const name = insight.playerName;
-  if (name !== null && typeof name === "string") {
-    const normalizedSearch = name.toLowerCase().trim();
+  if (searchName !== null && typeof searchName === "string") {
+    const normalizedSearch = searchName.toLowerCase().trim();
 
-    // Exact match
+    // Exact full name match
     const exactMatch = players.find(
       (player) => player.name.toLowerCase() === normalizedSearch
     );
     if (exactMatch) {
+      console.log(
+        `[Player Matching] ✅ Exact match: "${searchName}" → ${exactMatch.name}`
+      );
       return exactMatch;
     }
 
@@ -342,27 +488,147 @@ function findMatchingPlayer(
       return fullName === normalizedSearch;
     });
     if (nameMatch) {
+      console.log(
+        `[Player Matching] ✅ Full name match: "${searchName}" → ${nameMatch.name}`
+      );
       return nameMatch;
     }
 
-    // First name only match (for shorter references like "Liam")
-    const firstNameMatch = players.find(
+    // First name only match - check for duplicates!
+    const firstNameMatches = players.filter(
       (player) => player.firstName.toLowerCase() === normalizedSearch
     );
-    if (firstNameMatch) {
-      return firstNameMatch;
+    if (firstNameMatches.length === 1) {
+      console.log(
+        `[Player Matching] ✅ First name match: "${searchName}" → ${firstNameMatches[0].name}`
+      );
+      return firstNameMatches[0];
+    }
+    if (firstNameMatches.length > 1) {
+      // Multiple players with same first name - log and skip (ambiguous)
+      console.warn(
+        `[Player Matching] ⚠️ AMBIGUOUS: "${searchName}" matches ${firstNameMatches.length} players: ${firstNameMatches.map((p) => `${p.name} (${p.ageGroup})`).join(", ")}. Skipping match - please use full name.`
+      );
+      // Don't return - let it fall through to partial match or fail
     }
 
-    // Partial match (name contains the search term)
-    const partialMatch = players.find(
+    // Partial match (name contains the search term) - also check for duplicates
+    const partialMatches = players.filter(
       (player) =>
         player.name.toLowerCase().includes(normalizedSearch) ||
         normalizedSearch.includes(player.name.toLowerCase())
     );
-    if (partialMatch) {
-      return partialMatch;
+    if (partialMatches.length === 1) {
+      console.log(
+        `[Player Matching] ✅ Partial match: "${searchName}" → ${partialMatches[0].name}`
+      );
+      return partialMatches[0];
     }
+    if (partialMatches.length > 1) {
+      console.warn(
+        `[Player Matching] ⚠️ AMBIGUOUS partial: "${searchName}" matches ${partialMatches.length} players: ${partialMatches.map((p) => p.name).join(", ")}. Skipping.`
+      );
+    }
+
+    // No match found - log helpful debug info
+    console.warn(
+      `[Player Matching] ❌ No match for "${searchName}". Roster has ${players.length} players: ${players
+        .slice(0, 10)
+        .map((p) => p.firstName)
+        .join(", ")}${players.length > 10 ? "..." : ""}`
+    );
+  } else {
+    console.log(
+      `[Player Matching] No player name provided for insight: "${insight.title}"`
+    );
   }
 
   return;
 }
+
+/**
+ * AI fallback to correct player name in insight text
+ * Called when pattern matching fails to find the wrong name
+ * Uses GPT to intelligently rewrite the text with the correct name
+ */
+export const correctInsightPlayerName = internalAction({
+  args: {
+    noteId: v.id("voiceNotes"),
+    insightId: v.string(),
+    wrongName: v.string(),
+    correctName: v.string(),
+    originalTitle: v.string(),
+    originalDescription: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    console.log(
+      `[AI Name Correction] Starting for "${args.wrongName}" -> "${args.correctName}"`
+    );
+
+    const openai = getOpenAI();
+
+    const prompt = `You are correcting a player name in sports coaching feedback.
+
+The voice transcription incorrectly heard the player's name as "${args.wrongName}" but the correct name is "${args.correctName}".
+
+Please rewrite the following text, replacing any instance of the wrong name (or similar variations) with the correct name. Keep everything else exactly the same.
+
+Title: ${args.originalTitle}
+Description: ${args.originalDescription}
+
+Respond in JSON format:
+{
+  "title": "corrected title with correct player name",
+  "description": "corrected description with correct player name",
+  "wasModified": true/false (whether any changes were made)
+}`;
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_tokens: 500,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        console.error("[AI Name Correction] No response from AI");
+        return null;
+      }
+
+      const result = JSON.parse(content);
+
+      if (result.wasModified) {
+        console.log(
+          `[AI Name Correction] Successfully corrected: "${args.originalTitle}" -> "${result.title}"`
+        );
+
+        // Update the insight in the database
+        await ctx.runMutation(
+          internal.models.voiceNotes.updateInsightContentInternal,
+          {
+            noteId: args.noteId,
+            insightId: args.insightId,
+            title: result.title,
+            description: result.description,
+          }
+        );
+      } else {
+        console.log(
+          `[AI Name Correction] AI found no changes needed for "${args.originalTitle}"`
+        );
+      }
+    } catch (error) {
+      console.error("[AI Name Correction] Error:", error);
+    }
+
+    return null;
+  },
+});

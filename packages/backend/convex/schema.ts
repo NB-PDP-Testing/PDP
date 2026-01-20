@@ -835,22 +835,49 @@ export default defineSchema({
     completed: v.boolean(),
   }),
 
-  // Coach tasks - personal task management for coaches
+  // Coach tasks - personal and team task management for coaches
   coachTasks: defineTable({
     text: v.string(), // Task description
     completed: v.boolean(),
-    coachEmail: v.string(), // Coach's email (from Better Auth user)
     organizationId: v.string(), // Org scope
+
+    // Assignment - who the task is assigned to
+    assignedToUserId: v.string(), // Better Auth user ID of assigned coach
+    assignedToName: v.optional(v.string()), // Denormalized name for display
+    createdByUserId: v.string(), // Better Auth user ID of task creator
+
+    // Legacy field - keep for backward compatibility during migration
+    coachEmail: v.optional(v.string()), // Deprecated: Coach's email
+
+    // Task metadata
     priority: v.optional(
       v.union(v.literal("low"), v.literal("medium"), v.literal("high"))
     ),
     dueDate: v.optional(v.number()), // Timestamp
+
+    // Source tracking - where did this task come from?
+    source: v.union(v.literal("manual"), v.literal("voice_note")),
+    voiceNoteId: v.optional(v.id("voiceNotes")), // If created from voice note
+    insightId: v.optional(v.string()), // Insight ID within the voice note
+
+    // Player linking - optional association with a player
+    playerIdentityId: v.optional(v.id("orgPlayerEnrollments")),
+    playerName: v.optional(v.string()), // Denormalized for display
+
+    // Team scope - if set, this is a team task visible to all team members
+    teamId: v.optional(v.string()), // Better Auth team ID for team tasks
+
+    // Timestamps
     createdAt: v.number(),
     completedAt: v.optional(v.number()),
   })
-    .index("by_coach_and_org", ["coachEmail", "organizationId"])
+    .index("by_assigned_user_and_org", ["assignedToUserId", "organizationId"])
+    .index("by_team_and_org", ["teamId", "organizationId"])
     .index("by_org", ["organizationId"])
-    .index("by_completed", ["completed"]),
+    .index("by_completed", ["completed"])
+    .index("by_voice_note", ["voiceNoteId"])
+    // Legacy index for migration period
+    .index("by_coach_and_org", ["coachEmail", "organizationId"]),
 
   // Coach assignments - stores team/age group assignments for coaches
   coachAssignments: defineTable({
@@ -1366,6 +1393,13 @@ export default defineSchema({
           v.literal("dismissed")
         ),
         appliedDate: v.optional(v.string()),
+        // Team/TODO classification fields
+        teamId: v.optional(v.string()), // For team_culture insights
+        teamName: v.optional(v.string()),
+        assigneeUserId: v.optional(v.string()), // For todo insights
+        assigneeName: v.optional(v.string()),
+        // Task linking - set when TODO insight creates a task
+        linkedTaskId: v.optional(v.id("coachTasks")),
       })
     ),
     insightsStatus: v.optional(
@@ -1590,6 +1624,151 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_org", ["organizationId"]),
+
+  // AI-generated parent summaries from coach voice notes
+  // Coach reviews and approves summaries before they reach parents
+  coachParentSummaries: defineTable({
+    // Source references
+    voiceNoteId: v.id("voiceNotes"),
+    insightId: v.string(), // ID of the insight within the voiceNote
+
+    // Context
+    coachId: v.string(), // Better Auth user ID
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(), // Better Auth organization ID
+    sportId: v.id("sports"),
+
+    // Private coach insight (not shown to parents)
+    privateInsight: v.object({
+      title: v.string(),
+      description: v.string(),
+      category: v.string(), // e.g., "Skill Development", "Tactical Awareness"
+      sentiment: v.union(
+        v.literal("positive"),
+        v.literal("neutral"),
+        v.literal("concern")
+      ),
+    }),
+
+    // Public parent-friendly summary
+    publicSummary: v.object({
+      content: v.string(), // AI-generated parent-friendly text
+      confidenceScore: v.number(), // 0-1, how confident AI is in the summary
+      generatedAt: v.number(),
+    }),
+
+    // Sensitivity classification
+    sensitivityCategory: v.union(
+      v.literal("normal"), // Standard feedback
+      v.literal("injury"), // Injury-related, requires manual review
+      v.literal("behavior") // Behavioral concern, requires manual review
+    ),
+    sensitivityReason: v.optional(v.string()), // AI explanation for classification
+    sensitivityConfidence: v.optional(v.number()), // 0-1, AI confidence in classification
+
+    // Workflow status
+    status: v.union(
+      v.literal("pending_review"), // Awaiting coach approval
+      v.literal("approved"), // Coach approved, ready for delivery
+      v.literal("suppressed"), // Coach chose not to share
+      v.literal("auto_approved"), // Auto-approved (not in phase 1)
+      v.literal("delivered"), // Delivered to parent
+      v.literal("viewed") // Parent has viewed
+    ),
+
+    // Timestamps
+    createdAt: v.number(),
+    approvedAt: v.optional(v.number()),
+    approvedBy: v.optional(v.string()), // Better Auth user ID
+    deliveredAt: v.optional(v.number()),
+    viewedAt: v.optional(v.number()),
+  })
+    .index("by_voiceNote", ["voiceNoteId"])
+    .index("by_player", ["playerIdentityId"])
+    .index("by_coach", ["coachId"])
+    .index("by_org_status", ["organizationId", "status"])
+    .index("by_org_player_sport", [
+      "organizationId",
+      "playerIdentityId",
+      "sportId",
+    ])
+    .index("by_coach_org_status", ["coachId", "organizationId", "status"])
+    .index("by_player_org_status", [
+      "playerIdentityId",
+      "organizationId",
+      "status",
+    ]),
+
+  // Track when parents view summaries
+  parentSummaryViews: defineTable({
+    summaryId: v.id("coachParentSummaries"),
+    guardianIdentityId: v.id("guardianIdentities"),
+    viewedAt: v.number(),
+    viewSource: v.union(
+      v.literal("dashboard"),
+      v.literal("notification_click"),
+      v.literal("direct_link")
+    ),
+  })
+    .index("by_summary", ["summaryId"])
+    .index("by_guardian", ["guardianIdentityId"]),
+
+  // Coach trust levels for AI summary automation
+  // Tracks coach reliability and determines automation level
+  // Level 0 (New): Manual review for all summaries
+  // Level 1 (Learning): Quick review with AI suggestions (10+ approvals)
+  // Level 2 (Trusted): Auto-approve normal, review sensitive (50+ approvals, <10% suppression)
+  // Level 3 (Expert): Full automation, requires opt-in (200+ approvals)
+  coachTrustLevels: defineTable({
+    // Identity
+    coachId: v.string(), // Better Auth user ID
+    organizationId: v.string(), // Better Auth organization ID
+
+    // Current trust state
+    currentLevel: v.number(), // 0-3, current automation level
+    preferredLevel: v.optional(v.number()), // 0-3, coach's max desired level (caps auto-upgrade)
+
+    // Feature toggles
+    parentSummariesEnabled: v.optional(v.boolean()), // Whether to generate parent summaries (default true)
+    skipSensitiveInsights: v.optional(v.boolean()), // Skip injury/behavior insights from parent summaries (default false)
+
+    // Metrics for calculating trust level
+    totalApprovals: v.number(), // Count of approved summaries
+    totalSuppressed: v.number(), // Count of suppressed summaries
+    consecutiveApprovals: v.number(), // Current streak of approvals (resets on suppress)
+
+    // Level change history
+    levelHistory: v.array(
+      v.object({
+        level: v.number(), // New level achieved
+        changedAt: v.number(), // Timestamp
+        reason: v.string(), // e.g., "Reached 50 approvals", "Coach opted down to level 1"
+      })
+    ),
+
+    // Activity tracking
+    lastActivityAt: v.optional(v.number()), // Last time metrics were updated
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_coach_org", ["coachId", "organizationId"])
+    .index("by_org", ["organizationId"]),
+
+  // Injury Approval Checklist Responses
+  // Audit trail for coach due diligence on injury-related summaries
+  // Tracks that coach personally observed injury, verified severity, and ensured no medical advice
+  injuryApprovalChecklist: defineTable({
+    summaryId: v.id("coachParentSummaries"), // Link to the summary
+    coachId: v.string(), // Better Auth user ID of approving coach
+
+    // Checklist responses (all must be true to approve)
+    personallyObserved: v.boolean(), // "I personally observed this injury"
+    severityAccurate: v.boolean(), // "The severity description is accurate"
+    noMedicalAdvice: v.boolean(), // "This contains no medical advice"
+
+    // Timestamp
+    completedAt: v.number(), // When checklist was completed
+  }).index("by_summary", ["summaryId"]),
 
   // Organization Deletion Requests
   // Requires platform staff approval before deletion is executed
@@ -2593,4 +2772,91 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_userId", ["userId"]),
+
+  // ============================================================
+  // AI MODEL CONFIGURATION
+  // Platform-level and per-organization AI model settings
+  // Managed by Platform Staff via /platform/ai-config
+  // ============================================================
+
+  aiModelConfig: defineTable({
+    // Feature identifier - which AI feature this config applies to
+    feature: v.union(
+      v.literal("voice_transcription"), // Audio to text (OpenAI)
+      v.literal("voice_insights"), // Extract insights from transcription (OpenAI)
+      v.literal("sensitivity_classification"), // Classify insight sensitivity (Anthropic)
+      v.literal("parent_summary"), // Generate parent-friendly summary (Anthropic)
+      v.literal("session_plan"), // Generate training session plans (Anthropic)
+      v.literal("recommendations"), // Coaching recommendations (Anthropic)
+      v.literal("comparison_insights") // Passport comparison analysis (Anthropic)
+    ),
+
+    // Scope: platform-wide default or organization-specific override
+    scope: v.union(v.literal("platform"), v.literal("organization")),
+    organizationId: v.optional(v.string()), // Required if scope is "organization"
+
+    // Provider and model configuration
+    provider: v.union(
+      v.literal("openai"),
+      v.literal("anthropic"),
+      v.literal("openrouter") // Future: unified gateway
+    ),
+    modelId: v.string(), // e.g., "gpt-4o", "claude-3-5-haiku-20241022"
+
+    // Model parameters
+    maxTokens: v.optional(v.number()),
+    temperature: v.optional(v.number()), // 0.0 - 1.0
+
+    // Status
+    isActive: v.boolean(),
+
+    // Audit trail
+    updatedBy: v.string(), // User ID of who made the change
+    updatedAt: v.number(),
+    notes: v.optional(v.string()), // E.g., "Testing sonnet for better quality"
+
+    createdAt: v.number(),
+  })
+    .index("by_feature", ["feature"])
+    .index("by_scope", ["scope"])
+    .index("by_feature_and_scope", ["feature", "scope"])
+    .index("by_feature_scope_org", ["feature", "scope", "organizationId"])
+    .index("by_organization", ["organizationId"]),
+
+  // AI Model Config Change Log - audit trail of all changes
+  aiModelConfigLog: defineTable({
+    configId: v.id("aiModelConfig"),
+    feature: v.string(),
+    action: v.union(
+      v.literal("created"),
+      v.literal("updated"),
+      v.literal("deactivated")
+    ),
+
+    // What changed
+    previousValue: v.optional(
+      v.object({
+        provider: v.optional(v.string()),
+        modelId: v.optional(v.string()),
+        maxTokens: v.optional(v.number()),
+        temperature: v.optional(v.number()),
+        isActive: v.optional(v.boolean()),
+      })
+    ),
+    newValue: v.object({
+      provider: v.string(),
+      modelId: v.string(),
+      maxTokens: v.optional(v.number()),
+      temperature: v.optional(v.number()),
+      isActive: v.boolean(),
+    }),
+
+    // Who and when
+    changedBy: v.string(), // User ID
+    changedAt: v.number(),
+    reason: v.optional(v.string()), // Why the change was made
+  })
+    .index("by_config", ["configId"])
+    .index("by_feature", ["feature"])
+    .index("by_changedAt", ["changedAt"]),
 });

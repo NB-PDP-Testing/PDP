@@ -11,18 +11,27 @@ You are an autonomous coding agent working on a software project.
    - Pay special attention to "Mistakes made" sections - don't repeat them!
    - Note any "Gotchas" relevant to your current story
    - Check if previous iteration left "What to do next" items for you
-3. **Review git history** - Run `git log --oneline -10` to see recent commits
+   - **Check for CODE REVIEW FEEDBACK** sections - fix any issues before continuing!
+3. **Review auto-extracted insights** - Check `insights/` folder for recent iteration files:
+   - Run `ls -t insights/ | head -3` to see latest insight files
+   - Read the most recent insight file to see tool usage, errors, and patterns
+   - These provide a quantitative view of what happened (files touched, errors hit, etc.)
+4. **Review git history** - Run `git log --oneline -10` to see recent commits
    - If picking up a partial story, read the commit message and diff
    - Use `git show [commit-hash]` to see what the previous iteration did
-4. **Check branch** - Verify you're on the correct branch from PRD `branchName`
-5. **Pick the highest priority story** where `passes: false`
+5. **Check branch** - Verify you're on the correct branch from PRD `branchName`
+6. **Address CODE REVIEW FEEDBACK first** - If progress.txt has a "CODE REVIEW FEEDBACK" section:
+   - This takes priority over picking up new stories
+   - Fix all listed issues before continuing with new work
+   - Document your fixes in progress.txt
+7. **Pick the highest priority story** where `passes: false`
    - If a story is marked "Partial", continue from where it left off
    - Read that story's progress entry for context
-6. **Implement the story** following patterns learned from progress.txt
-7. **Run quality checks** (typecheck, lint, browser testing for UI changes)
-8. **Commit if passing** with message: `feat: [Story ID] - [Story Title]`
-9. **Update PRD** to set `passes: true` for completed story
-10. **CRITICAL: Document learnings** in `progress.txt` (see format below)
+8. **Implement the story** following patterns learned from progress.txt
+9. **Run quality checks** (typecheck, lint, browser testing for UI changes)
+10. **Commit if passing** with message: `feat: [Story ID] - [Story Title]`
+11. **Update PRD** to set `passes: true` for completed story
+12. **CRITICAL: Document learnings** in `progress.txt` (see format below)
     - Include commit hash so future iterations can reference your work
     - Be detailed about patterns, gotchas, and mistakes
     - Think: "What would I want to know if I had to continue this work fresh?"

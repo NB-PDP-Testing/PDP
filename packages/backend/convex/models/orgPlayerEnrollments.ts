@@ -1,4 +1,6 @@
+import type { Doc as BetterAuthDoc } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -129,11 +131,12 @@ export const getEnrollmentsForOrg = query({
   },
   returns: v.array(enrollmentValidator),
   handler: async (ctx, args) => {
-    if (args.status) {
+    const status = args.status;
+    if (status) {
       return await ctx.db
         .query("orgPlayerEnrollments")
         .withIndex("by_org_and_status", (q) =>
-          q.eq("organizationId", args.organizationId).eq("status", args.status!)
+          q.eq("organizationId", args.organizationId).eq("status", status)
         )
         .collect();
     }
@@ -341,14 +344,15 @@ export const enrollPlayer = mutation({
 
     // Auto-create sport passport if sportCode provided
     let passportId = null;
-    if (args.sportCode) {
+    const sportCode = args.sportCode;
+    if (sportCode) {
       // Check if passport already exists for this player/sport
       const existingPassport = await ctx.db
         .query("sportPassports")
         .withIndex("by_player_and_sport", (q) =>
           q
             .eq("playerIdentityId", args.playerIdentityId)
-            .eq("sportCode", args.sportCode!)
+            .eq("sportCode", sportCode)
         )
         .first();
 
@@ -358,7 +362,7 @@ export const enrollPlayer = mutation({
         // Create new passport
         passportId = await ctx.db.insert("sportPassports", {
           playerIdentityId: args.playerIdentityId,
-          sportCode: args.sportCode,
+          sportCode,
           organizationId: args.organizationId,
           status: "active",
           assessmentCount: 0,
@@ -548,13 +552,14 @@ export const findOrCreateEnrollment = mutation({
     }
 
     // Handle passport if sportCode provided
-    if (args.sportCode) {
+    const enrollSportCode = args.sportCode;
+    if (enrollSportCode) {
       const existingPassport = await ctx.db
         .query("sportPassports")
         .withIndex("by_player_and_sport", (q) =>
           q
             .eq("playerIdentityId", args.playerIdentityId)
-            .eq("sportCode", args.sportCode!)
+            .eq("sportCode", enrollSportCode)
         )
         .first();
 
@@ -563,7 +568,7 @@ export const findOrCreateEnrollment = mutation({
       } else {
         passportId = await ctx.db.insert("sportPassports", {
           playerIdentityId: args.playerIdentityId,
-          sportCode: args.sportCode,
+          sportCode: enrollSportCode,
           organizationId: args.organizationId,
           status: "active",
           assessmentCount: 0,
@@ -707,6 +712,330 @@ export const getPlayersForOrgInternal = internalQuery({
 });
 
 /**
+ * Internal query to get players for a coach's assigned teams (used by AI actions)
+ * This ensures voice note insights only match against players the coach actually works with
+ */
+export const getPlayersForCoachTeamsInternal = internalQuery({
+  args: {
+    organizationId: v.string(),
+    coachUserId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("playerIdentities"),
+      playerIdentityId: v.id("playerIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      name: v.string(),
+      ageGroup: v.string(),
+      sport: v.union(v.string(), v.null()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // 1. Get coach's assigned teams
+    const coachAssignment = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_user_and_org", (q) =>
+        q
+          .eq("userId", args.coachUserId)
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    if (!coachAssignment || coachAssignment.teams.length === 0) {
+      console.log(
+        `[getPlayersForCoachTeamsInternal] No teams assigned for coach ${args.coachUserId} in org ${args.organizationId}`
+      );
+      // Fallback to all org players if no specific team assignments
+      const enrollments = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_org_and_status", (q) =>
+          q.eq("organizationId", args.organizationId).eq("status", "active")
+        )
+        .collect();
+
+      const results = [];
+      for (const enrollment of enrollments) {
+        const player = await ctx.db.get(enrollment.playerIdentityId);
+        if (!player) {
+          continue;
+        }
+
+        const passport = await ctx.db
+          .query("sportPassports")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", enrollment.playerIdentityId)
+          )
+          .first();
+
+        results.push({
+          _id: player._id,
+          playerIdentityId: player._id,
+          firstName: player.firstName,
+          lastName: player.lastName,
+          name: `${player.firstName} ${player.lastName}`,
+          ageGroup: enrollment.ageGroup,
+          sport: passport?.sportCode ?? null,
+        });
+      }
+      return results;
+    }
+
+    // 2. Get all players on coach's assigned teams
+    const playerIdentityIds = new Set<Id<"playerIdentities">>();
+    for (const teamId of coachAssignment.teams) {
+      const teamMembers = await ctx.db
+        .query("teamPlayerIdentities")
+        .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
+        .filter((q) => q.eq(q.field("status"), "active"))
+        .collect();
+
+      for (const member of teamMembers) {
+        playerIdentityIds.add(member.playerIdentityId);
+      }
+    }
+
+    console.log(
+      `[getPlayersForCoachTeamsInternal] Coach ${args.coachUserId} has ${coachAssignment.teams.length} teams with ${playerIdentityIds.size} unique players`
+    );
+
+    // 3. Get player details and enrollment info
+    const results = [];
+    for (const playerId of playerIdentityIds) {
+      const player = await ctx.db.get(playerId);
+      if (!player) {
+        continue;
+      }
+
+      // Get enrollment for ageGroup
+      const enrollment = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_player_and_org", (q) =>
+          q
+            .eq("playerIdentityId", playerId)
+            .eq("organizationId", args.organizationId)
+        )
+        .first();
+
+      if (!enrollment || enrollment.status !== "active") {
+        continue;
+      }
+
+      // Get sport from passport
+      const passport = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .first();
+
+      results.push({
+        _id: player._id,
+        playerIdentityId: player._id,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        name: `${player.firstName} ${player.lastName}`,
+        ageGroup: enrollment.ageGroup,
+        sport: passport?.sportCode ?? null,
+      });
+    }
+
+    return results;
+  },
+});
+
+/**
+ * Public query to get players for a coach's assigned teams
+ * Returns the same format as getPlayersForOrg for UI compatibility
+ */
+export const getPlayersForCoachTeams = query({
+  args: {
+    organizationId: v.string(),
+    coachUserId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("playerIdentities"),
+      name: v.string(),
+      firstName: v.string(),
+      lastName: v.string(),
+      dateOfBirth: v.string(),
+      gender: v.union(
+        v.literal("male"),
+        v.literal("female"),
+        v.literal("other")
+      ),
+      ageGroup: v.optional(v.string()),
+      season: v.optional(v.string()),
+      sportCode: v.optional(v.string()),
+      playerIdentityId: v.id("playerIdentities"),
+      enrollmentId: v.id("orgPlayerEnrollments"),
+      organizationId: v.string(),
+      enrollment: v.any(),
+      player: v.any(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // 1. Get coach's assigned teams
+    const coachAssignment = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_user_and_org", (q) =>
+        q
+          .eq("userId", args.coachUserId)
+          .eq("organizationId", args.organizationId)
+      )
+      .first();
+
+    // If no specific team assignments, fallback to all org players
+    if (!coachAssignment || coachAssignment.teams.length === 0) {
+      const enrollmentsQuery = ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_org_and_status", (q) =>
+          q.eq("organizationId", args.organizationId).eq("status", "active")
+        );
+
+      const enrollments = await enrollmentsQuery.collect();
+      const results = [];
+
+      for (const enrollment of enrollments) {
+        const player = await ctx.db.get(enrollment.playerIdentityId);
+        if (player) {
+          const passports = await ctx.db
+            .query("sportPassports")
+            .withIndex("by_playerIdentityId", (q) =>
+              q.eq("playerIdentityId", enrollment.playerIdentityId)
+            )
+            .collect();
+
+          const activePassport = passports.find((p) => p.status === "active");
+
+          results.push({
+            _id: player._id,
+            name: `${player.firstName} ${player.lastName}`,
+            firstName: player.firstName,
+            lastName: player.lastName,
+            dateOfBirth: player.dateOfBirth,
+            gender: player.gender,
+            ageGroup: enrollment.ageGroup,
+            season: enrollment.season,
+            sportCode: activePassport?.sportCode,
+            playerIdentityId: player._id,
+            enrollmentId: enrollment._id,
+            organizationId: enrollment.organizationId,
+            enrollment,
+            player,
+          });
+        }
+      }
+      return results;
+    }
+
+    // 2. Get all players on coach's assigned teams
+    // First, resolve team values to actual IDs (supports both old name-based and new ID-based assignments)
+    const allTeamsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "team",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const allTeams = allTeamsResult.page as BetterAuthDoc<"team">[];
+
+    // Create maps for both ID and name lookups
+    const teamByIdMap = new Map(
+      allTeams.map((team) => [String(team._id), team])
+    );
+    const teamByNameMap = new Map(allTeams.map((team) => [team.name, team]));
+
+    // Resolve team values to actual IDs
+    const resolvedTeamIds: string[] = [];
+    for (const teamValue of coachAssignment.teams) {
+      // Try to find by ID first (new format), then by name (old format)
+      const team = teamByIdMap.get(teamValue) || teamByNameMap.get(teamValue);
+      if (team) {
+        resolvedTeamIds.push(String(team._id));
+      }
+    }
+
+    const playerIdentityIds = new Set<Id<"playerIdentities">>();
+    for (const teamId of resolvedTeamIds) {
+      const teamMembers = await ctx.db
+        .query("teamPlayerIdentities")
+        .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
+        .filter((q) => q.eq(q.field("status"), "active"))
+        .collect();
+
+      for (const member of teamMembers) {
+        playerIdentityIds.add(member.playerIdentityId);
+      }
+    }
+
+    // 3. Get player details and enrollment info
+    const results = [];
+    for (const playerId of playerIdentityIds) {
+      const player = await ctx.db.get(playerId);
+      if (!player) {
+        continue;
+      }
+
+      // Get enrollment for ageGroup
+      const enrollment = await ctx.db
+        .query("orgPlayerEnrollments")
+        .withIndex("by_player_and_org", (q) =>
+          q
+            .eq("playerIdentityId", playerId)
+            .eq("organizationId", args.organizationId)
+        )
+        .first();
+
+      if (!enrollment || enrollment.status !== "active") {
+        continue;
+      }
+
+      // Get sport from passport
+      const passports = await ctx.db
+        .query("sportPassports")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .collect();
+
+      const activePassport = passports.find((p) => p.status === "active");
+
+      results.push({
+        _id: player._id,
+        name: `${player.firstName} ${player.lastName}`,
+        firstName: player.firstName,
+        lastName: player.lastName,
+        dateOfBirth: player.dateOfBirth,
+        gender: player.gender,
+        ageGroup: enrollment.ageGroup,
+        season: enrollment.season,
+        sportCode: activePassport?.sportCode,
+        playerIdentityId: player._id,
+        enrollmentId: enrollment._id,
+        organizationId: enrollment.organizationId,
+        enrollment,
+        player,
+      });
+    }
+
+    return results;
+  },
+});
+
+/**
  * Internal mutation to update review statuses based on due dates
  * Called daily by cron job to mark reviews as overdue or due soon
  */
@@ -747,7 +1076,7 @@ export const updateReviewStatuses = internalMutation({
       // Check if overdue (due date is in the past)
       if (nextDue < todayStr && enrollment.reviewStatus !== "Overdue") {
         newStatus = "Overdue";
-        overdue++;
+        overdue += 1;
       }
       // Check if due soon (within next 7 days)
       else if (
@@ -756,7 +1085,7 @@ export const updateReviewStatuses = internalMutation({
         enrollment.reviewStatus !== "Due Soon"
       ) {
         newStatus = "Due Soon";
-        dueSoon++;
+        dueSoon += 1;
       }
 
       // Update if status needs to change
@@ -765,7 +1094,7 @@ export const updateReviewStatuses = internalMutation({
           reviewStatus: newStatus,
           updatedAt: Date.now(),
         });
-        updated++;
+        updated += 1;
       }
     }
 

@@ -39,7 +39,9 @@ export function PlayerSearchCard({
   const { data: organizations } = authClient.useListOrganizations();
 
   const orgNames = useMemo(() => {
-    if (!organizations) return "";
+    if (!organizations) {
+      return "";
+    }
     const nameMap = new Map(organizations.map((org) => [org.id, org.name]));
     return player.organizationIds.map((id) => nameMap.get(id) || id).join(", ");
   }, [organizations, player.organizationIds]);

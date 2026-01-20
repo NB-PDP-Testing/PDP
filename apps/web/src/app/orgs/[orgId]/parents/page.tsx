@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   CheckCircle,
@@ -120,28 +120,48 @@ function ParentDashboardContent() {
     }
   };
 
-  // Handle dialog dismissal (user clicks "This Isn't Me" or X button)
-  const handleDismiss = () => {
-    if (!currentClaimable) {
+  // Mutation to decline guardian-player links
+  const declineGuardianPlayerLink = useMutation(
+    api.models.guardianPlayerLinks.declineGuardianPlayerLink
+  );
+
+  // Handle dialog dismissal (user clicks "This Isn't Me")
+  const handleDismiss = async () => {
+    if (!(currentClaimable && session?.user?.id)) {
       return;
     }
 
-    // Add this identity to the dismissed list
-    const newDismissedIds = new Set(dismissedIdentityIds);
-    newDismissedIds.add(currentClaimable.guardianIdentity._id);
-    setDismissedIdentityIds(newDismissedIds);
+    try {
+      // Decline all children in this guardian identity
+      for (const child of currentClaimable.children) {
+        await declineGuardianPlayerLink({
+          guardianIdentityId: currentClaimable.guardianIdentity._id,
+          playerIdentityId: child.playerIdentityId,
+          userId: session.user.id,
+        });
+      }
 
-    // Move to next claimable identity if there are more
-    if (
-      claimableIdentities &&
-      currentClaimIndex < claimableIdentities.length - 1
-    ) {
-      setCurrentClaimIndex(currentClaimIndex + 1);
-      setShowClaimDialog(true);
-    } else {
-      // No more identities to show - close dialog
+      // Add this identity to the dismissed list (for immediate UI update)
+      const newDismissedIds = new Set(dismissedIdentityIds);
+      newDismissedIds.add(currentClaimable.guardianIdentity._id);
+      setDismissedIdentityIds(newDismissedIds);
+
+      // Move to next claimable identity if there are more
+      if (
+        claimableIdentities &&
+        currentClaimIndex < claimableIdentities.length - 1
+      ) {
+        setCurrentClaimIndex(currentClaimIndex + 1);
+        setShowClaimDialog(true);
+      } else {
+        // No more identities to show - close dialog
+        setShowClaimDialog(false);
+        setCurrentClaimIndex(0);
+      }
+    } catch (error) {
+      console.error("Failed to decline guardian connection:", error);
+      // Still close the dialog even if backend call fails
       setShowClaimDialog(false);
-      setCurrentClaimIndex(0);
     }
   };
 

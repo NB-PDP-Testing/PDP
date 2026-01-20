@@ -2,6 +2,13 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "../_generated/server";
 
 // ============================================================
+// CONSTANTS
+// ============================================================
+
+// Regex for splitting names by whitespace
+const NAME_SPLIT_REGEX = /\s+/;
+
+// ============================================================
 // TYPE DEFINITIONS
 // ============================================================
 
@@ -24,6 +31,7 @@ const guardianPlayerLinkValidator = v.object({
   hasParentalResponsibility: v.boolean(),
   canCollectFromTraining: v.boolean(),
   consentedToSharing: v.boolean(),
+  declinedByUserId: v.optional(v.string()),
   createdAt: v.number(),
   updatedAt: v.number(),
   verifiedAt: v.optional(v.number()),
@@ -430,6 +438,62 @@ export const updateLinkConsent = mutation({
 });
 
 /**
+ * Decline a guardian-player link (user clicked "This Isn't Me")
+ */
+export const declineGuardianPlayerLink = mutation({
+  args: {
+    guardianIdentityId: v.id("guardianIdentities"),
+    playerIdentityId: v.id("playerIdentities"),
+    userId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const link = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian_and_player", (q) =>
+        q
+          .eq("guardianIdentityId", args.guardianIdentityId)
+          .eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (!link) {
+      throw new Error("Guardian-player link not found");
+    }
+
+    await ctx.db.patch(link._id, {
+      declinedByUserId: args.userId,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Reset a declined guardian-player link (clear declined status)
+ */
+export const resetDeclinedLink = mutation({
+  args: {
+    linkId: v.id("guardianPlayerLinks"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const link = await ctx.db.get(args.linkId);
+    if (!link) {
+      throw new Error("Guardian-player link not found");
+    }
+
+    await ctx.db.patch(args.linkId, {
+      declinedByUserId: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
  * Verify a guardian-player link
  */
 export const verifyLink = mutation({
@@ -607,7 +671,7 @@ export const linkPlayersToGuardian = mutation({
         updatedAt: Date.now(),
       });
 
-      linked++;
+      linked += 1;
     }
 
     return {
@@ -682,7 +746,7 @@ export const unlinkPlayersFromGuardian = mutation({
         }
       }
 
-      unlinked++;
+      unlinked += 1;
     }
 
     return { unlinked, errors };
@@ -999,7 +1063,10 @@ export const getSmartMatchesForGuardian = query({
         const playerLastName = player.lastName.toLowerCase();
 
         for (const child of childrenData) {
-          const nameParts = child.name.trim().toLowerCase().split(/\s+/);
+          const nameParts = child.name
+            .trim()
+            .toLowerCase()
+            .split(NAME_SPLIT_REGEX);
           const childFirstName = nameParts[0] || "";
           const childLastName = nameParts.length > 1 ? nameParts.at(-1) : "";
 

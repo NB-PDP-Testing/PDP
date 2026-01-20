@@ -80,6 +80,7 @@ export const getGuardianRelationshipsForOrg = query({
           isPrimary: link.isPrimary,
           verificationStatus: guardian.verificationStatus,
           userAccount,
+          declinedByUserId: link.declinedByUserId,
           createdAt: guardian.createdAt,
         });
       }
@@ -94,6 +95,7 @@ export const getGuardianRelationshipsForOrg = query({
         guardians,
         guardianCount: guardians.length,
         claimedCount: guardians.filter((g) => g.userAccount?.hasAccount).length,
+        declinedCount: guardians.filter((g) => g.declinedByUserId).length,
       });
     }
 
@@ -113,6 +115,7 @@ export const getGuardianStatsForOrg = query({
     totalGuardianLinks: v.number(),
     claimedAccounts: v.number(),
     pendingAccounts: v.number(),
+    declinedAccounts: v.number(),
     playersWithoutGuardians: v.number(),
     guardiansWithMissingEmail: v.number(),
     guardiansWithMissingPhone: v.number(),
@@ -132,6 +135,7 @@ export const getGuardianStatsForOrg = query({
       totalGuardianLinks: 0,
       claimedAccounts: 0,
       pendingAccounts: 0,
+      declinedAccounts: 0,
       playersWithoutGuardians: 0,
       guardiansWithMissingEmail: 0,
       guardiansWithMissingPhone: 0,
@@ -150,12 +154,17 @@ export const getGuardianStatsForOrg = query({
         .collect();
 
       if (guardianLinks.length === 0) {
-        stats.playersWithoutGuardians++;
+        stats.playersWithoutGuardians += 1;
       }
 
       stats.totalGuardianLinks += guardianLinks.length;
 
       for (const link of guardianLinks) {
+        // Count declined links
+        if (link.declinedByUserId) {
+          stats.declinedAccounts += 1;
+        }
+
         const guardian = await ctx.db.get(link.guardianIdentityId);
         if (!guardian) {
           continue;
@@ -166,9 +175,9 @@ export const getGuardianStatsForOrg = query({
           processedGuardians.add(guardian._id);
 
           if (guardian.userId) {
-            stats.claimedAccounts++;
+            stats.claimedAccounts += 1;
           } else {
-            stats.pendingAccounts++;
+            stats.pendingAccounts += 1;
           }
 
           if (guardian.email) {
@@ -177,11 +186,11 @@ export const getGuardianStatsForOrg = query({
               (emailCounts.get(guardian.email) || 0) + 1
             );
           } else {
-            stats.guardiansWithMissingEmail++;
+            stats.guardiansWithMissingEmail += 1;
           }
 
           if (!guardian.phone) {
-            stats.guardiansWithMissingPhone++;
+            stats.guardiansWithMissingPhone += 1;
           }
         }
       }
@@ -190,7 +199,7 @@ export const getGuardianStatsForOrg = query({
     // Count duplicate emails
     for (const count of emailCounts.values()) {
       if (count > 1) {
-        stats.duplicateEmails++;
+        stats.duplicateEmails += 1;
       }
     }
 
@@ -256,6 +265,8 @@ export const getGuardiansForOrg = query({
           ageGroup: enrollment.ageGroup,
           relationship: link.relationship,
           isPrimary: link.isPrimary,
+          linkId: link._id,
+          declinedByUserId: link.declinedByUserId,
         });
       }
     }

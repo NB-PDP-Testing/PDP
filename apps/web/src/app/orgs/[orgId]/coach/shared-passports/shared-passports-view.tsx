@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { AlertCircle, Clock, Share2 } from "lucide-react";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -267,7 +268,7 @@ export function SharedPassportsView({ orgId }: SharedPassportsProps) {
                           <Button
                             onClick={() =>
                               router.push(
-                                `/orgs/${organizationId}/coach/shared-passports/${passport.playerIdentityId}/compare?consentId=${passport.consentId}`
+                                `/orgs/${organizationId}/coach/shared-passports/${passport.playerIdentityId}/compare?consentId=${passport.consentId}` as Route
                               )
                             }
                             size="sm"

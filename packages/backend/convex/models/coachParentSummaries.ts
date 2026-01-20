@@ -243,6 +243,80 @@ export const approveSummary = mutation({
 });
 
 /**
+ * Approve an injury summary with required checklist
+ * Injury summaries require extra due diligence before approval
+ */
+export const approveInjurySummary = mutation({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+    checklist: v.object({
+      personallyObserved: v.boolean(),
+      severityAccurate: v.boolean(),
+      noMedicalAdvice: v.boolean(),
+    }),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user?.userId) {
+      throw new Error("Not authenticated");
+    }
+
+    // Fetch the summary
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      throw new Error("Summary not found");
+    }
+
+    // Verify user is the coach for this summary
+    if (summary.coachId !== user.userId) {
+      throw new Error("Only the coach can approve this summary");
+    }
+
+    // Validate all checklist items are true
+    if (
+      !(
+        args.checklist.personallyObserved &&
+        args.checklist.severityAccurate &&
+        args.checklist.noMedicalAdvice
+      )
+    ) {
+      throw new Error(
+        "All checklist items must be confirmed before approving injury summary"
+      );
+    }
+
+    // Insert checklist record for audit trail
+    await ctx.db.insert("injuryApprovalChecklist", {
+      summaryId: args.summaryId,
+      coachId: user.userId,
+      personallyObserved: args.checklist.personallyObserved,
+      severityAccurate: args.checklist.severityAccurate,
+      noMedicalAdvice: args.checklist.noMedicalAdvice,
+      completedAt: Date.now(),
+    });
+
+    // Update the summary status
+    await ctx.db.patch(args.summaryId, {
+      status: "approved",
+      approvedAt: Date.now(),
+      approvedBy: user.userId,
+    });
+
+    // Update coach trust metrics
+    const { internal } = await import("../_generated/api");
+    await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
+      coachId: summary.coachId,
+      organizationId: summary.organizationId,
+      action: "approved",
+    });
+
+    return null;
+  },
+});
+
+/**
  * Suppress a summary so it never reaches parents
  * Only the coach who created the voice note can suppress
  */

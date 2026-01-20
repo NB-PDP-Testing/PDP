@@ -1,0 +1,366 @@
+{
+  "project": "Coach-Parent AI Summaries - Phase 6 (Monitoring & Scale)",
+  "branchName": "ralph/coach-parent-summaries-p6",
+  "description": "Cost monitoring, rate limiting, admin controls, and graceful degradation. Depends on Phase 1 and Phase 5.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add messagingCosts table",
+      "description": "As a developer, I need to track AI costs per organization.",
+      "acceptanceCriteria": [
+        "Add messagingCosts table to schema.ts",
+        "Fields: organizationId, date (YYYY-MM-DD), summaryGenerations, classifications",
+        "Fields: totalTokensInput, totalTokensOutput, estimatedCostUsd",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Add index to messagingCosts",
+      "description": "As a developer, I need efficient cost lookups.",
+      "acceptanceCriteria": [
+        "Add index: by_org_date for querying org costs by date",
+        "Run: npx -w packages/backend convex codegen",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add messagingRateLimits table",
+      "description": "As a developer, I need to configure rate limits per org.",
+      "acceptanceCriteria": [
+        "Add messagingRateLimits table to schema.ts",
+        "Fields: organizationId, maxMessagesPerDay, maxCostPerDayUsd",
+        "Fields: currentDayCount, currentDayDate, isThrottled",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "organizationId can be 'platform' for global limits"
+    },
+    {
+      "id": "US-004",
+      "title": "Add index to messagingRateLimits",
+      "description": "As a developer, I need efficient rate limit lookups.",
+      "acceptanceCriteria": [
+        "Add index: by_org for querying by organizationId",
+        "Run: npx -w packages/backend convex codegen",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Create costTracking lib",
+      "description": "As a developer, I need functions to track AI costs.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/lib/costTracking.ts",
+        "Export COST_RATES object: haiku_input: 0.00025, haiku_output: 0.00125, etc.",
+        "Export calculateCost(model, tokensInput, tokensOutput)",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Implement trackAICost internal mutation",
+      "description": "As the system, I need to track costs after AI calls.",
+      "acceptanceCriteria": [
+        "Add trackAICost internalMutation",
+        "Args: organizationId, operationType, tokensInput, tokensOutput",
+        "Upsert messagingCosts record for org/date",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Increment cost counters in trackAICost",
+      "description": "As the system, cost records accumulate correctly.",
+      "acceptanceCriteria": [
+        "Increment appropriate counter: summaryGenerations or classifications",
+        "Add to totalTokensInput and totalTokensOutput",
+        "Recalculate estimatedCostUsd",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Call trackAICost from AI actions",
+      "description": "As the system, AI calls should track costs.",
+      "acceptanceCriteria": [
+        "Edit generateParentSummary action to call trackAICost after API call",
+        "Edit classifyInsightSensitivity action to call trackAICost",
+        "Pass token counts from API response",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Implement checkRateLimit query",
+      "description": "As the system, I need to check rate limits before generating.",
+      "acceptanceCriteria": [
+        "Add checkRateLimit query to models/messagingRateLimits.ts",
+        "Args: organizationId",
+        "Return { isAllowed, reason, remainingToday, resetAt }",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Implement rate limit checks",
+      "description": "As the system, rate limits prevent overuse.",
+      "acceptanceCriteria": [
+        "Check org daily message count < limit",
+        "Check org daily cost < limit",
+        "Check global platform limits",
+        "Return appropriate reason if blocked"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Integrate rate limiting into pipeline",
+      "description": "As the system, pipeline respects rate limits.",
+      "acceptanceCriteria": [
+        "Edit processVoiceNoteInsight action",
+        "Call checkRateLimit before AI generation",
+        "If not allowed: return error with reason",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Increment daily counter after success",
+      "description": "As the system, counters update after successful generation.",
+      "acceptanceCriteria": [
+        "After successful summary creation, increment currentDayCount",
+        "Reset counter if currentDayDate is not today",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Add platformMessagingSettings to schema",
+      "description": "As a developer, I need platform-level settings.",
+      "acceptanceCriteria": [
+        "Add platformMessagingSettings table (singleton pattern)",
+        "Fields: coachParentMessagingEnabled, globalMaxMessagesPerDay, globalMaxCostPerDayUsd",
+        "Fields: degradationMode (none | throttle | pause), throttleDelayMs",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Implement getPlatformMessagingSettings query",
+      "description": "As the system, I need to read platform settings.",
+      "acceptanceCriteria": [
+        "Add getPlatformMessagingSettings query",
+        "Return settings or sensible defaults if not set",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Implement updatePlatformMessagingSettings mutation",
+      "description": "As a platform admin, I want to update settings.",
+      "acceptanceCriteria": [
+        "Add updatePlatformMessagingSettings mutation",
+        "Verify user isPlatformStaff",
+        "Upsert settings record",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Implement getMessagingAnalytics query",
+      "description": "As a platform admin, I want to view analytics.",
+      "acceptanceCriteria": [
+        "Add getMessagingAnalytics query",
+        "Args: dateRange, organizationId (optional)",
+        "Return totalMessages, totalCostUsd, messagesByOrg",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Create MessagingCostDashboard component",
+      "description": "As a platform admin, I want to view AI costs.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform/messaging/cost-dashboard.tsx",
+        "Query getMessagingAnalytics",
+        "Show daily/weekly cost chart",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Add cost breakdown to dashboard",
+      "description": "As a platform admin, I want cost details.",
+      "acceptanceCriteria": [
+        "Show breakdown by organization",
+        "Show breakdown by operation type",
+        "Show projected monthly cost",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Create RateLimitSettings component",
+      "description": "As a platform admin, I want to configure rate limits.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform/messaging/rate-limit-settings.tsx",
+        "Show global daily limits",
+        "Allow per-org overrides",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Create MessagingFeatureToggle component",
+      "description": "As a platform admin, I want master on/off control.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform/messaging/feature-toggle.tsx",
+        "Enable/disable entire feature",
+        "Switch degradation modes",
+        "Emergency disable button"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Create ThrottledBanner component",
+      "description": "As a coach, I want to know when system is throttled.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/components/messaging/throttled-banner.tsx",
+        "Variants: throttled (delay warning), paused (feature disabled)",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Show ThrottledBanner in dashboard",
+      "description": "As a coach, throttle status shows in my dashboard.",
+      "acceptanceCriteria": [
+        "Edit voice-notes-dashboard.tsx",
+        "Query platform messaging status",
+        "Conditionally render ThrottledBanner",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Create platform messaging admin page",
+      "description": "As a platform admin, I need a central admin page.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/platform/messaging/page.tsx",
+        "Compose: FeatureToggle, CostDashboard, RateLimitSettings",
+        "Add to platform navigation",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Create OrgMessagingAnalytics component",
+      "description": "As an org admin, I want to see my org's messaging stats.",
+      "acceptanceCriteria": [
+        "Create apps/web/src/app/orgs/[orgId]/admin/messaging-analytics.tsx",
+        "Show messages sent, approval rates, parent engagement",
+        "Show coach activity leaderboard",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Add audit log fields to coachParentSummaries",
+      "description": "As a developer, I need enhanced audit logging.",
+      "acceptanceCriteria": [
+        "Add auditLog array field: [{ event, timestamp, actorId, metadata }]",
+        "Add costAllocation object field for cost breakdown",
+        "Run: npx -w packages/backend convex codegen",
+        "Typecheck passes"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Log events to audit log",
+      "description": "As the system, events are logged for compliance.",
+      "acceptanceCriteria": [
+        "Create appendAuditLog helper function",
+        "Call from: createParentSummary, approveSummary, suppressSummary, markSummaryViewed",
+        "Log: created, approved, suppressed, delivered, viewed events",
+        "Typecheck passes"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

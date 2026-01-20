@@ -12,6 +12,7 @@ ARCHIVE_DIR="$SCRIPT_DIR/archive"
 LAST_BRANCH_FILE="$SCRIPT_DIR/.last-branch"
 SESSION_HISTORY_FILE="$SCRIPT_DIR/session-history.txt"
 INSIGHTS_DIR="$SCRIPT_DIR/insights"
+AGENTS_FEEDBACK_FILE="$SCRIPT_DIR/agents/output/feedback.md"
 
 # Archive previous run if branch changed
 if [ -f "$PRD_FILE" ] && [ -f "$LAST_BRANCH_FILE" ]; then
@@ -63,6 +64,27 @@ fi
 # Create insights directory
 mkdir -p "$INSIGHTS_DIR"
 
+# Check for agent feedback and append to progress file
+check_agent_feedback() {
+  if [ -f "$AGENTS_FEEDBACK_FILE" ] && [ -s "$AGENTS_FEEDBACK_FILE" ]; then
+    echo "📬 Found agent feedback - appending to progress.txt"
+
+    # Check if CODE REVIEW FEEDBACK section exists
+    if ! grep -q "## CODE REVIEW FEEDBACK" "$PROGRESS_FILE"; then
+      echo "" >> "$PROGRESS_FILE"
+      echo "## CODE REVIEW FEEDBACK" >> "$PROGRESS_FILE"
+    fi
+
+    # Append feedback content
+    echo "" >> "$PROGRESS_FILE"
+    echo "### Agent Feedback - $(date '+%Y-%m-%d %H:%M')" >> "$PROGRESS_FILE"
+    cat "$AGENTS_FEEDBACK_FILE" >> "$PROGRESS_FILE"
+
+    # Clear the feedback file
+    > "$AGENTS_FEEDBACK_FILE"
+  fi
+}
+
 echo "Starting Ralph (Claude Code CLI) - Max iterations: $MAX_ITERATIONS"
 
 for i in $(seq 1 $MAX_ITERATIONS); do
@@ -87,6 +109,9 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     echo "   ./scripts/ralph/monitor.sh"
     echo "   to see live progress updates!"
   fi
+
+  # Check for agent feedback before each iteration
+  check_agent_feedback
 
   echo ""
   echo "🔄 Running Claude (iteration may take 2-5 minutes)..."

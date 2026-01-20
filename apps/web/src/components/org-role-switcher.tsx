@@ -250,6 +250,7 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
     currentMembership?.activeFunctionalRole,
     currentMembership?.functionalRoles,
     switchActiveRole,
+    currentMembership,
   ]);
 
   // Set default org for request dialog when it opens

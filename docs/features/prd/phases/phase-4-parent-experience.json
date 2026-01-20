@@ -1,0 +1,302 @@
+{
+  "phase": 4,
+  "name": "Enhanced Parent Experience",
+  "description": "Improve parent notification, viewing, and sharing experience",
+  "estimatedSprints": 1,
+  "dependencies": ["phase-1-core-pipeline"],
+  "featureFlag": "enhanced-parent-experience",
+
+  "objectives": [
+    "Add browser tab notification for new messages",
+    "Implement shareable image cards for social sharing",
+    "Add deep links from messages to relevant passport sections",
+    "Improve grouping by child AND sport for multi-sport families",
+    "Ensure separate summaries per sport for 1:1 connection"
+  ],
+
+  "deliverables": {
+    "backend": [
+      {
+        "id": "BE-4.1",
+        "name": "generateShareableImage action",
+        "type": "action",
+        "file": "packages/backend/convex/actions/coachParentMessaging.ts",
+        "description": "Generate shareable image card from message content",
+        "inputs": ["summaryId"],
+        "outputs": ["imageUrl (storage URL)"],
+        "imageSpec": {
+          "dimensions": "1200x630 (social media optimized)",
+          "content": [
+            "PlayerARC branding",
+            "Quote-styled message excerpt",
+            "Coach name",
+            "Organization name",
+            "Subtle hashtags"
+          ],
+          "library": "satori + resvg (server-side image generation)"
+        }
+      },
+      {
+        "id": "BE-4.2",
+        "name": "getParentSummariesByChildAndSport query",
+        "type": "query",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Get summaries organized by child, then by sport",
+        "inputs": ["guardianIdentityId", "organizationId"],
+        "outputs": [
+          {
+            "childId": "id",
+            "childName": "string",
+            "sports": [
+              {
+                "sportId": "id",
+                "sportName": "string",
+                "summaries": "array of summaries"
+              }
+            ]
+          }
+        ],
+        "index": "by_org_player_sport_status"
+      },
+      {
+        "id": "BE-4.3",
+        "name": "getPassportLinkForSummary query",
+        "type": "query",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Determine which passport section a summary relates to",
+        "inputs": ["summaryId"],
+        "outputs": [
+          "passportSection (skills|goals|overview|medical)",
+          "passportUrl"
+        ],
+        "logic": {
+          "skill_rating": "skills section",
+          "skill_progress": "goals section",
+          "injury": "medical section",
+          "default": "overview section"
+        }
+      },
+      {
+        "id": "BE-4.4",
+        "name": "trackShareEvent mutation",
+        "type": "mutation",
+        "file": "packages/backend/convex/models/coachParentMessages.ts",
+        "description": "Track when parent shares a message image",
+        "inputs": [
+          "summaryId",
+          "guardianIdentityId",
+          "shareDestination (optional)"
+        ],
+        "outputs": ["success"],
+        "sideEffects": ["Create share event record for analytics"]
+      }
+    ],
+
+    "frontend": [
+      {
+        "id": "FE-4.1",
+        "name": "Browser tab notification hook",
+        "type": "hook",
+        "file": "apps/web/src/hooks/use-tab-notification.ts",
+        "description": "Update browser tab title when new messages arrive",
+        "behavior": [
+          "Subscribe to unread count",
+          "When count > 0: title = '(N) Messages | PlayerARC'",
+          "When count = 0: title = 'PlayerARC'",
+          "Optional: favicon badge (stretch goal)"
+        ]
+      },
+      {
+        "id": "FE-4.2",
+        "name": "Tab notification provider",
+        "type": "component",
+        "file": "apps/web/src/components/providers/tab-notification-provider.tsx",
+        "description": "Wrap app with tab notification functionality",
+        "features": [
+          "Only active for parents with functional role",
+          "Respects user preference (can disable)",
+          "Handles multiple tabs correctly"
+        ]
+      },
+      {
+        "id": "FE-4.3",
+        "name": "ShareableMessageCard component",
+        "type": "component",
+        "file": "apps/web/src/components/parent/shareable-message-card.tsx",
+        "description": "Display message with share functionality",
+        "props": ["summary", "childName", "sportName", "coachName", "orgName"],
+        "features": [
+          "Share button triggers image generation",
+          "Preview modal shows generated image",
+          "Download button for saving image",
+          "Copy link functionality (stretch)"
+        ]
+      },
+      {
+        "id": "FE-4.4",
+        "name": "MessagePassportLink component",
+        "type": "component",
+        "file": "apps/web/src/components/parent/message-passport-link.tsx",
+        "description": "Link from message to relevant passport section",
+        "props": ["summaryId", "playerIdentityId"],
+        "displays": "View Passport → with icon"
+      },
+      {
+        "id": "FE-4.5",
+        "name": "Enhanced CoachFeedback with sport grouping",
+        "type": "component-modification",
+        "file": "apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx",
+        "description": "Group messages by child AND sport",
+        "changes": [
+          "Use getParentSummariesByChildAndSport query",
+          "Render child section with sport subsections",
+          "Each sport shows its own summaries",
+          "Visual separation between sports"
+        ],
+        "layout": {
+          "level1": "Child name (with avatar)",
+          "level2": "Sport name (with icon)",
+          "level3": "Individual messages with timestamps"
+        }
+      },
+      {
+        "id": "FE-4.6",
+        "name": "Share modal with image preview",
+        "type": "component",
+        "file": "apps/web/src/components/parent/share-modal.tsx",
+        "description": "Modal for previewing and downloading shareable image",
+        "props": ["summaryId", "isOpen", "onClose"],
+        "features": [
+          "Loading state while image generates",
+          "Preview of generated image",
+          "Download as PNG button",
+          "Share to social (Web Share API if available)",
+          "Track share events"
+        ]
+      }
+    ],
+
+    "integrations": [
+      {
+        "id": "INT-4.1",
+        "name": "Satori image generation setup",
+        "type": "configuration",
+        "description": "Configure server-side image generation",
+        "requirements": [
+          "Add @vercel/og or satori + resvg to backend dependencies",
+          "Configure fonts for image rendering",
+          "Set up storage for generated images"
+        ]
+      }
+    ]
+  },
+
+  "acceptanceCriteria": [
+    {
+      "id": "AC-4.1",
+      "description": "Browser tab shows unread count when parent has new messages",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-4.2",
+      "description": "Parent can generate and download shareable image from any message",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-4.3",
+      "description": "Messages link to relevant passport sections",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-4.4",
+      "description": "Multi-sport child shows separate message groups per sport",
+      "testType": "e2e"
+    },
+    {
+      "id": "AC-4.5",
+      "description": "Each sport maintains its own 1:1 connection with parent",
+      "testType": "manual"
+    },
+    {
+      "id": "AC-4.6",
+      "description": "Shareable images are properly branded and formatted",
+      "testType": "visual"
+    }
+  ],
+
+  "testCases": [
+    {
+      "id": "TC-4.1",
+      "name": "Tab notification flow",
+      "steps": [
+        "Parent has browser tab open on Dashboard",
+        "Coach approves new message",
+        "Tab title changes to '(1) Messages | PlayerARC'",
+        "Parent views message",
+        "Tab title returns to 'PlayerARC'"
+      ]
+    },
+    {
+      "id": "TC-4.2",
+      "name": "Shareable image generation",
+      "steps": [
+        "Parent views message",
+        "Parent clicks Share button",
+        "Modal opens with loading state",
+        "Image generates (< 5 seconds)",
+        "Image preview shown with download button",
+        "Parent downloads image",
+        "Share event tracked"
+      ]
+    },
+    {
+      "id": "TC-4.3",
+      "name": "Multi-sport child message grouping",
+      "steps": [
+        "Child plays Football and Hurling",
+        "Coach sends Football message",
+        "Coach sends Hurling message",
+        "Parent opens Coach Feedback",
+        "Sees child section with 2 sport subsections",
+        "Football messages under Football header",
+        "Hurling messages under Hurling header"
+      ]
+    },
+    {
+      "id": "TC-4.4",
+      "name": "Passport deep link",
+      "steps": [
+        "Message about skill improvement",
+        "Parent clicks 'View Passport →'",
+        "Navigates to player passport",
+        "Scrolls/navigates to Skills section"
+      ]
+    }
+  ],
+
+  "shareableImageDesign": {
+    "layout": {
+      "background": "gradient or subtle pattern",
+      "header": "PlayerARC logo (small)",
+      "quote": "message content in decorative quotes",
+      "attribution": "— Coach [Name], [Organization]",
+      "footer": "subtle hashtags or tagline"
+    },
+    "colorScheme": "uses org colors if available, else default blue",
+    "textFormatting": {
+      "quote": "larger, italic or decorative font",
+      "attribution": "smaller, clean font"
+    }
+  },
+
+  "metrics": {
+    "tracking": [
+      "tab_notifications_triggered (count)",
+      "share_button_clicks (count)",
+      "share_images_generated (count)",
+      "share_images_downloaded (count)",
+      "passport_link_clicks (count)",
+      "share_completion_rate (downloaded / generated)"
+    ]
+  }
+}

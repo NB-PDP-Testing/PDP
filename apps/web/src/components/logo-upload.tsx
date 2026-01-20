@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-interface LogoUploadProps {
+type LogoUploadProps = {
   /** Organization ID for upload permissions */
   organizationId: string;
   /** Current logo URL or storage ID URL */
@@ -25,7 +25,7 @@ interface LogoUploadProps {
   showUrlFallback?: boolean;
   /** Disabled state */
   disabled?: boolean;
-}
+};
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/jpg"];

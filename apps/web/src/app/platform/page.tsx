@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Bot,
   Database,
   Key,
   Megaphone,
@@ -99,6 +100,18 @@ export default function PlatformDashboard() {
                     <Megaphone className="h-6 w-6 text-green-600" />
                   </div>
                   <CardTitle className="text-base">Flow Management</CardTitle>
+                </CardContent>
+              </Card>
+            </Link>
+
+            {/* AI Configuration */}
+            <Link href={"/platform/ai-config" as "/platform"}>
+              <Card className="h-full cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-[#1E3A5F]/20">
+                <CardContent className="flex items-center gap-3 p-4">
+                  <div className="rounded-lg bg-cyan-100 p-3">
+                    <Bot className="h-6 w-6 text-cyan-600" />
+                  </div>
+                  <CardTitle className="text-base">AI Configuration</CardTitle>
                 </CardContent>
               </Card>
             </Link>

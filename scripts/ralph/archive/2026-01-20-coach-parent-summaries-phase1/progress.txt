@@ -1,0 +1,62 @@
+# Ralph Progress Log
+Started: Phase 2 - Trust Curve System
+---
+
+## Codebase Patterns
+**Last Updated**: 2026-01-20 - Phase 1 Complete
+
+### Architecture
+- All routes scoped under `/orgs/[orgId]/`
+- Use Better Auth for authentication, Convex for backend
+- Organization data isolated via organizationId field
+
+### Convex Backend Patterns
+- NEVER use `.filter()` - always use `.withIndex()`
+- All functions need `args` and `returns` validators
+- Use `Id<"tableName">` types, not `string`
+- Index names include all fields: `by_orgId_and_status`
+- Actions cannot access `ctx.db` - use `ctx.runQuery`/`ctx.runMutation`
+- Use `authComponent.safeGetAuthUser(ctx)` for authenticated mutations
+- User object: `user._id` (Convex ID) vs `user.userId` (Better Auth ID)
+- VoiceNote uses `coachId` (string) and `orgId` (string), not typed IDs
+
+### Quality Checks
+- Run in order: `npm run check-types` → `npx ultracite fix` → `npm run check`
+- Convex codegen: `npx -w packages/backend convex codegen`
+- Ultracite must run before linting or you'll get false failures
+
+### File Locations
+- Schema: `packages/backend/convex/schema.ts`
+- Convex queries/mutations: `packages/backend/convex/models/`
+- Convex actions (external APIs): `packages/backend/convex/actions/`
+- Frontend pages: `apps/web/src/app/orgs/[orgId]/`
+
+### Phase 1 Learnings (Carried Forward)
+- guardianIdentities uses `by_userId` index (not `by_user`)
+- For OR conditions on indexed fields, query each value separately and combine
+- Biome enforces: no non-null assertions, no shadowed variables, block statements
+- React hooks cannot be called inside `.map()` - violates rules of hooks
+- NEVER use array index as key - use unique ID instead
+- Badge component pattern: return null if count is 0
+- Collapsible component from shadcn/ui for expandable sections
+- Toast notifications use sonner: `toast.success('message')`
+
+### Phase 2 Context
+- Phase 2 builds on Phase 1 code in `coachParentSummaries.ts`
+- approveSummary and suppressSummary mutations need trust metric hooks
+- voice-notes-dashboard.tsx already has pending summaries query
+- coachId in summaries is Better Auth userId string (not Convex ID)
+
+### ⚠️ Phase 1 Mistakes to Avoid
+- DON'T use `user.id` - use `user.userId` for Better Auth user ID comparison
+- DON'T use `ctx.runQuery(authComponent.getUserInfo)` - use `authComponent.safeGetAuthUser(ctx)`
+- DON'T use wrong index names like `by_user` - check actual index name (e.g., `by_userId`)
+- DON'T use non-null assertions `!` - use explicit if checks instead
+- DON'T shadow variables in nested maps - rename inner vars (e.g., `summaries` → `playerSummaries`)
+- DON'T call useQuery inside `.map()` - violates React rules of hooks
+- DON'T use `any[]` type - use `typeof` to infer correct type from array
+- DON'T forget to run `npx -w packages/backend convex codegen` after schema changes
+- DON'T expect nested structure from queries - check backend return type first
+
+---
+

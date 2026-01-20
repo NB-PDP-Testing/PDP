@@ -127,7 +127,7 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Safety feature - injury content is too sensitive for automation. This connects to future Phase 5 auto-approval logic."
     },
     {
@@ -141,8 +141,8 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": "Same pattern as injury but for behavior. Both are sensitive categories."
+      "passes": true,
+      "notes": "Same pattern as injury but for behavior. Both are sensitive categories. NOTE: Implemented together with US-007."
     },
     {
       "id": "US-009",

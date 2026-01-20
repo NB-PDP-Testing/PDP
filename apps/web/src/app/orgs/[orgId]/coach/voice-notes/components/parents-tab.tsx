@@ -20,6 +20,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { BehaviorApprovalCard } from "./behavior-approval-card";
+import { InjuryApprovalCard } from "./injury-approval-card";
 import { SummaryApprovalCard } from "./summary-approval-card";
 
 type ParentsTabProps = {
@@ -127,29 +129,44 @@ export function ParentsTab({ orgId, onSuccess, onError }: ParentsTabProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3 sm:space-y-4">
-        {pendingSummaries.map((item) => (
-          <SummaryApprovalCard
-            isApproving={approvingIds.has(item._id)}
-            isSuppressing={suppressingIds.has(item._id)}
-            key={item._id}
-            onApprove={() => handleApproveSummary(item._id)}
-            onSuppress={() => handleSuppressSummary(item._id)}
-            player={
-              item.player
-                ? {
-                    firstName: item.player.firstName,
-                    lastName: item.player.lastName,
-                  }
-                : { firstName: "Unknown", lastName: "Player" }
-            }
-            sport={item.sport ? { name: item.sport.name } : undefined}
-            summary={{
+        {pendingSummaries.map((item) => {
+          // Common props for all card types (key handled separately per React)
+          const commonProps = {
+            onApprove: () => handleApproveSummary(item._id),
+            onSuppress: () => handleSuppressSummary(item._id),
+            player: item.player
+              ? {
+                  firstName: item.player.firstName,
+                  lastName: item.player.lastName,
+                }
+              : { firstName: "Unknown", lastName: "Player" },
+            sport: item.sport ? { name: item.sport.name } : undefined,
+            summary: {
               _id: item._id,
               publicSummary: item.publicSummary,
               privateInsight: item.privateInsight,
-            }}
-          />
-        ))}
+            },
+          };
+
+          // Route to correct card based on sensitivity category
+          if (item.sensitivityCategory === "injury") {
+            return <InjuryApprovalCard key={item._id} {...commonProps} />;
+          }
+
+          if (item.sensitivityCategory === "behavior") {
+            return <BehaviorApprovalCard key={item._id} {...commonProps} />;
+          }
+
+          // Standard card for normal category
+          return (
+            <SummaryApprovalCard
+              key={item._id}
+              {...commonProps}
+              isApproving={approvingIds.has(item._id)}
+              isSuppressing={suppressingIds.has(item._id)}
+            />
+          );
+        })}
       </CardContent>
     </Card>
   );

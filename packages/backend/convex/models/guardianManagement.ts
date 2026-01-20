@@ -95,6 +95,7 @@ export const getGuardianRelationshipsForOrg = query({
         guardians,
         guardianCount: guardians.length,
         claimedCount: guardians.filter((g) => g.userAccount?.hasAccount).length,
+        declinedCount: guardians.filter((g) => g.declinedByUserId).length,
       });
     }
 
@@ -114,6 +115,7 @@ export const getGuardianStatsForOrg = query({
     totalGuardianLinks: v.number(),
     claimedAccounts: v.number(),
     pendingAccounts: v.number(),
+    declinedAccounts: v.number(),
     playersWithoutGuardians: v.number(),
     guardiansWithMissingEmail: v.number(),
     guardiansWithMissingPhone: v.number(),
@@ -133,6 +135,7 @@ export const getGuardianStatsForOrg = query({
       totalGuardianLinks: 0,
       claimedAccounts: 0,
       pendingAccounts: 0,
+      declinedAccounts: 0,
       playersWithoutGuardians: 0,
       guardiansWithMissingEmail: 0,
       guardiansWithMissingPhone: 0,
@@ -157,6 +160,11 @@ export const getGuardianStatsForOrg = query({
       stats.totalGuardianLinks += guardianLinks.length;
 
       for (const link of guardianLinks) {
+        // Count declined links
+        if (link.declinedByUserId) {
+          stats.declinedAccounts += 1;
+        }
+
         const guardian = await ctx.db.get(link.guardianIdentityId);
         if (!guardian) {
           continue;

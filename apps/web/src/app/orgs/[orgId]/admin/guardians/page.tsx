@@ -61,7 +61,7 @@ import { AddGuardianModal } from "./components/add-guardian-modal";
 import { EditGuardianModal } from "./components/edit-guardian-modal";
 
 type ViewMode = "players" | "guardians" | "status";
-type StatusFilter = "all" | "claimed" | "pending" | "missing";
+type StatusFilter = "all" | "claimed" | "pending" | "declined" | "missing";
 
 export default function GuardianManagementPage() {
   const params = useParams();
@@ -342,7 +342,9 @@ export default function GuardianManagementPage() {
             rel.guardianCount > 0) ||
           (statusFilter === "pending" &&
             rel.claimedCount < rel.guardianCount &&
-            rel.guardianCount > 0) ||
+            rel.guardianCount > 0 &&
+            rel.declinedCount === 0) ||
+          (statusFilter === "declined" && rel.declinedCount > 0) ||
           (statusFilter === "missing" && rel.guardianCount === 0);
 
         return matchesSearch && matchesStatus;
@@ -359,10 +361,17 @@ export default function GuardianManagementPage() {
             .includes(searchQuery.toLowerCase()) ||
           guardian.email?.toLowerCase().includes(searchQuery.toLowerCase());
 
+        const hasDeclinedConnections = guardian.players?.some(
+          (p: any) => p.declinedByUserId
+        );
+
         const matchesStatus =
           statusFilter === "all" ||
           (statusFilter === "claimed" && guardian.hasUserAccount) ||
-          (statusFilter === "pending" && !guardian.hasUserAccount);
+          (statusFilter === "pending" &&
+            !guardian.hasUserAccount &&
+            !hasDeclinedConnections) ||
+          (statusFilter === "declined" && hasDeclinedConnections);
 
         return matchesSearch && matchesStatus;
       });
@@ -403,7 +412,9 @@ export default function GuardianManagementPage() {
               rel.guardianCount > 0) ||
             (statusFilter === "pending" &&
               rel.claimedCount < rel.guardianCount &&
-              rel.guardianCount > 0);
+              rel.guardianCount > 0 &&
+              rel.declinedCount === 0) ||
+            (statusFilter === "declined" && rel.declinedCount > 0);
 
           return matchesSearch && matchesStatus;
         });
@@ -416,7 +427,37 @@ export default function GuardianManagementPage() {
 
   const filteredData = getFilteredData();
 
-  const getStatusBadge = (claimedCount: number, totalCount: number) => {
+  const getStatusBadge = (
+    claimedCount: number,
+    totalCount: number,
+    declinedCount = 0
+  ) => {
+    // Show declined status if there are any declined connections
+    if (declinedCount > 0) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge className="gap-1 bg-red-600" variant="destructive">
+                <X className="h-3 w-3" />
+                {declinedCount} Declined
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="max-w-xs text-sm">
+                {declinedCount === 1
+                  ? "A guardian has"
+                  : `${declinedCount} guardians have`}{" "}
+                declined this connection (clicked "This Isn't Me"). Review and
+                update the guardian information or remove the incorrect
+                connection.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
     if (totalCount === 0) {
       return (
         <TooltipProvider>
@@ -917,6 +958,16 @@ export default function GuardianManagementPage() {
         </button>
         <button
           className={`border-b-2 px-4 py-2 font-medium text-sm transition-colors ${
+            statusFilter === "declined"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => setStatusFilter("declined")}
+        >
+          ❌ Declined
+        </button>
+        <button
+          className={`border-b-2 px-4 py-2 font-medium text-sm transition-colors ${
             statusFilter === "missing"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -963,7 +1014,11 @@ export default function GuardianManagementPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {getStatusBadge(rel.claimedCount, rel.guardianCount)}
+                        {getStatusBadge(
+                          rel.claimedCount,
+                          rel.guardianCount,
+                          rel.declinedCount
+                        )}
                       </div>
                     </button>
 

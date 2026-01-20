@@ -458,7 +458,8 @@ export function SmartCoachDashboard({
   useEffect(() => {
     calculateTeamAnalytics();
     generateCorrelationInsights();
-  }, [calculateTeamAnalytics, generateCorrelationInsights]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players, coachTeams, isClubView]);
 
   const generateAIRecommendations = async () => {
     // Prevent duplicate calls if already loading

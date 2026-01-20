@@ -752,6 +752,48 @@ export const updateInsightStatus = mutation({
 });
 
 /**
+ * Update insight content (title, description, recommendedUpdate)
+ * Allows coaches to edit AI-generated insights before applying
+ */
+export const updateInsightContent = mutation({
+  args: {
+    noteId: v.id("voiceNotes"),
+    insightId: v.string(),
+    title: v.optional(v.string()),
+    description: v.optional(v.string()),
+    recommendedUpdate: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const note = await ctx.db.get(args.noteId);
+    if (!note) {
+      throw new Error("Voice note not found");
+    }
+
+    const updatedInsights = note.insights.map((insight) => {
+      if (insight.id === args.insightId) {
+        return {
+          ...insight,
+          title: args.title ?? insight.title,
+          description: args.description ?? insight.description,
+          recommendedUpdate:
+            args.recommendedUpdate ?? insight.recommendedUpdate,
+        };
+      }
+      return insight;
+    });
+
+    await ctx.db.patch(args.noteId, {
+      insights: updatedInsights,
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * Delete a voice note
  */
 export const deleteVoiceNote = mutation({

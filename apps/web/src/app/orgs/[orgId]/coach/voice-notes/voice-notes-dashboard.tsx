@@ -121,9 +121,10 @@ export function VoiceNotesDashboard() {
   }, [pendingSummariesCount, pendingInsightsCount]);
 
   // If current tab is no longer available (e.g., approved all summaries), switch to New
+  // Settings is a special case - it's always available via header icon, not in tabs array
   useEffect(() => {
     const tabIds = tabs.map((t) => t.id);
-    if (!tabIds.includes(activeTab)) {
+    if (activeTab !== "settings" && !tabIds.includes(activeTab)) {
       setActiveTab("new");
     }
   }, [tabs, activeTab]);

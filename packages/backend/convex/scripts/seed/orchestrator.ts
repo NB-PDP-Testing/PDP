@@ -451,7 +451,7 @@ export const seedProductionDemo = mutation({
           teamMap[teamConfig.name] = teamId;
           createdTeamIds.push(teamId);
           console.log(`    ✅ Created team: ${teamConfig.name}`);
-          stats.teams++;
+          stats.teams += 1;
         }
       }
 
@@ -503,7 +503,7 @@ export const seedProductionDemo = mutation({
           console.log(
             `    ✅ Created player: ${playerConfig.firstName} ${playerConfig.lastName} (${playerConfig.stage})`
           );
-          stats.players++;
+          stats.players += 1;
         }
 
         // Track player identity ID for test user linking
@@ -567,7 +567,7 @@ export const seedProductionDemo = mutation({
             }
           );
 
-          stats.passports++;
+          stats.passports += 1;
           stats.assessments += passportResult.assessmentCount;
           stats.goals += passportResult.goalCount;
 
@@ -691,7 +691,7 @@ export const seedProductionDemo = mutation({
             createdAt: Date.now(),
             updatedAt: Date.now(),
           });
-          linkedCount++;
+          linkedCount += 1;
         }
       }
       console.log(`  ✅ Linked as guardian to ${linkedCount} players`);
@@ -1083,7 +1083,7 @@ export const verifyProductionDemo = query({
         .first();
 
       if (medicalProfile) {
-        medicalProfileCount++;
+        medicalProfileCount += 1;
       }
     }
 
@@ -1095,11 +1095,11 @@ export const verifyProductionDemo = query({
     for (const passport of passports) {
       const assessmentCount = passport.assessmentCount || 0;
       if (assessmentCount <= 1) {
-        beginner++;
+        beginner += 1;
       } else if (assessmentCount <= 7) {
-        developing++;
+        developing += 1;
       } else {
-        advanced++;
+        advanced += 1;
       }
     }
 
@@ -1204,7 +1204,7 @@ export const resetProductionDemo = mutation({
 
       for (const goal of goals) {
         await ctx.db.delete(goal._id);
-        stats.goals++;
+        stats.goals += 1;
       }
 
       // 2. Delete assessments
@@ -1215,7 +1215,7 @@ export const resetProductionDemo = mutation({
 
       for (const assessment of assessments) {
         await ctx.db.delete(assessment._id);
-        stats.assessments++;
+        stats.assessments += 1;
       }
 
       // 3. Delete passports
@@ -1226,7 +1226,7 @@ export const resetProductionDemo = mutation({
 
       for (const passport of passports) {
         await ctx.db.delete(passport._id);
-        stats.passports++;
+        stats.passports += 1;
       }
 
       // 4. Delete session plans
@@ -1237,7 +1237,7 @@ export const resetProductionDemo = mutation({
 
       for (const session of sessions) {
         await ctx.db.delete(session._id);
-        stats.sessions++;
+        stats.sessions += 1;
       }
 
       // 5. Delete team assignments
@@ -1299,7 +1299,7 @@ export const resetProductionDemo = mutation({
       // 9. Delete enrollments
       for (const enrollment of enrollments) {
         await ctx.db.delete(enrollment._id);
-        stats.players++;
+        stats.players += 1;
       }
 
       // 10. Delete organization using Better Auth adapter (cascades teams and members)
@@ -1310,7 +1310,7 @@ export const resetProductionDemo = mutation({
           where: [{ field: "_id", value: orgId, operator: "eq" }],
         },
       });
-      stats.organizations++;
+      stats.organizations += 1;
 
       // Note: Better Auth adapter automatically deletes associated teams and members
       // Count them for stats

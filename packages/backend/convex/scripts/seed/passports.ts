@@ -118,6 +118,7 @@ export const seedPassportForPlayer = mutation({
 /**
  * Generate skill assessments for a player based on stage
  */
+// biome-ignore lint/nursery/useMaxParams: Seed script utility function with many contextual parameters
 async function generateAssessments(
   ctx: any,
   passportId: Id<"sportPassports">,
@@ -218,6 +219,7 @@ async function generateAssessments(
 /**
  * Generate development goals for a player based on stage
  */
+// biome-ignore lint/nursery/useMaxParams: Seed script utility function with many contextual parameters
 async function generateGoals(
   ctx: any,
   passportId: Id<"sportPassports">,
@@ -326,7 +328,7 @@ async function generateGoals(
           }
         }
 
-        totalMilestones++;
+        totalMilestones += 1;
       }
     }
 
@@ -338,7 +340,7 @@ async function generateGoals(
       });
     }
 
-    totalGoals++;
+    totalGoals += 1;
   }
 
   return {

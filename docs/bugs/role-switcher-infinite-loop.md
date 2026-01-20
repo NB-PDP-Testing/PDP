@@ -28,24 +28,37 @@ This repeats continuously, causing:
 
 ## Root Cause Analysis
 
-**File**: `apps/web/src/components/layout/org-role-switcher.tsx` (line 230-238)
+**File**: `apps/web/src/components/org-role-switcher.tsx` (lines 206-254)
 
-**Likely Issue**: useEffect dependency array causing re-renders
+**CONFIRMED ROOT CAUSE**: useEffect dependency array includes entire `currentMembership` object
 
-The role sync logic runs on every render and:
-1. Detects URL role is "parent"
-2. Current role state shows "coach" (stale)
-3. Calls switchActiveFunctionalRole mutation
-4. Mutation completes
-5. Component re-renders
-6. Role state somehow still shows "coach" OR comparison logic broken
-7. Loop repeats
+**The Bug** (line 247-254):
+```typescript
+}, [
+  urlOrgId,
+  pathname,
+  currentMembership?.activeFunctionalRole,
+  currentMembership?.functionalRoles,
+  switchActiveRole,
+  currentMembership,  // ⚠️ ENTIRE OBJECT - causes infinite loop!
+]);
+```
 
-**Possible Causes**:
-1. Session state not updating synchronously after mutation
-2. useEffect dependencies triggering on every render
-3. Role comparison logic using stale closure values
-4. Missing memoization causing false-positive mismatches
+**Why It Loops**:
+1. Effect runs, detects `urlRole !== currentRole`
+2. Calls `switchActiveRole` mutation (line 234)
+3. Convex updates membership in database
+4. React query receives updated `allMemberships` array
+5. `currentMembership` object reference changes (new object from Convex)
+6. useEffect triggers because `currentMembership` dependency changed
+7. Effect runs again → **INFINITE LOOP**
+
+**The Problem**: We're already depending on specific fields (`currentMembership?.activeFunctionalRole`, `currentMembership?.functionalRoles`), but we ALSO included the entire `currentMembership` object. Every Convex update creates a new object reference, triggering the effect even when the actual role values haven't changed.
+
+**Related to Issue #279**: This infinite loop causes:
+- Role switches to appear "stuck" (rapidly switching back/forth)
+- Inconsistent switching behavior (race conditions)
+- Roles reverting to previous state unexpectedly
 
 ---
 
@@ -78,43 +91,66 @@ The role sync logic runs on every render and:
 
 ## Recommended Fix
 
-### Option 1: Add Switch Guard (Quick Fix)
+### **PROPER FIX: Remove `currentMembership` from dependency array**
 
+**Change line 247-254 from:**
 ```typescript
-// Track last successful switch to prevent loops
-const lastSwitchRef = useRef<{role: string, timestamp: number} | null>(null);
-
-useEffect(() => {
-  if (urlRole && urlRole !== currentRole) {
-    const now = Date.now();
-    const lastSwitch = lastSwitchRef.current;
-    
-    // Debounce: Don't switch again if we switched in last 2 seconds
-    if (lastSwitch && 
-        lastSwitch.role === urlRole && 
-        now - lastSwitch.timestamp < 2000) {
-      return;
-    }
-    
-    switchRole(urlRole);
-    lastSwitchRef.current = { role: urlRole, timestamp: now };
-  }
-}, [urlRole, currentRole]);
+}, [
+  urlOrgId,
+  pathname,
+  currentMembership?.activeFunctionalRole,
+  currentMembership?.functionalRoles,
+  switchActiveRole,
+  currentMembership,  // ❌ REMOVE THIS
+]);
 ```
 
-### Option 2: Fix Root Cause (Proper Fix)
+**To:**
+```typescript
+}, [
+  urlOrgId,
+  pathname,
+  currentMembership?.activeFunctionalRole,  // ✅ Keep - this is what we check
+  currentMembership?.functionalRoles,       // ✅ Keep - this is what we check
+  switchActiveRole,                         // ✅ Keep - stable function reference
+]);
+// Note: We deliberately omit currentMembership from deps since we already
+// depend on the specific fields we need (activeFunctionalRole, functionalRoles)
+```
 
-1. **Investigate session state updates**:
-   - Check if `currentMembership.activeFunctionalRole` updates immediately after mutation
-   - Add logging to see when state changes
+**Why This Works**:
+- We still react to role changes (via `activeFunctionalRole`)
+- We still react to available roles changes (via `functionalRoles`)
+- We DON'T react to irrelevant membership updates (timestamps, metadata, etc.)
+- Breaks the infinite loop
 
-2. **Review useEffect dependencies**:
-   - Ensure currentRole is properly memoized
-   - Check if session query is causing re-renders
+### Alternative: Add "Switching in Progress" Guard
 
-3. **Add comparison guard**:
-   - Use a ref to track "switching in progress" state
-   - Skip switch if already switching
+If removing the dependency causes ESLint warnings, add a guard:
+
+```typescript
+const [isSwitching, setIsSwitching] = useState(false);
+
+useEffect(() => {
+  const syncRoleFromURL = async () => {
+    if (!(urlOrgId && currentMembership && pathname)) return;
+    if (isSwitching) return; // ✅ Prevent concurrent switches
+
+    // ... rest of logic
+
+    if (hasRole && needsSync) {
+      setIsSwitching(true);
+      try {
+        await switchActiveRole({ /* ... */ });
+      } finally {
+        setIsSwitching(false);
+      }
+    }
+  };
+
+  syncRoleFromURL();
+}, [ /* keep all deps */ ]);
+```
 
 ---
 
@@ -132,9 +168,9 @@ if (process.env.NODE_ENV !== 'production') {
 
 ## Related Files
 
-- `apps/web/src/components/layout/org-role-switcher.tsx` (main component)
+- `apps/web/src/components/org-role-switcher.tsx` (main component - lines 206-254)
 - `packages/backend/convex/models/members.ts` (switchActiveFunctionalRole mutation)
-- `apps/web/src/lib/auth-client.ts` (session management)
+- `packages/backend/convex/models/members.ts` (getMembersForAllOrganizations query - line 177)
 
 ---
 

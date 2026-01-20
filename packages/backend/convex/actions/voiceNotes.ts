@@ -8,6 +8,26 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 
+/**
+ * AI Model Configuration for Voice Notes
+ *
+ * Environment variables (set in Convex dashboard):
+ * - OPENAI_MODEL_TRANSCRIPTION: Model for audio transcription (default: gpt-4o-mini-transcribe)
+ * - OPENAI_MODEL_INSIGHTS: Model for extracting insights from transcription (default: gpt-4o)
+ */
+const DEFAULT_MODEL_TRANSCRIPTION = "gpt-4o-mini-transcribe";
+const DEFAULT_MODEL_INSIGHTS = "gpt-4o";
+
+/** Get the model for audio transcription */
+function getTranscriptionModel(): string {
+  return process.env.OPENAI_MODEL_TRANSCRIPTION || DEFAULT_MODEL_TRANSCRIPTION;
+}
+
+/** Get the model for insight extraction */
+function getInsightsModel(): string {
+  return process.env.OPENAI_MODEL_INSIGHTS || DEFAULT_MODEL_INSIGHTS;
+}
+
 // Schema for AI-extracted insights
 const insightSchema = z.object({
   summary: z.string().describe("A brief summary of the voice note content"),
@@ -94,7 +114,7 @@ export const transcribeAudio = internalAction({
       const client = getOpenAI();
       const file = await OpenAI.toFile(audioBuffer, "voice-note.webm");
       const transcription = await client.audio.transcriptions.create({
-        model: "gpt-4o-mini-transcribe",
+        model: getTranscriptionModel(),
         file,
       });
 
@@ -187,7 +207,7 @@ export const buildInsights = internalAction({
       // Call OpenAI to extract insights
       const client = getOpenAI();
       const response = await client.responses.create({
-        model: "gpt-4o",
+        model: getInsightsModel(),
         input: [
           {
             role: "system",

@@ -6,10 +6,17 @@ import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 
 /**
- * Default Claude model for parent summary generation
- * Can be overridden via ANTHROPIC_MODEL environment variable in Convex dashboard
+ * AI Model Configuration for Parent Summaries
+ *
+ * Environment variables (set in Convex dashboard):
+ * - ANTHROPIC_MODEL_SENSITIVITY: Model for classifying insight sensitivity
+ * - ANTHROPIC_MODEL_SUMMARY: Model for generating parent-friendly summaries
+ *
+ * Defaults to claude-3-5-haiku for cost efficiency.
+ * Use claude-sonnet-4-20250514 for higher quality at increased cost.
  */
-const DEFAULT_ANTHROPIC_MODEL = "claude-3-5-haiku-20241022";
+const DEFAULT_MODEL_SENSITIVITY = "claude-3-5-haiku-20241022";
+const DEFAULT_MODEL_SUMMARY = "claude-3-5-haiku-20241022";
 
 /**
  * Get Anthropic client with API key from environment
@@ -25,12 +32,14 @@ function getAnthropicClient(): Anthropic {
   return new Anthropic({ apiKey });
 }
 
-/**
- * Get the Claude model to use for AI operations
- * Uses ANTHROPIC_MODEL env var if set, otherwise defaults to claude-3-5-haiku
- */
-function getAnthropicModel(): string {
-  return process.env.ANTHROPIC_MODEL || DEFAULT_ANTHROPIC_MODEL;
+/** Get the model for sensitivity classification */
+function getSensitivityModel(): string {
+  return process.env.ANTHROPIC_MODEL_SENSITIVITY || DEFAULT_MODEL_SENSITIVITY;
+}
+
+/** Get the model for parent summary generation */
+function getSummaryModel(): string {
+  return process.env.ANTHROPIC_MODEL_SUMMARY || DEFAULT_MODEL_SUMMARY;
 }
 
 // Regex for extracting JSON from Claude responses
@@ -78,7 +87,7 @@ Respond in JSON format:
 }`;
 
     const response = await client.messages.create({
-      model: getAnthropicModel(),
+      model: getSensitivityModel(),
       max_tokens: 500,
       messages: [
         {
@@ -165,7 +174,7 @@ Respond in JSON format:
 }`;
 
     const response = await client.messages.create({
-      model: getAnthropicModel(),
+      model: getSummaryModel(),
       max_tokens: 500,
       messages: [
         {

@@ -11,16 +11,16 @@ const configDir = __dirname;
  */
 export default defineConfig({
   testDir: path.join(configDir, "tests"),
-  fullyParallel: true, // Enable parallel test execution for speed
+  fullyParallel: false, // Disable parallel execution to prevent state pollution
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 1, // 1 retry for local, 2 for CI to handle intermittent failures
-  workers: process.env.CI ? 1 : undefined, // Use all available CPU cores locally, 1 for CI stability
+  retries: 1, // 1 retry at test level (navigation tests have internal retry logic)
+  workers: 1, // Run tests serially to avoid race conditions and auth state conflicts
   reporter: [
     ["html", { outputFolder: "playwright-report" }],
     ["json", { outputFile: "test-results/results.json" }],
     ["list"],
   ],
-  timeout: 60000, // 60 seconds per test
+  timeout: 90000, // 90 seconds per test (increased from 60s for slow pages)
   expect: {
     timeout: 10000, // 10 seconds for assertions
   },

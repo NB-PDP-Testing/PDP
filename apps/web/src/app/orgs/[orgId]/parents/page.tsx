@@ -68,10 +68,24 @@ function ParentDashboardContent() {
   // Note: Don't check !guardianIdentity because useGuardianIdentity returns
   // unclaimed identities too (via email lookup)
   useEffect(() => {
-    if (claimableIdentities && claimableIdentities.length > 0) {
+    console.log("Claimable identities check:", {
+      claimableIdentities,
+      count: claimableIdentities?.length,
+      showClaimDialog,
+    });
+    if (
+      claimableIdentities &&
+      claimableIdentities.length > 0 &&
+      !showClaimDialog
+    ) {
+      console.log(
+        "Opening claim dialog for",
+        claimableIdentities.length,
+        "identities"
+      );
       setShowClaimDialog(true);
     }
-  }, [claimableIdentities]);
+  }, [claimableIdentities, showClaimDialog]);
 
   // Handle successful claim
   const handleClaimComplete = () => {
@@ -195,6 +209,52 @@ function ParentDashboardContent() {
           )}
         </div>
       </div>
+
+      {/* Pending Guardian Claims Notification */}
+      {claimableIdentities && claimableIdentities.length > 0 && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-6 w-6 text-blue-600" />
+              <CardTitle className="text-blue-800">
+                Pending Guardian Connection
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-blue-700">
+              We found an existing guardian profile that matches your email
+              address. Please review and claim your connection to access your
+              children's information.
+            </p>
+            <div className="mt-4 space-y-2">
+              <p className="font-medium text-blue-800 text-sm">
+                Guardian Profile Found:
+              </p>
+              <ul className="list-inside list-disc space-y-1 text-blue-700 text-sm">
+                <li>
+                  {currentClaimable?.guardianIdentity.firstName}{" "}
+                  {currentClaimable?.guardianIdentity.lastName}
+                </li>
+                <li>
+                  {currentClaimable?.children.length}{" "}
+                  {currentClaimable?.children.length === 1
+                    ? "child"
+                    : "children"}{" "}
+                  linked
+                </li>
+              </ul>
+            </div>
+            <Button
+              className="mt-4"
+              onClick={() => setShowClaimDialog(true)}
+              variant="default"
+            >
+              Review & Claim Connection
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

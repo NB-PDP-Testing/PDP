@@ -242,7 +242,7 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "Import RadioGroup, RadioGroupItem from '@/components/ui/radio-group'. Use Label for accessibility."
     },
     {
@@ -257,7 +257,7 @@
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "Import Alert, AlertDescription from shadcn/ui for level 3 warning."
     },
     {

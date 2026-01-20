@@ -15,6 +15,7 @@ import {
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { TrustLevelIndicator } from "@/components/coach/trust-level-indicator";
+import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { HistoryTab } from "./components/history-tab";
@@ -34,6 +35,9 @@ export function VoiceNotesDashboard() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasAutoSwitched, setHasAutoSwitched] = useState(false);
+  const [nudgeDismissed, setNudgeDismissed] = useState<Record<number, boolean>>(
+    {}
+  );
 
   // Queries for stats and conditional tab logic
   const voiceNotes = useQuery(api.models.voiceNotes.getAllVoiceNotes, {
@@ -66,6 +70,29 @@ export function VoiceNotesDashboard() {
       }
     }
   }, [pendingSummariesCount, pendingInsightsCount, hasAutoSwitched]);
+
+  // Load nudge dismissed state from localStorage
+  useEffect(() => {
+    if (trustLevel) {
+      const dismissed: Record<number, boolean> = {};
+      for (let level = 0; level < 3; level++) {
+        const key = `trust-nudge-dismissed-${level}`;
+        dismissed[level] = localStorage.getItem(key) === "true";
+      }
+      setNudgeDismissed(dismissed);
+    }
+  }, [trustLevel?.currentLevel, trustLevel]);
+
+  const handleNudgeDismiss = () => {
+    if (trustLevel) {
+      const key = `trust-nudge-dismissed-${trustLevel.currentLevel}`;
+      localStorage.setItem(key, "true");
+      setNudgeDismissed((prev) => ({
+        ...prev,
+        [trustLevel.currentLevel]: true,
+      }));
+    }
+  };
 
   // Count stats
   const notesWithInsights =
@@ -203,6 +230,16 @@ export function VoiceNotesDashboard() {
             totalApprovals={trustLevel.totalApprovals}
             totalSuppressed={trustLevel.totalSuppressed}
             trustLevel={trustLevel.currentLevel}
+          />
+        )}
+
+        {/* Trust Nudge Banner */}
+        {trustLevel && !nudgeDismissed[trustLevel.currentLevel] && (
+          <TrustNudgeBanner
+            currentLevel={trustLevel.currentLevel}
+            onDismiss={handleNudgeDismiss}
+            threshold={trustLevel.progressToNextLevel.threshold}
+            totalApprovals={trustLevel.totalApprovals}
           />
         )}
       </div>

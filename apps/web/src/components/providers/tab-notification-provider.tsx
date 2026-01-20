@@ -15,9 +15,7 @@ type TabNotificationProviderProps = {
  * Provider that manages browser tab notifications for parents
  * Shows unread message count in tab title
  *
- * Defensive programming: Checks for authenticated session before querying.
- * Note: This provider is used in parent-specific layout which is already
- * protected by routing, but we add defensive checks for safety.
+ * US-005: Only queries unread count when user has parent role
  */
 export function TabNotificationProvider({
   children,
@@ -25,14 +23,25 @@ export function TabNotificationProvider({
 }: TabNotificationProviderProps) {
   const { data: session } = authClient.useSession();
 
-  // Only query if user is authenticated
-  // The parent layout handles role-based routing, but we add defensive check
-  const shouldQuery = !!session?.user;
+  // Get membership data to check functional role
+  // Per US-005 acceptance criteria: check activeFunctionalRole === 'parent'
+  const allMemberships = useQuery(
+    api.models.members.getMembersForAllOrganizations
+  );
+
+  // Find current org membership
+  const currentMembership = allMemberships?.find(
+    (m) => m.organizationId === orgId
+  );
+
+  // Only query if user is authenticated and has parent role
+  const isParent =
+    !!session?.user && currentMembership?.activeFunctionalRole === "parent";
 
   // Fetch unread summaries count for parents
   const unreadCount = useQuery(
     api.models.coachParentSummaries.getParentUnreadCount,
-    shouldQuery ? { organizationId: orgId } : "skip"
+    isParent ? { organizationId: orgId } : "skip"
   );
 
   // Update tab notification with count

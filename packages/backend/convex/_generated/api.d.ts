@@ -87,6 +87,9 @@ import type * as scripts_migrateEnrollmentSport from "../scripts/migrateEnrollme
 import type * as scripts_passportSharingDiagnostics from "../scripts/passportSharingDiagnostics.js";
 import type * as scripts_previewOrgCleanup from "../scripts/previewOrgCleanup.js";
 import type * as scripts_queryExisting from "../scripts/queryExisting.js";
+import type * as scripts_seed_helpers_playerStages from "../scripts/seed/helpers/playerStages.js";
+import type * as scripts_seed_orchestrator from "../scripts/seed/orchestrator.js";
+import type * as scripts_seed_passports from "../scripts/seed/passports.js";
 import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSportRules.js";
 import type * as scripts_seedUATData from "../scripts/seedUATData.js";
 import type * as scripts_setCurrentOrg from "../scripts/setCurrentOrg.js";
@@ -183,6 +186,9 @@ declare const fullApi: ApiFromModules<{
   "scripts/passportSharingDiagnostics": typeof scripts_passportSharingDiagnostics;
   "scripts/previewOrgCleanup": typeof scripts_previewOrgCleanup;
   "scripts/queryExisting": typeof scripts_queryExisting;
+  "scripts/seed/helpers/playerStages": typeof scripts_seed_helpers_playerStages;
+  "scripts/seed/orchestrator": typeof scripts_seed_orchestrator;
+  "scripts/seed/passports": typeof scripts_seed_passports;
   "scripts/seedDefaultSportRules": typeof scripts_seedDefaultSportRules;
   "scripts/seedUATData": typeof scripts_seedUATData;
   "scripts/setCurrentOrg": typeof scripts_setCurrentOrg;

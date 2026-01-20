@@ -256,6 +256,69 @@ export const getAssessmentHistory = query({
 });
 
 /**
+ * Get assessment history across all sports for a player
+ */
+export const getAssessmentHistoryAllSports = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("skillAssessments"),
+      _creationTime: v.number(),
+      passportId: v.id("sportPassports"),
+      playerIdentityId: v.id("playerIdentities"),
+      sportCode: v.string(),
+      sportName: v.string(), // Added for display
+      skillCode: v.string(),
+      skillName: v.string(),
+      organizationId: v.string(),
+      rating: v.number(),
+      previousRating: v.optional(v.number()),
+      assessmentDate: v.string(),
+      assessmentType: assessmentTypeValidator,
+      assessedBy: v.optional(v.string()),
+      assessedByName: v.optional(v.string()),
+      assessorRole: v.optional(assessorRoleValidator),
+      benchmarkRating: v.optional(v.number()),
+      benchmarkLevel: v.optional(v.string()),
+      benchmarkDelta: v.optional(v.number()),
+      benchmarkStatus: v.optional(benchmarkStatusValidator),
+      notes: v.optional(v.string()),
+      confidence: v.optional(confidenceValidator),
+      createdAt: v.optional(v.number()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all assessments for this player across all sports
+    const assessments = await ctx.db
+      .query("skillAssessments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
+      .order("desc")
+      .take(args.limit ?? 100);
+
+    // Get all skill definitions to map codes to names
+    const skillDefinitions = await ctx.db.query("skillDefinitions").collect();
+    const skillMap = new Map(skillDefinitions.map((s) => [s.code, s.name]));
+
+    // Get all sports to map codes to names
+    const sports = await ctx.db.query("sports").collect();
+    const sportMap = new Map(sports.map((s) => [s.code, s.name]));
+
+    return assessments.map((assessment) => ({
+      ...assessment,
+      skillName: skillMap.get(assessment.skillCode) ?? assessment.skillCode,
+      sportName: sportMap.get(assessment.sportCode) ?? assessment.sportCode,
+    }));
+  },
+});
+
+/**
  * Get assessments by assessor
  */
 export const getAssessmentsByAssessor = query({

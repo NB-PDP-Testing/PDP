@@ -1,10 +1,10 @@
 # Master UAT Test Plan
 
-**Version:** 5.2  
-**Created:** January 7, 2026  
-**Last Updated:** January 11, 2026  
-**Status:** ACTIVE - Lightweight UAT Model  
-**Total Tests:** 33 test files, 272 tests across 14 categories (+ 51 setup tests)
+**Version:** 5.3
+**Created:** January 7, 2026
+**Last Updated:** January 19, 2026
+**Status:** ACTIVE - Lightweight UAT Model
+**Total Tests:** 34 test files, 303 tests across 15 categories (+ 51 setup tests)
 
 ---
 
@@ -95,8 +95,10 @@ apps/web/uat/
     │   └── announcements.spec.ts
     ├── flows/                # Flow wizard tests
     │   └── flow-wizard.spec.ts
-    └── homepage/             # Marketing page tests
-        └── homepage.spec.ts
+    ├── homepage/             # Marketing page tests
+    │   └── homepage.spec.ts
+    └── navigation/           # Navigation bar tests
+        └── navbar-comprehensive.spec.ts
 ```
 
 ### 2.2 Test File Summary
@@ -115,9 +117,10 @@ apps/web/uat/
 | homepage    | 2      | 15      | Marketing page content, advanced navigation                                    |
 | parent      | 1      | 10      | Child management, linked players                                               |
 | performance | 1      | 10      | Page load and API performance tests                                            |
+| navigation  | 1      | 31      | Navigation bar comprehensive tests (Admin, Coach, Parent, Owner)               |
 | errors      | 1      | 4       | Empty states, 404, 403 error pages                                             |
 | platform    | 1      | 6       | Platform staff management (dashboard, staff, sports, skills, bulk import)      |
-| **Total**   | **33** | **272** | (+ 51 tests in onboarding setup script)                                        |
+| **Total**   | **34** | **303** | (+ 51 tests in onboarding setup script)                                        |
 
 ---
 
@@ -211,6 +214,7 @@ npm run test:player     # Player tests
 npm run test:org        # Organization tests
 npm run test:flows      # Flow wizard tests
 npm run test:homepage   # Marketing page tests
+npm run test:navbar     # Navigation bar tests
 
 # Utilities
 npm run test:ui         # Playwright UI mode
@@ -487,6 +491,73 @@ npm run test:setup -- --headed
 - iPhone 12/13: 390x844
 - Android common: 360x640
 
+### 5.15 Navigation Bar Tests (`tests/navigation/navbar-comprehensive.spec.ts`) - NEW
+
+**Purpose:** Comprehensive testing of all navigation links for each user role with automatic feature flag adaptation.
+
+**Feature Flag Support:** Tests automatically detect and adapt to navbar mode changes controlled by PostHog feature flag `ux_admin_nav_sidebar` (sidebar vs horizontal layout).
+
+**Key Features:**
+- Auto-detection of navbar mode (sidebar vs horizontal)
+- Automatic expansion of collapsed navigation groups
+- Console error and page load error detection
+- Comprehensive tests with 80% pass requirement
+- Individual tests for each known navigation link
+- Support for multiple user roles (Admin, Coach, Parent, Owner)
+
+| ID              | Test                                   | Status | File                         |
+| --------------- | -------------------------------------- | ------ | ---------------------------- |
+| NAVBAR-ADMIN-001 | Detect navigation mode and expand groups | ✅    | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-002 | Navigate to Overview link              | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-003 | Navigate to Players link               | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-004 | Navigate to Teams link                 | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-005 | Navigate to Coaches link               | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-006 | Navigate to Guardians link             | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-007 | Navigate to Users link                 | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-008 | Navigate to Approvals link             | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-009 | Navigate to Settings link              | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-010 | Navigate to Benchmarks link            | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-011 | Navigate to Analytics link             | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-012 | Navigate to Overrides link             | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-013 | Navigate to Announcements link         | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-014 | Navigate to Player Access link         | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-ADMIN-099 | Comprehensive test - all admin links   | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-COACH-001 | Detect navigation mode and expand groups | ✅    | navbar-comprehensive.spec.ts |
+| NAVBAR-COACH-002 | Navigate to Dashboard link             | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-COACH-003 | Navigate to Assess link                | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-COACH-004 | Navigate to Players link               | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-COACH-005 | Navigate to Goals link                 | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-COACH-006 | Navigate to Voice Notes link           | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-COACH-007 | Navigate to Session Plans link         | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-COACH-008 | Navigate to Injuries link              | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-COACH-009 | Navigate to Medical link               | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-COACH-010 | Navigate to Match Day link             | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-COACH-099 | Comprehensive test - all coach links   | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-PARENT-001 | Detect navigation mode and expand groups | ✅   | navbar-comprehensive.spec.ts |
+| NAVBAR-PARENT-099 | Comprehensive test - all parent links  | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-OWNER-001 | Admin navigation for owner             | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-OWNER-002 | Coach navigation for owner             | ✅     | navbar-comprehensive.spec.ts |
+| NAVBAR-OWNER-003 | Platform access                        | ✅     | navbar-comprehensive.spec.ts |
+
+**Helper Functions:**
+- `detectNavMode()`: Automatically detects sidebar vs horizontal navbar
+- `expandAllNavGroups()`: Expands collapsed navigation groups in sidebar mode
+- `getAllNavLinks()`: Extracts all navigation links from the navbar
+- `navigateAndVerify()`: Navigates to a link and verifies no errors occur
+
+**Running Navigation Tests:**
+```bash
+# All navigation tests
+npm run test:navbar
+
+# Specific role
+npx playwright test navbar-comprehensive.spec.ts --grep "NAVBAR - Admin"
+npx playwright test navbar-comprehensive.spec.ts --grep "NAVBAR - Coach"
+
+# Individual test
+npx playwright test navbar-comprehensive.spec.ts --grep "NAVBAR-ADMIN-003"
+```
+
 ---
 
 ## 6. Test Coverage by Category
@@ -494,6 +565,7 @@ npm run test:setup -- --headed
 | Category       | Tests   | Coverage Status                    |
 | -------------- | ------- | ---------------------------------- |
 | Admin          | 64      | ✅ Complete                        |
+| Navigation     | 31      | ✅ Complete                        |
 | Coach          | 30      | ✅ Complete                        |
 | Flows          | 26      | ✅ Complete                        |
 | Authentication | 22      | ✅ Complete                        |
@@ -506,8 +578,8 @@ npm run test:setup -- --headed
 | Performance    | 10      | ✅ Complete                        |
 | Parent         | 10      | ✅ Complete                        |
 | Errors         | 4       | ✅ Complete                        |
-| Platform       | 3       | ✅ Complete                        |
-| **Total**      | **269** | **14 categories + 51 setup tests** |
+| Platform       | 6       | ✅ Complete                        |
+| **Total**      | **303** | **15 categories + 51 setup tests** |
 
 ---
 

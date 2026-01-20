@@ -3,6 +3,7 @@ import { useQuery } from "convex/react";
 import { useParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useEffect } from "react";
+import { authClient } from "@/lib/auth-client";
 import { adjustForDarkMode, getContrastColor } from "@/lib/color-utils";
 import { useUXFeatureFlags } from "./use-ux-feature-flags";
 
@@ -65,7 +66,12 @@ type UseOrgThemeOptions = {
 export function useOrgTheme(options: UseOrgThemeOptions = {}) {
   const { skip = false } = options;
   const params = useParams();
-  const orgId = params?.orgId as string | undefined;
+  const orgIdParam = params?.orgId as string | undefined;
+
+  // Handle "current" org ID - use Better Auth's active organization
+  // This prevents passing "current" (7 chars) to Convex which expects valid IDs
+  const { data: activeOrg } = authClient.useActiveOrganization();
+  const orgId = orgIdParam === "current" ? (activeOrg as any)?.id : orgIdParam;
 
   // Get current theme for dark mode detection
   const { resolvedTheme } = useTheme();
@@ -76,9 +82,10 @@ export function useOrgTheme(options: UseOrgThemeOptions = {}) {
 
   // Use Convex reactive query - automatically updates when org data changes
   // Skip query if explicitly told to skip (e.g., on join pages where user isn't a member)
+  // Also skip if orgId is still "current" (activeOrg not loaded yet)
   const org = useQuery(
     api.models.organizations.getOrganization,
-    !skip && orgId ? { organizationId: orgId } : "skip"
+    !skip && orgId && orgId !== "current" ? { organizationId: orgId } : "skip"
   );
 
   const loading = org === undefined;

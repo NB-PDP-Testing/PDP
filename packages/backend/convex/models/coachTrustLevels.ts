@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { authComponent } from "../auth";
 import {
@@ -60,7 +61,7 @@ async function getOrCreateTrustLevelHelper(
   ctx: { db: any },
   coachId: string,
   organizationId: string
-) {
+): Promise<Doc<"coachTrustLevels">> {
   // Try to find existing record
   const existing = await ctx.db
     .query("coachTrustLevels")

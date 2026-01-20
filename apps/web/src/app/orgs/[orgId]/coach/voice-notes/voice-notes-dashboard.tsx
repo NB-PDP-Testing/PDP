@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
   History,
@@ -14,10 +14,18 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { TrustLevelIndicator } from "@/components/coach/trust-level-indicator";
 import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
+import { TrustPreferenceSettings } from "@/components/coach/trust-preference-settings";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { HistoryTab } from "./components/history-tab";
 import { InsightsTab } from "./components/insights-tab";
 import { NewNoteTab } from "./components/new-note-tab";
@@ -38,6 +46,7 @@ export function VoiceNotesDashboard() {
   const [nudgeDismissed, setNudgeDismissed] = useState<Record<number, boolean>>(
     {}
   );
+  const [trustSettingsOpen, setTrustSettingsOpen] = useState(false);
 
   // Queries for stats and conditional tab logic
   const voiceNotes = useQuery(api.models.voiceNotes.getAllVoiceNotes, {
@@ -50,6 +59,11 @@ export function VoiceNotesDashboard() {
   const trustLevel = useQuery(api.models.coachTrustLevels.getCoachTrustLevel, {
     organizationId: orgId,
   });
+
+  // Mutation for saving trust preferences
+  const setPreferredLevel = useMutation(
+    api.models.coachTrustLevels.setCoachPreferredLevel
+  );
 
   // Calculate counts
   const pendingInsightsCount =
@@ -91,6 +105,20 @@ export function VoiceNotesDashboard() {
         ...prev,
         [trustLevel.currentLevel]: true,
       }));
+    }
+  };
+
+  const handleTrustPreferenceUpdate = async (preferredLevel: number) => {
+    try {
+      await setPreferredLevel({
+        organizationId: orgId,
+        preferredLevel,
+      });
+      toast.success("Trust preferences updated");
+      setTrustSettingsOpen(false);
+    } catch (error) {
+      toast.error("Failed to update trust preferences");
+      console.error("Error updating trust preferences:", error);
     }
   };
 
@@ -226,6 +254,7 @@ export function VoiceNotesDashboard() {
         {/* Trust Level Indicator */}
         {trustLevel && (
           <TrustLevelIndicator
+            onSettingsClick={() => setTrustSettingsOpen(true)}
             progressToNextLevel={trustLevel.progressToNextLevel}
             totalApprovals={trustLevel.totalApprovals}
             totalSuppressed={trustLevel.totalSuppressed}
@@ -340,6 +369,22 @@ export function VoiceNotesDashboard() {
         )}
         {activeTab === "settings" && <SettingsTab orgId={orgId} />}
       </div>
+
+      {/* Trust Settings Dialog */}
+      <Dialog onOpenChange={setTrustSettingsOpen} open={trustSettingsOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Trust Level Settings</DialogTitle>
+          </DialogHeader>
+          {trustLevel && (
+            <TrustPreferenceSettings
+              currentLevel={trustLevel.currentLevel}
+              onUpdate={handleTrustPreferenceUpdate}
+              preferredLevel={trustLevel.preferredLevel ?? null}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -277,9 +277,7 @@ function ParentDashboardContent() {
       {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}
 
       {/* Coach Feedback Section */}
-      {playerCount > 0 && (
-        <CoachFeedback orgId={orgId} playerData={identityChildren} />
-      )}
+      {playerCount > 0 && <CoachFeedback orgId={orgId} />}
 
       {/* Medical Information Section */}
       {playerCount > 0 && (

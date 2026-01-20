@@ -24,7 +24,17 @@ import { waitForPageLoad } from "../../fixtures/test-fixtures";
  * 5. Confidence Indicators - AI confidence scores displayed
  */
 
-test.describe("COACH - Parent Summaries Approval Workflow", () => {
+/**
+ * NOTE: These tests are currently skipped because:
+ * 1. Frontend components (US-021 to US-030) are not yet implemented
+ * 2. The backend (US-001 to US-019) is complete and ready
+ *
+ * Remove .skip when:
+ * - Ralph completes US-021 (SummaryApprovalCard component)
+ * - Ralph completes US-023 (Pending summaries section in voice notes dashboard)
+ * - Auth states are created via global-setup
+ */
+test.describe.skip("COACH - Parent Summaries Approval Workflow", () => {
   test.describe("Pending Summaries Section", () => {
     test("COACH-SUMMARY-001: Coach can access voice notes page with pending summaries section", async ({
       coachPage,

@@ -19,7 +19,18 @@ import { waitForPageLoad, getCurrentOrgId } from "../../fixtures/test-fixtures";
  * 5. Summary Cards - Parent-friendly content display
  */
 
-test.describe("PARENT - Coach Summaries View", () => {
+/**
+ * NOTE: These tests are currently skipped because:
+ * 1. Frontend components (US-025 to US-029) are not yet implemented
+ * 2. The backend queries (US-010 to US-013) are complete and ready
+ *
+ * Remove .skip when:
+ * - Ralph completes US-025 (ParentSummaryBadge component)
+ * - Ralph completes US-027 (ParentSummaryCard component)
+ * - Ralph completes US-028/US-029 (CoachFeedback integration)
+ * - Auth states are created via global-setup
+ */
+test.describe.skip("PARENT - Coach Summaries View", () => {
   test.describe("Unread Badge Notification", () => {
     test("PARENT-SUMMARY-001: Parent sees unread summaries badge in navigation", async ({
       parentPage,

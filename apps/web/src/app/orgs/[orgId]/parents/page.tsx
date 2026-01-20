@@ -65,15 +65,13 @@ function ParentDashboardContent() {
   } = useGuardianChildrenInOrg(orgId, session?.user?.email);
 
   // Show claim dialog if there are unclaimed identities
+  // Note: Don't check !guardianIdentity because useGuardianIdentity returns
+  // unclaimed identities too (via email lookup)
   useEffect(() => {
-    if (
-      claimableIdentities &&
-      claimableIdentities.length > 0 &&
-      !guardianIdentity
-    ) {
+    if (claimableIdentities && claimableIdentities.length > 0) {
       setShowClaimDialog(true);
     }
-  }, [claimableIdentities, guardianIdentity]);
+  }, [claimableIdentities]);
 
   // Handle successful claim
   const handleClaimComplete = () => {

@@ -62,5 +62,56 @@ if (args.status) { /* args.status is STILL string | undefined */ }
 
 ## Iteration Log
 
-(Progress entries will be added here as stories complete)
+## [2026-01-20 22:00] - US-001 to US-006 - Phase 4 Foundations
+**Iteration**: 1
+**Commit**: eb53f664333dc9456766d3bb7942d32113ae7d60
+**Session**: b4305abe-a27e-49d4-8d27-7ef2dc84bef1
+**Status**: Complete
+
+### What was implemented
+- **US-010**: Installed satori and @resvg/resvg-js dependencies for shareable image generation
+- **US-001**: Added `summaryShares` table to schema with proper indexes (by_summary, by_guardian)
+- **US-002**: Implemented `trackShareEvent` mutation with full guardian authentication and access verification
+- **US-003**: Created `getPassportLinkForSummary` query that maps insight categories to passport sections
+- **US-004**: Built `useTabNotification` hook that updates browser tab title with unread count
+- **US-005**: Created `TabNotificationProvider` component that queries parent unread count
+- **US-006**: Integrated TabNotificationProvider into parent layout (`apps/web/src/app/orgs/[orgId]/parents/layout.tsx`)
+
+### Files changed
+- packages/backend/convex/schema.ts (+14 lines) - Added summaryShares table
+- packages/backend/convex/models/coachParentSummaries.ts (+108 lines) - Added trackShareEvent mutation and getPassportLinkForSummary query
+- apps/web/src/hooks/use-tab-notification.ts (new file, 31 lines)
+- apps/web/src/providers/tab-notification-provider.tsx (new file, 34 lines)
+- apps/web/src/app/orgs/[orgId]/parents/layout.tsx (+3 lines) - Wrapped with TabNotificationProvider
+- packages/backend/package.json (+2 dependencies)
+- package-lock.json (updated)
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (pre-commit hook ran successfully)
+- ⏳ Browser verification: Not done yet (will test after more UI components built)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Biome auto-removes unused imports during Edit operations - use Write tool for new files to apply import and usage in one operation
+- Parent-specific features should be added to `/parents/layout.tsx`, not the global org layout
+- Parent sidebar doesn't check roles - the layout routing handles role-based access control
+
+**Gotchas encountered:**
+- When adding provider + import with Edit tool, Biome removes import if usage isn't in same edit - had to use Write to apply both at once
+
+**Dependencies found:**
+- Tab notification depends on getParentUnreadCount query (already existed from Phases 1-3)
+- PassportLink mapping requires privateInsight.category and sensitivityCategory from summary record
+
+**What to do next:**
+- [ ] US-007 - Create MessagePassportLink component
+- [ ] US-008 - Wire MessagePassportLink navigation
+- [ ] US-009 - Add MessagePassportLink to ParentSummaryCard
+
+**Mistakes made:**
+- None - smooth implementation following existing patterns from Phase 1-3
+
+---
 

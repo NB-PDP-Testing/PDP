@@ -89,7 +89,7 @@
         "Typecheck passes: npx -w packages/backend convex codegen"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "shareDestination: v.union(v.literal('download'), v.literal('native_share'), v.literal('copy_link')). Follow existing table patterns in schema.ts. Place after parentSummaryViews table definition."
     },
     {
@@ -108,7 +108,7 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Follow existing mutation pattern from markSummaryViewed which does similar auth/access checks."
     },
     {
@@ -127,7 +127,7 @@
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "The summary record has organizationId and playerIdentityId fields directly. privateInsight.category contains insight type (skill_rating, injury, behavior, etc.)."
     },
     {
@@ -144,7 +144,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Simple hook using 'use client' directive. Store original title on mount to restore properly on unmount."
     },
     {
@@ -163,7 +163,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Follow same pattern as parent-sidebar.tsx which already queries getParentUnreadCount. Check currentMembership.activeFunctionalRole from session."
     },
     {
@@ -178,7 +178,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "The layout already has several providers. Add TabNotificationProvider as an inner wrapper where it has access to Convex client."
     },
     {
@@ -239,7 +239,7 @@
         "Run: npm run check-types to ensure no type errors"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "CRITICAL: This must be done BEFORE US-011. satori converts React-like JSX to SVG, resvg converts SVG to PNG in Node.js. Both work in Convex actions with 'use node' directive."
     },
     {

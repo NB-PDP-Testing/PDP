@@ -3,6 +3,7 @@
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { formatDistanceToNow } from "date-fns";
 import { Sparkles } from "lucide-react";
+import { MessagePassportLink } from "@/components/parent/message-passport-link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -64,6 +65,11 @@ export function ParentSummaryCard({
                 }
               )}
             </p>
+
+            {/* Card footer actions */}
+            <div className="mt-3 flex items-center gap-2">
+              <MessagePassportLink summaryId={summary._id} />
+            </div>
           </div>
         </div>
       </CardContent>

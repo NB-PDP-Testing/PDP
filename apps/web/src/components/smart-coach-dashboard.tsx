@@ -453,13 +453,13 @@ export function SmartCoachDashboard({
     setInsights(newInsights);
   };
 
-  // Calculate analytics when dependencies change
-  // Note: useEffect must be placed after function declarations
+  // Calculate analytics when player data or team selection changes
+  // Using stable dependencies (data) instead of functions to prevent infinite loops
   useEffect(() => {
     calculateTeamAnalytics();
     generateCorrelationInsights();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, coachTeams, isClubView]);
+  }, [players, coachTeams, selectedTeam, isClubView]);
 
   const generateAIRecommendations = async () => {
     // Prevent duplicate calls if already loading

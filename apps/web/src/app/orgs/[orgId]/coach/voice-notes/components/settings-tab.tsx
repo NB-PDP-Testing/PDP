@@ -1,7 +1,11 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
-import { Bell, Brain, Shield, Sparkles } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
+import { Bell, Brain, Shield } from "lucide-react";
+import { toast } from "sonner";
+import { TrustPreferenceSettings } from "@/components/coach/trust-preference-settings";
 import {
   Card,
   CardContent,
@@ -16,8 +20,28 @@ type SettingsTabProps = {
   orgId: BetterAuthId<"organization">;
 };
 
-export function SettingsTab({ orgId: _orgId }: SettingsTabProps) {
-  // Placeholder settings - these will be connected to backend in Phase 2
+export function SettingsTab({ orgId }: SettingsTabProps) {
+  // Trust level data
+  const trustLevel = useQuery(api.models.coachTrustLevels.getCoachTrustLevel, {
+    organizationId: orgId,
+  });
+  const setPreferredLevel = useMutation(
+    api.models.coachTrustLevels.setCoachPreferredLevel
+  );
+
+  const handleTrustPreferenceUpdate = async (preferredLevel: number) => {
+    try {
+      await setPreferredLevel({
+        organizationId: orgId,
+        preferredLevel,
+      });
+      toast.success("Trust preferences updated");
+    } catch (error) {
+      toast.error("Failed to update trust preferences");
+      console.error("Error updating trust preferences:", error);
+    }
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* AI Preferences */}
@@ -68,30 +92,26 @@ export function SettingsTab({ orgId: _orgId }: SettingsTabProps) {
         </CardContent>
       </Card>
 
-      {/* Trust Level - Coming in Phase 2 */}
-      <Card className="border-dashed opacity-75">
+      {/* Trust Level Settings */}
+      <Card>
         <CardHeader className="pb-3 sm:pb-6">
           <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Shield className="h-5 w-5" />
             Trust Level
-            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-blue-700 text-xs">
-              Coming Soon
-            </span>
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
             Control how much automation you want for parent summaries
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg bg-muted/50 p-4 text-center">
-            <Sparkles className="mx-auto mb-2 h-8 w-8 text-blue-500" />
-            <p className="font-medium text-sm">Trust Curve System</p>
-            <p className="mt-1 text-muted-foreground text-xs">
-              As you approve more summaries, you'll unlock higher automation
-              levels. Start with manual review, progress to auto-approval for
-              routine updates.
-            </p>
-          </div>
+          {/* Trust Preference Settings */}
+          {trustLevel && (
+            <TrustPreferenceSettings
+              currentLevel={trustLevel.currentLevel}
+              onUpdate={handleTrustPreferenceUpdate}
+              preferredLevel={trustLevel.preferredLevel ?? null}
+            />
+          )}
         </CardContent>
       </Card>
 

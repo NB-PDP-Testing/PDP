@@ -120,7 +120,7 @@ export default function EditPlayerPage() {
     }
     // formatDateForInput is a stable function that doesn't depend on state/props
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerIdentity, enrollment]);
+  }, [playerIdentity, enrollment, formatDateForInput]);
 
   // Initialize selected teams
   useEffect(() => {

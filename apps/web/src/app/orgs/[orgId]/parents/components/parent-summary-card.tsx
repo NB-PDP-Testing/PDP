@@ -6,7 +6,7 @@ import { Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
-interface ParentSummaryCardProps {
+type ParentSummaryCardProps = {
   summary: {
     _id: Id<"coachParentSummaries">;
     publicSummary: {
@@ -19,7 +19,7 @@ interface ParentSummaryCardProps {
   };
   isUnread: boolean;
   onView: (summaryId: Id<"coachParentSummaries">) => void;
-}
+};
 
 export function ParentSummaryCard({
   summary,

@@ -3,9 +3,9 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 
-interface ParentSummaryBadgeProps {
+type ParentSummaryBadgeProps = {
   orgId: string;
-}
+};
 
 export function ParentSummaryBadge({ orgId }: ParentSummaryBadgeProps) {
   const unreadCount = useQuery(

@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -20,6 +20,7 @@ import {
   Search,
   Send,
   Target,
+  Trash2,
   TrendingUp,
   UserCheck,
   Users,
@@ -29,6 +30,17 @@ import {
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +51,14 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { AddGuardianModal } from "./components/add-guardian-modal";
+import { EditGuardianModal } from "./components/edit-guardian-modal";
 
 type ViewMode = "players" | "guardians" | "status";
 type StatusFilter = "all" | "claimed" | "pending" | "missing";
@@ -58,6 +77,16 @@ export default function GuardianManagementPage() {
     id: string;
     name: string;
   } | null>(null);
+  const [editGuardianModalOpen, setEditGuardianModalOpen] = useState(false);
+  const [selectedGuardianForEdit, setSelectedGuardianForEdit] = useState<{
+    guardianPlayerLinkId: Id<"guardianPlayerLinks">;
+    guardianIdentityId: Id<"guardianIdentities">;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    relationship: string;
+  } | null>(null);
 
   // Queries
   const stats = useQuery(api.models.guardianManagement.getGuardianStatsForOrg, {
@@ -74,6 +103,44 @@ export default function GuardianManagementPage() {
     api.models.guardianManagement.getPlayersWithoutGuardians,
     { organizationId: orgId }
   );
+
+  // Delete state and mutation
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [guardianToDelete, setGuardianToDelete] = useState<{
+    linkId: Id<"guardianPlayerLinks">;
+    guardianName: string;
+    playerName: string;
+  } | null>(null);
+  const deleteGuardianPlayerLink = useMutation(
+    api.models.guardianPlayerLinks.deleteGuardianPlayerLink
+  );
+
+  const handleDeleteClick = (
+    linkId: Id<"guardianPlayerLinks">,
+    guardianName: string,
+    playerName: string
+  ) => {
+    setGuardianToDelete({ linkId, guardianName, playerName });
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!guardianToDelete) {
+      return;
+    }
+
+    try {
+      await deleteGuardianPlayerLink({
+        guardianPlayerLinkId: guardianToDelete.linkId,
+      });
+      toast.success("Guardian connection removed successfully");
+      setDeleteConfirmOpen(false);
+      setGuardianToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete guardian connection:", error);
+      toast.error("Failed to remove guardian connection");
+    }
+  };
 
   const toggleRow = (id: string) => {
     const newExpanded = new Set(expandedRows);
@@ -352,42 +419,109 @@ export default function GuardianManagementPage() {
   const getStatusBadge = (claimedCount: number, totalCount: number) => {
     if (totalCount === 0) {
       return (
-        <Badge className="gap-1" variant="destructive">
-          <AlertCircle className="h-3 w-3" />
-          Missing
-        </Badge>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge className="gap-1" variant="destructive">
+                <AlertCircle className="h-3 w-3" />
+                Missing
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="max-w-xs text-sm">
+                This player has no guardians linked. Add a guardian to enable
+                parent access and emergency contact information.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     }
     if (claimedCount === totalCount) {
       return (
-        <Badge className="gap-1 bg-green-600" variant="default">
-          <CheckCircle2 className="h-3 w-3" />
-          All Claimed
-        </Badge>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge className="gap-1 bg-green-600" variant="default">
+                <CheckCircle2 className="h-3 w-3" />
+                All Claimed
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="max-w-xs text-sm">
+                All guardians have logged in and claimed their accounts. They
+                have full access to this player's information.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     }
     return (
-      <Badge className="gap-1 bg-yellow-600 text-white" variant="secondary">
-        <Clock className="h-3 w-3" />
-        {claimedCount}/{totalCount} Claimed
-      </Badge>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge
+              className="gap-1 bg-yellow-600 text-white"
+              variant="secondary"
+            >
+              <Clock className="h-3 w-3" />
+              {claimedCount}/{totalCount} Claimed
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="max-w-xs text-sm">
+              Some guardians haven't logged in yet. They need to create an
+              account using their email address to access this player's
+              information.
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   };
 
   const getGuardianStatusBadge = (hasAccount: boolean) => {
     if (hasAccount) {
       return (
-        <Badge className="gap-1 bg-green-600" variant="default">
-          <CheckCircle2 className="h-3 w-3" />
-          Claimed
-        </Badge>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge className="gap-1 bg-green-600" variant="default">
+                <CheckCircle2 className="h-3 w-3" />
+                Claimed
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="max-w-xs text-sm">
+                This guardian has logged in and claimed their account. They have
+                access to this player's information.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     }
     return (
-      <Badge className="gap-1 bg-yellow-600 text-white" variant="secondary">
-        <Clock className="h-3 w-3" />
-        Pending
-      </Badge>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge
+              className="gap-1 bg-yellow-600 text-white"
+              variant="secondary"
+            >
+              <Clock className="h-3 w-3" />
+              Pending
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="max-w-xs text-sm">
+              This guardian hasn't logged in yet. They need to create an account
+              using their email address to access this player's information.
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   };
 
@@ -853,8 +987,36 @@ export default function GuardianManagementPage() {
                                   </div>
                                 </div>
                                 <div className="flex gap-2">
-                                  <Button size="sm" variant="ghost">
+                                  <Button
+                                    onClick={() => {
+                                      setSelectedGuardianForEdit({
+                                        guardianPlayerLinkId: guardian.linkId,
+                                        guardianIdentityId: guardian.guardianId,
+                                        firstName: guardian.firstName,
+                                        lastName: guardian.lastName,
+                                        email: guardian.email || "",
+                                        phone: guardian.phone,
+                                        relationship: guardian.relationship,
+                                      });
+                                      setEditGuardianModalOpen(true);
+                                    }}
+                                    size="sm"
+                                    variant="ghost"
+                                  >
                                     <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    onClick={() =>
+                                      handleDeleteClick(
+                                        guardian.linkId,
+                                        `${guardian.firstName} ${guardian.lastName}`,
+                                        rel.playerName
+                                      )
+                                    }
+                                    size="sm"
+                                    variant="ghost"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
                                   </Button>
                                 </div>
                               </div>
@@ -1147,6 +1309,57 @@ export default function GuardianManagementPage() {
           playerName={selectedPlayer.name}
         />
       )}
+
+      {/* Edit Guardian Modal */}
+      {selectedGuardianForEdit && (
+        <EditGuardianModal
+          currentData={{
+            firstName: selectedGuardianForEdit.firstName,
+            lastName: selectedGuardianForEdit.lastName,
+            email: selectedGuardianForEdit.email,
+            phone: selectedGuardianForEdit.phone,
+            relationship: selectedGuardianForEdit.relationship,
+          }}
+          guardianIdentityId={selectedGuardianForEdit.guardianIdentityId}
+          guardianPlayerLinkId={selectedGuardianForEdit.guardianPlayerLinkId}
+          onOpenChange={setEditGuardianModalOpen}
+          open={editGuardianModalOpen}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog onOpenChange={setDeleteConfirmOpen} open={deleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Guardian Connection?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove the connection between{" "}
+              <span className="font-semibold">
+                {guardianToDelete?.guardianName}
+              </span>{" "}
+              and{" "}
+              <span className="font-semibold">
+                {guardianToDelete?.playerName}
+              </span>
+              ?
+              <br />
+              <br />
+              This will unlink the guardian from this player. The guardian's
+              profile will remain in the system but will no longer have access
+              to this player's information.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={confirmDelete}
+            >
+              Remove Connection
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Contextual Help & Recommendations */}
       <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30">

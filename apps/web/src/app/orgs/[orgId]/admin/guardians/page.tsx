@@ -131,7 +131,7 @@ export default function GuardianManagementPage() {
 
     try {
       await deleteGuardianPlayerLink({
-        guardianPlayerLinkId: guardianToDelete.linkId,
+        linkId: guardianToDelete.linkId,
       });
       toast.success("Guardian connection removed successfully");
       setDeleteConfirmOpen(false);

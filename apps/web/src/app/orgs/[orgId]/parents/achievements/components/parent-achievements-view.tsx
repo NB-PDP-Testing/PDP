@@ -76,6 +76,30 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
     selectedChild ? { playerIdentityId: selectedChild.player._id } : "skip"
   );
 
+  // Calculate data before any early returns (to maintain hook order)
+  const playerCount = identityChildren.length;
+  const completedGoals =
+    developmentGoals?.filter((g: any) => g.status === "completed") || [];
+
+  // Calculate achievement statistics (must be before early returns)
+  const achievementStats = useMemo(
+    () => ({
+      completedGoals: completedGoals.length,
+      recentReviews: identityChildren.filter((c) => {
+        if (!c.enrollment?.lastReviewDate) {
+          return false;
+        }
+        const daysSince = Math.floor(
+          (Date.now() - new Date(c.enrollment.lastReviewDate).getTime()) /
+            (1000 * 60 * 60 * 24)
+        );
+        return daysSince <= 30;
+      }).length,
+      totalChildren: playerCount,
+    }),
+    [identityChildren, completedGoals, playerCount]
+  );
+
   // Show loading state
   if (roleDetails === undefined || identityLoading) {
     return (
@@ -135,29 +159,6 @@ export function ParentAchievementsView({ orgId }: ParentAchievementsViewProps) {
       </div>
     );
   }
-
-  const playerCount = identityChildren.length;
-  const completedGoals =
-    developmentGoals?.filter((g: any) => g.status === "completed") || [];
-
-  // Calculate achievement statistics
-  const achievementStats = useMemo(
-    () => ({
-      completedGoals: completedGoals.length,
-      recentReviews: identityChildren.filter((c) => {
-        if (!c.enrollment?.lastReviewDate) {
-          return false;
-        }
-        const daysSince = Math.floor(
-          (Date.now() - new Date(c.enrollment.lastReviewDate).getTime()) /
-            (1000 * 60 * 60 * 24)
-        );
-        return daysSince <= 30;
-      }).length,
-      totalChildren: playerCount,
-    }),
-    [identityChildren, completedGoals, playerCount]
-  );
 
   return (
     <div className="space-y-6">

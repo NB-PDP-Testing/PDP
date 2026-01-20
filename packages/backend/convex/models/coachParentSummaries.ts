@@ -159,6 +159,8 @@ export const createParentSummary = internalMutation({
       v.literal("injury"),
       v.literal("behavior")
     ),
+    sensitivityReason: v.optional(v.string()),
+    sensitivityConfidence: v.optional(v.number()),
     sportId: v.id("sports"),
   },
   returns: v.id("coachParentSummaries"),
@@ -180,6 +182,8 @@ export const createParentSummary = internalMutation({
       privateInsight: args.privateInsight,
       publicSummary: args.publicSummary,
       sensitivityCategory: args.sensitivityCategory,
+      sensitivityReason: args.sensitivityReason,
+      sensitivityConfidence: args.sensitivityConfidence,
       status: "pending_review",
       createdAt: Date.now(),
     });

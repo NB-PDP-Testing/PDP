@@ -1626,6 +1626,8 @@ export default defineSchema({
       v.literal("injury"), // Injury-related, requires manual review
       v.literal("behavior") // Behavioral concern, requires manual review
     ),
+    sensitivityReason: v.optional(v.string()), // AI explanation for classification
+    sensitivityConfidence: v.optional(v.number()), // 0-1, AI confidence in classification
 
     // Workflow status
     status: v.union(

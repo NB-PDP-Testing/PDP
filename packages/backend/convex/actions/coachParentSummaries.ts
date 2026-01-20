@@ -435,6 +435,8 @@ export const processVoiceNoteInsight = internalAction({
             generatedAt: Date.now(),
           },
           sensitivityCategory: classification.category,
+          sensitivityReason: classification.reason,
+          sensitivityConfidence: classification.confidence,
           playerIdentityId: args.playerIdentityId,
           sportId: sport._id,
         }

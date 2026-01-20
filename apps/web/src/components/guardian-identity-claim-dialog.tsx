@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation } from "convex/react";
+import { X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "../../../../packages/backend/convex/_generated/api";
@@ -36,10 +37,11 @@ type GuardianIdentityClaimDialogProps = {
   onOpenChange: (open: boolean) => void;
   guardianIdentityId: Id<"guardianIdentities">;
   guardianName: string;
-  childrenListList: Child[];
+  childrenList: Child[];
   organizations: Organization[];
   userId: string;
   onClaimComplete: () => void;
+  onDismiss: () => void;
 };
 
 export function GuardianIdentityClaimDialog({
@@ -51,6 +53,7 @@ export function GuardianIdentityClaimDialog({
   organizations,
   userId,
   onClaimComplete,
+  onDismiss,
 }: GuardianIdentityClaimDialogProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [consentToSharing, setConsentToSharing] = useState(false);
@@ -113,6 +116,14 @@ export function GuardianIdentityClaimDialog({
   return (
     <AlertDialog onOpenChange={onOpenChange} open={open}>
       <AlertDialogContent className="max-w-2xl">
+        <button
+          className="absolute top-4 right-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+          onClick={onDismiss}
+          type="button"
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </button>
         <AlertDialogHeader>
           <AlertDialogTitle className="text-2xl">
             We Found Your Profile!
@@ -227,7 +238,13 @@ export function GuardianIdentityClaimDialog({
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isProcessing}>
+          <AlertDialogCancel
+            disabled={isProcessing}
+            onClick={(e) => {
+              e.preventDefault();
+              onDismiss();
+            }}
+          >
             This Isn't Me
           </AlertDialogCancel>
           <AlertDialogAction

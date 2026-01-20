@@ -42,6 +42,9 @@ function ParentDashboardContent() {
   const { data: session } = authClient.useSession();
   const [showClaimDialog, setShowClaimDialog] = useState(false);
   const [currentClaimIndex, setCurrentClaimIndex] = useState(0);
+  const [dismissedIdentityIds, setDismissedIdentityIds] = useState<Set<string>>(
+    new Set()
+  );
 
   // Get user's role details in this organization
   const roleDetails = useQuery(
@@ -52,9 +55,19 @@ function ParentDashboardContent() {
   );
 
   // Check for unclaimed guardian identities
-  const claimableIdentities = useQuery(
+  const allClaimableIdentities = useQuery(
     api.models.guardianIdentities.findAllClaimableForCurrentUser
   );
+
+  // Filter out dismissed identities
+  const claimableIdentities = useMemo(() => {
+    if (!allClaimableIdentities) {
+      return;
+    }
+    return allClaimableIdentities.filter(
+      (identity) => !dismissedIdentityIds.has(identity.guardianIdentity._id)
+    );
+  }, [allClaimableIdentities, dismissedIdentityIds]);
 
   // Get children from guardian identity system
   // Pass user email to enable fallback lookup for unclaimed guardian identities
@@ -100,6 +113,31 @@ function ParentDashboardContent() {
       // All claims processed - refresh page to load new guardian data
       setShowClaimDialog(false);
       router.refresh();
+    }
+  };
+
+  // Handle dialog dismissal (user clicks "This Isn't Me" or X button)
+  const handleDismiss = () => {
+    if (!currentClaimable) {
+      return;
+    }
+
+    // Add this identity to the dismissed list
+    const newDismissedIds = new Set(dismissedIdentityIds);
+    newDismissedIds.add(currentClaimable.guardianIdentity._id);
+    setDismissedIdentityIds(newDismissedIds);
+
+    // Move to next claimable identity if there are more
+    if (
+      claimableIdentities &&
+      currentClaimIndex < claimableIdentities.length - 1
+    ) {
+      setCurrentClaimIndex(currentClaimIndex + 1);
+      setShowClaimDialog(true);
+    } else {
+      // No more identities to show - close dialog
+      setShowClaimDialog(false);
+      setCurrentClaimIndex(0);
     }
   };
 
@@ -457,6 +495,7 @@ function ParentDashboardContent() {
           guardianIdentityId={currentClaimable.guardianIdentity._id}
           guardianName={`${currentClaimable.guardianIdentity.firstName} ${currentClaimable.guardianIdentity.lastName}`}
           onClaimComplete={handleClaimComplete}
+          onDismiss={handleDismiss}
           onOpenChange={setShowClaimDialog}
           open={showClaimDialog}
           organizations={currentClaimable.organizations}

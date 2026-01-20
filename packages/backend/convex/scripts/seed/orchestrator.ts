@@ -473,7 +473,7 @@ export const seedProductionDemo = mutation({
           .first();
 
         let playerIdentityId: Id<"playerIdentities">;
-        let isNewPlayer = false;
+        let _isNewPlayer = false;
 
         if (existing) {
           console.log(
@@ -486,7 +486,7 @@ export const seedProductionDemo = mutation({
           );
           continue; // Skip rest in dry run
         } else {
-          isNewPlayer = true;
+          _isNewPlayer = true;
           // Create player identity
           const result = await ctx.runMutation(
             internal.models.playerIdentities.findOrCreatePlayer,
@@ -922,7 +922,7 @@ export const seedProductionDemo = mutation({
       console.log(`  ✅ Created ${stats.injuries || 0} injury records`);
 
       // Summary
-      console.log("\n" + "=".repeat(60));
+      console.log(`\n${"=".repeat(60)}`);
       console.log("✅ Production Demo Seed Complete!");
       console.log("=".repeat(60));
       console.log(`Teams:          ${stats.teams} created`);
@@ -1094,9 +1094,13 @@ export const verifyProductionDemo = query({
 
     for (const passport of passports) {
       const assessmentCount = passport.assessmentCount || 0;
-      if (assessmentCount <= 1) beginner++;
-      else if (assessmentCount <= 7) developing++;
-      else advanced++;
+      if (assessmentCount <= 1) {
+        beginner++;
+      } else if (assessmentCount <= 7) {
+        developing++;
+      } else {
+        advanced++;
+      }
     }
 
     return {

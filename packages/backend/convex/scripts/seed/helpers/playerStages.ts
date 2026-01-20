@@ -9,7 +9,7 @@
 
 export type PlayerStage = "beginner" | "developing" | "advanced";
 
-export interface StageConfig {
+export type StageConfig = {
   assessments: {
     count: { min: number; max: number };
     ratingsRange: { min: number; max: number };
@@ -32,7 +32,7 @@ export interface StageConfig {
     progressRange: { min: number; max: number };
     completedRatio?: number; // For advanced players with completed goals
   };
-}
+};
 
 export const STAGE_CONFIGS: Record<PlayerStage, StageConfig> = {
   beginner: {
@@ -337,7 +337,9 @@ export function generateAssessmentDates(
   const dates: Date[] = [];
   const now = new Date();
 
-  if (count === 0) return [];
+  if (count === 0) {
+    return [];
+  }
   if (count === 1) {
     // Single baseline assessment 1-2 weeks ago
     const date = new Date(now);
@@ -370,8 +372,12 @@ export function generateProgressiveRatings(
   minRating: number,
   maxRating: number
 ): number[] {
-  if (count === 0) return [];
-  if (count === 1) return [randomFloat(minRating, maxRating)];
+  if (count === 0) {
+    return [];
+  }
+  if (count === 1) {
+    return [randomFloat(minRating, maxRating)];
+  }
 
   const ratings: number[] = [];
 

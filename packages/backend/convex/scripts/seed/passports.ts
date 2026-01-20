@@ -122,7 +122,7 @@ async function generateAssessments(
   ctx: any,
   passportId: Id<"sportPassports">,
   sportCode: string,
-  stage: PlayerStage,
+  _stage: PlayerStage,
   config: typeof STAGE_CONFIGS.beginner,
   coachId?: string,
   coachName?: string
@@ -133,7 +133,9 @@ async function generateAssessments(
     assessmentConfig.count.max
   );
 
-  if (count === 0) return 0;
+  if (count === 0) {
+    return 0;
+  }
 
   // Get skill definitions for this sport
   const skillCategories = await ctx.db
@@ -219,8 +221,8 @@ async function generateAssessments(
 async function generateGoals(
   ctx: any,
   passportId: Id<"sportPassports">,
-  playerIdentityId: Id<"playerIdentities">,
-  organizationId: string,
+  _playerIdentityId: Id<"playerIdentities">,
+  _organizationId: string,
   ageGroup: string,
   stage: PlayerStage,
   config: typeof STAGE_CONFIGS.beginner,
@@ -243,7 +245,9 @@ async function generateGoals(
     const category = randomPick(categories);
     const goalTemplates = templates[category];
 
-    if (!goalTemplates || goalTemplates.length === 0) continue;
+    if (!goalTemplates || goalTemplates.length === 0) {
+      continue;
+    }
 
     const title = randomPick(goalTemplates);
 
@@ -370,9 +374,15 @@ function determinePriority(
   stage: PlayerStage,
   status: string
 ): "high" | "medium" | "low" {
-  if (stage === "beginner") return "high"; // All beginner goals are high priority
-  if (stage === "advanced" && status === "in_progress") return "high";
-  if (status === "completed") return "low";
+  if (stage === "beginner") {
+    return "high"; // All beginner goals are high priority
+  }
+  if (stage === "advanced" && status === "in_progress") {
+    return "high";
+  }
+  if (status === "completed") {
+    return "low";
+  }
   return "medium";
 }
 
@@ -404,7 +414,9 @@ function generateTargetDate(status: string, progress: number): string {
  */
 function getLinkedSkills(category: string): string[] {
   const skills = SKILL_CATEGORIES[category as keyof typeof SKILL_CATEGORIES];
-  if (!skills) return [];
+  if (!skills) {
+    return [];
+  }
 
   // Return 1-3 random skills from the category
   return randomSample(skills, randomInt(1, Math.min(3, skills.length)));

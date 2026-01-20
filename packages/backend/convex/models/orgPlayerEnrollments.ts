@@ -131,11 +131,12 @@ export const getEnrollmentsForOrg = query({
   },
   returns: v.array(enrollmentValidator),
   handler: async (ctx, args) => {
-    if (args.status) {
+    const status = args.status;
+    if (status) {
       return await ctx.db
         .query("orgPlayerEnrollments")
         .withIndex("by_org_and_status", (q) =>
-          q.eq("organizationId", args.organizationId).eq("status", args.status)
+          q.eq("organizationId", args.organizationId).eq("status", status)
         )
         .collect();
     }
@@ -343,14 +344,15 @@ export const enrollPlayer = mutation({
 
     // Auto-create sport passport if sportCode provided
     let passportId = null;
-    if (args.sportCode) {
+    const sportCode = args.sportCode;
+    if (sportCode) {
       // Check if passport already exists for this player/sport
       const existingPassport = await ctx.db
         .query("sportPassports")
         .withIndex("by_player_and_sport", (q) =>
           q
             .eq("playerIdentityId", args.playerIdentityId)
-            .eq("sportCode", args.sportCode)
+            .eq("sportCode", sportCode)
         )
         .first();
 
@@ -360,7 +362,7 @@ export const enrollPlayer = mutation({
         // Create new passport
         passportId = await ctx.db.insert("sportPassports", {
           playerIdentityId: args.playerIdentityId,
-          sportCode: args.sportCode,
+          sportCode,
           organizationId: args.organizationId,
           status: "active",
           assessmentCount: 0,
@@ -550,13 +552,14 @@ export const findOrCreateEnrollment = mutation({
     }
 
     // Handle passport if sportCode provided
-    if (args.sportCode) {
+    const enrollSportCode = args.sportCode;
+    if (enrollSportCode) {
       const existingPassport = await ctx.db
         .query("sportPassports")
         .withIndex("by_player_and_sport", (q) =>
           q
             .eq("playerIdentityId", args.playerIdentityId)
-            .eq("sportCode", args.sportCode)
+            .eq("sportCode", enrollSportCode)
         )
         .first();
 
@@ -565,7 +568,7 @@ export const findOrCreateEnrollment = mutation({
       } else {
         passportId = await ctx.db.insert("sportPassports", {
           playerIdentityId: args.playerIdentityId,
-          sportCode: args.sportCode,
+          sportCode: enrollSportCode,
           organizationId: args.organizationId,
           status: "active",
           assessmentCount: 0,

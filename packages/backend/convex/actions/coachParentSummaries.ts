@@ -132,6 +132,40 @@ Classify the following insight into one of these categories:
 
 IMPORTANT: Be conservative. If there's any mention of injury or behavior, classify it as such.
 
+EXAMPLES:
+
+Example 1 (INJURY):
+Title: "Player limping after drill"
+Description: "Sarah was favoring her left ankle after the sprint drills. She said it hurts when she puts weight on it."
+Classification: { "category": "injury", "confidence": 0.95, "reason": "Mentions limping, pain, and physical discomfort" }
+
+Example 2 (INJURY):
+Title: "Dizzy spell during practice"
+Description: "Tom felt dizzy after collision in scrimmage. Sat out rest of practice. Needs monitoring."
+Classification: { "category": "injury", "confidence": 0.9, "reason": "Mentions dizziness after collision, medical concern" }
+
+Example 3 (BEHAVIOR):
+Title: "Argument with teammate"
+Description: "Mike had an argument with another player during warm-up. Not listening to feedback lately."
+Classification: { "category": "behavior", "confidence": 0.85, "reason": "Mentions conflict and attitude issues" }
+
+Example 4 (BEHAVIOR):
+Title: "Poor attitude today"
+Description: "Emma showed up late and wasn't engaged. Need to discuss commitment expectations."
+Classification: { "category": "behavior", "confidence": 0.8, "reason": "Mentions attitude and conduct concerns" }
+
+Example 5 (NORMAL):
+Title: "Great passing progress"
+Description: "Jamie's passing accuracy has improved significantly. Ready to work on longer range passes."
+Classification: { "category": "normal", "confidence": 0.95, "reason": "Pure skill development feedback" }
+
+Example 6 (NORMAL):
+Title: "Strong performance in scrimmage"
+Description: "Alex dominated in the midfield today. Great decision making and work rate."
+Classification: { "category": "normal", "confidence": 0.9, "reason": "Performance and skill observation" }
+
+Now classify this insight:
+
 Insight Title: ${args.insightTitle}
 Insight Description: ${args.insightDescription}
 
@@ -167,6 +201,30 @@ Respond in JSON format:
     }
 
     const result = JSON.parse(jsonMatch[0]);
+
+    // Validate AI response structure before type casting
+    const validCategories = ["normal", "injury", "behavior"];
+    if (!(result.category && validCategories.includes(result.category))) {
+      throw new Error(
+        `Invalid category from AI: ${result.category}. Expected one of: ${validCategories.join(", ")}`
+      );
+    }
+
+    if (
+      typeof result.confidence !== "number" ||
+      result.confidence < 0 ||
+      result.confidence > 1
+    ) {
+      throw new Error(
+        `Invalid confidence score from AI: ${result.confidence}. Expected number between 0 and 1`
+      );
+    }
+
+    if (!result.reason || typeof result.reason !== "string") {
+      throw new Error(
+        `Invalid reason from AI: ${result.reason}. Expected non-empty string`
+      );
+    }
 
     return {
       category: result.category as "normal" | "injury" | "behavior",

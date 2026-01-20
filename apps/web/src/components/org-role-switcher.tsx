@@ -200,15 +200,11 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
   // Fix for Issue #226: Sync activeFunctionalRole with URL pathname
   // When user navigates to a role page via links/back/forward/URL,
   // automatically update the database to match the current page
+  //
+  // IMPORTANT: Only sync when the role ACTUALLY CHANGES to avoid write conflicts
+  // Previously this was called on every navigation which caused 1,500+ retries
   useEffect(() => {
     const syncRoleFromURL = async () => {
-      console.log("[Role Sync] useEffect fired", {
-        urlOrgId,
-        pathname,
-        hasCurrentMembership: !!currentMembership,
-        currentRole: currentMembership?.activeFunctionalRole,
-      });
-
       if (!(urlOrgId && currentMembership && pathname)) {
         return;
       }
@@ -216,7 +212,6 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
       // Extract role from URL pathname
       const roleMatch = pathname.match(ROLE_PATHNAME_REGEX);
       if (!roleMatch) {
-        console.log("[Role Sync] Not on a role page");
         return; // Not on a role page
       }
 
@@ -228,39 +223,18 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
       // Check if user has this role
       const hasRole = currentMembership.functionalRoles?.includes(urlRole);
 
-      console.log("[Role Sync] URL role vs Current role:", {
-        urlRole,
-        currentRole,
-        needsSync: urlRole !== currentRole,
-        hasRole,
-      });
+      // ONLY sync when role actually changes - this prevents write conflicts
+      const needsSync = urlRole !== currentRole;
 
-      if (hasRole) {
-        // Always call switchActiveRole to update lastAccessedOrgs timestamp
-        // Even if the role hasn't changed, this ensures "recently accessed" is up to date
-        const needsSync = urlRole !== currentRole;
+      if (hasRole && needsSync) {
         console.log(
-          needsSync
-            ? `[Role Sync] Syncing role from URL: ${urlRole} (was: ${currentRole})`
-            : `[Role Sync] Updating last accessed for ${urlRole} in org ${urlOrgId}`
+          `[Role Sync] Syncing role from URL: ${urlRole} (was: ${currentRole})`
         );
         try {
           await switchActiveRole({
             organizationId: urlOrgId,
             functionalRole: urlRole,
           });
-
-          // Track org access for usage insights
-          if (user?._id) {
-            const org = organizations?.find((o) => o.id === urlOrgId);
-            await trackOrgAccess({
-              userId: user._id,
-              orgId: urlOrgId,
-              orgName: org?.name || "Unknown Organization",
-              role: urlRole,
-            });
-          }
-
           console.log("[Role Sync] ✅ Successfully synced role");
         } catch (error) {
           console.error("[Role Sync] ❌ Failed to sync role:", error);
@@ -274,11 +248,8 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
     urlOrgId,
     pathname,
     currentMembership?.activeFunctionalRole,
-    currentMembership,
+    currentMembership?.functionalRoles,
     switchActiveRole,
-    organizations,
-    user?._id,
-    trackOrgAccess,
   ]);
 
   // Set default org for request dialog when it opens
@@ -329,8 +300,8 @@ export function OrgRoleSwitcher({ className }: OrgRoleSwitcherProps) {
         functionalRole: role,
       });
 
-      // Track org access for usage insights
-      if (user?._id) {
+      // Track org access for usage insights (only if feature flag is enabled)
+      if (useOrgUsageTracking && user?._id) {
         const org = organizations?.find((o) => o.id === orgId);
         await trackOrgAccess({
           userId: user._id,

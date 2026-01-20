@@ -273,7 +273,7 @@
         "Typecheck passes"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Use Card component from shadcn/ui. Make it visually encouraging (green tint or similar)."
     },
     {
@@ -288,7 +288,7 @@
         "Typecheck passes"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "Reset dismissed state when level changes. Use useEffect to sync with localStorage."
     },
     {

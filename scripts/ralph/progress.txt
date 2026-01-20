@@ -144,3 +144,57 @@ Started: Tue 20 Jan 2026 14:02:55 GMT
 - Took screenshot during page load - should wait for content to appear first
 
 ---
+## 2026-01-20 18:00 - US-015 through US-018 - Settings & Nudge Components
+**Iteration**: 2 (continued)
+**Commits**: e1b8d1f (US-015-016), 865b02a (US-017-018)
+**Session**: 295ea250-b840-45b5-83e1-f1b9bc0fd8f5
+**Status**: Complete
+
+### What was implemented
+- **TrustPreferenceSettings Component** (US-015-016):
+  - RadioGroup for selecting preferred automation level (0-3)
+  - Level names, descriptions, and visual state management
+  - Disabled state for unearned levels
+  - Alert warning for Level 3 with AlertTriangle icon
+  - Visual feedback with green highlight for selected level
+  - Informational note about level progression
+- **TrustNudgeBanner Component** (US-017-018):
+  - Encouragement banner for coaches close to next level
+  - Shows when within 2 approvals (8/10 for level 1, 45/50 for level 2)
+  - Dismissible with X button - persists in localStorage
+  - Green gradient design with TrendingUp icon
+  - Integrated into Voice Notes dashboard
+  - Auto-resets when level changes via useEffect
+
+### Files changed
+- apps/web/src/components/coach/trust-preference-settings.tsx (+105 new)
+- apps/web/src/components/coach/trust-nudge-banner.tsx (+67 new)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx (+28, -2)
+
+### Quality checks
+- ✅ Biome linting: passed (1 complexity warning acceptable)
+- ✅ TypeScript: passed (same backend false positive)
+- ⏭️ Browser verification: not yet tested (will test after US-019-020)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- localStorage keys use format: `trust-nudge-dismissed-{level}` for per-level state
+- useEffect dependency array should include trustLevel?.currentLevel to reset on level change
+- Biome removes unused imports aggressively - add import right before usage or with component render
+
+**Gotchas encountered:**
+- Biome complexity warning at score 16 (limit 15) in voice-notes-dashboard - acceptable for now
+- Must initialize dismissed state from localStorage in useEffect, not useState initializer
+
+**Dependencies found:**
+- TrustPreferenceSettings needs to be wired to setCoachPreferredLevel mutation (US-020)
+- Settings dialog integration happens in US-019-020
+
+**What to do next:**
+- [ ] US-019: Add settings button to TrustLevelIndicator, wire up Dialog
+- [ ] US-020: Connect mutation and toast notifications
+- [ ] Browser test full settings flow
+- [ ] Final commit and documentation
+
+---

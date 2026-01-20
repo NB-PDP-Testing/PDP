@@ -313,7 +313,7 @@
         "Typecheck passes"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "Follow existing modal patterns in the codebase. Use DialogContent with max-w-md or max-w-lg. Import Loader2 from lucide-react for spinner."
     },
     {
@@ -330,7 +330,7 @@
         "Typecheck passes"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "Use useAction for one-time action call. Pattern: const generateImage = useAction(api.actions.coachParentSummaries.generateShareableImage). Call in useEffect when isOpen becomes true."
     },
     {
@@ -347,7 +347,7 @@
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "Download pattern: const a = document.createElement('a'); a.href = imageUrl; a.download = filename; a.click();"
     },
     {
@@ -364,7 +364,7 @@
         "Typecheck passes"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Web Share API requires HTTPS. Must convert URL to Blob first: const response = await fetch(imageUrl); const blob = await response.blob(); Then create File from blob for sharing."
     },
     {
@@ -383,7 +383,7 @@
         "Typecheck passes"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "Import ShareModal from @/components/parent/share-modal. Position share button next to the passport link from US-009."
     },
     {
@@ -400,7 +400,7 @@
         "Typecheck passes"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": "lucide-react has: Activity, Trophy, Target, Goal, Dribbble (basketball-like). May need to use generic icons for GAA/rugby. Check existing sport icon usage in codebase first."
     },
     {
@@ -418,7 +418,7 @@
         "Typecheck passes"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "The query response structure includes sports array with each sport having unreadCount. Access it via sport.unreadCount in the map function."
     }
   ]

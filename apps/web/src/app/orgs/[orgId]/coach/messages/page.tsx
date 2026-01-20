@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { MessageSquare, Plus } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
@@ -80,7 +81,9 @@ export default function CoachMessagesPage() {
           </p>
         </div>
         <Button asChild>
-          <Link href={`/orgs/${orgId as string}/coach/messages/compose`}>
+          <Link
+            href={`/orgs/${orgId as string}/coach/messages/compose` as Route}
+          >
             <Plus className="mr-2 h-4 w-4" />
             New Message
           </Link>
@@ -128,7 +131,9 @@ export default function CoachMessagesPage() {
             </EmptyDescription>
           </EmptyContent>
           <Button asChild>
-            <Link href={`/orgs/${orgId as string}/coach/messages/compose`}>
+            <Link
+              href={`/orgs/${orgId as string}/coach/messages/compose` as Route}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Create Your First Message
             </Link>
@@ -140,7 +145,9 @@ export default function CoachMessagesPage() {
         <div className="space-y-4">
           {messages.map((message) => (
             <Link
-              href={`/orgs/${orgId as string}/coach/messages/${message._id as string}`}
+              href={
+                `/orgs/${orgId as string}/coach/messages/${message._id as string}` as Route
+              }
               key={message._id}
             >
               <Card className="cursor-pointer transition-colors hover:bg-accent">

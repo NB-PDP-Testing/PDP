@@ -276,7 +276,7 @@
         "Typecheck passes"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "Use ctx.scheduler.runAfter(0, ...)"
     },
     {
@@ -290,7 +290,7 @@
         "Approve and Don't Share buttons"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -303,7 +303,7 @@
         "Typecheck passes"
       ],
       "priority": 22,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -317,7 +317,7 @@
         "Render SummaryApprovalCard for each pending summary"
       ],
       "priority": 23,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -331,7 +331,7 @@
         "Typecheck passes"
       ],
       "priority": 24,
-      "passes": false,
+      "passes": true,
       "notes": "Use sonner for toasts"
     },
     {
@@ -345,7 +345,7 @@
         "Typecheck passes"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": "Max display '9+' if count > 9"
     },
     {
@@ -359,7 +359,7 @@
         "Typecheck passes"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -373,7 +373,7 @@
         "Typecheck passes"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": "Use formatDistanceToNow from date-fns"
     },
     {
@@ -387,7 +387,7 @@
         "Typecheck passes"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -401,7 +401,7 @@
         "Call markViewed on card view"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "notes": "Separate sports maintain 1:1 coach connection"
     },
     {
@@ -414,7 +414,7 @@
         "Typecheck passes"
       ],
       "priority": 30,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

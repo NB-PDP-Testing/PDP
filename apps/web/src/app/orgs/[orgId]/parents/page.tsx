@@ -45,6 +45,7 @@ function ParentDashboardContent() {
   const [dismissedIdentityIds, setDismissedIdentityIds] = useState<Set<string>>(
     new Set()
   );
+  const [hasAutoOpened, setHasAutoOpened] = useState(false);
 
   // Get user's role details in this organization
   const roleDetails = useQuery(
@@ -77,7 +78,7 @@ function ParentDashboardContent() {
     isLoading: identityLoading,
   } = useGuardianChildrenInOrg(orgId, session?.user?.email);
 
-  // Show claim dialog if there are unclaimed identities
+  // Show claim dialog if there are unclaimed identities (only auto-open once)
   // Note: Don't check !guardianIdentity because useGuardianIdentity returns
   // unclaimed identities too (via email lookup)
   useEffect(() => {
@@ -85,20 +86,23 @@ function ParentDashboardContent() {
       claimableIdentities,
       count: claimableIdentities?.length,
       showClaimDialog,
+      hasAutoOpened,
     });
     if (
       claimableIdentities &&
       claimableIdentities.length > 0 &&
-      !showClaimDialog
+      !showClaimDialog &&
+      !hasAutoOpened
     ) {
       console.log(
-        "Opening claim dialog for",
+        "Auto-opening claim dialog for",
         claimableIdentities.length,
         "identities"
       );
       setShowClaimDialog(true);
+      setHasAutoOpened(true);
     }
-  }, [claimableIdentities, showClaimDialog]);
+  }, [claimableIdentities, showClaimDialog, hasAutoOpened]);
 
   // Handle successful claim
   const handleClaimComplete = () => {

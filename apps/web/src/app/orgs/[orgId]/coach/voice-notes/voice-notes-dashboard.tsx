@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { TrustLevelIndicator } from "@/components/coach/trust-level-indicator";
 import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -223,18 +222,7 @@ export function VoiceNotesDashboard() {
           </div>
         </div>
 
-        {/* Trust Level Indicator */}
-        {trustLevel && (
-          <TrustLevelIndicator
-            onSettingsClick={() => setActiveTab("settings")}
-            progressToNextLevel={trustLevel.progressToNextLevel}
-            totalApprovals={trustLevel.totalApprovals}
-            totalSuppressed={trustLevel.totalSuppressed}
-            trustLevel={trustLevel.currentLevel}
-          />
-        )}
-
-        {/* Trust Nudge Banner */}
+        {/* Trust Nudge Banner - shows when close to next level */}
         {trustLevel && !nudgeDismissed[trustLevel.currentLevel] && (
           <TrustNudgeBanner
             currentLevel={trustLevel.currentLevel}

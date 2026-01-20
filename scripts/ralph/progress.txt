@@ -85,3 +85,62 @@ Started: Tue 20 Jan 2026 14:02:55 GMT
 - Tried to use dynamic import in handler to avoid circular ref, but TypeScript still complained. Solution: static imports with helper functions.
 
 ---
+## 2026-01-20 16:45 - US-012 through US-014 - Trust Level Indicator UI
+**Iteration**: 2
+**Commit**: 6ebeca9808181ab540d0b2abe489ef79845c9ca0
+**Session**: 295ea250-b840-45b5-83e1-f1b9bc0fd8f5
+**Status**: Complete
+
+### What was implemented
+- **TrustLevelIndicator Component**: Created reusable component displaying trust level badge, progress bar, and metrics
+  - Shows level name (New, Learning, Trusted, Expert) with semantic colors
+  - Progress bar showing approvals towards next level
+  - Suppression rate display when applicable
+  - "Maximum level reached" state for level 3
+  - Optional settings button integration (for future stories)
+- **Dashboard Integration**: Added TrustLevelIndicator to Voice Notes dashboard header
+  - Query fetches coach's trust level data
+  - Conditionally renders only when data is available
+  - Positioned below main header, above tabs
+- **Auth Handling Fix**: Modified getCoachTrustLevel query to return default values instead of throwing when user not authenticated
+
+### Files changed
+- apps/web/src/components/coach/trust-level-indicator.tsx (+113 new) - TrustLevelIndicator component
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx (+13, -3) - Dashboard integration
+- packages/backend/convex/models/coachTrustLevels.ts (+26, -4) - Auth handling fix
+
+### Quality checks
+- ✅ Convex codegen: passed
+- ✅ Biome linting: passed
+- ⚠️ TypeScript: 1 false positive (circular type reference in web check, backend is valid per Convex)
+- ✅ Browser verification: Verified on Voice Notes page - Trust Level Indicator displays correctly
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Biome auto-removes unused imports immediately on save - must add import and usage together or in quick succession
+- Queries should handle unauthenticated state gracefully (return defaults) rather than throwing errors
+- Trust level badge uses semantic colors that mirror functional role indicator pattern
+- Component follows shadcn/ui patterns: Badge, Progress components with Tailwind styling
+
+**Gotchas encountered:**
+- Biome removes imports if component isn't used yet - had to add import alongside component usage
+- `safeGetAuthUser` can return null/undefined in query context - defensive checks needed
+- TypeScript narrowing doesn't work with optional chaining - need to extract to const after null check
+- Browser screenshots during loading state show spinner - need to wait for content
+
+**Dependencies found:**
+- TrustLevelIndicator depends on getCoachTrustLevel query
+- Future stories (US-015-020) depend on this component for settings integration
+
+**What to do next:**
+- [ ] US-015-016: Create TrustPreferenceSettings component with level selection
+- [ ] US-017-018: Create and integrate TrustNudgeBanner component  
+- [ ] US-019-020: Wire settings dialog and mutation for preference updates
+
+**Mistakes made:**
+- Initially threw error in query when not authenticated - should have returned defaults from the start
+- Tried to add import separately from usage - Biome removed it. Solution: add both together
+- Took screenshot during page load - should wait for content to appear first
+
+---

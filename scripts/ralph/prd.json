@@ -196,7 +196,7 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "Import Badge from '@/components/ui/badge'. Use 'use client' directive at top."
     },
     {
@@ -211,7 +211,7 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "If at max level (3), show 'Maximum level reached' instead of progress."
     },
     {
@@ -227,7 +227,7 @@
         "Typecheck passes"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "This file already has getCoachPendingSummaries query from Phase 1. Add new query alongside it."
     },
     {

@@ -471,6 +471,29 @@ export const declineGuardianPlayerLink = mutation({
 });
 
 /**
+ * Reset a declined guardian-player link (clear declined status)
+ */
+export const resetDeclinedLink = mutation({
+  args: {
+    linkId: v.id("guardianPlayerLinks"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const link = await ctx.db.get(args.linkId);
+    if (!link) {
+      throw new Error("Guardian-player link not found");
+    }
+
+    await ctx.db.patch(args.linkId, {
+      declinedByUserId: undefined,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
  * Verify a guardian-player link
  */
 export const verifyLink = mutation({

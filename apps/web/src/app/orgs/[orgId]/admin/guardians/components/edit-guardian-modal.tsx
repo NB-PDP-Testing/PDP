@@ -107,7 +107,7 @@ export function EditGuardianModal({
 
       // Update relationship in guardian-player link
       await updateGuardianPlayerLink({
-        guardianPlayerLinkId,
+        linkId: guardianPlayerLinkId,
         relationship: formData.relationship,
       });
 

@@ -114,6 +114,9 @@ export default function GuardianManagementPage() {
   const deleteGuardianPlayerLink = useMutation(
     api.models.guardianPlayerLinks.deleteGuardianPlayerLink
   );
+  const resetDeclinedLink = useMutation(
+    api.models.guardianPlayerLinks.resetDeclinedLink
+  );
 
   const handleDeleteClick = (
     linkId: Id<"guardianPlayerLinks">,
@@ -122,6 +125,21 @@ export default function GuardianManagementPage() {
   ) => {
     setGuardianToDelete({ linkId, guardianName, playerName });
     setDeleteConfirmOpen(true);
+  };
+
+  const handleResetDeclined = async (
+    linkId: Id<"guardianPlayerLinks">,
+    guardianName: string
+  ) => {
+    try {
+      await resetDeclinedLink({ linkId });
+      toast.success(
+        `Reset connection for ${guardianName}. They can now claim this connection.`
+      );
+    } catch (error) {
+      console.error("Failed to reset declined connection:", error);
+      toast.error("Failed to reset connection");
+    }
   };
 
   const confirmDelete = async () => {
@@ -1089,6 +1107,32 @@ export default function GuardianManagementPage() {
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>
+                                  {guardian.declinedByUserId && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            onClick={() =>
+                                              handleResetDeclined(
+                                                guardian.linkId,
+                                                `${guardian.firstName} ${guardian.lastName}`
+                                              )
+                                            }
+                                            size="sm"
+                                            variant="ghost"
+                                          >
+                                            <Send className="h-4 w-4 text-blue-600" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p className="max-w-xs text-sm">
+                                            Reset declined status - Guardian can
+                                            try claiming again
+                                          </p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  )}
                                   <Button
                                     onClick={() =>
                                       handleDeleteClick(

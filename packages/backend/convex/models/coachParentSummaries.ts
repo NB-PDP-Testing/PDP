@@ -751,3 +751,110 @@ export const markSummaryViewed = mutation({
     return null;
   },
 });
+
+/**
+ * Track when a parent shares a summary
+ */
+export const trackShareEvent = mutation({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+    shareDestination: v.union(
+      v.literal("download"),
+      v.literal("native_share"),
+      v.literal("copy_link")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Fetch the summary
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      throw new Error("Summary not found");
+    }
+
+    // Find guardian identity for this user
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .first();
+
+    if (!guardianIdentity) {
+      throw new Error("Guardian identity not found");
+    }
+
+    // Verify guardian is linked to the summary's player
+    const link = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian_and_player", (q) =>
+        q
+          .eq("guardianIdentityId", guardianIdentity._id)
+          .eq("playerIdentityId", summary.playerIdentityId)
+      )
+      .first();
+
+    if (!link) {
+      throw new Error("Not authorized to share this summary");
+    }
+
+    // Insert summaryShares record
+    await ctx.db.insert("summaryShares", {
+      summaryId: args.summaryId,
+      guardianIdentityId: guardianIdentity._id,
+      sharedAt: Date.now(),
+      shareDestination: args.shareDestination,
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Get passport deep link for a summary
+ * Maps insight category to appropriate passport section
+ */
+export const getPassportLinkForSummary = query({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+  },
+  returns: v.object({
+    section: v.string(),
+    url: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    // Fetch the summary
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      throw new Error("Summary not found");
+    }
+
+    // Determine passport section based on insight category and sensitivity
+    let section = "overview"; // default
+
+    // Check sensitivityCategory first for injury/behavior
+    if (summary.sensitivityCategory === "injury") {
+      section = "medical";
+    } else if (summary.sensitivityCategory === "behavior") {
+      section = "overview";
+    } else if (summary.privateInsight?.category) {
+      // Map insight category to passport section
+      const categoryMap: Record<string, string> = {
+        skill_rating: "skills",
+        skill_progress: "goals",
+        injury: "medical",
+        behavior: "overview",
+      };
+      section = categoryMap[summary.privateInsight.category] || "overview";
+    }
+
+    // Build passport URL
+    const url = `/orgs/${summary.organizationId}/parents/children/${summary.playerIdentityId}/passport?section=${section}`;
+
+    return { section, url };
+  },
+});

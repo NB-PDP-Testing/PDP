@@ -1713,6 +1713,20 @@ export default defineSchema({
     .index("by_summary", ["summaryId"])
     .index("by_guardian", ["guardianIdentityId"]),
 
+  // Track when parents share summaries
+  summaryShares: defineTable({
+    summaryId: v.id("coachParentSummaries"),
+    guardianIdentityId: v.id("guardianIdentities"),
+    sharedAt: v.number(),
+    shareDestination: v.union(
+      v.literal("download"),
+      v.literal("native_share"),
+      v.literal("copy_link")
+    ),
+  })
+    .index("by_summary", ["summaryId"])
+    .index("by_guardian", ["guardianIdentityId"]),
+
   // Coach trust levels for AI summary automation
   // Tracks coach reliability and determines automation level
   // Level 0 (New): Manual review for all summaries

@@ -13,10 +13,10 @@ import {
   ParentMobileNav,
   ParentSidebar,
 } from "@/components/layout/parent-sidebar";
+import { TabNotificationProvider } from "@/components/providers/tab-notification-provider";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
-import { TabNotificationProvider } from "@/providers/tab-notification-provider";
 
 export default function ParentsLayout({
   children,

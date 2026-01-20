@@ -226,6 +226,14 @@ export const approveSummary = mutation({
       approvedBy: user.userId || "",
     });
 
+    // Update coach trust metrics
+    const { internal } = await import("../_generated/api");
+    await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
+      coachId: summary.coachId,
+      organizationId: summary.organizationId,
+      action: "approved",
+    });
+
     return null;
   },
 });
@@ -260,6 +268,14 @@ export const suppressSummary = mutation({
     // Update the summary status
     await ctx.db.patch(args.summaryId, {
       status: "suppressed",
+    });
+
+    // Update coach trust metrics
+    const { internal } = await import("../_generated/api");
+    await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
+      coachId: summary.coachId,
+      organizationId: summary.organizationId,
+      action: "suppressed",
     });
 
     return null;

@@ -1674,6 +1674,43 @@ export default defineSchema({
     .index("by_summary", ["summaryId"])
     .index("by_guardian", ["guardianIdentityId"]),
 
+  // Coach trust levels for AI summary automation
+  // Tracks coach reliability and determines automation level
+  // Level 0 (New): Manual review for all summaries
+  // Level 1 (Learning): Quick review with AI suggestions (10+ approvals)
+  // Level 2 (Trusted): Auto-approve normal, review sensitive (50+ approvals, <10% suppression)
+  // Level 3 (Expert): Full automation, requires opt-in (200+ approvals)
+  coachTrustLevels: defineTable({
+    // Identity
+    coachId: v.string(), // Better Auth user ID
+    organizationId: v.string(), // Better Auth organization ID
+
+    // Current trust state
+    currentLevel: v.number(), // 0-3, current automation level
+    preferredLevel: v.optional(v.number()), // 0-3, coach's max desired level (caps auto-upgrade)
+
+    // Metrics for calculating trust level
+    totalApprovals: v.number(), // Count of approved summaries
+    totalSuppressed: v.number(), // Count of suppressed summaries
+    consecutiveApprovals: v.number(), // Current streak of approvals (resets on suppress)
+
+    // Level change history
+    levelHistory: v.array(
+      v.object({
+        level: v.number(), // New level achieved
+        changedAt: v.number(), // Timestamp
+        reason: v.string(), // e.g., "Reached 50 approvals", "Coach opted down to level 1"
+      })
+    ),
+
+    // Activity tracking
+    lastActivityAt: v.optional(v.number()), // Last time metrics were updated
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_coach_org", ["coachId", "organizationId"])
+    .index("by_org", ["organizationId"]),
+
   // Organization Deletion Requests
   // Requires platform staff approval before deletion is executed
   orgDeletionRequests: defineTable({

@@ -46,6 +46,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Textarea } from "@/components/ui/textarea";
+import { SummaryApprovalCard } from "./components/summary-approval-card";
 
 type NoteType = "training" | "match" | "general";
 
@@ -79,6 +80,22 @@ export function VoiceNotesDashboard() {
   );
   const deleteVoiceNote = useMutation(api.models.voiceNotes.deleteVoiceNote);
 
+  // Parent summary queries and mutations
+  const pendingSummaries = useQuery(
+    api.models.coachParentSummaries.getCoachPendingSummaries,
+    { organizationId: orgId }
+  );
+  const approveSummary = useMutation(
+    api.models.coachParentSummaries.approveSummary
+  );
+  const suppressSummary = useMutation(
+    api.models.coachParentSummaries.suppressSummary
+  );
+
+  // State for summary approval
+  const [approvingIds, setApprovingIds] = useState<Set<string>>(new Set());
+  const [suppressingIds, setSuppressingIds] = useState<Set<string>>(new Set());
+
   const showSuccessMessage = (message: string) => {
     setSuccessMessage(message);
     setErrorMessage(null);
@@ -89,6 +106,45 @@ export function VoiceNotesDashboard() {
     setErrorMessage(message);
     setSuccessMessage(null);
     setTimeout(() => setErrorMessage(null), 5000);
+  };
+
+  // Parent summary handlers
+  const handleApproveSummary = async (summaryId: string) => {
+    setApprovingIds((prev) => new Set(prev).add(summaryId));
+    try {
+      await approveSummary({
+        summaryId: summaryId as Id<"coachParentSummaries">,
+      });
+      showSuccessMessage("✅ Summary approved and shared with parent");
+    } catch (error) {
+      console.error("Failed to approve summary:", error);
+      showErrorMessage("⚠️ Failed to approve summary. Please try again.");
+    } finally {
+      setApprovingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(summaryId);
+        return next;
+      });
+    }
+  };
+
+  const handleSuppressSummary = async (summaryId: string) => {
+    setSuppressingIds((prev) => new Set(prev).add(summaryId));
+    try {
+      await suppressSummary({
+        summaryId: summaryId as Id<"coachParentSummaries">,
+      });
+      showSuccessMessage("🔕 Summary suppressed - will not be shared");
+    } catch (error) {
+      console.error("Failed to suppress summary:", error);
+      showErrorMessage("⚠️ Failed to suppress summary. Please try again.");
+    } finally {
+      setSuppressingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(summaryId);
+        return next;
+      });
+    }
   };
 
   const startRecording = async () => {
@@ -347,6 +403,43 @@ export function VoiceNotesDashboard() {
             ×
           </button>
         </div>
+      )}
+
+      {/* Pending Parent Summaries */}
+      {pendingSummaries && pendingSummaries.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending Parent Summaries</CardTitle>
+            <CardDescription>
+              Review AI-generated summaries before they're shared with parents
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {pendingSummaries.map((item) => (
+              <SummaryApprovalCard
+                isApproving={approvingIds.has(item._id)}
+                isSuppressing={suppressingIds.has(item._id)}
+                key={item._id}
+                onApprove={() => handleApproveSummary(item._id)}
+                onSuppress={() => handleSuppressSummary(item._id)}
+                player={
+                  item.player
+                    ? {
+                        firstName: item.player.firstName,
+                        lastName: item.player.lastName,
+                      }
+                    : { firstName: "Unknown", lastName: "Player" }
+                }
+                sport={item.sport ? { name: item.sport.name } : undefined}
+                summary={{
+                  _id: item._id,
+                  publicSummary: item.publicSummary,
+                  privateInsight: item.privateInsight,
+                }}
+              />
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       {/* Record/Type Note */}

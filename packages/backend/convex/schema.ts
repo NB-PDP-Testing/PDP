@@ -1711,6 +1711,22 @@ export default defineSchema({
     .index("by_coach_org", ["coachId", "organizationId"])
     .index("by_org", ["organizationId"]),
 
+  // Injury Approval Checklist Responses
+  // Audit trail for coach due diligence on injury-related summaries
+  // Tracks that coach personally observed injury, verified severity, and ensured no medical advice
+  injuryApprovalChecklist: defineTable({
+    summaryId: v.id("coachParentSummaries"), // Link to the summary
+    coachId: v.string(), // Better Auth user ID of approving coach
+
+    // Checklist responses (all must be true to approve)
+    personallyObserved: v.boolean(), // "I personally observed this injury"
+    severityAccurate: v.boolean(), // "The severity description is accurate"
+    noMedicalAdvice: v.boolean(), // "This contains no medical advice"
+
+    // Timestamp
+    completedAt: v.number(), // When checklist was completed
+  }).index("by_summary", ["summaryId"]),
+
   // Organization Deletion Requests
   // Requires platform staff approval before deletion is executed
   orgDeletionRequests: defineTable({

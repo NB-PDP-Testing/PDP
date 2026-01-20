@@ -135,7 +135,7 @@ export const getEnrollmentsForOrg = query({
       return await ctx.db
         .query("orgPlayerEnrollments")
         .withIndex("by_org_and_status", (q) =>
-          q.eq("organizationId", args.organizationId).eq("status", args.status!)
+          q.eq("organizationId", args.organizationId).eq("status", args.status)
         )
         .collect();
     }
@@ -350,7 +350,7 @@ export const enrollPlayer = mutation({
         .withIndex("by_player_and_sport", (q) =>
           q
             .eq("playerIdentityId", args.playerIdentityId)
-            .eq("sportCode", args.sportCode!)
+            .eq("sportCode", args.sportCode)
         )
         .first();
 
@@ -556,7 +556,7 @@ export const findOrCreateEnrollment = mutation({
         .withIndex("by_player_and_sport", (q) =>
           q
             .eq("playerIdentityId", args.playerIdentityId)
-            .eq("sportCode", args.sportCode!)
+            .eq("sportCode", args.sportCode)
         )
         .first();
 
@@ -1073,7 +1073,7 @@ export const updateReviewStatuses = internalMutation({
       // Check if overdue (due date is in the past)
       if (nextDue < todayStr && enrollment.reviewStatus !== "Overdue") {
         newStatus = "Overdue";
-        overdue++;
+        overdue += 1;
       }
       // Check if due soon (within next 7 days)
       else if (
@@ -1082,7 +1082,7 @@ export const updateReviewStatuses = internalMutation({
         enrollment.reviewStatus !== "Due Soon"
       ) {
         newStatus = "Due Soon";
-        dueSoon++;
+        dueSoon += 1;
       }
 
       // Update if status needs to change
@@ -1091,7 +1091,7 @@ export const updateReviewStatuses = internalMutation({
           reviewStatus: newStatus,
           updatedAt: Date.now(),
         });
-        updated++;
+        updated += 1;
       }
     }
 

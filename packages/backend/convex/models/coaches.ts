@@ -478,7 +478,7 @@ export const migrateCoachAssignmentsToTeamIds = mutation({
           teams: updatedTeams,
           updatedAt: Date.now(),
         });
-        assignmentsUpdated++;
+        assignmentsUpdated += 1;
       }
     }
 

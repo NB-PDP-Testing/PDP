@@ -9,6 +9,18 @@ import {
   query,
 } from "../_generated/server";
 
+// ============ REGEX PATTERNS (for skill rating parsing) ============
+// Patterns to match: "Rating: 4", "set to 3", "to three", "improved to 4/5", "level 3"
+const SKILL_RATING_NUMERIC_PATTERN =
+  /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(\d)(?:\/5)?/i;
+const SKILL_RATING_WORD_PATTERN =
+  /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(one|two|three|four|five)(?:\/5)?/i;
+const SKILL_NAME_CLEANUP_PATTERN = /skill\s*(rating|assessment|update)?:?\s*/i;
+const SKILL_PROGRESS_CLEANUP_PATTERN =
+  /skill\s*(rating|assessment|update|progress|improved?)?:?\s*/i;
+const WHITESPACE_PATTERN = /\s+/;
+const REGEX_SPECIAL_CHARS_PATTERN = /[.*+?^${}()|[\]\\]/g;
+
 // ============ VALIDATORS ============
 
 const insightValidator = v.object({
@@ -317,12 +329,13 @@ export const updateInsightStatus = mutation({
     // If applying, route to appropriate table based on category
     // Uses new identity system tables only
     if (args.status === "applied" && insight.playerIdentityId) {
+      const playerIdentityId = insight.playerIdentityId; // narrow for TypeScript
       const category = insight.category?.toLowerCase() || "";
       const now = Date.now();
       const today = new Date().toISOString().split("T")[0];
 
       // Get the player identity
-      const playerIdentity = await ctx.db.get(insight.playerIdentityId);
+      const playerIdentity = await ctx.db.get(playerIdentityId);
       if (playerIdentity) {
         const playerName =
           insight.playerName ||
@@ -360,7 +373,7 @@ export const updateInsightStatus = mutation({
             const passport = await ctx.db
               .query("sportPassports")
               .withIndex("by_playerIdentityId", (q) =>
-                q.eq("playerIdentityId", insight.playerIdentityId!)
+                q.eq("playerIdentityId", playerIdentityId)
               )
               .first();
 
@@ -380,10 +393,10 @@ export const updateInsightStatus = mutation({
                 "5": 5,
               };
 
-              // Patterns to match: "Rating: 4", "set to 3", "to three", "improved to 4/5", "level 3"
+              // Use top-level regex patterns for performance
               const patterns = [
-                /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(\d)(?:\/5)?/i,
-                /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(one|two|three|four|five)(?:\/5)?/i,
+                SKILL_RATING_NUMERIC_PATTERN,
+                SKILL_RATING_WORD_PATTERN,
               ];
 
               let newRating: number | null = null;
@@ -405,7 +418,7 @@ export const updateInsightStatus = mutation({
 
               // Try to extract skill name from title
               const skillName = insight.title
-                .replace(/skill\s*(rating|assessment|update)?:?\s*/i, "")
+                .replace(SKILL_NAME_CLEANUP_PATTERN, "")
                 .trim();
 
               if (newRating && newRating >= 1 && newRating <= 5) {
@@ -414,7 +427,9 @@ export const updateInsightStatus = mutation({
                   passportId: passport._id,
                   playerIdentityId: insight.playerIdentityId,
                   sportCode: passport.sportCode,
-                  skillCode: skillName.toLowerCase().replace(/\s+/g, "_"),
+                  skillCode: skillName
+                    .toLowerCase()
+                    .replace(WHITESPACE_PATTERN, "_"),
                   organizationId: note.orgId,
                   rating: newRating,
                   assessmentDate: today,
@@ -469,7 +484,7 @@ export const updateInsightStatus = mutation({
             const passport = await ctx.db
               .query("sportPassports")
               .withIndex("by_playerIdentityId", (q) =>
-                q.eq("playerIdentityId", insight.playerIdentityId!)
+                q.eq("playerIdentityId", playerIdentityId)
               )
               .first();
 
@@ -488,9 +503,10 @@ export const updateInsightStatus = mutation({
                 "5": 5,
               };
 
+              // Use top-level regex patterns for performance
               const patterns = [
-                /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(\d)(?:\/5)?/i,
-                /(?:rating[:\s]*|set\s+to\s+|update\s+to\s+|improved?\s+to\s+|now\s+at\s+|level\s+|to\s+)(one|two|three|four|five)(?:\/5)?/i,
+                SKILL_RATING_NUMERIC_PATTERN,
+                SKILL_RATING_WORD_PATTERN,
               ];
 
               let foundRating: number | null = null;
@@ -511,17 +527,16 @@ export const updateInsightStatus = mutation({
               if (foundRating && foundRating >= 1 && foundRating <= 5) {
                 // There's a rating - create skill assessment instead of goal
                 const skillName = insight.title
-                  .replace(
-                    /skill\s*(rating|assessment|update|progress|improved?)?:?\s*/i,
-                    ""
-                  )
+                  .replace(SKILL_PROGRESS_CLEANUP_PATTERN, "")
                   .trim();
 
                 const assessmentId = await ctx.db.insert("skillAssessments", {
                   passportId: passport._id,
                   playerIdentityId: insight.playerIdentityId,
                   sportCode: passport.sportCode,
-                  skillCode: skillName.toLowerCase().replace(/\s+/g, "_"),
+                  skillCode: skillName
+                    .toLowerCase()
+                    .replace(WHITESPACE_PATTERN, "_"),
                   organizationId: note.orgId,
                   rating: foundRating,
                   assessmentDate: today,
@@ -570,7 +585,7 @@ export const updateInsightStatus = mutation({
                 .query("orgPlayerEnrollments")
                 .withIndex("by_player_and_org", (q) =>
                   q
-                    .eq("playerIdentityId", insight.playerIdentityId!)
+                    .eq("playerIdentityId", playerIdentityId)
                     .eq("organizationId", note.orgId)
                 )
                 .first();
@@ -598,7 +613,7 @@ export const updateInsightStatus = mutation({
             const passport = await ctx.db
               .query("sportPassports")
               .withIndex("by_playerIdentityId", (q) =>
-                q.eq("playerIdentityId", insight.playerIdentityId!)
+                q.eq("playerIdentityId", playerIdentityId)
               )
               .first();
 
@@ -620,7 +635,7 @@ export const updateInsightStatus = mutation({
                 .query("orgPlayerEnrollments")
                 .withIndex("by_player_and_org", (q) =>
                   q
-                    .eq("playerIdentityId", insight.playerIdentityId!)
+                    .eq("playerIdentityId", playerIdentityId)
                     .eq("organizationId", note.orgId)
                 )
                 .first();
@@ -811,7 +826,7 @@ export const bulkApplyInsights = mutation({
             success: false,
             message: "Voice note not found",
           });
-          failCount++;
+          failCount += 1;
         }
         continue;
       }
@@ -826,7 +841,7 @@ export const bulkApplyInsights = mutation({
             success: false,
             message: "Insight not found",
           });
-          failCount++;
+          failCount += 1;
           continue;
         }
 
@@ -840,7 +855,7 @@ export const bulkApplyInsights = mutation({
             success: false,
             message: "Insight needs player assignment or classification first",
           });
-          failCount++;
+          failCount += 1;
           continue;
         }
 
@@ -850,7 +865,8 @@ export const bulkApplyInsights = mutation({
           let message = "Applied successfully";
 
           if (insight.playerIdentityId) {
-            const playerIdentity = await ctx.db.get(insight.playerIdentityId);
+            const insightPlayerIdentityId = insight.playerIdentityId;
+            const playerIdentity = await ctx.db.get(insightPlayerIdentityId);
             if (
               playerIdentity &&
               "firstName" in playerIdentity &&
@@ -864,7 +880,7 @@ export const bulkApplyInsights = mutation({
               const passport = await ctx.db
                 .query("sportPassports")
                 .withIndex("by_playerIdentityId", (q) =>
-                  q.eq("playerIdentityId", insight.playerIdentityId!)
+                  q.eq("playerIdentityId", insightPlayerIdentityId)
                 )
                 .first();
 
@@ -885,7 +901,7 @@ export const bulkApplyInsights = mutation({
                   .query("orgPlayerEnrollments")
                   .withIndex("by_player_and_org", (q) =>
                     q
-                      .eq("playerIdentityId", insight.playerIdentityId!)
+                      .eq("playerIdentityId", insightPlayerIdentityId)
                       .eq("organizationId", orgId)
                   )
                   .first();
@@ -935,7 +951,7 @@ export const bulkApplyInsights = mutation({
             success: true,
             message,
           });
-          successCount++;
+          successCount += 1;
         } catch (error) {
           results.push({
             insightId,
@@ -943,7 +959,7 @@ export const bulkApplyInsights = mutation({
             message:
               error instanceof Error ? error.message : "Unknown error occurred",
           });
-          failCount++;
+          failCount += 1;
         }
       }
     }
@@ -1175,7 +1191,7 @@ function correctPlayerNameInText(
   let wasModified = false;
 
   // Build variations of the wrong name to search for
-  const wrongParts = wrongName.split(/\s+/);
+  const wrongParts = wrongName.split(WHITESPACE_PATTERN);
   const wrongFirstName = wrongParts[0] || "";
 
   // Create search patterns (case insensitive)
@@ -1219,7 +1235,7 @@ function correctPlayerNameInText(
  * Escape special regex characters in a string
  */
 function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return str.replace(REGEX_SPECIAL_CHARS_PATTERN, "\\$&");
 }
 
 /**

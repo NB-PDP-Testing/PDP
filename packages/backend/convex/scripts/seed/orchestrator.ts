@@ -11,10 +11,10 @@
  *
  * Creates:
  * - Demo Club organization (via Better Auth adapter)
- * - 6 teams across 3 sports and age groups
- * - 10 players (3 beginner, 4 developing, 3 advanced)
+ * - 6 teams (2 per sport) across 3 sports and age groups
+ * - 60 players (10 per team: 3 beginner, 4 developing, 3 advanced)
  * - Realistic passport data with assessments and goals
- * - 35-40 training session plans
+ * - 50 training session plans
  */
 
 import { v } from "convex/values";
@@ -34,31 +34,19 @@ const DEMO_ORG = {
 };
 
 /**
- * Demo teams configuration
+ * Demo teams configuration - 2 teams per sport (6 teams total)
  */
 const DEMO_TEAMS = [
   {
-    name: "U8 Soccer",
+    name: "U10 Soccer",
     sport: "soccer",
-    ageGroup: "u8",
-    gender: "Boys" as const,
-  },
-  {
-    name: "U10 GAA Girls",
-    sport: "gaa_football",
-    ageGroup: "u10",
-    gender: "Girls" as const,
-  },
-  {
-    name: "U10 Rugby",
-    sport: "rugby",
     ageGroup: "u10",
     gender: "Boys" as const,
   },
   {
-    name: "U12 Soccer Girls",
+    name: "U14 Soccer",
     sport: "soccer",
-    ageGroup: "u12",
+    ageGroup: "u14",
     gender: "Girls" as const,
   },
   {
@@ -68,28 +56,16 @@ const DEMO_TEAMS = [
     gender: "Boys" as const,
   },
   {
-    name: "U14 Soccer Girls",
-    sport: "soccer",
-    ageGroup: "u14",
-    gender: "Girls" as const,
-  },
-  {
-    name: "U14 Rugby",
-    sport: "rugby",
-    ageGroup: "u14",
-    gender: "Boys" as const,
-  },
-  {
-    name: "U14 GAA",
-    sport: "gaa_football",
-    ageGroup: "u14",
-    gender: "Boys" as const,
-  },
-  {
     name: "U16 GAA",
     sport: "gaa_football",
     ageGroup: "u16",
     gender: "Girls" as const,
+  },
+  {
+    name: "U10 Rugby",
+    sport: "rugby",
+    ageGroup: "u10",
+    gender: "Boys" as const,
   },
   {
     name: "U16 Rugby",
@@ -97,129 +73,648 @@ const DEMO_TEAMS = [
     ageGroup: "u16",
     gender: "Boys" as const,
   },
-  {
-    name: "U16 Soccer",
-    sport: "soccer",
-    ageGroup: "u16",
-    gender: "Boys" as const,
-  },
-  {
-    name: "U18 Soccer",
-    sport: "soccer",
-    ageGroup: "u18",
-    gender: "Boys" as const,
-  },
-  {
-    name: "U18 GAA",
-    sport: "gaa_football",
-    ageGroup: "u18",
-    gender: "Girls" as const,
-  },
 ];
 
 /**
- * Demo players configuration - 10 players across stages
+ * Demo players configuration - 60 players (10 per team)
+ * Distribution per team: 3 beginner, 4 developing, 3 advanced
  */
 const DEMO_PLAYERS = [
-  // BEGINNER (3 players)
+  // ========================================
+  // U10 SOCCER (BOYS) - 10 players
+  // ========================================
+  // Beginner (3)
   {
     firstName: "Liam",
-    lastName: "Beginner",
-    dateOfBirth: "2018-05-12", // U8
+    lastName: "Walsh",
+    dateOfBirth: "2016-03-15",
     gender: "male" as const,
     stage: "beginner" as PlayerStage,
     sport: "soccer",
-    ageGroup: "u8",
-    teams: ["U8 Soccer"],
-  },
-  {
-    firstName: "Emma",
-    lastName: "Novice",
-    dateOfBirth: "2016-09-22", // U10
-    gender: "female" as const,
-    stage: "beginner" as PlayerStage,
-    sport: "gaa_football",
     ageGroup: "u10",
-    teams: ["U10 GAA Girls"],
+    teams: ["U10 Soccer"],
   },
   {
     firstName: "Noah",
-    lastName: "Starter",
-    dateOfBirth: "2016-11-05", // U10
+    lastName: "Murphy",
+    dateOfBirth: "2016-07-22",
+    gender: "male" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u10",
+    teams: ["U10 Soccer"],
+  },
+  {
+    firstName: "Jack",
+    lastName: "Kelly",
+    dateOfBirth: "2016-11-08",
+    gender: "male" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u10",
+    teams: ["U10 Soccer"],
+  },
+  // Developing (4)
+  {
+    firstName: "Ryan",
+    lastName: "O'Brien",
+    dateOfBirth: "2016-02-12",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u10",
+    teams: ["U10 Soccer"],
+  },
+  {
+    firstName: "Luke",
+    lastName: "Connor",
+    dateOfBirth: "2016-05-19",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u10",
+    teams: ["U10 Soccer"],
+  },
+  {
+    firstName: "Adam",
+    lastName: "Byrne",
+    dateOfBirth: "2016-08-24",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u10",
+    teams: ["U10 Soccer"],
+  },
+  {
+    firstName: "Dylan",
+    lastName: "Ryan",
+    dateOfBirth: "2016-10-30",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u10",
+    teams: ["U10 Soccer"],
+  },
+  // Advanced (3)
+  {
+    firstName: "Conor",
+    lastName: "Brennan",
+    dateOfBirth: "2016-01-05",
+    gender: "male" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u10",
+    teams: ["U10 Soccer"],
+  },
+  {
+    firstName: "Cian",
+    lastName: "McCarthy",
+    dateOfBirth: "2016-04-18",
+    gender: "male" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u10",
+    teams: ["U10 Soccer"],
+  },
+  {
+    firstName: "Darragh",
+    lastName: "Quinn",
+    dateOfBirth: "2016-09-27",
+    gender: "male" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u10",
+    teams: ["U10 Soccer"],
+  },
+
+  // ========================================
+  // U14 SOCCER (GIRLS) - 10 players
+  // ========================================
+  // Beginner (3)
+  {
+    firstName: "Emma",
+    lastName: "Smith",
+    dateOfBirth: "2012-03-10",
+    gender: "female" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u14",
+    teams: ["U14 Soccer"],
+  },
+  {
+    firstName: "Sophie",
+    lastName: "Brown",
+    dateOfBirth: "2012-06-22",
+    gender: "female" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u14",
+    teams: ["U14 Soccer"],
+  },
+  {
+    firstName: "Lily",
+    lastName: "Wilson",
+    dateOfBirth: "2012-10-15",
+    gender: "female" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u14",
+    teams: ["U14 Soccer"],
+  },
+  // Developing (4)
+  {
+    firstName: "Ava",
+    lastName: "Taylor",
+    dateOfBirth: "2012-02-08",
+    gender: "female" as const,
+    stage: "developing" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u14",
+    teams: ["U14 Soccer"],
+  },
+  {
+    firstName: "Mia",
+    lastName: "Davies",
+    dateOfBirth: "2012-05-19",
+    gender: "female" as const,
+    stage: "developing" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u14",
+    teams: ["U14 Soccer"],
+  },
+  {
+    firstName: "Ella",
+    lastName: "Evans",
+    dateOfBirth: "2012-08-14",
+    gender: "female" as const,
+    stage: "developing" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u14",
+    teams: ["U14 Soccer"],
+  },
+  {
+    firstName: "Grace",
+    lastName: "Thomas",
+    dateOfBirth: "2012-11-30",
+    gender: "female" as const,
+    stage: "developing" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u14",
+    teams: ["U14 Soccer"],
+  },
+  // Advanced (3)
+  {
+    firstName: "Olivia",
+    lastName: "Roberts",
+    dateOfBirth: "2012-01-12",
+    gender: "female" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u14",
+    teams: ["U14 Soccer"],
+  },
+  {
+    firstName: "Amelia",
+    lastName: "Johnson",
+    dateOfBirth: "2012-04-25",
+    gender: "female" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u14",
+    teams: ["U14 Soccer"],
+  },
+  {
+    firstName: "Isabella",
+    lastName: "Walker",
+    dateOfBirth: "2012-09-07",
+    gender: "female" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "soccer",
+    ageGroup: "u14",
+    teams: ["U14 Soccer"],
+  },
+
+  // ========================================
+  // U12 GAA (BOYS) - 10 players
+  // ========================================
+  // Beginner (3)
+  {
+    firstName: "Sean",
+    lastName: "O'Sullivan",
+    dateOfBirth: "2014-03-18",
+    gender: "male" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u12",
+    teams: ["U12 GAA"],
+  },
+  {
+    firstName: "Oisin",
+    lastName: "Doherty",
+    dateOfBirth: "2014-07-09",
+    gender: "male" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u12",
+    teams: ["U12 GAA"],
+  },
+  {
+    firstName: "Fionn",
+    lastName: "Gallagher",
+    dateOfBirth: "2014-11-25",
+    gender: "male" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u12",
+    teams: ["U12 GAA"],
+  },
+  // Developing (4)
+  {
+    firstName: "Cillian",
+    lastName: "Healy",
+    dateOfBirth: "2014-02-14",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u12",
+    teams: ["U12 GAA"],
+  },
+  {
+    firstName: "Tadhg",
+    lastName: "Kavanagh",
+    dateOfBirth: "2014-05-22",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u12",
+    teams: ["U12 GAA"],
+  },
+  {
+    firstName: "Eoin",
+    lastName: "Nolan",
+    dateOfBirth: "2014-08-17",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u12",
+    teams: ["U12 GAA"],
+  },
+  {
+    firstName: "Ronan",
+    lastName: "Maguire",
+    dateOfBirth: "2014-10-29",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u12",
+    teams: ["U12 GAA"],
+  },
+  // Advanced (3)
+  {
+    firstName: "Colm",
+    lastName: "Fitzgerald",
+    dateOfBirth: "2014-01-08",
+    gender: "male" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u12",
+    teams: ["U12 GAA"],
+  },
+  {
+    firstName: "Niall",
+    lastName: "Donovan",
+    dateOfBirth: "2014-04-20",
+    gender: "male" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u12",
+    teams: ["U12 GAA"],
+  },
+  {
+    firstName: "Liam",
+    lastName: "O'Connell",
+    dateOfBirth: "2014-09-13",
+    gender: "male" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u12",
+    teams: ["U12 GAA"],
+  },
+
+  // ========================================
+  // U16 GAA (GIRLS) - 10 players
+  // ========================================
+  // Beginner (3)
+  {
+    firstName: "Aoife",
+    lastName: "Murphy",
+    dateOfBirth: "2010-03-12",
+    gender: "female" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u16",
+    teams: ["U16 GAA"],
+  },
+  {
+    firstName: "Ciara",
+    lastName: "Kelly",
+    dateOfBirth: "2010-06-28",
+    gender: "female" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u16",
+    teams: ["U16 GAA"],
+  },
+  {
+    firstName: "Niamh",
+    lastName: "Ryan",
+    dateOfBirth: "2010-10-19",
+    gender: "female" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u16",
+    teams: ["U16 GAA"],
+  },
+  // Developing (4)
+  {
+    firstName: "Saoirse",
+    lastName: "O'Connor",
+    dateOfBirth: "2010-02-05",
+    gender: "female" as const,
+    stage: "developing" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u16",
+    teams: ["U16 GAA"],
+  },
+  {
+    firstName: "Caoimhe",
+    lastName: "Brennan",
+    dateOfBirth: "2010-05-17",
+    gender: "female" as const,
+    stage: "developing" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u16",
+    teams: ["U16 GAA"],
+  },
+  {
+    firstName: "Orla",
+    lastName: "McCarthy",
+    dateOfBirth: "2010-08-22",
+    gender: "female" as const,
+    stage: "developing" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u16",
+    teams: ["U16 GAA"],
+  },
+  {
+    firstName: "Roisin",
+    lastName: "Doyle",
+    dateOfBirth: "2010-11-14",
+    gender: "female" as const,
+    stage: "developing" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u16",
+    teams: ["U16 GAA"],
+  },
+  // Advanced (3)
+  {
+    firstName: "Aisling",
+    lastName: "O'Brien",
+    dateOfBirth: "2010-01-09",
+    gender: "female" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u16",
+    teams: ["U16 GAA"],
+  },
+  {
+    firstName: "Sinead",
+    lastName: "Walsh",
+    dateOfBirth: "2010-04-23",
+    gender: "female" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u16",
+    teams: ["U16 GAA"],
+  },
+  {
+    firstName: "Grainne",
+    lastName: "Lynch",
+    dateOfBirth: "2010-09-16",
+    gender: "female" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "gaa_football",
+    ageGroup: "u16",
+    teams: ["U16 GAA"],
+  },
+
+  // ========================================
+  // U10 RUGBY (BOYS) - 10 players
+  // ========================================
+  // Beginner (3)
+  {
+    firstName: "James",
+    lastName: "Anderson",
+    dateOfBirth: "2016-03-08",
     gender: "male" as const,
     stage: "beginner" as PlayerStage,
     sport: "rugby",
     ageGroup: "u10",
     teams: ["U10 Rugby"],
   },
-
-  // DEVELOPING (4 players)
   {
-    firstName: "Sophia",
-    lastName: "Progress",
-    dateOfBirth: "2014-03-18", // U12
-    gender: "female" as const,
-    stage: "developing" as PlayerStage,
-    sport: "soccer",
-    ageGroup: "u12",
-    teams: ["U12 Soccer Girls"],
-  },
-  {
-    firstName: "Oliver",
-    lastName: "Growth",
-    dateOfBirth: "2014-07-09", // U12
+    firstName: "Ben",
+    lastName: "Clarke",
+    dateOfBirth: "2016-07-15",
     gender: "male" as const,
-    stage: "developing" as PlayerStage,
-    sport: "gaa_football",
-    ageGroup: "u12",
-    teams: ["U12 GAA", "U14 GAA"], // Playing up
+    stage: "beginner" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u10",
+    teams: ["U10 Rugby"],
   },
   {
-    firstName: "Ava",
-    lastName: "Improving",
-    dateOfBirth: "2012-01-25", // U14
-    gender: "female" as const,
-    stage: "developing" as PlayerStage,
-    sport: "soccer",
-    ageGroup: "u14",
-    teams: ["U14 Soccer Girls"],
+    firstName: "Sam",
+    lastName: "Mitchell",
+    dateOfBirth: "2016-11-22",
+    gender: "male" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u10",
+    teams: ["U10 Rugby"],
   },
+  // Developing (4)
   {
-    firstName: "Ethan",
-    lastName: "Developing",
-    dateOfBirth: "2012-10-14", // U14
+    firstName: "Tom",
+    lastName: "Harrison",
+    dateOfBirth: "2016-02-19",
     gender: "male" as const,
     stage: "developing" as PlayerStage,
     sport: "rugby",
-    ageGroup: "u14",
-    teams: ["U14 Rugby"],
+    ageGroup: "u10",
+    teams: ["U10 Rugby"],
   },
-
-  // ADVANCED (3 players)
   {
-    firstName: "Mason",
-    lastName: "Elite",
-    dateOfBirth: "2008-04-03", // U18
+    firstName: "Harry",
+    lastName: "Cooper",
+    dateOfBirth: "2016-05-11",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u10",
+    teams: ["U10 Rugby"],
+  },
+  {
+    firstName: "Josh",
+    lastName: "Hughes",
+    dateOfBirth: "2016-08-27",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u10",
+    teams: ["U10 Rugby"],
+  },
+  {
+    firstName: "Max",
+    lastName: "Bennett",
+    dateOfBirth: "2016-10-09",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u10",
+    teams: ["U10 Rugby"],
+  },
+  // Advanced (3)
+  {
+    firstName: "Charlie",
+    lastName: "Foster",
+    dateOfBirth: "2016-01-14",
     gender: "male" as const,
     stage: "advanced" as PlayerStage,
-    sport: "soccer",
-    ageGroup: "u18",
-    teams: ["U18 Soccer", "U16 Soccer"], // Also mentoring U16
+    sport: "rugby",
+    ageGroup: "u10",
+    teams: ["U10 Rugby"],
   },
   {
-    firstName: "Isabella",
-    lastName: "Advanced",
-    dateOfBirth: "2010-06-17", // U16
-    gender: "female" as const,
+    firstName: "Oliver",
+    lastName: "Gray",
+    dateOfBirth: "2016-04-06",
+    gender: "male" as const,
     stage: "advanced" as PlayerStage,
-    sport: "gaa_football",
-    ageGroup: "u16",
-    teams: ["U16 GAA", "U18 GAA", "U14 GAA"], // Playing up + mentoring
+    sport: "rugby",
+    ageGroup: "u10",
+    teams: ["U10 Rugby"],
   },
+  {
+    firstName: "Ethan",
+    lastName: "Price",
+    dateOfBirth: "2016-09-30",
+    gender: "male" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u10",
+    teams: ["U10 Rugby"],
+  },
+
+  // ========================================
+  // U16 RUGBY (BOYS) - 10 players
+  // ========================================
+  // Beginner (3)
   {
     firstName: "Lucas",
-    lastName: "Expert",
-    dateOfBirth: "2010-12-28", // U16
+    lastName: "Martin",
+    dateOfBirth: "2010-03-21",
+    gender: "male" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u16",
+    teams: ["U16 Rugby"],
+  },
+  {
+    firstName: "Mason",
+    lastName: "Turner",
+    dateOfBirth: "2010-07-04",
+    gender: "male" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u16",
+    teams: ["U16 Rugby"],
+  },
+  {
+    firstName: "Finn",
+    lastName: "Edwards",
+    dateOfBirth: "2010-10-26",
+    gender: "male" as const,
+    stage: "beginner" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u16",
+    teams: ["U16 Rugby"],
+  },
+  // Developing (4)
+  {
+    firstName: "Logan",
+    lastName: "Green",
+    dateOfBirth: "2010-02-16",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u16",
+    teams: ["U16 Rugby"],
+  },
+  {
+    firstName: "Oscar",
+    lastName: "White",
+    dateOfBirth: "2010-05-29",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u16",
+    teams: ["U16 Rugby"],
+  },
+  {
+    firstName: "Jacob",
+    lastName: "Hall",
+    dateOfBirth: "2010-08-12",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u16",
+    teams: ["U16 Rugby"],
+  },
+  {
+    firstName: "Leo",
+    lastName: "Scott",
+    dateOfBirth: "2010-11-08",
+    gender: "male" as const,
+    stage: "developing" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u16",
+    teams: ["U16 Rugby"],
+  },
+  // Advanced (3)
+  {
+    firstName: "Alexander",
+    lastName: "Adams",
+    dateOfBirth: "2010-01-19",
+    gender: "male" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u16",
+    teams: ["U16 Rugby"],
+  },
+  {
+    firstName: "William",
+    lastName: "Collins",
+    dateOfBirth: "2010-04-11",
+    gender: "male" as const,
+    stage: "advanced" as PlayerStage,
+    sport: "rugby",
+    ageGroup: "u16",
+    teams: ["U16 Rugby"],
+  },
+  {
+    firstName: "Henry",
+    lastName: "Morris",
+    dateOfBirth: "2010-09-24",
     gender: "male" as const,
     stage: "advanced" as PlayerStage,
     sport: "rugby",
@@ -507,15 +1002,30 @@ export const seedProductionDemo = mutation({
         createdPlayerIdentityIds.push(playerIdentityId);
 
         if (!args.dryRun) {
-          // Enroll in organization with sport (for both new and existing players)
-          await ctx.runMutation(api.models.orgPlayerEnrollments.enrollPlayer, {
-            playerIdentityId,
-            organizationId: orgId,
-            ageGroup: playerConfig.ageGroup,
-            season: "2026",
-            sportCode: playerConfig.sport,
-            status: "active" as const,
-          });
+          // Check if player is already enrolled in this organization
+          const existingEnrollment = await ctx.db
+            .query("orgPlayerEnrollments")
+            .withIndex("by_player_and_org", (q) =>
+              q
+                .eq("playerIdentityId", playerIdentityId)
+                .eq("organizationId", orgId)
+            )
+            .first();
+
+          // Enroll in organization with sport (only if not already enrolled)
+          if (!existingEnrollment) {
+            await ctx.runMutation(
+              api.models.orgPlayerEnrollments.enrollPlayer,
+              {
+                playerIdentityId,
+                organizationId: orgId,
+                ageGroup: playerConfig.ageGroup,
+                season: "2026",
+                sportCode: playerConfig.sport,
+                status: "active" as const,
+              }
+            );
+          }
 
           // Assign to teams
           for (const teamName of playerConfig.teams) {
@@ -575,7 +1085,7 @@ export const seedProductionDemo = mutation({
       console.log("\n🏋️ Step 5: Creating session plans...");
 
       if (args.dryRun) {
-        console.log("  [DRY RUN] Would create 38 session plans");
+        console.log("  [DRY RUN] Would create 50 session plans");
       } else {
         const sessionResult = await ctx.runMutation(
           api.seed.sessionPlansSeed.seedSessionPlans,
@@ -583,7 +1093,7 @@ export const seedProductionDemo = mutation({
             organizationId: orgId,
             coachId: user._id,
             coachName: user.name || "Demo Coach",
-            count: 38,
+            count: 50,
           }
         );
 

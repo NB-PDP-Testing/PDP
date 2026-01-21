@@ -243,17 +243,21 @@ export const buildInsights = internalAction({
             { organizationId: note.orgId }
           );
 
-      // Build roster context for AI
+      // Build roster context for AI (JSON format for reliable parsing)
       const rosterContext = players.length
-        ? players
-            .map(
-              (player: any) =>
-                `- ${player.firstName} ${player.lastName} (ID: ${player.playerIdentityId})${
-                  player.ageGroup ? `, Age Group: ${player.ageGroup}` : ""
-                }${player.sport ? `, Sport: ${player.sport}` : ""}`
-            )
-            .join("\n")
-        : "No roster context provided.";
+        ? JSON.stringify(
+            players.map((player: any) => ({
+              id: player.playerIdentityId,
+              firstName: player.firstName,
+              lastName: player.lastName,
+              fullName: `${player.firstName} ${player.lastName}`,
+              ageGroup: player.ageGroup || "Unknown",
+              sport: player.sport || "Unknown",
+            })),
+            null,
+            2
+          )
+        : "[]";
 
       // Get model config from database with fallback
       const config = await getAIConfig(ctx, "voice_insights", note.orgId);
@@ -291,13 +295,30 @@ CATEGORIZATION RULES:
 - If it's a task/action for the coach to do → use todo, playerName should be null
 - skill_rating: include the rating number in recommendedUpdate (e.g., "Set to 3/5")
 
-Team Roster:
+Team Roster (JSON array):
 ${rosterContext}
 
-Important:
-- Always try to match mentioned player names to the roster and include their exact ID
-- If a player name doesn't match the roster exactly, still extract the insight with the playerName field
-- For team_culture and todo categories, playerName and playerId should be null
+CRITICAL PLAYER MATCHING INSTRUCTIONS:
+- When you identify a player name in the voice note, find them in the roster JSON above
+- Use the EXACT "id" field from the matching roster entry as the playerId in your response
+- Match by comparing the mentioned name to "fullName", "firstName", or "lastName" fields
+- If you find a match, you MUST include the "id" as the playerId
+
+MATCHING EXAMPLES:
+Example 1: Voice note says "Clodagh Barlow injured her hand"
+  Roster has: {"id": "mx7fsvhh...", "fullName": "Clodagh Barlow", ...}
+  Return: {"playerName": "Clodagh Barlow", "playerId": "mx7fsvhh..."}
+
+Example 2: Voice note says "Sinead had a great session"
+  Roster has: {"id": "abc123", "firstName": "Sinead", "lastName": "Haughey", ...}
+  Return: {"playerName": "Sinead Haughey", "playerId": "abc123"}
+
+Example 3: Voice note says "John improved his passing" but John is not in roster
+  Return: {"playerName": "John", "playerId": null}
+
+IMPORTANT:
+- If a player name doesn't match the roster, still extract with playerName but set playerId to null
+- For team_culture and todo categories, both playerName and playerId should be null
 - Be specific and actionable in your recommendations`,
               },
             ],

@@ -14,7 +14,6 @@ import {
   generateProgressiveRatings,
   getGoalTemplatesForAgeGroup,
   type PlayerStage,
-  randomFloat,
   randomInt,
   randomPick,
   randomSample,
@@ -78,11 +77,11 @@ export const seedPassportForPlayer = mutation({
       args.coachName
     );
 
-    // 4. Update overall rating if stage has one
+    // 4. Update overall rating if stage has one (whole numbers only)
     if (config.passport.overallRating) {
-      const overallRating = randomFloat(
-        config.passport.overallRating.min,
-        config.passport.overallRating.max
+      const overallRating = randomInt(
+        Math.round(config.passport.overallRating.min),
+        Math.round(config.passport.overallRating.max)
       );
 
       await ctx.runMutation(api.models.sportPassports.updateRatings, {
@@ -289,10 +288,10 @@ async function generateGoals(
       });
     }
 
-    // Add milestones for developing/advanced players
+    // Add milestones for developing/advanced players (reduced for faster seeding)
     if (stage !== "beginner") {
       const milestoneCount =
-        stage === "advanced" ? randomInt(2, 4) : randomInt(1, 3);
+        stage === "advanced" ? randomInt(1, 2) : randomInt(1, 2);
 
       for (let m = 0; m < milestoneCount; m++) {
         const milestoneDesc = generateMilestoneDescription(title, m);

@@ -1,8 +1,9 @@
 # Production Demo Seeding - UAT Guide
 
-**Last Updated:** January 20, 2026
+**Last Updated:** January 21, 2026
 **Purpose:** User Acceptance Testing guide for production demo database seeding
 **Status:** Ready for UAT Testing
+**Changes:** Updated for 60 players (10 per team), 6 teams, whole number ratings, 50 session plans
 
 ---
 
@@ -35,14 +36,16 @@ The production demo seeding system creates a complete, realistic demonstration e
 When you run the production demo seed, it creates:
 
 - ✅ **1 Demo Organization** - "Demo Club" with multi-sport support
-- ✅ **13 Teams** - Across soccer, GAA football, and rugby (U8 through U18)
-- ✅ **10 Players** - Distributed across 3 development stages:
-  - 3 beginner players (0-1 assessments)
-  - 4 developing players (4-7 assessments)
-  - 3 advanced players (12-18 assessments)
-- ✅ **~80 Skill Assessments** - Showing realistic progression over time
-- ✅ **~35 Development Goals** - With milestones and progress tracking
-- ✅ **38 Training Session Plans** - Diverse plans across sports and age groups
+- ✅ **6 Teams** - 2 teams per sport across soccer, GAA football, and rugby (U10, U12, U14, U16)
+- ✅ **60 Players** - 10 players per team, distributed across 3 development stages:
+  - 18 beginner players (0-1 assessments each)
+  - 24 developing players (2-3 assessments each)
+  - 18 advanced players (4-6 assessments each)
+- ✅ **~780-820 Skill Assessments** - With **whole number ratings only (1, 2, 3, 4, 5)**, showing realistic progression over time
+- ✅ **~145-155 Development Goals** - With milestones and progress tracking (2-3 goals per player)
+- ✅ **50 Training Session Plans** - Diverse plans across sports and age groups
+- ✅ **60 Medical Profiles** - With varied health information
+- ✅ **~35-50 Injury Records** - Historical and current injuries
 
 ### Critical: Better Auth Integration
 

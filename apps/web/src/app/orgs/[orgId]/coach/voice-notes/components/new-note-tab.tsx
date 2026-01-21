@@ -8,6 +8,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 type NoteType = "training" | "match" | "general";
 
@@ -26,6 +27,9 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
   // Audio recording refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  // Get current user for coachId
+  const user = useCurrentUser();
 
   // Convex mutations
   const createTypedNote = useMutation(api.models.voiceNotes.createTypedNote);
@@ -102,6 +106,7 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
       // Create the voice note
       await createRecordedNote({
         orgId,
+        coachId: user?.userId ?? undefined,
         noteType,
         audioStorageId: storageId,
       });
@@ -123,6 +128,7 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
     try {
       await createTypedNote({
         orgId,
+        coachId: user?.userId ?? undefined,
         noteType,
         noteText: noteText.trim(),
       });

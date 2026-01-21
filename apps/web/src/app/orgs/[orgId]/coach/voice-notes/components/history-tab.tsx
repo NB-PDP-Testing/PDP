@@ -320,42 +320,9 @@ export function HistoryTab({ orgId, onSuccess, onError }: HistoryTabProps) {
                   </div>
                 </div>
 
-                {/* Transcription - What the coach actually said */}
-                {note.transcription && (
-                  <div className="mb-3 rounded-lg border-gray-200 border-l-4 bg-gray-50 p-3">
-                    <div className="mb-1 flex items-center gap-1.5 text-gray-500 text-xs">
-                      <Quote className="h-3.5 w-3.5" />
-                      <span className="font-medium uppercase tracking-wide">
-                        Your words
-                      </span>
-                    </div>
-                    <p className="line-clamp-3 whitespace-pre-wrap text-gray-700 text-xs sm:line-clamp-none sm:text-sm">
-                      {note.transcription}
-                    </p>
-                  </div>
-                )}
-                {!note.transcription &&
-                  (note.transcriptionStatus === "pending" ||
-                    note.transcriptionStatus === "processing") && (
-                    <div className="mb-3 rounded-lg border-gray-200 border-l-4 bg-gray-50 p-3">
-                      <div className="flex items-center gap-1.5 text-gray-400 text-xs">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        <span className="italic">Transcribing audio...</span>
-                      </div>
-                    </div>
-                  )}
-                {!note.transcription &&
-                  note.transcriptionStatus !== "pending" &&
-                  note.transcriptionStatus !== "processing" &&
-                  note.transcriptionError && (
-                    <p className="text-red-500 text-xs sm:text-sm">
-                      Transcription failed: {note.transcriptionError}
-                    </p>
-                  )}
-
                 {/* AI Summary & Insights - What the AI extracted */}
                 {(note.summary || note.insights.length > 0) && (
-                  <div className="rounded-lg border-blue-200 border-l-4 bg-blue-50 p-3">
+                  <div className="mb-3 rounded-lg border-blue-200 border-l-4 bg-blue-50 p-3">
                     <div className="mb-1.5 flex items-center gap-1.5 text-blue-600 text-xs">
                       <Lightbulb className="h-3.5 w-3.5" />
                       <span className="font-medium uppercase tracking-wide">
@@ -396,6 +363,39 @@ export function HistoryTab({ orgId, onSuccess, onError }: HistoryTabProps) {
                     )}
                   </div>
                 )}
+
+                {/* Transcription - What the coach actually said */}
+                {note.transcription && (
+                  <div className="rounded-lg border-gray-200 border-l-4 bg-gray-50 p-3">
+                    <div className="mb-1 flex items-center gap-1.5 text-gray-500 text-xs">
+                      <Quote className="h-3.5 w-3.5" />
+                      <span className="font-medium uppercase tracking-wide">
+                        Your words
+                      </span>
+                    </div>
+                    <p className="whitespace-pre-wrap text-gray-700 text-xs sm:text-sm">
+                      {note.transcription}
+                    </p>
+                  </div>
+                )}
+                {!note.transcription &&
+                  (note.transcriptionStatus === "pending" ||
+                    note.transcriptionStatus === "processing") && (
+                    <div className="rounded-lg border-gray-200 border-l-4 bg-gray-50 p-3">
+                      <div className="flex items-center gap-1.5 text-gray-400 text-xs">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span className="italic">Transcribing audio...</span>
+                      </div>
+                    </div>
+                  )}
+                {!note.transcription &&
+                  note.transcriptionStatus !== "pending" &&
+                  note.transcriptionStatus !== "processing" &&
+                  note.transcriptionError && (
+                    <p className="text-red-500 text-xs sm:text-sm">
+                      Transcription failed: {note.transcriptionError}
+                    </p>
+                  )}
               </div>
             ))}
           </div>

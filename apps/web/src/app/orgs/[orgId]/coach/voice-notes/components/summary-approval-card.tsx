@@ -21,6 +21,8 @@ type SummaryApprovalCardProps = {
     privateInsight: {
       title: string;
       description: string;
+      category: string;
+      sentiment: "positive" | "neutral" | "concern";
     };
   };
   player: {
@@ -78,8 +80,32 @@ export function SummaryApprovalCard({
     return "Review";
   };
 
+  // Get border color based on category
+  const getBorderColor = (category: string) => {
+    if (category === "behavior") {
+      return "border-l-red-500";
+    }
+    if (category === "injury") {
+      return "border-l-orange-500";
+    }
+    return "border-l-blue-500";
+  };
+
+  // Get content box styling based on category
+  const getContentBoxStyle = (category: string) => {
+    if (category === "behavior") {
+      return "bg-red-50 border-l-4 border-red-400";
+    }
+    if (category === "injury") {
+      return "bg-orange-50 border-l-4 border-orange-400";
+    }
+    return "bg-muted";
+  };
+
   return (
-    <Card className="border-l-4 border-l-blue-500">
+    <Card
+      className={`border-l-4 ${getBorderColor(summary.privateInsight.category)}`}
+    >
       {/* Compact header with player name, sport, and confidence badge */}
       <CardHeader className="pb-2 sm:pb-4">
         <div className="flex items-center justify-between gap-2">
@@ -105,7 +131,9 @@ export function SummaryApprovalCard({
 
       <CardContent className="space-y-3 pt-0 sm:space-y-4">
         {/* Parent-Friendly Summary - more compact on mobile */}
-        <div className="rounded-lg bg-muted p-3 sm:p-4">
+        <div
+          className={`rounded-lg p-3 sm:p-4 ${getContentBoxStyle(summary.privateInsight.category)}`}
+        >
           <p className="mb-1 font-medium text-muted-foreground text-xs sm:mb-2 sm:text-sm">
             Summary for Parent:
           </p>

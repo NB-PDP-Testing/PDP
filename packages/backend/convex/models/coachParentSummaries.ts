@@ -486,12 +486,15 @@ export const getCoachPendingSummaries = query({
       throw new Error("Not authenticated");
     }
 
+    // Get userId with fallback to _id
+    const userId = user.userId || user._id;
+
     // Query summaries by coach with pending_review status
     const summaries = await ctx.db
       .query("coachParentSummaries")
       .withIndex("by_coach_org_status", (q) =>
         q
-          .eq("coachId", user.userId || "")
+          .eq("coachId", userId)
           .eq("organizationId", args.organizationId)
           .eq("status", "pending_review")
       )

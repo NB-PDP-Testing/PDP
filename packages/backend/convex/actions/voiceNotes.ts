@@ -570,6 +570,7 @@ export const correctInsightPlayerName = internalAction({
     correctName: v.string(),
     originalTitle: v.string(),
     originalDescription: v.string(),
+    originalRecommendedUpdate: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -586,12 +587,12 @@ The voice transcription incorrectly heard the player's name as "${args.wrongName
 Please rewrite the following text, replacing any instance of the wrong name (or similar variations) with the correct name. Keep everything else exactly the same.
 
 Title: ${args.originalTitle}
-Description: ${args.originalDescription}
+Description: ${args.originalDescription}${args.originalRecommendedUpdate ? `\nRecommendedUpdate: ${args.originalRecommendedUpdate}` : ""}
 
 Respond in JSON format:
 {
   "title": "corrected title with correct player name",
-  "description": "corrected description with correct player name",
+  "description": "corrected description with correct player name",${args.originalRecommendedUpdate ? '\n  "recommendedUpdate": "corrected recommendedUpdate with correct player name",' : ""}
   "wasModified": true/false (whether any changes were made)
 }`;
 
@@ -629,6 +630,7 @@ Respond in JSON format:
             insightId: args.insightId,
             title: result.title,
             description: result.description,
+            recommendedUpdate: result.recommendedUpdate,
           }
         );
       } else {

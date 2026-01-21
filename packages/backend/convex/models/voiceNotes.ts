@@ -1121,6 +1121,7 @@ export const updateInsightContentInternal = internalMutation({
     insightId: v.string(),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
+    recommendedUpdate: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1135,6 +1136,8 @@ export const updateInsightContentInternal = internalMutation({
           ...insight,
           title: args.title ?? insight.title,
           description: args.description ?? insight.description,
+          recommendedUpdate:
+            args.recommendedUpdate ?? insight.recommendedUpdate,
         };
       }
       return insight;
@@ -1370,14 +1373,15 @@ export const assignPlayerToInsight = mutation({
       throw new Error("Insight not found");
     }
 
-    // Correct player name in title and description using pattern matching
+    // Correct player name in title, description, AND recommendedUpdate using pattern matching
     const originalPlayerName = insight.playerName;
     let correctedTitle = insight.title;
     let correctedDescription = insight.description;
+    let correctedRecommendedUpdate = insight.recommendedUpdate;
     let nameWasCorrected = false;
 
     if (originalPlayerName && originalPlayerName !== playerName) {
-      // Try pattern-based correction
+      // Try pattern-based correction for all text fields
       const titleResult = correctPlayerNameInText(
         insight.title,
         originalPlayerName,
@@ -1391,9 +1395,27 @@ export const assignPlayerToInsight = mutation({
         player.lastName
       );
 
+      // Also correct recommendedUpdate if it exists
+      let recUpdateResult = {
+        corrected: insight.recommendedUpdate,
+        wasModified: false,
+      };
+      if (insight.recommendedUpdate) {
+        recUpdateResult = correctPlayerNameInText(
+          insight.recommendedUpdate,
+          originalPlayerName,
+          player.firstName,
+          player.lastName
+        );
+      }
+
       correctedTitle = titleResult.corrected;
       correctedDescription = descResult.corrected;
-      nameWasCorrected = titleResult.wasModified || descResult.wasModified;
+      correctedRecommendedUpdate = recUpdateResult.corrected;
+      nameWasCorrected =
+        titleResult.wasModified ||
+        descResult.wasModified ||
+        recUpdateResult.wasModified;
 
       if (nameWasCorrected) {
         console.log(
@@ -1402,6 +1424,9 @@ export const assignPlayerToInsight = mutation({
         console.log(`  Title: "${insight.title}" -> "${correctedTitle}"`);
         if (descResult.wasModified) {
           console.log("  Description also corrected");
+        }
+        if (recUpdateResult.wasModified) {
+          console.log("  RecommendedUpdate also corrected");
         }
       } else {
         // Pattern matching didn't find the name - schedule AI correction as fallback
@@ -1418,12 +1443,13 @@ export const assignPlayerToInsight = mutation({
             correctName: playerName,
             originalTitle: insight.title,
             originalDescription: insight.description,
+            originalRecommendedUpdate: insight.recommendedUpdate,
           }
         );
       }
     }
 
-    // Update the insight with the assigned player and corrected text
+    // Update the insight with the assigned player and corrected text (including recommendedUpdate)
     const updatedInsights = note.insights.map((i) => {
       if (i.id === args.insightId) {
         return {
@@ -1432,6 +1458,7 @@ export const assignPlayerToInsight = mutation({
           playerName,
           title: correctedTitle,
           description: correctedDescription,
+          recommendedUpdate: correctedRecommendedUpdate,
         };
       }
       return i;

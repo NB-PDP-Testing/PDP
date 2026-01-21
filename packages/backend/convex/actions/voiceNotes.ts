@@ -371,9 +371,20 @@ Important:
         }
       );
 
+      console.log(
+        `[Voice Note ${args.noteId}] Parent summaries enabled: ${parentSummariesEnabled} (coachId: ${note.coachId || "MISSING"})`
+      );
+
       // Schedule parent summary generation for each insight with a player
       // Phase 3: Injury and behavior categories now flow through with manual review required
       if (parentSummariesEnabled) {
+        const insightsWithPlayers = resolvedInsights.filter(
+          (i) => i.playerIdentityId
+        );
+        console.log(
+          `[Voice Note ${args.noteId}] Scheduling parent summaries for ${insightsWithPlayers.length}/${resolvedInsights.length} insights`
+        );
+
         for (const insight of resolvedInsights) {
           if (insight.playerIdentityId) {
             console.log(

@@ -282,7 +282,15 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                 </div>
 
                 {/* Parent-Safe Content */}
-                <div className="rounded-lg bg-blue-50 p-4">
+                <div
+                  className={`rounded-lg p-4 ${
+                    summary.privateInsight.category === "behavior"
+                      ? "border-red-400 border-l-4 bg-red-50"
+                      : summary.privateInsight.category === "injury"
+                        ? "border-orange-400 border-l-4 bg-orange-50"
+                        : "bg-blue-50"
+                  }`}
+                >
                   <p className="text-gray-800 text-sm leading-relaxed">
                     {summary.publicSummary.content}
                   </p>
@@ -373,7 +381,15 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                   </div>
 
                   {/* Parent-Safe Content */}
-                  <div className="rounded-lg bg-blue-50 p-4">
+                  <div
+                    className={`rounded-lg p-4 ${
+                      summary.privateInsight.category === "behavior"
+                        ? "border-red-400 border-l-4 bg-red-50"
+                        : summary.privateInsight.category === "injury"
+                          ? "border-orange-400 border-l-4 bg-orange-50"
+                          : "bg-blue-50"
+                    }`}
+                  >
                     <p className="text-gray-800 text-sm leading-relaxed">
                       {summary.publicSummary.content}
                     </p>

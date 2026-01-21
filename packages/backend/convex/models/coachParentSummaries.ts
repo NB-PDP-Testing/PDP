@@ -715,7 +715,7 @@ export const getParentSummariesByChildAndSport = query({
                           model: "user",
                           where: [
                             {
-                              field: "_id",
+                              field: "userId",
                               value: summary.coachId,
                               operator: "eq",
                             },

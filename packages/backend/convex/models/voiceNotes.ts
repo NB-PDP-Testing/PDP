@@ -317,7 +317,7 @@ export const getVoiceNotesForPlayer = query({
 export const createTypedNote = mutation({
   args: {
     orgId: v.string(),
-    coachId: v.optional(v.string()),
+    coachId: v.string(), // Required - Better Auth user ID
     noteText: v.string(),
     noteType: noteTypeValidator,
   },
@@ -350,7 +350,7 @@ export const createTypedNote = mutation({
 export const createRecordedNote = mutation({
   args: {
     orgId: v.string(),
-    coachId: v.optional(v.string()),
+    coachId: v.string(), // Required - Better Auth user ID
     audioStorageId: v.id("_storage"),
     noteType: noteTypeValidator,
   },

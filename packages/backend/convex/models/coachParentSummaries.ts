@@ -201,7 +201,7 @@ export const createParentSummary = internalMutation({
     const summaryId = await ctx.db.insert("coachParentSummaries", {
       voiceNoteId: args.voiceNoteId,
       insightId: args.insightId,
-      coachId: voiceNote.coachId || "",
+      coachId: voiceNote.coachId, // Required field - always present
       playerIdentityId: args.playerIdentityId,
       organizationId: voiceNote.orgId,
       sportId: args.sportId,
@@ -238,22 +238,30 @@ export const approveSummary = mutation({
       throw new Error("Not authenticated");
     }
 
+    // Get the user ID (use _id or userId depending on what's available)
+    const userId = user.userId || user._id;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
     if (!summary) {
       throw new Error("Summary not found");
     }
 
-    // Verify user is the coach for this summary
-    if (summary.coachId !== user.userId) {
-      throw new Error("Only the coach can approve this summary");
+    // Verify user is the coach for this summary (strict ownership)
+    if (summary.coachId !== userId) {
+      throw new Error(
+        "Only the coach who created this note can approve this summary"
+      );
     }
 
     // Update the summary status
     await ctx.db.patch(args.summaryId, {
       status: "approved",
       approvedAt: Date.now(),
-      approvedBy: user.userId || "",
+      approvedBy: userId,
     });
 
     // Update coach trust metrics
@@ -285,8 +293,14 @@ export const approveInjurySummary = mutation({
   handler: async (ctx, args) => {
     // Authenticate user
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user?.userId) {
+    if (!user) {
       throw new Error("Not authenticated");
+    }
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const userId = user.userId || user._id;
+    if (!userId) {
+      throw new Error("User ID not found");
     }
 
     // Fetch the summary
@@ -295,9 +309,11 @@ export const approveInjurySummary = mutation({
       throw new Error("Summary not found");
     }
 
-    // Verify user is the coach for this summary
-    if (summary.coachId !== user.userId) {
-      throw new Error("Only the coach can approve this summary");
+    // Verify user is the coach for this summary (strict ownership)
+    if (summary.coachId !== userId) {
+      throw new Error(
+        "Only the coach who created this note can approve this summary"
+      );
     }
 
     // Validate all checklist items are true
@@ -316,7 +332,7 @@ export const approveInjurySummary = mutation({
     // Insert checklist record for audit trail
     await ctx.db.insert("injuryApprovalChecklist", {
       summaryId: args.summaryId,
-      coachId: user.userId,
+      coachId: userId,
       personallyObserved: args.checklist.personallyObserved,
       severityAccurate: args.checklist.severityAccurate,
       noMedicalAdvice: args.checklist.noMedicalAdvice,
@@ -327,7 +343,7 @@ export const approveInjurySummary = mutation({
     await ctx.db.patch(args.summaryId, {
       status: "approved",
       approvedAt: Date.now(),
-      approvedBy: user.userId,
+      approvedBy: userId,
     });
 
     // Update coach trust metrics
@@ -358,6 +374,12 @@ export const suppressSummary = mutation({
       throw new Error("Not authenticated");
     }
 
+    // Get the user ID (use _id or userId depending on what's available)
+    const userId = user.userId || user._id;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
     if (!summary) {
@@ -365,7 +387,7 @@ export const suppressSummary = mutation({
     }
 
     // Verify user is the coach for this summary
-    if (summary.coachId !== user.userId) {
+    if (summary.coachId !== userId) {
       throw new Error("Only the coach can suppress this summary");
     }
 
@@ -404,6 +426,12 @@ export const editSummaryContent = mutation({
       throw new Error("Not authenticated");
     }
 
+    // Get the user ID (use _id or userId depending on what's available)
+    const userId = user.userId || user._id;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
     if (!summary) {
@@ -411,7 +439,7 @@ export const editSummaryContent = mutation({
     }
 
     // Verify user is the coach for this summary
-    if (summary.coachId !== user.userId) {
+    if (summary.coachId !== userId) {
       throw new Error("Only the coach can edit this summary");
     }
 
@@ -762,6 +790,12 @@ export const markSummaryViewed = mutation({
       throw new Error("Not authenticated");
     }
 
+    // Get the user ID
+    const userId = user._id || user.userId;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
     if (!summary) {
@@ -771,7 +805,7 @@ export const markSummaryViewed = mutation({
     // Find guardian identity for this user
     const guardianIdentity = await ctx.db
       .query("guardianIdentities")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .first();
 
     if (!guardianIdentity) {
@@ -830,6 +864,12 @@ export const trackShareEvent = mutation({
       throw new Error("Not authenticated");
     }
 
+    // Get the user ID
+    const userId = user._id || user.userId;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
     if (!summary) {
@@ -839,7 +879,7 @@ export const trackShareEvent = mutation({
     // Find guardian identity for this user
     const guardianIdentity = await ctx.db
       .query("guardianIdentities")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .first();
 
     if (!guardianIdentity) {

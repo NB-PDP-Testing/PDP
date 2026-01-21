@@ -83,7 +83,9 @@ export function VoiceInsightsSection({
 
   // Filter insights based on permissions
   const filteredNotes = useMemo(() => {
-    if (!voiceNotes) return [];
+    if (!voiceNotes) {
+      return [];
+    }
 
     const filtered: VoiceNote[] = [];
 

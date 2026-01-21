@@ -73,12 +73,16 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
 
   // Filter to only this player's approved summaries
   const playerSummaries = useMemo(() => {
-    if (!allSummaries) return null;
+    if (!allSummaries) {
+      return null;
+    }
 
     const summaries: Array<ParentSummary & { sportName?: string }> = [];
 
     for (const child of allSummaries) {
-      if (child.player._id !== playerIdentityId) continue;
+      if (child.player._id !== playerIdentityId) {
+        continue;
+      }
 
       for (const sportGroup of child.sportGroups) {
         for (const summary of sportGroup.summaries) {
@@ -103,7 +107,9 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
 
   // Calculate statistics
   const stats = useMemo(() => {
-    if (!playerSummaries) return { total: 0, new: 0, read: 0 };
+    if (!playerSummaries) {
+      return { total: 0, new: 0, read: 0 };
+    }
 
     const total = playerSummaries.length;
     const read = playerSummaries.filter((s) => s.viewedAt).length;
@@ -116,7 +122,9 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
 
   // Group summaries by coach
   const summariesByCoach = useMemo(() => {
-    if (!playerSummaries) return [];
+    if (!playerSummaries) {
+      return [];
+    }
 
     const grouped = new Map<
       string,
@@ -171,7 +179,7 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
       skill_rating: "bg-blue-100 text-blue-800",
       skill_progress: "bg-green-100 text-green-800",
       injury: "bg-red-100 text-red-800",
-      behavior: "bg-yellow-100 text-yellow-800",
+      behavior: "bg-red-100 text-red-800", // Red for behavioral insights (require manual interaction)
       performance: "bg-purple-100 text-purple-800",
       attendance: "bg-orange-100 text-orange-800",
     };

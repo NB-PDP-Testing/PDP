@@ -36,7 +36,7 @@ export function InsightCard({
   insight,
   noteDate,
   coachName,
-  orgId,
+  orgId: _orgId,
   showTranscription = false,
   transcription,
   hasParentSummary = false,
@@ -52,13 +52,15 @@ export function InsightCard({
 
   // Get category badge color
   const getCategoryColor = (category?: string) => {
-    if (!category) return "bg-gray-100 text-gray-800";
+    if (!category) {
+      return "bg-gray-100 text-gray-800";
+    }
 
     const categoryMap: Record<string, string> = {
       skill_rating: "bg-blue-100 text-blue-800",
       skill_progress: "bg-green-100 text-green-800",
       injury: "bg-red-100 text-red-800",
-      behavior: "bg-yellow-100 text-yellow-800",
+      behavior: "bg-red-100 text-red-800", // Red for behavioral insights (require manual interaction)
       performance: "bg-purple-100 text-purple-800",
       attendance: "bg-orange-100 text-orange-800",
     };

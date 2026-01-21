@@ -82,7 +82,7 @@ export function VoiceInsightsSectionImproved({
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("compact");
-  const [groupBy, setGroupBy] = useState<GroupBy>("date");
+  const [_groupBy, _setGroupBy] = useState<GroupBy>("date");
   const [expandedInsights, setExpandedInsights] = useState<Set<string>>(
     new Set()
   );
@@ -105,7 +105,9 @@ export function VoiceInsightsSectionImproved({
 
   // Filter insights based on permissions
   const filteredNotes = useMemo(() => {
-    if (!voiceNotes) return [];
+    if (!voiceNotes) {
+      return [];
+    }
 
     const filtered: VoiceNote[] = [];
 
@@ -152,10 +154,8 @@ export function VoiceInsightsSectionImproved({
             (insight) =>
               insight.title.toLowerCase().includes(query) ||
               insight.description.toLowerCase().includes(query) ||
-              (insight.recommendedUpdate &&
-                insight.recommendedUpdate.toLowerCase().includes(query)) ||
-              (note.transcription &&
-                note.transcription.toLowerCase().includes(query))
+              insight.recommendedUpdate?.toLowerCase().includes(query) ||
+              note.transcription?.toLowerCase().includes(query)
           ),
         }))
         .filter((note) => note.insights.length > 0);
@@ -189,7 +189,7 @@ export function VoiceInsightsSectionImproved({
   }, [filteredNotes, searchQuery, filterCategory, filterStatus]);
 
   // Group insights by coach
-  const insightsByCoach = useMemo(() => {
+  const _insightsByCoach = useMemo(() => {
     const grouped = new Map<
       string,
       {
@@ -256,9 +256,15 @@ export function VoiceInsightsSectionImproved({
 
     for (const note of filteredNotes) {
       for (const insight of note.insights) {
-        if (insight.status === "applied") applied++;
-        if (insight.status === "pending") pending++;
-        if (insight.status === "dismissed") dismissed++;
+        if (insight.status === "applied") {
+          applied++;
+        }
+        if (insight.status === "pending") {
+          pending++;
+        }
+        if (insight.status === "dismissed") {
+          dismissed++;
+        }
       }
     }
 

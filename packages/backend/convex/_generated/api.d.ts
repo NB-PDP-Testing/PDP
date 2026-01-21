@@ -29,6 +29,7 @@ import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
 import type * as models_aiModelConfig from "../models/aiModelConfig.js";
 import type * as models_checkUserRoles from "../models/checkUserRoles.js";
+import type * as models_cleanupOldData from "../models/cleanupOldData.js";
 import type * as models_coachParentMessages from "../models/coachParentMessages.js";
 import type * as models_coachParentSummaries from "../models/coachParentSummaries.js";
 import type * as models_coachTasks from "../models/coachTasks.js";
@@ -133,6 +134,7 @@ declare const fullApi: ApiFromModules<{
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
   "models/aiModelConfig": typeof models_aiModelConfig;
   "models/checkUserRoles": typeof models_checkUserRoles;
+  "models/cleanupOldData": typeof models_cleanupOldData;
   "models/coachParentMessages": typeof models_coachParentMessages;
   "models/coachParentSummaries": typeof models_coachParentSummaries;
   "models/coachTasks": typeof models_coachTasks;

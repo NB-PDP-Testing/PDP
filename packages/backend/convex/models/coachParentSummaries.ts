@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
@@ -570,7 +571,12 @@ export const getParentSummariesByChildAndSport = query({
       sportGroups: v.array(
         v.object({
           sport: v.union(sportValidator, v.null()),
-          summaries: v.array(summaryValidator),
+          summaries: v.array(
+            v.object({
+              ...summaryValidator.fields,
+              coachName: v.string(),
+            })
+          ),
           unreadCount: v.number(),
         })
       ),
@@ -659,7 +665,7 @@ export const getParentSummariesByChildAndSport = query({
           }
         }
 
-        // Convert to array with sport info
+        // Convert to array with sport info and enrich with coach names
         const sportGroups = await Promise.all(
           Array.from(sportMap.entries()).map(
             async ([sportId, sportSummaries]) => {
@@ -667,9 +673,56 @@ export const getParentSummariesByChildAndSport = query({
               const unreadCount = sportSummaries.filter(
                 (s) => !s.viewedAt
               ).length;
+
+              // Enrich summaries with coach names
+              const enrichedSummaries = await Promise.all(
+                sportSummaries.map(async (summary) => {
+                  let coachName = "Unknown Coach";
+
+                  if (summary.coachId) {
+                    try {
+                      const coachResult = await ctx.runQuery(
+                        components.betterAuth.adapter.findOne,
+                        {
+                          model: "user",
+                          where: [
+                            {
+                              field: "_id",
+                              value: summary.coachId,
+                              operator: "eq",
+                            },
+                          ],
+                        }
+                      );
+
+                      if (coachResult) {
+                        const coach = coachResult as {
+                          firstName?: string;
+                          lastName?: string;
+                        };
+                        if (coach.firstName || coach.lastName) {
+                          coachName =
+                            `${coach.firstName || ""} ${coach.lastName || ""}`.trim();
+                        }
+                      }
+                    } catch (error) {
+                      console.error(
+                        `Failed to fetch coach name for ${summary.coachId}:`,
+                        error
+                      );
+                    }
+                  }
+
+                  return {
+                    ...summary,
+                    coachName,
+                  };
+                })
+              );
+
               return {
                 sport,
-                summaries: sportSummaries,
+                summaries: enrichedSummaries,
                 unreadCount,
               };
             }

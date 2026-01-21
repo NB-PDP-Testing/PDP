@@ -211,6 +211,103 @@ export const getPendingInsights = query({
   },
 });
 
+/**
+ * Get voice notes and insights for a specific player
+ * Used in player passport to display coach insights
+ * Returns all voice notes that have insights for the given player
+ */
+export const getVoiceNotesForPlayer = query({
+  args: {
+    orgId: v.string(),
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("voiceNotes"),
+      _creationTime: v.number(),
+      orgId: v.string(),
+      coachId: v.optional(v.string()),
+      coachName: v.string(),
+      date: v.string(),
+      type: noteTypeValidator,
+      transcription: v.optional(v.string()),
+      transcriptionStatus: v.optional(statusValidator),
+      insights: v.array(insightValidator),
+      insightsStatus: v.optional(statusValidator),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Strategy: Query all org voice notes with completed insights status
+    // Filter client-side for notes that have insights for this player
+    // (No schema changes needed - insights are embedded in array)
+
+    const allNotes = await ctx.db
+      .query("voiceNotes")
+      .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))
+      .filter((q) => q.eq(q.field("insightsStatus"), "completed"))
+      .order("desc")
+      .take(1000);
+
+    // Filter notes that have insights for this player
+    const playerNotes = allNotes.filter((note) =>
+      note.insights.some(
+        (insight) => insight.playerIdentityId === args.playerIdentityId
+      )
+    );
+
+    // Enrich with coach info
+    const notesWithCoachInfo = await Promise.all(
+      playerNotes.map(async (note) => {
+        let coachName = "Unknown Coach";
+
+        if (note.coachId) {
+          // Query user from Better Auth component
+          const coachResult = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "user",
+              where: [
+                {
+                  field: "_id",
+                  value: note.coachId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+
+          if (coachResult) {
+            const coach = coachResult as {
+              firstName?: string;
+              lastName?: string;
+            };
+            if (coach.firstName || coach.lastName) {
+              coachName =
+                `${coach.firstName || ""} ${coach.lastName || ""}`.trim();
+            }
+          }
+        }
+
+        return {
+          _id: note._id,
+          _creationTime: note._creationTime,
+          orgId: note.orgId,
+          coachId: note.coachId,
+          coachName,
+          date: note.date,
+          type: note.type,
+          transcription: note.transcription,
+          transcriptionStatus: note.transcriptionStatus,
+          insights: note.insights,
+          insightsStatus: note.insightsStatus,
+        };
+      })
+    );
+
+    return notesWithCoachInfo;
+  },
+});
+
 // ============ MUTATIONS ============
 
 /**

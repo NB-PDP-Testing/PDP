@@ -38,9 +38,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   firstName?: string;
                   image?: null | string;
                   isPlatformStaff?: boolean;
+                  lastChildrenCheckAt?: number;
                   lastName?: string;
                   name: string;
                   onboardingComplete?: boolean;
+                  parentOnboardingDismissCount?: number;
+                  parentOnboardingLastDismissedAt?: number;
                   phone?: string;
                   updatedAt: number;
                   userId?: null | string;
@@ -216,6 +219,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "lastChildrenCheckAt"
+                    | "parentOnboardingDismissCount"
+                    | "parentOnboardingLastDismissedAt"
                     | "currentOrgId"
                     | "_id";
                   operator?:
@@ -591,6 +597,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "lastChildrenCheckAt"
+                    | "parentOnboardingDismissCount"
+                    | "parentOnboardingLastDismissedAt"
                     | "currentOrgId"
                     | "_id";
                   operator?:
@@ -1047,9 +1056,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   firstName?: string;
                   image?: null | string;
                   isPlatformStaff?: boolean;
+                  lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
                   onboardingComplete?: boolean;
+                  parentOnboardingDismissCount?: number;
+                  parentOnboardingLastDismissedAt?: number;
                   phone?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -1069,6 +1081,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "lastChildrenCheckAt"
+                    | "parentOnboardingDismissCount"
+                    | "parentOnboardingLastDismissedAt"
                     | "currentOrgId"
                     | "_id";
                   operator?:
@@ -1551,9 +1566,12 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                   firstName?: string;
                   image?: null | string;
                   isPlatformStaff?: boolean;
+                  lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
                   onboardingComplete?: boolean;
+                  parentOnboardingDismissCount?: number;
+                  parentOnboardingLastDismissedAt?: number;
                   phone?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -1573,6 +1591,9 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "lastChildrenCheckAt"
+                    | "parentOnboardingDismissCount"
+                    | "parentOnboardingLastDismissedAt"
                     | "currentOrgId"
                     | "_id";
                   operator?:

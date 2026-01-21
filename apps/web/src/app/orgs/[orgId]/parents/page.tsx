@@ -60,15 +60,27 @@ function ParentDashboardContent() {
     api.models.guardianIdentities.findAllClaimableForCurrentUser
   );
 
+  // Check for pending children on already-claimed guardians (e.g., after admin clicks "Resend")
+  const pendingChildrenForClaimed = useQuery(
+    api.models.guardianIdentities.findPendingChildrenForClaimedGuardian
+  );
+
+  // Combine both sources of claimable identities
+  const combinedClaimableIdentities = useMemo(() => {
+    const unclaimed = allClaimableIdentities || [];
+    const pending = pendingChildrenForClaimed || [];
+    return [...unclaimed, ...pending];
+  }, [allClaimableIdentities, pendingChildrenForClaimed]);
+
   // Filter out dismissed identities
   const claimableIdentities = useMemo(() => {
-    if (!allClaimableIdentities) {
+    if (!combinedClaimableIdentities) {
       return;
     }
-    return allClaimableIdentities.filter(
+    return combinedClaimableIdentities.filter(
       (identity) => !dismissedIdentityIds.has(identity.guardianIdentity._id)
     );
-  }, [allClaimableIdentities, dismissedIdentityIds]);
+  }, [combinedClaimableIdentities, dismissedIdentityIds]);
 
   // Get children from guardian identity system
   // Pass user email to enable fallback lookup for unclaimed guardian identities

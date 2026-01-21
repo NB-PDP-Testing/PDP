@@ -27,6 +27,11 @@ const customUserTable = defineTable({
   // onboarding
   onboardingComplete: v.optional(v.boolean()),
 
+  // Parent onboarding & notification tracking (Bug #293 fix)
+  lastChildrenCheckAt: v.optional(v.number()), // Last time we checked for pending children notifications
+  parentOnboardingDismissCount: v.optional(v.number()), // How many times user dismissed the modal
+  parentOnboardingLastDismissedAt: v.optional(v.number()), // When they last dismissed
+
   // Current organization tracking
   currentOrgId: v.optional(v.string()),
 })

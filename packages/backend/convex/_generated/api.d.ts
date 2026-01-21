@@ -253,9 +253,12 @@ export declare const components: {
                   firstName?: string;
                   image?: null | string;
                   isPlatformStaff?: boolean;
+                  lastChildrenCheckAt?: number;
                   lastName?: string;
                   name: string;
                   onboardingComplete?: boolean;
+                  parentOnboardingDismissCount?: number;
+                  parentOnboardingLastDismissedAt?: number;
                   phone?: string;
                   updatedAt: number;
                   userId?: null | string;
@@ -430,6 +433,9 @@ export declare const components: {
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "lastChildrenCheckAt"
+                    | "parentOnboardingDismissCount"
+                    | "parentOnboardingLastDismissedAt"
                     | "currentOrgId"
                     | "_id";
                   operator?:
@@ -804,6 +810,9 @@ export declare const components: {
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "lastChildrenCheckAt"
+                    | "parentOnboardingDismissCount"
+                    | "parentOnboardingLastDismissedAt"
                     | "currentOrgId"
                     | "_id";
                   operator?:
@@ -1257,9 +1266,12 @@ export declare const components: {
                   firstName?: string;
                   image?: null | string;
                   isPlatformStaff?: boolean;
+                  lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
                   onboardingComplete?: boolean;
+                  parentOnboardingDismissCount?: number;
+                  parentOnboardingLastDismissedAt?: number;
                   phone?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -1279,6 +1291,9 @@ export declare const components: {
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "lastChildrenCheckAt"
+                    | "parentOnboardingDismissCount"
+                    | "parentOnboardingLastDismissedAt"
                     | "currentOrgId"
                     | "_id";
                   operator?:
@@ -1760,9 +1775,12 @@ export declare const components: {
                   firstName?: string;
                   image?: null | string;
                   isPlatformStaff?: boolean;
+                  lastChildrenCheckAt?: number;
                   lastName?: string;
                   name?: string;
                   onboardingComplete?: boolean;
+                  parentOnboardingDismissCount?: number;
+                  parentOnboardingLastDismissedAt?: number;
                   phone?: string;
                   updatedAt?: number;
                   userId?: null | string;
@@ -1782,6 +1800,9 @@ export declare const components: {
                     | "lastName"
                     | "phone"
                     | "onboardingComplete"
+                    | "lastChildrenCheckAt"
+                    | "parentOnboardingDismissCount"
+                    | "parentOnboardingLastDismissedAt"
                     | "currentOrgId"
                     | "_id";
                   operator?:

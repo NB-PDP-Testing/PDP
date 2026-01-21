@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useSession } from "@/lib/auth-client";
 
 // Email validation regex at top level for performance
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -41,6 +42,7 @@ export function AddGuardianModal({
   playerId,
   playerName,
 }: AddGuardianModalProps) {
+  const { data: session } = useSession();
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
@@ -96,6 +98,9 @@ export function AddGuardianModal({
         email: formData.email.trim(),
         phone: formData.phone.trim() || undefined,
         createdFrom: "admin_guardians_page",
+        // Pass current user info for auto-linking detection
+        currentUserId: session?.user?.id,
+        currentUserEmail: session?.user?.email,
       });
 
       // Step 2: Link guardian to player
@@ -110,7 +115,11 @@ export function AddGuardianModal({
       });
 
       // Success message depends on whether guardian was created or found
-      if (guardianResult.wasCreated) {
+      if (guardianResult.autoLinked) {
+        toast.success("Guardian added and linked to your account", {
+          description: `You've been linked as guardian to ${playerName}. No claim process needed.`,
+        });
+      } else if (guardianResult.wasCreated) {
         toast.success("Guardian added successfully", {
           description: `${formData.firstName} ${formData.lastName} has been created and linked to ${playerName}`,
         });

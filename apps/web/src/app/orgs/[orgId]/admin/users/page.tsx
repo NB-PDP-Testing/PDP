@@ -506,6 +506,9 @@ export default function ManageUsersPage() {
             playerIdentityIds: toLink as Id<"playerIdentities">[],
             guardianEmail: member.user.email,
             organizationId: orgId,
+            // Pass current user info for self-assignment detection
+            currentUserId: session?.user?.id,
+            currentUserEmail: session?.user?.email,
           });
         }
 

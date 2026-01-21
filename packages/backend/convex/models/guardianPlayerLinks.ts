@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { internalMutation, mutation, query } from "../_generated/server";
 
 // ============================================================
@@ -97,6 +98,8 @@ const _playerIdentityValidator = v.object({
 
 /**
  * Get all players for a guardian (with player details)
+ * ONLY returns children the parent has explicitly ACCEPTED (acknowledged)
+ * Pending children (not yet acknowledged) appear in the claim dialog instead
  */
 export const getPlayersForGuardian = query({
   args: { guardianIdentityId: v.id("guardianIdentities") },
@@ -113,6 +116,14 @@ export const getPlayersForGuardian = query({
     const results = [];
 
     for (const link of links) {
+      // Only show children the parent has explicitly accepted
+      // Filter out:
+      // 1. Declined links (declinedByUserId is set)
+      // 2. Pending links (acknowledgedByParentAt is not set)
+      if (link.declinedByUserId || !link.acknowledgedByParentAt) {
+        continue;
+      }
+
       const player = await ctx.db.get(link.playerIdentityId);
       if (player) {
         results.push({ link, player });
@@ -430,6 +441,7 @@ export const updateLinkConsent = mutation({
 
     await ctx.db.patch(link._id, {
       consentedToSharing: args.consentedToSharing,
+      acknowledgedByParentAt: Date.now(), // Track when parent acknowledged this link
       updatedAt: Date.now(),
     });
 
@@ -486,6 +498,7 @@ export const resetDeclinedLink = mutation({
 
     await ctx.db.patch(args.linkId, {
       declinedByUserId: undefined,
+      acknowledgedByParentAt: undefined, // Clear acknowledgment - parent must re-acknowledge
       updatedAt: Date.now(),
     });
 
@@ -522,6 +535,7 @@ export const verifyLink = mutation({
 
 /**
  * Delete a guardian-player link
+ * If this is the last link for the guardian, resets userId to force re-acknowledgment
  */
 export const deleteGuardianPlayerLink = mutation({
   args: { linkId: v.id("guardianPlayerLinks") },
@@ -532,23 +546,47 @@ export const deleteGuardianPlayerLink = mutation({
       throw new Error("Guardian-player link not found");
     }
 
+    const guardianIdentityId = existing.guardianIdentityId;
+
+    // Delete the link
     await ctx.db.delete(args.linkId);
 
-    // If this was primary, set another guardian as primary
+    // If this was primary, set another guardian as primary for this player
     if (existing.isPrimary) {
-      const remainingLinks = await ctx.db
+      const remainingLinksForPlayer = await ctx.db
         .query("guardianPlayerLinks")
         .withIndex("by_player", (q) =>
           q.eq("playerIdentityId", existing.playerIdentityId)
         )
         .first();
 
-      if (remainingLinks) {
-        await ctx.db.patch(remainingLinks._id, {
+      if (remainingLinksForPlayer) {
+        await ctx.db.patch(remainingLinksForPlayer._id, {
           isPrimary: true,
           updatedAt: Date.now(),
         });
       }
+    }
+
+    // Check if this was the last link for this guardian (across all players)
+    const remainingLinksForGuardian = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", guardianIdentityId)
+      )
+      .first();
+
+    // If no remaining links, reset the guardian identity
+    // This ensures parent must re-acknowledge if re-linked later
+    if (!remainingLinksForGuardian) {
+      await ctx.db.patch(guardianIdentityId, {
+        userId: undefined,
+        verificationStatus: "unverified",
+        updatedAt: Date.now(),
+      });
+      console.log(
+        `[deleteGuardianPlayerLink] Reset guardian identity ${guardianIdentityId} - last link deleted, parent must re-claim if re-linked`
+      );
     }
 
     return null;
@@ -572,6 +610,9 @@ export const linkPlayersToGuardian = mutation({
     guardianEmail: v.string(),
     organizationId: v.string(),
     relationship: v.optional(relationshipValidator),
+    // Optional: Current user info for self-assignment detection
+    currentUserId: v.optional(v.string()),
+    currentUserEmail: v.optional(v.string()),
   },
   returns: v.object({
     linked: v.number(),
@@ -580,6 +621,9 @@ export const linkPlayersToGuardian = mutation({
   }),
   handler: async (ctx, args) => {
     const normalizedEmail = args.guardianEmail.toLowerCase().trim();
+    const normalizedCurrentUserEmail = args.currentUserEmail
+      ?.toLowerCase()
+      .trim();
     const errors: string[] = [];
     let linked = 0;
 
@@ -605,6 +649,94 @@ export const linkPlayersToGuardian = mutation({
 
     if (!guardian) {
       throw new Error("Failed to create guardian identity");
+    }
+
+    // Auto-create org membership if user exists (Fix for parent access denied issue)
+    try {
+      // Check if user exists with this email
+      const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: normalizedEmail,
+            operator: "eq",
+          },
+        ],
+      });
+
+      if (user) {
+        const userId = (user as any)._id;
+
+        // Check if already a member of this organization
+        const existingMember = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "member",
+            where: [
+              { field: "userId", value: userId, operator: "eq" },
+              {
+                field: "organizationId",
+                value: args.organizationId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        if (!existingMember) {
+          // Create org membership with "parent" functional role
+          await ctx.runMutation(components.betterAuth.adapter.create, {
+            input: {
+              model: "member",
+              data: {
+                userId,
+                organizationId: args.organizationId,
+                role: "member", // Better Auth base role
+                functionalRoles: ["parent"], // Our functional role
+                activeFunctionalRole: "parent",
+                createdAt: Date.now(),
+              },
+            },
+          });
+          console.log(
+            `[linkPlayersToGuardian] Auto-created org membership for parent: ${normalizedEmail}`
+          );
+        }
+
+        // Check if this is a self-assignment (admin assigning to their own email)
+        const isSelfAssignment =
+          args.currentUserId &&
+          normalizedCurrentUserEmail &&
+          normalizedEmail === normalizedCurrentUserEmail;
+
+        // Only auto-link guardian identity if it's a self-assignment
+        // Otherwise, parent must explicitly accept via batched modal
+        if (!guardian.userId && isSelfAssignment) {
+          await ctx.db.patch(guardian._id, {
+            userId,
+            verificationStatus: "email_verified",
+            updatedAt: Date.now(),
+          });
+          console.log(
+            `[linkPlayersToGuardian] Auto-linked guardian identity (self-assignment): ${normalizedEmail}`
+          );
+        } else if (!guardian.userId) {
+          console.log(
+            `[linkPlayersToGuardian] Guardian identity created but not linked - parent must accept: ${normalizedEmail}`
+          );
+        }
+      } else {
+        console.log(
+          `[linkPlayersToGuardian] No user account found for email: ${normalizedEmail}. Guardian identity created but not linked.`
+        );
+      }
+    } catch (error) {
+      console.error(
+        "[linkPlayersToGuardian] Failed to auto-create membership or link guardian:",
+        error
+      );
+      // Don't throw - allow guardian creation to succeed even if auto-membership fails
     }
 
     // Link each player
@@ -667,6 +799,11 @@ export const linkPlayersToGuardian = mutation({
         hasParentalResponsibility: true,
         canCollectFromTraining: true,
         consentedToSharing: true,
+        // Bug #293 fix: Set defaults for new notification fields
+        profileCompletionRequired: true, // Parent needs to complete profile
+        requiredProfileFields: ["emergencyContact", "medicalInfo"], // Required fields
+        // acknowledgedByParentAt: undefined (not set - parent hasn't seen this yet)
+        // notificationSentAt: undefined (will be set when notification is sent)
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });

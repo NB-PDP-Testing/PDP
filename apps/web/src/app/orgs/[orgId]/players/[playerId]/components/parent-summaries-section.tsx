@@ -284,9 +284,10 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                 {/* Parent-Safe Content */}
                 <div
                   className={`rounded-lg p-4 ${
-                    summary.privateInsight.category === "behavior"
+                    summary.privateInsight.category.toLowerCase() === "behavior"
                       ? "border-red-400 border-l-4 bg-red-50"
-                      : summary.privateInsight.category === "injury"
+                      : summary.privateInsight.category.toLowerCase() ===
+                          "injury"
                         ? "border-orange-400 border-l-4 bg-orange-50"
                         : "bg-blue-50"
                   }`}
@@ -383,9 +384,11 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                   {/* Parent-Safe Content */}
                   <div
                     className={`rounded-lg p-4 ${
-                      summary.privateInsight.category === "behavior"
+                      summary.privateInsight.category.toLowerCase() ===
+                      "behavior"
                         ? "border-red-400 border-l-4 bg-red-50"
-                        : summary.privateInsight.category === "injury"
+                        : summary.privateInsight.category.toLowerCase() ===
+                            "injury"
                           ? "border-orange-400 border-l-4 bg-orange-50"
                           : "bg-blue-50"
                     }`}

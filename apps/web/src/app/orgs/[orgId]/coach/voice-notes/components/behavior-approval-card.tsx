@@ -149,11 +149,11 @@ export function BehaviorApprovalCard({
   const confidenceScore = summary.publicSummary.confidenceScore;
 
   return (
-    <Card className="border-l-4 border-l-blue-500">
+    <Card className="border-l-4 border-l-red-500">
       {/* Info Banner */}
-      <div className="flex items-center gap-2 bg-blue-50 px-4 py-3 sm:px-6">
-        <Lock className="h-5 w-5 shrink-0 text-blue-600" />
-        <p className="font-medium text-blue-900 text-sm sm:text-base">
+      <div className="flex items-center gap-2 bg-red-50 px-4 py-3 sm:px-6">
+        <Lock className="h-5 w-5 shrink-0 text-red-600" />
+        <p className="font-medium text-red-900 text-sm sm:text-base">
           Behavioral observations require manual review
         </p>
       </div>
@@ -172,7 +172,7 @@ export function BehaviorApprovalCard({
             )}
           </div>
           <Badge
-            className="shrink-0 border-blue-200 bg-blue-100 text-blue-700 text-xs"
+            className="shrink-0 border-red-200 bg-red-100 text-red-700 text-xs"
             variant="outline"
           >
             Behavior ({Math.round(confidenceScore * 100)}%)

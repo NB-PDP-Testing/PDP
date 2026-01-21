@@ -80,23 +80,25 @@ export function SummaryApprovalCard({
     return "Review";
   };
 
-  // Get border color based on category
+  // Get border color based on category (case-insensitive)
   const getBorderColor = (category: string) => {
-    if (category === "behavior") {
+    const lowerCategory = category.toLowerCase();
+    if (lowerCategory === "behavior") {
       return "border-l-red-500";
     }
-    if (category === "injury") {
+    if (lowerCategory === "injury") {
       return "border-l-orange-500";
     }
     return "border-l-blue-500";
   };
 
-  // Get content box styling based on category
+  // Get content box styling based on category (case-insensitive)
   const getContentBoxStyle = (category: string) => {
-    if (category === "behavior") {
+    const lowerCategory = category.toLowerCase();
+    if (lowerCategory === "behavior") {
       return "bg-red-50 border-l-4 border-red-400";
     }
-    if (category === "injury") {
+    if (lowerCategory === "injury") {
       return "bg-orange-50 border-l-4 border-orange-400";
     }
     return "bg-muted";

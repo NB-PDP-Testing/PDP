@@ -72,6 +72,9 @@ import { useAnalytics } from "@/lib/analytics";
  * PHASE 16 - Logo Visibility Enhancement:
  * - ux_logo_adaptive_visibility: WCAG-based logo box contrast calculation using org colors
  *
+ * PHASE 17 - Parent Features:
+ * - parent_summary_share_image: Enable shareable image generation for parent summaries
+ *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
  * - When enabled, features are visible to ALL users (not restricted to staff)
@@ -194,6 +197,10 @@ export type UXFeatureFlags = {
   /** Adaptive logo visibility using org colors and smart contrast detection */
   useAdaptiveLogoVisibility: boolean;
 
+  // Phase 17 - Parent Features
+  /** Enable shareable image generation for parent summaries (WASM-based PNG generation) */
+  useParentSummaryShareImage: boolean;
+
   // Quick Actions A/B/C Testing
   /** Which quick actions variant to display: control (collapsible grid), fab (floating button), horizontal (icon scroll), two-tier (3 primary + more) */
   quickActionsVariant: QuickActionsVariant;
@@ -282,6 +289,9 @@ export function useUXFeatureFlags(): UXFeatureFlags {
 
     // Phase 16 - Logo Visibility Enhancement
     useAdaptiveLogoVisibility: isFeatureEnabled("ux_logo_adaptive_visibility"),
+
+    // Phase 17 - Parent Features
+    useParentSummaryShareImage: isFeatureEnabled("parent_summary_share_image"),
 
     // Quick Actions A/B/C Testing
     quickActionsVariant: getQuickActionsVariant(isFeatureEnabled),

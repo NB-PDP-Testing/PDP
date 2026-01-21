@@ -497,7 +497,10 @@ export const generateShareableImage = action({
   handler: async (ctx, args) => {
     // Dynamically import satori and resvg WASM for compatibility
     const satori = (await import("satori")).default;
-    const { Resvg } = await import("@resvg/resvg-wasm");
+    const { Resvg, initWasm } = await import("@resvg/resvg-wasm");
+
+    // Initialize WASM before using Resvg (CRITICAL for WASM version)
+    await initWasm(fetch("https://unpkg.com/@resvg/resvg-wasm/index_bg.wasm"));
 
     // Fetch summary data with player, coach, org names
     const summary = await ctx.runQuery(

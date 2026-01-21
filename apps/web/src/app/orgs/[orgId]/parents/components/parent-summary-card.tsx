@@ -9,6 +9,7 @@ import { ShareModal } from "@/components/parent/share-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 
 type ParentSummaryCardProps = {
   summary: {
@@ -31,6 +32,7 @@ export function ParentSummaryCard({
   onView,
 }: ParentSummaryCardProps) {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const { useParentSummaryShareImage } = useUXFeatureFlags();
 
   const handleView = () => {
     if (isUnread) {
@@ -79,20 +81,24 @@ export function ParentSummaryCard({
             {/* Card footer actions */}
             <div className="mt-3 flex items-center gap-2">
               <MessagePassportLink summaryId={summary._id} />
-              <Button onClick={handleShare} size="sm" variant="ghost">
-                <Share2 className="h-4 w-4" />
-              </Button>
+              {useParentSummaryShareImage && (
+                <Button onClick={handleShare} size="sm" variant="ghost">
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </CardContent>
 
       {/* Share modal */}
-      <ShareModal
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        summaryId={summary._id}
-      />
+      {useParentSummaryShareImage && (
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          summaryId={summary._id}
+        />
+      )}
     </Card>
   );
 }

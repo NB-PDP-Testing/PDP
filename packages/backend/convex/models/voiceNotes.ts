@@ -268,7 +268,7 @@ export const getVoiceNotesForPlayer = query({
               model: "user",
               where: [
                 {
-                  field: "_id",
+                  field: "userId",
                   value: note.coachId,
                   operator: "eq",
                 },

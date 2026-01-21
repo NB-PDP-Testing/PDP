@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
@@ -265,7 +265,6 @@ export const approveSummary = mutation({
     });
 
     // Update coach trust metrics
-    const { internal } = await import("../_generated/api");
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
       coachId: summary.coachId,
       organizationId: summary.organizationId,
@@ -347,7 +346,6 @@ export const approveInjurySummary = mutation({
     });
 
     // Update coach trust metrics
-    const { internal } = await import("../_generated/api");
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
       coachId: summary.coachId,
       organizationId: summary.organizationId,
@@ -397,7 +395,6 @@ export const suppressSummary = mutation({
     });
 
     // Update coach trust metrics
-    const { internal } = await import("../_generated/api");
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
       coachId: summary.coachId,
       organizationId: summary.organizationId,

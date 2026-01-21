@@ -267,6 +267,7 @@ export const getGuardiansForOrg = query({
           isPrimary: link.isPrimary,
           linkId: link._id,
           declinedByUserId: link.declinedByUserId,
+          acknowledgedByParentAt: link.acknowledgedByParentAt,
         });
       }
     }
@@ -418,6 +419,7 @@ export const updateGuardianLink = mutation({
 
 /**
  * Remove guardian-player link
+ * If this is the last link for the guardian, resets userId to force re-acknowledgment
  */
 export const removeGuardianLink = mutation({
   args: {
@@ -430,7 +432,32 @@ export const removeGuardianLink = mutation({
       throw new Error("Guardian link not found");
     }
 
+    const guardianIdentityId = link.guardianIdentityId;
+
+    // Delete the link
     await ctx.db.delete(args.linkId);
+
+    // Check if this was the last link for this guardian (across all players)
+    const remainingLinksForGuardian = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", guardianIdentityId)
+      )
+      .first();
+
+    // If no remaining links, reset the guardian identity
+    // This ensures parent must re-acknowledge if re-linked later
+    if (!remainingLinksForGuardian) {
+      await ctx.db.patch(guardianIdentityId, {
+        userId: undefined,
+        verificationStatus: "unverified",
+        updatedAt: Date.now(),
+      });
+      console.log(
+        `[removeGuardianLink] Reset guardian identity ${guardianIdentityId} - last link deleted, parent must re-claim if re-linked`
+      );
+    }
+
     return null;
   },
 });

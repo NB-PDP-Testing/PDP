@@ -12,7 +12,6 @@ import {
   ChevronRight,
   Clock,
   Edit,
-  Filter,
   Lightbulb,
   Mail,
   Phone,
@@ -60,14 +59,12 @@ import {
 import { AddGuardianModal } from "./components/add-guardian-modal";
 import { EditGuardianModal } from "./components/edit-guardian-modal";
 
-type ViewMode = "players" | "guardians" | "status";
-type StatusFilter = "all" | "claimed" | "pending" | "declined" | "missing";
+type StatusFilter = "all" | "accepted" | "pending" | "declined" | "missing";
 
 export default function GuardianManagementPage() {
   const params = useParams();
   const orgId = params.orgId as string;
 
-  const [viewMode, setViewMode] = useState<ViewMode>("players");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -186,10 +183,7 @@ export default function GuardianManagementPage() {
         title: "Players Missing Guardian Information",
         description: `${stats.playersWithoutGuardians} player${stats.playersWithoutGuardians > 1 ? "s" : ""} don't have any guardian contacts linked.`,
         action: "Review Players",
-        onClick: () => {
-          setViewMode("status");
-          setStatusFilter("missing");
-        },
+        onClick: () => setStatusFilter("missing"),
         priority: "high",
       });
     }
@@ -207,10 +201,7 @@ export default function GuardianManagementPage() {
         title: "Guardian Invitations Pending",
         description: `${stats.pendingAccounts} guardian${stats.pendingAccounts > 1 ? "s" : ""} (${pendingPercentage}%) haven't created their accounts yet.`,
         action: "Send Reminders",
-        onClick: () => {
-          setViewMode("guardians");
-          setStatusFilter("pending");
-        },
+        onClick: () => setStatusFilter("pending"),
         priority: "medium",
       });
     }
@@ -228,10 +219,7 @@ export default function GuardianManagementPage() {
         title: "Incomplete Contact Information",
         description: `${totalMissing} guardian record${totalMissing > 1 ? "s" : ""} missing email or phone details.`,
         action: "Review Contacts",
-        onClick: () => {
-          setViewMode("guardians");
-          setStatusFilter("all");
-        },
+        onClick: () => setStatusFilter("all"),
         priority: "medium",
       });
     }
@@ -244,10 +232,7 @@ export default function GuardianManagementPage() {
         title: "Potential Duplicate Guardians",
         description: `${stats.duplicateEmails} email address${stats.duplicateEmails > 1 ? "es are" : " is"} shared across multiple guardian records.`,
         action: "View Families",
-        onClick: () => {
-          setViewMode("guardians");
-          setGroupByFamily(true);
-        },
+        onClick: () => setGroupByFamily(true),
         priority: "low",
       });
     }
@@ -306,7 +291,40 @@ export default function GuardianManagementPage() {
 
     const familyGroups: Map<string, any[]> = new Map();
 
-    for (const guardian of guardians) {
+    // First, filter children for each guardian based on status filter
+    const guardiansWithFilteredChildren = guardians.map((guardian: any) => {
+      let filteredPlayers = guardian.players;
+
+      if (statusFilter === "accepted") {
+        // Show only accepted children (acknowledged by parent)
+        filteredPlayers = guardian.players.filter(
+          (p: any) => p.acknowledgedByParentAt && !p.declinedByUserId
+        );
+      } else if (statusFilter === "declined") {
+        // Show only declined children
+        filteredPlayers = guardian.players.filter(
+          (p: any) => p.declinedByUserId
+        );
+      } else if (statusFilter === "pending") {
+        // Show only pending children (not acknowledged and not declined)
+        filteredPlayers = guardian.players.filter(
+          (p: any) => !(p.acknowledgedByParentAt || p.declinedByUserId)
+        );
+      }
+
+      return {
+        ...guardian,
+        players: filteredPlayers,
+      };
+    });
+
+    // Only include guardians that have at least one child after filtering
+    const validGuardians = guardiansWithFilteredChildren.filter(
+      (guardian: any) => guardian.players.length > 0
+    );
+
+    // Group by family
+    for (const guardian of validGuardians) {
       const familyKey = guardian.lastName.toLowerCase();
       if (!familyGroups.has(familyKey)) {
         familyGroups.set(familyKey, []);
@@ -342,203 +360,74 @@ export default function GuardianManagementPage() {
 
   // Filter data based on search and status
   const getFilteredData = () => {
-    if (viewMode === "players" && relationships) {
-      const filtered = relationships.filter((rel: any) => {
-        const matchesSearch =
-          searchQuery === "" ||
-          rel.playerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          rel.guardians.some((g: any) =>
-            `${g.firstName} ${g.lastName}`
-              .toLowerCase()
-              .includes(searchQuery.toLowerCase())
-          );
-
-        const matchesStatus =
-          statusFilter === "all" ||
-          (statusFilter === "claimed" &&
-            rel.claimedCount === rel.guardianCount &&
-            rel.guardianCount > 0) ||
-          (statusFilter === "pending" &&
-            rel.claimedCount < rel.guardianCount &&
-            rel.guardianCount > 0 &&
-            rel.declinedCount === 0) ||
-          (statusFilter === "declined" && rel.declinedCount > 0) ||
-          (statusFilter === "missing" && rel.guardianCount === 0);
-
-        return matchesSearch && matchesStatus;
-      });
-      return filtered;
-    }
-
-    if (viewMode === "guardians" && guardians) {
-      const filtered = guardians.filter((guardian: any) => {
-        const matchesSearch =
-          searchQuery === "" ||
-          `${guardian.firstName} ${guardian.lastName}`
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          guardian.email?.toLowerCase().includes(searchQuery.toLowerCase());
-
-        const hasDeclinedConnections = guardian.players?.some(
-          (p: any) => p.declinedByUserId
-        );
-
-        const matchesStatus =
-          statusFilter === "all" ||
-          (statusFilter === "claimed" && guardian.hasUserAccount) ||
-          (statusFilter === "pending" &&
-            !guardian.hasUserAccount &&
-            !hasDeclinedConnections) ||
-          (statusFilter === "declined" && hasDeclinedConnections);
-
-        return matchesSearch && matchesStatus;
-      });
-      return filtered;
-    }
-
-    if (viewMode === "status") {
-      if (statusFilter === "missing") {
-        if (!playersWithoutGuardians) {
-          return [];
+    // Handle "missing" status - show players without guardians
+    if (statusFilter === "missing" && playersWithoutGuardians) {
+      return playersWithoutGuardians.filter((player: any) => {
+        if (searchQuery === "") {
+          return true;
         }
-        // Apply search filter to missing guardians
-        return playersWithoutGuardians.filter((player: any) => {
-          if (searchQuery === "") {
-            return true;
+        return player.playerName
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
+      });
+    }
+
+    // Handle guardian filtering for all other statuses
+    if (guardians) {
+      const filtered = guardians
+        .map((guardian: any) => {
+          // Filter children based on status filter
+          let filteredPlayers = guardian.players;
+
+          if (statusFilter === "accepted") {
+            // Show only accepted children (acknowledged by parent)
+            filteredPlayers = guardian.players.filter(
+              (p: any) => p.acknowledgedByParentAt && !p.declinedByUserId
+            );
+          } else if (statusFilter === "declined") {
+            // Show only declined children
+            filteredPlayers = guardian.players.filter(
+              (p: any) => p.declinedByUserId
+            );
+          } else if (statusFilter === "pending") {
+            // Show only pending children (not acknowledged and not declined)
+            filteredPlayers = guardian.players.filter(
+              (p: any) => !(p.acknowledgedByParentAt || p.declinedByUserId)
+            );
           }
-          return player.playerName
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase());
-        });
-      }
-      // For other status filters, show filtered players
-      if (relationships) {
-        return relationships.filter((rel: any) => {
+
+          return {
+            ...guardian,
+            players: filteredPlayers,
+          };
+        })
+        .filter((guardian: any) => {
+          // Only show guardians that have at least one child after filtering
+          if (guardian.players.length === 0) {
+            return false;
+          }
+
           const matchesSearch =
             searchQuery === "" ||
-            rel.playerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            rel.guardians.some((g: any) =>
-              `${g.firstName} ${g.lastName}`
-                .toLowerCase()
-                .includes(searchQuery.toLowerCase())
+            `${guardian.firstName} ${guardian.lastName}`
+              .toLowerCase()
+              .includes(searchQuery.toLowerCase()) ||
+            guardian.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            guardian.players?.some((p: any) =>
+              p.playerName.toLowerCase().includes(searchQuery.toLowerCase())
             );
 
-          const matchesStatus =
-            statusFilter === "all" ||
-            (statusFilter === "claimed" &&
-              rel.claimedCount === rel.guardianCount &&
-              rel.guardianCount > 0) ||
-            (statusFilter === "pending" &&
-              rel.claimedCount < rel.guardianCount &&
-              rel.guardianCount > 0 &&
-              rel.declinedCount === 0) ||
-            (statusFilter === "declined" && rel.declinedCount > 0);
-
-          return matchesSearch && matchesStatus;
+          // For link-based filtering, we just need to ensure guardian has children after filtering
+          // No additional status check needed since we already filtered children
+          return matchesSearch;
         });
-      }
-      return [];
+      return filtered;
     }
 
     return [];
   };
 
   const filteredData = getFilteredData();
-
-  const getStatusBadge = (
-    claimedCount: number,
-    totalCount: number,
-    declinedCount = 0
-  ) => {
-    // Show declined status if there are any declined connections
-    if (declinedCount > 0) {
-      return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge className="gap-1 bg-red-600" variant="destructive">
-                <X className="h-3 w-3" />
-                {declinedCount} Declined
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="max-w-xs text-sm">
-                {declinedCount === 1
-                  ? "A guardian has"
-                  : `${declinedCount} guardians have`}{" "}
-                declined this connection (clicked "This Isn't Me"). Review and
-                update the guardian information or remove the incorrect
-                connection.
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    }
-
-    if (totalCount === 0) {
-      return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge className="gap-1" variant="destructive">
-                <AlertCircle className="h-3 w-3" />
-                Missing
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="max-w-xs text-sm">
-                This player has no guardians linked. Add a guardian to enable
-                parent access and emergency contact information.
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    }
-    if (claimedCount === totalCount) {
-      return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge className="gap-1 bg-green-600" variant="default">
-                <CheckCircle2 className="h-3 w-3" />
-                All Claimed
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="max-w-xs text-sm">
-                All guardians have logged in and claimed their accounts. They
-                have full access to this player's information.
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      );
-    }
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge
-              className="gap-1 bg-yellow-600 text-white"
-              variant="secondary"
-            >
-              <Clock className="h-3 w-3" />
-              {claimedCount}/{totalCount} Claimed
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p className="max-w-xs text-sm">
-              Some guardians haven't logged in yet. They need to create an
-              account using their email address to access this player's
-              information.
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  };
 
   const getGuardianStatusBadge = (
     hasAccount: boolean,
@@ -653,10 +542,7 @@ export default function GuardianManagementPage() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card
-          className="cursor-pointer transition-colors hover:border-primary"
-          onClick={() => setViewMode("players")}
-        >
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-medium text-sm">Total Players</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -671,31 +557,25 @@ export default function GuardianManagementPage() {
 
         <Card
           className="cursor-pointer transition-colors hover:border-green-600"
-          onClick={() => {
-            setViewMode("guardians");
-            setStatusFilter("claimed");
-          }}
+          onClick={() => setStatusFilter("accepted")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-medium text-sm">
-              Claimed Accounts
+              Accepted Links
             </CardTitle>
             <UserCheck className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="font-bold text-2xl">{stats.claimedAccounts}</div>
             <p className="text-muted-foreground text-xs">
-              {claimedPercentage}% of guardians
+              {claimedPercentage}% of links
             </p>
           </CardContent>
         </Card>
 
         <Card
           className="cursor-pointer transition-colors hover:border-yellow-600"
-          onClick={() => {
-            setViewMode("guardians");
-            setStatusFilter("pending");
-          }}
+          onClick={() => setStatusFilter("pending")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-medium text-sm">
@@ -713,10 +593,7 @@ export default function GuardianManagementPage() {
 
         <Card
           className="cursor-pointer transition-colors hover:border-red-600"
-          onClick={() => {
-            setViewMode("status");
-            setStatusFilter("missing");
-          }}
+          onClick={() => setStatusFilter("missing")}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="font-medium text-sm">
@@ -822,39 +699,14 @@ export default function GuardianManagementPage() {
         </Card>
       )}
 
-      {/* View Toggle and Filters */}
+      {/* Search and View Options */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col gap-4">
-            {/* View Mode Toggle and Search */}
+            {/* Search Bar and Group Toggle */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              {/* View Mode Toggle */}
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setViewMode("players")}
-                  size="sm"
-                  variant={viewMode === "players" ? "default" : "outline"}
-                >
-                  Player View
-                </Button>
-                <Button
-                  onClick={() => setViewMode("guardians")}
-                  size="sm"
-                  variant={viewMode === "guardians" ? "default" : "outline"}
-                >
-                  Guardian View
-                </Button>
-                <Button
-                  onClick={() => setViewMode("status")}
-                  size="sm"
-                  variant={viewMode === "status" ? "default" : "outline"}
-                >
-                  Status View
-                </Button>
-              </div>
-
               {/* Search Bar */}
-              <div className="relative w-full sm:w-80">
+              <div className="relative w-full sm:flex-1">
                 <Search className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   className="pr-10 pl-10"
@@ -872,15 +724,9 @@ export default function GuardianManagementPage() {
                   </button>
                 )}
               </div>
-            </div>
 
-            {/* Guardian View Options */}
-            {viewMode === "guardians" && (
-              <div className="flex items-center gap-2 border-t pt-3">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-sm">
-                  View options:
-                </span>
+              {/* Group by Family Toggle */}
+              {statusFilter !== "missing" && (
                 <Button
                   onClick={() => setGroupByFamily(!groupByFamily)}
                   size="sm"
@@ -889,13 +735,8 @@ export default function GuardianManagementPage() {
                   <Users2 className="mr-2 h-4 w-4" />
                   {groupByFamily ? "Grouped by Family" : "Group by Family"}
                 </Button>
-                {groupByFamily && (
-                  <Badge className="ml-2" variant="secondary">
-                    {getGroupedGuardians().length} families
-                  </Badge>
-                )}
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Active Filters Summary */}
             {(searchQuery || statusFilter !== "all") && (
@@ -956,13 +797,13 @@ export default function GuardianManagementPage() {
         </button>
         <button
           className={`border-b-2 px-4 py-2 font-medium text-sm transition-colors ${
-            statusFilter === "claimed"
+            statusFilter === "accepted"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
-          onClick={() => setStatusFilter("claimed")}
+          onClick={() => setStatusFilter("accepted")}
         >
-          ✅ Claimed
+          ✅ Accepted
         </button>
         <button
           className={`border-b-2 px-4 py-2 font-medium text-sm transition-colors ${
@@ -998,169 +839,7 @@ export default function GuardianManagementPage() {
 
       {/* Data Display */}
       <div className="space-y-4">
-        {viewMode === "players" && (
-          <div className="space-y-2">
-            {filteredData.length === 0 ? (
-              <Card>
-                <CardContent className="flex min-h-[200px] items-center justify-center">
-                  <p className="text-muted-foreground">No players found</p>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredData.map((rel: any) => (
-                <Card className="overflow-hidden" key={rel.playerId}>
-                  <CardContent className="p-0">
-                    <button
-                      className="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent p-4 text-left hover:bg-muted/50"
-                      onClick={() => toggleRow(rel.playerId)}
-                      type="button"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="text-muted-foreground">
-                          {expandedRows.has(rel.playerId) ? (
-                            <ChevronDown className="h-5 w-5" />
-                          ) : (
-                            <ChevronRight className="h-5 w-5" />
-                          )}
-                        </div>
-                        <div>
-                          <div className="font-medium">{rel.playerName}</div>
-                          <div className="text-muted-foreground text-sm">
-                            {rel.ageGroup} • {rel.guardianCount} guardian
-                            {rel.guardianCount !== 1 ? "s" : ""}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {getStatusBadge(
-                          rel.claimedCount,
-                          rel.guardianCount,
-                          rel.declinedCount
-                        )}
-                      </div>
-                    </button>
-
-                    {expandedRows.has(rel.playerId) && (
-                      <div className="border-t bg-muted/20 p-4">
-                        {rel.guardians.length === 0 ? (
-                          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                            <AlertCircle className="h-4 w-4" />
-                            No guardians linked to this player
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {rel.guardians.map((guardian: any) => (
-                              <div
-                                className="flex items-start justify-between rounded-lg border bg-background p-3"
-                                key={guardian.guardianId}
-                              >
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium">
-                                      {guardian.firstName} {guardian.lastName}
-                                    </span>
-                                    {guardian.isPrimary && (
-                                      <Badge
-                                        className="text-xs"
-                                        variant="outline"
-                                      >
-                                        Primary
-                                      </Badge>
-                                    )}
-                                    {getGuardianStatusBadge(
-                                      guardian.userAccount?.hasAccount,
-                                      guardian.declinedByUserId
-                                    )}
-                                  </div>
-                                  <div className="mt-1 space-y-1 text-muted-foreground text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <Mail className="h-3 w-3" />
-                                      {guardian.email || "No email"}
-                                    </div>
-                                    {guardian.phone && (
-                                      <div className="flex items-center gap-2">
-                                        <Phone className="h-3 w-3" />
-                                        {guardian.phone}
-                                      </div>
-                                    )}
-                                    <div className="text-xs">
-                                      Relationship: {guardian.relationship}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button
-                                    onClick={() => {
-                                      setSelectedGuardianForEdit({
-                                        guardianPlayerLinkId: guardian.linkId,
-                                        guardianIdentityId: guardian.guardianId,
-                                        firstName: guardian.firstName,
-                                        lastName: guardian.lastName,
-                                        email: guardian.email || "",
-                                        phone: guardian.phone,
-                                        relationship: guardian.relationship,
-                                      });
-                                      setEditGuardianModalOpen(true);
-                                    }}
-                                    size="sm"
-                                    variant="ghost"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  {guardian.declinedByUserId && (
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            onClick={() =>
-                                              handleResetDeclined(
-                                                guardian.linkId,
-                                                `${guardian.firstName} ${guardian.lastName}`
-                                              )
-                                            }
-                                            size="sm"
-                                            variant="ghost"
-                                          >
-                                            <Send className="h-4 w-4 text-blue-600" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p className="max-w-xs text-sm">
-                                            Reset declined status - Guardian can
-                                            try claiming again
-                                          </p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  )}
-                                  <Button
-                                    onClick={() =>
-                                      handleDeleteClick(
-                                        guardian.linkId,
-                                        `${guardian.firstName} ${guardian.lastName}`,
-                                        rel.playerName
-                                      )
-                                    }
-                                    size="sm"
-                                    variant="ghost"
-                                  >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        )}
-
-        {viewMode === "guardians" && !groupByFamily && (
+        {statusFilter !== "missing" && !groupByFamily && (
           <div className="space-y-2">
             {filteredData.length === 0 ? (
               <Card>
@@ -1238,14 +917,102 @@ export default function GuardianManagementPage() {
                                   className="flex items-center justify-between rounded-lg border bg-background p-2"
                                   key={player.playerId}
                                 >
-                                  <div>
-                                    <div className="font-medium text-sm">
-                                      {player.playerName}
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <div className="font-medium text-sm">
+                                        {player.playerName}
+                                      </div>
+                                      {/* Per-child link status badge */}
+                                      {player.declinedByUserId ? (
+                                        <Badge
+                                          className="gap-1 bg-red-600"
+                                          variant="destructive"
+                                        >
+                                          <X className="h-3 w-3" />
+                                          Declined
+                                        </Badge>
+                                      ) : player.acknowledgedByParentAt ? (
+                                        <Badge
+                                          className="gap-1 bg-green-600"
+                                          variant="default"
+                                        >
+                                          <CheckCircle2 className="h-3 w-3" />
+                                          Accepted
+                                        </Badge>
+                                      ) : (
+                                        <Badge
+                                          className="gap-1 bg-yellow-600 text-white"
+                                          variant="secondary"
+                                        >
+                                          <Clock className="h-3 w-3" />
+                                          Pending
+                                        </Badge>
+                                      )}
                                     </div>
                                     <div className="text-muted-foreground text-xs">
                                       {player.ageGroup} • {player.relationship}
                                       {player.isPrimary && " (Primary)"}
                                     </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      onClick={() => {
+                                        setSelectedGuardianForEdit({
+                                          guardianPlayerLinkId: player.linkId,
+                                          guardianIdentityId:
+                                            guardian.guardianId,
+                                          firstName: guardian.firstName,
+                                          lastName: guardian.lastName,
+                                          email: guardian.email || "",
+                                          phone: guardian.phone,
+                                          relationship: player.relationship,
+                                        });
+                                        setEditGuardianModalOpen(true);
+                                      }}
+                                      size="sm"
+                                      variant="ghost"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    {player.declinedByUserId && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              onClick={() =>
+                                                handleResetDeclined(
+                                                  player.linkId,
+                                                  `${guardian.firstName} ${guardian.lastName}`
+                                                )
+                                              }
+                                              size="sm"
+                                              variant="ghost"
+                                            >
+                                              <Send className="h-4 w-4 text-blue-600" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p className="max-w-xs text-sm">
+                                              Reset declined status - Guardian
+                                              can try claiming again
+                                            </p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                    <Button
+                                      onClick={() =>
+                                        handleDeleteClick(
+                                          player.linkId,
+                                          `${guardian.firstName} ${guardian.lastName}`,
+                                          player.playerName
+                                        )
+                                      }
+                                      size="sm"
+                                      variant="ghost"
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
                                   </div>
                                 </div>
                               ))}
@@ -1261,7 +1028,7 @@ export default function GuardianManagementPage() {
           </div>
         )}
 
-        {viewMode === "guardians" && groupByFamily && (
+        {statusFilter !== "missing" && groupByFamily && (
           <div className="space-y-3">
             {getGroupedGuardians().length === 0 ? (
               <Card>
@@ -1341,7 +1108,27 @@ export default function GuardianManagementPage() {
                                     )}
                                   </div>
                                 </div>
-                                <Button size="sm" variant="ghost">
+                                <Button
+                                  onClick={() => {
+                                    // Edit guardian contact info (uses first player's link)
+                                    const firstPlayer = guardian.players[0];
+                                    if (firstPlayer) {
+                                      setSelectedGuardianForEdit({
+                                        guardianPlayerLinkId:
+                                          firstPlayer.linkId,
+                                        guardianIdentityId: guardian.guardianId,
+                                        firstName: guardian.firstName,
+                                        lastName: guardian.lastName,
+                                        email: guardian.email || "",
+                                        phone: guardian.phone,
+                                        relationship: firstPlayer.relationship,
+                                      });
+                                      setEditGuardianModalOpen(true);
+                                    }
+                                  }}
+                                  size="sm"
+                                  variant="ghost"
+                                >
                                   <Edit className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -1356,15 +1143,105 @@ export default function GuardianManagementPage() {
                                       className="flex items-center justify-between rounded-md border bg-background p-2"
                                       key={player.playerId}
                                     >
-                                      <div>
-                                        <div className="font-medium text-sm">
-                                          {player.playerName}
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <div className="font-medium text-sm">
+                                            {player.playerName}
+                                          </div>
+                                          {/* Per-child link status badge */}
+                                          {player.declinedByUserId ? (
+                                            <Badge
+                                              className="gap-1 bg-red-600"
+                                              variant="destructive"
+                                            >
+                                              <X className="h-3 w-3" />
+                                              Declined
+                                            </Badge>
+                                          ) : player.acknowledgedByParentAt ? (
+                                            <Badge
+                                              className="gap-1 bg-green-600"
+                                              variant="default"
+                                            >
+                                              <CheckCircle2 className="h-3 w-3" />
+                                              Accepted
+                                            </Badge>
+                                          ) : (
+                                            <Badge
+                                              className="gap-1 bg-yellow-600 text-white"
+                                              variant="secondary"
+                                            >
+                                              <Clock className="h-3 w-3" />
+                                              Pending
+                                            </Badge>
+                                          )}
                                         </div>
                                         <div className="text-muted-foreground text-xs">
                                           {player.ageGroup} •{" "}
                                           {player.relationship}
                                           {player.isPrimary && " (Primary)"}
                                         </div>
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <Button
+                                          onClick={() => {
+                                            setSelectedGuardianForEdit({
+                                              guardianPlayerLinkId:
+                                                player.linkId,
+                                              guardianIdentityId:
+                                                guardian.guardianId,
+                                              firstName: guardian.firstName,
+                                              lastName: guardian.lastName,
+                                              email: guardian.email || "",
+                                              phone: guardian.phone,
+                                              relationship: player.relationship,
+                                            });
+                                            setEditGuardianModalOpen(true);
+                                          }}
+                                          size="sm"
+                                          variant="ghost"
+                                        >
+                                          <Edit className="h-4 w-4" />
+                                        </Button>
+                                        {player.declinedByUserId && (
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <Button
+                                                  onClick={() =>
+                                                    handleResetDeclined(
+                                                      player.linkId,
+                                                      `${guardian.firstName} ${guardian.lastName}`
+                                                    )
+                                                  }
+                                                  size="sm"
+                                                  variant="ghost"
+                                                >
+                                                  <Send className="h-4 w-4 text-blue-600" />
+                                                </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <p className="max-w-xs text-sm">
+                                                  Reset declined status -
+                                                  Guardian can try claiming
+                                                  again
+                                                </p>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        )}
+                                        <Button
+                                          onClick={() =>
+                                            handleDeleteClick(
+                                              player.linkId,
+                                              `${guardian.firstName} ${guardian.lastName}`,
+                                              player.playerName
+                                            )
+                                          }
+                                          size="sm"
+                                          variant="ghost"
+                                        >
+                                          <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
                                       </div>
                                     </div>
                                   ))}
@@ -1382,7 +1259,7 @@ export default function GuardianManagementPage() {
           </div>
         )}
 
-        {viewMode === "status" && statusFilter === "missing" && (
+        {statusFilter === "missing" && (
           <div className="space-y-2">
             {playersWithoutGuardians && playersWithoutGuardians.length === 0 ? (
               <Card>
@@ -1496,88 +1373,67 @@ export default function GuardianManagementPage() {
             <Target className="mt-0.5 h-5 w-5 text-purple-600" />
             <div className="flex-1 text-sm">
               <div className="mb-2 font-semibold text-purple-900 dark:text-purple-100">
-                {viewMode === "players" &&
-                  statusFilter === "all" &&
-                  "Player Overview Tips"}
-                {viewMode === "players" &&
-                  statusFilter === "claimed" &&
-                  "Players with Active Guardians"}
-                {viewMode === "players" &&
-                  statusFilter === "pending" &&
-                  "Players with Pending Guardians"}
-                {viewMode === "players" &&
-                  statusFilter === "missing" &&
-                  "Action Required: Missing Guardians"}
-                {viewMode === "guardians" &&
+                {statusFilter === "all" &&
                   !groupByFamily &&
-                  statusFilter === "all" &&
                   "Guardian Management Tips"}
-                {viewMode === "guardians" &&
-                  !groupByFamily &&
-                  statusFilter === "claimed" &&
-                  "Active Guardians"}
-                {viewMode === "guardians" &&
-                  !groupByFamily &&
-                  statusFilter === "pending" &&
-                  "Pending Guardian Invitations"}
-                {viewMode === "guardians" &&
-                  groupByFamily &&
-                  "Family Grouping View"}
-                {viewMode === "status" &&
-                  statusFilter === "missing" &&
+                {statusFilter === "accepted" &&
+                  "Accepted Guardian-Player Links"}
+                {statusFilter === "pending" && "Pending Guardian-Player Links"}
+                {statusFilter === "declined" &&
+                  "Declined Guardian-Player Links"}
+                {statusFilter === "missing" &&
                   "Players Without Guardian Contacts"}
+                {groupByFamily &&
+                  statusFilter !== "missing" &&
+                  "Family Grouping View"}
               </div>
               <div className="space-y-2 text-purple-800 dark:text-purple-200">
-                {viewMode === "players" && statusFilter === "all" && (
+                {statusFilter === "all" && !groupByFamily && (
                   <>
                     <div>
-                      • Click on any player to see their guardian details and
-                      claim status
+                      • Click on a guardian to see their linked players and
+                      contact details
                     </div>
                     <div>
-                      • Use the search bar to quickly find specific players or
-                      guardians
+                      • Use the search bar to quickly find specific guardians or
+                      players
                     </div>
                     <div>
-                      • Filter by status to focus on specific groups that need
-                      attention
+                      • Filter by status tabs to focus on specific groups that
+                      need attention
                     </div>
                   </>
                 )}
-                {viewMode === "players" && statusFilter === "missing" && (
+                {statusFilter === "accepted" && !groupByFamily && (
                   <>
                     <div>
-                      • These players have no guardian contacts - this should be
-                      addressed urgently
+                      • These guardian-player links have been acknowledged by
+                      the parent
                     </div>
                     <div>
-                      • Click "Add Guardian" to manually add guardian
-                      information
+                      • Parents have confirmed these children are theirs and
+                      have access to their information
+                    </div>
+                    <div>• These links are fully active and operational</div>
+                  </>
+                )}
+                {statusFilter === "pending" && !groupByFamily && (
+                  <>
+                    <div>
+                      • These guardian-player links are awaiting parent
+                      acknowledgment
                     </div>
                     <div>
-                      • Consider reaching out to these players directly for
-                      guardian details
+                      • Parents need to log in and confirm these children are
+                      theirs
+                    </div>
+                    <div>
+                      • Consider verifying contact information is correct for
+                      pending links
                     </div>
                   </>
                 )}
-                {viewMode === "guardians" &&
-                  !groupByFamily &&
-                  statusFilter === "pending" && (
-                    <>
-                      <div>
-                        • These guardians have been added but haven't created
-                        accounts yet
-                      </div>
-                      <div>
-                        • Consider sending invitation reminders via email or SMS
-                      </div>
-                      <div>
-                        • Verify email addresses are correct if invitations
-                        aren't being received
-                      </div>
-                    </>
-                  )}
-                {viewMode === "guardians" && groupByFamily && (
+                {groupByFamily && statusFilter !== "missing" && (
                   <>
                     <div>
                       • Guardians are grouped by last name to identify family
@@ -1592,19 +1448,19 @@ export default function GuardianManagementPage() {
                     </div>
                   </>
                 )}
-                {viewMode === "status" && statusFilter === "missing" && (
+                {statusFilter === "missing" && (
                   <>
                     <div>
                       <strong>Priority Action:</strong> Add guardian contacts
                       for these players
                     </div>
                     <div>
-                      • Missing guardian information prevents important
-                      communications
+                      • Click "Add Guardian" to manually add guardian
+                      information
                     </div>
                     <div>
-                      • This is required for emergency situations and event
-                      notifications
+                      • Missing guardian information prevents important
+                      communications
                     </div>
                   </>
                 )}

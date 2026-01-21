@@ -1,7 +1,9 @@
 # Production Demo Seeding - Testing Guide
 
-**Date:** January 20, 2026
+**Date:** January 21, 2026
 **Purpose:** Step-by-step testing instructions for the corrected Better Auth-integrated seeding workflow
+
+**Updated:** Reflects new configuration with 60 players (10 per team), 6 teams, whole number ratings, and 50 session plans
 
 ---
 
@@ -49,9 +51,9 @@ npx convex run scripts/seed/cleanupIncorrectData:previewCleanup
   "demoOrgCreatedViaDirectInsert": true,
   "itemsToClean": {
     "organizations": 1,
-    "teams": 13,
+    "teams": 6,
     "members": 1,
-    "players": 10,
+    "players": 60,
     ...
   },
   "recommendations": [
@@ -102,13 +104,13 @@ npx convex run scripts/seed/cleanupIncorrectData:cleanupIncorrectData '{
 ✅ Cleanup Complete!
 ============================================================
 Organizations: 1 deleted
-Teams:         13 deleted
+Teams:         6 deleted
 Members:       1 deleted
-Players:       10 deleted
-Passports:     10 deleted
-Assessments:   82 deleted
-Goals:         36 deleted
-Sessions:      38 deleted
+Players:       60 deleted
+Passports:     60 deleted
+Assessments:   787 deleted
+Goals:         147 deleted
+Sessions:      50 deleted
 ============================================================
 ```
 
@@ -237,64 +239,48 @@ npx convex run scripts/seed/orchestrator:seedProductionDemo '{
   ✅ Added jkobrien@gmail.com as owner
 
 ⚽ Step 3: Creating teams...
-    ✅ Created team: U8 Soccer
-    ✅ Created team: U10 GAA Girls
-    ✅ Created team: U10 Rugby
-    ✅ Created team: U12 Soccer Girls
+    ✅ Created team: U10 Soccer
+    ✅ Created team: U14 Soccer
     ✅ Created team: U12 GAA
-    ✅ Created team: U14 Soccer Girls
-    ✅ Created team: U14 Rugby
-    ✅ Created team: U14 GAA
     ✅ Created team: U16 GAA
+    ✅ Created team: U10 Rugby
     ✅ Created team: U16 Rugby
-    ✅ Created team: U16 Soccer
-    ✅ Created team: U18 Soccer
-    ✅ Created team: U18 GAA
 
 👶 Step 4: Creating players...
-    ✅ Created player: Liam Beginner (beginner)
+    ✅ Created player: Liam Walsh (beginner)
       📋 Generating passport data (beginner)...
-      ✅ Passport: 0 assessments, 2 goals
-    ✅ Created player: Emma Novice (beginner)
+      ✅ Passport: 0 assessments, 3 goals
+    ✅ Created player: Noah Murphy (beginner)
       📋 Generating passport data (beginner)...
-      ✅ Passport: 1 assessments, 3 goals
-    ✅ Created player: Noah Starter (beginner)
-      📋 Generating passport data (beginner)...
-      ✅ Passport: 0 assessments, 2 goals
-    ✅ Created player: Sophia Progress (developing)
-      📋 Generating passport data (developing)...
-      ✅ Passport: 5 assessments, 4 goals
-    ✅ Created player: Oliver Growth (developing)
-      📋 Generating passport data (developing)...
-      ✅ Passport: 6 assessments, 5 goals
-    ✅ Created player: Ava Improving (developing)
-      📋 Generating passport data (developing)...
-      ✅ Passport: 4 assessments, 4 goals
-    ✅ Created player: Ethan Developing (developing)
-      📋 Generating passport data (developing)...
-      ✅ Passport: 7 assessments, 5 goals
-    ✅ Created player: Mason Elite (advanced)
-      📋 Generating passport data (advanced)...
-      ✅ Passport: 18 assessments, 3 goals
-    ✅ Created player: Isabella Advanced (advanced)
-      📋 Generating passport data (advanced)...
-      ✅ Passport: 15 assessments, 4 goals
-    ✅ Created player: Lucas Expert (advanced)
-      📋 Generating passport data (advanced)...
-      ✅ Passport: 20 assessments, 3 goals
+      ✅ Passport: 0 assessments, 3 goals
+    ... (60 players total - 18 beginner, 24 developing, 18 advanced)
 
 🏋️ Step 5: Creating session plans...
-  ✅ Created 38 session plans
+  ✅ Created 50 session plans
+
+👥 Step 6: Assigning owner as coach and guardian...
+  ✅ Assigned as coach to 6 teams
+  ✅ Created guardian identity
+  ✅ Created organization guardian profile
+  ✅ Linked as guardian to 60 players
+
+🏥 Step 7: Creating medical profiles...
+  ✅ Created 60 medical profiles
+
+🩹 Step 8: Creating injury records...
+  ✅ Created 36 injury records
 
 ============================================================
 ✅ Production Demo Seed Complete!
 ============================================================
-Teams:         13 created
-Players:       10 created
-Passports:     10 created
-Assessments:   82 created
-Goals:         36 created
-Sessions:      38 created
+Teams:         6 created
+Players:       60 created
+Passports:     60 created
+Assessments:   787 created
+Goals:         147 created
+Sessions:      50 created
+Medical:       60 profiles created
+Injuries:      36 records created
 ============================================================
 
 Demo Organization: Demo Club
@@ -309,13 +295,15 @@ URL: /orgs/k17abc123def456
 - [ ] ✓ User is platform staff
 - [ ] ✅ Created organization
 - [ ] ✅ Added user as owner
-- [ ] ✅ Created all 13 teams
-- [ ] ✅ Created all 10 players with correct stages
-- [ ] ✅ Assessment counts match stages:
-  - Beginner: 0-1 assessments
-  - Developing: 4-7 assessments
-  - Advanced: 12-20 assessments
-- [ ] ✅ Created 38 session plans
+- [ ] ✅ Created all 6 teams
+- [ ] ✅ Created all 60 players with correct stages
+- [ ] ✅ Assessment counts match stages (whole numbers only: 1-5):
+  - Beginner: 0-1 assessments per player
+  - Developing: 2-3 assessments per player
+  - Advanced: 4-6 assessments per player
+- [ ] ✅ Created 50 session plans
+- [ ] ✅ Created 60 medical profiles
+- [ ] ✅ Created ~36 injury records
 - [ ] **SAVE THE ORG ID** from the output (e.g., `k17abc123def456`)
 
 ---
@@ -333,31 +321,35 @@ npx convex run scripts/seed/orchestrator:verifyProductionDemo
 {
   "orgExists": true,
   "orgId": "k17abc123def456",
-  "teamCount": 13,
-  "playerCount": 10,
-  "passportCount": 10,
-  "assessmentCount": 82,
-  "goalCount": 36,
-  "sessionCount": 38,
+  "teamCount": 6,
+  "playerCount": 60,
+  "passportCount": 60,
+  "assessmentCount": 787,
+  "goalCount": 147,
+  "sessionCount": 50,
+  "medicalProfileCount": 60,
+  "injuryCount": 36,
   "memberCount": 1,
   "stageDistribution": {
-    "beginner": 3,
-    "developing": 4,
-    "advanced": 3
+    "beginner": 18,
+    "developing": 24,
+    "advanced": 18
   }
 }
 ```
 
 **Verify:**
 - [ ] orgExists: true
-- [ ] teamCount: 13
-- [ ] playerCount: 10
-- [ ] passportCount: 10
-- [ ] assessmentCount: ~80 (will vary slightly)
-- [ ] goalCount: ~35 (will vary slightly)
-- [ ] sessionCount: 38
+- [ ] teamCount: 6
+- [ ] playerCount: 60
+- [ ] passportCount: 60
+- [ ] assessmentCount: ~780-820 (will vary slightly, all whole numbers 1-5)
+- [ ] goalCount: ~145-155 (will vary slightly)
+- [ ] sessionCount: 50
+- [ ] medicalProfileCount: 60
+- [ ] injuryCount: ~35-50 (will vary)
 - [ ] memberCount: 1
-- [ ] stageDistribution matches 3/4/3 split
+- [ ] stageDistribution matches 18/24/18 split
 
 ### Step 4.2: Check Organization via Better Auth
 
@@ -419,79 +411,87 @@ npx convex run models/organizations:getAllOrganizations
 2. View teams list
 
 **Expected to see:**
-- [ ] U8 Soccer
-- [ ] U10 GAA Girls
-- [ ] U10 Rugby
-- [ ] U12 Soccer Girls
-- [ ] U12 GAA
-- [ ] U14 Soccer Girls
-- [ ] U14 Rugby
-- [ ] U14 GAA
-- [ ] U16 GAA
-- [ ] U16 Rugby
-- [ ] U16 Soccer
-- [ ] U18 Soccer
-- [ ] U18 GAA
+- [ ] U10 Soccer (Boys)
+- [ ] U14 Soccer (Girls)
+- [ ] U12 GAA (Boys)
+- [ ] U16 GAA (Girls)
+- [ ] U10 Rugby (Boys)
+- [ ] U16 Rugby (Boys)
 
-**Total:** 13 teams
+**Total:** 6 teams (2 per sport)
 
 ### Step 5.4: Verify Players
 
 1. Navigate to Players page (e.g., `/orgs/[orgId]/admin/players` or `/orgs/[orgId]/coach/players`)
 2. View players list
 
-**Expected to see 10 players:**
+**Expected to see 60 players total:**
 
-**Beginner (3 players):**
-- [ ] Liam Beginner
-- [ ] Emma Novice
-- [ ] Noah Starter
+**Per Team (10 players each):**
+- 3 beginner players
+- 4 developing players
+- 3 advanced players
 
-**Developing (4 players):**
-- [ ] Sophia Progress
-- [ ] Oliver Growth
-- [ ] Ava Improving
-- [ ] Ethan Developing
+**Example Players to Verify:**
 
-**Advanced (3 players):**
-- [ ] Mason Elite
-- [ ] Isabella Advanced
-- [ ] Lucas Expert
+**U10 Soccer Beginners:**
+- [ ] Liam Walsh
+- [ ] Noah Murphy
+- [ ] Jack Kelly
+
+**U10 Soccer Developing:**
+- [ ] Ryan O'Brien
+- [ ] Luke Connor
+- [ ] Adam Byrne
+- [ ] Dylan Ryan
+
+**U10 Soccer Advanced:**
+- [ ] Conor Brennan
+- [ ] Cian McCarthy
+- [ ] Darragh Quinn
+
+**Total Distribution:**
+- [ ] 18 beginner players across all teams
+- [ ] 24 developing players across all teams
+- [ ] 18 advanced players across all teams
 
 ### Step 5.5: Verify Player Passports
 
 **Test Beginner Player:**
-1. Click on "Liam Beginner"
+1. Click on "Liam Walsh"
 2. View player passport
 
 **Expected to see:**
 - [ ] Player name and details
 - [ ] 0-1 assessments (or none)
+- [ ] **Whole number ratings only: 1 or 2**
 - [ ] 2-3 basic goals (e.g., "Master basic ball control")
 - [ ] Goals with 0-10% progress
 - [ ] Goals in "not_started" status
 
 **Test Developing Player:**
-1. Click on "Sophia Progress"
+1. Click on "Ryan O'Brien"
 2. View player passport
 
 **Expected to see:**
-- [ ] 4-7 assessments showing progression
-- [ ] Skill ratings in 2-4 range
-- [ ] 4-5 goals in "in_progress" status
+- [ ] 2-3 assessments showing progression
+- [ ] **Whole number ratings only: 2, 3, or 4**
+- [ ] Overall rating: 3 or 4
+- [ ] 2-3 goals in "in_progress" status
 - [ ] Goals with 30-70% progress
-- [ ] Some milestones
+- [ ] 1-2 milestones per goal
 
 **Test Advanced Player:**
-1. Click on "Mason Elite"
+1. Click on "Conor Brennan"
 2. View player passport
 
 **Expected to see:**
-- [ ] 12-20 assessments with upward trend
-- [ ] Skill ratings in 3-5 range
-- [ ] 3-4 goals, mix of completed and in-progress
+- [ ] 4-6 assessments with upward trend
+- [ ] **Whole number ratings only: 3, 4, or 5**
+- [ ] Overall rating: 4 or 5
+- [ ] 2-3 goals, mix of completed and in-progress
 - [ ] Goals with 80-100% progress
-- [ ] Multiple completed milestones
+- [ ] 1-2 milestones per goal, some completed
 
 ### Step 5.6: Verify Session Plans
 
@@ -499,9 +499,9 @@ npx convex run models/organizations:getAllOrganizations
 2. View session plans list
 
 **Expected to see:**
-- [ ] 38 total session plans
+- [ ] 50 total session plans
 - [ ] Mix of sports: soccer, GAA football, rugby
-- [ ] Mix of age groups: U8, U10, U12, U14, U16, U18
+- [ ] Mix of age groups: U10, U12, U14, U16
 - [ ] Various focus areas (technical, tactical, physical)
 
 ---
@@ -560,9 +560,9 @@ npx convex run scripts/seed/orchestrator:resetProductionDemo '{
 🗑️  Starting demo data cleanup...
   🏢 Deleting organization via Better Auth adapter...
 ✅ Demo data cleanup complete
-  Deleted: 1 orgs, 13 teams, 1 members, 10 players
-  Deleted: 10 passports, 82 assessments, 36 goals
-  Deleted: 38 session plans
+  Deleted: 1 orgs, 6 teams, 1 members, 60 players
+  Deleted: 60 passports, 787 assessments, 147 goals
+  Deleted: 50 session plans, 60 medical profiles, 36 injuries
 ```
 
 **Verify:**
@@ -603,22 +603,24 @@ npx convex run scripts/seed/orchestrator:seedProductionDemo '{
 - [ ] User has platform staff status
 - [ ] Organization created via Better Auth adapter
 - [ ] Member added via Better Auth adapter
-- [ ] 13 teams created
-- [ ] 10 players created with correct stage distribution
-- [ ] ~80 assessments created
-- [ ] ~35 goals created
-- [ ] 38 session plans created
+- [ ] 6 teams created (2 per sport)
+- [ ] 60 players created with correct stage distribution (18/24/18)
+- [ ] ~780-820 assessments created with whole number ratings only (1-5)
+- [ ] ~145-155 goals created
+- [ ] 50 session plans created
+- [ ] 60 medical profiles created
+- [ ] ~35-50 injury records created
 
 ### Frontend ✅
 
 - [ ] Can log in with seeded user
 - [ ] Can access Demo Club organization
-- [ ] See all 13 teams
-- [ ] See all 10 players
-- [ ] View player passports with assessments
+- [ ] See all 6 teams
+- [ ] See all 60 players
+- [ ] View player passports with assessments (whole number ratings 1-5)
 - [ ] View development goals
-- [ ] Access session plans
-- [ ] Multi-team players show correct team badges
+- [ ] Access 50 session plans
+- [ ] View medical profiles and injury records
 
 ### Platform Admin ✅
 
@@ -696,5 +698,6 @@ After completing all tests, please report:
 
 ---
 
-**Testing Version:** 1.0.0
-**Last Updated:** January 20, 2026
+**Testing Version:** 2.0.0
+**Last Updated:** January 21, 2026
+**Changes:** Updated for 60 players (10 per team), 6 teams, whole number ratings, 50 session plans

@@ -58,12 +58,12 @@ export const STAGE_CONFIGS: Record<PlayerStage, StageConfig> = {
   },
   developing: {
     assessments: {
-      count: { min: 4, max: 7 }, // Regular assessment history over 6-12 months
+      count: { min: 2, max: 3 }, // Reduced for faster seeding (was 4-7)
       ratingsRange: { min: 2, max: 4 },
       benchmarkStatuses: ["on_track", "developing"],
     },
     passport: {
-      overallRating: { min: 2.5, max: 3.5 },
+      overallRating: { min: 3, max: 4 }, // Whole numbers only
       coachNotesTemplates: [
         "Showing consistent improvement across training sessions. Good attitude.",
         "Making steady progress. Working hard on fundamentals.",
@@ -73,19 +73,19 @@ export const STAGE_CONFIGS: Record<PlayerStage, StageConfig> = {
       ],
     },
     goals: {
-      count: { min: 4, max: 5 },
+      count: { min: 2, max: 3 }, // Reduced for faster seeding (was 4-5)
       statuses: ["in_progress"],
       progressRange: { min: 30, max: 70 },
     },
   },
   advanced: {
     assessments: {
-      count: { min: 12, max: 18 }, // Extensive history over 18-24 months
+      count: { min: 4, max: 6 }, // Reduced for faster seeding (was 12-18)
       ratingsRange: { min: 3, max: 5 },
       benchmarkStatuses: ["exceeding", "exceptional"],
     },
     passport: {
-      overallRating: { min: 4.0, max: 4.8 },
+      overallRating: { min: 4, max: 5 }, // Whole numbers only
       coachNotesTemplates: [
         "Elite development track. Consistently demonstrates advanced technical skills.",
         "Outstanding player with strong leadership qualities. Key team contributor.",
@@ -95,10 +95,10 @@ export const STAGE_CONFIGS: Record<PlayerStage, StageConfig> = {
       ],
     },
     goals: {
-      count: { min: 3, max: 4 },
+      count: { min: 2, max: 3 }, // Reduced for faster seeding (was 3-4)
       statuses: ["completed", "in_progress"], // Mix of completed and advanced in-progress goals
       progressRange: { min: 80, max: 100 },
-      completedRatio: 0.6, // 60% of goals should be completed
+      completedRatio: 0.5, // Reduced to 50% (was 60%)
     },
   },
 };
@@ -366,6 +366,7 @@ export function generateAssessmentDates(
 /**
  * Generate progressive skill ratings showing improvement
  * Earlier ratings lower, later ratings higher, with realistic progression
+ * Returns only whole numbers: 1, 2, 3, 4, or 5
  */
 export function generateProgressiveRatings(
   count: number,
@@ -376,7 +377,7 @@ export function generateProgressiveRatings(
     return [];
   }
   if (count === 1) {
-    return [randomFloat(minRating, maxRating)];
+    return [randomInt(minRating, maxRating)];
   }
 
   const ratings: number[] = [];
@@ -386,11 +387,12 @@ export function generateProgressiveRatings(
     const progress = i / (count - 1); // 0 to 1
     const baseRating = minRating + (maxRating - minRating) * progress;
 
-    // Add small random variation (±0.3) but keep within bounds
-    const variation = randomFloat(-0.3, 0.3);
-    const rating = Math.max(1, Math.min(5, baseRating + variation));
+    // Round to nearest whole number and add small random variation (±1)
+    const roundedBase = Math.round(baseRating);
+    const variation = Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0;
+    const rating = Math.max(1, Math.min(5, roundedBase + variation));
 
-    ratings.push(Number(rating.toFixed(1)));
+    ratings.push(Math.round(rating));
   }
 
   return ratings;

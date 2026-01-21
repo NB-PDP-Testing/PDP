@@ -1,6 +1,6 @@
 # Production Demo Seeding - Complete Workflow Guide
 
-**Last Updated:** January 20, 2026
+**Last Updated:** January 21, 2026
 
 This guide explains how to properly seed the production demo environment using Better Auth-integrated scripts.
 
@@ -235,18 +235,24 @@ npx convex run scripts/seed/orchestrator:seedProductionDemo '{
 **What this creates:**
 - ✅ Demo Club organization (via Better Auth adapter)
 - ✅ You as owner with admin + coach functional roles (via Better Auth adapter)
-- ✅ **You assigned as coach** to all 13 teams
-- ✅ **You assigned as guardian** to all 10 players
-- ✅ 13 teams across 3 sports (soccer, GAA football, rugby)
-- ✅ 10 players distributed across development stages:
-  - 3 beginner players (0-1 assessments)
-  - 4 developing players (4-7 assessments)
-  - 3 advanced players (12-18 assessments)
-- ✅ ~80 skill assessments showing progression
-- ✅ ~35 development goals with milestones
-- ✅ 38 training session plans
-- ✅ 10 medical profiles with varied health information (allergies, medications, conditions)
-- ✅ ~10 injury records showing player injury history:
+- ✅ **You assigned as coach** to all 6 teams
+- ✅ **You assigned as guardian** to all 60 players
+- ✅ 6 teams (2 per sport) across 3 sports (soccer, GAA football, rugby):
+  - U10 Soccer (Boys)
+  - U14 Soccer (Girls)
+  - U12 GAA (Boys)
+  - U16 GAA (Girls)
+  - U10 Rugby (Boys)
+  - U16 Rugby (Boys)
+- ✅ 60 players (10 per team) distributed across development stages:
+  - 18 beginner players (0-1 assessments each)
+  - 24 developing players (2-3 assessments each)
+  - 18 advanced players (4-6 assessments each)
+- ✅ ~780-820 skill assessments with **whole number ratings only (1, 2, 3, 4, 5)**
+- ✅ ~145-155 development goals with milestones
+- ✅ 50 training session plans
+- ✅ 60 medical profiles with varied health information (allergies, medications, conditions)
+- ✅ ~35-50 injury records showing player injury history:
   - Beginners: No injuries (too new)
   - Developing: 0-1 healed injuries
   - Advanced: 1-3 injuries (mostly healed, possibly 1 recovering)
@@ -271,42 +277,42 @@ npx convex run scripts/seed/orchestrator:seedProductionDemo '{
   ✅ Added your-email@example.com as owner
 
 ⚽ Step 3: Creating teams...
-    ✅ Created team: U8 Soccer
-    ✅ Created team: U10 GAA Girls
-    ... (13 teams total)
+    ✅ Created team: U10 Soccer
+    ✅ Created team: U14 Soccer
+    ... (6 teams total)
 
 👶 Step 4: Creating players...
-    ✅ Created player: Liam Beginner (beginner)
+    ✅ Created player: Liam Walsh (beginner)
       📋 Generating passport data (beginner)...
-      ✅ Passport: 0 assessments, 2 goals
-    ... (10 players total)
+      ✅ Passport: 0 assessments, 3 goals
+    ... (60 players total)
 
 🏋️ Step 5: Creating session plans...
-  ✅ Created 38 session plans
+  ✅ Created 50 session plans
 
 👥 Step 6: Assigning owner as coach and guardian...
-  ✅ Assigned as coach to 13 teams
+  ✅ Assigned as coach to 6 teams
   ✅ Created guardian identity
   ✅ Created organization guardian profile
-  ✅ Linked as guardian to 10 players
+  ✅ Linked as guardian to 60 players
 
 🏥 Step 7: Creating medical profiles...
-  ✅ Created 10 medical profiles
+  ✅ Created 60 medical profiles
 
 🩹 Step 8: Creating injury records...
-  ✅ Created 10 injury records
+  ✅ Created 36 injury records
 
 ============================================================
 ✅ Production Demo Seed Complete!
 ============================================================
-Teams:          13 created
-Players:        10 created
-Passports:      10 created
-Assessments:    82 created
-Goals:          36 created
-Sessions:       38 created
-Medical:        10 profiles created
-Injuries:       10 records created
+Teams:          6 created
+Players:        60 created
+Passports:      60 created
+Assessments:    787 created
+Goals:          147 created
+Sessions:       50 created
+Medical:        60 profiles created
+Injuries:       36 records created
 ============================================================
 
 Demo Organization: Demo Club
@@ -327,19 +333,19 @@ npx convex run scripts/seed/orchestrator:verifyProductionDemo
 {
   "orgExists": true,
   "orgId": "k17abc123def456",
-  "teamCount": 13,
-  "playerCount": 10,
-  "passportCount": 10,
-  "assessmentCount": 82,
-  "goalCount": 36,
-  "sessionCount": 38,
-  "medicalProfileCount": 10,
-  "injuryCount": 10,
+  "teamCount": 6,
+  "playerCount": 60,
+  "passportCount": 60,
+  "assessmentCount": 787,
+  "goalCount": 147,
+  "sessionCount": 50,
+  "medicalProfileCount": 60,
+  "injuryCount": 36,
   "memberCount": 1,
   "stageDistribution": {
-    "beginner": 3,
-    "developing": 4,
-    "advanced": 3
+    "beginner": 18,
+    "developing": 24,
+    "advanced": 18
   }
 }
 ```
@@ -354,11 +360,11 @@ npx convex run scripts/seed/orchestrator:verifyProductionDemo
    - Or select "Demo Club" from organization switcher
 
 3. **Verify Data Visibility**
-   - See all 13 teams
-   - See all 10 players
-   - View player passports with assessments and goals
-   - Access session plans
-   - View medical profiles with emergency contacts, allergies, and medications
+   - See all 6 teams
+   - See all 60 players
+   - View player passports with assessments (whole number ratings: 1-5) and goals
+   - Access 50 session plans
+   - View 60 medical profiles with emergency contacts, allergies, and medications
    - See injury records with recovery status and return-to-play protocols
 
 4. **Test Platform Admin Access**
@@ -532,9 +538,15 @@ TypeError: Cannot read property 'adapter' of undefined
 **Purpose:** Stage configuration and data generation utilities
 
 **Stage Definitions:**
-- Beginner: 0-1 assessments, ratings 1-2, basic goals
-- Developing: 4-7 assessments, ratings 2-4, in-progress goals
-- Advanced: 12-18 assessments, ratings 3-5, completed goals
+- Beginner: 0-1 assessments, whole number ratings 1-2, basic goals (2-3 goals each)
+- Developing: 2-3 assessments, whole number ratings 2-4, in-progress goals (2-3 goals each)
+- Advanced: 4-6 assessments, whole number ratings 3-5, completed/in-progress goals (2-3 goals each)
+
+**Rating System:**
+- All skill assessments use **whole numbers only**: 1, 2, 3, 4, or 5
+- Overall ratings for passports also use whole numbers
+- Developing players: Overall rating 3-4
+- Advanced players: Overall rating 4-5
 
 ---
 
@@ -592,26 +604,26 @@ await ctx.runMutation(components.betterAuth.adapter.create, {
 - [ ] User has `isPlatformStaff: true`
 - [ ] Organization exists via Better Auth adapter query
 - [ ] User is member with "owner" role
-- [ ] 13 teams exist
-- [ ] 10 players exist
-- [ ] ~80 assessments exist
-- [ ] ~35 goals exist
-- [ ] 38 session plans exist
-- [ ] 10 medical profiles exist
-- [ ] ~10 injury records exist
+- [ ] 6 teams exist (2 per sport)
+- [ ] 60 players exist (10 per team)
+- [ ] ~780-820 assessments exist with whole number ratings (1-5)
+- [ ] ~145-155 goals exist
+- [ ] 50 session plans exist
+- [ ] 60 medical profiles exist
+- [ ] ~35-50 injury records exist
 
 ### Frontend Verification
 
 - [ ] Can log in with seeded user email
 - [ ] See "Demo Club" in organization selector
 - [ ] Navigate to `/orgs/[orgId]` successfully
-- [ ] See all 13 teams in teams list
-- [ ] See all 10 players in players list
+- [ ] See all 6 teams in teams list
+- [ ] See all 60 players in players list
 - [ ] Can view player passports
-- [ ] See assessment history
+- [ ] See assessment history with whole number ratings only (1, 2, 3, 4, 5)
 - [ ] See development goals
-- [ ] Access session plans
-- [ ] View medical profiles with emergency contacts
+- [ ] Access 50 session plans
+- [ ] View 60 medical profiles with emergency contacts
 - [ ] See injury records with status and recovery details
 - [ ] Platform admin panel shows Demo Club
 
@@ -675,14 +687,14 @@ npx convex run --prod scripts/seed/orchestrator:verifyProductionDemo
 2. **Check for Errors**: Look for red error indicators in the dashboard
 
 3. **Verify Counts**: After seeding, the verify command should show:
-   - 13 teams
-   - 10 players
-   - 10 passports
-   - ~80 assessments
-   - ~35 goals
-   - 38 session plans
-   - 10 medical profiles
-   - ~10 injury records
+   - 6 teams
+   - 60 players
+   - 60 passports
+   - ~780-820 assessments (all whole number ratings: 1-5)
+   - ~145-155 goals
+   - 50 session plans
+   - 60 medical profiles
+   - ~35-50 injury records
 
 ### Production Cleanup
 
@@ -727,7 +739,7 @@ If you encounter issues not covered in this guide:
 
 ---
 
-**Document Version:** 2.0.0
+**Document Version:** 3.0.0
 **Compatible with:** Better Auth + Convex Integration (Dev & Production)
-**Last Updated:** January 20, 2026
-**Includes:** Production deployment instructions, medical profiles, injury tracking
+**Last Updated:** January 21, 2026
+**Includes:** Production deployment instructions, 60 players (10 per team), whole number ratings (1-5), medical profiles, injury tracking

@@ -21,222 +21,34 @@ This guide will walk you through testing the complete seeding workflow from scra
 - [ ] Convex is deployed and running
 - [ ] You have access to the web UI
 - [ ] You have terminal access for running Convex commands
+- [ ] The owner account `owner_pdp@outlook.com` has already been created and granted platform staff status
 
 ---
 
-## Phase 1: Clean Slate
+## Phase 1: Seeding Demo Environment
 
-### Step 1.1: Preview Existing Data
-
-```bash
-npx convex run scripts/seed/cleanupIncorrectData:previewCleanup
-```
-
-**Expected Output:**
-
-**Scenario A: No demo data exists**
-```json
-{
-  "demoOrgExists": false,
-  "itemsToClean": { ... all zeros ... },
-  "recommendations": ["ℹ️  No demo organization found - nothing to clean"]
-}
-```
-→ **Action:** Skip to Phase 2
-
-**Scenario B: Incorrectly seeded data exists**
-```json
-{
-  "demoOrgExists": true,
-  "demoOrgCreatedViaDirectInsert": true,
-  "itemsToClean": {
-    "organizations": 1,
-    "teams": 6,
-    "members": 1,
-    "players": 60,
-    ...
-  },
-  "recommendations": [
-    "❌ Demo org was created via direct insert (bypasses Better Auth)",
-    "✅ Run cleanupIncorrectData to remove incorrectly created data"
-  ]
-}
-```
-→ **Action:** Continue to Step 1.2
-
-**Scenario C: Correctly seeded data exists**
-```json
-{
-  "demoOrgExists": true,
-  "demoOrgCreatedViaDirectInsert": false,
-  "betterAuthOrgExists": true,
-  "recommendations": [
-    "✅ Demo org exists and was created correctly via Better Auth",
-    "No cleanup needed for organization"
-  ]
-}
-```
-→ **Action:** Skip to Phase 4 (verification) or run reset first
-
-### Step 1.2: Clean Up Incorrect Data (if needed)
-
-```bash
-npx convex run scripts/seed/cleanupIncorrectData:cleanupIncorrectData '{
-  "confirmCleanup": true
-}'
-```
-
-**Expected Output:**
-```
-🧹 Starting cleanup of incorrectly seeded data...
-  Found demo org: Demo Club (ID: ...)
-  🗑️  Deleting goals...
-  🗑️  Deleting assessments...
-  🗑️  Deleting passports...
-  🗑️  Deleting session plans...
-  🗑️  Deleting team assignments...
-  🗑️  Deleting player enrollments...
-  🗑️  Deleting members...
-  🗑️  Deleting teams...
-  🗑️  Deleting organization...
-
-============================================================
-✅ Cleanup Complete!
-============================================================
-Organizations: 1 deleted
-Teams:         6 deleted
-Members:       1 deleted
-Players:       60 deleted
-Passports:     60 deleted
-Assessments:   787 deleted
-Goals:         147 deleted
-Sessions:      50 deleted
-============================================================
-```
-
-**Verify:**
-- [ ] All stats show deleted items
-- [ ] Success message displayed
-- [ ] No errors in output
-
----
-
-## Phase 2: User Account Setup
-
-### Step 2.1: Check if User Exists
-
-```bash
-npx convex run models/users:getUserByEmail '{
-  "email": "jkobrien@gmail.com"
-}'
-```
-
-**Expected Output:**
-
-**Scenario A: User exists**
-```json
-{
-  "_id": "...",
-  "email": "jkobrien@gmail.com",
-  "name": "John O'Brien",
-  "isPlatformStaff": true,
-  ...
-}
-```
-→ **Action:** Skip to Phase 3
-
-**Scenario B: User does not exist**
-```json
-null
-```
-→ **Action:** Continue to Step 2.2
-
-### Step 2.2: Create User Account (if needed)
-
-**⚠️ IMPORTANT:** Users MUST be created through the web UI, not via scripts.
-
-1. **Open web browser** and navigate to your app
-2. **Click "Sign Up"** or "Create Account"
-3. **Enter details:**
-   - Email: `jkobrien@gmail.com`
-   - Password: (choose secure password)
-   - Name: John O'Brien
-4. **Complete sign-up flow**
-5. **Verify you can log in**
-
-**Verify:**
-- [ ] Account created successfully
-- [ ] Can log in with credentials
-- [ ] Redirected to dashboard or app home
-
-### Step 2.3: Grant Platform Staff Status
-
-```bash
-npx convex run scripts/bootstrapPlatformStaff:setFirstPlatformStaff '{
-  "email": "jkobrien@gmail.com"
-}'
-```
-
-**Expected Output:**
-```json
-{
-  "success": true,
-  "message": "Successfully set jkobrien@gmail.com as platform staff"
-}
-```
-
-**Verify:**
-- [ ] Success is true
-- [ ] Message confirms platform staff assignment
-
-### Step 2.4: Verify Platform Staff Status
-
-```bash
-npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
-```
-
-**Expected Output:**
-```json
-{
-  "platformStaff": [
-    {
-      "email": "jkobrien@gmail.com",
-      "name": "John O'Brien"
-    }
-  ],
-  "totalUsers": 1
-}
-```
-
-**Verify:**
-- [ ] Your email appears in platformStaff array
-- [ ] totalUsers >= 1
-
----
-
-## Phase 3: Seeding Demo Environment
-
-### Step 3.1: Run Seeding Script
+### Step 1.1: Run Seeding Script
 
 ```bash
 npx convex run scripts/seed/orchestrator:seedProductionDemo '{
-  "ownerEmail": "jkobrien@gmail.com"
+  "ownerEmail": "owner_pdp@outlook.com"
 }'
 ```
 
 **Expected Output:**
+
 ```
 🌱 Starting production demo seed...
-  Owner email: jkobrien@gmail.com
+  Owner email: owner_pdp@outlook.com
 
 👤 Step 1: Finding user...
-  ✓ Found user: John O'Brien
+  ✓ Found user: PDP Owner
   ✓ User is platform staff
 
 🏢 Step 2: Checking for existing demo organization...
   ⚡ Creating demo organization: Demo Club...
   ✅ Created organization: Demo Club
-  ✅ Added jkobrien@gmail.com as owner
+  ✅ Added owner_pdp@outlook.com as owner
 
 ⚽ Step 3: Creating teams...
     ✅ Created team: U10 Soccer
@@ -285,12 +97,13 @@ Injuries:      36 records created
 
 Demo Organization: Demo Club
 Slug: demo-club
-Owner: jkobrien@gmail.com
+Owner: owner_pdp@outlook.com
 URL: /orgs/k17abc123def456
 ============================================================
 ```
 
 **Verify:**
+
 - [ ] ✓ Found user successfully
 - [ ] ✓ User is platform staff
 - [ ] ✅ Created organization
@@ -308,15 +121,16 @@ URL: /orgs/k17abc123def456
 
 ---
 
-## Phase 4: Backend Verification
+## Phase 2: Backend Verification
 
-### Step 4.1: Verify Demo Data
+### Step 2.1: Verify Demo Data
 
 ```bash
 npx convex run scripts/seed/orchestrator:verifyProductionDemo
 ```
 
 **Expected Output:**
+
 ```json
 {
   "orgExists": true,
@@ -339,6 +153,7 @@ npx convex run scripts/seed/orchestrator:verifyProductionDemo
 ```
 
 **Verify:**
+
 - [ ] orgExists: true
 - [ ] teamCount: 6
 - [ ] playerCount: 60
@@ -351,13 +166,14 @@ npx convex run scripts/seed/orchestrator:verifyProductionDemo
 - [ ] memberCount: 1
 - [ ] stageDistribution matches 18/24/18 split
 
-### Step 4.2: Check Organization via Better Auth
+### Step 2.2: Check Organization via Better Auth
 
 ```bash
 npx convex run models/organizations:getAllOrganizations
 ```
 
 **Expected Output:**
+
 ```json
 [
   {
@@ -372,45 +188,51 @@ npx convex run models/organizations:getAllOrganizations
 ```
 
 **Verify:**
+
 - [ ] Demo Club appears in list
 - [ ] Has correct slug: "demo-club"
 - [ ] memberCount: 1
 
 ---
 
-## Phase 5: Frontend Verification
+## Phase 3: Frontend Verification
 
-### Step 5.1: Log In to Application
+### Step 3.1: Log In to Application
 
 1. Open web browser
 2. Navigate to your application
-3. Log in with `jkobrien@gmail.com` and your password
+3. Log in with `owner_pdp@outlook.com` and your password
 
 **Verify:**
+
 - [ ] Login successful
 - [ ] Redirected to dashboard/home
 
-### Step 5.2: Access Demo Organization
+### Step 3.2: Access Demo Organization
 
 **Option A: Via Organization Selector**
+
 1. Look for organization selector/switcher in UI
 2. Click to open dropdown
 3. Select "Demo Club"
 
 **Option B: Direct URL**
+
 1. Navigate to `/orgs/[orgId]` (use orgId from seeding output)
 
 **Verify:**
+
 - [ ] Can access Demo Club
 - [ ] No permission errors
 - [ ] Organization dashboard loads
 
-### Step 5.3: Verify Teams
+### Step 3.3: Verify Teams
 
 1. Navigate to Teams page (e.g., `/orgs/[orgId]/admin/teams` or `/orgs/[orgId]/coach/teams`)
 2. View teams list
 
 **Expected to see:**
+
 - [ ] U10 Soccer (Boys)
 - [ ] U14 Soccer (Girls)
 - [ ] U12 GAA (Boys)
@@ -420,7 +242,7 @@ npx convex run models/organizations:getAllOrganizations
 
 **Total:** 6 teams (2 per sport)
 
-### Step 5.4: Verify Players
+### Step 3.4: Verify Players
 
 1. Navigate to Players page (e.g., `/orgs/[orgId]/admin/players` or `/orgs/[orgId]/coach/players`)
 2. View players list
@@ -428,6 +250,7 @@ npx convex run models/organizations:getAllOrganizations
 **Expected to see 60 players total:**
 
 **Per Team (10 players each):**
+
 - 3 beginner players
 - 4 developing players
 - 3 advanced players
@@ -435,33 +258,39 @@ npx convex run models/organizations:getAllOrganizations
 **Example Players to Verify:**
 
 **U10 Soccer Beginners:**
+
 - [ ] Liam Walsh
 - [ ] Noah Murphy
 - [ ] Jack Kelly
 
 **U10 Soccer Developing:**
+
 - [ ] Ryan O'Brien
 - [ ] Luke Connor
 - [ ] Adam Byrne
 - [ ] Dylan Ryan
 
 **U10 Soccer Advanced:**
+
 - [ ] Conor Brennan
 - [ ] Cian McCarthy
 - [ ] Darragh Quinn
 
 **Total Distribution:**
+
 - [ ] 18 beginner players across all teams
 - [ ] 24 developing players across all teams
 - [ ] 18 advanced players across all teams
 
-### Step 5.5: Verify Player Passports
+### Step 3.5: Verify Player Passports
 
 **Test Beginner Player:**
+
 1. Click on "Liam Walsh"
 2. View player passport
 
 **Expected to see:**
+
 - [ ] Player name and details
 - [ ] 0-1 assessments (or none)
 - [ ] **Whole number ratings only: 1 or 2**
@@ -470,10 +299,12 @@ npx convex run models/organizations:getAllOrganizations
 - [ ] Goals in "not_started" status
 
 **Test Developing Player:**
+
 1. Click on "Ryan O'Brien"
 2. View player passport
 
 **Expected to see:**
+
 - [ ] 2-3 assessments showing progression
 - [ ] **Whole number ratings only: 2, 3, or 4**
 - [ ] Overall rating: 3 or 4
@@ -482,10 +313,12 @@ npx convex run models/organizations:getAllOrganizations
 - [ ] 1-2 milestones per goal
 
 **Test Advanced Player:**
+
 1. Click on "Conor Brennan"
 2. View player passport
 
 **Expected to see:**
+
 - [ ] 4-6 assessments with upward trend
 - [ ] **Whole number ratings only: 3, 4, or 5**
 - [ ] Overall rating: 4 or 5
@@ -493,12 +326,13 @@ npx convex run models/organizations:getAllOrganizations
 - [ ] Goals with 80-100% progress
 - [ ] 1-2 milestones per goal, some completed
 
-### Step 5.6: Verify Session Plans
+### Step 3.6: Verify Session Plans
 
 1. Navigate to Session Plans page (e.g., `/orgs/[orgId]/coach/session-plans`)
 2. View session plans list
 
 **Expected to see:**
+
 - [ ] 50 total session plans
 - [ ] Mix of sports: soccer, GAA football, rugby
 - [ ] Mix of age groups: U10, U12, U14, U16
@@ -506,27 +340,29 @@ npx convex run models/organizations:getAllOrganizations
 
 ---
 
-## Phase 6: Platform Admin Verification
+## Phase 4: Platform Admin Verification
 
-### Step 6.1: Access Platform Admin Panel
+### Step 4.1: Access Platform Admin Panel
 
 1. Navigate to platform admin panel (e.g., `/platform/admin` or `/admin/organizations`)
 
 **Verify:**
+
 - [ ] Can access platform admin panel
 - [ ] No permission errors
 
-### Step 6.2: Verify Organizations List
+### Step 4.2: Verify Organizations List
 
 1. View organizations list in platform admin
 
 **Expected to see:**
+
 - [ ] "Demo Club" appears in list
 - [ ] Shows 1 member
 - [ ] Shows created date
 - [ ] Can click to view details
 
-### Step 6.3: Test Join Organization Flow
+### Step 4.3: Test Join Organization Flow
 
 **⚠️ CRITICAL TEST - This was the original issue**
 
@@ -537,6 +373,7 @@ npx convex run models/organizations:getAllOrganizations
 5. Search for or view available organizations
 
 **Expected:**
+
 - [ ] "Demo Club" appears in available organizations list
 - [ ] Can request to join
 - [ ] See organization details (logo, name, etc.)
@@ -545,9 +382,9 @@ npx convex run models/organizations:getAllOrganizations
 
 ---
 
-## Phase 7: Cleanup Testing
+## Phase 5: Cleanup Testing
 
-### Step 7.1: Test Reset Function
+### Step 5.1: Test Reset Function
 
 ```bash
 npx convex run scripts/seed/orchestrator:resetProductionDemo '{
@@ -556,6 +393,7 @@ npx convex run scripts/seed/orchestrator:resetProductionDemo '{
 ```
 
 **Expected Output:**
+
 ```
 🗑️  Starting demo data cleanup...
   🏢 Deleting organization via Better Auth adapter...
@@ -566,28 +404,31 @@ npx convex run scripts/seed/orchestrator:resetProductionDemo '{
 ```
 
 **Verify:**
+
 - [ ] All data deleted
 - [ ] Success message shown
 
-### Step 7.2: Verify Cleanup in UI
+### Step 5.2: Verify Cleanup in UI
 
 1. Refresh browser
 2. Try to access Demo Club
 
 **Expected:**
+
 - [ ] Cannot access /orgs/[orgId] (404 or redirect)
 - [ ] Demo Club not in organization selector
 - [ ] No teams, players, or data visible
 
-### Step 7.3: Re-seed to Verify Idempotency
+### Step 5.3: Re-seed to Verify Idempotency
 
 ```bash
 npx convex run scripts/seed/orchestrator:seedProductionDemo '{
-  "ownerEmail": "jkobrien@gmail.com"
+  "ownerEmail": "owner_pdp@outlook.com"
 }'
 ```
 
 **Expected:**
+
 - [ ] Script runs successfully again
 - [ ] Creates organization again
 - [ ] All data seeded correctly
@@ -643,9 +484,10 @@ npx convex run scripts/seed/orchestrator:seedProductionDemo '{
 ### Issue: Script fails with "User not found"
 
 **Check:**
+
 ```bash
 npx convex run models/users:getUserByEmail '{
-  "email": "jkobrien@gmail.com"
+  "email": "owner_pdp@outlook.com"
 }'
 ```
 
@@ -654,6 +496,7 @@ npx convex run models/users:getUserByEmail '{
 ### Issue: Script fails with "not platform staff"
 
 **Check:**
+
 ```bash
 npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
 ```
@@ -663,17 +506,20 @@ npx convex run scripts/bootstrapPlatformStaff:listPlatformStaff
 ### Issue: Demo org not visible in UI
 
 **Check:**
+
 ```bash
 npx convex run scripts/seed/cleanupIncorrectData:previewCleanup
 ```
 
 **If shows "demoOrgCreatedViaDirectInsert": true:**
+
 1. Run cleanup script
 2. Re-seed with correct script
 
 ### Issue: Components not defined error
 
 **Check:** Verify line 21 of orchestrator.ts:
+
 ```typescript
 import { components, internal } from "../../_generated/api";
 ```

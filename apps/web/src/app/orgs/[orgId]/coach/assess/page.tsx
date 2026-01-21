@@ -72,7 +72,7 @@ export default function AssessPlayerPage() {
   // State
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedSportCode, setSelectedSportCode] = useState<string | null>(
-    null
+    "all" // Default to "All Sports"
   );
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -248,13 +248,20 @@ export default function AssessPlayerPage() {
 
   // Get assessment history for stats
   const assessmentHistory = useQuery(
-    api.models.skillAssessments.getAssessmentHistory,
+    selectedSportCode === "all"
+      ? api.models.skillAssessments.getAssessmentHistoryAllSports
+      : api.models.skillAssessments.getAssessmentHistory,
     selectedPlayerId && selectedSportCode
-      ? {
-          playerIdentityId: selectedPlayerId as Id<"playerIdentities">,
-          sportCode: selectedSportCode,
-          organizationId: orgId,
-        }
+      ? selectedSportCode === "all"
+        ? {
+            playerIdentityId: selectedPlayerId as Id<"playerIdentities">,
+            organizationId: orgId,
+          }
+        : {
+            playerIdentityId: selectedPlayerId as Id<"playerIdentities">,
+            sportCode: selectedSportCode,
+            organizationId: orgId,
+          }
       : "skip"
   );
 
@@ -386,7 +393,7 @@ export default function AssessPlayerPage() {
     };
   }, [assessmentHistory]);
 
-  // Auto-select sport from team or default to first team's sport
+  // Auto-select sport from team (only when team is explicitly selected)
   useMemo(() => {
     if (!coachAssignments?.teams) {
       console.log("⚽ AUTO-SELECT: No coach assignments teams");
@@ -398,7 +405,7 @@ export default function AssessPlayerPage() {
     console.log("⚽ selectedSportCode:", selectedSportCode);
     console.log("⚽ coachAssignments.teams:", coachAssignments.teams);
 
-    // If team is selected, use that team's sport
+    // If team is selected, use that team's sport (override any selection including "all")
     if (selectedTeamId) {
       const team = coachAssignments.teams.find(
         (t) => t.teamId === selectedTeamId
@@ -414,20 +421,7 @@ export default function AssessPlayerPage() {
       return;
     }
 
-    // Otherwise, default to the first team's sport (if not already set)
-    if (!selectedSportCode && coachAssignments.teams.length > 0) {
-      const firstTeamSport = coachAssignments.teams[0]?.sportCode;
-      console.log("⚽ AUTO-SELECT: First team sport:", firstTeamSport);
-      if (firstTeamSport) {
-        console.log(
-          "⚽ AUTO-SELECT: Setting sport from first team:",
-          firstTeamSport
-        );
-        setSelectedSportCode(firstTeamSport);
-      } else {
-        console.log("⚽ AUTO-SELECT: First team has NO sportCode!");
-      }
-    }
+    // When no team is selected, keep "all" as default (don't auto-select first team's sport)
   }, [selectedTeamId, coachAssignments, selectedSportCode]);
 
   // Mutations
@@ -750,6 +744,10 @@ export default function AssessPlayerPage() {
               <Select
                 onValueChange={(value) => {
                   setSelectedTeamId(value === "all" ? null : value);
+                  // Reset to "All Sports" when "All Teams" is selected
+                  if (value === "all") {
+                    setSelectedSportCode("all");
+                  }
                 }}
                 value={selectedTeamId ?? "all"}
               >
@@ -853,6 +851,7 @@ export default function AssessPlayerPage() {
                 <SelectValue placeholder="Select a sport" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All Sports</SelectItem>
                 {sports?.map((sport) => (
                   <SelectItem key={sport._id} value={sport.code}>
                     {sport.name}
@@ -860,9 +859,16 @@ export default function AssessPlayerPage() {
                 ))}
               </SelectContent>
             </Select>
-            {selectedTeamId && coachAssignments && (
+            {selectedTeamId &&
+              coachAssignments &&
+              selectedSportCode !== "all" && (
+                <p className="text-muted-foreground text-xs">
+                  Auto-selected from team
+                </p>
+              )}
+            {selectedSportCode === "all" && (
               <p className="text-muted-foreground text-xs">
-                Auto-selected from team
+                Viewing all assessments across all sports
               </p>
             )}
           </div>
@@ -1026,6 +1032,7 @@ export default function AssessPlayerPage() {
                 Last {Math.min(5, assessmentHistory.length)} assessments for{" "}
                 {selectedPlayer.player.firstName}{" "}
                 {selectedPlayer.player.lastName}
+                {selectedSportCode === "all" && " (all sports)"}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1272,10 +1279,38 @@ export default function AssessPlayerPage() {
           />
         )}
 
+      {/* INDIVIDUAL MODE: All Sports View (History Only) */}
+      {assessmentMode === "individual" &&
+      selectedPlayerId &&
+      selectedSportCode === "all" ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <BarChart3 className="mb-4 h-12 w-12 text-muted-foreground" />
+            <h3 className="mb-2 font-semibold text-lg">Viewing All Sports</h3>
+            <p className="mb-4 text-muted-foreground">
+              Assessment history is shown above for all sports. To record new
+              assessments, please select a specific sport.
+            </p>
+            <Button
+              onClick={() => {
+                // Auto-select first available sport
+                if (sports && sports.length > 0) {
+                  setSelectedSportCode(sports[0].code);
+                }
+              }}
+              variant="outline"
+            >
+              Select a Sport to Assess
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* INDIVIDUAL MODE: Skills Assessment */}
       {assessmentMode === "individual" &&
       selectedPlayerId &&
       selectedSportCode &&
+      selectedSportCode !== "all" &&
       skills &&
       skills.length > 0 ? (
         <div className="space-y-6">
@@ -1447,7 +1482,8 @@ export default function AssessPlayerPage() {
         </div>
       ) : assessmentMode === "individual" &&
         selectedPlayerId &&
-        selectedSportCode ? (
+        selectedSportCode &&
+        selectedSportCode !== "all" ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Award className="mb-4 h-12 w-12 text-muted-foreground" />

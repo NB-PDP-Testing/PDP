@@ -93,10 +93,11 @@ export const getAssessmentsForPassport = query({
   returns: v.array(assessmentValidator),
   handler: async (ctx, args) => {
     if (args.skillCode) {
+      const skillCode = args.skillCode;
       return await ctx.db
         .query("skillAssessments")
         .withIndex("by_skill", (q) =>
-          q.eq("passportId", args.passportId).eq("skillCode", args.skillCode!)
+          q.eq("passportId", args.passportId).eq("skillCode", skillCode)
         )
         .order("desc")
         .collect();
@@ -146,7 +147,7 @@ export const getSkillHistory = query({
   },
   returns: v.array(assessmentValidator),
   handler: async (ctx, args) => {
-    const query = ctx.db
+    const dbQuery = ctx.db
       .query("skillAssessments")
       .withIndex("by_skill", (q) =>
         q.eq("passportId", args.passportId).eq("skillCode", args.skillCode)
@@ -154,10 +155,10 @@ export const getSkillHistory = query({
       .order("desc");
 
     if (args.limit) {
-      return await query.take(args.limit);
+      return await dbQuery.take(args.limit);
     }
 
-    return await query.collect();
+    return await dbQuery.collect();
   },
 });
 
@@ -172,12 +173,13 @@ export const getAssessmentsForPlayer = query({
   returns: v.array(assessmentValidator),
   handler: async (ctx, args) => {
     if (args.sportCode) {
+      const sportCode = args.sportCode;
       return await ctx.db
         .query("skillAssessments")
         .withIndex("by_player_and_sport", (q) =>
           q
             .eq("playerIdentityId", args.playerIdentityId)
-            .eq("sportCode", args.sportCode!)
+            .eq("sportCode", sportCode)
         )
         .order("desc")
         .collect();
@@ -256,6 +258,69 @@ export const getAssessmentHistory = query({
 });
 
 /**
+ * Get assessment history across all sports for a player
+ */
+export const getAssessmentHistoryAllSports = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+    limit: v.optional(v.number()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("skillAssessments"),
+      _creationTime: v.number(),
+      passportId: v.id("sportPassports"),
+      playerIdentityId: v.id("playerIdentities"),
+      sportCode: v.string(),
+      sportName: v.string(), // Added for display
+      skillCode: v.string(),
+      skillName: v.string(),
+      organizationId: v.string(),
+      rating: v.number(),
+      previousRating: v.optional(v.number()),
+      assessmentDate: v.string(),
+      assessmentType: assessmentTypeValidator,
+      assessedBy: v.optional(v.string()),
+      assessedByName: v.optional(v.string()),
+      assessorRole: v.optional(assessorRoleValidator),
+      benchmarkRating: v.optional(v.number()),
+      benchmarkLevel: v.optional(v.string()),
+      benchmarkDelta: v.optional(v.number()),
+      benchmarkStatus: v.optional(benchmarkStatusValidator),
+      notes: v.optional(v.string()),
+      confidence: v.optional(confidenceValidator),
+      createdAt: v.optional(v.number()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Get all assessments for this player across all sports
+    const assessments = await ctx.db
+      .query("skillAssessments")
+      .withIndex("by_playerIdentityId", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .filter((q) => q.eq(q.field("organizationId"), args.organizationId))
+      .order("desc")
+      .take(args.limit ?? 100);
+
+    // Get all skill definitions to map codes to names
+    const skillDefinitions = await ctx.db.query("skillDefinitions").collect();
+    const skillMap = new Map(skillDefinitions.map((s) => [s.code, s.name]));
+
+    // Get all sports to map codes to names
+    const sports = await ctx.db.query("sports").collect();
+    const sportMap = new Map(sports.map((s) => [s.code, s.name]));
+
+    return assessments.map((assessment) => ({
+      ...assessment,
+      skillName: skillMap.get(assessment.skillCode) ?? assessment.skillCode,
+      sportName: sportMap.get(assessment.sportCode) ?? assessment.sportCode,
+    }));
+  },
+});
+
+/**
  * Get assessments by assessor
  */
 export const getAssessmentsByAssessor = query({
@@ -273,14 +338,12 @@ export const getAssessmentsByAssessor = query({
       .collect();
 
     if (args.startDate) {
-      assessments = assessments.filter(
-        (a) => a.assessmentDate >= args.startDate!
-      );
+      const startDate = args.startDate;
+      assessments = assessments.filter((a) => a.assessmentDate >= startDate);
     }
     if (args.endDate) {
-      assessments = assessments.filter(
-        (a) => a.assessmentDate <= args.endDate!
-      );
+      const endDate = args.endDate;
+      assessments = assessments.filter((a) => a.assessmentDate <= endDate);
     }
 
     return assessments;
@@ -308,14 +371,12 @@ export const getOrgAssessments = query({
       .collect();
 
     if (args.startDate) {
-      assessments = assessments.filter(
-        (a) => a.assessmentDate >= args.startDate!
-      );
+      const startDate = args.startDate;
+      assessments = assessments.filter((a) => a.assessmentDate >= startDate);
     }
     if (args.endDate) {
-      assessments = assessments.filter(
-        (a) => a.assessmentDate <= args.endDate!
-      );
+      const endDate = args.endDate;
+      assessments = assessments.filter((a) => a.assessmentDate <= endDate);
     }
     if (args.assessmentType) {
       assessments = assessments.filter(
@@ -701,7 +762,7 @@ export const recordAssessmentWithBenchmark = mutation({
         monthDiff < 0 ||
         (monthDiff === 0 && today.getDate() < dob.getDate())
       ) {
-        age--;
+        age -= 1;
       }
 
       // Map age to age group code (matches referenceData.ts getAgeGroupFromDOB)
@@ -739,35 +800,36 @@ export const recordAssessmentWithBenchmark = mutation({
         ageGroupCode = "senior";
       }
 
-      // Look up benchmark
-      const level = args.benchmarkLevel ?? "recreational";
-      const benchmark = await ctx.db
-        .query("skillBenchmarks")
-        .withIndex("by_context", (q) =>
-          q
-            .eq("sportCode", passport.sportCode)
-            .eq("skillCode", args.skillCode)
-            .eq("ageGroup", ageGroupCode!)
-            .eq("gender", "all")
-            .eq("level", level)
-        )
-        .first();
+      // Look up benchmark (only if we have an age group)
+      if (ageGroupCode) {
+        const level = args.benchmarkLevel ?? "recreational";
+        const ageGroup = ageGroupCode; // Capture for use in callback
+        const benchmark = await ctx.db
+          .query("skillBenchmarks")
+          .withIndex("by_context", (q) =>
+            q
+              .eq("sportCode", passport.sportCode)
+              .eq("skillCode", args.skillCode)
+              .eq("ageGroup", ageGroup)
+              .eq("gender", "all")
+              .eq("level", level)
+          )
+          .first();
 
-      if (benchmark?.isActive) {
-        benchmarkRating = benchmark.expectedRating;
-        benchmarkDelta = args.rating - benchmarkRating;
+        if (benchmark?.isActive) {
+          benchmarkRating = benchmark.expectedRating;
+          benchmarkDelta = args.rating - benchmarkRating;
 
-        // Determine status based on thresholds
-        if (args.rating < benchmark.minAcceptable) {
-          benchmarkStatus = "below";
-        } else if (args.rating < benchmark.developingThreshold) {
-          benchmarkStatus = "developing";
-        } else if (args.rating < benchmark.excellentThreshold) {
-          benchmarkStatus = "on_track";
-        } else if (args.rating < 5) {
-          benchmarkStatus = "exceeding";
-        } else {
-          benchmarkStatus = "exceptional";
+          // Determine status based on thresholds
+          if (args.rating < benchmark.minAcceptable) {
+            benchmarkStatus = "below";
+          } else if (args.rating < benchmark.developingThreshold) {
+            benchmarkStatus = "developing";
+          } else if (args.rating < benchmark.excellentThreshold) {
+            benchmarkStatus = "on_track";
+          } else if (args.rating >= benchmark.excellentThreshold) {
+            benchmarkStatus = "exceeding";
+          }
         }
       }
     }
@@ -1316,7 +1378,10 @@ export const getLatestSkillsForCoachPlayers = query({
         latestByPlayerAndSkill.set(playerId, new Map());
       }
 
-      const playerMap = latestByPlayerAndSkill.get(playerId)!;
+      const playerMap = latestByPlayerAndSkill.get(playerId);
+      if (!playerMap) {
+        continue;
+      }
       const existing = playerMap.get(skillCode);
 
       if (

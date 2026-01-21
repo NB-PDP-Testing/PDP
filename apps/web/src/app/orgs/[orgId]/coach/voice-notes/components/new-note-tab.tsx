@@ -104,13 +104,16 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
       const { storageId } = await response.json();
 
       // Create the voice note
-      if (!user?.userId) {
+      if (!user) {
         throw new Error("User not authenticated");
       }
 
+      // Use userId if available, otherwise use _id
+      const userId = user.userId || user._id;
+
       await createRecordedNote({
         orgId,
-        coachId: user.userId,
+        coachId: userId,
         noteType,
         audioStorageId: storageId,
       });
@@ -129,15 +132,18 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
       return;
     }
 
-    if (!user?.userId) {
+    if (!user) {
       onError("User not authenticated");
       return;
     }
 
+    // Use userId if available, otherwise use _id
+    const userId = user.userId || user._id;
+
     try {
       await createTypedNote({
         orgId,
-        coachId: user.userId,
+        coachId: userId,
         noteType,
         noteText: noteText.trim(),
       });

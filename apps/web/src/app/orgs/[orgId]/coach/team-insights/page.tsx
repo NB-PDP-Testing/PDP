@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useUser } from "@/hooks/use-user";
+import { authClient } from "@/lib/auth-client";
 
 // Format date as "Mon Jan 22, 10:30 PM"
 function formatDate(date: Date | string | number): string {
@@ -48,14 +48,17 @@ function formatDate(date: Date | string | number): string {
 export default function TeamInsightsPage() {
   const params = useParams<{ orgId: string }>();
   const orgId = params?.orgId as BetterAuthId<"organization">;
-  const { user } = useUser();
+  const { data: session } = authClient.useSession();
 
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
+
+  // Get current user ID
+  const userId = session?.user?.id;
 
   // Get coach assignments
   const coachAssignment = useQuery(
     api.models.coaches.getCoachAssignments,
-    user?.id && orgId ? { userId: user.id, organizationId: orgId } : "skip"
+    userId && orgId ? { userId, organizationId: orgId } : "skip"
   );
 
   // Fetch team observations

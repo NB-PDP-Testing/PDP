@@ -495,12 +495,31 @@ export const generateShareableImage = action({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
+    console.log("=== GENERATE SHAREABLE IMAGE STARTED ===");
+    console.log(`Summary ID: ${args.summaryId}`);
+
     // Dynamically import satori and resvg WASM for compatibility
     const satori = (await import("satori")).default;
     const { Resvg, initWasm } = await import("@resvg/resvg-wasm");
 
     // Initialize WASM before using Resvg (CRITICAL for WASM version)
-    await initWasm(fetch("https://unpkg.com/@resvg/resvg-wasm/index_bg.wasm"));
+    // Handle "Already initialized" error gracefully in serverless environment
+    // where the same process may handle multiple requests
+    try {
+      await initWasm(
+        fetch("https://unpkg.com/@resvg/resvg-wasm/index_bg.wasm")
+      );
+    } catch (error) {
+      // If already initialized, that's fine - continue execution
+      if (
+        !(
+          error instanceof Error &&
+          error.message.includes("Already initialized")
+        )
+      ) {
+        throw error;
+      }
+    }
 
     // Fetch summary data with player, coach, org names
     const summary = await ctx.runQuery(
@@ -510,8 +529,24 @@ export const generateShareableImage = action({
       }
     );
 
+    console.log("Summary data received:", JSON.stringify(summary));
+
     if (!summary) {
       throw new Error("Summary not found");
+    }
+
+    console.log("=== ACTION LEVEL DEBUGGING ===");
+    console.log(`Coach name from query: ${summary.coachName}`);
+    console.log(`Player name: ${summary.playerFirstName}`);
+    console.log(`Org name: ${summary.orgName}`);
+    console.log(`Org logo URL: ${summary.orgLogo || "null"}`);
+
+    if (summary.coachName === "Your Coach") {
+      console.error("❌ PROBLEM: Coach name is still 'Your Coach'");
+      console.error("This means the internal query didn't find the coach");
+      console.error(
+        "Check Convex dashboard logs for detailed coach lookup debug info"
+      );
     }
 
     // Format date (e.g., "January 20, 2026")
@@ -522,14 +557,103 @@ export const generateShareableImage = action({
       day: "numeric",
     });
 
-    // Generate SVG using satori (US-012)
-    // Satori supports flexbox layout, inline styles only
-    // Type assertion needed as satori has its own JSX-like type system
-    // Updated design to match PlayerARC branding:
-    // - Cream/off-white background with subtle gradient
-    // - Green and navy accents
-    // - Professional yet warm aesthetic
-    // - Clean, modern layout
+    // Fetch fonts with error handling
+    // Google Fonts may be blocked in Convex serverless environment
+    const fonts: Array<{
+      name: string;
+      data: ArrayBuffer;
+      weight: 400 | 500 | 600 | 700;
+      style: string;
+    }> = [];
+
+    try {
+      // Try to fetch Inter font (multiple weights)
+      const fontUrls = [
+        {
+          url: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.woff",
+          weight: 400 as const,
+        },
+        {
+          url: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI2fAZ9hjp-Ek-_EeA.woff",
+          weight: 500 as const,
+        },
+        {
+          url: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hjp-Ek-_EeA.woff",
+          weight: 600 as const,
+        },
+        {
+          url: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hjp-Ek-_EeA.woff",
+          weight: 700 as const,
+        },
+      ];
+
+      for (const { url: fontUrl, weight } of fontUrls) {
+        try {
+          const response = await fetch(fontUrl);
+          // Check if response is actually a font file, not HTML
+          const contentType = response.headers.get("content-type");
+          if (
+            contentType &&
+            (contentType.includes("font") || contentType.includes("woff"))
+          ) {
+            const data = await response.arrayBuffer();
+            fonts.push({
+              name: "Inter",
+              data,
+              weight: weight as 400 | 500 | 600 | 700,
+              style: "normal",
+            });
+          }
+        } catch (error) {
+          console.warn(`Failed to load font weight ${weight}:`, error);
+        }
+      }
+    } catch (error) {
+      console.warn("Font loading failed, using system fonts:", error);
+    }
+
+    // Coach name comes pre-formatted from query (includes "Coach" prefix)
+    const coachName = summary.coachName;
+    console.log(`Coach name for image: ${coachName}`);
+
+    // Fetch PlayerARC logo
+    let logoDataUrl = "";
+    try {
+      const logoUrl =
+        "https://playerarc.io/_next/image?url=%2Flogos-landing%2FPDP-Logo-OffWhiteOrbit_GreenHuman.png&w=256&q=75";
+      const logoResponse = await fetch(logoUrl);
+      if (logoResponse.ok) {
+        const logoBuffer = await logoResponse.arrayBuffer();
+        const logoBase64 = Buffer.from(logoBuffer).toString("base64");
+        logoDataUrl = `data:image/png;base64,${logoBase64}`;
+        console.log("PlayerARC logo fetched successfully");
+      }
+    } catch (error) {
+      console.warn("Failed to fetch PlayerARC logo:", error);
+    }
+
+    // Fetch organization logo if available
+    let orgLogoDataUrl = "";
+    if (summary.orgLogo) {
+      try {
+        console.log(`Fetching org logo from: ${summary.orgLogo}`);
+        const orgLogoResponse = await fetch(summary.orgLogo);
+        if (orgLogoResponse.ok) {
+          const orgLogoBuffer = await orgLogoResponse.arrayBuffer();
+          const orgLogoBase64 = Buffer.from(orgLogoBuffer).toString("base64");
+          // Detect content type
+          const contentType =
+            orgLogoResponse.headers.get("content-type") || "image/png";
+          orgLogoDataUrl = `data:${contentType};base64,${orgLogoBase64}`;
+          console.log("Organization logo fetched successfully");
+        }
+      } catch (error) {
+        console.warn("Failed to fetch organization logo:", error);
+      }
+    }
+
+    // Generate SVG using satori - PlayerARC branded design
+    // Navy blue header/footer matching playerarc.io branding
     const svg = await satori(
       {
         type: "div",
@@ -539,14 +663,11 @@ export const generateShareableImage = action({
             height: "100%",
             display: "flex",
             flexDirection: "column",
-            justifyContent: "space-between",
-            // PlayerARC brand colors: cream base with subtle gradient
-            background: "linear-gradient(135deg, #FAF9F6 0%, #F5F4F0 100%)",
-            padding: "60px",
-            fontFamily: "Inter, sans-serif",
+            background: "#ffffff",
+            fontFamily: "sans-serif",
           },
           children: [
-            // Header: PlayerARC branding
+            // Navy Blue Header Bar
             {
               type: "div",
               props: {
@@ -554,67 +675,112 @@ export const generateShareableImage = action({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  width: "100%",
-                  marginBottom: "50px",
-                  paddingBottom: "30px",
-                  borderBottom: "3px solid #2C5F2D", // PlayerARC green accent
+                  padding: "30px 50px",
+                  background: "#2c3e50",
                 },
                 children: [
+                  // Left: PlayerARC logo + text
                   {
                     type: "div",
                     props: {
                       style: {
-                        fontSize: "52px",
-                        fontWeight: "bold",
-                        color: "#1e3a8a", // Navy - PlayerARC brand color
                         display: "flex",
                         alignItems: "center",
+                        gap: "15px",
                       },
-                      children: "PlayerARC",
+                      children: logoDataUrl
+                        ? [
+                            {
+                              type: "img",
+                              props: {
+                                src: logoDataUrl,
+                                style: {
+                                  width: "50px",
+                                  height: "50px",
+                                },
+                              },
+                            },
+                            {
+                              type: "div",
+                              props: {
+                                style: {
+                                  fontSize: "40px",
+                                  fontWeight: "700",
+                                  color: "#ffffff",
+                                  letterSpacing: "-0.5px",
+                                },
+                                children: "PlayerARC",
+                              },
+                            },
+                          ]
+                        : [
+                            {
+                              type: "div",
+                              props: {
+                                style: {
+                                  fontSize: "40px",
+                                  fontWeight: "700",
+                                  color: "#ffffff",
+                                  letterSpacing: "-0.5px",
+                                },
+                                children: "PlayerARC",
+                              },
+                            },
+                          ],
                     },
                   },
-                  {
-                    type: "div",
-                    props: {
-                      style: {
-                        fontSize: "24px",
-                        color: "#2C5F2D", // Green accent
-                        fontWeight: "600",
-                        textAlign: "right",
+                  // Right: Org logo or name
+                  orgLogoDataUrl
+                    ? {
+                        type: "img",
+                        props: {
+                          src: orgLogoDataUrl,
+                          style: {
+                            height: "50px",
+                            maxWidth: "200px",
+                            objectFit: "contain",
+                          },
+                        },
+                      }
+                    : {
+                        type: "div",
+                        props: {
+                          style: {
+                            fontSize: "22px",
+                            color: "#ffffff",
+                            fontWeight: "500",
+                            opacity: 0.9,
+                          },
+                          children: summary.orgName,
+                        },
                       },
-                      children: summary.orgName,
-                    },
-                  },
                 ],
               },
             },
-            // Main content: Message
+            // White Content Area
             {
               type: "div",
               props: {
                 style: {
                   display: "flex",
                   flexDirection: "column",
-                  alignItems: "center",
                   justifyContent: "center",
-                  textAlign: "center",
-                  maxWidth: "900px",
+                  alignItems: "center",
                   flex: "1",
-                  padding: "40px",
-                  borderRadius: "16px",
-                  backgroundColor: "rgba(44, 95, 45, 0.05)", // Subtle green tint
-                  border: "2px solid #2C5F2D",
+                  padding: "60px 80px",
+                  textAlign: "center",
                 },
                 children: [
                   {
                     type: "div",
                     props: {
                       style: {
-                        fontSize: "40px",
-                        color: "#1e293b", // Dark text for readability
+                        fontSize: "32px",
+                        color: "#1e293b",
                         marginBottom: "30px",
                         lineHeight: "1.5",
-                        fontWeight: "500",
+                        fontWeight: "400",
+                        maxWidth: "900px",
                       },
                       children: `"${summary.content}"`,
                     },
@@ -623,18 +789,18 @@ export const generateShareableImage = action({
                     type: "div",
                     props: {
                       style: {
-                        fontSize: "32px",
-                        color: "#2C5F2D", // Green accent
+                        fontSize: "24px",
+                        color: "#64748b",
                         fontWeight: "600",
                         fontStyle: "italic",
                       },
-                      children: `— for ${summary.playerFirstName}`,
+                      children: `For ${summary.playerFirstName}`,
                     },
                   },
                 ],
               },
             },
-            // Footer: Coach attribution and date
+            // Navy Blue Footer Bar
             {
               type: "div",
               props: {
@@ -643,29 +809,28 @@ export const generateShareableImage = action({
                   flexDirection: "row",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  width: "100%",
-                  marginTop: "50px",
-                  paddingTop: "30px",
-                  borderTop: "2px solid #cbd5e1", // Subtle divider
+                  padding: "25px 50px",
+                  background: "#2c3e50",
                 },
                 children: [
                   {
                     type: "div",
                     props: {
                       style: {
-                        fontSize: "26px",
-                        color: "#475569", // Muted text
+                        fontSize: "22px",
+                        color: "#ffffff",
                         fontWeight: "500",
                       },
-                      children: `Coach ${summary.coachFirstName}`,
+                      children: coachName,
                     },
                   },
                   {
                     type: "div",
                     props: {
                       style: {
-                        fontSize: "22px",
-                        color: "#64748b", // Lighter muted text
+                        fontSize: "20px",
+                        color: "#ffffff",
+                        opacity: 0.8,
                       },
                       children: formattedDate,
                     },
@@ -675,45 +840,12 @@ export const generateShareableImage = action({
             },
           ],
         },
-        // biome-ignore lint/suspicious/noExplicitAny: satori JSX-like type system
       } as any,
       {
         width: 1200,
-        height: 630,
-        fonts: [
-          {
-            name: "Inter",
-            data: await fetch(
-              "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.woff"
-            ).then((res) => res.arrayBuffer()),
-            weight: 400,
-            style: "normal",
-          },
-          {
-            name: "Inter",
-            data: await fetch(
-              "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI2fAZ9hjp-Ek-_EeA.woff"
-            ).then((res) => res.arrayBuffer()),
-            weight: 500,
-            style: "normal",
-          },
-          {
-            name: "Inter",
-            data: await fetch(
-              "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hjp-Ek-_EeA.woff"
-            ).then((res) => res.arrayBuffer()),
-            weight: 600,
-            style: "normal",
-          },
-          {
-            name: "Inter",
-            data: await fetch(
-              "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hjp-Ek-_EeA.woff"
-            ).then((res) => res.arrayBuffer()),
-            weight: 700,
-            style: "normal",
-          },
-        ],
+        height: 700, // Increased from 630 to better accommodate logos
+        // Use loaded fonts if available, otherwise satori will use system fonts
+        fonts: fonts.length > 0 ? (fonts as any) : [],
       }
     );
 

@@ -711,14 +711,14 @@ export const getParentSummariesByChildAndSport = query({
 
                   if (summary.coachId) {
                     try {
-                      // Try to find by userId first (Better Auth user ID)
-                      let coachResult = await ctx.runQuery(
+                      // Query by _id field (Convex document ID)
+                      const coachResult = await ctx.runQuery(
                         components.betterAuth.adapter.findOne,
                         {
                           model: "user",
                           where: [
                             {
-                              field: "userId",
+                              field: "_id",
                               value: summary.coachId,
                               operator: "eq",
                             },
@@ -726,32 +726,12 @@ export const getParentSummariesByChildAndSport = query({
                         }
                       );
 
-                      // If not found, try by _id (Convex document ID)
-                      // This handles cases where coachId was set to user._id instead of user.userId
-                      if (!coachResult) {
-                        coachResult = await ctx.runQuery(
-                          components.betterAuth.adapter.findOne,
-                          {
-                            model: "user",
-                            where: [
-                              {
-                                field: "id",
-                                value: summary.coachId,
-                                operator: "eq",
-                              },
-                            ],
-                          }
-                        );
-                      }
-
                       if (coachResult) {
-                        const coach = coachResult as {
-                          firstName?: string;
-                          lastName?: string;
-                        };
-                        if (coach.firstName || coach.lastName) {
-                          coachName =
-                            `${coach.firstName || ""} ${coach.lastName || ""}`.trim();
+                        // Better Auth stores full name in 'name' field
+                        if (coachResult.name) {
+                          coachName = coachResult.name;
+                        } else if (coachResult.email) {
+                          coachName = coachResult.email;
                         }
                       }
                     } catch (error) {
@@ -1139,8 +1119,9 @@ export const getSummaryForImage = internalQuery({
     v.object({
       content: v.string(),
       playerFirstName: v.string(),
-      coachFirstName: v.string(),
+      coachName: v.string(),
       orgName: v.string(),
+      orgLogo: v.union(v.string(), v.null()),
       generatedAt: v.number(),
     }),
     v.null()
@@ -1151,68 +1132,73 @@ export const getSummaryForImage = internalQuery({
       return null;
     }
 
+    console.log("=== COACH NAME DEBUG ===");
+    console.log(`Summary ID: ${args.summaryId}`);
+    console.log(`Coach ID from summary: ${summary.coachId}`);
+    console.log(`Coach ID type: ${typeof summary.coachId}`);
+    console.log(`Player ID: ${summary.playerIdentityId}`);
+
     // Fetch player
     const player = await ctx.db.get(summary.playerIdentityId);
     if (!player) {
       return null;
     }
 
+    console.log(`Player name: ${player.firstName}`);
+
     // Fetch coach name using Better Auth adapter
-    let coachFirstName = "Coach";
+    let coachName = "Your Coach";
     if (summary.coachId) {
       try {
-        // Try to find by userId first (Better Auth user ID)
-        let coachResult = await ctx.runQuery(
+        console.log("=== COACH LOOKUP DEBUG ===");
+        console.log(`coachId value: "${summary.coachId}"`);
+        console.log(`coachId type: ${typeof summary.coachId}`);
+
+        // Query by _id field (Convex document ID - this is what's actually stored as coachId)
+        const userResult = await ctx.runQuery(
           components.betterAuth.adapter.findOne,
           {
             model: "user",
-            where: [
-              {
-                field: "userId",
-                value: summary.coachId,
-                operator: "eq",
-              },
-            ],
+            where: [{ field: "_id", value: summary.coachId, operator: "eq" }],
           }
         );
 
-        // If not found, try by id (Convex document ID)
-        // This handles cases where coachId was set to user._id instead of user.userId
-        if (!coachResult) {
-          coachResult = await ctx.runQuery(
-            components.betterAuth.adapter.findOne,
-            {
-              model: "user",
-              where: [
-                {
-                  field: "id",
-                  value: summary.coachId,
-                  operator: "eq",
-                },
-              ],
-            }
+        console.log(`User found: ${userResult ? "YES" : "NO"}`);
+
+        if (userResult) {
+          console.log(`User has name: ${!!userResult.name}`);
+          console.log(`User has email: ${!!userResult.email}`);
+          console.log(`User id: ${userResult.id}`);
+
+          // Better Auth stores full name in 'name' field
+          if (userResult.name) {
+            coachName = `Coach ${userResult.name}`;
+          } else if (userResult.email) {
+            // Fallback to email if no name
+            coachName = `Coach ${userResult.email}`;
+          }
+        } else {
+          console.error(`❌ NO USER FOUND WITH ID: ${summary.coachId}`);
+          console.error(
+            "This means coachId doesn't match any Better Auth user.id"
           );
         }
 
-        if (coachResult) {
-          const coach = coachResult as {
-            firstName?: string;
-            lastName?: string;
-          };
-          if (coach.firstName) {
-            coachFirstName = coach.firstName;
-          }
-        }
+        console.log(`Final coach name: "${coachName}"`);
+        console.log("=== END COACH LOOKUP ===");
       } catch (error) {
         console.error(
           `Failed to fetch coach name for ${summary.coachId}:`,
           error
         );
       }
+    } else {
+      console.warn("No coachId on summary!");
     }
 
-    // Fetch organization name using Better Auth adapter
+    // Fetch organization name and logo using Better Auth adapter
     let orgName = "Organization";
+    let orgLogo: string | null = null;
     if (summary.organizationId) {
       try {
         // Try to find by id first
@@ -1250,10 +1236,15 @@ export const getSummaryForImage = internalQuery({
         if (orgResult) {
           const org = orgResult as {
             name?: string;
+            logo?: string;
           };
           if (org.name) {
             orgName = org.name;
           }
+          if (org.logo) {
+            orgLogo = org.logo;
+          }
+          console.log(`Org data: name=${orgName}, hasLogo=${!!orgLogo}`);
         }
       } catch (error) {
         console.error(
@@ -1263,11 +1254,17 @@ export const getSummaryForImage = internalQuery({
       }
     }
 
+    console.log("=== RETURNING SUMMARY DATA ===");
+    console.log(`Coach: ${coachName}`);
+    console.log(`Player: ${player.firstName}`);
+    console.log(`Org: ${orgName}, Logo: ${orgLogo}`);
+
     return {
       content: summary.publicSummary.content,
       playerFirstName: player.firstName,
-      coachFirstName,
+      coachName,
       orgName,
+      orgLogo,
       generatedAt: summary.publicSummary.generatedAt,
     };
   },

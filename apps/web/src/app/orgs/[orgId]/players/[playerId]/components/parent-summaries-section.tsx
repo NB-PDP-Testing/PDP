@@ -2,8 +2,9 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
+  Check,
   ChevronDown,
   ChevronUp,
   Heart,
@@ -12,8 +13,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
@@ -67,6 +70,25 @@ type Props = {
 export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState<"active" | "history">("active");
+  const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
+
+  // Mutation for marking summary as read
+  const acknowledgeSummary = useMutation(
+    api.models.coachParentSummaries.acknowledgeParentSummary
+  );
+
+  // Handler for acknowledging a summary
+  const handleAcknowledge = async (summaryId: Id<"coachParentSummaries">) => {
+    try {
+      setAcknowledgingId(summaryId);
+      await acknowledgeSummary({ summaryId });
+      toast.success("Marked as read");
+    } catch (_error) {
+      toast.error("Failed to mark as read");
+    } finally {
+      setAcknowledgingId(null);
+    }
+  };
 
   // Query parent summaries for all children
   const allSummaries = useQuery(
@@ -344,6 +366,30 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                     </span>
                   )}
                 </div>
+
+                {/* Mark as Read Button - Only show for unacknowledged summaries */}
+                {!summary.acknowledgedAt && (
+                  <div className="pt-2">
+                    <Button
+                      disabled={acknowledgingId === summary._id}
+                      onClick={() => handleAcknowledge(summary._id)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {acknowledgingId === summary._id ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Marking...
+                        </>
+                      ) : (
+                        <>
+                          <Check className="mr-2 h-4 w-4" />
+                          Mark as Read
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -445,6 +491,30 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                       </span>
                     )}
                   </div>
+
+                  {/* Mark as Read Button - Only show for unacknowledged summaries */}
+                  {!summary.acknowledgedAt && (
+                    <div className="pt-2">
+                      <Button
+                        disabled={acknowledgingId === summary._id}
+                        onClick={() => handleAcknowledge(summary._id)}
+                        size="sm"
+                        variant="outline"
+                      >
+                        {acknowledgingId === summary._id ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Marking...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="mr-2 h-4 w-4" />
+                            Mark as Read
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

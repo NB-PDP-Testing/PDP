@@ -226,7 +226,7 @@
         "Test: Dashboard shows child cards above messages"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "summariesData structure: array of { player, sportGroups: [{ sport, summaries, unreadCount }] }. Sum unreadCount from all sportGroups."
     },
     {

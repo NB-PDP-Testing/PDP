@@ -283,6 +283,24 @@ export default function PlayerPassportPage() {
                 />
               )}
 
+            {/* Voice Insights/Coach Updates - Role-Specific Display */}
+            {permissions.isCoach || permissions.isAdmin ? (
+              /* Coaches/Admins: Show raw insights with transcriptions (prioritized) */
+              <VoiceInsightsSectionImproved
+                isAdmin={permissions.isAdmin}
+                isCoach={permissions.isCoach}
+                isParent={false}
+                orgId={orgId}
+                playerIdentityId={playerId as Id<"playerIdentities">}
+              />
+            ) : permissions.isParent ? (
+              /* Parents: Show ONLY approved parent summaries (parent-safe content) - PRIORITIZED at top */
+              <ParentSummariesSection
+                orgId={orgId}
+                playerIdentityId={playerId as Id<"playerIdentities">}
+              />
+            ) : null}
+
             {/* Skills Radar Chart - visual overview of player skills */}
             {playerData.sportCode && (
               <SkillRadarChart
@@ -305,24 +323,6 @@ export default function PlayerPassportPage() {
               )}
 
             <GoalsSection player={playerData as any} />
-
-            {/* Voice Insights/Coach Updates - Role-Specific Display */}
-            {permissions.isCoach || permissions.isAdmin ? (
-              /* Coaches/Admins: Show raw insights with transcriptions (prioritized) */
-              <VoiceInsightsSectionImproved
-                isAdmin={permissions.isAdmin}
-                isCoach={permissions.isCoach}
-                isParent={false}
-                orgId={orgId}
-                playerIdentityId={playerId as Id<"playerIdentities">}
-              />
-            ) : permissions.isParent ? (
-              /* Parents: Show ONLY approved parent summaries (parent-safe content) */
-              <ParentSummariesSection
-                orgId={orgId}
-                playerIdentityId={playerId as Id<"playerIdentities">}
-              />
-            ) : null}
 
             <NotesSection
               isCoach={permissions.canEdit}
@@ -352,6 +352,24 @@ export default function PlayerPassportPage() {
             />
           )}
 
+          {/* Voice Insights/Coach Updates - Role-Specific Display */}
+          {permissions.isCoach || permissions.isAdmin ? (
+            /* Coaches/Admins: Show raw insights with transcriptions (prioritized) */
+            <VoiceInsightsSectionImproved
+              isAdmin={permissions.isAdmin}
+              isCoach={permissions.isCoach}
+              isParent={false}
+              orgId={orgId}
+              playerIdentityId={playerId as Id<"playerIdentities">}
+            />
+          ) : permissions.isParent ? (
+            /* Parents: Show ONLY approved parent summaries (parent-safe content) - PRIORITIZED at top */
+            <ParentSummariesSection
+              orgId={orgId}
+              playerIdentityId={playerId as Id<"playerIdentities">}
+            />
+          ) : null}
+
           {/* Skills Radar Chart - visual overview of player skills */}
           {playerData.sportCode && (
             <SkillRadarChart
@@ -374,24 +392,6 @@ export default function PlayerPassportPage() {
             )}
 
           <GoalsSection player={playerData as any} />
-
-          {/* Voice Insights/Coach Updates - Role-Specific Display */}
-          {permissions.isCoach || permissions.isAdmin ? (
-            /* Coaches/Admins: Show raw insights with transcriptions (prioritized) */
-            <VoiceInsightsSectionImproved
-              isAdmin={permissions.isAdmin}
-              isCoach={permissions.isCoach}
-              isParent={false}
-              orgId={orgId}
-              playerIdentityId={playerId as Id<"playerIdentities">}
-            />
-          ) : permissions.isParent ? (
-            /* Parents: Show ONLY approved parent summaries (parent-safe content) */
-            <ParentSummariesSection
-              orgId={orgId}
-              playerIdentityId={playerId as Id<"playerIdentities">}
-            />
-          ) : null}
 
           <NotesSection
             isCoach={permissions.canEdit}

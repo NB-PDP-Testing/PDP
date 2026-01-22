@@ -495,9 +495,6 @@ export const generateShareableImage = action({
   },
   returns: v.string(),
   handler: async (ctx, args) => {
-    console.log("=== GENERATE SHAREABLE IMAGE STARTED ===");
-    console.log(`Summary ID: ${args.summaryId}`);
-
     // Dynamically import satori and resvg WASM for compatibility
     const satori = (await import("satori")).default;
     const { Resvg, initWasm } = await import("@resvg/resvg-wasm");
@@ -529,24 +526,8 @@ export const generateShareableImage = action({
       }
     );
 
-    console.log("Summary data received:", JSON.stringify(summary));
-
     if (!summary) {
       throw new Error("Summary not found");
-    }
-
-    console.log("=== ACTION LEVEL DEBUGGING ===");
-    console.log(`Coach name from query: ${summary.coachName}`);
-    console.log(`Player name: ${summary.playerFirstName}`);
-    console.log(`Org name: ${summary.orgName}`);
-    console.log(`Org logo URL: ${summary.orgLogo || "null"}`);
-
-    if (summary.coachName === "Your Coach") {
-      console.error("❌ PROBLEM: Coach name is still 'Your Coach'");
-      console.error("This means the internal query didn't find the coach");
-      console.error(
-        "Check Convex dashboard logs for detailed coach lookup debug info"
-      );
     }
 
     // Format date (e.g., "January 20, 2026")
@@ -614,7 +595,6 @@ export const generateShareableImage = action({
 
     // Coach name comes pre-formatted from query (includes "Coach" prefix)
     const coachName = summary.coachName;
-    console.log(`Coach name for image: ${coachName}`);
 
     // Fetch PlayerARC logo
     let logoDataUrl = "";
@@ -626,7 +606,6 @@ export const generateShareableImage = action({
         const logoBuffer = await logoResponse.arrayBuffer();
         const logoBase64 = Buffer.from(logoBuffer).toString("base64");
         logoDataUrl = `data:image/png;base64,${logoBase64}`;
-        console.log("PlayerARC logo fetched successfully");
       }
     } catch (error) {
       console.warn("Failed to fetch PlayerARC logo:", error);
@@ -636,7 +615,6 @@ export const generateShareableImage = action({
     let orgLogoDataUrl = "";
     if (summary.orgLogo) {
       try {
-        console.log(`Fetching org logo from: ${summary.orgLogo}`);
         const orgLogoResponse = await fetch(summary.orgLogo);
         if (orgLogoResponse.ok) {
           const orgLogoBuffer = await orgLogoResponse.arrayBuffer();
@@ -645,7 +623,6 @@ export const generateShareableImage = action({
           const contentType =
             orgLogoResponse.headers.get("content-type") || "image/png";
           orgLogoDataUrl = `data:${contentType};base64,${orgLogoBase64}`;
-          console.log("Organization logo fetched successfully");
         }
       } catch (error) {
         console.warn("Failed to fetch organization logo:", error);

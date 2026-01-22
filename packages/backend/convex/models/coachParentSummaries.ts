@@ -1132,28 +1132,16 @@ export const getSummaryForImage = internalQuery({
       return null;
     }
 
-    console.log("=== COACH NAME DEBUG ===");
-    console.log(`Summary ID: ${args.summaryId}`);
-    console.log(`Coach ID from summary: ${summary.coachId}`);
-    console.log(`Coach ID type: ${typeof summary.coachId}`);
-    console.log(`Player ID: ${summary.playerIdentityId}`);
-
     // Fetch player
     const player = await ctx.db.get(summary.playerIdentityId);
     if (!player) {
       return null;
     }
 
-    console.log(`Player name: ${player.firstName}`);
-
     // Fetch coach name using Better Auth adapter
     let coachName = "Your Coach";
     if (summary.coachId) {
       try {
-        console.log("=== COACH LOOKUP DEBUG ===");
-        console.log(`coachId value: "${summary.coachId}"`);
-        console.log(`coachId type: ${typeof summary.coachId}`);
-
         // Query by _id field (Convex document ID - this is what's actually stored as coachId)
         const userResult = await ctx.runQuery(
           components.betterAuth.adapter.findOne,
@@ -1163,13 +1151,7 @@ export const getSummaryForImage = internalQuery({
           }
         );
 
-        console.log(`User found: ${userResult ? "YES" : "NO"}`);
-
         if (userResult) {
-          console.log(`User has name: ${!!userResult.name}`);
-          console.log(`User has email: ${!!userResult.email}`);
-          console.log(`User id: ${userResult.id}`);
-
           // Better Auth stores full name in 'name' field
           if (userResult.name) {
             coachName = `Coach ${userResult.name}`;
@@ -1177,23 +1159,13 @@ export const getSummaryForImage = internalQuery({
             // Fallback to email if no name
             coachName = `Coach ${userResult.email}`;
           }
-        } else {
-          console.error(`❌ NO USER FOUND WITH ID: ${summary.coachId}`);
-          console.error(
-            "This means coachId doesn't match any Better Auth user.id"
-          );
         }
-
-        console.log(`Final coach name: "${coachName}"`);
-        console.log("=== END COACH LOOKUP ===");
       } catch (error) {
         console.error(
           `Failed to fetch coach name for ${summary.coachId}:`,
           error
         );
       }
-    } else {
-      console.warn("No coachId on summary!");
     }
 
     // Fetch organization name and logo using Better Auth adapter
@@ -1244,7 +1216,6 @@ export const getSummaryForImage = internalQuery({
           if (org.logo) {
             orgLogo = org.logo;
           }
-          console.log(`Org data: name=${orgName}, hasLogo=${!!orgLogo}`);
         }
       } catch (error) {
         console.error(
@@ -1253,11 +1224,6 @@ export const getSummaryForImage = internalQuery({
         );
       }
     }
-
-    console.log("=== RETURNING SUMMARY DATA ===");
-    console.log(`Coach: ${coachName}`);
-    console.log(`Player: ${player.firstName}`);
-    console.log(`Org: ${orgName}, Logo: ${orgLogo}`);
 
     return {
       content: summary.publicSummary.content,

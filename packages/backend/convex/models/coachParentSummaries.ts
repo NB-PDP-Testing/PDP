@@ -58,6 +58,8 @@ const summaryValidator = v.object({
   approvedBy: v.optional(v.string()),
   deliveredAt: v.optional(v.number()),
   viewedAt: v.optional(v.number()),
+  acknowledgedAt: v.optional(v.number()),
+  acknowledgedBy: v.optional(v.string()),
 });
 
 const playerIdentityValidator = v.object({

@@ -2053,3 +2053,411 @@ Either update the acceptance criteria to reflect the actual API structure, or ve
 ## Quality Monitor - 2026-01-22 19:29:58
 - ⚠️ Biome lint errors found
 
+
+## [2026-01-22 20:15] - Session Summary - US-008 through US-012 Partial
+**Iteration**: Ralph Autonomous - Session 1e01e880-23c2-459e-b64a-8518045440a4
+**Final Commit**: 326d24d (US-010 UnifiedInboxView)
+**Status**: Partial - US-008, US-009, US-010 complete; US-011, US-012, US-013 in progress
+**Context Usage**: 113K/200K (57%)
+
+### What was completed this session
+
+✅ **US-008**: ChildSummaryCard passport stats (verified already complete)
+- Component was fully implemented in previous iteration
+- All acceptance criteria met, quality checks pass
+
+✅ **US-009**: Child summary cards grid on parent dashboard
+- Added summariesData query at component top level
+- Implemented responsive grid with unread count calculation
+- Fixed broken CoachFeedbackWithChildCards reference
+- Grid displays above CoachFeedback section
+- Commit: 9e84d1d
+
+✅ **US-010**: UnifiedInboxView component
+- Created unified-inbox-view.tsx component
+- Props: messages array, onView, onAcknowledge handlers
+- Renders child name + sport badge above each ParentSummaryCard
+- Vertical list layout with space-y-3
+- Commit: 326d24d
+
+✅ **US-012**: ActionItemsPanel component (created, not yet integrated)
+- Created action-items-panel.tsx component
+- Returns null if unreadCount === 0
+- Alert with border-blue-500 bg-blue-50
+- AlertCircle icon, dynamic title with pluralization
+- Review Now button calls onReviewClick handler
+- File created but not yet committed (in stash)
+
+### What's in progress (for next iteration)
+
+🚧 **US-011**: View toggle on parent dashboard
+- Another agent has added view state and allMessages useMemo
+- BUG: sportName should be `sportGroup.sport?.name` not `sportGroup.sport`
+- Still need to add:
+  - UnifiedInboxView and ActionItemsPanel imports
+  - View toggle buttons above messages section
+  - Conditional rendering of UnifiedInboxView vs CoachFeedback
+  - Mutations for handleViewSummary and handleAcknowledgeSummary
+
+🚧 **US-013**: ActionItemsPanel integration
+- Still need to add:
+  - messagesRef useRef
+  - totalUnreadCount useMemo
+  - handleReviewClick scroll handler
+  - ActionItemsPanel component above child cards
+  - ref={messagesRef} on messages section
+
+### Files modified but not committed
+- apps/web/src/app/orgs/[orgId]/parents/components/action-items-panel.tsx (created)
+- apps/web/src/app/orgs/[orgId]/parents/page.tsx (partially modified by multiple agents)
+
+### Critical issues for next iteration
+
+1. **Multiple agents working simultaneously** - page.tsx being modified by multiple agents
+   - Need to coordinate or work sequentially
+   - Git stash contains my uncommitted work
+
+2. **Linting errors in page.tsx**:
+   - view, setView, allMessages are unused (will be used once UI is added)
+   - Fix: Add the UI components that use these variables
+
+3. **Bug in allMessages**:
+   - Line ~105: `sportName: sportGroup.sport` should be `sportName: sportGroup.sport?.name || "Unknown Sport"`
+   - TypeScript will fail without this fix
+
+### Implementation plan for next iteration
+
+**Step 1: Fix the sportName bug**
+```typescript
+// Line ~105 in page.tsx
+sportName: sportGroup.sport?.name || "Unknown Sport",
+```
+
+**Step 2: Add missing imports**
+```typescript
+import { ActionItemsPanel } from "./components/action-items-panel";
+import { UnifiedInboxView } from "./components/unified-inbox-view";
+```
+
+**Step 3: Add missing state/refs after allMessages (line ~117)**
+```typescript
+// Messages ref for scroll behavior (US-013)
+const messagesRef = useRef<HTMLDivElement>(null);
+
+// Calculate total unread count (US-013)
+const totalUnreadCount = useMemo(() => {
+  if (!summariesData) return 0;
+  return summariesData.reduce(
+    (total, childData) =>
+      total + childData.sportGroups.reduce(
+        (childTotal, sportGroup) => childTotal + sportGroup.unreadCount,
+        0
+      ),
+    0
+  );
+}, [summariesData]);
+
+// Mutations for unified inbox view handlers
+const markViewed = useMutation(api.models.coachParentSummaries.markSummaryViewed);
+const acknowledgeSummary = useMutation(api.models.coachParentSummaries.acknowledgeParentSummary);
+
+const handleViewSummary = async (summaryId: Id<"coachParentSummaries">) => {
+  try {
+    await markViewed({ summaryId, viewSource: "dashboard" });
+  } catch (error) {
+    console.error("Failed to mark summary as viewed:", error);
+  }
+};
+
+const handleAcknowledgeSummary = async (summaryId: Id<"coachParentSummaries">) => {
+  try {
+    await acknowledgeSummary({ summaryId });
+  } catch (error) {
+    console.error("Failed to acknowledge summary:", error);
+    throw error;
+  }
+};
+
+// Scroll to messages handler (US-013)
+const handleReviewClick = () => {
+  messagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+};
+```
+
+**Step 4: Add ActionItemsPanel before child cards section**
+```tsx
+{/* Action Items Panel (US-013) */}
+{playerCount > 0 && totalUnreadCount > 0 && (
+  <ActionItemsPanel
+    unreadCount={totalUnreadCount}
+    onReviewClick={handleReviewClick}
+  />
+)}
+```
+
+**Step 5: Add view toggle and messages section (replace current CoachFeedback at line ~470)**
+```tsx
+{/* Coach Feedback / Unified Inbox Section (US-011) */}
+{playerCount > 0 && summariesData && summariesData.length > 0 && (
+  <div ref={messagesRef}>
+    <div className="mb-4 flex items-center justify-between">
+      <h2 className="font-semibold text-xl">Coach Feedback</h2>
+      <div className="flex gap-2">
+        <Button
+          variant={view === "by-child" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setView("by-child")}
+        >
+          By Child
+        </Button>
+        <Button
+          variant={view === "unified" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setView("unified")}
+        >
+          All Messages ({allMessages.length})
+        </Button>
+      </div>
+    </div>
+
+    {view === "unified" ? (
+      <UnifiedInboxView
+        messages={allMessages}
+        onView={handleViewSummary}
+        onAcknowledge={handleAcknowledgeSummary}
+      />
+    ) : (
+      <CoachFeedback orgId={orgId} />
+    )}
+  </div>
+)}
+```
+
+**Step 6: Quality checks**
+- `npm run check-types` - should pass after sportName fix
+- `npx ultracite fix` - should pass after all variables are used
+- Verify imports aren't removed by linter
+
+**Step 7: Commit**
+```bash
+git add -A
+git commit -m "feat: US-011, US-012, US-013 - View toggle and action items panel
+
+US-011:
+- Added view toggle state (by-child | unified)
+- Created flattened allMessages array with childName and sportName
+- Added view toggle buttons with message count
+- Conditional rendering of UnifiedInboxView vs CoachFeedback
+
+US-012:
+- ActionItemsPanel component created in previous work
+- Returns null if unreadCount === 0
+- Alert with blue styling and Review Now button
+
+US-013:
+- Added messagesRef for scroll behavior
+- Calculate totalUnreadCount from summariesData
+- Render ActionItemsPanel above child cards
+- handleReviewClick scrolls to messages section smoothly
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
+```
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- When multiple agents work on same file, use git stash to save work
+- Linter complains about unused variables until UI that uses them is added
+- Must add ALL related code atomically to avoid linter removing imports
+
+**Gotchas encountered:**
+- sportGroup.sport is an object, need .name property
+- Multiple agents editing page.tsx simultaneously caused conflicts
+- Pre-commit hook blocked commit due to unused variables
+
+**Context management:**
+- Started at ~70K tokens
+- Ended at ~113K tokens (57% usage)
+- Completed 3 full stories (US-008, US-009, US-010)
+- Partially completed 3 more (US-011, US-012, US-013)
+- Good progress but hit coordination issues with other agents
+
+**What to do next:**
+- [ ] Apply git stash pop to restore action-items-panel.tsx
+- [ ] Fix sportName bug in allMessages
+- [ ] Add missing imports, state, refs, handlers
+- [ ] Add ActionItemsPanel above child cards
+- [ ] Add view toggle UI and conditional rendering
+- [ ] Commit US-011, US-012, US-013 together
+- [ ] Continue with US-014-019 (visual polish)
+
+---
+
+### Agent Feedback - 2026-01-22 19:34
+
+## Quality Monitor - 2026-01-22 19:31:12
+- ⚠️ Biome lint errors found
+
+
+## Test Runner - 2026-01-22 19:33:59
+
+❌ **NEW LINT ERRORS for US-010:** Introduced 2 new error(s) (was 375, now 377)\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
+
+
+## Quality Monitor - 2026-01-22 19:33:42
+- ⚠️ Biome lint errors found
+
+
+## [2026-01-22 19:45] - US-011, US-012, US-013 - View Toggle and Action Items
+**Iteration**: 4
+**Commit**: 55c5126d3ff7952c70d9ea78e791a49a7bcf72bc
+**Session**: 81b8c7b9-5149-4120-b6e4-a4a4110bafc7
+**Status**: Complete
+
+### What was implemented
+- **US-011**: Added view toggle functionality to parent dashboard
+  - Created view state toggle between 'by-child' and 'unified' modes
+  - Built flattened allMessages array with childName and sportName enrichment
+  - Fixed bug where sportGroup.sport was treated as string but is actually object (needed .name property)
+  - Added toggle buttons showing message count
+  - Conditional rendering switches between UnifiedInboxView and CoachFeedback
+- **US-012**: Created ActionItemsPanel component
+  - Alert component displays when unreadCount > 0, returns null otherwise
+  - Blue styling with AlertCircle icon for high visibility
+  - Shows count with proper pluralization
+  - Review Now button triggers scroll behavior
+- **US-013**: Integrated ActionItemsPanel with scroll behavior
+  - Added messagesRef using useRef<HTMLDivElement>
+  - Calculate totalUnreadCount by summing all sportGroups unreadCount
+  - Positioned ActionItemsPanel above child cards section
+  - handleReviewClick uses smooth scrollIntoView behavior
+  - Fixed variable shadowing: renamed inner totalUnreadCount to childUnreadCount
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/page.tsx (+82 lines, -6 lines)
+  - Added imports: useRef, ActionItemsPanel
+  - Added state: view toggle between by-child | unified
+  - Added allMessages flattened array with useMemo
+  - Added messagesRef, totalUnreadCount, handleReviewClick
+  - Added ActionItemsPanel component before child cards
+  - Added ref={messagesRef} to messages section
+  - Fixed sportGroup.sport?.name bug
+  - Fixed variable shadowing in child summary cards
+- apps/web/src/app/orgs/[orgId]/parents/components/action-items-panel.tsx (new file, 37 lines)
+
+### Quality checks
+- ✅ Type check: passed (no errors in modified files)
+- ✅ Linting: passed (only pre-existing complexity warning in ParentDashboardContent)
+- ✅ Pre-commit hooks: passed
+- ⏳ Browser verification: Pending (will test after more stories completed)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- When adding imports and usage atomically, use Edit tool with full context to prevent linter from removing imports
+- Variable shadowing causes Biome lint errors - use descriptive names like childUnreadCount vs totalUnreadCount
+- The linter keeps imports that are actually used, so ensure usage is in same file before committing
+
+**Gotchas encountered:**
+- sportGroup.sport is an object with .name property, not a string - needed sportGroup.sport?.name || "Unknown Sport"
+- Biome detects variable shadowing - had totalUnreadCount defined at component level and again in map callback
+- Linter removed useRef import multiple times until both import and usage were added together
+
+**Dependencies found:**
+- ActionItemsPanel depends on totalUnreadCount calculation from summariesData
+- messagesRef must be attached to the messages section container div
+- allMessages array must include childName and sportName for UnifiedInboxView
+
+**What to do next:**
+- [ ] US-014 - Add coach avatars to dashboard summary cards
+- [ ] US-015 - Update all date displays to use relative formatting
+- [ ] US-016 - Add category-specific icons to summary cards
+- [ ] US-017 - Add responsive classes for mobile optimization
+- [ ] US-018 - Add smooth transitions and hover effects
+- [ ] US-019 - Final testing and polish pass
+
+**Mistakes made:**
+- Initially tried to edit imports separately from usage, causing linter to remove them
+- Didn't notice variable shadowing until linter complained
+- Forgot that sportGroup.sport is an object, not a string
+
+---
+
+## [2026-01-22 19:45] - US-010 to US-013 - Enhanced Parent Dashboard Complete
+**Iteration**: 4
+**Commit**: 3724f5ce0bd59cb469764ba5b412300f036df371
+**Session**: af27e6a2-5928-40bd-bd71-eae566764fc7
+**Status**: Complete
+
+### What was implemented
+- **US-010**: UnifiedInboxView component - Already existed from previous iteration (commit 326d24d)
+  - Displays all messages chronologically across all children
+  - Shows child name and sport badge above each message card
+  - Reuses ParentSummaryCard component
+- **US-011**: View toggle on parent dashboard - Completed in this iteration
+  - Added state for 'by-child' | 'unified' view toggle
+  - Created flattened messages array with childName and sportName
+  - Added toggle buttons (By Child / All Messages)
+  - Conditional rendering of UnifiedInboxView vs CoachFeedback
+  - Added mutations for handling view/acknowledge in unified view
+- **US-012**: ActionItemsPanel component - Already existed from previous iteration
+  - Alert component with unread count
+  - "Review Now" button that calls onReviewClick callback
+  - Returns null if unreadCount === 0
+- **US-013**: ActionItemsPanel integration - Already existed from previous iteration
+  - messagesRef with useRef for smooth scroll
+  - totalUnreadCount calculation across all children/sports
+  - handleReviewClick for smooth scroll to messages
+  - ActionItemsPanel rendered at top when unreadCount > 0
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/page.tsx (modified)
+  - Added useRef import
+  - Added ActionItemsPanel import  
+  - Added UnifiedInboxView import
+  - Added view state toggle
+  - Added allMessages flattened array with useMemo
+  - Added handleViewSummary and handleAcknowledgeSummary handlers
+  - Fixed type annotation for flattened array to avoid lint errors
+- scripts/ralph/prd.json (US-011, US-012, US-013 marked as passes: true)
+
+### Quality checks
+- ✅ Type check: passed (no new errors, only pre-existing errors in other files)
+- ✅ Linting: passed (only complexity warning on ParentDashboardContent - acceptable)
+- ⏳ Browser verification: Not done (will test in next iteration or final testing pass)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Previous iterations had already implemented US-010, US-012, US-013 components
+- Only US-011 view toggle logic needed to be completed
+- Biome linter auto-removes unused imports - need to add import + usage together
+- Type annotation needed for array with complex objects: `Array<{ field: type }>` syntax
+
+**Gotchas encountered:**
+- Biome kept removing UnifiedInboxView import because usage wasn't in same edit
+- Had duplicate view state declarations (line 54 and 94) - had to remove one
+- Must add explicit type to `flattened` array to avoid noEvolvingTypes error
+- useRef was missing from React imports causing error on messagesRef
+
+**Dependencies found:**
+- UnifiedInboxView depends on ParentSummaryCard component
+- View toggle depends on summariesData query structure
+- ActionItemsPanel depends on totalUnreadCount calculation
+- Smooth scroll depends on messagesRef being attached to messages container
+
+**What to do next:**
+- [ ] US-014: Add coach avatars to dashboard summary cards
+- [ ] US-015: Update all date displays to relative formatting
+- [ ] US-016: Add category-specific icons to summary cards
+- [ ] US-017: Add responsive classes for mobile
+- [ ] US-018: Add smooth transitions and hover effects
+- [ ] US-019: Final testing and polish pass
+
+**Mistakes made:**
+- Initially didn't realize US-010, US-012, US-013 were already implemented
+- Added state twice (lines 54 and 94) causing TypeScript redeclaration error
+- Forgot to import useRef initially
+- Forgot to import ActionItemsPanel initially
+
+---

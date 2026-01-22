@@ -69,7 +69,7 @@ export default function TeamInsightsPage() {
 
   // Get all teams for the organization to resolve names to IDs
   const allTeams = useQuery(
-    api.models.teams.getTeamsForOrganization,
+    api.models.teams.getTeamsByOrganization,
     orgId ? { organizationId: orgId } : "skip"
   );
 

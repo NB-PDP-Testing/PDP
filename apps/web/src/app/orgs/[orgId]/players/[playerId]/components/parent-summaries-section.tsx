@@ -3,6 +3,7 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
+import { format, formatDistanceToNow } from "date-fns";
 import {
   Check,
   ChevronDown,
@@ -72,6 +73,15 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState<"active" | "history">("active");
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
+
+  // US-015: Helper function for relative/absolute date formatting
+  const formatDate = (timestamp: number) => {
+    const isRecent = Date.now() - timestamp < 7 * 24 * 60 * 60 * 1000;
+    if (isRecent) {
+      return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    }
+    return format(new Date(timestamp), "MMM d, yyyy");
+  };
 
   // Mutation for marking summary as read
   const acknowledgeSummary = useMutation(
@@ -319,14 +329,7 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                             .toUpperCase()}
                         </span>
                         <span className="text-muted-foreground text-xs">
-                          {new Date(summary.createdAt).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            }
-                          )}
+                          {formatDate(summary.createdAt)}
                         </span>
                         {summary.sportName && (
                           <>
@@ -378,8 +381,7 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                       </span>
                       {summary.deliveredAt && (
                         <span className="text-muted-foreground">
-                          Shared{" "}
-                          {new Date(summary.deliveredAt).toLocaleDateString()}
+                          Shared {formatDate(summary.deliveredAt)}
                         </span>
                       )}
                     </div>
@@ -458,14 +460,7 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                               .toUpperCase()}
                           </span>
                           <span className="text-muted-foreground text-xs">
-                            {new Date(summary.createdAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              }
-                            )}
+                            {formatDate(summary.createdAt)}
                           </span>
                           {summary.sportName && (
                             <>
@@ -517,8 +512,7 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                         </span>
                         {summary.deliveredAt && (
                           <span className="text-muted-foreground">
-                            Shared{" "}
-                            {new Date(summary.deliveredAt).toLocaleDateString()}
+                            Shared {formatDate(summary.deliveredAt)}
                           </span>
                         )}
                       </div>

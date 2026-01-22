@@ -1,7 +1,7 @@
 "use client";
 
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { Check, Share2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -119,12 +119,7 @@ export function ParentSummaryCard({
                     addSuffix: true,
                   });
                 }
-                // Import format at the top: import { format, formatDistanceToNow } from "date-fns";
-                const formatDate = (ts: number) => {
-                  const date = new Date(ts);
-                  return `${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
-                };
-                return formatDate(timestamp);
+                return format(new Date(timestamp), "MMM d, yyyy");
               })()}
             </p>
 

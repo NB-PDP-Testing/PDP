@@ -44,6 +44,11 @@ export const getCurrentUser = query({
       // onboarding
       onboardingComplete: v.optional(v.boolean()),
 
+      // Parent onboarding & notification tracking
+      lastChildrenCheckAt: v.optional(v.number()),
+      parentOnboardingDismissCount: v.optional(v.number()),
+      parentOnboardingLastDismissedAt: v.optional(v.number()),
+
       // Current organization tracking
       currentOrgId: v.optional(v.string()),
     })

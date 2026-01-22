@@ -1967,15 +1967,28 @@ export const syncFunctionalRolesFromInvitation = mutation({
           lastName: userResult?.name?.split(" ").slice(1).join(" ") || "",
           email: normalizedEmail,
           phone: undefined, // Phone not reliably available from Better Auth user
-          verificationStatus: "email_verified", // Email verified because they accepted invitation
+          verificationStatus: "unverified", // Changed from email_verified - parent must claim
           createdAt: Date.now(),
           updatedAt: Date.now(),
           createdFrom: "invitation",
+          // userId NOT set - parent must claim via modal (Option B)
         });
         guardian = await ctx.db.get(guardianId);
         console.log(
           "[syncFunctionalRolesFromInvitation] Created guardian identity:",
-          guardianId
+          guardianId,
+          "- parent must claim via modal (Option B)"
+        );
+      }
+
+      // Option B behavior: Don't auto-link guardian identity
+      // Parent must explicitly claim via batched modal
+      // Only exception: Self-assignment in Add Guardian flow (handled separately)
+      if (guardian && !guardian.userId) {
+        console.log(
+          "[syncFunctionalRolesFromInvitation] Guardian identity exists but not auto-linked (Option B):",
+          guardian._id,
+          "- parent must claim to access children"
         );
       }
 
@@ -2879,43 +2892,14 @@ export const approveFunctionalRoleRequest = mutation({
       },
     });
 
-    // If parent role was approved, auto-link to children using new guardian identity system
+    // Option B: Don't auto-link children when parent role is approved
+    // Parent must explicitly claim guardian identity and acknowledge children via modal
     if (args.role === "parent") {
-      // Get user email for auto-linking
-      const userResult = await ctx.runQuery(
-        components.betterAuth.adapter.findOne,
-        {
-          model: "user",
-          where: [
-            {
-              field: "_id",
-              value: memberResult.userId,
-              operator: "eq",
-            },
-          ],
-        }
+      console.log(
+        `[approveFunctionalRoleRequest] Parent role approved for member ${args.memberId} - parent must claim guardian identity via modal (Option B)`
       );
-
-      if (userResult?.email) {
-        const normalizedEmail = (userResult.email as string)
-          .toLowerCase()
-          .trim();
-        try {
-          await ctx.runMutation(
-            internal.models.guardianPlayerLinks
-              .autoLinkGuardianToPlayersInternal,
-            {
-              guardianEmail: normalizedEmail,
-              organizationId: args.organizationId,
-            }
-          );
-        } catch (error) {
-          console.error(
-            "[approveFunctionalRoleRequest] Auto-link error:",
-            error
-          );
-        }
-      }
+      // Note: autoLinkGuardianToPlayersInternal has been disabled to enforce Option B behavior
+      // Children will appear in batched modal for parent to acknowledge
     }
 
     console.log(

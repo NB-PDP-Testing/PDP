@@ -302,6 +302,24 @@ export default defineSchema({
 
     // Decline tracking
     declinedByUserId: v.optional(v.string()), // User who declined this connection (clicked "This Isn't Me")
+    declineReason: v.optional(
+      v.union(
+        v.literal("not_my_child"),
+        v.literal("wrong_person"),
+        v.literal("none_are_mine"),
+        v.literal("other")
+      )
+    ), // Why parent declined this link
+    declineReasonText: v.optional(v.string()), // Custom reason if "other"
+
+    // Parent acknowledgement tracking (Bug #293 fix)
+    acknowledgedByParentAt: v.optional(v.number()), // Timestamp when parent acknowledged this link
+    notificationSentAt: v.optional(v.number()), // When we notified parent about this assignment
+
+    // Profile completion tracking
+    profileCompletionRequired: v.optional(v.boolean()), // Does this link require profile completion?
+    profileCompletedAt: v.optional(v.number()), // When parent completed required profile fields
+    requiredProfileFields: v.optional(v.array(v.string())), // Which fields need completion (e.g. ['emergencyContact', 'medicalInfo'])
 
     // Metadata
     createdAt: v.number(),

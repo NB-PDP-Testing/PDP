@@ -773,6 +773,21 @@ export const updateInsightStatus = mutation({
       const targetTeamName = (insight as any).teamName;
 
       if (targetTeamId && targetTeamName) {
+        // Get coach name from Better Auth
+        const coachUser = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [{ field: "id", value: note.coachId, operator: "eq" }],
+          }
+        );
+
+        const coachName = coachUser
+          ? `${(coachUser as any).firstName || ""} ${(coachUser as any).lastName || ""}`.trim() ||
+            (coachUser as any).name ||
+            "Coach"
+          : "Coach";
+
         // Create team observation record
         const observationId = await ctx.db.insert("teamObservations", {
           organizationId: note.orgId,
@@ -782,7 +797,7 @@ export const updateInsightStatus = mutation({
           voiceNoteId: args.noteId,
           insightId: args.insightId,
           coachId: note.coachId,
-          coachName: "Coach", // TODO: Get coach name from Better Auth
+          coachName,
           title: insight.title,
           description: insight.description,
           category,

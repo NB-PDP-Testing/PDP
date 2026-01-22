@@ -67,13 +67,35 @@ export default function TeamInsightsPage() {
     orgId ? { organizationId: orgId } : "skip"
   );
 
-  // Get unique teams from coach assignment
-  const coachTeams = useMemo(() => {
-    if (!coachAssignment?.teams) {
+  // Get all teams for the organization to resolve names to IDs
+  const allTeams = useQuery(
+    api.models.teams.getTeamsForOrganization,
+    orgId ? { organizationId: orgId } : "skip"
+  );
+
+  // Get unique team IDs from coach assignment (resolving names to IDs)
+  const coachTeamIds = useMemo(() => {
+    if (!(coachAssignment?.teams && allTeams)) {
       return [];
     }
-    return coachAssignment.teams;
-  }, [coachAssignment]);
+
+    // Build maps for lookup (by ID and by name)
+    const teamByIdMap = new Map(
+      allTeams.map((team) => [String(team._id), team])
+    );
+    const teamByNameMap = new Map(allTeams.map((team) => [team.name, team]));
+
+    // Resolve team values (could be IDs or names) to actual IDs
+    const resolvedIds: string[] = [];
+    for (const teamValue of coachAssignment.teams) {
+      const team = teamByIdMap.get(teamValue) || teamByNameMap.get(teamValue);
+      if (team) {
+        resolvedIds.push(String(team._id));
+      }
+    }
+
+    return resolvedIds;
+  }, [coachAssignment, allTeams]);
 
   // Filter observations by selected team
   const filteredObservations = useMemo(() => {
@@ -82,7 +104,7 @@ export default function TeamInsightsPage() {
     }
 
     // Filter to only teams the coach is assigned to
-    const coachTeamSet = new Set(coachTeams);
+    const coachTeamSet = new Set(coachTeamIds);
     let filtered = observations.filter((obs) => coachTeamSet.has(obs.teamId));
 
     // Apply team filter
@@ -91,7 +113,7 @@ export default function TeamInsightsPage() {
     }
 
     return filtered;
-  }, [observations, selectedTeam, coachTeams]);
+  }, [observations, selectedTeam, coachTeamIds]);
 
   // Group observations by team
   const observationsByTeam = useMemo(() => {
@@ -133,14 +155,14 @@ export default function TeamInsightsPage() {
         </div>
 
         {/* Team filter */}
-        {coachTeams.length > 1 && (
+        {coachTeamIds.length > 1 && (
           <Select onValueChange={setSelectedTeam} value={selectedTeam}>
             <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="All teams" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All teams</SelectItem>
-              {coachTeams.map((teamId) => {
+              {coachTeamIds.map((teamId) => {
                 const teamObs = observationsByTeam.get(teamId);
                 const teamName = teamObs?.[0]?.teamName || teamId;
                 return (

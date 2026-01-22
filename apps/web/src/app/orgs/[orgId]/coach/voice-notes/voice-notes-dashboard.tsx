@@ -183,7 +183,12 @@ export function VoiceNotesDashboard() {
     baseTabs.push({ id: "history", label: "History", icon: History });
 
     return baseTabs;
-  }, [pendingSummariesCount, pendingInsightsCount, hasSensitiveSummaries]);
+  }, [
+    pendingSummariesCount,
+    pendingInsightsCount,
+    hasSensitiveSummaries,
+    needsAttentionCount,
+  ]);
 
   // If current tab is no longer available (e.g., approved all summaries), switch to New
   // Settings is a special case - it's always available via header icon, not in tabs array

@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
-import { components, internal } from "../_generated/api";
+import { api, components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { internalAction } from "../_generated/server";
@@ -108,6 +108,20 @@ const insightSchema = z.object({
           .optional()
           .describe(
             "Name of the team from the team roster, if this is a team_culture insight and team was mentioned"
+          ),
+        assigneeUserId: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "ID of the coach to assign this TODO to, if coach was mentioned or implied (e.g., 'I need to')"
+          ),
+        assigneeName: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Name of the coach to assign this TODO to, if coach was mentioned or implied"
           ),
       })
     )
@@ -259,12 +273,9 @@ export const buildInsights = internalAction({
 
       // Get coach's assigned teams for team matching
       const coachTeams = note.coachId
-        ? await ctx.runQuery(components.betterAuth.adapter.findOne, {
-            model: "coachAssignments",
-            where: [
-              { field: "userId", value: note.coachId, operator: "eq" },
-              { field: "organizationId", value: note.orgId, operator: "eq" },
-            ],
+        ? await ctx.runQuery(api.models.coaches.getCoachAssignments, {
+            userId: note.coachId,
+            organizationId: note.orgId,
           })
         : null;
 
@@ -299,6 +310,46 @@ export const buildInsights = internalAction({
               sport: team.sport,
             });
           }
+        }
+      }
+
+      // Get other coaches assigned to the same teams (for TODO assignment)
+      const coachesRoster: Array<{ id: string; name: string }> = [];
+      if (note.coachId && teamsList.length > 0) {
+        // Get fellow coaches on same teams
+        const fellowCoaches = await ctx.runQuery(
+          api.models.coaches.getFellowCoachesForTeams,
+          {
+            userId: note.coachId,
+            organizationId: note.orgId,
+          }
+        );
+
+        // Add fellow coaches to roster
+        for (const coach of fellowCoaches) {
+          coachesRoster.push({
+            id: coach.userId,
+            name: coach.userName,
+          });
+        }
+
+        // Add the recording coach themselves
+        const recordingCoachUser = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [{ field: "id", value: note.coachId, operator: "eq" }],
+          }
+        );
+        if (recordingCoachUser) {
+          const u = recordingCoachUser as any;
+          coachesRoster.push({
+            id: note.coachId,
+            name:
+              `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+              u.email ||
+              "Unknown",
+          });
         }
       }
 
@@ -392,6 +443,9 @@ ${rosterContext}
 Coach's Teams (JSON array):
 ${teamsList.length ? JSON.stringify(teamsList, null, 2) : "[]"}
 
+Coaches on Same Teams (JSON array - for TODO assignment):
+${coachesRoster.length ? JSON.stringify(coachesRoster, null, 2) : "[]"}
+
 CRITICAL PLAYER MATCHING INSTRUCTIONS:
 - When you identify a player name in the voice note, YOU MUST find them in the roster JSON above
 - The roster JSON is an array of player objects with "id", "firstName", "lastName", "fullName" fields
@@ -433,6 +487,17 @@ TEAM MATCHING INSTRUCTIONS (for team_culture insights):
   * "The U18 girls showed great spirit" → Match to {"id": "abc123", "name": "U18 Female"} → teamId="abc123", teamName="U18 Female"
   * "Senior team played well" → Match to {"id": "xyz789", "name": "Senior Women"} → teamId="xyz789", teamName="Senior Women"
   * "Great team spirit today" (no specific team mentioned) → teamId=null, teamName=null
+
+TODO/ACTION ASSIGNMENT INSTRUCTIONS (for todo insights):
+- When you identify a todo insight, determine who should do this action
+- Check the voice note for:
+  * First person pronouns ("I need to", "I'll", "I should") → Assign to the recording coach
+  * Coach names mentioned → Match to "Coaches on Same Teams" list and assign to them
+  * Generic "we" or "someone" → Leave assigneeUserId and assigneeName as null (needs manual assignment)
+- Examples:
+  * "I need to order new cones" → AUTO-ASSIGN to recording coach (assigneeUserId = their ID from coaches list)
+  * "John should schedule the parent meeting" → Match "John" to coaches list, assign to him
+  * "Someone needs to book the pitch" → assigneeUserId=null, assigneeName=null (coach will assign manually)
 
 IMPORTANT:
 - If a player name doesn't match the roster, still extract with playerName but set playerId to null
@@ -525,6 +590,35 @@ IMPORTANT:
           );
         }
 
+        // Auto-assign TODO if:
+        // 1. This is a todo insight
+        // 2. AI didn't assign an assigneeUserId
+        // 3. Default to recording coach if no assignee specified
+        let assigneeUserId = insight.assigneeUserId ?? undefined;
+        let assigneeName = insight.assigneeName ?? undefined;
+
+        if (insight.category === "todo" && !assigneeUserId && note.coachId) {
+          // If no assignee from AI, default to recording coach
+          const recordingCoach = coachesRoster.find(
+            (c) => c.id === note.coachId
+          );
+          if (recordingCoach) {
+            assigneeUserId = recordingCoach.id;
+            assigneeName = recordingCoach.name;
+            console.log(
+              `[TODO Auto-Assignment] Assigned todo to recording coach "${assigneeName}"`
+            );
+          }
+        } else if (
+          insight.category === "todo" &&
+          assigneeUserId &&
+          assigneeName
+        ) {
+          console.log(
+            `[TODO Matching] AI matched todo to coach "${assigneeName}"`
+          );
+        }
+
         return {
           id: `insight_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
           playerIdentityId: matchedPlayer?.playerIdentityId ?? undefined,
@@ -535,6 +629,8 @@ IMPORTANT:
           recommendedUpdate: insight.recommendedUpdate ?? undefined,
           teamId,
           teamName,
+          assigneeUserId,
+          assigneeName,
           status: "pending" as const,
         };
       });

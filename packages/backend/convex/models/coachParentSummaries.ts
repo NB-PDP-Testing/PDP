@@ -1237,3 +1237,53 @@ export const getSummaryForImage = internalQuery({
     };
   },
 });
+
+/**
+ * Public query: Get summary data for PDF/sharing
+ * Parents can call this to get data needed for generating PDFs
+ */
+export const getSummaryForPDF = query({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+  },
+  returns: v.union(
+    v.object({
+      content: v.string(),
+      playerFirstName: v.string(),
+      coachName: v.string(),
+      organizationName: v.string(),
+      generatedDate: v.string(),
+      category: v.optional(v.string()),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    // Re-use internal query logic
+    const data = await getSummaryForImage(ctx, args);
+
+    if (!data) {
+      return null;
+    }
+
+    // Format date for display
+    const date = new Date(data.generatedAt);
+    const formattedDate = date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    // Get summary to extract category
+    const summary = await ctx.db.get(args.summaryId);
+    const category = summary?.privateInsight?.category;
+
+    return {
+      content: data.content,
+      playerFirstName: data.playerFirstName,
+      coachName: data.coachName,
+      organizationName: data.orgName,
+      generatedDate: formattedDate,
+      category,
+    };
+  },
+});

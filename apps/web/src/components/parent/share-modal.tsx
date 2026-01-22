@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { Download, Loader2, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { downloadPDF, generateCoachSummaryPDF } from "@/lib/pdf-generator";
 
 type ShareModalProps = {
   summaryId: Id<"coachParentSummaries">;
@@ -21,8 +22,8 @@ type ShareModalProps = {
 };
 
 /**
- * Modal for previewing and sharing parent summary images
- * Shows generated image with download and native share options
+ * Modal for previewing and sharing parent summary images/PDFs
+ * Shows generated image with PDF download and native share options
  */
 export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -32,6 +33,12 @@ export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
   // Action to generate shareable image
   const generateImage = useAction(
     api.actions.coachParentSummaries.generateShareableImage
+  );
+
+  // Query to get summary data for PDF
+  const summaryData = useQuery(
+    api.models.coachParentSummaries.getSummaryForPDF,
+    { summaryId }
   );
 
   // Mutation to track share events
@@ -71,18 +78,29 @@ export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
     }
   }, [isOpen]);
 
-  // Download image (US-016)
+  // Download PDF (US-016)
   const handleDownload = async () => {
-    if (!imageUrl) {
+    if (!summaryData) {
+      toast.error("Loading summary data...");
       return;
     }
 
     try {
-      // Create download link
-      const a = document.createElement("a");
-      a.href = imageUrl;
-      a.download = `playerarc-feedback-${new Date().toISOString().split("T")[0]}.png`;
-      a.click();
+      // Generate PDF
+      const pdfBytes = await generateCoachSummaryPDF({
+        content: summaryData.content,
+        playerFirstName: summaryData.playerFirstName,
+        coachName: summaryData.coachName,
+        organizationName: summaryData.organizationName,
+        generatedDate: summaryData.generatedDate,
+        category: summaryData.category,
+      });
+
+      // Download PDF
+      downloadPDF(
+        pdfBytes,
+        `playerarc-feedback-${summaryData.playerFirstName}-${new Date().toISOString().split("T")[0]}.pdf`
+      );
 
       // Track download
       await trackShare({
@@ -90,10 +108,10 @@ export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
         shareDestination: "download",
       });
 
-      toast.success("Image downloaded!");
+      toast.success("PDF downloaded!");
     } catch (err) {
       console.error("Download failed:", err);
-      toast.error("Failed to download image");
+      toast.error("Failed to download PDF");
     }
   };
 
@@ -145,7 +163,7 @@ export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               <p className="mt-4 text-muted-foreground text-sm">
-                Generating image...
+                Generating preview...
               </p>
             </div>
           )}
@@ -170,14 +188,14 @@ export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
 
               {/* Action buttons */}
               <div className="flex gap-2">
-                {/* Download button (US-016) */}
+                {/* Download button (US-016) - Downloads as PDF */}
                 <Button
                   className="flex-1"
                   onClick={handleDownload}
                   variant="outline"
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Download
+                  Download PDF
                 </Button>
 
                 {/* Native share button (US-017) */}

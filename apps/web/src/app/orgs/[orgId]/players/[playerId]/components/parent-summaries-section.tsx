@@ -74,7 +74,6 @@ type Props = {
 };
 
 export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
-  const [activeTab, setActiveTab] = useState<"active" | "history">("active");
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
 
   // US-015: Helper function for relative/absolute date formatting
@@ -162,6 +161,11 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
   // Collapse section if there are no new/unacknowledged messages
   const hasNewMessages = activeSummaries.length > 0;
   const [isExpanded, setIsExpanded] = useState(hasNewMessages);
+
+  // Default to "history" tab when no new messages, otherwise "active"
+  const [activeTab, setActiveTab] = useState<"active" | "history">(
+    hasNewMessages ? "active" : "history"
+  );
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -633,7 +637,6 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
             {/* Active/History Tabs */}
             <Tabs
               className="w-full"
-              defaultValue="active"
               onValueChange={(value) =>
                 setActiveTab(value as "active" | "history")
               }

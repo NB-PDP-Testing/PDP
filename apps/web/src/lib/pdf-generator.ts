@@ -813,6 +813,235 @@ export async function generateSessionPlanPDF(
   return pdfDoc.save();
 }
 
+// ============ COACH SUMMARY PDF ============
+
+export type CoachSummaryPDFData = {
+  content: string;
+  playerFirstName: string;
+  coachName: string;
+  organizationName: string;
+  generatedDate: string;
+  category?: string;
+  orgLogo?: string; // URL to organization logo (optional)
+};
+
+/**
+ * Generate a branded PDF for coach summary/feedback
+ * Matches the design of the shareable image popup with PlayerARC branding
+ */
+export async function generateCoachSummaryPDF(
+  data: CoachSummaryPDFData
+): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create();
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helveticaOblique = await pdfDoc.embedFont(
+    StandardFonts.HelveticaOblique
+  );
+
+  // Page settings
+  const pageWidth = 595; // A4 width in points
+  const pageHeight = 842; // A4 height in points
+  const margin = 50;
+  const contentWidth = pageWidth - margin * 2;
+
+  const page = pdfDoc.addPage([pageWidth, pageHeight]);
+
+  // PlayerARC brand colors (matching shareable image)
+  const navyBlue = rgb(0.17, 0.24, 0.31); // #2c3e50
+  const textDark = rgb(0.12, 0.16, 0.18); // #1e293b
+  const textMuted = rgb(0.39, 0.45, 0.55); // #64748b
+  const white = rgb(1, 1, 1);
+
+  // ============ HEADER BAR (Navy Blue) ============
+  const headerHeight = 90;
+  page.drawRectangle({
+    x: 0,
+    y: pageHeight - headerHeight,
+    width: pageWidth,
+    height: headerHeight,
+    color: navyBlue,
+  });
+
+  // PlayerARC branding (left side)
+  page.drawText("PlayerARC", {
+    x: margin,
+    y: pageHeight - 50,
+    font: helveticaBold,
+    size: 32,
+    color: white,
+  });
+
+  // Organization name (right side)
+  const orgNameWidth = helvetica.widthOfTextAtSize(data.organizationName, 18);
+  page.drawText(data.organizationName, {
+    x: pageWidth - margin - orgNameWidth,
+    y: pageHeight - 50,
+    font: helvetica,
+    size: 18,
+    color: white,
+  });
+
+  // ============ CONTENT AREA ============
+  let yPosition = pageHeight - headerHeight - 100;
+
+  // Category badge (if provided)
+  if (data.category) {
+    const categoryText = data.category.replace(/_/g, " ").toUpperCase();
+    const badgeWidth = helveticaBold.widthOfTextAtSize(categoryText, 10) + 20;
+    const badgeX = (pageWidth - badgeWidth) / 2;
+
+    // Badge background
+    page.drawRectangle({
+      x: badgeX,
+      y: yPosition - 5,
+      width: badgeWidth,
+      height: 20,
+      color: rgb(0.9, 0.9, 0.92),
+      borderRadius: 10,
+    });
+
+    // Badge text
+    page.drawText(categoryText, {
+      x: badgeX + 10,
+      y: yPosition,
+      font: helveticaBold,
+      size: 10,
+      color: textMuted,
+    });
+
+    yPosition -= 50;
+  } else {
+    yPosition -= 20;
+  }
+
+  // Main message content (centered, quote-styled)
+  // Split content into lines for wrapping
+  const maxLineWidth = contentWidth - 100; // Extra margin for centered content
+  const words = data.content.split(" ");
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const word of words) {
+    const testLine = currentLine + (currentLine ? " " : "") + word;
+    const lineWidth = helvetica.widthOfTextAtSize(testLine, 24);
+
+    if (lineWidth > maxLineWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  // Opening quote
+  page.drawText('"', {
+    x: margin + 40,
+    y: yPosition + 10,
+    font: helveticaBold,
+    size: 48,
+    color: textMuted,
+  });
+
+  // Draw centered message lines
+  yPosition -= 5;
+  for (const line of lines) {
+    const lineWidth = helvetica.widthOfTextAtSize(line, 24);
+    const lineX = (pageWidth - lineWidth) / 2;
+
+    page.drawText(line, {
+      x: lineX,
+      y: yPosition,
+      font: helvetica,
+      size: 24,
+      color: textDark,
+    });
+
+    yPosition -= 36; // Line height
+  }
+
+  // Closing quote
+  const lastLineWidth = helvetica.widthOfTextAtSize(lines.at(-1) || "", 24);
+  const lastLineX = (pageWidth - lastLineWidth) / 2;
+  page.drawText('"', {
+    x: lastLineX + lastLineWidth + 5,
+    y: yPosition + 25,
+    font: helveticaBold,
+    size: 48,
+    color: textMuted,
+  });
+
+  yPosition -= 30;
+
+  // "For [Player]" attribution
+  const forPlayerText = `For ${data.playerFirstName}`;
+  const forPlayerWidth = helveticaOblique.widthOfTextAtSize(forPlayerText, 20);
+  page.drawText(forPlayerText, {
+    x: (pageWidth - forPlayerWidth) / 2,
+    y: yPosition,
+    font: helveticaOblique,
+    size: 20,
+    color: textMuted,
+  });
+
+  // ============ FOOTER BAR (Navy Blue) ============
+  const footerHeight = 70;
+  const footerY = 0;
+
+  page.drawRectangle({
+    x: 0,
+    y: footerY,
+    width: pageWidth,
+    height: footerHeight,
+    color: navyBlue,
+  });
+
+  // Left: Coach attribution
+  page.drawText(`From ${data.coachName}`, {
+    x: margin,
+    y: footerY + 42,
+    font: helvetica,
+    size: 16,
+    color: white,
+  });
+
+  // Left: Date
+  page.drawText(data.generatedDate, {
+    x: margin,
+    y: footerY + 20,
+    font: helvetica,
+    size: 11,
+    color: rgb(0.7, 0.7, 0.7),
+  });
+
+  // Right: Powered by branding
+  const brandingText = "Powered by PlayerARC";
+  const brandingWidth = helveticaBold.widthOfTextAtSize(brandingText, 12);
+  page.drawText(brandingText, {
+    x: pageWidth - margin - brandingWidth,
+    y: footerY + 42,
+    font: helveticaBold,
+    size: 12,
+    color: white,
+  });
+
+  // Right: Confidential notice
+  const confidentialText = "Confidential - For authorized use only";
+  const confidentialWidth = helvetica.widthOfTextAtSize(confidentialText, 9);
+  page.drawText(confidentialText, {
+    x: pageWidth - margin - confidentialWidth,
+    y: footerY + 20,
+    font: helvetica,
+    size: 9,
+    color: rgb(0.6, 0.6, 0.6),
+  });
+
+  return pdfDoc.save();
+}
+
 // ============ SHARE HELPERS ============
 
 // Detect if user is on mobile device

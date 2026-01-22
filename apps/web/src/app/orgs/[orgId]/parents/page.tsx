@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
-import { AIPracticeAssistant } from "./components/ai-practice-assistant";
+import { AIPracticeAssistantEnhanced } from "./components/ai-practice-assistant-enhanced";
 import { ChildCard } from "./components/child-card";
 import { CoachFeedback } from "./components/coach-feedback";
 import { GuardianSettings } from "./components/guardian-settings";
@@ -445,7 +445,10 @@ function ParentDashboardContent() {
       {/* AI Practice Assistant */}
       {playerCount > 0 && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <AIPracticeAssistant orgId={orgId} playerData={identityChildren} />
+          <AIPracticeAssistantEnhanced
+            orgId={orgId}
+            playerData={identityChildren}
+          />
 
           {/* Coming Soon Features */}
           <Card>

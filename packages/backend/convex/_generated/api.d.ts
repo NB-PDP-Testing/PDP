@@ -11,6 +11,7 @@
 import type * as actions_coachParentSummaries from "../actions/coachParentSummaries.js";
 import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_messaging from "../actions/messaging.js";
+import type * as actions_practicePlans from "../actions/practicePlans.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
 import type * as actions_sessionPlans from "../actions/sessionPlans.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
@@ -116,6 +117,7 @@ declare const fullApi: ApiFromModules<{
   "actions/coachParentSummaries": typeof actions_coachParentSummaries;
   "actions/invitations": typeof actions_invitations;
   "actions/messaging": typeof actions_messaging;
+  "actions/practicePlans": typeof actions_practicePlans;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
   "actions/sessionPlans": typeof actions_sessionPlans;
   "actions/voiceNotes": typeof actions_voiceNotes;

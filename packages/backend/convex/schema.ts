@@ -1682,6 +1682,8 @@ export default defineSchema({
     approvedBy: v.optional(v.string()), // Better Auth user ID
     deliveredAt: v.optional(v.number()),
     viewedAt: v.optional(v.number()),
+    acknowledgedAt: v.optional(v.number()), // When parent marked as read/acknowledged
+    acknowledgedBy: v.optional(v.string()), // Better Auth user ID of parent who acknowledged
   })
     .index("by_voiceNote", ["voiceNoteId"])
     .index("by_player", ["playerIdentityId"])
@@ -1697,7 +1699,8 @@ export default defineSchema({
       "playerIdentityId",
       "organizationId",
       "status",
-    ]),
+    ])
+    .index("by_player_acknowledged", ["playerIdentityId", "acknowledgedAt"]),
 
   // Track when parents view summaries
   parentSummaryViews: defineTable({

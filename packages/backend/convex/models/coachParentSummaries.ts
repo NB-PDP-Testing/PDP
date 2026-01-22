@@ -698,8 +698,10 @@ export const getParentSummariesByChildAndSport = query({
           Array.from(sportMap.entries()).map(
             async ([sportId, sportSummaries]) => {
               const sport = await ctx.db.get(sportId as Id<"sports">);
+              // Count unacknowledged messages (not just unviewed)
+              // acknowledgedAt is the explicit user action to mark as read
               const unreadCount = sportSummaries.filter(
-                (s) => !s.viewedAt
+                (s) => !s.acknowledgedAt
               ).length;
 
               // Enrich summaries with coach names
@@ -928,6 +930,155 @@ export const trackShareEvent = mutation({
     });
 
     return null;
+  },
+});
+
+/**
+ * Acknowledge a parent summary (mark as read/understood)
+ * This is different from "viewed" - it's an explicit user action
+ * to mark a message as acknowledged/understood
+ */
+export const acknowledgeParentSummary = mutation({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the user ID
+    const userId = user._id || user.userId;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
+    // Fetch the summary
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      throw new Error("Summary not found");
+    }
+
+    // Find guardian identity for this user
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!guardianIdentity) {
+      throw new Error("Guardian identity not found");
+    }
+
+    // Verify guardian is linked to the summary's player
+    const link = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian_and_player", (q) =>
+        q
+          .eq("guardianIdentityId", guardianIdentity._id)
+          .eq("playerIdentityId", summary.playerIdentityId)
+      )
+      .first();
+
+    if (!link) {
+      throw new Error("Not authorized to acknowledge this summary");
+    }
+
+    // Update summary with acknowledgment
+    await ctx.db.patch(args.summaryId, {
+      acknowledgedAt: Date.now(),
+      acknowledgedBy: userId,
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Acknowledge all summaries for a specific player
+ * Batch operation for "mark all as read" functionality
+ */
+export const acknowledgeAllForPlayer = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    acknowledgedCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the user ID
+    const userId = user._id || user.userId;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
+    // Find guardian identity for this user
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!guardianIdentity) {
+      throw new Error("Guardian identity not found");
+    }
+
+    // Verify guardian is linked to the player
+    const link = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian_and_player", (q) =>
+        q
+          .eq("guardianIdentityId", guardianIdentity._id)
+          .eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (!link) {
+      throw new Error(
+        "Not authorized to acknowledge summaries for this player"
+      );
+    }
+
+    // Find all unacknowledged summaries for this player
+    const summaries = await ctx.db
+      .query("coachParentSummaries")
+      .withIndex("by_player_acknowledged", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("organizationId"), args.organizationId),
+          q.or(
+            q.eq(q.field("status"), "delivered"),
+            q.eq(q.field("status"), "viewed")
+          ),
+          q.eq(q.field("acknowledgedAt"), undefined)
+        )
+      )
+      .collect();
+
+    // Acknowledge all summaries
+    const acknowledgedAt = Date.now();
+    await Promise.all(
+      summaries.map((summary) =>
+        ctx.db.patch(summary._id, {
+          acknowledgedAt,
+          acknowledgedBy: userId,
+        })
+      )
+    );
+
+    return {
+      acknowledgedCount: summaries.length,
+    };
   },
 });
 

@@ -1102,8 +1102,8 @@ export const getPassportLinkForSummary = query({
       section = categoryMap[summary.privateInsight.category] || "overview";
     }
 
-    // Build passport URL
-    const url = `/orgs/${summary.organizationId}/parents/children/${summary.playerIdentityId}/passport?section=${section}`;
+    // Build passport URL - parent viewing player passport
+    const url = `/orgs/${summary.organizationId}/players/${summary.playerIdentityId}`;
 
     return { section, url };
   },

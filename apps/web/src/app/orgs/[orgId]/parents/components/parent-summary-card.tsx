@@ -196,8 +196,9 @@ export function ParentSummaryCard({
               )}
 
               {useParentSummaryShareImage && (
-                <Button onClick={handleShare} size="sm" variant="ghost">
-                  <Share2 className="h-4 w-4" />
+                <Button onClick={handleShare} size="sm" variant="outline">
+                  <Share2 className="mr-1.5 h-4 w-4" />
+                  Share Update
                 </Button>
               )}
             </div>

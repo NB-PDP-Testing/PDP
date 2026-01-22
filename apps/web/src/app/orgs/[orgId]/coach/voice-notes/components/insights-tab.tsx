@@ -627,10 +627,24 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   };
 
   // Calculate totals for display
-  const readyToApplyCount =
-    matchedInsights.length + classifiedTeamInsights.length;
-  const needsAttentionCount =
-    unmatchedInsights.length + uncategorizedInsights.length;
+  // Combine and sort ready-to-apply insights by most recent first
+  const readyToApplyInsights = [
+    ...matchedInsights,
+    ...classifiedTeamInsights,
+  ].sort(
+    (a, b) => new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
+  );
+
+  // Combine and sort needs-attention insights by most recent first
+  const needsAttentionInsights = [
+    ...unmatchedInsights,
+    ...uncategorizedInsights,
+  ].sort(
+    (a, b) => new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
+  );
+
+  const readyToApplyCount = readyToApplyInsights.length;
+  const needsAttentionCount = needsAttentionInsights.length;
 
   return (
     <>
@@ -650,14 +664,11 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {/* Unmatched player insights */}
-            {unmatchedInsights.map((insight) =>
-              renderInsightCard(insight, "unmatched")
-            )}
-            {/* Uncategorized insights */}
-            {uncategorizedInsights.map((insight) =>
-              renderInsightCard(insight, "uncategorized")
-            )}
+            {/* All needs-attention insights sorted by most recent */}
+            {needsAttentionInsights.map((insight) => {
+              const type = insight.playerName ? "unmatched" : "uncategorized";
+              return renderInsightCard(insight, type);
+            })}
           </CardContent>
         </Card>
       )}
@@ -683,12 +694,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
               <Button
                 className="h-8 shrink-0 gap-1.5 bg-green-600 px-3 hover:bg-green-700 sm:h-9"
                 disabled={isBulkApplying}
-                onClick={() =>
-                  handleBulkApply([
-                    ...matchedInsights,
-                    ...classifiedTeamInsights,
-                  ])
-                }
+                onClick={() => handleBulkApply(readyToApplyInsights)}
                 size="sm"
               >
                 {isBulkApplying ? (
@@ -715,14 +721,13 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
             </p>
           ) : (
             <>
-              {/* Matched player insights */}
-              {matchedInsights.map((insight) =>
-                renderInsightCard(insight, "matched")
-              )}
-              {/* Classified team insights */}
-              {classifiedTeamInsights.map((insight) =>
-                renderInsightCard(insight, "classified")
-              )}
+              {/* All ready-to-apply insights sorted by most recent */}
+              {readyToApplyInsights.map((insight) => {
+                const type = insight.playerIdentityId
+                  ? "matched"
+                  : "classified";
+                return renderInsightCard(insight, type);
+              })}
             </>
           )}
         </CardContent>

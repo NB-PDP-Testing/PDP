@@ -275,7 +275,7 @@
         "Test: Toggle works, both views display correctly"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "allMessages array structure: [{ ...summary, childName: string, sportName: string }]. Remember to sort by createdAt."
     },
     {
@@ -299,7 +299,7 @@
         "Type check passes"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "Simple alert component. Gets count from parent, calls callback when clicked."
     },
     {
@@ -320,7 +320,7 @@
         "Test: Click Review Now, page scrolls to messages smoothly"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "Total unread = sum of all sportGroups[].unreadCount across all children in summariesData."
     },
     {

@@ -1,11 +1,11 @@
 # Parent Experience Improvements - Phases 3-5
 
-> Auto-generated documentation - Last updated: 2026-01-22 19:17
+> Auto-generated documentation - Last updated: 2026-01-22 19:31
 
 ## Status
 
 - **Branch**: `ralph/coach-parent-summaries-p4`
-- **Progress**: 5 / 19 stories complete
+- **Progress**: 10 / 19 stories complete
 - **Phase Status**: 🔄 In Progress
 
 ## Completed Features
@@ -87,6 +87,90 @@ As a developer, I need a reusable component to display coach avatars/initials.
 - Example: 'John Smith' -> 'JS'
 - Handle edge cases: single name, empty name (show '?')
 - Export as default
+- Type check passes
+
+### US-006: Add coach avatars to passport summary cards
+
+As a parent, I want to see who each message is from with a visual avatar.
+
+**Acceptance Criteria:**
+- In parent-summaries-section.tsx, import CoachAvatar from @/components/shared/coach-avatar
+- In summary card rendering, add CoachAvatar component
+- Pass summary.coachName as coachName prop
+- Position avatar to left of summary content (use flex layout)
+- Size: 'md' for desktop, 'sm' for mobile (responsive)
+- Gap between avatar and content: gap-3
+- Verify coachName is available (already in query response)
+- Type check passes
+- Test: View passport, see initials next to each message
+
+### US-007: Create ChildSummaryCard component shell
+
+As a developer, I need a component to show child overview stats on parent dashboard.
+
+**Acceptance Criteria:**
+- Create apps/web/src/app/orgs/[orgId]/parents/components/child-summary-card.tsx
+- Add 'use client' directive
+- Props: player ({ _id, firstName, lastName }), unreadCount (number), orgId (string)
+- Import Card, CardHeader, CardContent, CardTitle from @/components/ui/card
+- Import Button from @/components/ui/button
+- Import Badge from @/components/ui/badge
+- Render Card with player name in CardHeader
+- Show unreadCount as Badge if > 0 (variant='destructive')
+- Add placeholder text for stats (will fetch in next story)
+- Add 'View Passport' Button in CardContent
+- No onClick handler yet (just render the button)
+- Type check passes
+
+### US-008: Add passport stats query and navigation to ChildSummaryCard
+
+As a parent, I want to see my child's average skill rating and navigate to their passport.
+
+**Acceptance Criteria:**
+- In child-summary-card.tsx, import useQuery from convex/react
+- Import useRouter from next/navigation
+- Add query: useQuery(api.models.sportPassports.getFullPlayerPassportView, { playerIdentityId: player._id, organizationId: orgId })
+- Calculate average skill rating using useMemo:
+-   const avgSkillRating = passportData?.passports?.[0]?.skills ? (skills.reduce((sum, s) => sum + s.rating, 0) / skills.length).toFixed(1) : null
+- Display avgSkillRating in CardContent with Star icon
+- Add onClick to button: router.push(`/orgs/${orgId}/players/${player._id}`)
+- Show loading skeleton while query resolves (Loader2 icon or skeleton div)
+- Handle case where no passport data (show 'N/A' for rating)
+- Type check passes
+- Test: Dashboard shows ratings, clicking navigates to passport
+
+### US-009: Add child summary cards grid to parent dashboard
+
+As a parent, I want to see all my children at a glance with their stats.
+
+**Acceptance Criteria:**
+- Open apps/web/src/app/orgs/[orgId]/parents/page.tsx
+- Import ChildSummaryCard from ./components/child-summary-card
+- Find where summariesData is used (currently passed to CoachFeedback)
+- Add grid above CoachFeedback component:
+-   <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6'>
+- Map over summariesData to render ChildSummaryCard for each child
+- Calculate unreadCount per child: sum all sportGroups unreadCount
+- Pass player, unreadCount, orgId props
+- Only render grid if summariesData has children (conditional)
+- Type check passes
+- Test: Dashboard shows child cards above messages
+
+### US-010: Create UnifiedInboxView component for all messages
+
+As a parent, I want to see all messages across all children in one chronological list.
+
+**Acceptance Criteria:**
+- Create apps/web/src/app/orgs/[orgId]/parents/components/unified-inbox-view.tsx
+- Add 'use client' directive
+- Props: messages (array of summaries with childName and sportName added)
+- Import ParentSummaryCard from ./parent-summary-card
+- Render messages in a vertical list (space-y-3)
+- Each message shows:
+-   - Child name above the card (text-sm text-muted-foreground)
+-   - Sport badge (use Badge component)
+-   - The actual summary card using ParentSummaryCard
+- Messages already sorted by createdAt desc (newest first)
 - Type check passes
 
 

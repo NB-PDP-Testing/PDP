@@ -1,19 +1,24 @@
-# UAT Test: US-009 - Add MessagePassportLink to ParentSummaryCard
+# UAT Test: US-009 - Add child summary cards grid to parent dashboard
 
-> Auto-generated: 2026-01-20 22:36
+> Auto-generated: 2026-01-22 19:29
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, summary cards show passport links.
+As a parent, I want to see all my children at a glance with their stats.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Edit apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx
-- [ ] Add summaryId to component props type
-- [ ] Import MessagePassportLink component
-- [ ] Render MessagePassportLink in the card footer/actions area
-- [ ] Pass summary._id as summaryId prop
-- [ ] Typecheck passes
+- [ ] Open apps/web/src/app/orgs/[orgId]/parents/page.tsx
+- [ ] Import ChildSummaryCard from ./components/child-summary-card
+- [ ] Find where summariesData is used (currently passed to CoachFeedback)
+- [ ] Add grid above CoachFeedback component:
+- [ ] <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6'>
+- [ ] Map over summariesData to render ChildSummaryCard for each child
+- [ ] Calculate unreadCount per child: sum all sportGroups unreadCount
+- [ ] Pass player, unreadCount, orgId props
+- [ ] Only render grid if summariesData has children (conditional)
+- [ ] Type check passes
+- [ ] Test: Dashboard shows child cards above messages
 
 ## Test Scenarios
 

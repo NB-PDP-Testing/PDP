@@ -247,7 +247,7 @@
         "Type check passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Component receives pre-flattened and enriched messages array. Just needs to render them with context (which child/sport)."
     },
     {

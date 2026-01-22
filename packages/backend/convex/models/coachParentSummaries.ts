@@ -987,16 +987,80 @@ export const getSummaryForImage = internalQuery({
       return null;
     }
 
-    // Fetch coach and org names (Better Auth tables)
-    // Better Auth tables aren't in our schema, use raw db access
-    const coach = (await (ctx.db as any).get(summary.coachId)) || null;
-    const org = (await (ctx.db as any).get(summary.organizationId)) || null;
+    // Fetch coach name using Better Auth adapter (same pattern as line 718)
+    let coachFirstName = "Coach";
+    if (summary.coachId) {
+      try {
+        const coachResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [
+              {
+                field: "userId",
+                value: summary.coachId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        if (coachResult) {
+          const coach = coachResult as {
+            firstName?: string;
+            lastName?: string;
+          };
+          if (coach.firstName) {
+            coachFirstName = coach.firstName;
+          }
+        }
+      } catch (error) {
+        console.error(
+          `Failed to fetch coach name for ${summary.coachId}:`,
+          error
+        );
+      }
+    }
+
+    // Fetch organization name using Better Auth adapter
+    let orgName = "Organization";
+    if (summary.organizationId) {
+      try {
+        const orgResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "organization",
+            where: [
+              {
+                field: "id",
+                value: summary.organizationId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        if (orgResult) {
+          const org = orgResult as {
+            name?: string;
+          };
+          if (org.name) {
+            orgName = org.name;
+          }
+        }
+      } catch (error) {
+        console.error(
+          `Failed to fetch org name for ${summary.organizationId}:`,
+          error
+        );
+      }
+    }
 
     return {
       content: summary.publicSummary.content,
       playerFirstName: player.firstName,
-      coachFirstName: coach?.firstName || "Coach",
-      orgName: org?.name || "Organization",
+      coachFirstName,
+      orgName,
       generatedAt: summary.publicSummary.generatedAt,
     };
   },

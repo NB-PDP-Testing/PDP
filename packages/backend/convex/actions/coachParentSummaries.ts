@@ -525,6 +525,11 @@ export const generateShareableImage = action({
     // Generate SVG using satori (US-012)
     // Satori supports flexbox layout, inline styles only
     // Type assertion needed as satori has its own JSX-like type system
+    // Updated design to match PlayerARC branding:
+    // - Cream/off-white background with subtle gradient
+    // - Green and navy accents
+    // - Professional yet warm aesthetic
+    // - Clean, modern layout
     const svg = await satori(
       {
         type: "div",
@@ -535,24 +540,55 @@ export const generateShareableImage = action({
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
-            alignItems: "center",
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            // PlayerARC brand colors: cream base with subtle gradient
+            background: "linear-gradient(135deg, #FAF9F6 0%, #F5F4F0 100%)",
             padding: "60px",
             fontFamily: "Inter, sans-serif",
           },
           children: [
+            // Header: PlayerARC branding
             {
               type: "div",
               props: {
                 style: {
-                  fontSize: "48px",
-                  fontWeight: "bold",
-                  color: "white",
-                  marginBottom: "40px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  width: "100%",
+                  marginBottom: "50px",
+                  paddingBottom: "30px",
+                  borderBottom: "3px solid #2C5F2D", // PlayerARC green accent
                 },
-                children: "PlayerARC",
+                children: [
+                  {
+                    type: "div",
+                    props: {
+                      style: {
+                        fontSize: "52px",
+                        fontWeight: "bold",
+                        color: "#1e3a8a", // Navy - PlayerARC brand color
+                        display: "flex",
+                        alignItems: "center",
+                      },
+                      children: "PlayerARC",
+                    },
+                  },
+                  {
+                    type: "div",
+                    props: {
+                      style: {
+                        fontSize: "24px",
+                        color: "#2C5F2D", // Green accent
+                        fontWeight: "600",
+                        textAlign: "right",
+                      },
+                      children: summary.orgName,
+                    },
+                  },
+                ],
               },
             },
+            // Main content: Message
             {
               type: "div",
               props: {
@@ -560,18 +596,25 @@ export const generateShareableImage = action({
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
+                  justifyContent: "center",
                   textAlign: "center",
                   maxWidth: "900px",
+                  flex: "1",
+                  padding: "40px",
+                  borderRadius: "16px",
+                  backgroundColor: "rgba(44, 95, 45, 0.05)", // Subtle green tint
+                  border: "2px solid #2C5F2D",
                 },
                 children: [
                   {
                     type: "div",
                     props: {
                       style: {
-                        fontSize: "36px",
-                        color: "white",
-                        marginBottom: "20px",
-                        lineHeight: "1.4",
+                        fontSize: "40px",
+                        color: "#1e293b", // Dark text for readability
+                        marginBottom: "30px",
+                        lineHeight: "1.5",
+                        fontWeight: "500",
                       },
                       children: `"${summary.content}"`,
                     },
@@ -580,8 +623,9 @@ export const generateShareableImage = action({
                     type: "div",
                     props: {
                       style: {
-                        fontSize: "28px",
-                        color: "rgba(255, 255, 255, 0.9)",
+                        fontSize: "32px",
+                        color: "#2C5F2D", // Green accent
+                        fontWeight: "600",
                         fontStyle: "italic",
                       },
                       children: `— for ${summary.playerFirstName}`,
@@ -590,33 +634,38 @@ export const generateShareableImage = action({
                 ],
               },
             },
+            // Footer: Coach attribution and date
             {
               type: "div",
               props: {
                 style: {
                   display: "flex",
-                  flexDirection: "column",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
                   alignItems: "center",
-                  marginTop: "40px",
+                  width: "100%",
+                  marginTop: "50px",
+                  paddingTop: "30px",
+                  borderTop: "2px solid #cbd5e1", // Subtle divider
                 },
                 children: [
                   {
                     type: "div",
                     props: {
                       style: {
-                        fontSize: "24px",
-                        color: "rgba(255, 255, 255, 0.8)",
-                        marginBottom: "10px",
+                        fontSize: "26px",
+                        color: "#475569", // Muted text
+                        fontWeight: "500",
                       },
-                      children: `From Coach ${summary.coachFirstName} at ${summary.orgName}`,
+                      children: `Coach ${summary.coachFirstName}`,
                     },
                   },
                   {
                     type: "div",
                     props: {
                       style: {
-                        fontSize: "18px",
-                        color: "rgba(255, 255, 255, 0.6)",
+                        fontSize: "22px",
+                        color: "#64748b", // Lighter muted text
                       },
                       children: formattedDate,
                     },
@@ -638,6 +687,22 @@ export const generateShareableImage = action({
               "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.woff"
             ).then((res) => res.arrayBuffer()),
             weight: 400,
+            style: "normal",
+          },
+          {
+            name: "Inter",
+            data: await fetch(
+              "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI2fAZ9hjp-Ek-_EeA.woff"
+            ).then((res) => res.arrayBuffer()),
+            weight: 500,
+            style: "normal",
+          },
+          {
+            name: "Inter",
+            data: await fetch(
+              "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hjp-Ek-_EeA.woff"
+            ).then((res) => res.arrayBuffer()),
+            weight: 600,
             style: "normal",
           },
           {

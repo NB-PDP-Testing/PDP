@@ -43,6 +43,45 @@ export const getByPlayerId = query({
 });
 
 /**
+ * Get medical profile by player identity ID (NEW system)
+ * Finds the legacy player record and returns its medical profile
+ */
+export const getByPlayerIdentityId = query({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.union(medicalProfileValidator, v.null()),
+  handler: async (ctx, args) => {
+    // Get player identity
+    const playerIdentity = await ctx.db.get(args.playerIdentityId);
+    if (!playerIdentity) {
+      return null;
+    }
+
+    // Find legacy player record by matching name in the same org
+    const fullName = `${playerIdentity.firstName} ${playerIdentity.lastName}`;
+    const legacyPlayer = await ctx.db
+      .query("players")
+      .withIndex("by_organizationId", (q) =>
+        q.eq("organizationId", args.organizationId)
+      )
+      .filter((q) => q.eq(q.field("name"), fullName))
+      .first();
+
+    if (!legacyPlayer) {
+      return null;
+    }
+
+    // Get medical profile for legacy player
+    return await ctx.db
+      .query("medicalProfiles")
+      .withIndex("by_playerId", (q) => q.eq("playerId", legacyPlayer._id))
+      .first();
+  },
+});
+
+/**
  * Get all players for an organization using the NEW identity system
  * Returns players from playerIdentities + orgPlayerEnrollments
  */
@@ -189,21 +228,21 @@ export const getOrganizationStats = query({
       }
 
       if (profile) {
-        playersWithProfiles++;
+        playersWithProfiles += 1;
         if (profile.allergies.length > 0) {
-          playersWithAllergies++;
+          playersWithAllergies += 1;
         }
         if (profile.medications.length > 0) {
-          playersWithMedications++;
+          playersWithMedications += 1;
         }
         if (profile.conditions.length > 0) {
-          playersWithConditions++;
+          playersWithConditions += 1;
         }
         if (!profile.emergencyContact1Name) {
-          playersWithoutEmergencyContacts++;
+          playersWithoutEmergencyContacts += 1;
         }
       } else {
-        playersWithoutEmergencyContacts++;
+        playersWithoutEmergencyContacts += 1;
       }
     }
 
@@ -500,7 +539,7 @@ export const upsert = mutation({
 
     if (existing) {
       // Update existing profile
-      const { playerId, ...updates } = args;
+      const { playerId: _playerId, ...updates } = args;
       await ctx.db.patch(existing._id, updates);
       return { profileId: existing._id, wasCreated: false };
     }

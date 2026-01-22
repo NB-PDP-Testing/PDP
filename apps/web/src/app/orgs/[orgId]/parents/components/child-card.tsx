@@ -4,8 +4,9 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import {
-  AlertTriangle,
+  Activity,
   Calendar,
+  CheckCircle,
   ChevronRight,
   Heart,
   Star,
@@ -122,6 +123,12 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
     playerIdentityId: player._id,
   });
 
+  // Get medical profile
+  const medicalProfile = useQuery(
+    api.models.medicalProfiles.getByPlayerIdentityId,
+    { playerIdentityId: player._id, organizationId: orgId }
+  );
+
   // Get first passport (primary sport)
   const primaryPassport = passportData?.passports?.[0];
 
@@ -161,6 +168,31 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
     return goals.filter((g: any) => g.parentCanView !== false);
   }, [goals]);
 
+  // Get medical alerts (conditions + allergies) with labels
+  const medicalAlerts = useMemo(() => {
+    const alerts: { type: "condition" | "allergy"; name: string }[] = [];
+    if (medicalProfile?.conditions && medicalProfile.conditions.length > 0) {
+      for (const condition of medicalProfile.conditions) {
+        alerts.push({ type: "condition", name: condition });
+      }
+    }
+    if (medicalProfile?.allergies && medicalProfile.allergies.length > 0) {
+      for (const allergy of medicalProfile.allergies) {
+        alerts.push({ type: "allergy", name: allergy });
+      }
+    }
+    return alerts;
+  }, [medicalProfile]);
+
+  // Format medical alert for display
+  const formatMedicalAlert = (alert: {
+    type: "condition" | "allergy";
+    name: string;
+  }) => {
+    const prefix = alert.type === "allergy" ? "Allergy:" : "Condition:";
+    return `${prefix} ${alert.name}`;
+  };
+
   // Calculate performance score (0-100)
   const performanceScore = Math.round(averageRating * 20); // Convert 0-5 to 0-100
 
@@ -169,9 +201,9 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
   const matchAttendance = enrollment?.attendance?.matches ?? 0;
 
   return (
-    <Card className="overflow-hidden transition-shadow hover:shadow-lg">
+    <Card className="overflow-hidden border-0 shadow-md transition-shadow hover:shadow-lg">
       {/* Header */}
-      <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 pb-4 text-white">
+      <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 pb-4 text-white">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
@@ -235,7 +267,7 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
                             ? "fill-yellow-400 text-yellow-400"
                             : "text-gray-200"
                         }`}
-                        key={i}
+                        key={`star-${skill.name}-${i}`}
                       />
                     ))}
                   </div>
@@ -303,27 +335,117 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
           </div>
         )}
 
-        {/* Injury Status */}
-        <div className="flex items-center justify-between rounded-lg border p-2">
-          <div className="flex items-center gap-2">
-            <Heart
-              className={`h-4 w-4 ${
-                activeInjuries.length > 0 ? "text-red-500" : "text-green-500"
+        {/* Injury Status - Simple summary with link like MVP */}
+        <Link
+          className={`block rounded-lg border-l-4 p-3 transition-colors hover:opacity-90 ${
+            activeInjuries.length > 0
+              ? "border-red-500 bg-red-50"
+              : "border-green-500 bg-green-50"
+          }`}
+          href={`/orgs/${orgId}/parents/injuries`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h4
+                className={`flex items-center gap-2 font-semibold text-xs uppercase tracking-wide ${
+                  activeInjuries.length > 0 ? "text-red-700" : "text-green-700"
+                }`}
+              >
+                <Activity className="h-4 w-4" />
+                Injury Status
+              </h4>
+              <p
+                className={`mt-1 text-sm ${
+                  activeInjuries.length > 0 ? "text-red-800" : "text-green-800"
+                }`}
+              >
+                {activeInjuries.length > 0 ? (
+                  <>
+                    {activeInjuries.filter((i: any) => i.status === "active")
+                      .length > 0 && (
+                      <span className="font-medium">
+                        {
+                          activeInjuries.filter(
+                            (i: any) => i.status === "active"
+                          ).length
+                        }{" "}
+                        active
+                        {activeInjuries.filter(
+                          (i: any) => i.status === "recovering"
+                        ).length > 0 && ", "}
+                      </span>
+                    )}
+                    {activeInjuries.filter(
+                      (i: any) => i.status === "recovering"
+                    ).length > 0 && (
+                      <span>
+                        {
+                          activeInjuries.filter(
+                            (i: any) => i.status === "recovering"
+                          ).length
+                        }{" "}
+                        recovering
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="flex items-center gap-1">
+                    <CheckCircle className="h-4 w-4" />
+                    No injuries recorded
+                  </span>
+                )}
+              </p>
+            </div>
+            <ChevronRight
+              className={`h-5 w-5 ${
+                activeInjuries.length > 0 ? "text-red-400" : "text-green-400"
               }`}
             />
-            <span className="text-sm">Injury Status</span>
           </div>
-          {activeInjuries.length > 0 ? (
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-              <Badge className="bg-red-100 text-red-700">
-                {activeInjuries.length} Active
-              </Badge>
+        </Link>
+
+        {/* Medical Status - Compact summary with link */}
+        <Link
+          className={`block rounded-lg border-l-4 p-2 transition-colors hover:opacity-90 ${
+            medicalAlerts.length > 0
+              ? "border-orange-500 bg-orange-50"
+              : "border-blue-500 bg-blue-50"
+          }`}
+          href={`/orgs/${orgId}/parents/medical`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              <h4
+                className={`flex items-center gap-2 font-semibold text-xs uppercase tracking-wide ${
+                  medicalAlerts.length > 0 ? "text-orange-700" : "text-blue-700"
+                }`}
+              >
+                <Heart className="h-3 w-3" />
+                Medical
+              </h4>
+              <p
+                className={`mt-0.5 truncate text-xs ${
+                  medicalAlerts.length > 0 ? "text-orange-800" : "text-blue-800"
+                }`}
+              >
+                {medicalAlerts.length > 0
+                  ? medicalAlerts
+                      .slice(0, 2)
+                      .map(formatMedicalAlert)
+                      .join(", ") +
+                    (medicalAlerts.length > 2
+                      ? ` +${medicalAlerts.length - 2} more`
+                      : "")
+                  : "No alerts"}
+              </p>
             </div>
-          ) : (
-            <Badge className="bg-green-100 text-green-700">All Clear</Badge>
-          )}
-        </div>
+            <ChevronRight
+              className={`h-4 w-4 shrink-0 ${
+                medicalAlerts.length > 0 ? "text-orange-400" : "text-blue-400"
+              }`}
+            />
+          </div>
+        </Link>
 
         {/* Last Review */}
         {enrollment?.lastReviewDate && (

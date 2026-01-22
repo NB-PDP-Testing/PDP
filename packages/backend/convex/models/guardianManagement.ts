@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 
 // ============================================================
@@ -420,6 +421,7 @@ export const updateGuardianLink = mutation({
 /**
  * Remove guardian-player link
  * If this is the last link for the guardian, resets userId to force re-acknowledgment
+ * Also revokes any active passport sharing consents for this guardian-player combination
  */
 export const removeGuardianLink = mutation({
   args: {
@@ -433,9 +435,41 @@ export const removeGuardianLink = mutation({
     }
 
     const guardianIdentityId = link.guardianIdentityId;
+    const playerIdentityId = link.playerIdentityId;
 
     // Delete the link
     await ctx.db.delete(args.linkId);
+
+    // Revoke any active passport sharing consents for this guardian-player combination
+    // This ensures sharing permissions don't persist after guardian is unlinked
+    const activeConsents = await ctx.db
+      .query("passportShareConsents")
+      .withIndex("by_player", (q) => q.eq("playerIdentityId", playerIdentityId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("guardianIdentityId"), guardianIdentityId),
+          q.eq(q.field("status"), "active")
+        )
+      )
+      .collect();
+
+    const now = Date.now();
+    for (const consent of activeConsents) {
+      await ctx.db.patch(consent._id, {
+        status: "revoked",
+        revokedAt: now,
+        revokedReason: "Guardian-player link removed",
+      });
+      console.log(
+        `[removeGuardianLink] Revoked sharing consent ${consent._id} for player ${playerIdentityId}`
+      );
+    }
+
+    if (activeConsents.length > 0) {
+      console.log(
+        `[removeGuardianLink] Revoked ${activeConsents.length} passport sharing consent(s) for guardian ${guardianIdentityId} and player ${playerIdentityId}`
+      );
+    }
 
     // Check if this was the last link for this guardian (across all players)
     const remainingLinksForGuardian = await ctx.db
@@ -501,5 +535,58 @@ export const addGuardianLink = mutation({
       createdAt: now,
       updatedAt: now,
     });
+  },
+});
+
+/**
+ * Cleanup declined guardian-player links
+ * Deletes all links where the user has clicked "This Isn't Me"
+ * These are orphaned records that should be removed
+ */
+export const cleanupDeclinedLinks = mutation({
+  args: {
+    guardianIdentityId: v.optional(v.id("guardianIdentities")),
+  },
+  returns: v.object({
+    deletedCount: v.number(),
+    deletedIds: v.array(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    let declinedLinks: Doc<"guardianPlayerLinks">[];
+
+    if (args.guardianIdentityId) {
+      // Clean up for specific guardian
+      const guardianId = args.guardianIdentityId;
+      declinedLinks = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) => q.eq("guardianIdentityId", guardianId))
+        .filter((q) => q.neq(q.field("declinedByUserId"), undefined))
+        .collect();
+    } else {
+      // Clean up all declined links (admin operation)
+      declinedLinks = await ctx.db
+        .query("guardianPlayerLinks")
+        .filter((q) => q.neq(q.field("declinedByUserId"), undefined))
+        .collect();
+    }
+
+    const deletedIds: string[] = [];
+
+    for (const link of declinedLinks) {
+      await ctx.db.delete(link._id);
+      deletedIds.push(link._id);
+      console.log(
+        `[cleanupDeclinedLinks] Deleted declined link ${link._id} for player ${link.playerIdentityId}`
+      );
+    }
+
+    console.log(
+      `[cleanupDeclinedLinks] Cleaned up ${deletedIds.length} declined guardian-player links`
+    );
+
+    return {
+      deletedCount: deletedIds.length,
+      deletedIds,
+    };
   },
 });

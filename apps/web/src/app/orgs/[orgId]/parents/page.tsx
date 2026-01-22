@@ -2,36 +2,19 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import {
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Share2,
-  TrendingUp,
-  Users,
-} from "lucide-react";
-import type { Route } from "next";
-import Link from "next/link";
+import { AlertCircle, CheckCircle, Clock, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { GuardianIdentityClaimDialog } from "@/components/guardian-identity-claim-dialog";
 import Loader from "@/components/loader";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 import { AIPracticeAssistant } from "./components/ai-practice-assistant";
 import { ChildCard } from "./components/child-card";
-import { CoachFeedback } from "./components/coach-feedback";
+import { CoachFeedbackSnapshot } from "./components/coach-feedback-snapshot";
 import { GuardianSettings } from "./components/guardian-settings";
-import { MedicalInfo } from "./components/medical-info";
 import { WeeklySchedule } from "./components/weekly-schedule";
 
 function ParentDashboardContent() {
@@ -330,6 +313,9 @@ function ParentDashboardContent() {
         </Card>
       )}
 
+      {/* Weekly Schedule - Moved to top */}
+      {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}
+
       {/* Summary Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -389,46 +375,12 @@ function ParentDashboardContent() {
         </Card>
       </div>
 
-      {/* Passport Sharing Card */}
+      {/* Coach Feedback Snapshot */}
+      {playerCount > 0 && <CoachFeedbackSnapshot orgId={orgId} />}
+
+      {/* AI Practice Assistant - Full width */}
       {playerCount > 0 && (
-        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Share2 className="h-5 w-5 text-blue-600" />
-                  Passport Sharing
-                </CardTitle>
-                <CardDescription className="mt-2">
-                  Control who can view your children's player development
-                  passports across organizations
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-2">
-                <p className="text-sm">
-                  Enable sharing to allow coaches from other clubs and teams to
-                  view your child's development progress with your permission.
-                </p>
-                <ul className="ml-4 list-disc space-y-1 text-muted-foreground text-sm">
-                  <li>Share with specific organizations</li>
-                  <li>Control what information is shared</li>
-                  <li>View access logs and analytics</li>
-                  <li>Revoke access anytime</li>
-                </ul>
-              </div>
-              <Link href={`/orgs/${orgId}/parents/sharing` as Route}>
-                <Button className="shrink-0" size="lg">
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Manage Sharing
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        <AIPracticeAssistant orgId={orgId} playerData={identityChildren} />
       )}
 
       {/* Children Cards */}
@@ -440,63 +392,6 @@ function ParentDashboardContent() {
               <ChildCard child={child} key={child.player._id} orgId={orgId} />
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Weekly Schedule */}
-      {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}
-
-      {/* Coach Feedback Section */}
-      {playerCount > 0 && <CoachFeedback orgId={orgId} />}
-
-      {/* Medical Information Section */}
-      {playerCount > 0 && (
-        <MedicalInfo orgId={orgId} playerData={identityChildren} />
-      )}
-
-      {/* AI Practice Assistant */}
-      {playerCount > 0 && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <AIPracticeAssistant orgId={orgId} playerData={identityChildren} />
-
-          {/* Coming Soon Features */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
-                Coming Soon
-              </CardTitle>
-              <CardDescription>More features are on the way</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-3">
-                <li className="flex items-center gap-3">
-                  <Badge variant="outline">Planned</Badge>
-                  <span className="text-sm">
-                    Real-time schedule integration
-                  </span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <Badge variant="outline">Planned</Badge>
-                  <span className="text-sm">
-                    Push notifications for coach feedback
-                  </span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <Badge variant="outline">Planned</Badge>
-                  <span className="text-sm">Progress reports PDF export</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <Badge variant="outline">Planned</Badge>
-                  <span className="text-sm">Multi-sport comparison views</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <Badge variant="outline">Planned</Badge>
-                  <span className="text-sm">Skill radar charts</span>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
         </div>
       )}
 

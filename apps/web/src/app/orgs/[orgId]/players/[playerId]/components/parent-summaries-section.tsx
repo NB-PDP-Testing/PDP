@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import CoachAvatar from "@/components/shared/coach-avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -295,101 +296,119 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
         <div className="space-y-3">
           {summariesToShow.map((summary) => (
             <Card className="overflow-hidden" key={summary._id}>
-              <CardContent className="space-y-3 p-4">
-                {/* Header: Category & Date */}
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium text-xs ${getCategoryColor(summary.privateInsight.category)}`}
-                    >
-                      {summary.privateInsight.category
-                        .replace(/_/g, " ")
-                        .toUpperCase()}
-                    </span>
-                    <span className="text-muted-foreground text-xs">
-                      {new Date(summary.createdAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                    {summary.sportName && (
-                      <>
-                        <span className="text-muted-foreground">•</span>
-                        <span className="text-muted-foreground text-xs">
-                          {summary.sportName}
+              <CardContent className="p-4">
+                <div className="flex gap-3">
+                  {/* Coach Avatar */}
+                  <div className="hidden flex-shrink-0 sm:block">
+                    <CoachAvatar coachName={summary.coachName} size="md" />
+                  </div>
+                  <div className="flex-shrink-0 sm:hidden">
+                    <CoachAvatar coachName={summary.coachName} size="sm" />
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="flex-1 space-y-3">
+                    {/* Header: Category & Date */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium text-xs ${getCategoryColor(summary.privateInsight.category)}`}
+                        >
+                          {summary.privateInsight.category
+                            .replace(/_/g, " ")
+                            .toUpperCase()}
                         </span>
-                      </>
-                    )}
-                  </div>
+                        <span className="text-muted-foreground text-xs">
+                          {new Date(summary.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            }
+                          )}
+                        </span>
+                        {summary.sportName && (
+                          <>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="text-muted-foreground text-xs">
+                              {summary.sportName}
+                            </span>
+                          </>
+                        )}
+                      </div>
 
-                  <div className="flex items-center gap-2">
-                    {getSentimentIcon(summary.privateInsight.sentiment)}
-                    {summary.viewedAt && (
-                      <Badge className="text-xs" variant="outline">
-                        Read
-                      </Badge>
-                    )}
-                    {!summary.viewedAt && summary.status === "delivered" && (
-                      <Badge className="bg-blue-100 text-blue-800 text-xs">
-                        New
-                      </Badge>
-                    )}
-                  </div>
-                </div>
+                      <div className="flex items-center gap-2">
+                        {getSentimentIcon(summary.privateInsight.sentiment)}
+                        {summary.viewedAt && (
+                          <Badge className="text-xs" variant="outline">
+                            Read
+                          </Badge>
+                        )}
+                        {!summary.viewedAt &&
+                          summary.status === "delivered" && (
+                            <Badge className="bg-blue-100 text-blue-800 text-xs">
+                              New
+                            </Badge>
+                          )}
+                      </div>
+                    </div>
 
-                {/* Parent-Safe Content */}
-                <div
-                  className={`rounded-lg p-4 ${
-                    summary.privateInsight.category.toLowerCase() === "behavior"
-                      ? "border-red-400 border-l-4 bg-red-50"
-                      : summary.privateInsight.category.toLowerCase() ===
-                          "injury"
-                        ? "border-orange-400 border-l-4 bg-orange-50"
-                        : "bg-blue-50"
-                  }`}
-                >
-                  <p className="text-gray-800 text-sm leading-relaxed">
-                    {summary.publicSummary.content}
-                  </p>
-                </div>
-
-                {/* Metadata */}
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    From Coach {summary.coachName}
-                  </span>
-                  {summary.deliveredAt && (
-                    <span className="text-muted-foreground">
-                      Shared{" "}
-                      {new Date(summary.deliveredAt).toLocaleDateString()}
-                    </span>
-                  )}
-                </div>
-
-                {/* Mark as Read Button - Only show for unacknowledged summaries */}
-                {!summary.acknowledgedAt && (
-                  <div className="pt-2">
-                    <Button
-                      disabled={acknowledgingId === summary._id}
-                      onClick={() => handleAcknowledge(summary._id)}
-                      size="sm"
-                      variant="outline"
+                    {/* Parent-Safe Content */}
+                    <div
+                      className={`rounded-lg p-4 ${
+                        summary.privateInsight.category.toLowerCase() ===
+                        "behavior"
+                          ? "border-red-400 border-l-4 bg-red-50"
+                          : summary.privateInsight.category.toLowerCase() ===
+                              "injury"
+                            ? "border-orange-400 border-l-4 bg-orange-50"
+                            : "bg-blue-50"
+                      }`}
                     >
-                      {acknowledgingId === summary._id ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Marking...
-                        </>
-                      ) : (
-                        <>
-                          <Check className="mr-2 h-4 w-4" />
-                          Mark as Read
-                        </>
+                      <p className="text-gray-800 text-sm leading-relaxed">
+                        {summary.publicSummary.content}
+                      </p>
+                    </div>
+
+                    {/* Metadata */}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        From Coach {summary.coachName}
+                      </span>
+                      {summary.deliveredAt && (
+                        <span className="text-muted-foreground">
+                          Shared{" "}
+                          {new Date(summary.deliveredAt).toLocaleDateString()}
+                        </span>
                       )}
-                    </Button>
+                    </div>
+
+                    {/* Mark as Read Button - Only show for unacknowledged summaries */}
+                    {!summary.acknowledgedAt && (
+                      <div className="pt-2">
+                        <Button
+                          disabled={acknowledgingId === summary._id}
+                          onClick={() => handleAcknowledge(summary._id)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {acknowledgingId === summary._id ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Marking...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="mr-2 h-4 w-4" />
+                              Mark as Read
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -416,105 +435,119 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
           >
             {coach.summaries.map((summary) => (
               <Card className="overflow-hidden" key={summary._id}>
-                <CardContent className="space-y-3 p-4">
-                  {/* Header: Category & Date */}
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium text-xs ${getCategoryColor(summary.privateInsight.category)}`}
-                      >
-                        {summary.privateInsight.category
-                          .replace(/_/g, " ")
-                          .toUpperCase()}
-                      </span>
-                      <span className="text-muted-foreground text-xs">
-                        {new Date(summary.createdAt).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          }
-                        )}
-                      </span>
-                      {summary.sportName && (
-                        <>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="text-muted-foreground text-xs">
-                            {summary.sportName}
+                <CardContent className="p-4">
+                  <div className="flex gap-3">
+                    {/* Coach Avatar */}
+                    <div className="hidden flex-shrink-0 sm:block">
+                      <CoachAvatar coachName={summary.coachName} size="md" />
+                    </div>
+                    <div className="flex-shrink-0 sm:hidden">
+                      <CoachAvatar coachName={summary.coachName} size="sm" />
+                    </div>
+
+                    {/* Card Content */}
+                    <div className="flex-1 space-y-3">
+                      {/* Header: Category & Date */}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium text-xs ${getCategoryColor(summary.privateInsight.category)}`}
+                          >
+                            {summary.privateInsight.category
+                              .replace(/_/g, " ")
+                              .toUpperCase()}
                           </span>
-                        </>
-                      )}
-                    </div>
+                          <span className="text-muted-foreground text-xs">
+                            {new Date(summary.createdAt).toLocaleDateString(
+                              "en-US",
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              }
+                            )}
+                          </span>
+                          {summary.sportName && (
+                            <>
+                              <span className="text-muted-foreground">•</span>
+                              <span className="text-muted-foreground text-xs">
+                                {summary.sportName}
+                              </span>
+                            </>
+                          )}
+                        </div>
 
-                    <div className="flex items-center gap-2">
-                      {getSentimentIcon(summary.privateInsight.sentiment)}
-                      {summary.viewedAt && (
-                        <Badge className="text-xs" variant="outline">
-                          Read
-                        </Badge>
-                      )}
-                      {!summary.viewedAt && summary.status === "delivered" && (
-                        <Badge className="bg-blue-100 text-blue-800 text-xs">
-                          New
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
+                        <div className="flex items-center gap-2">
+                          {getSentimentIcon(summary.privateInsight.sentiment)}
+                          {summary.viewedAt && (
+                            <Badge className="text-xs" variant="outline">
+                              Read
+                            </Badge>
+                          )}
+                          {!summary.viewedAt &&
+                            summary.status === "delivered" && (
+                              <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                New
+                              </Badge>
+                            )}
+                        </div>
+                      </div>
 
-                  {/* Parent-Safe Content */}
-                  <div
-                    className={`rounded-lg p-4 ${
-                      summary.privateInsight.category.toLowerCase() ===
-                      "behavior"
-                        ? "border-red-400 border-l-4 bg-red-50"
-                        : summary.privateInsight.category.toLowerCase() ===
-                            "injury"
-                          ? "border-orange-400 border-l-4 bg-orange-50"
-                          : "bg-blue-50"
-                    }`}
-                  >
-                    <p className="text-gray-800 text-sm leading-relaxed">
-                      {summary.publicSummary.content}
-                    </p>
-                  </div>
-
-                  {/* Metadata */}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      From {coach.coachName}
-                    </span>
-                    {summary.deliveredAt && (
-                      <span className="text-muted-foreground">
-                        Shared{" "}
-                        {new Date(summary.deliveredAt).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Mark as Read Button - Only show for unacknowledged summaries */}
-                  {!summary.acknowledgedAt && (
-                    <div className="pt-2">
-                      <Button
-                        disabled={acknowledgingId === summary._id}
-                        onClick={() => handleAcknowledge(summary._id)}
-                        size="sm"
-                        variant="outline"
+                      {/* Parent-Safe Content */}
+                      <div
+                        className={`rounded-lg p-4 ${
+                          summary.privateInsight.category.toLowerCase() ===
+                          "behavior"
+                            ? "border-red-400 border-l-4 bg-red-50"
+                            : summary.privateInsight.category.toLowerCase() ===
+                                "injury"
+                              ? "border-orange-400 border-l-4 bg-orange-50"
+                              : "bg-blue-50"
+                        }`}
                       >
-                        {acknowledgingId === summary._id ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Marking...
-                          </>
-                        ) : (
-                          <>
-                            <Check className="mr-2 h-4 w-4" />
-                            Mark as Read
-                          </>
+                        <p className="text-gray-800 text-sm leading-relaxed">
+                          {summary.publicSummary.content}
+                        </p>
+                      </div>
+
+                      {/* Metadata */}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          From {coach.coachName}
+                        </span>
+                        {summary.deliveredAt && (
+                          <span className="text-muted-foreground">
+                            Shared{" "}
+                            {new Date(summary.deliveredAt).toLocaleDateString()}
+                          </span>
                         )}
-                      </Button>
+                      </div>
+
+                      {/* Mark as Read Button - Only show for unacknowledged summaries */}
+                      {!summary.acknowledgedAt && (
+                        <div className="pt-2">
+                          <Button
+                            disabled={acknowledgingId === summary._id}
+                            onClick={() => handleAcknowledge(summary._id)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            {acknowledgingId === summary._id ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Marking...
+                              </>
+                            ) : (
+                              <>
+                                <Check className="mr-2 h-4 w-4" />
+                                Mark as Read
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
             ))}

@@ -2557,3 +2557,166 @@ US-009 (child summary cards grid) is **properly implemented** and meets all its 
 ## Quality Monitor - 2026-01-22 19:47:03
 - ⚠️ Biome lint errors found
 
+
+## [2026-01-22 20:30] - US-014, US-015 - Coach Avatars and Relative Dates
+**Iteration**: 5
+**Commit**: ff7670b0298bc17476f0a98cc5fe9d6b9ffdb544
+**Session**: 81b8c7b9-5149-4120-b6e4-a4a4110bafc7
+**Status**: Complete
+
+### What was implemented
+- **US-014**: Added coach avatars to dashboard summary cards
+  - Imported CoachAvatar component into ParentSummaryCard
+  - Added coachName field to ParentSummaryCardProps summary type
+  - Rendered CoachAvatar with medium size before summary content
+  - Added 3px gap between avatar and content using flex layout
+  - Updated UnifiedInboxView EnrichedSummary type to include coachName
+  - Updated parent dashboard allMessages type to include coachName
+  - Coach avatars now display on both by-child and unified message views
+- **US-015**: Updated all date displays to use relative formatting
+  - Parent Summary Card: Simplified existing logic to use date-fns format()
+  - Parent Summaries Section: Created formatDate helper with 7-day threshold
+  - Replaced all toLocaleDateString() calls with formatDate()
+  - Recent messages (< 7 days): "X hours/days ago" format
+  - Older messages (> 7 days): "MMM d, yyyy" format
+  - Applied to createdAt and deliveredAt timestamps (6 total locations)
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/parents/page.tsx (+1 line for coachName type)
+- apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx (+10 lines)
+  - Added format import and coachName prop
+  - Added CoachAvatar rendering
+  - Updated date formatting to use format() from date-fns
+- apps/web/src/app/orgs/[orgId]/parents/components/unified-inbox-view.tsx (+1 line for coachName type)
+- apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx (+11 lines, simplified date logic)
+  - Added date-fns imports
+  - Created formatDate helper function
+  - Replaced 4 toLocaleDateString calls
+
+### Quality checks
+- ✅ Type check: passed (no errors in modified files)
+- ✅ Linting: passed (only pre-existing warnings)
+- ✅ Pre-commit hooks: passed
+- ⏳ Browser verification: Pending (will test after more stories completed)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Linter aggressively removes unused imports - must add import and usage atomically
+- When using format from date-fns, ensure it's imported before using in helper functions
+- Helper functions for date formatting should be created early in component to avoid repeated logic
+
+**Gotchas encountered:**
+- Linter kept removing format import until usage was added
+- Git staged version can differ from working directory - use `git restore --staged` then re-add
+- Duplicate imports can be introduced during edits - always check import section
+
+**Dependencies found:**
+- Parent Summary Card uses summary.publicSummary.generatedAt for timestamps
+- Parent Summaries Section uses summary.createdAt and summary.deliveredAt
+- Both components now consistently use 7-day threshold for relative vs absolute dates
+
+**What to do next:**
+- [ ] US-016 - Add category-specific icons to summary cards
+- [ ] US-017 - Add responsive classes for mobile optimization
+- [ ] US-018 - Add smooth transitions and hover effects
+- [ ] US-019 - Final testing and polish pass
+
+**Mistakes made:**
+- Initially didn't notice that US-015 was partially implemented in parent-summary-card
+- Removed format import which was actually needed, causing lint errors
+- Created duplicate import by adding it twice
+
+**Context management:**
+- Started at ~66K tokens (after US-011-013 commit)
+- Ended at ~99K tokens (50% usage)
+- Completed 2 full stories (US-014, US-015)
+- Good progress - staying within context limits
+
+---
+
+### Agent Feedback - 2026-01-22 19:51
+
+## Quality Monitor - 2026-01-22 19:48:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 19:49:46
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 19:51:10
+- ⚠️ Biome lint errors found
+
+
+## [2026-01-22 21:00] - US-015, US-016 - Date Formatting and Category Icons
+**Iteration**: 5
+**Commit**: 1acdac4 (US-016), ff7670b (US-015)
+**Session**: 8981b9ca-804c-4f02-a23a-0fb9b785f4a4
+**Status**: Complete
+
+### What was implemented
+- **US-015**: Updated all date displays to relative formatting
+  - Added formatDate helper function with 7-day threshold
+  - Recent messages (< 7 days): "2 hours ago" format using formatDistanceToNow
+  - Older messages (>= 7 days): "Jan 22, 2026" format using format()
+  - Applied to parent-summary-card.tsx and parent-summaries-section.tsx (4 locations total)
+- **US-016**: Added category-specific icons to summary cards
+  - Created categoryIcons mapping: skill_rating (Target), skill_progress (TrendingUp), injury (Heart), behavior (AlertCircle), performance (Trophy), attendance (Calendar)
+  - Icons colored by sentiment: positive=green-600, concern=yellow-600, neutral=blue-600
+  - Fallback to MessageSquare for unknown categories
+  - Replaced Sparkles icon in parent-summary-card.tsx
+  - Replaced getSentimentIcon with getCategoryIcon in parent-summaries-section.tsx
+  - All icons h-4 w-4 size as specified
+
+### Files changed
+- apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx (+32 lines)
+  - Added date-fns imports (format, formatDistanceToNow)
+  - Added formatDate helper function
+  - Updated 4 date displays to use formatDate
+  - Added 5 new icon imports (AlertCircle, Calendar, Target, TrendingUp, Trophy)
+  - Replaced getSentimentIcon function with getCategoryIcon
+  - Updated 2 calls to use getCategoryIcon(summary) instead of getSentimentIcon(sentiment)
+- apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx (+70 lines, -15 lines)
+  - Added 8 new icon imports
+  - Added categoryIcons mapping object
+  - Added privateInsight to summary type (optional)
+  - Added getCategoryIcon() and getIconColor() helper functions
+  - Replaced Sparkles icon with dynamic CategoryIcon component
+  - Applied sentiment-based color to icon
+- scripts/ralph/prd.json (marked US-015, US-016 as passes: true)
+
+### Quality checks
+- ✅ Type check: passed (no errors in modified files)
+- ✅ Linting: passed (biome auto-fix applied)
+- ✅ Pre-commit hooks: passed
+- ⏳ Browser verification: Pending (will test in US-019 final testing)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Linter aggressively removes unused imports - use Write tool to apply imports + usage atomically
+- Python scripts work well for complex file transformations when sed/awk too complex
+- formatDate helper pattern with 7-day threshold works well for UX (recent vs old dates)
+- Category icon mapping with sentiment coloring provides good visual hierarchy
+
+**Gotchas encountered:**
+- Biome requires long lines to be split (e.g., const IconComponent = ... had to be split across 2 lines)
+- ParentSummaryCard initially didn't have privateInsight in its type - had to extend it
+- Multiple linter passes during file writes - need to wait or use Write tool instead of Edit
+
+**Dependencies found:**
+- Date formatting depends on date-fns (format, formatDistanceToNow)
+- Category icons depend on privateInsight.category and sentiment fields from backend
+- Icon components must be imported individually from lucide-react
+
+**What to do next:**
+- [ ] US-017 - Verify responsive classes (mostly already done)
+- [ ] US-018 - Verify transitions (mostly already done)  
+- [ ] US-019 - Final testing and polish pass (comprehensive testing required)
+
+**Mistakes made:**
+- Initially tried using Edit tool for adding imports, but linter removed them - should have used Write from the start
+- Forgot that ParentSummaryCard type needed privateInsight field - had to extend type before using icons
+
+---

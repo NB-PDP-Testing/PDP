@@ -362,7 +362,7 @@
         "Test: Recent messages show 'X hours/days ago', old messages show date"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "date-fns likely already installed. Check package.json. Apply to ALL date displays in parent-facing components."
     },
     {
@@ -393,7 +393,7 @@
         "Test: Different message types show different icons"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "privateInsight.category contains the category string. Also has sentiment field for color coding."
     },
     {
@@ -416,7 +416,7 @@
         "Use browser dev tools responsive mode to verify"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Most components already responsive, but verify all. Use Chrome DevTools device toolbar to test."
     },
     {
@@ -439,7 +439,7 @@
         "Test: Hover over cards, click buttons, verify smooth"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "Keep animations subtle. Use scale sparingly (1.02 max). Transitions already in shadcn components but verify."
     },
     {

@@ -709,7 +709,8 @@ export const getParentSummariesByChildAndSport = query({
 
                   if (summary.coachId) {
                     try {
-                      const coachResult = await ctx.runQuery(
+                      // Try to find by userId first (Better Auth user ID)
+                      let coachResult = await ctx.runQuery(
                         components.betterAuth.adapter.findOne,
                         {
                           model: "user",
@@ -722,6 +723,24 @@ export const getParentSummariesByChildAndSport = query({
                           ],
                         }
                       );
+
+                      // If not found, try by _id (Convex document ID)
+                      // This handles cases where coachId was set to user._id instead of user.userId
+                      if (!coachResult) {
+                        coachResult = await ctx.runQuery(
+                          components.betterAuth.adapter.findOne,
+                          {
+                            model: "user",
+                            where: [
+                              {
+                                field: "id",
+                                value: summary.coachId,
+                                operator: "eq",
+                              },
+                            ],
+                          }
+                        );
+                      }
 
                       if (coachResult) {
                         const coach = coachResult as {
@@ -987,11 +1006,12 @@ export const getSummaryForImage = internalQuery({
       return null;
     }
 
-    // Fetch coach name using Better Auth adapter (same pattern as line 718)
+    // Fetch coach name using Better Auth adapter
     let coachFirstName = "Coach";
     if (summary.coachId) {
       try {
-        const coachResult = await ctx.runQuery(
+        // Try to find by userId first (Better Auth user ID)
+        let coachResult = await ctx.runQuery(
           components.betterAuth.adapter.findOne,
           {
             model: "user",
@@ -1004,6 +1024,24 @@ export const getSummaryForImage = internalQuery({
             ],
           }
         );
+
+        // If not found, try by id (Convex document ID)
+        // This handles cases where coachId was set to user._id instead of user.userId
+        if (!coachResult) {
+          coachResult = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "user",
+              where: [
+                {
+                  field: "id",
+                  value: summary.coachId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+        }
 
         if (coachResult) {
           const coach = coachResult as {
@@ -1026,7 +1064,8 @@ export const getSummaryForImage = internalQuery({
     let orgName = "Organization";
     if (summary.organizationId) {
       try {
-        const orgResult = await ctx.runQuery(
+        // Try to find by id first
+        let orgResult = await ctx.runQuery(
           components.betterAuth.adapter.findOne,
           {
             model: "organization",
@@ -1039,6 +1078,23 @@ export const getSummaryForImage = internalQuery({
             ],
           }
         );
+
+        // If not found, try by _id (though organizationId should always be the Better Auth id)
+        if (!orgResult) {
+          orgResult = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [
+                {
+                  field: "_id",
+                  value: summary.organizationId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+        }
 
         if (orgResult) {
           const org = orgResult as {

@@ -74,7 +74,6 @@ type Props = {
 };
 
 export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
-  const [isExpanded, setIsExpanded] = useState(true);
   const [activeTab, setActiveTab] = useState<"active" | "history">("active");
   const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
 
@@ -159,6 +158,10 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
     }
     return playerSummaries.filter((s) => s.acknowledgedAt);
   }, [playerSummaries]);
+
+  // Collapse section if there are no new/unacknowledged messages
+  const hasNewMessages = activeSummaries.length > 0;
+  const [isExpanded, setIsExpanded] = useState(hasNewMessages);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -582,7 +585,7 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                 <MessageSquare className="h-5 w-5" />
                 Coach Updates
                 <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
-                  {playerSummaries.length}
+                  {activeSummaries.length} new / {playerSummaries.length} total
                 </span>
               </div>
               {isExpanded ? (

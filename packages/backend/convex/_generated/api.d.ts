@@ -9,6 +9,7 @@
  */
 
 import type * as actions_coachParentSummaries from "../actions/coachParentSummaries.js";
+import type * as actions_guardianNotifications from "../actions/guardianNotifications.js";
 import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_messaging from "../actions/messaging.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
@@ -113,6 +114,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "actions/coachParentSummaries": typeof actions_coachParentSummaries;
+  "actions/guardianNotifications": typeof actions_guardianNotifications;
   "actions/invitations": typeof actions_invitations;
   "actions/messaging": typeof actions_messaging;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;

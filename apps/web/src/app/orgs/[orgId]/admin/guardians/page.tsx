@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -56,6 +56,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useSession } from "@/lib/auth-client";
 import { AddGuardianModal } from "./components/add-guardian-modal";
 import { EditGuardianModal } from "./components/edit-guardian-modal";
 
@@ -64,6 +65,7 @@ type StatusFilter = "all" | "accepted" | "pending" | "declined" | "missing";
 export default function GuardianManagementPage() {
   const params = useParams();
   const orgId = params.orgId as string;
+  const { data: session } = useSession();
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -114,6 +116,9 @@ export default function GuardianManagementPage() {
   const resetDeclinedLink = useMutation(
     api.models.guardianPlayerLinks.resetDeclinedLink
   );
+  const sendGuardianNotification = useAction(
+    api.actions.guardianNotifications.sendGuardianNotificationEmail
+  );
 
   const handleDeleteClick = (
     linkId: Id<"guardianPlayerLinks">,
@@ -136,6 +141,47 @@ export default function GuardianManagementPage() {
     } catch (error) {
       console.error("Failed to reset declined connection:", error);
       toast.error("Failed to reset connection");
+    }
+  };
+
+  const handleResendPendingNotification = async (
+    linkId: Id<"guardianPlayerLinks">,
+    guardianEmail: string,
+    guardianFirstName: string,
+    guardianLastName: string
+  ) => {
+    if (!session?.user) {
+      toast.error("You must be logged in to send notifications");
+      return;
+    }
+
+    try {
+      const result = await sendGuardianNotification({
+        guardianEmail,
+        guardianFirstName,
+        guardianLastName,
+        organizationId: orgId,
+        guardianPlayerLinkId: linkId,
+        invitedByUserId: session.user.id,
+        invitedByUsername: session.user.name || session.user.email,
+        invitedByEmail: session.user.email,
+      });
+
+      if (result.success) {
+        toast.success(`Notification sent to ${guardianEmail}`, {
+          description:
+            result.scenario === "existing_user"
+              ? "Simple notification sent to existing user"
+              : "Full invitation email sent with pending children message",
+        });
+      } else {
+        toast.error("Failed to send notification", {
+          description: result.message,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to send notification:", error);
+      toast.error("Failed to send notification");
     }
   };
 
@@ -784,57 +830,61 @@ export default function GuardianManagementPage() {
       </Card>
 
       {/* Status Filter Tabs */}
-      <div className="flex gap-2 border-b">
-        <button
-          className={`border-b-2 px-4 py-2 font-medium text-sm transition-colors ${
-            statusFilter === "all"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => setStatusFilter("all")}
-        >
-          All
-        </button>
-        <button
-          className={`border-b-2 px-4 py-2 font-medium text-sm transition-colors ${
-            statusFilter === "accepted"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => setStatusFilter("accepted")}
-        >
-          ✅ Accepted
-        </button>
-        <button
-          className={`border-b-2 px-4 py-2 font-medium text-sm transition-colors ${
-            statusFilter === "pending"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => setStatusFilter("pending")}
-        >
-          ⏳ Pending
-        </button>
-        <button
-          className={`border-b-2 px-4 py-2 font-medium text-sm transition-colors ${
-            statusFilter === "declined"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => setStatusFilter("declined")}
-        >
-          ❌ Declined
-        </button>
-        <button
-          className={`border-b-2 px-4 py-2 font-medium text-sm transition-colors ${
-            statusFilter === "missing"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => setStatusFilter("missing")}
-        >
-          ⚠️ Missing Contact
-        </button>
+      <div className="overflow-x-auto border-b">
+        <div className="flex gap-1 md:gap-2">
+          <button
+            className={`flex-shrink-0 border-b-2 px-2 py-2 font-medium text-sm transition-colors md:px-4 ${
+              statusFilter === "all"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setStatusFilter("all")}
+          >
+            All
+          </button>
+          <button
+            className={`flex-shrink-0 border-b-2 px-2 py-2 font-medium text-sm transition-colors md:px-4 ${
+              statusFilter === "accepted"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setStatusFilter("accepted")}
+          >
+            <span className="hidden sm:inline">✅ </span>Accepted
+          </button>
+          <button
+            className={`flex-shrink-0 border-b-2 px-2 py-2 font-medium text-sm transition-colors md:px-4 ${
+              statusFilter === "pending"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setStatusFilter("pending")}
+          >
+            <span className="hidden sm:inline">⏳ </span>Pending
+          </button>
+          <button
+            className={`flex-shrink-0 border-b-2 px-2 py-2 font-medium text-sm transition-colors md:px-4 ${
+              statusFilter === "declined"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setStatusFilter("declined")}
+          >
+            <span className="hidden sm:inline">❌ </span>Declined
+          </button>
+          <button
+            className={`flex-shrink-0 border-b-2 px-2 py-2 font-medium text-sm transition-colors md:px-4 ${
+              statusFilter === "missing"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setStatusFilter("missing")}
+          >
+            <span className="hidden sm:inline">⚠️ </span>
+            <span className="hidden md:inline">Missing Contact</span>
+            <span className="md:hidden">Missing</span>
+          </button>
+        </div>
       </div>
 
       {/* Data Display */}
@@ -1000,6 +1050,37 @@ export default function GuardianManagementPage() {
                                         </Tooltip>
                                       </TooltipProvider>
                                     )}
+                                    {!(
+                                      player.declinedByUserId ||
+                                      player.acknowledgedByParentAt
+                                    ) &&
+                                      guardian.email && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button
+                                                onClick={() =>
+                                                  handleResendPendingNotification(
+                                                    player.linkId,
+                                                    guardian.email,
+                                                    guardian.firstName,
+                                                    guardian.lastName
+                                                  )
+                                                }
+                                                size="sm"
+                                                variant="ghost"
+                                              >
+                                                <Send className="h-4 w-4 text-yellow-600" />
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p className="max-w-xs text-sm">
+                                                Resend notification email
+                                              </p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
                                     <Button
                                       onClick={() =>
                                         handleDeleteClick(
@@ -1229,6 +1310,37 @@ export default function GuardianManagementPage() {
                                             </Tooltip>
                                           </TooltipProvider>
                                         )}
+                                        {!(
+                                          player.declinedByUserId ||
+                                          player.acknowledgedByParentAt
+                                        ) &&
+                                          guardian.email && (
+                                            <TooltipProvider>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <Button
+                                                    onClick={() =>
+                                                      handleResendPendingNotification(
+                                                        player.linkId,
+                                                        guardian.email,
+                                                        guardian.firstName,
+                                                        guardian.lastName
+                                                      )
+                                                    }
+                                                    size="sm"
+                                                    variant="ghost"
+                                                  >
+                                                    <Send className="h-4 w-4 text-yellow-600" />
+                                                  </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <p className="max-w-xs text-sm">
+                                                    Resend notification email
+                                                  </p>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            </TooltipProvider>
+                                          )}
                                         <Button
                                           onClick={() =>
                                             handleDeleteClick(
@@ -1310,6 +1422,7 @@ export default function GuardianManagementPage() {
         <AddGuardianModal
           onOpenChange={setAddGuardianModalOpen}
           open={addGuardianModalOpen}
+          organizationId={orgId}
           playerId={selectedPlayer.id as Id<"playerIdentities">}
           playerName={selectedPlayer.name}
         />

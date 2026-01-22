@@ -1043,3 +1043,129 @@ The previous fix (commit 45f427b) was incomplete - it only checked for authentic
 
 **Phase 4 is PRODUCTION READY! 🎉**
 
+
+## [2026-01-22 17:45] - PHASE 3-5 STARTING POINT - Context for Ralph
+**Status**: Ready to start Phases 3-5
+**Branch**: ralph/coach-parent-summaries-p4
+**Commit**: 7abbffd (PRD and implementation plan added)
+
+### ✅ WHAT'S BEEN COMPLETED (Phases 1-4 MVP)
+
+**Phase 1-2: Backend & Core Features (All Done)**
+- ✅ Backend acknowledgment system fully implemented
+  - acknowledgeParentSummary mutation (marks single summary as read)
+  - acknowledgeAllForPlayer mutation (marks all for a player)
+  - Schema fields: acknowledgedAt, acknowledgedBy on coachParentSummaries
+- ✅ Parent dashboard with Mark as Read functionality
+- ✅ "NEW" and "Acknowledged" badges working
+- ✅ Sport icons and unread badges (US-019, US-020 from Phase 4)
+- ✅ Shareable summary images with download/share
+- ✅ Coach name lookup fixed (handles both userId and id fields)
+
+**BONUS: AI Practice Assistant (Just Completed)**
+- ✅ GPT-4 integration for personalized practice plans (commit: 0ac21da)
+- ✅ Backend: packages/backend/convex/actions/practicePlans.ts
+- ✅ Frontend: apps/web/src/app/orgs/[orgId]/parents/components/ai-practice-assistant-enhanced.tsx
+- ✅ Generates 15-minute weekly plans with drills, equipment, schedule, parent tips
+- ✅ All linting issues fixed, types passing
+
+### 🎯 WHAT RALPH NEEDS TO DO (Phases 3-5 - 19 Stories)
+
+**Phase 3: Player Passport Reorganization (US-001 to US-006)**
+Goal: Make Coach Updates prominent and organized in player passport
+- Move Coach Updates to TOP of passport (after basic info)
+- Add Active/History tabs (unread vs read messages)
+- Add "Mark as Read" button in passport view
+- Add coach avatars throughout passport
+
+**Phase 4: Enhanced Parent Dashboard (US-007 to US-013)**
+Goal: Better overview and navigation for parents
+- Child summary cards showing avg skill rating, unread count
+- Unified inbox view (all messages chronologically)
+- View toggle (By Child / All Messages)
+- Action items panel with scroll behavior
+
+**Phase 5: Visual Polish (US-014 to US-019)**
+Goal: Professional UI with great UX
+- Coach avatars on dashboard
+- Relative date formatting ("2 hours ago")
+- Category-specific icons (skill, injury, behavior, etc.)
+- Mobile responsiveness
+- Smooth transitions and animations
+- Final testing pass
+
+### 📚 KEY FILES & LOCATIONS FOR PHASES 3-5
+
+**Files to Modify:**
+- apps/web/src/app/orgs/[orgId]/players/[playerId]/page.tsx (Phase 3.1)
+- apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx (Phase 3.2-3.3)
+- apps/web/src/app/orgs/[orgId]/parents/page.tsx (Phase 4)
+- apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx (Phase 5)
+- apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx (Phase 3.3)
+
+**Files to Create:**
+- apps/web/src/components/shared/coach-avatar.tsx (US-005)
+- apps/web/src/app/orgs/[orgId]/parents/components/child-summary-card.tsx (US-007)
+- apps/web/src/app/orgs/[orgId]/parents/components/unified-inbox-view.tsx (US-010)
+- apps/web/src/app/orgs/[orgId]/parents/components/action-items-panel.tsx (US-012)
+
+### 🔑 CRITICAL BACKEND APIs (All Implemented - Just Use Them!)
+
+**All these already exist in packages/backend/convex/models/coachParentSummaries.ts:**
+```typescript
+// Queries
+api.models.coachParentSummaries.getParentSummariesByChildAndSport({ organizationId })
+api.models.coachParentSummaries.getParentUnreadCount({ organizationId })
+api.models.sportPassports.getFullPlayerPassportView({ playerIdentityId, organizationId })
+
+// Mutations
+api.models.coachParentSummaries.acknowledgeParentSummary({ summaryId })
+api.models.coachParentSummaries.acknowledgeAllForPlayer({ playerIdentityId, organizationId })
+```
+
+**NO NEW BACKEND WORK NEEDED** - All Phases 3-5 are purely frontend!
+
+### ⚠️ CRITICAL PATTERNS FOR SUCCESS
+
+**Component Patterns:**
+```typescript
+// ✅ Date formatting (date-fns already installed)
+import { formatDistanceToNow, format } from "date-fns";
+{formatDistanceToNow(new Date(timestamp), { addSuffix: true })} // "2 hours ago"
+
+// ✅ Responsive grids
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+// ✅ Real-time updates with Convex
+const data = useQuery(api.models.something, { orgId }); // Auto-updates!
+
+// ✅ Icons from lucide-react
+import { Check, MessageSquare, Sparkles, Target, TrendingUp } from "lucide-react";
+```
+
+**Quality Checks (MUST PASS BEFORE COMMIT):**
+1. `npm run check-types` - TypeScript must pass
+2. `npx ultracite fix` - Auto-format code
+3. Manual verification - Navigate to pages, test functionality
+4. Mobile check - Test at 375px, 768px, 1920px widths
+
+### 📖 DOCUMENTATION REFERENCES
+
+- **Full implementation guide**: docs/features/parent-experience-phase-3-5-implementation-plan.md
+- **Original plan**: docs/features/parent-experience-improvements.md
+- **PRD with all 19 stories**: scripts/ralph/prd.json
+- **Detailed PRD doc**: scripts/ralph/prds/parent-experience-p3-p5-prd.md
+
+### 🚀 RALPH START HERE
+
+You're about to implement US-001 through US-019. Each story is small (1-3 files), has detailed acceptance criteria, and should complete in one context window.
+
+**First story (US-001):** Move Coach Updates section to top of Player Passport
+- File: apps/web/src/app/orgs/[orgId]/players/[playerId]/page.tsx
+- Task: Reorder component rendering (just move ParentSummariesSection up)
+- Impact: 1 file, ~5 lines changed
+
+Good luck! Remember to read acceptance criteria carefully and update this progress.txt after each story.
+
+---
+

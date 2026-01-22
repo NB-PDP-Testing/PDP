@@ -1,6 +1,6 @@
 {
   "project": "Parent Experience Improvements - Phases 3-5",
-  "branchName": "ralph/parent-experience-p3-p5",
+  "branchName": "ralph/coach-parent-summaries-p4",
   "description": "Complete parent experience enhancements: reorganize Player Passport, improve parent dashboard, add visual polish. All backend infrastructure ready - frontend work only.",
   "readinessLevel": "100%",
   "contextFromPreviousPhases": {

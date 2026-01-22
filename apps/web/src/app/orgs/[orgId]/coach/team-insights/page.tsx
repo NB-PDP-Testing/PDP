@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCoachAccess } from "@/hooks/useCoachAccess";
+import { useUser } from "@/hooks/use-user";
 
 // Format date as "Mon Jan 22, 10:30 PM"
 function formatDate(date: Date | string | number): string {
@@ -48,9 +48,15 @@ function formatDate(date: Date | string | number): string {
 export default function TeamInsightsPage() {
   const params = useParams<{ orgId: string }>();
   const orgId = params?.orgId as BetterAuthId<"organization">;
+  const { user } = useUser();
 
-  const { coachAssignment } = useCoachAccess(orgId);
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
+
+  // Get coach assignments
+  const coachAssignment = useQuery(
+    api.models.coaches.getCoachAssignments,
+    user?.id && orgId ? { userId: user.id, organizationId: orgId } : "skip"
+  );
 
   // Fetch team observations
   const observations = useQuery(

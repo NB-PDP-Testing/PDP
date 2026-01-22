@@ -2,7 +2,17 @@
 
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { format, formatDistanceToNow } from "date-fns";
-import { Check, Share2, Sparkles } from "lucide-react";
+import {
+  AlertCircle,
+  Calendar,
+  Check,
+  Heart,
+  MessageSquare,
+  Share2,
+  Target,
+  TrendingUp,
+  Trophy,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { MessagePassportLink } from "@/components/parent/message-passport-link";
@@ -13,6 +23,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 
+// US-016: Category icon mapping
+const categoryIcons = {
+  skill_rating: Target,
+  skill_progress: TrendingUp,
+  injury: Heart,
+  behavior: AlertCircle,
+  performance: Trophy,
+  attendance: Calendar,
+};
+
 type ParentSummaryCardProps = {
   summary: {
     _id: Id<"coachParentSummaries">;
@@ -20,6 +40,10 @@ type ParentSummaryCardProps = {
       content: string;
       confidenceScore: number;
       generatedAt: number;
+    };
+    privateInsight?: {
+      category: string;
+      sentiment: "positive" | "neutral" | "concern";
     };
     status: string;
     viewedAt?: number;
@@ -40,6 +64,32 @@ export function ParentSummaryCard({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isAcknowledging, setIsAcknowledging] = useState(false);
   const { useParentSummaryShareImage } = useUXFeatureFlags();
+
+  // US-016: Get category icon with fallback
+  const getCategoryIcon = () => {
+    if (!summary.privateInsight) {
+      return MessageSquare;
+    }
+    const category = summary.privateInsight.category;
+    return (
+      categoryIcons[category as keyof typeof categoryIcons] || MessageSquare
+    );
+  };
+
+  // US-016: Get icon color based on sentiment
+  const getIconColor = () => {
+    if (!summary.privateInsight) {
+      return "text-blue-600";
+    }
+    const sentiment = summary.privateInsight.sentiment;
+    if (sentiment === "positive") {
+      return "text-green-600";
+    }
+    if (sentiment === "concern") {
+      return "text-yellow-600";
+    }
+    return "text-blue-600";
+  };
 
   const handleView = () => {
     if (isUnread) {
@@ -71,6 +121,9 @@ export function ParentSummaryCard({
     }
   };
 
+  const CategoryIcon = getCategoryIcon();
+  const iconColor = getIconColor();
+
   return (
     <Card
       className="cursor-pointer transition-shadow hover:shadow-md"
@@ -100,9 +153,11 @@ export function ParentSummaryCard({
               </Badge>
             )}
 
-            {/* AI-generated summary content */}
+            {/* AI-generated summary content with category icon (US-016) */}
             <div className="mb-3 flex items-start gap-2">
-              <Sparkles className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500" />
+              <CategoryIcon
+                className={`mt-0.5 h-4 w-4 flex-shrink-0 ${iconColor}`}
+              />
               <p className="text-sm leading-relaxed">
                 {summary.publicSummary.content}
               </p>

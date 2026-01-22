@@ -5,13 +5,17 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { format, formatDistanceToNow } from "date-fns";
 import {
+  AlertCircle,
+  Calendar,
   Check,
   ChevronDown,
   ChevronUp,
   Heart,
   Loader2,
   MessageSquare,
-  Sparkles,
+  Target,
+  TrendingUp,
+  Trophy,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -215,16 +219,33 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
     });
   }, [activeTab, activeSummaries, historySummaries]);
 
-  // Get sentiment icon
-  const getSentimentIcon = (sentiment: string) => {
-    switch (sentiment) {
-      case "positive":
-        return <Sparkles className="h-4 w-4 text-green-600" />;
-      case "concern":
-        return <Heart className="h-4 w-4 text-yellow-600" />;
-      default:
-        return <MessageSquare className="h-4 w-4 text-blue-600" />;
+  // US-016: Category icon mapping
+  const categoryIcons = {
+    skill_rating: Target,
+    skill_progress: TrendingUp,
+    injury: Heart,
+    behavior: AlertCircle,
+    performance: Trophy,
+    attendance: Calendar,
+  };
+
+  // US-016: Get category icon with sentiment-based coloring
+  const getCategoryIcon = (summary: ParentSummary) => {
+    const category = summary.privateInsight.category;
+    const sentiment = summary.privateInsight.sentiment;
+
+    const IconComponent =
+      categoryIcons[category as keyof typeof categoryIcons] || MessageSquare;
+
+    // Color based on sentiment
+    let colorClass = "text-blue-600";
+    if (sentiment === "positive") {
+      colorClass = "text-green-600";
+    } else if (sentiment === "concern") {
+      colorClass = "text-yellow-600";
     }
+
+    return <IconComponent className={`h-4 w-4 ${colorClass}`} />;
   };
 
   // Get category color
@@ -342,7 +363,7 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {getSentimentIcon(summary.privateInsight.sentiment)}
+                        {getCategoryIcon(summary)}
                         {summary.viewedAt && (
                           <Badge className="text-xs" variant="outline">
                             Read
@@ -473,7 +494,7 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {getSentimentIcon(summary.privateInsight.sentiment)}
+                          {getCategoryIcon(summary)}
                           {summary.viewedAt && (
                             <Badge className="text-xs" variant="outline">
                               Read

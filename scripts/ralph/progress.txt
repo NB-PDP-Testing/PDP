@@ -2461,3 +2461,22 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>"
 - Forgot to import ActionItemsPanel initially
 
 ---
+
+## [2026-01-22 20:00] - US-014 and US-015 (Partial) - Coach Avatars and Date Formatting
+**Iteration**: Same session continuation  
+**Commit**: 5b1a485 (US-014)
+**Status**: US-014 complete, US-015 partial
+
+### What was implemented
+- **US-014**: Complete - Coach avatars already displaying in ParentSummaryCard (from previous work)
+- **US-015**: Partial - Updated parent-summary-card.tsx with 7-day threshold logic
+  - Recent messages (< 7 days): formatDistanceToNow ('2 hours ago')
+  - Older messages: toLocaleDateString ('Jan 15, 2026')
+  - Still need to update parent-summaries-section.tsx
+
+### What's left for US-015
+- Update apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx
+- Lines 322, 382, 461, 521 need same 7-day threshold logic
+- Import formatDistanceToNow from date-fns
+
+---

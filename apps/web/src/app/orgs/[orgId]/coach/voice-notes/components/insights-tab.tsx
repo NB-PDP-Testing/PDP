@@ -483,7 +483,9 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
               </Badge>
             ) : insight.category === "team_culture" ? (
               <Badge className="bg-purple-100 text-purple-700 text-xs">
-                Team
+                {(insight as any).teamName
+                  ? `Team: ${(insight as any).teamName}`
+                  : "Team"}
               </Badge>
             ) : insight.category === "todo" ? (
               <>

@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
-import { internal } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { internalAction } from "../_generated/server";
@@ -95,6 +95,20 @@ const insightSchema = z.object({
           .string()
           .nullable()
           .describe("Suggested action or update based on this insight"),
+        teamId: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "ID of the team from the team roster, if this is a team_culture insight and team was mentioned"
+          ),
+        teamName: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Name of the team from the team roster, if this is a team_culture insight and team was mentioned"
+          ),
       })
     )
     .min(0),
@@ -243,6 +257,51 @@ export const buildInsights = internalAction({
             { organizationId: note.orgId }
           );
 
+      // Get coach's assigned teams for team matching
+      const coachTeams = note.coachId
+        ? await ctx.runQuery(components.betterAuth.adapter.findOne, {
+            model: "coachAssignments",
+            where: [
+              { field: "userId", value: note.coachId, operator: "eq" },
+              { field: "organizationId", value: note.orgId, operator: "eq" },
+            ],
+          })
+        : null;
+
+      // Get team details if coach has teams assigned
+      const teamsList: Array<{
+        id: string;
+        name: string;
+        ageGroup?: string;
+        sport?: string;
+      }> = [];
+      if (coachTeams && (coachTeams as any).teams?.length > 0) {
+        const allTeamsResult = await ctx.runQuery(
+          components.betterAuth.adapter.findMany,
+          {
+            model: "team",
+            paginationOpts: { cursor: null, numItems: 1000 },
+            where: [
+              { field: "organizationId", value: note.orgId, operator: "eq" },
+            ],
+          }
+        );
+        const allTeams = allTeamsResult.page as any[];
+        const teamByNameMap = new Map(allTeams.map((t) => [t.name, t]));
+
+        for (const teamValue of (coachTeams as any).teams) {
+          const team = teamByNameMap.get(teamValue);
+          if (team) {
+            teamsList.push({
+              id: String(team._id),
+              name: team.name,
+              ageGroup: team.ageGroup,
+              sport: team.sport,
+            });
+          }
+        }
+      }
+
       // Build roster context for AI (JSON format for reliable parsing)
       // IMPORTANT: Deduplicate by playerIdentityId in case player is on multiple teams
       const uniquePlayers = Array.from(
@@ -327,8 +386,11 @@ CATEGORIZATION RULES:
 - If it's a task/action for the coach to do → use todo, playerName should be null
 - skill_rating: include the rating number in recommendedUpdate (e.g., "Set to 3/5")
 
-Team Roster (JSON array):
+Team Roster (JSON array - players):
 ${rosterContext}
+
+Coach's Teams (JSON array):
+${teamsList.length ? JSON.stringify(teamsList, null, 2) : "[]"}
 
 CRITICAL PLAYER MATCHING INSTRUCTIONS:
 - When you identify a player name in the voice note, YOU MUST find them in the roster JSON above
@@ -361,9 +423,21 @@ VERIFICATION CHECKLIST:
 3. If YES, did I copy the exact "id" field into playerId? YES/NO
 4. If NO, did I set playerId to null? YES/NO
 
+TEAM MATCHING INSTRUCTIONS (for team_culture insights):
+- When you identify a team_culture insight, try to match team mentions to the Coach's Teams list above
+- Look for team names like "U18 Female", "Senior Women", "U16 Boys", etc. in the voice note
+- Match against the "name" field in the teams JSON
+- If you find a match, copy the exact "id" and "name" into teamId and teamName
+- If no team is mentioned or no match found, leave teamId and teamName as null
+- Examples:
+  * "The U18 girls showed great spirit" → Match to {"id": "abc123", "name": "U18 Female"} → teamId="abc123", teamName="U18 Female"
+  * "Senior team played well" → Match to {"id": "xyz789", "name": "Senior Women"} → teamId="xyz789", teamName="Senior Women"
+  * "Great team spirit today" (no specific team mentioned) → teamId=null, teamName=null
+
 IMPORTANT:
 - If a player name doesn't match the roster, still extract with playerName but set playerId to null
 - For team_culture and todo categories, both playerName and playerId should be null
+- For team_culture insights, try to match teamId and teamName from the Coach's Teams list
 - Be specific and actionable in your recommendations`,
               },
             ],
@@ -428,6 +502,29 @@ IMPORTANT:
           );
         }
 
+        // Auto-assign team if:
+        // 1. This is a team_culture insight
+        // 2. AI didn't assign a teamId
+        // 3. Coach has exactly 1 team assigned
+        let teamId = insight.teamId ?? undefined;
+        let teamName = insight.teamName ?? undefined;
+
+        if (
+          insight.category === "team_culture" &&
+          !teamId &&
+          teamsList.length === 1
+        ) {
+          teamId = teamsList[0].id;
+          teamName = teamsList[0].name;
+          console.log(
+            `[Team Auto-Assignment] Assigned team_culture insight to "${teamName}" (coach has only 1 team)`
+          );
+        } else if (insight.category === "team_culture" && teamId && teamName) {
+          console.log(
+            `[Team Matching] AI matched team_culture insight to "${teamName}"`
+          );
+        }
+
         return {
           id: `insight_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
           playerIdentityId: matchedPlayer?.playerIdentityId ?? undefined,
@@ -436,6 +533,8 @@ IMPORTANT:
           description: insight.description,
           category: insight.category ?? undefined,
           recommendedUpdate: insight.recommendedUpdate ?? undefined,
+          teamId,
+          teamName,
           status: "pending" as const,
         };
       });

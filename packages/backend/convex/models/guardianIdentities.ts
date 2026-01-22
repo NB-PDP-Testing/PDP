@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 
 // ============================================================
@@ -164,6 +165,645 @@ export const searchGuardiansByName = query({
     }
 
     return all.slice(0, limit);
+  },
+});
+
+/**
+ * Get all pending parent actions for a user across ALL organizations
+ * Returns unclaimed identities, new child assignments, incomplete profiles, and missing consents
+ *
+ * This is the core query for the batched parent onboarding system (Bug #293 fix)
+ * INTERNAL ONLY - Use getPendingParentActionsWithDismissCount for client calls
+ */
+// DEPRECATED: Use getPendingParentActionsWithDismissCount instead
+// This function has TypeScript errors with Better Auth tables
+/*
+export const getPendingParentActions = query({
+  args: {
+    userId: v.string(),
+  },
+  returns: v.object({
+    unclaimedIdentities: v.array(
+      v.object({
+        guardianIdentity: guardianIdentityValidator,
+        linkedChildren: v.array(
+          v.object({
+            playerIdentityId: v.id("playerIdentities"),
+            playerName: v.string(),
+            organizationId: v.string(),
+            organizationName: v.string(),
+            relationship: v.union(
+              v.literal("mother"),
+              v.literal("father"),
+              v.literal("guardian"),
+              v.literal("grandparent"),
+              v.literal("other")
+            ),
+            linkId: v.id("guardianPlayerLinks"),
+          })
+        ),
+        organizations: v.array(
+          v.object({
+            organizationId: v.string(),
+            organizationName: v.string(),
+          })
+        ),
+      })
+    ),
+    newChildAssignments: v.array(
+      v.object({
+        guardianIdentityId: v.id("guardianIdentities"),
+        linkId: v.id("guardianPlayerLinks"),
+        playerIdentityId: v.id("playerIdentities"),
+        playerName: v.string(),
+        organizationId: v.string(),
+        organizationName: v.string(),
+        relationship: v.union(
+          v.literal("mother"),
+          v.literal("father"),
+          v.literal("guardian"),
+          v.literal("grandparent"),
+          v.literal("other")
+        ),
+        assignedAt: v.number(),
+      })
+    ),
+    incompleteProfiles: v.array(
+      v.object({
+        linkId: v.id("guardianPlayerLinks"),
+        playerIdentityId: v.id("playerIdentities"),
+        playerName: v.string(),
+        organizationId: v.string(),
+        organizationName: v.string(),
+        requiredFields: v.array(v.string()),
+      })
+    ),
+    missingConsents: v.array(
+      v.object({
+        linkId: v.id("guardianPlayerLinks"),
+        playerIdentityId: v.id("playerIdentities"),
+        playerName: v.string(),
+        organizationId: v.string(),
+        organizationName: v.string(),
+        consentType: v.string(),
+      })
+    ),
+  }),
+  handler: async (ctx, args) => {
+    // Get user info to check lastChildrenCheckAt
+    const user = await ctx.db
+      .query("user")
+      .filter((q) => q.eq(q.field("_id"), args.userId))
+      .first();
+
+    if (!(user && user.email)) {
+      return {
+        unclaimedIdentities: [],
+        newChildAssignments: [],
+        incompleteProfiles: [],
+        missingConsents: [],
+      };
+    }
+
+    const userEmail = user.email.toLowerCase().trim();
+    const lastCheckedAt = user.lastChildrenCheckAt || 0;
+
+    // 1. Get all guardian identities matching user's email
+    const allGuardianIdentities = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", userEmail))
+      .collect();
+
+    // 2. Separate unclaimed and claimed identities
+    const unclaimedIdentities = allGuardianIdentities.filter((g) => !g.userId);
+    const claimedIdentities = allGuardianIdentities.filter(
+      (g) => g.userId === args.userId
+    );
+
+    // 3. Process unclaimed identities
+    const unclaimedIdentitiesData = [];
+    for (const guardianIdentity of unclaimedIdentities) {
+      // Get all player links for this guardian
+      const links = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", guardianIdentity._id)
+        )
+        .filter((q) => q.eq(q.field("declinedByUserId"), undefined))
+        .collect();
+
+      const linkedChildren = [];
+      const organizations = new Map<string, string>();
+
+      for (const link of links) {
+        // Get player identity
+        const playerIdentity = await ctx.db.get(link.playerIdentityId);
+        if (!playerIdentity) continue;
+
+        // Get enrollment to find organization
+        const enrollment = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_player_and_org", (q) =>
+            q.eq("playerIdentityId", link.playerIdentityId)
+          )
+          .first();
+
+        if (enrollment) {
+          // Get organization name
+          const org = await ctx.db
+            .query("organization")
+            .filter((q) => q.eq(q.field("_id"), enrollment.organizationId))
+            .first();
+
+          if (org) {
+            organizations.set(enrollment.organizationId, org.name);
+
+            linkedChildren.push({
+              playerIdentityId: link.playerIdentityId,
+              playerName: `${playerIdentity.firstName} ${playerIdentity.lastName}`,
+              organizationId: enrollment.organizationId,
+              organizationName: org.name,
+              relationship: link.relationship,
+              linkId: link._id,
+            });
+          }
+        }
+      }
+
+      if (linkedChildren.length > 0) {
+        unclaimedIdentitiesData.push({
+          guardianIdentity,
+          linkedChildren,
+          organizations: Array.from(organizations.entries()).map(
+            ([organizationId, organizationName]) => ({
+              organizationId,
+              organizationName,
+            })
+          ),
+        });
+      }
+    }
+
+    // 4. Process new child assignments (links created after lastCheckedAt)
+    const newChildAssignments = [];
+    for (const guardianIdentity of claimedIdentities) {
+      const links = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", guardianIdentity._id)
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("declinedByUserId"), undefined),
+            q.eq(q.field("acknowledgedByParentAt"), undefined)
+          )
+        )
+        .collect();
+
+      // Filter for links created after last check
+      const newLinks = links.filter((link) => link.createdAt > lastCheckedAt);
+
+      for (const link of newLinks) {
+        const playerIdentity = await ctx.db.get(link.playerIdentityId);
+        if (!playerIdentity) continue;
+
+        // Get enrollment to find organization
+        const enrollment = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_player_and_org", (q) =>
+            q.eq("playerIdentityId", link.playerIdentityId)
+          )
+          .first();
+
+        if (enrollment) {
+          const org = await ctx.db
+            .query("organization")
+            .filter((q) => q.eq(q.field("_id"), enrollment.organizationId))
+            .first();
+
+          if (org) {
+            newChildAssignments.push({
+              guardianIdentityId: guardianIdentity._id,
+              linkId: link._id,
+              playerIdentityId: link.playerIdentityId,
+              playerName: `${playerIdentity.firstName} ${playerIdentity.lastName}`,
+              organizationId: enrollment.organizationId,
+              organizationName: org.name,
+              relationship: link.relationship,
+              assignedAt: link.createdAt,
+            });
+          }
+        }
+      }
+    }
+
+    // 5. Check for incomplete profiles
+    const incompleteProfiles = [];
+    for (const guardianIdentity of claimedIdentities) {
+      const links = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", guardianIdentity._id)
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("declinedByUserId"), undefined),
+            q.eq(q.field("profileCompletionRequired"), true),
+            q.eq(q.field("profileCompletedAt"), undefined)
+          )
+        )
+        .collect();
+
+      for (const link of links) {
+        const playerIdentity = await ctx.db.get(link.playerIdentityId);
+        if (!playerIdentity) continue;
+
+        const enrollment = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_player_and_org", (q) =>
+            q.eq("playerIdentityId", link.playerIdentityId)
+          )
+          .first();
+
+        if (enrollment) {
+          const org = await ctx.db
+            .query("organization")
+            .filter((q) => q.eq(q.field("_id"), enrollment.organizationId))
+            .first();
+
+          if (org) {
+            incompleteProfiles.push({
+              linkId: link._id,
+              playerIdentityId: link.playerIdentityId,
+              playerName: `${playerIdentity.firstName} ${playerIdentity.lastName}`,
+              organizationId: enrollment.organizationId,
+              organizationName: org.name,
+              requiredFields: link.requiredProfileFields || [
+                "emergencyContact",
+                "medicalInfo",
+              ],
+            });
+          }
+        }
+      }
+    }
+
+    // 6. Check for missing consents (not implemented yet, placeholder)
+    const missingConsents = [];
+
+    return {
+      unclaimedIdentities: unclaimedIdentitiesData,
+      newChildAssignments,
+      incompleteProfiles,
+      missingConsents,
+    };
+  },
+});
+*/
+
+/**
+ * Get pending parent actions WITH dismiss count
+ * Client-friendly wrapper that includes user's dismiss count
+ */
+export const getPendingParentActionsWithDismissCount = query({
+  args: {
+    userId: v.string(),
+  },
+  returns: v.object({
+    pendingActions: v.object({
+      unclaimedIdentities: v.array(
+        v.object({
+          guardianIdentity: guardianIdentityValidator,
+          linkedChildren: v.array(
+            v.object({
+              playerIdentityId: v.id("playerIdentities"),
+              playerName: v.string(),
+              organizationId: v.string(),
+              organizationName: v.string(),
+              relationship: v.union(
+                v.literal("mother"),
+                v.literal("father"),
+                v.literal("guardian"),
+                v.literal("grandparent"),
+                v.literal("other")
+              ),
+              linkId: v.id("guardianPlayerLinks"),
+            })
+          ),
+          organizations: v.array(
+            v.object({
+              organizationId: v.string(),
+              organizationName: v.string(),
+            })
+          ),
+        })
+      ),
+      newChildAssignments: v.array(
+        v.object({
+          guardianIdentityId: v.id("guardianIdentities"),
+          linkId: v.id("guardianPlayerLinks"),
+          playerIdentityId: v.id("playerIdentities"),
+          playerName: v.string(),
+          organizationId: v.string(),
+          organizationName: v.string(),
+          relationship: v.union(
+            v.literal("mother"),
+            v.literal("father"),
+            v.literal("guardian"),
+            v.literal("grandparent"),
+            v.literal("other")
+          ),
+          assignedAt: v.number(),
+        })
+      ),
+      incompleteProfiles: v.array(
+        v.object({
+          linkId: v.id("guardianPlayerLinks"),
+          playerIdentityId: v.id("playerIdentities"),
+          playerName: v.string(),
+          organizationId: v.string(),
+          organizationName: v.string(),
+          requiredFields: v.array(v.string()),
+        })
+      ),
+      missingConsents: v.array(
+        v.object({
+          linkId: v.id("guardianPlayerLinks"),
+          playerIdentityId: v.id("playerIdentities"),
+          playerName: v.string(),
+          organizationId: v.string(),
+          organizationName: v.string(),
+          consentType: v.string(),
+        })
+      ),
+    }),
+    dismissCount: v.number(),
+    lastDismissedAt: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    // Get user info via Better Auth to check lastChildrenCheckAt and get dismiss count
+    const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [
+        {
+          field: "_id",
+          value: args.userId,
+          operator: "eq",
+        },
+      ],
+    });
+
+    if (!(user && (user as any).email)) {
+      return {
+        pendingActions: {
+          unclaimedIdentities: [],
+          newChildAssignments: [],
+          incompleteProfiles: [],
+          missingConsents: [],
+        },
+        dismissCount: 0,
+        lastDismissedAt: 0,
+      };
+    }
+
+    const userEmail = (user as any).email.toLowerCase().trim();
+    const lastCheckedAt = (user as any).lastChildrenCheckAt || 0;
+    const dismissCount = (user as any).parentOnboardingDismissCount || 0;
+    const lastDismissedAt = (user as any).parentOnboardingLastDismissedAt || 0;
+
+    // 1. Get all guardian identities matching user's email
+    const allGuardianIdentities = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", userEmail))
+      .collect();
+
+    // 2. Separate unclaimed and claimed identities
+    const unclaimedIdentities = allGuardianIdentities.filter((g) => !g.userId);
+    const claimedIdentities = allGuardianIdentities.filter(
+      (g) => g.userId === args.userId
+    );
+
+    // 3. Process unclaimed identities
+    const unclaimedIdentitiesData = [];
+    for (const guardianIdentity of unclaimedIdentities) {
+      // Get all player links for this guardian
+      const links = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", guardianIdentity._id)
+        )
+        .filter((q) => q.eq(q.field("declinedByUserId"), undefined))
+        .collect();
+
+      const linkedChildren = [];
+      const organizations = new Map<string, string>();
+
+      for (const link of links) {
+        // Get player identity
+        const playerIdentity = await ctx.db.get(link.playerIdentityId);
+        if (!playerIdentity) {
+          continue;
+        }
+
+        // Get enrollment to find organization
+        const enrollment = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_player_and_org", (q) =>
+            q.eq("playerIdentityId", link.playerIdentityId)
+          )
+          .first();
+
+        if (enrollment) {
+          // Get organization name via Better Auth
+          const org = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [
+                {
+                  field: "_id",
+                  value: enrollment.organizationId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+
+          if (org) {
+            organizations.set(enrollment.organizationId, (org as any).name);
+
+            linkedChildren.push({
+              playerIdentityId: link.playerIdentityId,
+              playerName: `${playerIdentity.firstName} ${playerIdentity.lastName}`,
+              organizationId: enrollment.organizationId,
+              organizationName: (org as any).name,
+              relationship: link.relationship,
+              linkId: link._id,
+            });
+          }
+        }
+      }
+
+      if (linkedChildren.length > 0) {
+        unclaimedIdentitiesData.push({
+          guardianIdentity,
+          linkedChildren,
+          organizations: Array.from(organizations.entries()).map(
+            ([organizationId, organizationName]) => ({
+              organizationId,
+              organizationName,
+            })
+          ),
+        });
+      }
+    }
+
+    // 4. Process new child assignments (links created after lastCheckedAt)
+    const newChildAssignments = [];
+    for (const guardianIdentity of claimedIdentities) {
+      const links = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", guardianIdentity._id)
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("declinedByUserId"), undefined),
+            q.eq(q.field("acknowledgedByParentAt"), undefined)
+          )
+        )
+        .collect();
+
+      // Filter for links created after last check
+      const newLinks = links.filter((link) => link.createdAt > lastCheckedAt);
+
+      for (const link of newLinks) {
+        const playerIdentity = await ctx.db.get(link.playerIdentityId);
+        if (!playerIdentity) {
+          continue;
+        }
+
+        // Get enrollment to find organization
+        const enrollment = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_player_and_org", (q) =>
+            q.eq("playerIdentityId", link.playerIdentityId)
+          )
+          .first();
+
+        if (enrollment) {
+          const org = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [
+                {
+                  field: "_id",
+                  value: enrollment.organizationId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+
+          if (org) {
+            newChildAssignments.push({
+              guardianIdentityId: guardianIdentity._id,
+              linkId: link._id,
+              playerIdentityId: link.playerIdentityId,
+              playerName: `${playerIdentity.firstName} ${playerIdentity.lastName}`,
+              organizationId: enrollment.organizationId,
+              organizationName: (org as any).name,
+              relationship: link.relationship,
+              assignedAt: link.createdAt,
+            });
+          }
+        }
+      }
+    }
+
+    // 5. Check for incomplete profiles
+    const incompleteProfiles = [];
+    for (const guardianIdentity of claimedIdentities) {
+      const links = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian", (q) =>
+          q.eq("guardianIdentityId", guardianIdentity._id)
+        )
+        .filter((q) =>
+          q.and(
+            q.eq(q.field("declinedByUserId"), undefined),
+            q.eq(q.field("profileCompletionRequired"), true),
+            q.eq(q.field("profileCompletedAt"), undefined)
+          )
+        )
+        .collect();
+
+      for (const link of links) {
+        const playerIdentity = await ctx.db.get(link.playerIdentityId);
+        if (!playerIdentity) {
+          continue;
+        }
+
+        const enrollment = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_player_and_org", (q) =>
+            q.eq("playerIdentityId", link.playerIdentityId)
+          )
+          .first();
+
+        if (enrollment) {
+          const org = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [
+                {
+                  field: "_id",
+                  value: enrollment.organizationId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+
+          if (org) {
+            incompleteProfiles.push({
+              linkId: link._id,
+              playerIdentityId: link.playerIdentityId,
+              playerName: `${playerIdentity.firstName} ${playerIdentity.lastName}`,
+              organizationId: enrollment.organizationId,
+              organizationName: (org as any).name,
+              requiredFields: link.requiredProfileFields || [
+                "emergencyContact",
+                "medicalInfo",
+              ],
+            });
+          }
+        }
+      }
+    }
+
+    // 6. Check for missing consents (not implemented yet, placeholder)
+    const missingConsents: Array<{
+      linkId: any;
+      playerIdentityId: any;
+      playerName: string;
+      organizationId: string;
+      organizationName: string;
+      consentType: string;
+    }> = [];
+
+    return {
+      pendingActions: {
+        unclaimedIdentities: unclaimedIdentitiesData,
+        newChildAssignments,
+        incompleteProfiles,
+        missingConsents,
+      },
+      dismissCount,
+      lastDismissedAt,
+    };
   },
 });
 
@@ -383,14 +1023,21 @@ export const findOrCreateGuardian = mutation({
     postcode: v.optional(v.string()),
     country: v.optional(v.string()),
     createdFrom: v.optional(v.string()),
+    // Optional: Current user info for auto-linking when admin adds themselves
+    currentUserId: v.optional(v.string()),
+    currentUserEmail: v.optional(v.string()),
   },
   returns: v.object({
     guardianIdentityId: v.id("guardianIdentities"),
     wasCreated: v.boolean(),
     matchConfidence: v.number(),
+    autoLinked: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const normalizedEmail = args.email.toLowerCase().trim();
+
+    // REMOVED: All automatic linking disabled - everyone must acknowledge via modal
+    // No self-assignment exception, no auto-linking whatsoever
 
     // Try to find existing guardian by email
     const existing = await ctx.db
@@ -412,10 +1059,18 @@ export const findOrCreateGuardian = mutation({
         confidence += 10;
       }
 
+      // REMOVED: No auto-linking - parent must always acknowledge via modal
+      console.log(
+        "[findOrCreateGuardian] Found existing guardian, NOT auto-linking:",
+        existing._id,
+        "- parent must claim via modal"
+      );
+
       return {
         guardianIdentityId: existing._id,
         wasCreated: false,
         matchConfidence: confidence,
+        autoLinked: false,
       };
     }
 
@@ -423,7 +1078,8 @@ export const findOrCreateGuardian = mutation({
     const now = Date.now();
     const normalizedPhone = args.phone ? normalizePhone(args.phone) : undefined;
 
-    const guardianIdentityId = await ctx.db.insert("guardianIdentities", {
+    // Build guardian data - NEVER auto-link
+    const guardianData: any = {
       firstName: args.firstName.trim(),
       lastName: args.lastName.trim(),
       email: normalizedEmail,
@@ -432,16 +1088,29 @@ export const findOrCreateGuardian = mutation({
       town: args.town?.trim(),
       postcode: args.postcode?.trim(),
       country: args.country?.trim(),
-      verificationStatus: "unverified",
+      verificationStatus: "unverified", // Always unverified - must claim via modal
       createdAt: now,
       updatedAt: now,
       createdFrom: args.createdFrom ?? "import",
-    });
+      // REMOVED: userId NEVER auto-set - parent must claim via modal
+    };
+
+    const guardianIdentityId = await ctx.db.insert(
+      "guardianIdentities",
+      guardianData
+    );
+
+    console.log(
+      "[findOrCreateGuardian] Created guardian, NOT auto-linking:",
+      guardianIdentityId,
+      "- parent must claim via modal"
+    );
 
     return {
       guardianIdentityId,
       wasCreated: true,
       matchConfidence: 100, // New record, exact match to input
+      autoLinked: false, // Never auto-linked
     };
   },
 });
@@ -746,10 +1415,24 @@ export const findAllClaimableForCurrentUser = query({
 
       // Only include this guardian if they have non-declined children
       if (children.length > 0) {
-        const organizations = Array.from(orgSet).map((orgId) => ({
-          organizationId: orgId,
-          organizationName: undefined,
-        }));
+        // Fetch organization names for each organization using Better Auth adapter
+        const organizations = [];
+        for (const orgId of Array.from(orgSet)) {
+          const result = await ctx.runQuery(
+            components.betterAuth.adapter.findMany,
+            {
+              model: "organization",
+              paginationOpts: { cursor: null, numItems: 1 },
+              where: [{ field: "_id", value: orgId, operator: "eq" }],
+            }
+          );
+
+          const org = result.page[0];
+          organizations.push({
+            organizationId: orgId,
+            organizationName: org?.name,
+          });
+        }
 
         // Email match = high confidence
         results.push({
@@ -762,6 +1445,130 @@ export const findAllClaimableForCurrentUser = query({
     }
 
     return results;
+  },
+});
+
+/**
+ * Find pending children for already-claimed guardian identities
+ * Used when admin clicks "Resend" on a declined child - parent needs to re-acknowledge
+ */
+export const findPendingChildrenForClaimedGuardian = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      guardianIdentity: guardianIdentityValidator,
+      children: v.array(
+        v.object({
+          playerIdentityId: v.id("playerIdentities"),
+          firstName: v.string(),
+          lastName: v.string(),
+          dateOfBirth: v.string(),
+          relationship: v.string(),
+        })
+      ),
+      organizations: v.array(
+        v.object({
+          organizationId: v.string(),
+          organizationName: v.optional(v.string()),
+        })
+      ),
+      confidence: v.number(),
+    })
+  ),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+
+    const userId = identity.subject;
+    if (!userId) {
+      return [];
+    }
+
+    // Find guardian identities that ARE claimed by this user (userId is set)
+    const claimedGuardian = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!claimedGuardian) {
+      return [];
+    }
+
+    // Find all links for this guardian
+    const allLinks = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", claimedGuardian._id)
+      )
+      .collect();
+
+    // Filter to only pending links (not acknowledged and not declined)
+    const pendingLinks = allLinks.filter(
+      (link) => !(link.acknowledgedByParentAt || link.declinedByUserId)
+    );
+
+    if (pendingLinks.length === 0) {
+      return [];
+    }
+
+    // Build children array
+    const children: any[] = [];
+    const orgSet = new Set<string>();
+
+    for (const link of pendingLinks) {
+      const player = await ctx.db.get(link.playerIdentityId);
+      if (player) {
+        children.push({
+          playerIdentityId: player._id,
+          firstName: player.firstName,
+          lastName: player.lastName,
+          dateOfBirth: player.dateOfBirth,
+          relationship: link.relationship,
+        });
+
+        // Collect organizations
+        const enrollments = await ctx.db
+          .query("orgPlayerEnrollments")
+          .withIndex("by_playerIdentityId", (q) =>
+            q.eq("playerIdentityId", player._id)
+          )
+          .collect();
+
+        for (const enrollment of enrollments) {
+          orgSet.add(enrollment.organizationId);
+        }
+      }
+    }
+
+    // Fetch organization names
+    const organizations = [];
+    for (const orgId of Array.from(orgSet)) {
+      const result = await ctx.runQuery(
+        components.betterAuth.adapter.findMany,
+        {
+          model: "organization",
+          paginationOpts: { cursor: null, numItems: 1 },
+          where: [{ field: "_id", value: orgId, operator: "eq" }],
+        }
+      );
+
+      const org = result.page[0];
+      organizations.push({
+        organizationId: orgId,
+        organizationName: org?.name,
+      });
+    }
+
+    return [
+      {
+        guardianIdentity: claimedGuardian,
+        children,
+        organizations,
+        confidence: 100,
+      },
+    ];
   },
 });
 
@@ -873,6 +1680,358 @@ export const checkForClaimableIdentity = query({
       children,
       organizations,
       confidence,
+    };
+  },
+});
+
+/**
+ * Batch acknowledge parent actions - handle multiple actions in one transaction
+ * Supports: claiming identities, acknowledging links, declining links, updating consents
+ * This is the primary mutation for the batched parent onboarding system
+ */
+export const batchAcknowledgeParentActions = mutation({
+  args: {
+    userId: v.string(),
+    claimIdentityIds: v.array(v.id("guardianIdentities")),
+    acknowledgeLinkIds: v.array(v.id("guardianPlayerLinks")),
+    declineLinkIds: v.array(v.id("guardianPlayerLinks")),
+    declineReasons: v.optional(
+      v.record(
+        v.string(), // keys are link IDs
+        v.object({
+          reason: v.union(
+            v.literal("not_my_child"),
+            v.literal("wrong_person"),
+            v.literal("none_are_mine"),
+            v.literal("other")
+          ),
+          reasonText: v.optional(v.string()),
+        })
+      )
+    ),
+    consentLinkIds: v.array(v.id("guardianPlayerLinks")),
+    profilePromises: v.array(
+      v.object({
+        linkId: v.id("guardianPlayerLinks"),
+        fieldsToComplete: v.array(v.string()),
+      })
+    ),
+  },
+  returns: v.object({
+    claimed: v.number(),
+    acknowledged: v.number(),
+    declined: v.number(),
+    consented: v.number(),
+    profilePromisesSet: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    let claimed = 0;
+    let acknowledged = 0;
+    let declined = 0;
+    let consented = 0;
+    let profilePromisesSet = 0;
+
+    // 1. Claim all specified guardian identities
+    for (const guardianIdentityId of args.claimIdentityIds) {
+      const existing = await ctx.db.get(guardianIdentityId);
+      if (!existing) {
+        continue;
+      }
+
+      // Skip if already claimed by this user
+      if (existing.userId === args.userId) {
+        claimed += 1;
+        continue;
+      }
+
+      // Check if this userId is already linked to another guardian with same email
+      const existingUserLink = await ctx.db
+        .query("guardianIdentities")
+        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+        .first();
+
+      // If user already has a guardian identity with same email, skip
+      if (
+        existingUserLink &&
+        existingUserLink.email === existing.email &&
+        existingUserLink._id !== guardianIdentityId
+      ) {
+        continue;
+      }
+
+      // Link guardian to user
+      await ctx.db.patch(guardianIdentityId, {
+        userId: args.userId,
+        verificationStatus:
+          existing.verificationStatus === "unverified"
+            ? "email_verified"
+            : existing.verificationStatus,
+        updatedAt: Date.now(),
+      });
+
+      claimed += 1;
+    }
+
+    // 2. Mark acknowledgeLinkIds as acknowledged
+    for (const linkId of args.acknowledgeLinkIds) {
+      const link = await ctx.db.get(linkId);
+      if (!link) {
+        continue;
+      }
+
+      await ctx.db.patch(linkId, {
+        acknowledgedByParentAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      acknowledged += 1;
+    }
+
+    // 3. Process declines with reasons
+    for (const linkId of args.declineLinkIds) {
+      const link = await ctx.db.get(linkId);
+      if (!link) {
+        continue;
+      }
+
+      // Get decline reason from declineReasons map if provided
+      const declineInfo = args.declineReasons
+        ? (args.declineReasons as any)[linkId]
+        : undefined;
+
+      await ctx.db.patch(linkId, {
+        declinedByUserId: args.userId,
+        declineReason: declineInfo?.reason || "other",
+        declineReasonText: declineInfo?.reasonText,
+        updatedAt: Date.now(),
+      });
+
+      declined += 1;
+    }
+
+    // 4. Update consent flags for consentLinkIds
+    for (const linkId of args.consentLinkIds) {
+      const link = await ctx.db.get(linkId);
+      if (!link) {
+        continue;
+      }
+
+      await ctx.db.patch(linkId, {
+        consentedToSharing: true,
+        updatedAt: Date.now(),
+      });
+
+      consented += 1;
+    }
+
+    // 5. Mark profile completion promises
+    for (const promise of args.profilePromises) {
+      const link = await ctx.db.get(promise.linkId);
+      if (!link) {
+        continue;
+      }
+
+      await ctx.db.patch(promise.linkId, {
+        profileCompletionRequired: true,
+        requiredProfileFields: promise.fieldsToComplete,
+        updatedAt: Date.now(),
+      });
+
+      profilePromisesSet += 1;
+    }
+
+    // 6. Update user's lastChildrenCheckAt and reset dismiss count
+    // Note: Using Better Auth adapter for user table queries
+    const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [
+        {
+          field: "_id",
+          value: args.userId,
+          operator: "eq",
+        },
+      ],
+    });
+
+    if (user) {
+      // Update user fields using Better Auth adapter
+      // Cannot use ctx.db.patch on Better Auth tables - must use adapter
+      await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+        input: {
+          model: "user",
+          where: [{ field: "_id", value: args.userId, operator: "eq" }],
+          update: {
+            lastChildrenCheckAt: Date.now(),
+            parentOnboardingDismissCount: 0,
+            updatedAt: Date.now(),
+          },
+        },
+      });
+    }
+
+    return {
+      claimed,
+      acknowledged,
+      declined,
+      consented,
+      profilePromisesSet,
+    };
+  },
+});
+
+/**
+ * Acknowledge a single child assignment
+ */
+export const acknowledgeSingleChild = mutation({
+  args: {
+    linkId: v.id("guardianPlayerLinks"),
+    userId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const link = await ctx.db.get(args.linkId);
+    if (!link) {
+      throw new Error("Link not found");
+    }
+
+    await ctx.db.patch(args.linkId, {
+      acknowledgedByParentAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Decline a single child assignment with reason
+ */
+export const declineSingleChild = mutation({
+  args: {
+    linkId: v.id("guardianPlayerLinks"),
+    userId: v.string(),
+    reason: v.union(
+      v.literal("not_my_child"),
+      v.literal("wrong_person"),
+      v.literal("none_are_mine"),
+      v.literal("other")
+    ),
+    reasonText: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const link = await ctx.db.get(args.linkId);
+    if (!link) {
+      throw new Error("Link not found");
+    }
+
+    await ctx.db.patch(args.linkId, {
+      declinedByUserId: args.userId,
+      declineReason: args.reason,
+      declineReasonText: args.reasonText,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Update consent for a single link
+ */
+export const updateSingleConsent = mutation({
+  args: {
+    linkId: v.id("guardianPlayerLinks"),
+    consentedToSharing: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const link = await ctx.db.get(args.linkId);
+    if (!link) {
+      throw new Error("Link not found");
+    }
+
+    await ctx.db.patch(args.linkId, {
+      consentedToSharing: args.consentedToSharing,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Mark profile as complete for a link
+ */
+export const markProfileComplete = mutation({
+  args: {
+    linkId: v.id("guardianPlayerLinks"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const link = await ctx.db.get(args.linkId);
+    if (!link) {
+      throw new Error("Link not found");
+    }
+
+    await ctx.db.patch(args.linkId, {
+      profileCompletedAt: Date.now(),
+      profileCompletionRequired: false,
+      requiredProfileFields: [],
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Track parent onboarding modal dismissal
+ * Increments dismiss count and tracks when last dismissed
+ */
+export const trackParentOnboardingDismissal = mutation({
+  args: {
+    userId: v.string(),
+  },
+  returns: v.object({
+    dismissCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    // Query user via Better Auth adapter
+    const user = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [
+        {
+          field: "_id",
+          value: args.userId,
+          operator: "eq",
+        },
+      ],
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const currentCount = (user as any).parentOnboardingDismissCount || 0;
+    const newCount = currentCount + 1;
+
+    // Update user fields using Better Auth adapter
+    // Cannot use ctx.db.patch on Better Auth tables - must use adapter
+    await ctx.runMutation(components.betterAuth.adapter.updateOne, {
+      input: {
+        model: "user",
+        where: [{ field: "_id", value: args.userId, operator: "eq" }],
+        update: {
+          parentOnboardingDismissCount: newCount,
+          parentOnboardingLastDismissedAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+      },
+    });
+
+    return {
+      dismissCount: newCount,
     };
   },
 });

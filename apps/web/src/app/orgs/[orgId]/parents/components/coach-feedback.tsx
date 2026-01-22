@@ -58,6 +58,11 @@ export function CoachFeedback({ orgId }: CoachFeedbackProps) {
     api.models.coachParentSummaries.markSummaryViewed
   );
 
+  // Acknowledge summary mutation
+  const acknowledgeSummary = useMutation(
+    api.models.coachParentSummaries.acknowledgeParentSummary
+  );
+
   const handleViewSummary = async (summaryId: Id<"coachParentSummaries">) => {
     try {
       await markViewed({
@@ -67,6 +72,18 @@ export function CoachFeedback({ orgId }: CoachFeedbackProps) {
       // Silently mark as viewed - no toast needed
     } catch (error) {
       console.error("Failed to mark summary as read:", error);
+    }
+  };
+
+  const handleAcknowledgeSummary = async (
+    summaryId: Id<"coachParentSummaries">
+  ) => {
+    try {
+      await acknowledgeSummary({ summaryId });
+      // Success feedback handled by parent-summary-card
+    } catch (error) {
+      console.error("Failed to acknowledge summary:", error);
+      throw error;
     }
   };
 
@@ -121,8 +138,9 @@ export function CoachFeedback({ orgId }: CoachFeedbackProps) {
                     <div className="space-y-2">
                       {sportGroup.summaries.map((summary) => (
                         <ParentSummaryCard
-                          isUnread={!summary.viewedAt}
+                          isUnread={!summary.acknowledgedAt}
                           key={summary._id}
+                          onAcknowledge={handleAcknowledgeSummary}
                           onView={handleViewSummary}
                           summary={summary}
                         />

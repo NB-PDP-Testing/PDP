@@ -2,8 +2,9 @@
 
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { formatDistanceToNow } from "date-fns";
-import { Share2, Sparkles } from "lucide-react";
+import { Check, Share2, Sparkles } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { MessagePassportLink } from "@/components/parent/message-passport-link";
 import { ShareModal } from "@/components/parent/share-modal";
 import { Badge } from "@/components/ui/badge";
@@ -21,17 +22,21 @@ type ParentSummaryCardProps = {
     };
     status: string;
     viewedAt?: number;
+    acknowledgedAt?: number;
   };
   isUnread: boolean;
   onView: (summaryId: Id<"coachParentSummaries">) => void;
+  onAcknowledge?: (summaryId: Id<"coachParentSummaries">) => Promise<void>;
 };
 
 export function ParentSummaryCard({
   summary,
   isUnread,
   onView,
+  onAcknowledge,
 }: ParentSummaryCardProps) {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isAcknowledging, setIsAcknowledging] = useState(false);
   const { useParentSummaryShareImage } = useUXFeatureFlags();
 
   const handleView = () => {
@@ -45,6 +50,25 @@ export function ParentSummaryCard({
     setIsShareModalOpen(true);
   };
 
+  const handleAcknowledge = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+
+    if (!onAcknowledge) {
+      return;
+    }
+
+    setIsAcknowledging(true);
+    try {
+      await onAcknowledge(summary._id);
+      toast.success("Marked as read");
+    } catch (error) {
+      toast.error("Failed to mark as read");
+      console.error(error);
+    } finally {
+      setIsAcknowledging(false);
+    }
+  };
+
   return (
     <Card
       className="cursor-pointer transition-shadow hover:shadow-md"
@@ -53,10 +77,19 @@ export function ParentSummaryCard({
       <CardContent className="pt-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1">
-            {/* NEW badge for unread summaries */}
-            {isUnread && (
+            {/* Status badges */}
+            {isUnread && !summary.acknowledgedAt && (
               <Badge className="mb-2 bg-red-500 text-white" variant="default">
                 NEW
+              </Badge>
+            )}
+            {summary.acknowledgedAt && (
+              <Badge
+                className="mb-2 bg-green-100 text-green-700"
+                variant="outline"
+              >
+                <Check className="mr-1 h-3 w-3" />
+                Acknowledged
               </Badge>
             )}
 
@@ -81,6 +114,20 @@ export function ParentSummaryCard({
             {/* Card footer actions */}
             <div className="mt-3 flex items-center gap-2">
               <MessagePassportLink summaryId={summary._id} />
+
+              {/* Acknowledge button - only show if not yet acknowledged */}
+              {!summary.acknowledgedAt && onAcknowledge && (
+                <Button
+                  disabled={isAcknowledging}
+                  onClick={handleAcknowledge}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Check className="mr-1 h-4 w-4" />
+                  {isAcknowledging ? "Marking..." : "Mark as Read"}
+                </Button>
+              )}
+
               {useParentSummaryShareImage && (
                 <Button onClick={handleShare} size="sm" variant="ghost">
                   <Share2 className="h-4 w-4" />

@@ -1,20 +1,25 @@
-# UAT Test: US-004 - Create useTabNotification hook
+# UAT Test: US-004 - Add Mark as Read button to summary cards in ParentSummariesSection
 
-> Auto-generated: 2026-01-20 22:24
+> Auto-generated: 2026-01-22 19:19
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, I want browser tab to show unread count.
+As a parent viewing passport, I want to acknowledge messages from the passport view, not just dashboard.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Create apps/web/src/hooks/use-tab-notification.ts
-- [ ] Accept unreadCount: number parameter
-- [ ] Use useEffect to update document.title
-- [ ] Format: count > 0 ? `(${count}) Messages | PlayerARC` : 'PlayerARC'
-- [ ] Store original title in useRef and restore on unmount
-- [ ] Add cleanup function in useEffect return
-- [ ] Typecheck passes
+- [ ] Still in parent-summaries-section.tsx
+- [ ] Import useMutation from convex/react
+- [ ] Import toast from sonner
+- [ ] Add mutation: const acknowledgeSummary = useMutation(api.models.coachParentSummaries.acknowledgeParentSummary)
+- [ ] Create handler: const handleAcknowledge = async (summaryId) => { await acknowledgeSummary({ summaryId }); toast.success('Marked as read'); }
+- [ ] In summary card rendering (both tabs), add Button with Check icon
+- [ ] Button text: 'Mark as Read', size='sm', variant='outline'
+- [ ] Only show button if !summary.acknowledgedAt (hide in History tab)
+- [ ] Disable button during acknowledgement (loading state)
+- [ ] After acknowledgement, card should move to History tab automatically (query refetches)
+- [ ] Type check passes
+- [ ] Test: Click button, verify toast, check History tab shows it
 
 ## Test Scenarios
 

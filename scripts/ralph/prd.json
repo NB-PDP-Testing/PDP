@@ -122,7 +122,7 @@
         "Test: Click button, verify toast, check History tab shows it"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "The acknowledgeParentSummary mutation exists and returns v.null(). Real-time: Convex will auto-refetch query, card moves to History tab."
     },
     {
@@ -143,7 +143,7 @@
         "Type check passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Simple component - no Convex queries needed. Just pure UI logic. Use existing primary color from theme."
     },
     {
@@ -162,7 +162,7 @@
         "Test: View passport, see initials next to each message"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "The query getParentSummariesByChildAndSport already enriches summaries with coachName. Just need to display it."
     },
     {
@@ -184,7 +184,7 @@
         "Type check passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Shell component first. Next story adds passport data query and navigation."
     },
     {
@@ -205,7 +205,7 @@
         "Test: Dashboard shows ratings, clicking navigates to passport"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "getFullPlayerPassportView returns passports array. First item has skills array with rating field (1-5)."
     },
     {

@@ -1,18 +1,25 @@
-# UAT Test: US-007 - Create MessagePassportLink component
+# UAT Test: US-007 - Create ChildSummaryCard component shell
 
-> Auto-generated: 2026-01-20 22:36
+> Auto-generated: 2026-01-22 19:22
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, I want to click through to passport from a message.
+As a developer, I need a component to show child overview stats on parent dashboard.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Create apps/web/src/components/parent/message-passport-link.tsx
-- [ ] Props: summaryId (Id<'coachParentSummaries'>), className (optional string)
-- [ ] Show 'View in Passport' text with ArrowRight icon from lucide-react
-- [ ] Use Button component with variant='link' and size='sm'
-- [ ] Typecheck passes
+- [ ] Create apps/web/src/app/orgs/[orgId]/parents/components/child-summary-card.tsx
+- [ ] Add 'use client' directive
+- [ ] Props: player ({ _id, firstName, lastName }), unreadCount (number), orgId (string)
+- [ ] Import Card, CardHeader, CardContent, CardTitle from @/components/ui/card
+- [ ] Import Button from @/components/ui/button
+- [ ] Import Badge from @/components/ui/badge
+- [ ] Render Card with player name in CardHeader
+- [ ] Show unreadCount as Badge if > 0 (variant='destructive')
+- [ ] Add placeholder text for stats (will fetch in next story)
+- [ ] Add 'View Passport' Button in CardContent
+- [ ] No onClick handler yet (just render the button)
+- [ ] Type check passes
 
 ## Test Scenarios
 

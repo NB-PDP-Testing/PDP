@@ -1,22 +1,24 @@
-# UAT Test: US-005 - Create TabNotificationProvider component
+# UAT Test: US-005 - Create shared CoachAvatar component for reuse
 
-> Auto-generated: 2026-01-20 22:24
+> Auto-generated: 2026-01-22 19:20
 > Status: ⏳ Pending Execution
 
 ## Story
-As a developer, I need to wrap app with tab notification logic.
+As a developer, I need a reusable component to display coach avatars/initials.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Create apps/web/src/components/providers/tab-notification-provider.tsx
-- [ ] Props: children (ReactNode), orgId (string)
-- [ ] Use useSession from @/lib/auth-client to get current session
-- [ ] Check if activeFunctionalRole === 'parent' (from session)
-- [ ] Use useQuery(api.models.coachParentSummaries.getParentUnreadCount, { organizationId: orgId }) when parent
-- [ ] Pass count to useTabNotification hook
-- [ ] Render children unchanged
-- [ ] Return null for count query if not parent role
-- [ ] Typecheck passes
+- [ ] Create apps/web/src/components/shared/coach-avatar.tsx
+- [ ] Add 'use client' directive
+- [ ] Props: coachName (string), size? ('sm' | 'md' | 'lg', default 'md')
+- [ ] Extract initials: first letter of first + last name (max 2 letters)
+- [ ] Render div with rounded-full, bg-primary/10, text-primary
+- [ ] Size classes: sm='h-8 w-8 text-sm', md='h-10 w-10 text-base', lg='h-12 w-12 text-lg'
+- [ ] Center text with flex items-center justify-center
+- [ ] Example: 'John Smith' -> 'JS'
+- [ ] Handle edge cases: single name, empty name (show '?')
+- [ ] Export as default
+- [ ] Type check passes
 
 ## Test Scenarios
 

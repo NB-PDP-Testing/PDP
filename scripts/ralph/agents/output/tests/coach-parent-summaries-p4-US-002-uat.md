@@ -1,22 +1,21 @@
-# UAT Test: US-002 - Implement trackShareEvent mutation
+# UAT Test: US-002 - Add Active/History tab state to ParentSummariesSection
 
-> Auto-generated: 2026-01-20 22:23
+> Auto-generated: 2026-01-22 19:18
 > Status: ⏳ Pending Execution
 
 ## Story
-As the system, I need to track share events for analytics.
+As a parent, I want to filter messages by Active (unread) and History (read) so I can focus on new items.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Add trackShareEvent mutation to coachParentSummaries.ts
-- [ ] Args: summaryId (v.id('coachParentSummaries')), shareDestination (v.union of 3 literals)
-- [ ] Get authenticated user via authComponent.safeGetAuthUser(ctx)
-- [ ] Look up guardianIdentity via by_userId index: ctx.db.query('guardianIdentities').withIndex('by_userId', q => q.eq('userId', user.userId)).first()
-- [ ] Fetch summary to get playerIdentityId
-- [ ] Verify guardian has access via by_guardian_and_player index on guardianPlayerLinks
-- [ ] Insert summaryShares record: { summaryId, guardianIdentityId, sharedAt: Date.now(), shareDestination }
-- [ ] Returns: v.null()
-- [ ] Typecheck passes
+- [ ] Open apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx
+- [ ] Add state: const [activeTab, setActiveTab] = useState<'active' | 'history'>('active')
+- [ ] Split playerSummaries into two arrays using useMemo:
+- [ ] const activeSummaries = playerSummaries.filter(s => !s.acknowledgedAt)
+- [ ] const historySummaries = playerSummaries.filter(s => s.acknowledgedAt)
+- [ ] Counts should update automatically (activeSummaries.length, historySummaries.length)
+- [ ] No UI changes yet (next story)
+- [ ] Type check passes
 
 ## Test Scenarios
 

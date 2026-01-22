@@ -1,19 +1,24 @@
-# UAT Test: US-008 - Wire MessagePassportLink navigation
+# UAT Test: US-008 - Add passport stats query and navigation to ChildSummaryCard
 
-> Auto-generated: 2026-01-20 22:36
+> Auto-generated: 2026-01-22 19:24
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, clicking passport link navigates correctly.
+As a parent, I want to see my child's average skill rating and navigate to their passport.
 
 ## Acceptance Criteria Checklist
 
-- [ ] In MessagePassportLink, use useQuery to call getPassportLinkForSummary with summaryId
-- [ ] Add onClick handler that uses router.push(linkData.url)
-- [ ] Show loading state while query resolves (disabled button or spinner)
-- [ ] Handle case where query returns null gracefully
-- [ ] Use useRouter from next/navigation
-- [ ] Typecheck passes
+- [ ] In child-summary-card.tsx, import useQuery from convex/react
+- [ ] Import useRouter from next/navigation
+- [ ] Add query: useQuery(api.models.sportPassports.getFullPlayerPassportView, { playerIdentityId: player._id, organizationId: orgId })
+- [ ] Calculate average skill rating using useMemo:
+- [ ] const avgSkillRating = passportData?.passports?.[0]?.skills ? (skills.reduce((sum, s) => sum + s.rating, 0) / skills.length).toFixed(1) : null
+- [ ] Display avgSkillRating in CardContent with Star icon
+- [ ] Add onClick to button: router.push(`/orgs/${orgId}/players/${player._id}`)
+- [ ] Show loading skeleton while query resolves (Loader2 icon or skeleton div)
+- [ ] Handle case where no passport data (show 'N/A' for rating)
+- [ ] Type check passes
+- [ ] Test: Dashboard shows ratings, clicking navigates to passport
 
 ## Test Scenarios
 

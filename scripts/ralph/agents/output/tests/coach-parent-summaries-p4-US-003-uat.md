@@ -1,22 +1,23 @@
-# UAT Test: US-003 - Implement getPassportLinkForSummary query
+# UAT Test: US-003 - Add Tabs UI to ParentSummariesSection with Active/History
 
-> Auto-generated: 2026-01-20 22:24
+> Auto-generated: 2026-01-22 19:19
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, I want to navigate to relevant passport section.
+As a parent, I want tabs to switch between Active and History messages.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Add getPassportLinkForSummary query to coachParentSummaries.ts
-- [ ] Args: summaryId (v.id('coachParentSummaries'))
-- [ ] Fetch summary via ctx.db.get(args.summaryId)
-- [ ] Get category from summary.privateInsight.category
-- [ ] Map category to passport section: skill_rating->'skills', skill_progress->'goals', injury->'medical', behavior->'overview', default->'overview'
-- [ ] Also check sensitivityCategory: if 'injury' use 'medical', if 'behavior' use 'overview'
-- [ ] Build URL: `/orgs/${summary.organizationId}/parents/children/${summary.playerIdentityId}/passport?section=${section}`
-- [ ] Returns: v.object({ section: v.string(), url: v.string() })
-- [ ] Typecheck passes
+- [ ] Import Tabs, TabsList, TabsTrigger, TabsContent from @/components/ui/tabs
+- [ ] Wrap the existing summaries display in Tabs component
+- [ ] Add TabsList with two triggers: Active ({count}) and History ({count})
+- [ ] Show activeSummaries in Active TabsContent
+- [ ] Show historySummaries in History TabsContent
+- [ ] Active tab selected by default
+- [ ] Badge on Active tab if activeSummaries.length > 0 (use Badge variant='destructive')
+- [ ] Reuse existing renderSummaries() function or inline the summary cards
+- [ ] Type check passes
+- [ ] Test: Navigate to passport, verify tabs work, counts accurate
 
 ## Test Scenarios
 

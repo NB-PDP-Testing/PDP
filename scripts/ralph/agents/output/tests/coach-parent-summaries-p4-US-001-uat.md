@@ -1,17 +1,21 @@
-# UAT Test: US-001 - Add summaryShares table
+# UAT Test: US-001 - Move Coach Updates section to top of Player Passport for parents
 
-> Auto-generated: 2026-01-20 22:23
+> Auto-generated: 2026-01-22 19:18
 > Status: ⏳ Pending Execution
 
 ## Story
-As a developer, I need to track when parents share summaries.
+As a parent, I want to see coach updates prominently at the top of the passport, not buried after skills and goals.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Add summaryShares table to schema.ts after coachParentSummaries table
-- [ ] Fields: summaryId (v.id('coachParentSummaries')), guardianIdentityId (v.id('guardianIdentities')), sharedAt (v.number()), shareDestination (v.union of literals)
-- [ ] Add indexes: by_summary (summaryId), by_guardian (guardianIdentityId)
-- [ ] Typecheck passes: npx -w packages/backend convex codegen
+- [ ] Open apps/web/src/app/orgs/[orgId]/players/[playerId]/page.tsx
+- [ ] Find the ParentSummariesSection rendering (around line 321 for parents)
+- [ ] Move it to appear right after BasicInformationSection (before SkillRadarChart)
+- [ ] Ensure only parent role sees this order (check permissions.isParent)
+- [ ] Keep coach/admin order unchanged (they see VoiceInsightsSectionImproved instead)
+- [ ] Verify on page: http://localhost:3000/orgs/[orgId]/players/[playerId]
+- [ ] Type check passes: npm run check-types
+- [ ] Lint passes: npx ultracite fix
 
 ## Test Scenarios
 

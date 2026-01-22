@@ -1,18 +1,22 @@
-# UAT Test: US-006 - Add TabNotificationProvider to app layout
+# UAT Test: US-006 - Add coach avatars to passport summary cards
 
-> Auto-generated: 2026-01-20 22:25
+> Auto-generated: 2026-01-22 19:20
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, tab notifications should work across the app.
+As a parent, I want to see who each message is from with a visual avatar.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Import TabNotificationProvider in apps/web/src/app/orgs/[orgId]/layout.tsx
-- [ ] Wrap children with TabNotificationProvider
-- [ ] Pass orgId from params.orgId
-- [ ] Provider should be inside ConvexClientProvider but wrapping the main content
-- [ ] Typecheck passes
+- [ ] In parent-summaries-section.tsx, import CoachAvatar from @/components/shared/coach-avatar
+- [ ] In summary card rendering, add CoachAvatar component
+- [ ] Pass summary.coachName as coachName prop
+- [ ] Position avatar to left of summary content (use flex layout)
+- [ ] Size: 'md' for desktop, 'sm' for mobile (responsive)
+- [ ] Gap between avatar and content: gap-3
+- [ ] Verify coachName is available (already in query response)
+- [ ] Type check passes
+- [ ] Test: View passport, see initials next to each message
 
 ## Test Scenarios
 

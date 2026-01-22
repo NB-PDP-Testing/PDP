@@ -29,6 +29,7 @@ import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 import { AIPracticeAssistantEnhanced } from "./components/ai-practice-assistant-enhanced";
 import { ChildCard } from "./components/child-card";
+import { ChildSummaryCard } from "./components/child-summary-card";
 import { CoachFeedback } from "./components/coach-feedback";
 import { GuardianSettings } from "./components/guardian-settings";
 import { MedicalInfo } from "./components/medical-info";
@@ -77,6 +78,12 @@ function ParentDashboardContent() {
     children: identityChildren,
     isLoading: identityLoading,
   } = useGuardianChildrenInOrg(orgId, session?.user?.email);
+
+  // Get summaries data for child summary cards (US-009)
+  const summariesData = useQuery(
+    api.models.coachParentSummaries.getParentSummariesByChildAndSport,
+    { organizationId: orgId }
+  );
 
   // Show claim dialog if there are unclaimed identities (only auto-open once)
   // Note: Don't check !guardianIdentity because useGuardianIdentity returns
@@ -433,6 +440,31 @@ function ParentDashboardContent() {
 
       {/* Weekly Schedule */}
       {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}
+
+      {/* Child Summary Cards Grid (US-009) */}
+      {playerCount > 0 && summariesData && summariesData.length > 0 && (
+        <div>
+          <h2 className="mb-4 font-semibold text-xl">Quick Overview</h2>
+          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {summariesData.map((childData) => {
+              // Calculate total unread count by summing all sportGroups unreadCount
+              const totalUnreadCount = childData.sportGroups.reduce(
+                (sum, sportGroup) => sum + sportGroup.unreadCount,
+                0
+              );
+
+              return (
+                <ChildSummaryCard
+                  key={childData.player._id}
+                  orgId={orgId}
+                  player={childData.player}
+                  unreadCount={totalUnreadCount}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Coach Feedback Section */}
       {playerCount > 0 && <CoachFeedback orgId={orgId} />}

@@ -1169,3 +1169,102 @@ Good luck! Remember to read acceptance criteria carefully and update this progre
 
 ---
 
+
+## CODE REVIEW FEEDBACK
+
+### Agent Feedback - 2026-01-22 19:03
+
+## Quality Monitor - 2026-01-20 23:00:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-20 23:01:59
+- ⚠️ Biome lint errors found
+
+
+## PRD Audit - US-019 - 2026-01-20 23:02:12
+**PARTIAL: Some criteria met**
+
+**What's implemented correctly:**
+- ✅ File edited: `apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx`
+- ✅ `sportCodeToIcon` mapping object created (coach-feedback.tsx:29-37)
+- ✅ Icons imported from lucide-react (Activity, Bike, Dumbbell, Trophy)
+- ✅ Sport icon rendered next to sport name in section headers (coach-feedback.tsx:107-111)
+- ✅ Activity icon used as fallback for unknown sports (coach-feedback.tsx:49-54)
+- ✅ Icon size h-4 w-4 (coach-feedback.tsx:109)
+- ✅ Typecheck passes
+
+**What's missing:**
+- ❌ **Sport-specific icons don't match acceptance criteria**: The mapping uses generic icons (Trophy, Dumbbell, Bike) instead of proper sport-specific icons. For example:
+  - Soccer should use `Football` icon (not imported), currently uses `Trophy`
+  - Basketball should use `Basketball` icon (not available/not imported), currently uses `Dumbbell`
+  - Rugby should use `Rugby` icon (not available/not imported), currently uses `Trophy`
+  
+The acceptance criteria specifically states "sport-specific if available" and mentions icons like "Football, Basketball, Rugby" from lucide-react. The current implementation uses placeholder icons (Trophy for most sports, Dumbbell for basketball) rather than the actual sport-specific icons that should be imported.
+
+## Quality Monitor - 2026-01-20 23:03:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-20 23:04:22
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-20 23:05:33
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-20 23:06:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-20 23:07:55
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 19:03:19
+- ⚠️ Biome lint errors found
+
+## [2026-01-22 19:08] - US-001 to US-003 - Player Passport Reorganization
+**Iteration**: Ralph Autonomous Agent - Session 70147d30-1f30-4b06-bcc8-f55e267e5798
+**Commit**: Not yet committed
+**Status**: Partial (US-001, US-002 complete; US-003 in progress)
+
+### What was implemented
+- **US-001**: Move Coach Updates to top - Already complete in commit 268e756
+- **US-002**: Add Active/History state and filtering logic - Already complete, variables defined
+- **US-003**: In Progress - Need to add Tabs UI wrapping
+
+### Files analyzed
+- apps/web/src/app/orgs/[orgId]/players/[playerId]/page.tsx (US-001 complete)
+- apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx (US-002 complete, US-003 in progress)
+- scripts/ralph/prd.json (updated to mark US-001, US-002 as complete)
+
+### Quality checks
+- ✅ Type check: Pre-existing errors unrelated to these changes
+- ⏳ Linting: Will pass once US-003 completes (current errors are unused variables from US-002)
+- ⏳ Browser verification: Pending after US-003 completion
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Player passport page already had ParentSummariesSection moved to top
+- acknowledgAtAt field exists in schema for tracking read/unread messages
+- Current implementation uses viewedAt but should transition to acknowledgedAt
+
+**What to do next:**
+- [ ] US-003: Complete Tabs UI implementation
+  - Modify renderSummaries() to accept summaries array parameter
+  - Wrap summaries display section with Tabs component
+  - Add TabsList with Active and History triggers
+  - Show activeSummaries in Active tab, historySummaries in History tab
+  - Add Badge on Active tab showing count
+- [ ] US-004: Add Mark as Read button functionality
+- [ ] US-005-006: Add coach avatars
+
+**Context note:**
+- At ~92K/200K tokens - still plenty of room to continue
+- File locking/modification issues suggest ultracite or another tool is running
+- Consider committing partial progress to avoid losing work
+
+---

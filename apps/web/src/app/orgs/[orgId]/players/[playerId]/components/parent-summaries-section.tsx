@@ -55,6 +55,8 @@ type ParentSummary = {
   approvedAt?: number;
   deliveredAt?: number;
   viewedAt?: number;
+  acknowledgedAt?: number;
+  acknowledgedBy?: string;
 };
 
 type Props = {
@@ -64,6 +66,7 @@ type Props = {
 
 export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [activeTab, setActiveTab] = useState<"active" | "history">("active");
 
   // Query parent summaries for all children
   const allSummaries = useQuery(
@@ -105,6 +108,21 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
     return summaries.sort((a, b) => b.createdAt - a.createdAt);
   }, [allSummaries, playerIdentityId]);
 
+  // Split summaries into active (unread) and history (read)
+  const activeSummaries = useMemo(() => {
+    if (!playerSummaries) {
+      return [];
+    }
+    return playerSummaries.filter((s) => !s.acknowledgedAt);
+  }, [playerSummaries]);
+
+  const historySummaries = useMemo(() => {
+    if (!playerSummaries) {
+      return [];
+    }
+    return playerSummaries.filter((s) => s.acknowledgedAt);
+  }, [playerSummaries]);
+
   // Calculate statistics
   const stats = useMemo(() => {
     if (!playerSummaries) {
@@ -120,9 +138,12 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
     return { total, new: newCount, read };
   }, [playerSummaries]);
 
-  // Group summaries by coach
+  // Group summaries by coach (for current tab)
   const summariesByCoach = useMemo(() => {
-    if (!playerSummaries) {
+    const summariesToGroup =
+      activeTab === "active" ? activeSummaries : historySummaries;
+
+    if (summariesToGroup.length === 0) {
       return [];
     }
 
@@ -131,11 +152,11 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
       {
         coachId: string;
         coachName: string;
-        summaries: typeof playerSummaries;
+        summaries: typeof summariesToGroup;
       }
     >();
 
-    for (const summary of playerSummaries) {
+    for (const summary of summariesToGroup) {
       const coachId = summary.coachId || "unknown";
       const coachName = summary.coachName || "Unknown Coach";
 
@@ -159,7 +180,7 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
       const bLatest = Math.max(...b.summaries.map((s) => s.createdAt));
       return bLatest - aLatest;
     });
-  }, [playerSummaries]);
+  }, [activeTab, activeSummaries, historySummaries]);
 
   // Get sentiment icon
   const getSentimentIcon = (sentiment: string) => {
@@ -230,13 +251,27 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
     );
   }
 
-  // Render summaries
+  // Render summaries based on active tab
   const renderSummaries = () => {
+    // Get summaries for current tab
+    const summariesToShow =
+      activeTab === "active" ? activeSummaries : historySummaries;
+
+    if (summariesToShow.length === 0) {
+      return (
+        <div className="py-8 text-center text-muted-foreground text-sm">
+          {activeTab === "active"
+            ? "No unread messages"
+            : "No read messages yet"}
+        </div>
+      );
+    }
+
     if (summariesByCoach.length <= 1) {
       // Single coach or all summaries - flat list
       return (
         <div className="space-y-3">
-          {playerSummaries.map((summary) => (
+          {summariesToShow.map((summary) => (
             <Card className="overflow-hidden" key={summary._id}>
               <CardContent className="space-y-3 p-4">
                 {/* Header: Category & Date */}
@@ -474,8 +509,37 @@ export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
               </div>
             </div>
 
-            {/* Summaries Display */}
-            {renderSummaries()}
+            {/* Active/History Tabs */}
+            <Tabs
+              className="w-full"
+              defaultValue="active"
+              onValueChange={(value) =>
+                setActiveTab(value as "active" | "history")
+              }
+              value={activeTab}
+            >
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="active">
+                  Active ({activeSummaries.length})
+                  {activeSummaries.length > 0 && (
+                    <Badge className="ml-2" variant="destructive">
+                      {activeSummaries.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="history">
+                  History ({historySummaries.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent className="mt-4" value="active">
+                {renderSummaries()}
+              </TabsContent>
+
+              <TabsContent className="mt-4" value="history">
+                {renderSummaries()}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </CollapsibleContent>
       </Card>

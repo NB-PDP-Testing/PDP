@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -34,6 +34,7 @@ type AddGuardianModalProps = {
   onOpenChange: (open: boolean) => void;
   playerId: Id<"playerIdentities">;
   playerName: string;
+  organizationId: string;
 };
 
 export function AddGuardianModal({
@@ -41,6 +42,7 @@ export function AddGuardianModal({
   onOpenChange,
   playerId,
   playerName,
+  organizationId,
 }: AddGuardianModalProps) {
   const { data: session } = useSession();
   const [isSaving, setIsSaving] = useState(false);
@@ -63,6 +65,9 @@ export function AddGuardianModal({
   );
   const createGuardianPlayerLink = useMutation(
     api.models.guardianPlayerLinks.createGuardianPlayerLink
+  );
+  const sendGuardianNotification = useAction(
+    api.actions.guardianNotifications.sendGuardianNotificationEmail
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -104,7 +109,7 @@ export function AddGuardianModal({
       });
 
       // Step 2: Link guardian to player
-      await createGuardianPlayerLink({
+      const linkId = await createGuardianPlayerLink({
         guardianIdentityId: guardianResult.guardianIdentityId,
         playerIdentityId: playerId,
         relationship: formData.relationship,
@@ -113,6 +118,53 @@ export function AddGuardianModal({
         canCollectFromTraining: true,
         consentedToSharing: false, // Requires explicit consent
       });
+
+      // Step 3: Send notification email (only if not auto-linked to current user)
+      if (!guardianResult.autoLinked && session?.user) {
+        try {
+          const notificationResult = await sendGuardianNotification({
+            guardianEmail: formData.email.trim(),
+            guardianFirstName: formData.firstName.trim(),
+            guardianLastName: formData.lastName.trim(),
+            organizationId,
+            guardianPlayerLinkId: linkId,
+            invitedByUserId: session.user.id,
+            invitedByUsername: session.user.name || session.user.email,
+            invitedByEmail: session.user.email,
+          });
+
+          if (notificationResult.success) {
+            console.log(
+              `[AddGuardianModal] Notification sent (${notificationResult.scenario})`
+            );
+            toast.success("Email notification sent", {
+              description:
+                notificationResult.scenario === "existing_user"
+                  ? "Pending action notification sent to existing user"
+                  : "Invitation email sent to new user",
+            });
+          } else {
+            console.warn(
+              "[AddGuardianModal] Notification failed:",
+              notificationResult.message
+            );
+            toast.warning("Guardian added but email not sent", {
+              description: notificationResult.message,
+            });
+          }
+        } catch (error) {
+          console.error(
+            "[AddGuardianModal] Error sending notification:",
+            error
+          );
+          toast.warning("Guardian added but email failed", {
+            description:
+              error instanceof Error
+                ? error.message
+                : "Check Convex logs for details",
+          });
+        }
+      }
 
       // Success message depends on whether guardian was created or found
       if (guardianResult.autoLinked) {

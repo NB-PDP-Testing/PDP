@@ -28,6 +28,7 @@ type InvitationEmailData = {
   // Role-specific context for email
   teams?: TeamInfo[]; // For coach role - shows which teams they'll manage
   players?: PlayerInfo[]; // For parent role - shows which players they're linked to
+  hasPendingChildren?: boolean; // For guardian invitation - indicates pending child acknowledgments
 };
 
 /**
@@ -82,6 +83,7 @@ export async function sendOrganizationInvitation(
     functionalRoles,
     teams,
     players,
+    hasPendingChildren,
   } = data;
 
   // Format roles for display - NEVER show Better Auth role
@@ -171,7 +173,7 @@ export async function sendOrganizationInvitation(
               onmouseover="this.style.backgroundColor='#16a34a'"
               onmouseout="this.style.backgroundColor='#22c55e'"
             >
-              Accept Invitation & Create Your Account
+              ${hasPendingChildren ? "Accept Invitation & Review Children" : "Accept Invitation & Create Your Account"}
             </a>
           </div>
 
@@ -234,6 +236,22 @@ export async function sendOrganizationInvitation(
           }
 
           ${
+            hasPendingChildren
+              ? `
+            <div style="background-color: #fff7ed; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+              <h3 style="color: #92400e; margin: 0 0 10px 0; font-size: 16px;">⚠️ Action Required: Child Acknowledgments</h3>
+              <p style="color: #78350f; margin: 0 0 10px 0;">
+                You have been assigned as a guardian for one or more children at ${organizationName}.
+              </p>
+              <p style="color: #78350f; margin: 0;">
+                <strong>After creating your account, you will need to review and acknowledge each child connection.</strong> This ensures accuracy and protects everyone's privacy.
+              </p>
+            </div>
+          `
+              : ""
+          }
+
+          ${
             functionalRoles && functionalRoles.length > 0
               ? `
             <div style="background-color: white; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -266,7 +284,7 @@ export async function sendOrganizationInvitation(
               onmouseover="this.style.backgroundColor='#16a34a'"
               onmouseout="this.style.backgroundColor='#22c55e'"
             >
-              Accept Invitation & Create Your Account
+              ${hasPendingChildren ? "Accept Invitation & Review Children" : "Accept Invitation & Create Your Account"}
             </a>
           </div>
 
@@ -319,6 +337,17 @@ ${players.map((player) => `  • ${player.name}${player.ageGroup ? ` - ${player.
     : ""
 }
 ${
+  hasPendingChildren
+    ? `
+⚠️ ACTION REQUIRED: Child Acknowledgments
+
+You have been assigned as a guardian for one or more children at ${organizationName}.
+
+After creating your account, you will need to review and acknowledge each child connection. This ensures accuracy and protects everyone's privacy.
+`
+    : ""
+}
+${
   functionalRoles && functionalRoles.length > 0
     ? `
 WHAT YOU'LL BE ABLE TO DO:
@@ -336,10 +365,10 @@ ${functionalRoles.length > 1 ? `${role.charAt(0).toUpperCase() + role.slice(1)}:
     : ""
 }
 
-Accept your invitation by clicking this link:
+${hasPendingChildren ? "Accept your invitation and review children by clicking this link:" : "Accept your invitation by clicking this link:"}
 ${inviteLink}
 
-Once you accept, you'll be able to immediately access ${organizationName} and start using your assigned features.
+${hasPendingChildren ? "Once you accept, you'll need to review and acknowledge your child connections before accessing your assigned features." : `Once you accept, you'll be able to immediately access ${organizationName} and start using your assigned features.`}
 
 Questions? Reply to this email and we'll help you get started.
 
@@ -1036,5 +1065,173 @@ The PlayerARC Team
   } catch (error) {
     console.error("❌ Error sending demo request acknowledgement:", error);
     // Don't throw - log the error but don't break the demo request creation
+  }
+}
+
+/**
+ * Pending guardian action notification email data (for existing users)
+ */
+type PendingGuardianActionEmailData = {
+  email: string;
+  recipientName: string;
+  organizationName: string;
+  loginUrl: string;
+  pendingChildrenCount: number;
+};
+
+/**
+ * Send simple notification to existing user about pending guardian actions
+ * This is for Scenario A - user already has an account
+ * Does NOT include any child details (PII protection)
+ */
+export async function sendPendingGuardianActionNotification(
+  data: PendingGuardianActionEmailData
+): Promise<void> {
+  const {
+    email,
+    recipientName,
+    organizationName,
+    loginUrl,
+    pendingChildrenCount,
+  } = data;
+
+  const subject = `Pending Action Required - ${organizationName}`;
+  const childrenText =
+    pendingChildrenCount === 1
+      ? "1 pending child connection"
+      : `${pendingChildrenCount} pending child connections`;
+  const logoUrl = getLogoUrl();
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 0 auto;">
+            <tr>
+              <td style="text-align: center; padding-bottom: 4px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                  <tr>
+                    <td style="vertical-align: middle; padding-right: 12px;">
+                      <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 80px; height: auto; display: block;" />
+                    </td>
+                    <td style="vertical-align: middle;">
+                      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold; line-height: 1.2;">PlayerARC</h1>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: center; padding-top: 0;">
+                <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic;">As many as possible, for as long as possible…</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
+          <h2 style="color: #1E3A5F; margin-top: 0;">You Have Pending Actions</h2>
+          <p>Hi ${recipientName},</p>
+          <p>
+            You have <strong>${childrenText}</strong> to review at <strong>${organizationName}</strong> on PlayerARC.
+          </p>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a
+              href="${loginUrl}"
+              style="background-color: #22c55e; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;"
+              onmouseover="this.style.backgroundColor='#16a34a'"
+              onmouseout="this.style.backgroundColor='#22c55e'"
+            >
+              Log In to Review
+            </a>
+          </div>
+
+          <p style="font-size: 13px; color: #666;">
+            Please log in to your PlayerARC account to review and acknowledge these child connections.
+          </p>
+
+          <p style="font-size: 12px; color: #999; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            <a href="${loginUrl}" style="color: #1E3A5F; word-break: break-all;">${loginUrl}</a>
+          </p>
+        </div>
+        <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+          <p>© ${new Date().getFullYear()} PlayerARC. All rights reserved.</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const textBody = `
+You Have Pending Actions
+
+Hi ${recipientName},
+
+You have ${childrenText} to review at ${organizationName} on PlayerARC.
+
+Please log in to your PlayerARC account to review and acknowledge these child connections.
+
+Log in here:
+${loginUrl}
+
+© ${new Date().getFullYear()} PlayerARC. All rights reserved.
+  `.trim();
+
+  // Log email details (for development/debugging)
+  console.log("📧 Pending Guardian Action Notification:", {
+    to: email,
+    subject,
+    organizationName,
+  });
+
+  // Send email via Resend API
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Pending action notification will not be sent."
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ Failed to send pending action notification:", {
+        status: response.status,
+        error: errorData,
+      });
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Pending action notification sent successfully:", result.id);
+  } catch (error) {
+    console.error("❌ Error sending pending action notification:", error);
+    // Don't throw - log the error but don't break the guardian link creation
   }
 }

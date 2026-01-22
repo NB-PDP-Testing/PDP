@@ -1,19 +1,22 @@
-# UAT Test: US-014 - Create ShareModal component
+# UAT Test: US-014 - Add coach avatars to dashboard summary cards
 
-> Auto-generated: 2026-01-20 22:55
+> Auto-generated: 2026-01-22 19:44
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, I want a modal to preview and share images.
+As a parent, I want to see coach avatars on the dashboard messages too.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Create apps/web/src/components/parent/share-modal.tsx
-- [ ] Props: summaryId (Id<'coachParentSummaries'>), isOpen (boolean), onClose (() => void)
-- [ ] Use Dialog, DialogContent, DialogHeader, DialogTitle from @/components/ui/dialog
-- [ ] Add local state: imageUrl (string | null), isLoading (boolean), error (string | null)
-- [ ] Show loading spinner (Loader2 icon) while image generates
-- [ ] Typecheck passes
+- [ ] Open apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx
+- [ ] Import CoachAvatar from @/components/shared/coach-avatar
+- [ ] In summary card rendering (line ~140-150), add CoachAvatar
+- [ ] Position before summary content with gap-3
+- [ ] Pass summary.coachName prop
+- [ ] Size: 'md'
+- [ ] Ensure layout doesn't break (use flex)
+- [ ] Type check passes
+- [ ] Test: Dashboard shows coach initials next to each message
 
 ## Test Scenarios
 

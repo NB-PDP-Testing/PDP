@@ -8,6 +8,7 @@ type EnrichedSummary = {
   _id: Id<"coachParentSummaries">;
   childName: string;
   sportName: string;
+  coachName: string;
   publicSummary: {
     content: string;
     confidenceScore: number;

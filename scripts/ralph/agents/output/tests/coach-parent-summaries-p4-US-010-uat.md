@@ -1,17 +1,24 @@
-# UAT Test: US-010 - Install satori and resvg dependencies
+# UAT Test: US-010 - Create UnifiedInboxView component for all messages
 
-> Auto-generated: 2026-01-20 22:25
+> Auto-generated: 2026-01-22 19:33
 > Status: ⏳ Pending Execution
 
 ## Story
-As a developer, I need image generation libraries.
+As a parent, I want to see all messages across all children in one chronological list.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Run: npm install satori @resvg/resvg-js -w packages/backend
-- [ ] Verify packages appear in packages/backend/package.json dependencies
-- [ ] Verify packages are installed in node_modules
-- [ ] Run: npm run check-types to ensure no type errors
+- [ ] Create apps/web/src/app/orgs/[orgId]/parents/components/unified-inbox-view.tsx
+- [ ] Add 'use client' directive
+- [ ] Props: messages (array of summaries with childName and sportName added)
+- [ ] Import ParentSummaryCard from ./parent-summary-card
+- [ ] Render messages in a vertical list (space-y-3)
+- [ ] Each message shows:
+- [ ] - Child name above the card (text-sm text-muted-foreground)
+- [ ] - Sport badge (use Badge component)
+- [ ] - The actual summary card using ParentSummaryCard
+- [ ] Messages already sorted by createdAt desc (newest first)
+- [ ] Type check passes
 
 ## Test Scenarios
 

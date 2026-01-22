@@ -99,6 +99,7 @@ function ParentDashboardContent() {
 
     const flattened: Array<{
       _id: Id<"coachParentSummaries">;
+      coachName: string;
       publicSummary: {
         content: string;
         confidenceScore: number;

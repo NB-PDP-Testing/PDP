@@ -1,20 +1,24 @@
-# UAT Test: US-013 - Store generated image in Convex storage
+# UAT Test: US-013 - Add ActionItemsPanel to parent dashboard with scroll behavior
 
-> Auto-generated: 2026-01-20 22:48
+> Auto-generated: 2026-01-22 19:41
 > Status: ⏳ Pending Execution
 
 ## Story
-As the system, generated images should be stored.
+As a parent, clicking Review Now should scroll me to the messages section.
 
 ## Acceptance Criteria Checklist
 
-- [ ] In generateShareableImage action, after generating PNG buffer
-- [ ] Create Blob: new Blob([pngBuffer], { type: 'image/png' })
-- [ ] Upload: const storageId = await ctx.storage.store(blob)
-- [ ] Get URL: const url = await ctx.storage.getUrl(storageId)
-- [ ] Return url from action
-- [ ] Consider adding imageStorageId field to coachParentSummaries schema for caching (optional optimization)
-- [ ] Typecheck passes
+- [ ] In apps/web/src/app/orgs/[orgId]/parents/page.tsx
+- [ ] Import ActionItemsPanel from ./components/action-items-panel
+- [ ] Import useRef from react
+- [ ] Create ref: const messagesRef = useRef<HTMLDivElement>(null)
+- [ ] Calculate total unread count from summariesData (sum all unreadCounts)
+- [ ] Render ActionItemsPanel at top of page (above child cards)
+- [ ] Pass unreadCount and onReviewClick handler
+- [ ] Handler: messagesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+- [ ] Add ref to messages section: <div ref={messagesRef}>
+- [ ] Type check passes
+- [ ] Test: Click Review Now, page scrolls to messages smoothly
 
 ## Test Scenarios
 

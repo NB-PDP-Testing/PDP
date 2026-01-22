@@ -1,25 +1,31 @@
-# UAT Test: US-011 - Create generateShareableImage action
+# UAT Test: US-011 - Add view toggle to parent dashboard for By Child vs All Messages
 
-> Auto-generated: 2026-01-20 22:48
+> Auto-generated: 2026-01-22 19:41
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, I want to generate shareable image cards.
+As a parent, I want to switch between grouped and unified message views.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Add generateShareableImage action to packages/backend/convex/actions/coachParentSummaries.ts
-- [ ] Add 'use node' at top of file if not present
-- [ ] Args: summaryId (v.id('coachParentSummaries'))
-- [ ] Fetch summary using ctx.runQuery
-- [ ] Fetch player name from playerIdentities table
-- [ ] Fetch coach name from Better Auth user table
-- [ ] Fetch org name from organization table
-- [ ] Use satori to render JSX to SVG (1200x630 dimensions, OG image size)
-- [ ] Convert SVG to PNG using resvg
-- [ ] Upload to Convex storage using ctx.storage.store(new Blob([pngBuffer]))
-- [ ] Return storage URL from ctx.storage.getUrl(storageId)
-- [ ] Typecheck passes
+- [ ] In apps/web/src/app/orgs/[orgId]/parents/page.tsx
+- [ ] Import UnifiedInboxView from ./components/unified-inbox-view
+- [ ] Import Button from @/components/ui/button
+- [ ] Add state: const [view, setView] = useState<'by-child' | 'unified'>('by-child')
+- [ ] Create flattened messages array using useMemo:
+- [ ] - Map over summariesData
+- [ ] - For each child, map over sportGroups
+- [ ] - For each sport, map over summaries
+- [ ] - Add childName and sportName to each summary
+- [ ] - Sort by createdAt desc
+- [ ] Add toggle buttons above messages section:
+- [ ] <div className='flex gap-2 mb-4'>
+- [ ] <Button variant={view === 'by-child' ? 'default' : 'outline'} onClick={() => setView('by-child')}>By Child</Button>
+- [ ] <Button variant={view === 'unified' ? 'default' : 'outline'}>All Messages ({allMessages.length})</Button>
+- [ ] </div>
+- [ ] Conditionally render: {view === 'unified' ? <UnifiedInboxView messages={allMessages} /> : <CoachFeedback ... />}
+- [ ] Type check passes
+- [ ] Test: Toggle works, both views display correctly
 
 ## Test Scenarios
 

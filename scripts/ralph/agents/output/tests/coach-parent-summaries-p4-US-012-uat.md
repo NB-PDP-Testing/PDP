@@ -1,22 +1,27 @@
-# UAT Test: US-012 - Design shareable image template
+# UAT Test: US-012 - Create ActionItemsPanel component for unread alerts
 
-> Auto-generated: 2026-01-20 22:48
+> Auto-generated: 2026-01-22 19:41
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, shareable images should be well-branded.
+As a parent, I want a prominent alert when I have unread messages.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Create JSX component structure for satori rendering (can be inline in action)
-- [ ] Design: gradient background (PlayerARC brand colors: blue to purple)
-- [ ] PlayerARC logo/text at top
-- [ ] Quote-styled message content with player first name
-- [ ] Attribution: 'From Coach [FirstName] at [Organization]'
-- [ ] Date in subtle text at bottom (formatted: 'January 20, 2026')
-- [ ] Use flexbox layout (satori supports flexbox, not grid)
-- [ ] Image dimensions: 1200x630 (standard OG image size)
-- [ ] Typecheck passes
+- [ ] Create apps/web/src/app/orgs/[orgId]/parents/components/action-items-panel.tsx
+- [ ] Add 'use client' directive
+- [ ] Props: unreadCount (number), onReviewClick (() => void)
+- [ ] Import Alert, AlertTitle, AlertDescription from @/components/ui/alert
+- [ ] Import Button from @/components/ui/button
+- [ ] Import AlertCircle icon from lucide-react
+- [ ] Return null if unreadCount === 0
+- [ ] Render Alert with:
+- [ ] - className: 'border-blue-500 bg-blue-50 mb-6'
+- [ ] - AlertCircle icon with text-blue-600
+- [ ] - AlertTitle: 'You have {unreadCount} new coach update{s}'
+- [ ] - AlertDescription with text and Button: 'Review Now'
+- [ ] - Button onClick calls onReviewClick prop
+- [ ] Type check passes
 
 ## Test Scenarios
 

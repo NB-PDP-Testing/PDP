@@ -339,8 +339,8 @@
         "Test: Dashboard shows coach initials next to each message"
       ],
       "priority": 14,
-      "passes": false,
-      "notes": "CoachAvatar component created in US-005. Just need to add it to CoachFeedback where ParentSummaryCard is rendered."
+      "passes": true,
+      "notes": "CoachAvatar component created in US-005. Already added to ParentSummaryCard which is used in CoachFeedback."
     },
     {
       "id": "US-015",

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { MessagePassportLink } from "@/components/parent/message-passport-link";
 import { ShareModal } from "@/components/parent/share-modal";
+import CoachAvatar from "@/components/shared/coach-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +24,7 @@ type ParentSummaryCardProps = {
     status: string;
     viewedAt?: number;
     acknowledgedAt?: number;
+    coachName?: string;
   };
   isUnread: boolean;
   onView: (summaryId: Id<"coachParentSummaries">) => void;
@@ -75,7 +77,12 @@ export function ParentSummaryCard({
       onClick={handleView}
     >
       <CardContent className="pt-4">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          {/* Coach Avatar (US-014) */}
+          {summary.coachName && (
+            <CoachAvatar coachName={summary.coachName} size="md" />
+          )}
+
           <div className="flex-1">
             {/* Status badges */}
             {isUnread && !summary.acknowledgedAt && (
@@ -101,14 +108,24 @@ export function ParentSummaryCard({
               </p>
             </div>
 
-            {/* Timestamp */}
+            {/* Timestamp - US-015: Relative for recent, absolute for old */}
             <p className="text-muted-foreground text-xs">
-              {formatDistanceToNow(
-                new Date(summary.publicSummary.generatedAt),
-                {
-                  addSuffix: true,
+              {(() => {
+                const timestamp = summary.publicSummary.generatedAt;
+                const isRecent =
+                  Date.now() - timestamp < 7 * 24 * 60 * 60 * 1000;
+                if (isRecent) {
+                  return formatDistanceToNow(new Date(timestamp), {
+                    addSuffix: true,
+                  });
                 }
-              )}
+                // Import format at the top: import { format, formatDistanceToNow } from "date-fns";
+                const formatDate = (ts: number) => {
+                  const date = new Date(ts);
+                  return `${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+                };
+                return formatDate(timestamp);
+              })()}
             </p>
 
             {/* Card footer actions */}

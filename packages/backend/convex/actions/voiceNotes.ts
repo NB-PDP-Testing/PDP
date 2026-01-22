@@ -478,15 +478,19 @@ VERIFICATION CHECKLIST:
 4. If NO, did I set playerId to null? YES/NO
 
 TEAM MATCHING INSTRUCTIONS (for team_culture insights):
-- When you identify a team_culture insight, try to match team mentions to the Coach's Teams list above
-- Look for team names like "U18 Female", "Senior Women", "U16 Boys", etc. in the voice note
-- Match against the "name" field in the teams JSON
-- If you find a match, copy the exact "id" and "name" into teamId and teamName
-- If no team is mentioned or no match found, leave teamId and teamName as null
-- Examples:
-  * "The U18 girls showed great spirit" → Match to {"id": "abc123", "name": "U18 Female"} → teamId="abc123", teamName="U18 Female"
-  * "Senior team played well" → Match to {"id": "xyz789", "name": "Senior Women"} → teamId="xyz789", teamName="Senior Women"
-  * "Great team spirit today" (no specific team mentioned) → teamId=null, teamName=null
+- ONLY match team_culture insights to a team if the EXACT team name is mentioned in the voice note
+- Look for EXPLICIT team names that match the "name" field in the Coach's Teams JSON above
+- DO NOT infer or guess which team based on context like "the girls", "the lads", "the team"
+- If you find an EXACT match, copy the "id" and "name" into teamId and teamName
+- If the team name is not explicitly mentioned, leave teamId and teamName as NULL (coach will classify manually)
+- Examples of EXPLICIT matches:
+  * "The U18 Female team showed great spirit" → Match to {"id": "abc123", "name": "U18 Female"} → teamId="abc123", teamName="U18 Female"
+  * "Senior Women played well today" → Match to {"id": "xyz789", "name": "Senior Women"} → teamId="xyz789", teamName="Senior Women"
+- Examples where you should leave NULL:
+  * "The girls worked hard tonight" → teamId=null, teamName=null (ambiguous - could be any team)
+  * "Great team spirit today" → teamId=null, teamName=null (no specific team mentioned)
+  * "The senior team played well" → teamId=null, teamName=null (not exact - could be "Senior Women", "Senior Men", etc.)
+- IMPORTANT: When in doubt, leave NULL and let the coach classify manually
 
 TODO/ACTION ASSIGNMENT INSTRUCTIONS (for todo insights):
 - When you identify a todo insight, determine who should do this action

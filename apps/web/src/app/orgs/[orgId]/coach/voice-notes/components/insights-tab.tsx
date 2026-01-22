@@ -281,7 +281,9 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
       onSuccess(message);
     } catch (error) {
       console.error("Failed to apply insight:", error);
-      onError("Failed to apply insight.");
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to apply insight.";
+      onError(errorMessage);
     }
   };
 
@@ -453,7 +455,9 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   ) => {
     const isUnmatched = type === "unmatched";
     const isUncategorized = type === "uncategorized";
-    const needsAction = isUnmatched || isUncategorized;
+    const isTeamWithoutTeamId =
+      insight.category === "team_culture" && !(insight as any).teamId;
+    const needsAction = isUnmatched || isUncategorized || isTeamWithoutTeamId;
 
     // Determine card styling based on type
     const cardStyles = {
@@ -607,7 +611,9 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
               needsAction
                 ? isUnmatched
                   ? "Assign a player first to apply this insight"
-                  : "Classify this insight first to apply"
+                  : isTeamWithoutTeamId
+                    ? "Assign to a team first to apply this insight"
+                    : "Classify this insight first to apply"
                 : "Apply insight"
             }
             variant="default"

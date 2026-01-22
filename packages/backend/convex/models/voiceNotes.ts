@@ -795,8 +795,9 @@ export const updateInsightStatus = mutation({
         message = `Team observation added to ${targetTeamName}`;
       } else {
         // No team ID - insight needs to be classified with a team first
-        message =
-          "Team insight must be assigned to a team before applying. Please classify it first.";
+        throw new Error(
+          "Team insight must be assigned to a team before applying. Please classify it first."
+        );
       }
     }
 

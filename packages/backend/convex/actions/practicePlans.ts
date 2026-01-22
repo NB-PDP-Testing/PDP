@@ -79,7 +79,7 @@ export const generatePracticePlan = action({
 
     // Get player enrollment data
     const enrollment = await ctx.runQuery(
-      api.models.playerIdentities.getPlayerEnrollmentInOrganization,
+      api.models.orgPlayerEnrollments.getEnrollment,
       {
         playerIdentityId: args.playerIdentityId,
         organizationId: args.organizationId,

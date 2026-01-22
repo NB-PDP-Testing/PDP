@@ -64,7 +64,7 @@ export const sendGuardianNotificationEmail = action({
         );
         return {
           success: false,
-          scenario: "error",
+          scenario: "error" as const,
           message:
             "Email service not configured. Please set RESEND_API_KEY in Convex environment variables.",
         };
@@ -98,7 +98,7 @@ export const sendGuardianNotificationEmail = action({
         console.error("[sendGuardianNotificationEmail] Organization not found");
         return {
           success: false,
-          scenario: "error",
+          scenario: "error" as const,
           message: "Organization not found",
         };
       }
@@ -146,7 +146,7 @@ export const sendGuardianNotificationEmail = action({
 
         return {
           success: true,
-          scenario: "existing_user",
+          scenario: "existing_user" as const,
           message: "Simple notification sent to existing user",
         };
       }
@@ -239,7 +239,7 @@ export const sendGuardianNotificationEmail = action({
 
       return {
         success: true,
-        scenario: "new_user",
+        scenario: "new_user" as const,
         message:
           "Full invitation email sent to new user with pending children message",
       };
@@ -247,7 +247,7 @@ export const sendGuardianNotificationEmail = action({
       console.error("[sendGuardianNotificationEmail] Error:", error);
       return {
         success: false,
-        scenario: "error",
+        scenario: "error" as const,
         message: error instanceof Error ? error.message : "Unknown error",
       };
     }

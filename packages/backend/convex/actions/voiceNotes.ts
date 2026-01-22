@@ -244,9 +244,16 @@ export const buildInsights = internalAction({
           );
 
       // Build roster context for AI (JSON format for reliable parsing)
-      const rosterContext = players.length
+      // IMPORTANT: Deduplicate by playerIdentityId in case player is on multiple teams
+      const uniquePlayers = Array.from(
+        new Map(
+          players.map((player: any) => [player.playerIdentityId, player])
+        ).values()
+      );
+
+      const rosterContext = uniquePlayers.length
         ? JSON.stringify(
-            players.map((player: any) => ({
+            uniquePlayers.map((player: any) => ({
               id: player.playerIdentityId,
               firstName: player.firstName,
               lastName: player.lastName,
@@ -258,6 +265,31 @@ export const buildInsights = internalAction({
             2
           )
         : "[]";
+
+      // Log roster for debugging
+      console.log(
+        `[AI Roster] Providing ${uniquePlayers.length} UNIQUE players to AI (deduplicated from ${players.length} total):`,
+        uniquePlayers
+          .slice(0, 10)
+          .map((p: any) => `${p.firstName} ${p.lastName}`)
+          .join(", ")
+      );
+
+      // Log full roster JSON for debugging Clodagh issue
+      if (uniquePlayers.some((p: any) => p.firstName === "Clodagh")) {
+        console.log(
+          "[DEBUG] Clodagh IS in roster! Full details:",
+          JSON.stringify(
+            uniquePlayers.filter((p: any) => p.firstName === "Clodagh"),
+            null,
+            2
+          )
+        );
+      } else {
+        console.log(
+          `[DEBUG] Clodagh NOT in roster. First names: ${uniquePlayers.map((p: any) => p.firstName).join(", ")}`
+        );
+      }
 
       // Get model config from database with fallback
       const config = await getAIConfig(ctx, "voice_insights", note.orgId);
@@ -299,22 +331,35 @@ Team Roster (JSON array):
 ${rosterContext}
 
 CRITICAL PLAYER MATCHING INSTRUCTIONS:
-- When you identify a player name in the voice note, find them in the roster JSON above
-- Use the EXACT "id" field from the matching roster entry as the playerId in your response
-- Match by comparing the mentioned name to "fullName", "firstName", or "lastName" fields
-- If you find a match, you MUST include the "id" as the playerId
+- When you identify a player name in the voice note, YOU MUST find them in the roster JSON above
+- The roster JSON is an array of player objects with "id", "firstName", "lastName", "fullName" fields
+- Compare the mentioned name to the "fullName" field first (exact or partial match)
+- If the voice note mentions only a first name (e.g., "Clodagh"), check if any "firstName" in roster matches
+- When you find a match, you MUST copy the EXACT "id" field value into the playerId in your response
+- The "id" is a long string like "mx7fsvhh9m9v8qayeetcjvn5g17y95dv" - copy it exactly
+- If no match is found, set playerId to null but still include the playerName
 
-MATCHING EXAMPLES:
+MATCHING EXAMPLES (FOLLOW THESE EXACTLY):
 Example 1: Voice note says "Clodagh Barlow injured her hand"
-  Roster has: {"id": "mx7fsvhh...", "fullName": "Clodagh Barlow", ...}
-  Return: {"playerName": "Clodagh Barlow", "playerId": "mx7fsvhh..."}
+  Roster has: {"id": "mx7fsvhh9m9v8qayeetcjvn5g17y95dv", "fullName": "Clodagh Barlow", ...}
+  YOU MUST RETURN: {"playerName": "Clodagh Barlow", "playerId": "mx7fsvhh9m9v8qayeetcjvn5g17y95dv"}
 
-Example 2: Voice note says "Sinead had a great session"
-  Roster has: {"id": "abc123", "firstName": "Sinead", "lastName": "Haughey", ...}
-  Return: {"playerName": "Sinead Haughey", "playerId": "abc123"}
+Example 2: Voice note says "great effort from Clodagh this evening"
+  Roster has: {"id": "mx7fsvhh9m9v8qayeetcjvn5g17y95dv", "firstName": "Clodagh", "lastName": "Barlow", "fullName": "Clodagh Barlow", ...}
+  YOU MUST RETURN: {"playerName": "Clodagh Barlow", "playerId": "mx7fsvhh9m9v8qayeetcjvn5g17y95dv"}
 
-Example 3: Voice note says "John improved his passing" but John is not in roster
-  Return: {"playerName": "John", "playerId": null}
+Example 3: Voice note says "Sinead had a great session"
+  Roster has: {"id": "abc123xyz", "firstName": "Sinead", "lastName": "Haughey", "fullName": "Sinead Haughey", ...}
+  YOU MUST RETURN: {"playerName": "Sinead Haughey", "playerId": "abc123xyz"}
+
+Example 4: Voice note says "John improved his passing" but John is not in roster
+  YOU MUST RETURN: {"playerName": "John", "playerId": null}
+
+VERIFICATION CHECKLIST:
+1. Did I search the roster JSON for this player name? YES/NO
+2. Did I find a matching "fullName" or "firstName"? YES/NO
+3. If YES, did I copy the exact "id" field into playerId? YES/NO
+4. If NO, did I set playerId to null? YES/NO
 
 IMPORTANT:
 - If a player name doesn't match the roster, still extract with playerName but set playerId to null
@@ -348,10 +393,41 @@ IMPORTANT:
         throw new Error(`Failed to parse AI response: ${parsed.error.message}`);
       }
 
+      // Log what AI returned for debugging
+      console.log(
+        `[AI Response] Extracted ${parsed.data.insights.length} insights:`
+      );
+      for (const insight of parsed.data.insights) {
+        if (insight.playerName) {
+          console.log(
+            `  - "${insight.title}": playerName="${insight.playerName}", playerId=${insight.playerId ? `"${insight.playerId}"` : "NULL"}`
+          );
+        }
+      }
+
       // Resolve player IDs and build insights array
       // Now using playerIdentityId for the new identity system
       const resolvedInsights = parsed.data.insights.map((insight) => {
-        const matchedPlayer = findMatchingPlayer(insight, players);
+        // Log what AI returned
+        if (insight.playerName && !insight.playerId) {
+          console.warn(
+            `[AI Matching] ⚠️ AI extracted playerName "${insight.playerName}" but NO playerId. Attempting fallback matching...`
+          );
+        }
+
+        // Use deduplicated roster for matching
+        const matchedPlayer = findMatchingPlayer(insight, uniquePlayers);
+
+        // Log matching result
+        if (insight.playerName && !matchedPlayer) {
+          console.error(
+            `[Matching Failed] ❌ Could not match "${insight.playerName}" to roster. Roster has ${players.length} players: ${players
+              .slice(0, 5)
+              .map((p) => p.firstName)
+              .join(", ")}...`
+          );
+        }
+
         return {
           id: `insight_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
           playerIdentityId: matchedPlayer?.playerIdentityId ?? undefined,

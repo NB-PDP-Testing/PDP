@@ -1,20 +1,34 @@
-# UAT Test: US-019 - Add sport icon to CoachFeedback grouping
+# UAT Test: US-019 - Final testing and polish pass
 
-> Auto-generated: 2026-01-20 22:56
+> Auto-generated: 2026-01-22 19:57
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, sport sections should have visual icons.
+As a developer, I need to ensure all features work end-to-end.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Edit apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx
-- [ ] Create sportCodeToIcon mapping object: { GAA: GAA-specific-icon, soccer: Football, basketball: Basketball, rugby: Rugby, etc. }
-- [ ] Import icons from lucide-react: Activity (fallback), and sport-specific if available
-- [ ] Render sport icon next to sport name in section headers
-- [ ] Use generic Activity icon for unknown sports
-- [ ] Icon size: h-5 w-5 or h-4 w-4
-- [ ] Typecheck passes
+- [ ] Run full type check: npm run check-types (MUST pass)
+- [ ] Run lint: npx ultracite fix (MUST pass)
+- [ ] Manual testing checklist:
+- [ ] - Parent dashboard loads correctly
+- [ ] - Child cards show accurate stats
+- [ ] - View toggle (By Child / All Messages) works
+- [ ] - Action panel appears when unread > 0
+- [ ] - Clicking Review Now scrolls to messages
+- [ ] - Mark as Read works from dashboard
+- [ ] - Navigate to passport from child card
+- [ ] - Passport shows Coach Updates at top (not buried)
+- [ ] - Active/History tabs work in passport
+- [ ] - Mark as Read works from passport
+- [ ] - Coach avatars display everywhere
+- [ ] - Dates show relative format (2 hours ago)
+- [ ] - Category icons display correctly
+- [ ] - Mobile view (375px) works smoothly
+- [ ] - No console errors
+- [ ] - Real-time updates work (open 2 browser windows, mark read in one, see update in other)
+- [ ] Document any issues in progress.txt
+- [ ] Create list of remaining polish items (if any) for future
 
 ## Test Scenarios
 

@@ -1,22 +1,26 @@
-# UAT Test: US-018 - Add share button to ParentSummaryCard
+# UAT Test: US-018 - Add smooth transitions and hover effects
 
-> Auto-generated: 2026-01-20 22:54
+> Auto-generated: 2026-01-22 19:56
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, I want to share from summary cards.
+As a parent, UI interactions should feel polished with smooth animations.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Edit parent-summary-card.tsx
-- [ ] Add local state: isShareModalOpen (boolean, default false)
-- [ ] Add Share button with Share2 icon from lucide-react
-- [ ] Button variant='ghost', size='icon' (or 'sm')
-- [ ] Position in card footer/actions area
-- [ ] On click: setIsShareModalOpen(true)
-- [ ] Render ShareModal with isOpen={isShareModalOpen}, onClose={() => setIsShareModalOpen(false)}
-- [ ] Pass summaryId to ShareModal
-- [ ] Typecheck passes
+- [ ] Add to all Card components: className='transition-all duration-200 hover:shadow-lg hover:scale-[1.02]'
+- [ ] Add to all Button components: className includes 'transition-colors duration-200'
+- [ ] NEW badges: Add 'animate-pulse' class for attention
+- [ ] Tab switching: Tabs component already has transitions (verify they work)
+- [ ] Cards in grid: Add 'transition-transform' to prevent layout shift
+- [ ] Files to update:
+- [ ] 1. child-summary-card.tsx
+- [ ] 2. parent-summary-card.tsx
+- [ ] 3. coach-feedback.tsx
+- [ ] 4. parent-summaries-section.tsx
+- [ ] Ensure no jank (test on 60fps monitor)
+- [ ] Type check passes
+- [ ] Test: Hover over cards, click buttons, verify smooth
 
 ## Test Scenarios
 

@@ -1,20 +1,26 @@
-# UAT Test: US-017 - Add native share to ShareModal
+# UAT Test: US-017 - Add responsive classes for mobile optimization
 
-> Auto-generated: 2026-01-20 22:54
+> Auto-generated: 2026-01-22 19:55
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, I want to use native share if available.
+As a parent on mobile, all pages should work smoothly on small screens.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Check navigator.share availability: typeof navigator !== 'undefined' && typeof navigator.share === 'function'
-- [ ] Only show 'Share' button if native share available
-- [ ] Use Share2 icon from lucide-react
-- [ ] On click: fetch image as blob, then call navigator.share({ files: [new File([blob], 'feedback.png', { type: 'image/png' })] })
-- [ ] Call trackShareEvent with shareDestination: 'native_share'
-- [ ] Handle share cancellation gracefully (user closes share sheet)
-- [ ] Typecheck passes
+- [ ] Files to update:
+- [ ] 1. apps/web/src/app/orgs/[orgId]/parents/page.tsx
+- [ ] 2. apps/web/src/app/orgs/[orgId]/parents/components/child-summary-card.tsx
+- [ ] 3. apps/web/src/app/orgs/[orgId]/parents/components/unified-inbox-view.tsx
+- [ ] 4. apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx
+- [ ] Ensure all grids use: grid-cols-1 md:grid-cols-2 lg:grid-cols-3
+- [ ] Ensure flex containers use: flex-col sm:flex-row for button groups
+- [ ] Ensure text sizes min 14px (text-sm minimum)
+- [ ] Ensure touch targets min 44px (use p-4 or size='default' on buttons)
+- [ ] Add max-w-full to images and cards to prevent overflow
+- [ ] Test at 375px width (iPhone SE), 768px (tablet), 1920px (desktop)
+- [ ] Type check passes
+- [ ] Use browser dev tools responsive mode to verify
 
 ## Test Scenarios
 

@@ -45,6 +45,7 @@ type BehaviorApprovalCardProps = {
   };
   onApprove: () => void;
   onSuppress: () => void;
+  dateTime?: string;
 };
 
 export function BehaviorApprovalCard({
@@ -53,6 +54,7 @@ export function BehaviorApprovalCard({
   sport,
   onApprove,
   onSuppress,
+  dateTime,
 }: BehaviorApprovalCardProps) {
   // Edit state
   const [isEditing, setIsEditing] = useState(false);
@@ -169,6 +171,9 @@ export function BehaviorApprovalCard({
               <p className="text-muted-foreground text-xs sm:text-sm">
                 {sport.name}
               </p>
+            )}
+            {dateTime && (
+              <p className="text-muted-foreground text-xs">{dateTime}</p>
             )}
           </div>
           <Badge

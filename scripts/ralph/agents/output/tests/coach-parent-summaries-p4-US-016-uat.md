@@ -1,20 +1,34 @@
-# UAT Test: US-016 - Add download button to ShareModal
+# UAT Test: US-016 - Add category-specific icons to summary cards
 
-> Auto-generated: 2026-01-20 22:54
+> Auto-generated: 2026-01-22 19:54
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, I want to download the image.
+As a parent, I want visual icons to quickly identify message types.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Add 'Download Image' button with Download icon from lucide-react
-- [ ] Button variant='outline' or 'secondary'
-- [ ] On click: create anchor element, set href to imageUrl, set download attribute to filename
-- [ ] Filename format: 'playerarc-feedback-{YYYY-MM-DD}.png'
-- [ ] Call trackShareEvent mutation with shareDestination: 'download'
-- [ ] Disable button while image is loading
-- [ ] Typecheck passes
+- [ ] Create icon mapping object at top of component:
+- [ ] const categoryIcons = {
+- [ ] skill_rating: Target,
+- [ ] skill_progress: TrendingUp,
+- [ ] injury: Heart,
+- [ ] behavior: AlertCircle,
+- [ ] performance: Trophy,
+- [ ] attendance: Calendar
+- [ ] }
+- [ ] Import all icons from lucide-react
+- [ ] Apply to these files:
+- [ ] 1. parent-summary-card.tsx
+- [ ] 2. coach-feedback.tsx (if not using parent-summary-card)
+- [ ] 3. parent-summaries-section.tsx
+- [ ] Get category from summary.privateInsight.category
+- [ ] Render icon next to category badge or content
+- [ ] Size: h-4 w-4
+- [ ] Color based on sentiment (positive=green-600, concern=yellow-600, neutral=blue-600)
+- [ ] Fallback to MessageSquare icon if category unknown
+- [ ] Type check passes
+- [ ] Test: Different message types show different icons
 
 ## Test Scenarios
 

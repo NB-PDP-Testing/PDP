@@ -1,20 +1,26 @@
-# UAT Test: US-015 - Add image preview to ShareModal
+# UAT Test: US-015 - Update all date displays to use relative formatting
 
-> Auto-generated: 2026-01-20 22:53
+> Auto-generated: 2026-01-22 19:51
 > Status: ⏳ Pending Execution
 
 ## Story
-As a parent, I want to see the image before sharing.
+As a parent, I want recent messages to show '2 hours ago' instead of absolute dates.
 
 ## Acceptance Criteria Checklist
 
-- [ ] Use useAction hook from convex/react to call generateShareableImage
-- [ ] Trigger action when modal opens (useEffect with isOpen dependency)
-- [ ] Store image URL in local state
-- [ ] Display image using <img src={imageUrl} alt='Share preview' /> with proper styling
-- [ ] Show error message if generation fails
-- [ ] Add loading skeleton or spinner while generating
-- [ ] Typecheck passes
+- [ ] Install date-fns if not present: npm install date-fns (check package.json first)
+- [ ] Files to update:
+- [ ] 1. apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx
+- [ ] 2. apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx
+- [ ] 3. apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx
+- [ ] Import: import { formatDistanceToNow, format } from 'date-fns'
+- [ ] For recent messages (< 7 days), use:
+- [ ] {formatDistanceToNow(new Date(summary.createdAt), { addSuffix: true })}
+- [ ] For older messages (> 7 days), use:
+- [ ] {format(new Date(summary.createdAt), 'MMM d, yyyy')}
+- [ ] Add logic: const isRecent = Date.now() - summary.createdAt < 7 * 24 * 60 * 60 * 1000
+- [ ] Type check passes
+- [ ] Test: Recent messages show 'X hours/days ago', old messages show date
 
 ## Test Scenarios
 

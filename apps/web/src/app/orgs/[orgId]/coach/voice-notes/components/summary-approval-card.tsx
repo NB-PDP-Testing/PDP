@@ -36,6 +36,7 @@ type SummaryApprovalCardProps = {
   onSuppress: () => void;
   isApproving: boolean;
   isSuppressing: boolean;
+  dateTime?: string;
 };
 
 export function SummaryApprovalCard({
@@ -46,6 +47,7 @@ export function SummaryApprovalCard({
   onSuppress,
   isApproving,
   isSuppressing,
+  dateTime,
 }: SummaryApprovalCardProps) {
   // Check if mobile on mount - collapsed by default on mobile for space
   const [isInsightExpanded, setIsInsightExpanded] = useState(false);
@@ -119,6 +121,9 @@ export function SummaryApprovalCard({
               <p className="text-muted-foreground text-xs sm:text-sm">
                 {sport.name}
               </p>
+            )}
+            {dateTime && (
+              <p className="text-muted-foreground text-xs">{dateTime}</p>
             )}
           </div>
           <Badge

@@ -79,6 +79,21 @@ type ClassifyingInsight = {
 // Categories that can be applied without player (team-level)
 const TEAM_LEVEL_CATEGORIES = ["team_culture", "todo"];
 
+// Format date as "Mon Jan 22, 10:30 PM"
+function formatInsightDate(date: Date | string | number): string {
+  const d =
+    typeof date === "string" || typeof date === "number"
+      ? new Date(date)
+      : date;
+  return d.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   const router = useRouter();
   const { data: session } = useSession();
@@ -358,13 +373,18 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     }
   };
 
-  // Get pending insights from all notes
+  // Get pending insights from all notes and sort by most recent first
   const pendingInsights =
-    voiceNotes?.flatMap((note) =>
-      note.insights
-        .filter((i) => i.status === "pending")
-        .map((i) => ({ ...i, noteId: note._id, noteDate: note.date }))
-    ) ?? [];
+    voiceNotes
+      ?.flatMap((note) =>
+        note.insights
+          .filter((i) => i.status === "pending")
+          .map((i) => ({ ...i, noteId: note._id, noteDate: note.date }))
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
+      ) ?? [];
 
   // Separate insights by type:
   // 1. Matched: Has playerIdentityId (can be applied directly)
@@ -489,6 +509,10 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
                 </Badge>
               )}
           </div>
+          {/* Date/Time */}
+          <p className="mb-2 text-gray-500 text-xs">
+            {formatInsightDate(insight.noteDate)}
+          </p>
           <p className="mb-2 text-gray-700 text-xs sm:text-sm">
             {insight.description}
           </p>

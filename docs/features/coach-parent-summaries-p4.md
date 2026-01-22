@@ -1,12 +1,12 @@
 # Parent Experience Improvements - Phases 3-5
 
-> Auto-generated documentation - Last updated: 2026-01-22 19:31
+> Auto-generated documentation - Last updated: 2026-01-22 19:57
 
 ## Status
 
 - **Branch**: `ralph/coach-parent-summaries-p4`
-- **Progress**: 10 / 19 stories complete
-- **Phase Status**: 🔄 In Progress
+- **Progress**: 19 / 19 stories complete
+- **Phase Status**: ✅ Complete
 
 ## Completed Features
 
@@ -172,6 +172,193 @@ As a parent, I want to see all messages across all children in one chronological
 -   - The actual summary card using ParentSummaryCard
 - Messages already sorted by createdAt desc (newest first)
 - Type check passes
+
+### US-011: Add view toggle to parent dashboard for By Child vs All Messages
+
+As a parent, I want to switch between grouped and unified message views.
+
+**Acceptance Criteria:**
+- In apps/web/src/app/orgs/[orgId]/parents/page.tsx
+- Import UnifiedInboxView from ./components/unified-inbox-view
+- Import Button from @/components/ui/button
+- Add state: const [view, setView] = useState<'by-child' | 'unified'>('by-child')
+- Create flattened messages array using useMemo:
+-   - Map over summariesData
+-   - For each child, map over sportGroups
+-   - For each sport, map over summaries
+-   - Add childName and sportName to each summary
+-   - Sort by createdAt desc
+- Add toggle buttons above messages section:
+-   <div className='flex gap-2 mb-4'>
+-     <Button variant={view === 'by-child' ? 'default' : 'outline'} onClick={() => setView('by-child')}>By Child</Button>
+-     <Button variant={view === 'unified' ? 'default' : 'outline'}>All Messages ({allMessages.length})</Button>
+-   </div>
+- Conditionally render: {view === 'unified' ? <UnifiedInboxView messages={allMessages} /> : <CoachFeedback ... />}
+- Type check passes
+- Test: Toggle works, both views display correctly
+
+### US-012: Create ActionItemsPanel component for unread alerts
+
+As a parent, I want a prominent alert when I have unread messages.
+
+**Acceptance Criteria:**
+- Create apps/web/src/app/orgs/[orgId]/parents/components/action-items-panel.tsx
+- Add 'use client' directive
+- Props: unreadCount (number), onReviewClick (() => void)
+- Import Alert, AlertTitle, AlertDescription from @/components/ui/alert
+- Import Button from @/components/ui/button
+- Import AlertCircle icon from lucide-react
+- Return null if unreadCount === 0
+- Render Alert with:
+-   - className: 'border-blue-500 bg-blue-50 mb-6'
+-   - AlertCircle icon with text-blue-600
+-   - AlertTitle: 'You have {unreadCount} new coach update{s}'
+-   - AlertDescription with text and Button: 'Review Now'
+-   - Button onClick calls onReviewClick prop
+- Type check passes
+
+### US-013: Add ActionItemsPanel to parent dashboard with scroll behavior
+
+As a parent, clicking Review Now should scroll me to the messages section.
+
+**Acceptance Criteria:**
+- In apps/web/src/app/orgs/[orgId]/parents/page.tsx
+- Import ActionItemsPanel from ./components/action-items-panel
+- Import useRef from react
+- Create ref: const messagesRef = useRef<HTMLDivElement>(null)
+- Calculate total unread count from summariesData (sum all unreadCounts)
+- Render ActionItemsPanel at top of page (above child cards)
+- Pass unreadCount and onReviewClick handler
+- Handler: messagesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+- Add ref to messages section: <div ref={messagesRef}>
+- Type check passes
+- Test: Click Review Now, page scrolls to messages smoothly
+
+### US-014: Add coach avatars to dashboard summary cards
+
+As a parent, I want to see coach avatars on the dashboard messages too.
+
+**Acceptance Criteria:**
+- Open apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx
+- Import CoachAvatar from @/components/shared/coach-avatar
+- In summary card rendering (line ~140-150), add CoachAvatar
+- Position before summary content with gap-3
+- Pass summary.coachName prop
+- Size: 'md'
+- Ensure layout doesn't break (use flex)
+- Type check passes
+- Test: Dashboard shows coach initials next to each message
+
+### US-015: Update all date displays to use relative formatting
+
+As a parent, I want recent messages to show '2 hours ago' instead of absolute dates.
+
+**Acceptance Criteria:**
+- Install date-fns if not present: npm install date-fns (check package.json first)
+- Files to update:
+-   1. apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx
+-   2. apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx
+-   3. apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx
+- Import: import { formatDistanceToNow, format } from 'date-fns'
+- For recent messages (< 7 days), use:
+-   {formatDistanceToNow(new Date(summary.createdAt), { addSuffix: true })}
+- For older messages (> 7 days), use:
+-   {format(new Date(summary.createdAt), 'MMM d, yyyy')}
+- Add logic: const isRecent = Date.now() - summary.createdAt < 7 * 24 * 60 * 60 * 1000
+- Type check passes
+- Test: Recent messages show 'X hours/days ago', old messages show date
+
+### US-016: Add category-specific icons to summary cards
+
+As a parent, I want visual icons to quickly identify message types.
+
+**Acceptance Criteria:**
+- Create icon mapping object at top of component:
+-   const categoryIcons = {
+-     skill_rating: Target,
+-     skill_progress: TrendingUp,
+-     injury: Heart,
+-     behavior: AlertCircle,
+-     performance: Trophy,
+-     attendance: Calendar
+-   }
+- Import all icons from lucide-react
+- Apply to these files:
+-   1. parent-summary-card.tsx
+-   2. coach-feedback.tsx (if not using parent-summary-card)
+-   3. parent-summaries-section.tsx
+- Get category from summary.privateInsight.category
+- Render icon next to category badge or content
+- Size: h-4 w-4
+- Color based on sentiment (positive=green-600, concern=yellow-600, neutral=blue-600)
+- Fallback to MessageSquare icon if category unknown
+- Type check passes
+- Test: Different message types show different icons
+
+### US-017: Add responsive classes for mobile optimization
+
+As a parent on mobile, all pages should work smoothly on small screens.
+
+**Acceptance Criteria:**
+- Files to update:
+-   1. apps/web/src/app/orgs/[orgId]/parents/page.tsx
+-   2. apps/web/src/app/orgs/[orgId]/parents/components/child-summary-card.tsx
+-   3. apps/web/src/app/orgs/[orgId]/parents/components/unified-inbox-view.tsx
+-   4. apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx
+- Ensure all grids use: grid-cols-1 md:grid-cols-2 lg:grid-cols-3
+- Ensure flex containers use: flex-col sm:flex-row for button groups
+- Ensure text sizes min 14px (text-sm minimum)
+- Ensure touch targets min 44px (use p-4 or size='default' on buttons)
+- Add max-w-full to images and cards to prevent overflow
+- Test at 375px width (iPhone SE), 768px (tablet), 1920px (desktop)
+- Type check passes
+- Use browser dev tools responsive mode to verify
+
+### US-018: Add smooth transitions and hover effects
+
+As a parent, UI interactions should feel polished with smooth animations.
+
+**Acceptance Criteria:**
+- Add to all Card components: className='transition-all duration-200 hover:shadow-lg hover:scale-[1.02]'
+- Add to all Button components: className includes 'transition-colors duration-200'
+- NEW badges: Add 'animate-pulse' class for attention
+- Tab switching: Tabs component already has transitions (verify they work)
+- Cards in grid: Add 'transition-transform' to prevent layout shift
+- Files to update:
+-   1. child-summary-card.tsx
+-   2. parent-summary-card.tsx
+-   3. coach-feedback.tsx
+-   4. parent-summaries-section.tsx
+- Ensure no jank (test on 60fps monitor)
+- Type check passes
+- Test: Hover over cards, click buttons, verify smooth
+
+### US-019: Final testing and polish pass
+
+As a developer, I need to ensure all features work end-to-end.
+
+**Acceptance Criteria:**
+- Run full type check: npm run check-types (MUST pass)
+- Run lint: npx ultracite fix (MUST pass)
+- Manual testing checklist:
+-   - Parent dashboard loads correctly
+-   - Child cards show accurate stats
+-   - View toggle (By Child / All Messages) works
+-   - Action panel appears when unread > 0
+-   - Clicking Review Now scrolls to messages
+-   - Mark as Read works from dashboard
+-   - Navigate to passport from child card
+-   - Passport shows Coach Updates at top (not buried)
+-   - Active/History tabs work in passport
+-   - Mark as Read works from passport
+-   - Coach avatars display everywhere
+-   - Dates show relative format (2 hours ago)
+-   - Category icons display correctly
+-   - Mobile view (375px) works smoothly
+-   - No console errors
+-   - Real-time updates work (open 2 browser windows, mark read in one, see update in other)
+- Document any issues in progress.txt
+- Create list of remaining polish items (if any) for future
 
 
 ## Implementation Notes

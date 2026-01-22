@@ -175,6 +175,7 @@ export function VoiceNotesDashboard() {
         label: "Insights",
         icon: Lightbulb,
         badge: pendingInsightsCount,
+        hasAlert: needsAttentionCount > 0,
       });
     }
 

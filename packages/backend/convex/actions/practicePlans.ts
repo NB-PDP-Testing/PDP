@@ -90,11 +90,9 @@ export const generatePracticePlan = action({
       throw new Error("Player enrollment not found");
     }
 
-    // Get development goals
-    const goals = await ctx.runQuery(api.models.developmentGoals.listGoals, {
-      playerIdentityId: args.playerIdentityId,
-      organizationId: args.organizationId,
-    });
+    // Note: Development goals API not yet implemented
+    // Will use coach feedback and skill analysis instead
+    const goals = null;
 
     // Get recent coach summaries for context
     const summaries = await ctx.runQuery(

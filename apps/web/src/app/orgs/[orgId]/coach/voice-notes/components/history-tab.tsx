@@ -45,6 +45,21 @@ import {
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 
+// Format date as "Mon Jan 22, 10:30 PM"
+function formatHistoryDate(date: Date | string | number): string {
+  const d =
+    typeof date === "string" || typeof date === "number"
+      ? new Date(date)
+      : date;
+  return d.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 type HistoryTabProps = {
   orgId: BetterAuthId<"organization">;
   onSuccess: (message: string) => void;
@@ -241,12 +256,7 @@ export function HistoryTab({ orgId, onSuccess, onError }: HistoryTabProps) {
                       </Badge>
                     )}
                     <span className="text-gray-500 text-xs sm:text-sm">
-                      {new Date(note.date).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
+                      {formatHistoryDate(note.date)}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 sm:gap-2">

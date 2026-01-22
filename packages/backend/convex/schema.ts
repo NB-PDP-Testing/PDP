@@ -1416,6 +1416,41 @@ export default defineSchema({
     .index("by_orgId_and_coachId", ["orgId", "coachId"]),
 
   // ============================================================
+  // TEAM OBSERVATIONS
+  // Structured storage for team-level insights from voice notes
+  // ============================================================
+  teamObservations: defineTable({
+    organizationId: v.string(), // Better Auth organization ID
+    teamId: v.string(), // Better Auth team ID
+    teamName: v.string(), // Denormalized for display
+
+    // Source tracking
+    source: v.union(
+      v.literal("voice_note"), // From voice note insight
+      v.literal("manual") // Manually added by coach
+    ),
+    voiceNoteId: v.optional(v.id("voiceNotes")), // Link to voice note if from voice note
+    insightId: v.optional(v.string()), // Link to specific insight
+
+    // Coach who created/recorded
+    coachId: v.string(), // Better Auth user ID
+    coachName: v.string(), // Denormalized for display
+
+    // Observation content
+    title: v.string(),
+    description: v.string(),
+    category: v.optional(v.string()), // e.g., "team_culture", "team_performance"
+
+    // Metadata
+    dateObserved: v.string(), // ISO date string
+    createdAt: v.number(),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_teamId", ["teamId"])
+    .index("by_organizationId_and_teamId", ["organizationId", "teamId"])
+    .index("by_voiceNoteId", ["voiceNoteId"]),
+
+  // ============================================================
   // COACH-PARENT MESSAGING
   // Secure, auditable messaging between coaches and parents
   // ============================================================

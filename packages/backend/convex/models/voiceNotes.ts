@@ -764,84 +764,39 @@ export const updateInsightStatus = mutation({
       }
     } else if (args.status === "applied" && !insight.playerIdentityId) {
       // This is a team-level insight (no player linked)
-      // Route to team notes - since there's no player, ANY category goes to team
-      const _category = insight.category?.toLowerCase() || "";
+      // Create a record in teamObservations table
+      const category = insight.category?.toLowerCase() || "team_culture";
+      const now = Date.now();
 
-      // Always route to team notes when there's no player linked
-      // This is simpler and more intuitive - if there's no player, it's a team note
-      {
-        // Try to find a team based on note type or context
-        // For now, we'll use the Better Auth adapter to find teams for this org
-        // and add the note to all teams (or ideally the most relevant one)
+      // Check if insight has teamId (from AI auto-assignment)
+      const targetTeamId = (insight as any).teamId;
+      const targetTeamName = (insight as any).teamName;
 
-        const now = Date.now();
-        const newNote = `[${new Date().toLocaleDateString()}] ${insight.title}: ${insight.description}${insight.recommendedUpdate ? ` (Recommended: ${insight.recommendedUpdate})` : ""}`;
+      if (targetTeamId && targetTeamName) {
+        // Create team observation record
+        const observationId = await ctx.db.insert("teamObservations", {
+          organizationId: note.orgId,
+          teamId: targetTeamId,
+          teamName: targetTeamName,
+          source: "voice_note",
+          voiceNoteId: args.noteId,
+          insightId: args.insightId,
+          coachId: note.coachId,
+          coachName: "Coach", // TODO: Get coach name from Better Auth
+          title: insight.title,
+          description: insight.description,
+          category,
+          dateObserved: note.date,
+          createdAt: now,
+        });
 
-        // Get teams for this organization using Better Auth component
-        const teamsResult = await ctx.runQuery(
-          components.betterAuth.adapter.findMany,
-          {
-            model: "team",
-            paginationOpts: { cursor: null, numItems: 100 },
-            where: [
-              { field: "organizationId", value: note.orgId, operator: "eq" },
-            ],
-          }
-        );
-
-        const teams = teamsResult.page as Array<{
-          _id: string;
-          name: string;
-          coachNotes?: string;
-        }>;
-
-        if (teams.length === 1) {
-          // Only one team - add note to it
-          const team = teams[0];
-          const existingNotes = team.coachNotes || "";
-          const updatedNotes = existingNotes
-            ? `${existingNotes}\n\n${newNote}`
-            : newNote;
-
-          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
-            input: {
-              model: "team",
-              where: [{ field: "_id", value: team._id, operator: "eq" }],
-              update: {
-                coachNotes: updatedNotes,
-                updatedAt: now,
-              },
-            },
-          });
-
-          appliedTo = "team.coachNotes";
-          recordId = team._id;
-          message = `Team note added to ${team.name}`;
-        } else if (teams.length > 1) {
-          // Multiple teams - add to the first one (could be improved with team detection logic)
-          const team = teams[0];
-          const existingNotes = team.coachNotes || "";
-          const updatedNotes = existingNotes
-            ? `${existingNotes}\n\n${newNote}`
-            : newNote;
-
-          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
-            input: {
-              model: "team",
-              where: [{ field: "_id", value: team._id, operator: "eq" }],
-              update: {
-                coachNotes: updatedNotes,
-                updatedAt: now,
-              },
-            },
-          });
-
-          appliedTo = "team.coachNotes";
-          recordId = team._id;
-          message = `Team note added to ${team.name} (${teams.length} teams available)`;
-        } else {
-          message = "No teams found for this organization to add the note to.";
-        }
+        appliedTo = "teamObservations";
+        recordId = observationId;
+        message = `Team observation added to ${targetTeamName}`;
+      } else {
+        // No team ID - insight needs to be classified with a team first
+        message =
+          "Team insight must be assigned to a team before applying. Please classify it first.";
       }
     }
 

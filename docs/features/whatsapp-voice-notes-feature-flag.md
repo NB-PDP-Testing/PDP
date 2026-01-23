@@ -1,16 +1,16 @@
 # WhatsApp Voice Notes - Feature Flag Integration
 **Date:** 2026-01-23
-**Feature Flag:** `voice_notes_whatsapp`
+**Feature Flags:** `voice_notes_whatsapp`, `voice_notes_ai_model_display`
 
 ## Overview
 
-WhatsApp integration for voice notes is now controlled via PostHog feature flags, enabling A/B testing and gradual rollout. AI model configuration for voice notes is managed through the existing Platform AI Configuration page (`/platform/ai-config`).
+WhatsApp integration for voice notes is now controlled via PostHog feature flags, enabling A/B testing and gradual rollout. Additionally, coaches can now see which AI models are being used for transcription and insights.
 
 ---
 
-## Feature Flag
+## Feature Flags
 
-### `voice_notes_whatsapp`
+### 1. `voice_notes_whatsapp`
 **Type:** Boolean
 **Default:** `false` (disabled)
 **Purpose:** Enable/disable WhatsApp integration for voice notes via Twilio
@@ -27,11 +27,31 @@ WhatsApp integration for voice notes is now controlled via PostHog feature flags
 - **Organization-Specific:** Enable for specific clubs first (beta testing)
 - **Geographic Testing:** Enable for specific regions/countries first
 
+### 2. `voice_notes_ai_model_display`
+**Type:** Boolean
+**Default:** `false` (disabled)
+**Purpose:** Show coaches which AI models are being used for their voice notes
+
+**When Enabled:**
+- AI model info icon appears in voice notes dashboard header
+- Hover/click shows:
+  - Transcription model (e.g., whisper-1)
+  - Insights model (e.g., gpt-4o)
+  - Provider (OpenAI, Anthropic, OpenRouter)
+  - Scope (platform vs organization-specific)
+- Analytics tracks when coaches view model information
+
+**Use Cases:**
+- **Transparency:** Let coaches know what AI is powering their tools
+- **Model Testing:** Compare engagement when coaches know vs don't know which models are used
+- **Premium Feature:** Show model info only to paying organizations
+- **Trust Building:** Demonstrate platform AI capabilities
+
 ---
 
 ## PostHog Setup
 
-### Creating the Feature Flag
+### Creating the Feature Flags
 
 1. **Log into PostHog** (https://eu.i.posthog.com)
 2. **Navigate to Feature Flags** (left sidebar)
@@ -41,6 +61,13 @@ WhatsApp integration for voice notes is now controlled via PostHog feature flags
    - Type: Boolean
    - Rollout: Start at 0%
    - Description: "Enable WhatsApp integration for voice notes"
+
+4. **Create Flag: `voice_notes_ai_model_display`**
+   - Name: Voice Notes AI Model Display
+   - Key: `voice_notes_ai_model_display`
+   - Type: Boolean
+   - Rollout: Start at 0%
+   - Description: "Show coaches which AI models are processing their voice notes"
 
 ### Rollout Strategies
 
@@ -76,7 +103,8 @@ Match: user.coachTrustLevel >= 2
 
 ## Analytics Events
 
-All WhatsApp events are automatically tracked when the feature flag is enabled:
+### WhatsApp Events
+All events are automatically tracked when the feature flag is enabled:
 
 | Event | Description | Properties |
 |-------|-------------|------------|
@@ -85,23 +113,35 @@ All WhatsApp events are automatically tracked when the feature flag is enabled:
 | `voice_notes_whatsapp_processed` | Successfully processed WhatsApp note | `processing_time_ms`, `insights_count`, `auto_applied` |
 | `voice_notes_whatsapp_failed` | WhatsApp processing failed | `error_type`, `error_message`, `retry_count` |
 
+### AI Model Events
+
+| Event | Description | Properties |
+|-------|-------------|------------|
+| `voice_notes_ai_model_info_viewed` | Coach viewed AI model info tooltip | `transcriptionModel`, `insightsModel` |
+| `voice_notes_ai_model_changed` | Platform staff changed AI model config | `feature`, `old_model`, `new_model`, `scope` |
+
 ---
 
 ## Frontend Integration
 
-### Using the Feature Flag
+### Using the Feature Flags
 
 ```typescript
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 
 function VoiceNotesComponent() {
-  const { useVoiceNotesWhatsApp } = useUXFeatureFlags();
+  const { useVoiceNotesWhatsApp, useVoiceNotesAIModelDisplay } = useUXFeatureFlags();
 
   return (
     <div>
       {/* Show WhatsApp integration UI if enabled */}
       {useVoiceNotesWhatsApp && (
         <WhatsAppIntegrationPanel />
+      )}
+
+      {/* Show AI model info if enabled */}
+      {useVoiceNotesAIModelDisplay && (
+        <AIModelInfo orgId={orgId} />
       )}
     </div>
   );

@@ -208,6 +208,8 @@ export type UXFeatureFlags = {
   // Phase 18 - Voice Notes Features
   /** Enable WhatsApp integration for voice notes via Twilio */
   useVoiceNotesWhatsApp: boolean;
+  /** Display AI model information to coaches (transcription/insights models) */
+  useVoiceNotesAIModelDisplay: boolean;
 
   // Quick Actions A/B/C Testing
   /** Which quick actions variant to display: control (collapsible grid), fab (floating button), horizontal (icon scroll), two-tier (3 primary + more) */
@@ -303,6 +305,9 @@ export function useUXFeatureFlags(): UXFeatureFlags {
 
     // Phase 18 - Voice Notes Features
     useVoiceNotesWhatsApp: isFeatureEnabled("voice_notes_whatsapp"),
+    useVoiceNotesAIModelDisplay: isFeatureEnabled(
+      "voice_notes_ai_model_display"
+    ),
 
     // Quick Actions A/B/C Testing
     quickActionsVariant: getQuickActionsVariant(isFeatureEnabled),
@@ -442,4 +447,6 @@ export const UXAnalyticsEvents = {
   WHATSAPP_VOICE_NOTE_RECEIVED: "voice_notes_whatsapp_received",
   WHATSAPP_VOICE_NOTE_PROCESSED: "voice_notes_whatsapp_processed",
   WHATSAPP_VOICE_NOTE_FAILED: "voice_notes_whatsapp_failed",
+  AI_MODEL_INFO_VIEWED: "voice_notes_ai_model_info_viewed",
+  AI_MODEL_CHANGED: "voice_notes_ai_model_changed",
 } as const;

@@ -544,15 +544,28 @@ TEAM MATCHING INSTRUCTIONS (for team_culture insights):
 - IMPORTANT: When in doubt, leave NULL and let the coach classify manually
 
 TODO/ACTION ASSIGNMENT INSTRUCTIONS (for todo insights):
-- When you identify a todo insight, determine who should do this action
-- Check the voice note for:
-  * First person pronouns ("I need to", "I'll", "I should") → Assign to the recording coach
-  * Coach names mentioned → Match to "Coaches on Same Teams" list and assign to them
-  * Generic "we" or "someone" → Leave assigneeUserId and assigneeName as null (needs manual assignment)
-- Examples:
-  * "I need to order new cones" → AUTO-ASSIGN to recording coach (assigneeUserId = their ID from coaches list)
-  * "John should schedule the parent meeting" → Match "John" to coaches list, assign to him
-  * "Someone needs to book the pitch" → assigneeUserId=null, assigneeName=null (coach will assign manually)
+- CRITICAL: ONLY assign TODOs when you can EXPLICITLY identify who should do it
+- Check the voice note for EXPLICIT assignment indicators:
+  * FIRST-PERSON PRONOUNS ("I need to", "I'll", "I should", "I've got to") → Assign to the recording coach
+  * SPECIFIC COACH NAME ("John should", "Sarah needs to") → Match to "Coaches on Same Teams" list
+- If NONE of the above, you MUST leave assigneeUserId and assigneeName as NULL:
+  * Bare action phrases with NO pronouns ("Organize match", "Sort jerseys", "Book pitch")
+  * Generic pronouns ("we need to", "someone should", "they have to")
+  * Passive voice ("needs to be done", "should be sorted", "must be organized")
+- Examples of AUTO-ASSIGNMENT (recording coach):
+  * "I need to order new cones" → assigneeUserId = recording coach ID
+  * "I'll schedule the parent meeting" → assigneeUserId = recording coach ID
+  * "I should book the pitch for Friday" → assigneeUserId = recording coach ID
+- Examples of SPECIFIC COACH ASSIGNMENT:
+  * "John should schedule the meeting" → Match "John" to coaches list
+  * "Ask Sarah to book the pitch" → Match "Sarah" to coaches list
+- Examples of NO ASSIGNMENT (leave NULL - coach assigns manually):
+  * "Organize challenge match" → assigneeUserId=null (bare phrase, no pronoun)
+  * "Sort the jerseys" → assigneeUserId=null (bare phrase, no pronoun)
+  * "Someone needs to book the pitch" → assigneeUserId=null (generic pronoun)
+  * "We need to order cones" → assigneeUserId=null (generic "we")
+  * "Jerseys need sorting" → assigneeUserId=null (passive voice)
+  * "Need to organize a match" → assigneeUserId=null (no explicit "I")
 
 IMPORTANT:
 - If a player name doesn't match the roster, still extract with playerName but set playerId to null

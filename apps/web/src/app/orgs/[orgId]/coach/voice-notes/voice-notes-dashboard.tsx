@@ -19,7 +19,6 @@ import { TrustLevelIcon } from "@/components/coach/trust-level-icon";
 import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AIModelInfo } from "./components/ai-model-info";
 import { HistoryTab } from "./components/history-tab";
 import { InsightsTab } from "./components/insights-tab";
 import { NewNoteTab } from "./components/new-note-tab";
@@ -273,8 +272,6 @@ export function VoiceNotesDashboard() {
                 </div>
               )}
             </div>
-            {/* AI Model Info */}
-            <AIModelInfo orgId={orgId} />
             {/* Trust Level Icon */}
             {trustLevel && (
               <TrustLevelIcon

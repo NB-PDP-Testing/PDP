@@ -829,12 +829,6 @@ export default defineSchema({
   // EXISTING APPLICATION TABLES
   // ============================================================
 
-  // Simple todos (existing)
-  todos: defineTable({
-    text: v.string(),
-    completed: v.boolean(),
-  }),
-
   // Coach tasks - personal and team task management for coaches
   coachTasks: defineTable({
     text: v.string(), // Task description
@@ -2911,4 +2905,92 @@ export default defineSchema({
     .index("by_config", ["configId"])
     .index("by_feature", ["feature"])
     .index("by_changedAt", ["changedAt"]),
+
+  // ============================================================
+  // WHATSAPP INTEGRATION (TWILIO)
+  // Receive voice notes and messages from coaches via WhatsApp
+  // ============================================================
+
+  whatsappMessages: defineTable({
+    // Twilio message identifiers
+    messageSid: v.string(),
+    accountSid: v.string(),
+
+    // Sender/receiver info
+    fromNumber: v.string(), // E.164 format (without whatsapp: prefix)
+    toNumber: v.string(), // Our Twilio WhatsApp number
+
+    // Message content
+    messageType: v.union(
+      v.literal("text"),
+      v.literal("audio"),
+      v.literal("image"),
+      v.literal("video"),
+      v.literal("document")
+    ),
+    body: v.optional(v.string()),
+    mediaUrl: v.optional(v.string()),
+    mediaContentType: v.optional(v.string()),
+    mediaStorageId: v.optional(v.id("_storage")),
+
+    // Coach linking (matched by phone number)
+    coachId: v.optional(v.string()),
+    coachName: v.optional(v.string()),
+    organizationId: v.optional(v.string()),
+
+    // Processing status
+    status: v.union(
+      v.literal("received"),
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("unmatched")
+    ),
+    errorMessage: v.optional(v.string()),
+
+    // Link to created voice note
+    voiceNoteId: v.optional(v.id("voiceNotes")),
+
+    // Auto-apply results (for WhatsApp reply)
+    processingResults: v.optional(
+      v.object({
+        autoApplied: v.array(
+          v.object({
+            insightId: v.string(),
+            playerName: v.optional(v.string()),
+            teamName: v.optional(v.string()),
+            category: v.string(),
+            title: v.string(),
+            parentSummaryQueued: v.boolean(),
+          })
+        ),
+        needsReview: v.array(
+          v.object({
+            insightId: v.string(),
+            playerName: v.optional(v.string()),
+            category: v.string(),
+            title: v.string(),
+            reason: v.string(), // "sensitive" | "low_trust" | "unmatched_player"
+          })
+        ),
+        unmatched: v.array(
+          v.object({
+            insightId: v.string(),
+            mentionedName: v.optional(v.string()),
+            title: v.string(),
+          })
+        ),
+      })
+    ),
+
+    // Timestamps
+    receivedAt: v.number(),
+    processedAt: v.optional(v.number()),
+  })
+    .index("by_messageSid", ["messageSid"])
+    .index("by_fromNumber", ["fromNumber"])
+    .index("by_coachId", ["coachId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_status", ["status"])
+    .index("by_receivedAt", ["receivedAt"]),
 });

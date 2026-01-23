@@ -22,6 +22,7 @@ System design, data models, and architectural decisions.
 | [identity-system.md](./architecture/identity-system.md) | Platform-level identity architecture (planned) |
 | [player-passport.md](./architecture/player-passport.md) | Player passport system architecture |
 | [season-management.md](./architecture/season-management.md) | Season management analysis |
+| [knowledge-graph.md](./architecture/knowledge-graph.md) | Knowledge graph architecture for player development insights |
 
 ### [features/](./features/)
 Feature documentation explaining how things work.

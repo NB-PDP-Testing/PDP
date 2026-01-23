@@ -15,6 +15,7 @@ import type * as actions_practicePlans from "../actions/practicePlans.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
 import type * as actions_sessionPlans from "../actions/sessionPlans.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
+import type * as actions_whatsapp from "../actions/whatsapp.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as healthCheck from "../healthCheck.js";
@@ -75,6 +76,7 @@ import type * as models_teams from "../models/teams.js";
 import type * as models_userPreferences from "../models/userPreferences.js";
 import type * as models_users from "../models/users.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
+import type * as models_whatsappMessages from "../models/whatsappMessages.js";
 import type * as privateData from "../privateData.js";
 import type * as scripts_analyzeReimport from "../scripts/analyzeReimport.js";
 import type * as scripts_bootstrapPlatformStaff from "../scripts/bootstrapPlatformStaff.js";
@@ -108,7 +110,6 @@ import type * as scripts_updateTeamObservationCoachNames from "../scripts/update
 import type * as scripts_validateTeamAssignments from "../scripts/validateTeamAssignments.js";
 import type * as scripts_verifyUATSetup from "../scripts/verifyUATSetup.js";
 import type * as seed_sessionPlansSeed from "../seed/sessionPlansSeed.js";
-import type * as todos from "../todos.js";
 import type * as utils_email from "../utils/email.js";
 
 import type {
@@ -125,6 +126,7 @@ declare const fullApi: ApiFromModules<{
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
   "actions/sessionPlans": typeof actions_sessionPlans;
   "actions/voiceNotes": typeof actions_voiceNotes;
+  "actions/whatsapp": typeof actions_whatsapp;
   auth: typeof auth;
   crons: typeof crons;
   healthCheck: typeof healthCheck;
@@ -185,6 +187,7 @@ declare const fullApi: ApiFromModules<{
   "models/userPreferences": typeof models_userPreferences;
   "models/users": typeof models_users;
   "models/voiceNotes": typeof models_voiceNotes;
+  "models/whatsappMessages": typeof models_whatsappMessages;
   privateData: typeof privateData;
   "scripts/analyzeReimport": typeof scripts_analyzeReimport;
   "scripts/bootstrapPlatformStaff": typeof scripts_bootstrapPlatformStaff;
@@ -218,7 +221,6 @@ declare const fullApi: ApiFromModules<{
   "scripts/validateTeamAssignments": typeof scripts_validateTeamAssignments;
   "scripts/verifyUATSetup": typeof scripts_verifyUATSetup;
   "seed/sessionPlansSeed": typeof seed_sessionPlansSeed;
-  todos: typeof todos;
   "utils/email": typeof utils_email;
 }>;
 
@@ -2274,11 +2276,28 @@ export declare const components: {
           userId?: null | string;
         }
       >;
+      getUserByStringId: FunctionReference<
+        "query",
+        "internal",
+        { userId: string },
+        any
+      >;
       updateOnboardingComplete: FunctionReference<
         "mutation",
         "internal",
         { onboardingComplete: boolean; userId: string },
         null
+      >;
+      updateUserProfile: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          firstName?: string;
+          lastName?: string;
+          phone?: string;
+          userId: string;
+        },
+        { success: boolean }
       >;
     };
   };

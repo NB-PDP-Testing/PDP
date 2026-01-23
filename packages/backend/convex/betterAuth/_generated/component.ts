@@ -2055,11 +2055,30 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         },
         Name
       >;
+      getUserByStringId: FunctionReference<
+        "query",
+        "internal",
+        { userId: string },
+        any,
+        Name
+      >;
       updateOnboardingComplete: FunctionReference<
         "mutation",
         "internal",
         { onboardingComplete: boolean; userId: string },
         null,
+        Name
+      >;
+      updateUserProfile: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          firstName?: string;
+          lastName?: string;
+          phone?: string;
+          userId: string;
+        },
+        { success: boolean },
         Name
       >;
     };

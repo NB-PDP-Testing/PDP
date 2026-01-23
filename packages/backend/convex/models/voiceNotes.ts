@@ -59,6 +59,15 @@ const statusValidator = v.union(
   v.literal("failed")
 );
 
+const sourceValidator = v.optional(
+  v.union(
+    v.literal("app_recorded"),
+    v.literal("app_typed"),
+    v.literal("whatsapp_audio"),
+    v.literal("whatsapp_text")
+  )
+);
+
 // ============ QUERIES ============
 
 /**
@@ -85,6 +94,7 @@ export const getAllVoiceNotes = query({
       insights: v.array(insightValidator),
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
+      source: sourceValidator,
     })
   ),
   handler: async (ctx, args) => {
@@ -121,6 +131,7 @@ export const getVoiceNoteById = query({
       insights: v.array(insightValidator),
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
+      source: sourceValidator,
     }),
     v.null()
   ),
@@ -155,6 +166,7 @@ export const getVoiceNotesByCoach = query({
       insights: v.array(insightValidator),
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
+      source: sourceValidator,
     })
   ),
   handler: async (ctx, args) => {
@@ -320,6 +332,9 @@ export const createTypedNote = mutation({
     coachId: v.string(), // Required - Better Auth user ID
     noteText: v.string(),
     noteType: noteTypeValidator,
+    source: v.optional(
+      v.union(v.literal("app_typed"), v.literal("whatsapp_text"))
+    ),
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
@@ -331,6 +346,7 @@ export const createTypedNote = mutation({
       coachId: args.coachId,
       date: new Date().toISOString(),
       type: args.noteType,
+      source: args.source || "app_typed",
       transcription: args.noteText,
       transcriptionStatus: "completed",
       insights: [],
@@ -356,6 +372,9 @@ export const createRecordedNote = mutation({
     coachId: v.string(), // Required - Better Auth user ID
     audioStorageId: v.id("_storage"),
     noteType: noteTypeValidator,
+    source: v.optional(
+      v.union(v.literal("app_recorded"), v.literal("whatsapp_audio"))
+    ),
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
@@ -364,6 +383,7 @@ export const createRecordedNote = mutation({
       coachId: args.coachId,
       date: new Date().toISOString(),
       type: args.noteType,
+      source: args.source || "app_recorded",
       audioStorageId: args.audioStorageId,
       transcriptionStatus: "pending",
       insights: [],
@@ -1570,6 +1590,7 @@ export const getNote = internalQuery({
       insights: v.array(insightValidator),
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
+      source: sourceValidator,
     }),
     v.null()
   ),

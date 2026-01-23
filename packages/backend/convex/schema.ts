@@ -1356,6 +1356,15 @@ export default defineSchema({
       v.literal("match"),
       v.literal("general")
     ),
+    // Source channel - how the note was created
+    source: v.optional(
+      v.union(
+        v.literal("app_recorded"), // Recorded via app microphone
+        v.literal("app_typed"), // Typed directly in app
+        v.literal("whatsapp_audio"), // Voice note from WhatsApp
+        v.literal("whatsapp_text") // Text message from WhatsApp
+      )
+    ),
     // Audio recording (optional - typed notes won't have this)
     audioStorageId: v.optional(v.id("_storage")),
     // Transcription status

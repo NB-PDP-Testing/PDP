@@ -55,6 +55,61 @@ export const getUserById = query({
 });
 
 /**
+ * Update user profile fields (firstName, lastName, phone)
+ * This function is accessible from outside the component.
+ */
+export const updateUserProfile = mutation({
+  args: {
+    userId: v.string(), // Accept string to match frontend usage
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    phone: v.optional(v.string()),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, args) => {
+    try {
+      // Cast string to Id<"user"> for ctx.db operations
+      const userId = args.userId as unknown as v.Id<"user">;
+      const user = await ctx.db.get(userId);
+
+      if (!user) {
+        console.error("[updateUserProfile] User not found:", args.userId);
+        return { success: false };
+      }
+
+      // Build update object with only provided fields
+      const updates: Record<string, string | undefined> = {};
+
+      if (args.firstName !== undefined) {
+        updates.firstName = args.firstName;
+      }
+      if (args.lastName !== undefined) {
+        updates.lastName = args.lastName;
+      }
+      if (args.phone !== undefined) {
+        updates.phone = args.phone;
+      }
+
+      // Also update the combined name field if first/last name changed
+      if (args.firstName !== undefined || args.lastName !== undefined) {
+        const newFirstName = args.firstName ?? (user as any).firstName ?? "";
+        const newLastName = args.lastName ?? (user as any).lastName ?? "";
+        updates.name = `${newFirstName} ${newLastName}`.trim();
+      }
+
+      // Update the user record
+      await ctx.db.patch(userId, updates);
+
+      console.log("[updateUserProfile] Updated user:", args.userId, updates);
+      return { success: true };
+    } catch (error) {
+      console.error("[updateUserProfile] Error:", error);
+      return { success: false };
+    }
+  },
+});
+
+/**
  * Get a user by their string ID (for voice notes coachId lookups)
  * This function is accessible from outside the component.
  */

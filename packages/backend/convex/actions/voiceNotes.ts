@@ -358,8 +358,8 @@ export const buildInsights = internalAction({
           );
           const coachName =
             `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
-            u.email ||
             u.name ||
+            u.email ||
             "Unknown";
           console.log(
             `[TODO Coaches] ✅ Adding coach "${coachName}" to roster (ID: ${note.coachId})`

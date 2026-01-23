@@ -544,6 +544,11 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
                 <Badge className="bg-green-100 text-green-700 text-xs">
                   TODO
                 </Badge>
+                {(insight as any).assigneeName && (
+                  <Badge className="bg-indigo-100 text-indigo-700 text-xs">
+                    → {(insight as any).assigneeName}
+                  </Badge>
+                )}
                 {(insight as any).linkedTaskId && (
                   <Badge className="gap-1 bg-blue-100 text-blue-700 text-xs">
                     ✓ Task created

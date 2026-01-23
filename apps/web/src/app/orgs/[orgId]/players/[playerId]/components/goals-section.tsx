@@ -9,6 +9,10 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+// Regex patterns for parsing legacy goal format
+const PROGRESS_REGEX = /Progress:\s*(\d+)%/;
+const TARGET_DATE_REGEX = /Target Date:([^|]+)/;
+
 type Goal = {
   id: string;
   type: string;
@@ -81,13 +85,13 @@ export function GoalsSection({ player }: Props) {
           : "";
 
         // Extract progress if available
-        const progressMatch = goalContent.match(/Progress:\s*(\d+)%/);
+        const progressMatch = goalContent.match(PROGRESS_REGEX);
         const progress = progressMatch
           ? Number.parseInt(progressMatch[1], 10)
           : 0;
 
         // Extract target date
-        const targetDateMatch = goalContent.match(/Target Date:([^|]+)/);
+        const targetDateMatch = goalContent.match(TARGET_DATE_REGEX);
         const targetDate = targetDateMatch ? targetDateMatch[1].trim() : null;
 
         // Extract goal title (first line)
@@ -203,8 +207,11 @@ export function GoalsSection({ player }: Props) {
         <CollapsibleContent>
           <CardContent className="space-y-4">
             {goals.map((goal) => (
-              <Card className="overflow-hidden border" key={goal.id}>
-                {/* Goal Header */}
+              <div
+                className="overflow-hidden rounded-lg border shadow-sm"
+                key={goal.id}
+              >
+                {/* Goal Content - colored background fills entire card */}
                 <div className="border-l-4 border-l-blue-500 bg-blue-50 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -232,7 +239,10 @@ export function GoalsSection({ player }: Props) {
                       </div>
                       <div className="space-y-1 text-gray-700 text-xs">
                         {goal.description.map((line: string, i: number) => (
-                          <div className="flex items-start gap-2" key={i}>
+                          <div
+                            className="flex items-start gap-2"
+                            key={`desc-${goal.id}-${i}-${line.slice(0, 20)}`}
+                          >
                             <span className="font-bold text-blue-600">→</span>
                             <span>{line}</span>
                           </div>
@@ -308,7 +318,10 @@ export function GoalsSection({ player }: Props) {
                     </h5>
                     <div className="space-y-1 text-gray-700 text-xs">
                       {goal.parentHelp.map((item, i) => (
-                        <div className="flex items-start gap-2" key={i}>
+                        <div
+                          className="flex items-start gap-2"
+                          key={`help-${goal.id}-${i}-${item.slice(0, 20)}`}
+                        >
                           <span className="font-bold text-green-600">✓</span>
                           <span>{item}</span>
                         </div>
@@ -316,7 +329,7 @@ export function GoalsSection({ player }: Props) {
                     </div>
                   </div>
                 )}
-              </Card>
+              </div>
             ))}
           </CardContent>
         </CollapsibleContent>

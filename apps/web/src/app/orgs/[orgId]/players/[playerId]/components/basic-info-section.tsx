@@ -59,34 +59,71 @@ type Props = {
   player: PlayerData;
 };
 
+/**
+ * Get emoji icon for a sport code
+ */
+function getSportEmoji(sportCode: string): string {
+  const sportEmojis: Record<string, string> = {
+    soccer: "⚽",
+    football: "⚽",
+    rugby: "🏉",
+    gaa_football: "🏐",
+    gaa: "🏐",
+    gaelic: "🏐",
+    hurling: "🥍",
+    camogie: "🥍",
+    basketball: "🏀",
+    tennis: "🎾",
+    golf: "⛳",
+    swimming: "🏊",
+    athletics: "🏃",
+    hockey: "🏑",
+    cricket: "🏏",
+  };
+  return sportEmojis[sportCode.toLowerCase()] || "🏅";
+}
+
+/**
+ * Format sport code to display name
+ */
+function formatSportName(sportCode: string): string {
+  return sportCode.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+}
+
 export function BasicInformationSection({ player }: Props) {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Sort teams with primary team first, then by age group
-  const sortedTeams = player.teams
-    ? [...player.teams].sort((a, b) => {
-        const ageOrder: Record<string, number> = {
-          U8: 1,
-          U9: 2,
-          U10: 3,
-          U11: 4,
-          U12: 5,
-          U13: 6,
-          U14: 7,
-          U15: 8,
-          U16: 9,
-          U17: 10,
-          U18: 11,
-          Minor: 12,
-          Adult: 13,
-          Senior: 14,
-        };
-        return (
-          (ageOrder[a.ageGroup || ""] || 99) -
-          (ageOrder[b.ageGroup || ""] || 99)
-        );
-      })
+  // Filter teams to only show those matching the current sport, then sort by age group
+  const teamsForCurrentSport = player.teams
+    ? player.teams.filter(
+        (team) =>
+          team.sport?.toLowerCase() === player.sport?.toLowerCase() ||
+          // Fallback: if team has no sport field, include it
+          !team.sport
+      )
     : [];
+
+  const sortedTeams = [...teamsForCurrentSport].sort((a, b) => {
+    const ageOrder: Record<string, number> = {
+      U8: 1,
+      U9: 2,
+      U10: 3,
+      U11: 4,
+      U12: 5,
+      U13: 6,
+      U14: 7,
+      U15: 8,
+      U16: 9,
+      U17: 10,
+      U18: 11,
+      Minor: 12,
+      Adult: 13,
+      Senior: 14,
+    };
+    return (
+      (ageOrder[a.ageGroup || ""] || 99) - (ageOrder[b.ageGroup || ""] || 99)
+    );
+  });
 
   return (
     <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
@@ -113,14 +150,29 @@ export function BasicInformationSection({ player }: Props) {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <InfoField label="Player Name" value={player.name} />
               <InfoField label="Age Group" value={player.ageGroup} />
-              <InfoField label="Sport" value={player.sport} />
+              {/* Sport - shows only the current passport's sport with icon */}
+              <div>
+                <dt className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                  Sport
+                </dt>
+                <dd className="mt-1.5">
+                  {player.sport ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-gradient-to-r from-purple-100 to-blue-100 px-3 py-1 font-medium text-purple-800 text-sm">
+                      {getSportEmoji(player.sport)}{" "}
+                      {formatSportName(player.sport)}
+                    </span>
+                  ) : (
+                    <span className="font-medium text-sm">Not specified</span>
+                  )}
+                </dd>
+              </div>
               <InfoField label="Gender" value={player.gender} />
               <InfoField
-                label="Team(s)"
+                label={sortedTeams.length > 1 ? "Teams" : "Team"}
                 value={
                   sortedTeams.length > 0
                     ? sortedTeams.map((t) => t.name).join(", ")
-                    : "No teams assigned"
+                    : "No team assigned"
                 }
               />
               <InfoField label="Season" value={player.season} />

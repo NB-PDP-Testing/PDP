@@ -5,7 +5,7 @@ import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import { ArrowLeft, Edit, ExternalLink, Loader2, Share2 } from "lucide-react";
 import type { Route } from "next";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BenchmarkComparison } from "@/components/benchmark-comparison";
 import { SkillRadarChart } from "@/components/skill-radar-chart";
@@ -23,21 +23,27 @@ import { RequestAccessModal } from "./components/request-access-modal";
 import { ShareModal } from "./components/share-modal";
 import { SkillsSection } from "./components/skills-section";
 
-export default function PlayerPassportPage() {
+// Inner component that uses useSearchParams (requires Suspense boundary)
+function PlayerPassportPageContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const orgId = params.orgId as string;
   const playerId = params.playerId as string;
+  // Get sport code from URL query parameter (for multi-sport passport views)
+  const sportCodeParam = searchParams.get("sport");
 
   const [showShareModal, setShowShareModal] = useState(false);
   const [showRequestAccessModal, setShowRequestAccessModal] = useState(false);
 
   // Use new identity system (legacy fallback removed)
+  // If sportCode is provided in URL, fetch that specific sport's passport
   const playerData = useQuery(
     api.models.sportPassports.getFullPlayerPassportView,
     {
       playerIdentityId: playerId as Id<"playerIdentities">,
       organizationId: orgId,
+      sportCode: sportCodeParam || undefined,
     }
   );
 
@@ -313,6 +319,7 @@ export default function PlayerPassportPage() {
 
           <TabsContent className="space-y-4" value="cross-sport">
             <CrossSportOverview
+              organizationId={orgId}
               playerIdentityId={playerId as Id<"playerIdentities">}
             />
           </TabsContent>
@@ -386,4 +393,9 @@ export default function PlayerPassportPage() {
       />
     </div>
   );
+}
+
+// Export with Suspense boundary for useSearchParams
+export default function PlayerPassportPage() {
+  return <PlayerPassportPageContent />;
 }

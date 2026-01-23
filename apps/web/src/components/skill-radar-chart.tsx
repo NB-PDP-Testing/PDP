@@ -70,6 +70,36 @@ const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
   contact_breakdown: "Contact",
 };
 
+// Abbreviate long skill/category names for radar chart labels
+function abbreviateLabel(label: string, maxLength = 14): string {
+  if (label.length <= maxLength) {
+    return label;
+  }
+
+  // Common abbreviations
+  const abbreviations: Record<string, string> = {
+    "Kicking (Long)": "Kick (Long)",
+    "Kicking (Short)": "Kick (Short)",
+    "Free Taking (Ground)": "Free (Ground)",
+    "Free Taking (Hand)": "Free (Hand)",
+    "High Catching": "High Catch",
+    "Hand Passing": "Hand Pass",
+    "Positional Sense": "Position",
+    "Decision Making": "Decisions",
+    "Decision Speed": "Dec. Speed",
+    "Passing & Handling": "Pass/Handle",
+    "Ball Mastery": "Ball Mastery",
+    "Tactical & Decision Making": "Tactical",
+  };
+
+  if (abbreviations[label]) {
+    return abbreviations[label];
+  }
+
+  // Generic truncation with ellipsis
+  return `${label.substring(0, maxLength - 1)}…`;
+}
+
 export function SkillRadarChart({
   playerId,
   sportCode,
@@ -141,13 +171,13 @@ export function SkillRadarChart({
           const playerRating = latestAssessments.get(skill.code);
           if (playerRating !== undefined) {
             totalPlayerRating += playerRating;
-            playerSkillCount++;
+            playerSkillCount += 1;
           }
 
           const benchmarkRating = benchmarkLookup.get(skill.code);
           if (benchmarkRating !== undefined) {
             totalBenchmark += benchmarkRating;
-            benchmarkCount++;
+            benchmarkCount += 1;
           }
         }
 
@@ -156,8 +186,11 @@ export function SkillRadarChart({
         const avgBenchmark =
           benchmarkCount > 0 ? totalBenchmark / benchmarkCount : 0;
 
+        const categoryName =
+          CATEGORY_DISPLAY_NAMES[category.code] || category.name;
         return {
-          category: CATEGORY_DISPLAY_NAMES[category.code] || category.name,
+          category: categoryName,
+          categoryShort: abbreviateLabel(categoryName),
           categoryCode: category.code,
           playerRating: Number(avgPlayerRating.toFixed(2)),
           benchmark: Number(avgBenchmark.toFixed(2)),
@@ -177,6 +210,7 @@ export function SkillRadarChart({
 
     const allSkills: Array<{
       skill: string;
+      skillShort: string;
       skillCode: string;
       playerRating: number;
       benchmark: number;
@@ -189,6 +223,7 @@ export function SkillRadarChart({
         if (playerRating !== undefined) {
           allSkills.push({
             skill: skill.name,
+            skillShort: abbreviateLabel(skill.name),
             skillCode: skill.code,
             playerRating,
             benchmark: benchmarkLookup.get(skill.code) ?? 0,
@@ -332,12 +367,16 @@ export function SkillRadarChart({
                       ? categoryRadarData
                       : skillsRadarData
                   }
-                  outerRadius="75%"
+                  outerRadius="65%"
                 >
                   <PolarGrid strokeDasharray="3 3" />
                   <PolarAngleAxis
-                    dataKey={activeTab === "categories" ? "category" : "skill"}
-                    tick={{ fontSize: 11 }}
+                    dataKey={
+                      activeTab === "categories"
+                        ? "categoryShort"
+                        : "skillShort"
+                    }
+                    tick={{ fontSize: 10 }}
                     tickLine={false}
                   />
                   <PolarRadiusAxis
@@ -414,15 +453,15 @@ export function SkillRadarChart({
             </div>
 
             {/* Legend/Info */}
-            <div className="flex flex-wrap gap-4 text-muted-foreground text-xs">
+            <div className="flex flex-col gap-2 text-muted-foreground text-xs">
               <div className="flex items-center gap-2">
                 <div
-                  className="h-3 w-3 rounded-full"
+                  className="h-3 w-3"
                   style={{ backgroundColor: CHART_COLORS.player.fill }}
                 />
                 <span>Player's current ratings</span>
               </div>
-              {hasBenchmarks && showBenchmark && (
+              {hasBenchmarks && showBenchmark ? (
                 <div className="flex items-center gap-2">
                   <div
                     className="h-3 w-3 rounded-full border-2 border-dashed"
@@ -432,6 +471,11 @@ export function SkillRadarChart({
                     Age-appropriate benchmark (
                     {benchmarks?.[0]?.ageGroup?.toUpperCase()})
                   </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-red-500" />
+                  <span>Benchmarks coming soon</span>
                 </div>
               )}
             </div>
@@ -507,13 +551,13 @@ export function SkillRadarChartCompact({
           const playerRating = latestAssessments.get(skill.code);
           if (playerRating !== undefined) {
             totalPlayerRating += playerRating;
-            playerSkillCount++;
+            playerSkillCount += 1;
           }
 
           const benchmarkRating = benchmarkLookup.get(skill.code);
           if (benchmarkRating !== undefined) {
             totalBenchmark += benchmarkRating;
-            benchmarkCount++;
+            benchmarkCount += 1;
           }
         }
 
@@ -522,8 +566,11 @@ export function SkillRadarChartCompact({
         const avgBenchmark =
           benchmarkCount > 0 ? totalBenchmark / benchmarkCount : 0;
 
+        const categoryName =
+          CATEGORY_DISPLAY_NAMES[category.code] || category.name;
         return {
-          category: CATEGORY_DISPLAY_NAMES[category.code] || category.name,
+          category: categoryName,
+          categoryShort: abbreviateLabel(categoryName),
           playerRating: Number(avgPlayerRating.toFixed(2)),
           benchmark: Number(avgBenchmark.toFixed(2)),
           fullMark: 5,
@@ -545,10 +592,10 @@ export function SkillRadarChartCompact({
           cx="50%"
           cy="50%"
           data={categoryRadarData}
-          outerRadius="80%"
+          outerRadius="65%"
         >
           <PolarGrid strokeDasharray="3 3" />
-          <PolarAngleAxis dataKey="category" tick={{ fontSize: 10 }} />
+          <PolarAngleAxis dataKey="categoryShort" tick={{ fontSize: 10 }} />
           <PolarRadiusAxis
             angle={90}
             domain={[0, 5]}

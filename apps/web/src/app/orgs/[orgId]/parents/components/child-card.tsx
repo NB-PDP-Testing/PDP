@@ -83,22 +83,72 @@ const getAttendanceColor = (percentage: number): string => {
   return "text-red-600";
 };
 
-// Get review status badge
-const getReviewStatusBadge = (status: string | undefined) => {
-  const normalizedStatus = status?.toLowerCase();
-  switch (normalizedStatus) {
-    case "completed":
-      return (
-        <Badge className="bg-green-100 text-green-700">Review Complete</Badge>
-      );
-    case "due soon":
-    case "due_soon":
-      return <Badge className="bg-yellow-100 text-yellow-700">Due Soon</Badge>;
-    case "overdue":
-      return <Badge className="bg-red-100 text-red-700">Overdue</Badge>;
-    default:
-      return <Badge variant="outline">Not Started</Badge>;
+// Get emoji icon for a sport code
+const getSportEmoji = (sportCode: string): string => {
+  const sportEmojis: Record<string, string> = {
+    soccer: "⚽",
+    football: "⚽",
+    rugby: "🏉",
+    gaa_football: "🏐",
+    gaa: "🏐",
+    gaelic: "🏐",
+    hurling: "🥍",
+    camogie: "🥍",
+    basketball: "🏀",
+    tennis: "🎾",
+    golf: "⛳",
+    swimming: "🏊",
+    athletics: "🏃",
+    hockey: "🏑",
+    cricket: "🏏",
+  };
+  return sportEmojis[sportCode.toLowerCase()] || "🏅";
+};
+
+// Format sport code to display name
+const formatSportName = (sportCode: string): string =>
+  sportCode.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+
+// Get assessment status badge based on passport data
+const getAssessmentStatusBadge = (
+  assessmentCount: number | undefined,
+  overallRating: number | undefined
+) => {
+  if (!assessmentCount || assessmentCount === 0) {
+    return (
+      <Badge className="shrink-0 bg-gray-100 text-gray-600" variant="outline">
+        No Assessments
+      </Badge>
+    );
   }
+
+  // Show rating if available, otherwise just show assessment count
+  if (overallRating && overallRating > 0) {
+    const ratingText =
+      overallRating >= 4
+        ? "Excellent"
+        : overallRating >= 3
+          ? "Good"
+          : overallRating >= 2
+            ? "Developing"
+            : "Needs Support";
+    const ratingColor =
+      overallRating >= 4
+        ? "bg-green-100 text-green-700"
+        : overallRating >= 3
+          ? "bg-blue-100 text-blue-700"
+          : overallRating >= 2
+            ? "bg-yellow-100 text-yellow-700"
+            : "bg-orange-100 text-orange-700";
+
+    return <Badge className={`shrink-0 ${ratingColor}`}>{ratingText}</Badge>;
+  }
+
+  return (
+    <Badge className="shrink-0 bg-blue-100 text-blue-700">
+      {assessmentCount} Assessment{assessmentCount > 1 ? "s" : ""}
+    </Badge>
+  );
 };
 
 export function ChildCard({ child, orgId }: ChildCardProps) {
@@ -111,6 +161,12 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
       playerIdentityId: player._id,
       organizationId: orgId,
     }
+  );
+
+  // Get ALL sport passports for multi-sport passport buttons
+  const allPassports = useQuery(
+    api.models.sportPassports.getPassportsForPlayer,
+    { playerIdentityId: player._id }
   );
 
   // Get active injuries
@@ -131,6 +187,16 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
 
   // Get first passport (primary sport)
   const primaryPassport = passportData?.passports?.[0];
+
+  // Get active sports for badges
+  const activeSports = useMemo(() => {
+    if (!allPassports) {
+      return [];
+    }
+    return allPassports.filter((p: any) => p.status === "active");
+  }, [allPassports]);
+
+  const isMultiSport = activeSports.length > 1;
 
   // Process data
   const averageRating = useMemo(() => {
@@ -204,29 +270,56 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
     <Card className="overflow-hidden border-0 shadow-md transition-shadow hover:shadow-lg">
       {/* Header */}
       <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 pb-4 text-white">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
-              <User className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <CardTitle className="text-lg text-white">
-                {player.firstName} {player.lastName}
-              </CardTitle>
-              <div className="flex items-center gap-2 text-blue-100 text-sm">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/20">
+                <User className="h-6 w-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <CardTitle className="truncate text-lg text-white">
+                  {player.firstName} {player.lastName}
+                </CardTitle>
                 {enrollment?.ageGroup && (
-                  <span>{enrollment.ageGroup.toUpperCase()}</span>
+                  <p className="text-blue-100 text-sm">
+                    {enrollment.ageGroup.toUpperCase()}
+                  </p>
                 )}
-                {primaryPassport?.sportCode && (
-                  <>
-                    <span>•</span>
-                    <span>{primaryPassport.sportCode.toUpperCase()}</span>
-                  </>
-                )}
+                {/* Sport Badges with Emojis */}
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {activeSports.length > 0 ? (
+                    <>
+                      {activeSports.map((sport: any) => (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 font-medium text-white text-xs"
+                          key={sport._id}
+                        >
+                          {getSportEmoji(sport.sportCode)}{" "}
+                          {formatSportName(sport.sportCode)}
+                        </span>
+                      ))}
+                      {isMultiSport && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/30 px-2 py-0.5 font-bold text-amber-100 text-xs">
+                          ⭐ Multi-Sport
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    primaryPassport?.sportCode && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 font-medium text-white text-xs">
+                        {getSportEmoji(primaryPassport.sportCode)}{" "}
+                        {formatSportName(primaryPassport.sportCode)}
+                      </span>
+                    )
+                  )}
+                </div>
               </div>
             </div>
           </div>
-          {getReviewStatusBadge(enrollment?.reviewStatus)}
+          {getAssessmentStatusBadge(
+            primaryPassport?.assessmentCount,
+            primaryPassport?.currentOverallRating
+          )}
         </div>
       </CardHeader>
 
@@ -277,31 +370,33 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
           </div>
         )}
 
-        {/* Attendance */}
-        <div>
-          <h4 className="mb-2 flex items-center gap-2 font-medium text-sm">
-            <Calendar className="h-4 w-4 text-green-600" />
-            Attendance
-          </h4>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg border p-2 text-center">
-              <div
-                className={`font-bold text-lg ${getAttendanceColor(trainingAttendance)}`}
-              >
-                {trainingAttendance}%
+        {/* Attendance - only show if data exists */}
+        {(trainingAttendance > 0 || matchAttendance > 0) && (
+          <div>
+            <h4 className="mb-2 flex items-center gap-2 font-medium text-sm">
+              <Calendar className="h-4 w-4 text-green-600" />
+              Attendance
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg border p-2 text-center">
+                <div
+                  className={`font-bold text-lg ${getAttendanceColor(trainingAttendance)}`}
+                >
+                  {trainingAttendance}%
+                </div>
+                <div className="text-muted-foreground text-xs">Training</div>
               </div>
-              <div className="text-muted-foreground text-xs">Training</div>
-            </div>
-            <div className="rounded-lg border p-2 text-center">
-              <div
-                className={`font-bold text-lg ${getAttendanceColor(matchAttendance)}`}
-              >
-                {matchAttendance}%
+              <div className="rounded-lg border p-2 text-center">
+                <div
+                  className={`font-bold text-lg ${getAttendanceColor(matchAttendance)}`}
+                >
+                  {matchAttendance}%
+                </div>
+                <div className="text-muted-foreground text-xs">Matches</div>
               </div>
-              <div className="text-muted-foreground text-xs">Matches</div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Development Goals */}
         {visibleGoals.length > 0 && (
@@ -460,14 +555,44 @@ export function ChildCard({ child, orgId }: ChildCardProps) {
           </div>
         )}
 
-        {/* View Passport Button */}
-        <Link
-          className="group flex w-full items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-700 transition-colors hover:bg-blue-100"
-          href={`/orgs/${orgId}/players/${player._id}`}
-        >
-          <span className="font-medium">View Full Passport</span>
-          <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-        </Link>
+        {/* View Passport Buttons - one per sport */}
+        {allPassports && allPassports.length > 1 ? (
+          <div className="flex flex-col gap-2">
+            <span className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+              View Passports
+            </span>
+            <div className="grid grid-cols-1 gap-2">
+              {allPassports
+                .filter((p) => p.status === "active")
+                .map((passport) => {
+                  // Format sport name nicely
+                  const sportName = passport.sportCode
+                    .replace(/_/g, " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase());
+                  return (
+                    <Link
+                      className="group flex w-full items-center justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-700 transition-colors hover:bg-blue-100"
+                      href={`/orgs/${orgId}/players/${player._id}?sport=${passport.sportCode}`}
+                      key={passport._id}
+                    >
+                      <span className="font-medium text-sm">
+                        {sportName} Passport
+                      </span>
+                      <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    </Link>
+                  );
+                })}
+            </div>
+          </div>
+        ) : (
+          <Link
+            className="group flex w-full items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-blue-700 transition-colors hover:bg-blue-100"
+            href={`/orgs/${orgId}/players/${player._id}`}
+          >
+            <span className="font-medium">View Full Passport</span>
+            <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </Link>
+        )}
       </CardContent>
     </Card>
   );

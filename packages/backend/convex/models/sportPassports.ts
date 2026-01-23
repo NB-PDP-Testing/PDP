@@ -749,10 +749,14 @@ export const getFullPlayerPassportView = query({
 
     // Transform assessments into skills Record<string, number>
     // Take the most recent rating for each skill (since we ordered by desc, first occurrence wins)
+    // Convert snake_case skill codes to camelCase for frontend compatibility
+    const snakeToCamel = (str: string): string =>
+      str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+
     const skillsMap: Record<string, number> = {};
     for (const assessment of assessmentsRaw) {
-      // Use skillCode as the key
-      const key = assessment.skillCode;
+      // Convert skill code from snake_case to camelCase for frontend
+      const key = snakeToCamel(assessment.skillCode);
       if (!skillsMap[key]) {
         skillsMap[key] = assessment.rating;
       }

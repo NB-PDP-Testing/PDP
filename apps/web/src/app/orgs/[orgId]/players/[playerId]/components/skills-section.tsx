@@ -14,6 +14,10 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+// Regex patterns for converting camelCase to title case
+const CAMEL_CASE_REGEX = /([A-Z])/g;
+const FIRST_CHAR_REGEX = /^./;
+
 type PlayerData = {
   sport: string;
   skills?: Record<string, number>;
@@ -26,7 +30,8 @@ type Props = {
 export function SkillsSection({ player }: Props) {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  if (!player.skills || Object.keys(player.skills).length === 0) {
+  const skills = player.skills;
+  if (!skills || Object.keys(skills).length === 0) {
     return null;
   }
 
@@ -38,15 +43,15 @@ export function SkillsSection({ player }: Props) {
       sport.includes("soccer") ||
       (sport.includes("football") && !sport.includes("gaa"))
     ) {
-      return <SoccerSkills skills={player.skills!} />;
+      return <SoccerSkills skills={skills} />;
     }
     if (sport.includes("rugby")) {
-      return <RugbySkills skills={player.skills!} />;
+      return <RugbySkills skills={skills} />;
     }
     if (sport.includes("gaa") || sport.includes("hurling")) {
-      return <GAASkills skills={player.skills!} />;
+      return <GAASkills skills={skills} />;
     }
-    return <GenericSkills skills={player.skills!} />;
+    return <GenericSkills skills={skills} />;
   };
 
   return (
@@ -83,9 +88,14 @@ function RatingDisplay({ label, value }: { label: string; value: number }) {
 
   return (
     <div className="mb-3">
-      <div className="mb-1 flex items-center justify-between">
-        <span className="font-medium text-gray-700 text-sm">{label}</span>
-        <span className="font-semibold text-sm" style={{ color }}>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <span className="min-w-0 font-medium text-gray-700 text-sm">
+          {label}
+        </span>
+        <span
+          className="shrink-0 whitespace-nowrap font-semibold text-sm"
+          style={{ color }}
+        >
           {value} - {ratingLabel}
         </span>
       </div>
@@ -194,7 +204,7 @@ function RugbySkills({ skills }: { skills: Record<string, number> }) {
   return (
     <div className="space-y-6">
       {/* Passing & Handling */}
-      <SkillCategory title="TECHNICAL SKILLS - Passing & Handling">
+      <SkillCategory title="PASSING & HANDLING">
         <RatingDisplay
           label="Pass Accuracy (Left)"
           value={skills.passAccuracyLeft || 0}
@@ -219,12 +229,157 @@ function RugbySkills({ skills }: { skills: Record<string, number> }) {
         <RatingDisplay label="Ball Security" value={skills.ballSecurity || 0} />
       </SkillCategory>
 
-      {/* Add more Rugby categories as needed */}
-      <SkillCategory title="PHYSICAL & GAME AWARENESS">
-        <RatingDisplay label="Speed" value={skills.speed || 0} />
-        <RatingDisplay label="Agility" value={skills.agility || 0} />
-        <RatingDisplay label="Strength" value={skills.strength || 0} />
-        <RatingDisplay label="Endurance" value={skills.endurance || 0} />
+      {/* Catching & Receiving */}
+      <SkillCategory title="CATCHING & RECEIVING">
+        <RatingDisplay
+          label="High Ball Catching"
+          value={skills.highBallCatching || 0}
+        />
+        <RatingDisplay
+          label="Chest/Body Catch"
+          value={skills.chestBodyCatch || 0}
+        />
+        <RatingDisplay
+          label="Low Ball Pickup"
+          value={skills.lowBallPickup || 0}
+        />
+        <RatingDisplay
+          label="Catching Under Pressure"
+          value={skills.catchingUnderPressure || 0}
+        />
+        <RatingDisplay
+          label="Hands Ready Position"
+          value={skills.handsReadyPosition || 0}
+        />
+        <RatingDisplay
+          label="Watch Ball Into Hands"
+          value={skills.watchBallIntoHands || 0}
+        />
+      </SkillCategory>
+
+      {/* Running & Ball Carry */}
+      <SkillCategory title="RUNNING & BALL CARRY">
+        <RatingDisplay
+          label="Running With Ball"
+          value={skills.runningWithBall || 0}
+        />
+        <RatingDisplay
+          label="Evasion (Side Step)"
+          value={skills.evasionSideStep || 0}
+        />
+        <RatingDisplay
+          label="Evasion (Swerve)"
+          value={skills.evasionSwerve || 0}
+        />
+        <RatingDisplay label="Dummy Pass" value={skills.dummyPass || 0} />
+        <RatingDisplay
+          label="Acceleration Into Space"
+          value={skills.accelerationIntoSpace || 0}
+        />
+        <RatingDisplay
+          label="Ball Carry Into Contact"
+          value={skills.ballCarryIntoContact || 0}
+        />
+        <RatingDisplay
+          label="Body Position/Balance"
+          value={skills.bodyPositionBalance || 0}
+        />
+      </SkillCategory>
+
+      {/* Kicking */}
+      <SkillCategory title="KICKING">
+        <RatingDisplay
+          label="Punt Kick (Left)"
+          value={skills.puntKickLeft || 0}
+        />
+        <RatingDisplay
+          label="Punt Kick (Right)"
+          value={skills.puntKickRight || 0}
+        />
+        <RatingDisplay label="Grubber Kick" value={skills.grubberKick || 0} />
+        <RatingDisplay label="Drop Kick" value={skills.dropKick || 0} />
+        <RatingDisplay label="Place Kicking" value={skills.placeKicking || 0} />
+        <RatingDisplay
+          label="Kicking Distance"
+          value={skills.kickingDistance || 0}
+        />
+        <RatingDisplay label="Kick Accuracy" value={skills.kickAccuracy || 0} />
+      </SkillCategory>
+
+      {/* Contact & Breakdown */}
+      <SkillCategory title="CONTACT & BREAKDOWN">
+        <RatingDisplay
+          label="Tackle Technique"
+          value={skills.tackleTechnique || 0}
+        />
+        <RatingDisplay
+          label="Tackle Completion"
+          value={skills.tackleCompletion || 0}
+        />
+        <RatingDisplay
+          label="Rip/Tag Technique"
+          value={skills.ripTagTechnique || 0}
+        />
+        <RatingDisplay
+          label="Body Position in Contact"
+          value={skills.bodyPositionInContact || 0}
+        />
+        <RatingDisplay
+          label="Leg Drive Through Contact"
+          value={skills.legDriveThroughContact || 0}
+        />
+        <RatingDisplay
+          label="Ball Presentation"
+          value={skills.ballPresentation || 0}
+        />
+        <RatingDisplay
+          label="Ruck Entry/Cleanout"
+          value={skills.ruckEntryCleanout || 0}
+        />
+        <RatingDisplay
+          label="Jackaling/Turnovers"
+          value={skills.jackalingTurnovers || 0}
+        />
+      </SkillCategory>
+
+      {/* Tactical & Game Awareness */}
+      <SkillCategory title="TACTICAL & GAME AWARENESS">
+        <RatingDisplay
+          label="Decision Making"
+          value={skills.decisionMaking || 0}
+        />
+        <RatingDisplay
+          label="Reading Defense"
+          value={skills.readingDefense || 0}
+        />
+        <RatingDisplay
+          label="Positional Understanding"
+          value={skills.positionalUnderstanding || 0}
+        />
+        <RatingDisplay
+          label="Support Play (Attack)"
+          value={skills.supportPlayAttack || 0}
+        />
+        <RatingDisplay
+          label="Support Play (Defense)"
+          value={skills.supportPlayDefense || 0}
+        />
+        <RatingDisplay
+          label="Communication on Field"
+          value={skills.communicationOnField || 0}
+        />
+        <RatingDisplay
+          label="Spatial Awareness"
+          value={skills.spatialAwareness || 0}
+        />
+        <RatingDisplay
+          label="Game Sense/Instinct"
+          value={skills.gameSenseInstinct || 0}
+        />
+        <RatingDisplay
+          label="Following Game Plan"
+          value={skills.followingGamePlan || 0}
+        />
       </SkillCategory>
     </div>
   );
@@ -234,20 +389,73 @@ function RugbySkills({ skills }: { skills: Record<string, number> }) {
 function GAASkills({ skills }: { skills: Record<string, number> }) {
   return (
     <div className="space-y-6">
-      {/* Ball Handling & Control */}
-      <SkillCategory title="BALL HANDLING & CONTROL">
-        <RatingDisplay label="Solo Run" value={skills.soloRun || 0} />
-        <RatingDisplay label="Bounce" value={skills.bounce || 0} />
-        <RatingDisplay label="Pick Up" value={skills.pickUp || 0} />
-        <RatingDisplay label="Ball Control" value={skills.ballControl || 0} />
+      {/* Ball Mastery */}
+      <SkillCategory title="BALL MASTERY">
+        <RatingDisplay label="Soloing" value={skills.soloing || 0} />
+        <RatingDisplay label="Ball Handling" value={skills.ballHandling || 0} />
+        <RatingDisplay
+          label="Pickup/Toe Lift"
+          value={skills.pickupToeLift || 0}
+        />
       </SkillCategory>
 
-      {/* Add more GAA categories as needed */}
-      <SkillCategory title="PHYSICAL & GAME AWARENESS">
-        <RatingDisplay label="Speed" value={skills.speed || 0} />
-        <RatingDisplay label="Agility" value={skills.agility || 0} />
-        <RatingDisplay label="Strength" value={skills.strength || 0} />
-        <RatingDisplay label="Endurance" value={skills.endurance || 0} />
+      {/* Kicking */}
+      <SkillCategory title="KICKING">
+        <RatingDisplay label="Kicking (Long)" value={skills.kickingLong || 0} />
+        <RatingDisplay
+          label="Kicking (Short)"
+          value={skills.kickingShort || 0}
+        />
+      </SkillCategory>
+
+      {/* Catching */}
+      <SkillCategory title="CATCHING">
+        <RatingDisplay label="High Catching" value={skills.highCatching || 0} />
+      </SkillCategory>
+
+      {/* Free Taking */}
+      <SkillCategory title="FREE TAKING">
+        <RatingDisplay
+          label="Free Taking (Ground)"
+          value={skills.freeTakingGround || 0}
+        />
+        <RatingDisplay
+          label="Free Taking (Hand)"
+          value={skills.freeTakingHand || 0}
+        />
+      </SkillCategory>
+
+      {/* Passing */}
+      <SkillCategory title="PASSING">
+        <RatingDisplay label="Hand Passing" value={skills.handPassing || 0} />
+      </SkillCategory>
+
+      {/* Tactical & Decision Making */}
+      <SkillCategory title="TACTICAL & DECISION MAKING">
+        <RatingDisplay
+          label="Positional Sense"
+          value={skills.positionalSense || 0}
+        />
+        <RatingDisplay label="Tracking" value={skills.tracking || 0} />
+        <RatingDisplay
+          label="Decision Making"
+          value={skills.decisionMaking || 0}
+        />
+        <RatingDisplay
+          label="Decision Speed"
+          value={skills.decisionSpeed || 0}
+        />
+      </SkillCategory>
+
+      {/* Defensive */}
+      <SkillCategory title="DEFENSIVE">
+        <RatingDisplay label="Tackling" value={skills.tackling || 0} />
+      </SkillCategory>
+
+      {/* Laterality */}
+      <SkillCategory title="LATERALITY">
+        <RatingDisplay label="Left Side" value={skills.leftSide || 0} />
+        <RatingDisplay label="Right Side" value={skills.rightSide || 0} />
       </SkillCategory>
     </div>
   );
@@ -262,8 +470,8 @@ function GenericSkills({ skills }: { skills: Record<string, number> }) {
           <RatingDisplay
             key={key}
             label={key
-              .replace(/([A-Z])/g, " $1")
-              .replace(/^./, (str) => str.toUpperCase())}
+              .replace(CAMEL_CASE_REGEX, " $1")
+              .replace(FIRST_CHAR_REGEX, (str) => str.toUpperCase())}
             value={value}
           />
         ))}

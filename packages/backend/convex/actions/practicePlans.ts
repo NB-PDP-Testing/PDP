@@ -92,7 +92,7 @@ export const generatePracticePlan = action({
 
     // Note: Development goals API not yet implemented
     // Will use coach feedback and skill analysis instead
-    const goals: any[] | null = null;
+    const goals = null as any[] | null;
 
     // Get recent coach summaries for context
     const summaries = await ctx.runQuery(

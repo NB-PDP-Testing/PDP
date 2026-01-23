@@ -47,7 +47,14 @@ export const processIncomingMessage = internalAction({
     messageId: v.optional(v.id("whatsappMessages")),
     error: v.optional(v.string()),
   }),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    success: boolean;
+    messageId?: Id<"whatsappMessages">;
+    error?: string;
+  }> => {
     // Extract phone number (remove "whatsapp:" prefix)
     const phoneNumber = args.from.replace(WHATSAPP_PREFIX_REGEX, "");
     const toNumber = args.to.replace(WHATSAPP_PREFIX_REGEX, "");

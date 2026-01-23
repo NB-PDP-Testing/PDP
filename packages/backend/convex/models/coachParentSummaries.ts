@@ -1258,9 +1258,26 @@ export const getSummaryForPDF = query({
     }),
     v.null()
   ),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    content: string;
+    playerFirstName: string;
+    coachName: string;
+    organizationName: string;
+    generatedDate: string;
+    category?: string;
+  } | null> => {
     // Re-use internal query logic
-    const data = await ctx.runQuery(
+    const data: {
+      content: string;
+      playerFirstName: string;
+      coachName: string;
+      orgName: string;
+      orgLogo: string | null;
+      generatedAt: number;
+    } | null = await ctx.runQuery(
       internal.models.coachParentSummaries.getSummaryForImage,
       args
     );

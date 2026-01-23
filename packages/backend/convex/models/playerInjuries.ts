@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 
 // ============================================================
@@ -105,15 +106,14 @@ export const getInjuriesForPlayer = query({
   },
   returns: v.array(injuryValidator),
   handler: async (ctx, args) => {
-    let injuries;
+    let injuries: Doc<"playerInjuries">[];
 
     if (args.status) {
+      const status = args.status;
       injuries = await ctx.db
         .query("playerInjuries")
         .withIndex("by_status", (q) =>
-          q
-            .eq("playerIdentityId", args.playerIdentityId)
-            .eq("status", args.status!)
+          q.eq("playerIdentityId", args.playerIdentityId).eq("status", status)
         )
         .order("desc")
         .collect();
@@ -133,6 +133,83 @@ export const getInjuriesForPlayer = query({
     }
 
     return injuries;
+  },
+});
+
+/**
+ * Get injuries for multiple players at once
+ * Used by parent dashboard to fetch injuries for all children
+ */
+export const getInjuriesForMultiplePlayers = query({
+  args: {
+    playerIdentityIds: v.array(v.id("playerIdentities")),
+    includeHealed: v.optional(v.boolean()),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("playerInjuries"),
+      _creationTime: v.number(),
+      playerIdentityId: v.id("playerIdentities"),
+      injuryType: v.string(),
+      bodyPart: v.string(),
+      side: v.optional(sideValidator),
+      status: injuryStatusValidator,
+      severity: severityValidator,
+      dateOccurred: v.string(),
+      expectedReturn: v.optional(v.string()),
+      actualReturn: v.optional(v.string()),
+      description: v.string(),
+      treatment: v.optional(v.string()),
+      daysOut: v.optional(v.number()),
+      occurredDuring: v.optional(occurredDuringValidator),
+    })
+  ),
+  handler: async (ctx, args) => {
+    if (args.playerIdentityIds.length === 0) {
+      return [];
+    }
+
+    const allInjuries = [];
+
+    for (const playerId of args.playerIdentityIds) {
+      const injuries = await ctx.db
+        .query("playerInjuries")
+        .withIndex("by_playerIdentityId", (q) =>
+          q.eq("playerIdentityId", playerId)
+        )
+        .order("desc")
+        .collect();
+
+      for (const injury of injuries) {
+        // Filter out healed/cleared if not requested
+        if (
+          !args.includeHealed &&
+          (injury.status === "healed" || injury.status === "cleared")
+        ) {
+          continue;
+        }
+
+        allInjuries.push({
+          _id: injury._id,
+          _creationTime: injury._creationTime,
+          playerIdentityId: injury.playerIdentityId,
+          injuryType: injury.injuryType,
+          bodyPart: injury.bodyPart,
+          side: injury.side,
+          status: injury.status,
+          severity: injury.severity,
+          dateOccurred: injury.dateOccurred,
+          expectedReturn: injury.expectedReturn,
+          actualReturn: injury.actualReturn,
+          description: injury.description,
+          treatment: injury.treatment,
+          daysOut: injury.daysOut,
+          occurredDuring: injury.occurredDuring,
+        });
+      }
+    }
+
+    return allInjuries;
   },
 });
 

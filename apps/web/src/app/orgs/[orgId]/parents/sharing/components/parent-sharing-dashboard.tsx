@@ -255,6 +255,30 @@ export function ParentSharingDashboard({ orgId }: ParentSharingDashboardProps) {
         </div>
       </div>
 
+      {/* About Passport Sharing */}
+      <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-4">
+            <Shield className="mt-1 h-8 w-8 shrink-0 text-blue-600" />
+            <div className="space-y-2">
+              <h3 className="font-semibold text-blue-900 text-lg">
+                What is Passport Sharing?
+              </h3>
+              <p className="text-blue-800 text-sm">
+                Enable sharing to allow coaches from other clubs and teams to
+                view your child's development progress with your permission.
+              </p>
+              <ul className="ml-4 list-disc space-y-1 text-blue-700 text-sm">
+                <li>Share with specific organizations</li>
+                <li>Control what information is shared</li>
+                <li>View access logs and analytics</li>
+                <li>Revoke access anytime</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Summary Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>

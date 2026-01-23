@@ -104,6 +104,7 @@ import type * as scripts_seed_helpers_playerStages from "../scripts/seed/helpers
 import type * as scripts_seed_orchestrator from "../scripts/seed/orchestrator.js";
 import type * as scripts_seed_passports from "../scripts/seed/passports.js";
 import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSportRules.js";
+import type * as scripts_seedDemoClub from "../scripts/seedDemoClub.js";
 import type * as scripts_seedUATData from "../scripts/seedUATData.js";
 import type * as scripts_setCurrentOrg from "../scripts/setCurrentOrg.js";
 import type * as scripts_stagedReset from "../scripts/stagedReset.js";
@@ -216,6 +217,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/seed/orchestrator": typeof scripts_seed_orchestrator;
   "scripts/seed/passports": typeof scripts_seed_passports;
   "scripts/seedDefaultSportRules": typeof scripts_seedDefaultSportRules;
+  "scripts/seedDemoClub": typeof scripts_seedDemoClub;
   "scripts/seedUATData": typeof scripts_seedUATData;
   "scripts/setCurrentOrg": typeof scripts_setCurrentOrg;
   "scripts/stagedReset": typeof scripts_stagedReset;

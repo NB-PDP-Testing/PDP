@@ -4,9 +4,9 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
-  AlertCircle,
   AlertTriangle,
   Check,
+  Droplet,
   Edit,
   Heart,
   Loader2,
@@ -14,6 +14,7 @@ import {
   Pill,
   Plus,
   Shield,
+  Stethoscope,
   User,
   X,
 } from "lucide-react";
@@ -530,10 +531,10 @@ export function MedicalInfo({ playerData, orgId }: MedicalInfoProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {childrenWithMedical.map((child) => (
               <div
-                className={`rounded-lg border p-4 ${
+                className={`rounded-lg border p-3 ${
                   child.hasProfile
                     ? child.hasAllergies || child.hasConditions
                       ? "border-amber-200 bg-amber-50/50"
@@ -542,66 +543,194 @@ export function MedicalInfo({ playerData, orgId }: MedicalInfoProps) {
                 }`}
                 key={child.player._id}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
-                      <User className="h-5 w-5 text-gray-600" />
+                {/* Header */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-100">
+                      <User className="h-4 w-4 text-gray-600" />
                     </div>
-                    <div>
-                      <p className="font-medium">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-sm">
                         {child.player.firstName} {child.player.lastName}
                       </p>
-                      <p className="text-muted-foreground text-sm">
+                      <p className="text-muted-foreground text-xs">
                         {child.enrollment?.ageGroup || "Age group TBD"}
                       </p>
                     </div>
                   </div>
                   {child.hasProfile ? (
-                    <Badge className="bg-green-100 text-green-700">
+                    <Badge className="flex-shrink-0 bg-green-100 text-green-700 text-xs">
                       <Check className="mr-1 h-3 w-3" />
-                      Complete
+                      OK
                     </Badge>
                   ) : (
-                    <Badge className="bg-red-100 text-red-700">
+                    <Badge className="flex-shrink-0 bg-red-100 text-red-700 text-xs">
                       <AlertTriangle className="mr-1 h-3 w-3" />
                       Missing
                     </Badge>
                   )}
                 </div>
 
-                {child.hasProfile && (
+                {child.hasProfile && child.profile && (
                   <div className="mt-3 space-y-2">
-                    {/* Emergency Contact */}
-                    {child.profile?.emergencyContact1Phone && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-3 w-3 text-red-500" />
-                        <span className="text-muted-foreground">ICE:</span>
-                        <span className="font-mono">
-                          {child.profile.emergencyContact1Phone}
-                        </span>
+                    {/* 3 Main Icons Row: Blood Type, Medications, Allergies */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Blood Type */}
+                      <div className="rounded-lg border bg-white p-2 text-center">
+                        <Droplet className="mx-auto h-5 w-5 text-red-500" />
+                        <p className="mt-1 font-bold text-red-600 text-sm">
+                          {child.profile.bloodType || "—"}
+                        </p>
+                        <p className="text-muted-foreground text-xs">Blood</p>
                       </div>
-                    )}
 
-                    {/* Alerts */}
-                    <div className="flex flex-wrap gap-1">
-                      {child.hasAllergies && (
-                        <Badge className="bg-orange-100 text-orange-700 text-xs">
-                          <AlertCircle className="mr-1 h-3 w-3" />
-                          {child.profile?.allergies?.length || 0} Allergies
-                        </Badge>
+                      {/* Medications */}
+                      <div className="rounded-lg border bg-white p-2 text-center">
+                        <Pill className="mx-auto h-5 w-5 text-blue-500" />
+                        <p className="mt-1 font-bold text-blue-600 text-sm">
+                          {child.profile.medications?.length || 0}
+                        </p>
+                        <p className="text-muted-foreground text-xs">Meds</p>
+                      </div>
+
+                      {/* Allergies */}
+                      <div className="rounded-lg border bg-white p-2 text-center">
+                        <AlertTriangle className="mx-auto h-5 w-5 text-orange-500" />
+                        <p className="mt-1 font-bold text-orange-600 text-sm">
+                          {child.profile.allergies?.length || 0}
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          Allergies
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Medications Detail */}
+                    {child.profile.medications &&
+                      child.profile.medications.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {child.profile.medications.map((med: string) => (
+                            <Badge
+                              className="bg-blue-100 px-1.5 py-0 text-blue-700 text-xs"
+                              key={med}
+                            >
+                              {med}
+                            </Badge>
+                          ))}
+                        </div>
                       )}
-                      {child.hasMedications && (
-                        <Badge className="bg-blue-100 text-blue-700 text-xs">
-                          <Pill className="mr-1 h-3 w-3" />
-                          {child.profile?.medications?.length || 0} Meds
-                        </Badge>
+
+                    {/* Allergies Detail */}
+                    {child.profile.allergies &&
+                      child.profile.allergies.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {child.profile.allergies.map((allergy: string) => (
+                            <Badge
+                              className="bg-orange-100 px-1.5 py-0 text-orange-700 text-xs"
+                              key={allergy}
+                            >
+                              {allergy}
+                            </Badge>
+                          ))}
+                        </div>
                       )}
-                      {child.hasConditions && (
-                        <Badge className="bg-purple-100 text-purple-700 text-xs">
-                          {child.profile?.conditions?.length || 0} Conditions
-                        </Badge>
+
+                    {/* Conditions (if any) */}
+                    {child.profile.conditions &&
+                      child.profile.conditions.length > 0 && (
+                        <div className="rounded border border-purple-200 bg-purple-50 p-1.5">
+                          <p className="mb-1 font-medium text-purple-700 text-xs">
+                            Conditions:
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {child.profile.conditions.map(
+                              (condition: string) => (
+                                <Badge
+                                  className="bg-purple-200 px-1.5 py-0 text-purple-800 text-xs"
+                                  key={condition}
+                                >
+                                  {condition}
+                                </Badge>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* ICE & Doctor Details */}
+                    <div className="space-y-1 border-t pt-2 text-xs">
+                      {/* ICE */}
+                      {child.profile.emergencyContact1Phone && (
+                        <div className="flex items-start gap-1">
+                          <Phone className="mt-0.5 h-3 w-3 flex-shrink-0 text-red-500" />
+                          <div className="min-w-0">
+                            <span className="font-semibold text-red-700">
+                              ICE:
+                            </span>{" "}
+                            <span className="text-gray-700">
+                              {child.profile.emergencyContact1Name || "Primary"}
+                            </span>
+                            <span className="ml-1 font-mono text-gray-600">
+                              {child.profile.emergencyContact1Phone}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {child.profile.emergencyContact2Phone && (
+                        <div className="flex items-start gap-1 pl-4">
+                          <span className="text-gray-500">2nd:</span>{" "}
+                          <span className="text-gray-700">
+                            {child.profile.emergencyContact2Name || ""}
+                          </span>
+                          <span className="font-mono text-gray-600">
+                            {child.profile.emergencyContact2Phone}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Doctor */}
+                      {(child.profile.doctorName ||
+                        child.profile.doctorPhone) && (
+                        <div className="flex items-start gap-1">
+                          <Stethoscope className="mt-0.5 h-3 w-3 flex-shrink-0 text-blue-500" />
+                          <div className="min-w-0">
+                            <span className="font-semibold text-blue-700">
+                              Dr:
+                            </span>{" "}
+                            {child.profile.doctorName && (
+                              <span className="text-gray-700">
+                                {child.profile.doctorName}
+                              </span>
+                            )}
+                            {child.profile.doctorPhone && (
+                              <span className="ml-1 font-mono text-gray-600">
+                                {child.profile.doctorPhone}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
+
+                    {/* All Clear */}
+                    {!(
+                      child.hasAllergies ||
+                      child.hasMedications ||
+                      child.hasConditions
+                    ) && (
+                      <p className="text-center text-green-600 text-xs">
+                        No medications or conditions
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* No Profile Message */}
+                {!child.hasProfile && (
+                  <div className="mt-3 rounded border border-red-200 bg-red-100 p-2 text-center">
+                    <p className="text-red-700 text-xs">
+                      Please add medical info for safety
+                    </p>
                   </div>
                 )}
 
@@ -621,13 +750,13 @@ export function MedicalInfo({ playerData, orgId }: MedicalInfoProps) {
                 >
                   {child.hasProfile ? (
                     <>
-                      <Edit className="mr-2 h-3 w-3" />
+                      <Edit className="mr-1 h-3 w-3" />
                       Update
                     </>
                   ) : (
                     <>
-                      <Plus className="mr-2 h-3 w-3" />
-                      Add Medical Info
+                      <Plus className="mr-1 h-3 w-3" />
+                      Add Info
                     </>
                   )}
                 </Button>

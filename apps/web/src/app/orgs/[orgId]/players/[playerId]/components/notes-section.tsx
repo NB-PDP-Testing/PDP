@@ -151,6 +151,12 @@ function NoteCard({ title, content, icon, variant }: NoteCardProps) {
           bg: "bg-purple-50",
           badge: "bg-purple-100 text-purple-700",
         };
+      default:
+        return {
+          border: "border-l-gray-500",
+          bg: "bg-gray-50",
+          badge: "bg-gray-100 text-gray-700",
+        };
     }
   };
 

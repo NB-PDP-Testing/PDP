@@ -17,6 +17,9 @@ type WeeklyScheduleProps = {
       firstName: string;
       lastName: string;
     };
+    enrollment?: {
+      sport?: string;
+    };
   }>;
 };
 
@@ -34,6 +37,7 @@ const generateMockSchedule = (
     date: string;
     events: Array<{
       childName: string;
+      sport: string;
       type: "training" | "match";
       time: string;
     }>;
@@ -44,25 +48,30 @@ const generateMockSchedule = (
     date.setDate(startOfWeek.getDate() + idx);
     const dayEvents: Array<{
       childName: string;
+      sport: string;
       type: "training" | "match";
       time: string;
     }> = [];
 
     // Add mock training sessions (Tue, Thu for each child)
     if (idx === 1 || idx === 3) {
-      playerData.forEach((child) => {
+      for (const child of playerData) {
+        const sport = child.enrollment?.sport || "GAA";
         dayEvents.push({
           childName: child.player.firstName,
+          sport: sport.toUpperCase(),
           type: "training",
           time: "18:00",
         });
-      });
+      }
     }
 
     // Add mock match (Sat for first child)
     if (idx === 5 && playerData.length > 0) {
+      const sport = playerData[0].enrollment?.sport || "GAA";
       dayEvents.push({
         childName: playerData[0].player.firstName,
+        sport: sport.toUpperCase(),
         type: "match",
         time: "10:30",
       });
@@ -120,9 +129,10 @@ export function WeeklySchedule({ playerData }: WeeklyScheduleProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-7 gap-2">
+        {/* Desktop: Horizontal 7-day grid */}
+        <div className="hidden md:grid md:grid-cols-7 md:gap-2">
           {schedule.map((day) => (
-            <div className="min-h-[100px] rounded-lg border p-2" key={day.day}>
+            <div className="min-h-[120px] rounded-lg border p-2" key={day.day}>
               <div className="mb-2 text-center">
                 <div className="font-medium text-sm">{day.day}</div>
                 <div className="text-muted-foreground text-xs">{day.date}</div>
@@ -130,7 +140,7 @@ export function WeeklySchedule({ playerData }: WeeklyScheduleProps) {
               <div className="space-y-1">
                 {day.events.map((event, idx) => (
                   <div
-                    className={`rounded p-1 text-center text-xs ${
+                    className={`rounded p-1.5 text-xs ${
                       event.type === "training"
                         ? "bg-blue-100 text-blue-700"
                         : "bg-green-100 text-green-700"
@@ -140,7 +150,11 @@ export function WeeklySchedule({ playerData }: WeeklyScheduleProps) {
                     <div className="truncate font-medium">
                       {event.childName}
                     </div>
-                    <div className="flex items-center justify-center gap-1">
+                    <div className="truncate font-medium">
+                      {event.sport}{" "}
+                      {event.type === "training" ? "Training" : "Match"}
+                    </div>
+                    <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {event.time}
                     </div>
@@ -150,6 +164,52 @@ export function WeeklySchedule({ playerData }: WeeklyScheduleProps) {
             </div>
           ))}
         </div>
+
+        {/* Mobile: Vertical list */}
+        <div className="space-y-2 md:hidden">
+          {schedule.map((day) => (
+            <div
+              className={`rounded-lg border p-3 ${day.events.length > 0 ? "" : "opacity-50"}`}
+              key={day.day}
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <div className="font-medium">{day.day}</div>
+                <div className="text-muted-foreground text-sm">{day.date}</div>
+              </div>
+              {day.events.length > 0 ? (
+                <div className="space-y-2">
+                  {day.events.map((event, idx) => (
+                    <div
+                      className={`flex items-center justify-between rounded-lg p-2 ${
+                        event.type === "training"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-green-100 text-green-700"
+                      }`}
+                      key={`${day.day}-${idx}`}
+                    >
+                      <div>
+                        <div className="font-medium">{event.childName}</div>
+                        <div className="text-sm">
+                          {event.sport}{" "}
+                          {event.type === "training" ? "Training" : "Match"}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 text-sm">
+                        <Clock className="h-4 w-4" />
+                        {event.time}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground text-sm">
+                  No events
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
         <p className="mt-4 text-center text-muted-foreground text-xs">
           📅 Schedule integration coming soon - showing sample data
         </p>

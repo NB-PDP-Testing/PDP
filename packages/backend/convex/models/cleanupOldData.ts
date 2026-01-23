@@ -22,7 +22,7 @@ export const cleanupOldVoiceNotes = internalMutation({
     for (const note of allVoiceNotes) {
       if (!note.coachId || note.coachId === "") {
         await ctx.db.delete(note._id);
-        deletedVoiceNotes++;
+        deletedVoiceNotes += 1;
       }
     }
 
@@ -32,7 +32,7 @@ export const cleanupOldVoiceNotes = internalMutation({
     for (const summary of allSummaries) {
       if (!summary.coachId || summary.coachId === "") {
         await ctx.db.delete(summary._id);
-        deletedSummaries++;
+        deletedSummaries += 1;
       }
     }
 

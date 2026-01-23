@@ -1,41 +1,21 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
-import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import {
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Share2,
-  TrendingUp,
-  Users,
-} from "lucide-react";
-import type { Route } from "next";
-import Link from "next/link";
+import { AlertCircle, CheckCircle, Clock, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { GuardianIdentityClaimDialog } from "@/components/guardian-identity-claim-dialog";
 import Loader from "@/components/loader";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
 import { ActionItemsPanel } from "./components/action-items-panel";
-import { AIPracticeAssistantEnhanced } from "./components/ai-practice-assistant-enhanced";
+import { AIPracticeAssistant } from "./components/ai-practice-assistant";
 import { ChildCard } from "./components/child-card";
-import { ChildSummaryCard } from "./components/child-summary-card";
-import { CoachFeedback } from "./components/coach-feedback";
+import { CoachFeedbackSnapshot } from "./components/coach-feedback-snapshot";
 import { GuardianSettings } from "./components/guardian-settings";
-import { MedicalInfo } from "./components/medical-info";
-import { UnifiedInboxView } from "./components/unified-inbox-view";
 import { WeeklySchedule } from "./components/weekly-schedule";
 
 function ParentDashboardContent() {
@@ -50,9 +30,6 @@ function ParentDashboardContent() {
     new Set()
   );
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
-
-  // US-011: View toggle state for By Child vs All Messages
-  const [view, setView] = useState<"by-child" | "unified">("by-child");
 
   // Get user's role details in this organization
   const roleDetails = useQuery(
@@ -103,44 +80,6 @@ function ParentDashboardContent() {
     { organizationId: orgId }
   );
 
-  // US-011: Flatten all messages for unified inbox view
-  const allMessages = useMemo(() => {
-    if (!summariesData) {
-      return [];
-    }
-
-    const flattened: Array<{
-      _id: Id<"coachParentSummaries">;
-      coachName: string;
-      publicSummary: {
-        content: string;
-        confidenceScore: number;
-        generatedAt: number;
-      };
-      status: string;
-      viewedAt?: number;
-      acknowledgedAt?: number;
-      createdAt: number;
-      childName: string;
-      sportName: string;
-    }> = [];
-    for (const childData of summariesData) {
-      const childName = `${childData.player.firstName} ${childData.player.lastName}`;
-      for (const sportGroup of childData.sportGroups) {
-        for (const summary of sportGroup.summaries) {
-          flattened.push({
-            ...summary,
-            childName,
-            sportName: sportGroup.sport?.name || "Unknown Sport",
-          });
-        }
-      }
-    }
-
-    // Sort by createdAt descending (newest first)
-    return flattened.sort((a, b) => b.createdAt - a.createdAt);
-  }, [summariesData]);
-
   // Show claim dialog if there are unclaimed identities (only auto-open once)
   // Note: Don't check !guardianIdentity because useGuardianIdentity returns
   // unclaimed identities too (via email lookup)
@@ -175,14 +114,6 @@ function ParentDashboardContent() {
   // Mutation to decline guardian-player links
   const declineGuardianPlayerLink = useMutation(
     api.models.guardianPlayerLinks.declineGuardianPlayerLink
-  );
-
-  // US-011: Mutations for message handling in unified view
-  const markViewed = useMutation(
-    api.models.coachParentSummaries.markSummaryViewed
-  );
-  const acknowledgeSummaryMutation = useMutation(
-    api.models.coachParentSummaries.acknowledgeParentSummary
   );
 
   // Handle dialog dismissal (user clicks "This Isn't Me")
@@ -227,29 +158,6 @@ function ParentDashboardContent() {
 
   // Get current claimable identity to display
   const currentClaimable = claimableIdentities?.[currentClaimIndex];
-
-  // US-011: Handlers for unified inbox view
-  const handleViewSummary = async (summaryId: Id<"coachParentSummaries">) => {
-    try {
-      await markViewed({
-        summaryId,
-        viewSource: "dashboard",
-      });
-    } catch (error) {
-      console.error("Failed to mark summary as viewed:", error);
-    }
-  };
-
-  const handleAcknowledgeSummary = async (
-    summaryId: Id<"coachParentSummaries">
-  ) => {
-    try {
-      await acknowledgeSummaryMutation({ summaryId });
-    } catch (error) {
-      console.error("Failed to acknowledge summary:", error);
-      throw error;
-    }
-  };
 
   // US-013: Messages ref for smooth scroll behavior
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -425,6 +333,9 @@ function ParentDashboardContent() {
         </Card>
       )}
 
+      {/* Weekly Schedule - Moved to top */}
+      {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}
+
       {/* Summary Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -484,46 +395,12 @@ function ParentDashboardContent() {
         </Card>
       </div>
 
-      {/* Passport Sharing Card */}
+      {/* Coach Feedback Snapshot */}
+      {playerCount > 0 && <CoachFeedbackSnapshot orgId={orgId} />}
+
+      {/* AI Practice Assistant - Full width */}
       {playerCount > 0 && (
-        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Share2 className="h-5 w-5 text-blue-600" />
-                  Passport Sharing
-                </CardTitle>
-                <CardDescription className="mt-2">
-                  Control who can view your children's player development
-                  passports across organizations
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-2">
-                <p className="text-sm">
-                  Enable sharing to allow coaches from other clubs and teams to
-                  view your child's development progress with your permission.
-                </p>
-                <ul className="ml-4 list-disc space-y-1 text-muted-foreground text-sm">
-                  <li>Share with specific organizations</li>
-                  <li>Control what information is shared</li>
-                  <li>View access logs and analytics</li>
-                  <li>Revoke access anytime</li>
-                </ul>
-              </div>
-              <Link href={`/orgs/${orgId}/parents/sharing` as Route}>
-                <Button className="shrink-0" size="lg">
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Manage Sharing
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        <AIPracticeAssistant orgId={orgId} playerData={identityChildren} />
       )}
 
       {/* Action Items Panel (US-013) */}
@@ -543,118 +420,6 @@ function ParentDashboardContent() {
               <ChildCard child={child} key={child.player._id} orgId={orgId} />
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Weekly Schedule */}
-      {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}
-
-      {/* Child Summary Cards Grid (US-009) */}
-      {playerCount > 0 && summariesData && summariesData.length > 0 && (
-        <div>
-          <h2 className="mb-4 font-semibold text-xl">Quick Overview</h2>
-          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {summariesData.map((childData) => {
-              // Calculate child-specific unread count by summing all sportGroups unreadCount
-              const childUnreadCount = childData.sportGroups.reduce(
-                (sum, sportGroup) => sum + sportGroup.unreadCount,
-                0
-              );
-
-              return (
-                <ChildSummaryCard
-                  key={childData.player._id}
-                  orgId={orgId}
-                  player={childData.player}
-                  unreadCount={childUnreadCount}
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Coach Feedback Section with View Toggle (US-011) */}
-      {playerCount > 0 && summariesData && summariesData.length > 0 && (
-        <div ref={messagesRef}>
-          <div className="mb-4 flex gap-2">
-            <Button
-              onClick={() => setView("by-child")}
-              variant={view === "by-child" ? "default" : "outline"}
-            >
-              By Child
-            </Button>
-            <Button
-              onClick={() => setView("unified")}
-              variant={view === "unified" ? "default" : "outline"}
-            >
-              All Messages ({allMessages.length})
-            </Button>
-          </div>
-
-          {view === "unified" ? (
-            <UnifiedInboxView
-              messages={allMessages}
-              onAcknowledge={handleAcknowledgeSummary}
-              onView={handleViewSummary}
-            />
-          ) : (
-            <CoachFeedback orgId={orgId} />
-          )}
-        </div>
-      )}
-
-      {/* Medical Information Section */}
-      {playerCount > 0 && (
-        <MedicalInfo orgId={orgId} playerData={identityChildren} />
-      )}
-
-      {/* AI Practice Assistant */}
-      {playerCount > 0 && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <AIPracticeAssistantEnhanced
-            orgId={orgId}
-            playerData={identityChildren}
-          />
-
-          {/* Coming Soon Features */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
-                Coming Soon
-              </CardTitle>
-              <CardDescription>More features are on the way</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-3">
-                <li className="flex items-center gap-3">
-                  <Badge variant="outline">Planned</Badge>
-                  <span className="text-sm">
-                    Real-time schedule integration
-                  </span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <Badge variant="outline">Planned</Badge>
-                  <span className="text-sm">
-                    Push notifications for coach feedback
-                  </span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <Badge variant="outline">Planned</Badge>
-                  <span className="text-sm">Progress reports PDF export</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <Badge variant="outline">Planned</Badge>
-                  <span className="text-sm">Multi-sport comparison views</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <Badge variant="outline">Planned</Badge>
-                  <span className="text-sm">Skill radar charts</span>
-                </li>
-              </ul>
-            </CardContent>
-          </Card>
         </div>
       )}
 

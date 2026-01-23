@@ -19,11 +19,14 @@ import { TrustLevelIcon } from "@/components/coach/trust-level-icon";
 import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { authClient } from "@/lib/auth-client";
 import { HistoryTab } from "./components/history-tab";
 import { InsightsTab } from "./components/insights-tab";
 import { NewNoteTab } from "./components/new-note-tab";
 import { ParentsTab } from "./components/parents-tab";
 import { SettingsTab } from "./components/settings-tab";
+
+const { useSession } = authClient;
 
 type TabId = "new" | "parents" | "insights" | "history" | "settings";
 
@@ -31,6 +34,10 @@ export function VoiceNotesDashboard() {
   const params = useParams();
   const router = useRouter();
   const orgId = params.orgId as BetterAuthId<"organization">;
+  const { data: session } = useSession();
+
+  // Get coach ID from session (use id as fallback if userId is null)
+  const coachId = session?.user?.userId || session?.user?.id;
 
   const [activeTab, setActiveTab] = useState<TabId>("new");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -40,10 +47,11 @@ export function VoiceNotesDashboard() {
     {}
   );
 
-  // Queries for stats and conditional tab logic
-  const voiceNotes = useQuery(api.models.voiceNotes.getAllVoiceNotes, {
-    orgId,
-  });
+  // Queries for stats and conditional tab logic - scoped to this coach's notes only
+  const voiceNotes = useQuery(
+    api.models.voiceNotes.getVoiceNotesByCoach,
+    coachId ? { orgId, coachId } : "skip"
+  );
   const pendingSummaries = useQuery(
     api.models.coachParentSummaries.getCoachPendingSummaries,
     { organizationId: orgId }

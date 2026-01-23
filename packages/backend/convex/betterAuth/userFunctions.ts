@@ -100,7 +100,6 @@ export const updateUserProfile = mutation({
       // Update the user record
       await ctx.db.patch(userId, updates);
 
-      console.log("[updateUserProfile] Updated user:", args.userId, updates);
       return { success: true };
     } catch (error) {
       console.error("[updateUserProfile] Error:", error);
@@ -119,18 +118,11 @@ export const getUserByStringId = query({
   },
   returns: v.any(),
   handler: async (ctx, args) => {
-    console.log(
-      `[betterAuth.getUserByStringId] Looking up user with ID: ${args.userId}`
-    );
-
     try {
       // Cast string to Id<"user"> for ctx.db.get
       const user = await ctx.db.get(args.userId as v.Id<"user">);
 
       if (user) {
-        console.log(
-          `[betterAuth.getUserByStringId] ✅ FOUND user: ${(user as any).email}`
-        );
         return user;
       }
 
@@ -139,10 +131,7 @@ export const getUserByStringId = query({
       );
 
       // Debug: Show sample IDs
-      const sampleUsers = await ctx.db.query("user").take(3);
-      console.log(
-        `[betterAuth.getUserByStringId] Sample user IDs: ${sampleUsers.map((u) => u._id).join(", ")}`
-      );
+      const _sampleUsers = await ctx.db.query("user").take(3);
 
       return null;
     } catch (error) {

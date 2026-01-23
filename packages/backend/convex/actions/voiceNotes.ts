@@ -322,18 +322,8 @@ export const buildInsights = internalAction({
       // Always include the recording coach, plus any fellow coaches on same teams
       const coachesRoster: Array<{ id: string; name: string }> = [];
 
-      console.log(
-        "[TODO Coaches] ========== BUILDING COACHES ROSTER =========="
-      );
-      console.log(`[TODO Coaches] note.coachId = "${note.coachId}"`);
-      console.log(`[TODO Coaches] note.coachId type = ${typeof note.coachId}`);
-
       // ALWAYS add the recording coach first (even if they have no teams)
       if (note.coachId) {
-        console.log(
-          `[TODO Coaches] Looking up recording coach with ID: ${note.coachId}`
-        );
-
         // Use betterAuth component query to get user by string ID
         const recordingCoachUser = await ctx.runQuery(
           components.betterAuth.userFunctions.getUserByStringId,
@@ -342,33 +332,13 @@ export const buildInsights = internalAction({
           }
         );
 
-        console.log(
-          `[TODO Coaches] Query result: ${recordingCoachUser ? "FOUND" : "NOT FOUND"}`
-        );
-
         if (recordingCoachUser) {
           const u = recordingCoachUser as any;
-          console.log(
-            `[TODO Coaches] User document fields: ${JSON.stringify(
-              {
-                _id: u._id,
-                email: u.email,
-                name: u.name,
-                firstName: u.firstName,
-                lastName: u.lastName,
-              },
-              null,
-              2
-            )}`
-          );
           const coachName =
             `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
             u.name ||
             u.email ||
             "Unknown";
-          console.log(
-            `[TODO Coaches] ✅ Adding coach "${coachName}" to roster (ID: ${note.coachId})`
-          );
           coachesRoster.push({
             id: note.coachId,
             name: coachName,
@@ -381,12 +351,6 @@ export const buildInsights = internalAction({
       } else {
         console.warn("[TODO Coaches] note.coachId is null/undefined!");
       }
-
-      console.log("[TODO Coaches] ========== ROSTER BUILD COMPLETE ==========");
-      console.log(`[TODO Coaches] Final roster size: ${coachesRoster.length}`);
-      console.log(
-        `[TODO Coaches] Roster: ${JSON.stringify(coachesRoster, null, 2)}`
-      );
 
       // If coach has teams, add fellow coaches on same teams
       if (note.coachId && teamsList.length > 0) {
@@ -431,31 +395,6 @@ export const buildInsights = internalAction({
             2
           )
         : "[]";
-
-      // Log roster for debugging
-      console.log(
-        `[AI Roster] Providing ${uniquePlayers.length} UNIQUE players to AI (deduplicated from ${players.length} total):`,
-        uniquePlayers
-          .slice(0, 10)
-          .map((p: any) => `${p.firstName} ${p.lastName}`)
-          .join(", ")
-      );
-
-      // Log full roster JSON for debugging Clodagh issue
-      if (uniquePlayers.some((p: any) => p.firstName === "Clodagh")) {
-        console.log(
-          "[DEBUG] Clodagh IS in roster! Full details:",
-          JSON.stringify(
-            uniquePlayers.filter((p: any) => p.firstName === "Clodagh"),
-            null,
-            2
-          )
-        );
-      } else {
-        console.log(
-          `[DEBUG] Clodagh NOT in roster. First names: ${uniquePlayers.map((p: any) => p.firstName).join(", ")}`
-        );
-      }
 
       // Get model config from database with fallback
       const config = await getAIConfig(ctx, "voice_insights", note.orgId);
@@ -605,18 +544,6 @@ IMPORTANT:
         throw new Error(`Failed to parse AI response: ${parsed.error.message}`);
       }
 
-      // Log what AI returned for debugging
-      console.log(
-        `[AI Response] Extracted ${parsed.data.insights.length} insights:`
-      );
-      for (const insight of parsed.data.insights) {
-        if (insight.playerName) {
-          console.log(
-            `  - "${insight.title}": playerName="${insight.playerName}", playerId=${insight.playerId ? `"${insight.playerId}"` : "NULL"}`
-          );
-        }
-      }
-
       // Resolve player IDs and build insights array
       // Now using playerIdentityId for the new identity system
       const resolvedInsights = parsed.data.insights.map((insight) => {
@@ -645,33 +572,11 @@ IMPORTANT:
         const teamId = insight.teamId ?? undefined;
         const teamName = insight.teamName ?? undefined;
 
-        if (insight.category === "team_culture" && teamId && teamName) {
-          console.log(
-            `[Team Matching] AI matched team_culture insight to "${teamName}"`
-          );
-        } else if (insight.category === "team_culture" && !teamId) {
-          console.log(
-            "[Team Classification] team_culture insight needs manual team assignment (no explicit team mentioned)"
-          );
-        }
-
         // TODO assignment: Trust the AI's decision
         // AI assigns when it detects first-person pronouns ("I need to", "I'll", "I should")
         // AI leaves NULL when it's ambiguous ("jerseys need sorting", "someone should", "we need to")
         const assigneeUserId = insight.assigneeUserId ?? undefined;
         const assigneeName = insight.assigneeName ?? undefined;
-
-        if (insight.category === "todo") {
-          if (assigneeUserId) {
-            console.log(
-              `[TODO Assignment] AI assigned "${insight.title}" to ${assigneeName} (ID: ${assigneeUserId})`
-            );
-          } else {
-            console.log(
-              `[TODO Assignment] "${insight.title}" left unassigned - needs manual assignment (AI detected ambiguous phrasing)`
-            );
-          }
-        }
 
         return {
           id: `insight_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
@@ -698,15 +603,12 @@ IMPORTANT:
       });
 
       // Log summary of matching results
-      const matchedCount = resolvedInsights.filter(
+      const _matchedCount = resolvedInsights.filter(
         (i) => i.playerIdentityId
       ).length;
-      const unmatchedCount = resolvedInsights.filter(
+      const _unmatchedCount = resolvedInsights.filter(
         (i) => !i.playerIdentityId && i.playerName
       ).length;
-      console.log(
-        `[Voice Note ${args.noteId}] Insights: ${resolvedInsights.length} total, ${matchedCount} matched to players, ${unmatchedCount} unmatched with names`
-      );
 
       // Check if parent summaries are enabled for this coach
       const parentSummariesEnabled = await ctx.runQuery(
@@ -717,25 +619,15 @@ IMPORTANT:
         }
       );
 
-      console.log(
-        `[Voice Note ${args.noteId}] Parent summaries enabled: ${parentSummariesEnabled} (coachId: ${note.coachId || "MISSING"})`
-      );
-
       // Schedule parent summary generation for each insight with a player
       // Phase 3: Injury and behavior categories now flow through with manual review required
       if (parentSummariesEnabled) {
-        const insightsWithPlayers = resolvedInsights.filter(
+        const _insightsWithPlayers = resolvedInsights.filter(
           (i) => i.playerIdentityId
-        );
-        console.log(
-          `[Voice Note ${args.noteId}] Scheduling parent summaries for ${insightsWithPlayers.length}/${resolvedInsights.length} insights`
         );
 
         for (const insight of resolvedInsights) {
           if (insight.playerIdentityId) {
-            console.log(
-              `[Parent Summary] Scheduling: "${insight.title}" for player ${insight.playerName} (category: ${insight.category})`
-            );
             await ctx.scheduler.runAfter(
               0,
               internal.actions.coachParentSummaries.processVoiceNoteInsight,
@@ -756,10 +648,6 @@ IMPORTANT:
             );
           }
         }
-      } else {
-        console.log(
-          `[Parent Summary] ⚠️ DISABLED: Coach has disabled parent summaries. ${resolvedInsights.filter((i) => i.playerIdentityId).length} insights will be captured without parent summaries.`
-        );
       }
     } catch (error) {
       console.error("Failed to build insights:", error);
@@ -802,9 +690,6 @@ function findMatchingPlayer(
   const searchName = insight.playerName;
 
   if (!players.length) {
-    console.log(
-      `[Player Matching] No players in roster to match against for insight: "${insight.title}"`
-    );
     return;
   }
 
@@ -814,14 +699,8 @@ function findMatchingPlayer(
       (player) => player.playerIdentityId === insight.playerId
     );
     if (matchById) {
-      console.log(
-        `[Player Matching] ✅ Matched by ID: ${matchById.name} (${insight.playerId})`
-      );
       return matchById;
     }
-    console.log(
-      `[Player Matching] ID "${insight.playerId}" not found in roster`
-    );
   }
 
   // Try to match by name
@@ -833,9 +712,6 @@ function findMatchingPlayer(
       (player) => player.name.toLowerCase() === normalizedSearch
     );
     if (exactMatch) {
-      console.log(
-        `[Player Matching] ✅ Exact match: "${searchName}" → ${exactMatch.name}`
-      );
       return exactMatch;
     }
 
@@ -845,9 +721,6 @@ function findMatchingPlayer(
       return fullName === normalizedSearch;
     });
     if (nameMatch) {
-      console.log(
-        `[Player Matching] ✅ Full name match: "${searchName}" → ${nameMatch.name}`
-      );
       return nameMatch;
     }
 
@@ -856,9 +729,6 @@ function findMatchingPlayer(
       (player) => player.firstName.toLowerCase() === normalizedSearch
     );
     if (firstNameMatches.length === 1) {
-      console.log(
-        `[Player Matching] ✅ First name match: "${searchName}" → ${firstNameMatches[0].name}`
-      );
       return firstNameMatches[0];
     }
     if (firstNameMatches.length > 1) {
@@ -876,9 +746,6 @@ function findMatchingPlayer(
         normalizedSearch.includes(player.name.toLowerCase())
     );
     if (partialMatches.length === 1) {
-      console.log(
-        `[Player Matching] ✅ Partial match: "${searchName}" → ${partialMatches[0].name}`
-      );
       return partialMatches[0];
     }
     if (partialMatches.length > 1) {
@@ -893,10 +760,6 @@ function findMatchingPlayer(
         .slice(0, 10)
         .map((p) => p.firstName)
         .join(", ")}${players.length > 10 ? "..." : ""}`
-    );
-  } else {
-    console.log(
-      `[Player Matching] No player name provided for insight: "${insight.title}"`
     );
   }
 
@@ -920,10 +783,6 @@ export const correctInsightPlayerName = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    console.log(
-      `[AI Name Correction] Starting for "${args.wrongName}" -> "${args.correctName}"`
-    );
-
     const openai = getOpenAI();
 
     const prompt = `You are correcting a player name in sports coaching feedback.
@@ -964,10 +823,6 @@ Respond in JSON format:
       const result = JSON.parse(content);
 
       if (result.wasModified) {
-        console.log(
-          `[AI Name Correction] Successfully corrected: "${args.originalTitle}" -> "${result.title}"`
-        );
-
         // Update the insight in the database
         await ctx.runMutation(
           internal.models.voiceNotes.updateInsightContentInternal,
@@ -978,10 +833,6 @@ Respond in JSON format:
             description: result.description,
             recommendedUpdate: result.recommendedUpdate,
           }
-        );
-      } else {
-        console.log(
-          `[AI Name Correction] AI found no changes needed for "${args.originalTitle}"`
         );
       }
     } catch (error) {

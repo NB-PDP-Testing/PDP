@@ -133,23 +133,12 @@ function ParentDashboardContent() {
   // Note: Don't check !guardianIdentity because useGuardianIdentity returns
   // unclaimed identities too (via email lookup)
   useEffect(() => {
-    console.log("Claimable identities check:", {
-      claimableIdentities,
-      count: claimableIdentities?.length,
-      showClaimDialog,
-      hasAutoOpened,
-    });
     if (
       claimableIdentities &&
       claimableIdentities.length > 0 &&
       !showClaimDialog &&
       !hasAutoOpened
     ) {
-      console.log(
-        "Auto-opening claim dialog for",
-        claimableIdentities.length,
-        "identities"
-      );
       setShowClaimDialog(true);
       setHasAutoOpened(true);
     }

@@ -186,14 +186,8 @@ export const createParentSummary = internalMutation({
     let status: "pending_review" | "auto_approved" = "pending_review";
 
     if (args.sensitivityCategory === "injury") {
-      console.log(
-        "Auto-approval blocked: injury sensitivity requires manual review"
-      );
       status = "pending_review";
     } else if (args.sensitivityCategory === "behavior") {
-      console.log(
-        "Auto-approval blocked: behavior sensitivity requires manual review"
-      );
       status = "pending_review";
     }
     // Future Phase 5: Normal category may auto-approve based on trust level

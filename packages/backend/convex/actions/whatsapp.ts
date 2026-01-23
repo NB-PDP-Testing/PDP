@@ -48,8 +48,6 @@ export const processIncomingMessage = internalAction({
     error: v.optional(v.string()),
   }),
   handler: async (ctx, args) => {
-    console.log("[WhatsApp] Processing incoming message:", args.messageSid);
-
     // Extract phone number (remove "whatsapp:" prefix)
     const phoneNumber = args.from.replace(WHATSAPP_PREFIX_REGEX, "");
     const toNumber = args.to.replace(WHATSAPP_PREFIX_REGEX, "");
@@ -83,8 +81,6 @@ export const processIncomingMessage = internalAction({
       }
     );
 
-    console.log("[WhatsApp] Message stored:", messageId);
-
     // Look up coach by phone number
     const coachInfo = await ctx.runQuery(
       internal.models.whatsappMessages.findCoachByPhone,
@@ -92,8 +88,6 @@ export const processIncomingMessage = internalAction({
     );
 
     if (!coachInfo) {
-      console.log("[WhatsApp] No coach found for phone:", phoneNumber);
-
       // Update message as unmatched
       await ctx.runMutation(internal.models.whatsappMessages.updateStatus, {
         messageId,
@@ -109,13 +103,6 @@ export const processIncomingMessage = internalAction({
 
       return { success: false, messageId, error: "Phone number not matched" };
     }
-
-    console.log(
-      "[WhatsApp] Coach found:",
-      coachInfo.coachName,
-      "Org:",
-      coachInfo.organizationId
-    );
 
     // Update message with coach info
     await ctx.runMutation(internal.models.whatsappMessages.updateCoachInfo, {
@@ -205,8 +192,6 @@ async function processAudioMessage(
     phoneNumber: string;
   }
 ) {
-  console.log("[WhatsApp] Downloading audio from Twilio...");
-
   // Get Twilio credentials
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -233,13 +218,6 @@ async function processAudioMessage(
   const contentType = response.headers.get("content-type") || "audio/ogg";
   const audioBlob = new Blob([audioBuffer], { type: contentType });
 
-  console.log(
-    "[WhatsApp] Audio downloaded, size:",
-    audioBuffer.byteLength,
-    "content-type:",
-    contentType
-  );
-
   // Upload to Convex storage
   const uploadUrl = await ctx.storage.generateUploadUrl();
   const uploadResponse = await fetch(uploadUrl, {
@@ -253,7 +231,6 @@ async function processAudioMessage(
   }
 
   const { storageId } = await uploadResponse.json();
-  console.log("[WhatsApp] Audio uploaded to storage:", storageId);
 
   // Update message with storage ID
   await ctx.runMutation(internal.models.whatsappMessages.updateMediaStorage, {
@@ -272,8 +249,6 @@ async function processAudioMessage(
       source: "whatsapp_audio",
     }
   );
-
-  console.log("[WhatsApp] Voice note created:", noteId);
 
   // Link voice note to WhatsApp message
   await ctx.runMutation(internal.models.whatsappMessages.linkVoiceNote, {
@@ -308,8 +283,6 @@ async function processTextMessage(
     phoneNumber: string;
   }
 ) {
-  console.log("[WhatsApp] Creating typed note from text message");
-
   // Create voice note (this triggers insights pipeline)
   const noteId = await ctx.runMutation(api.models.voiceNotes.createTypedNote, {
     orgId: args.organizationId,
@@ -318,8 +291,6 @@ async function processTextMessage(
     noteType: "general",
     source: "whatsapp_text",
   });
-
-  console.log("[WhatsApp] Typed note created:", noteId);
 
   // Link voice note to WhatsApp message
   await ctx.runMutation(internal.models.whatsappMessages.linkVoiceNote, {
@@ -363,8 +334,6 @@ export const checkAndAutoApply = internalAction({
     const retryCount = args.retryCount ?? 0;
     const maxRetries = 5;
 
-    console.log("[WhatsApp] Checking insights status, retry:", retryCount);
-
     // Get the voice note
     const voiceNote = await ctx.runQuery(internal.models.voiceNotes.getNote, {
       noteId: args.voiceNoteId,
@@ -382,7 +351,6 @@ export const checkAndAutoApply = internalAction({
     // Check if insights are ready
     if (voiceNote.insightsStatus !== "completed") {
       if (retryCount < maxRetries) {
-        console.log("[WhatsApp] Insights not ready, scheduling retry...");
         // Retry after 10 seconds
         await ctx.scheduler.runAfter(
           10_000,
@@ -394,10 +362,6 @@ export const checkAndAutoApply = internalAction({
         );
         return null;
       }
-      console.log(
-        "[WhatsApp] Max retries reached, insights status:",
-        voiceNote.insightsStatus
-      );
 
       // Send status update even if insights failed
       if (voiceNote.insightsStatus === "failed") {
@@ -414,15 +378,11 @@ export const checkAndAutoApply = internalAction({
       return null;
     }
 
-    console.log("[WhatsApp] Insights ready, count:", voiceNote.insights.length);
-
     // Get coach's trust level
     const trustLevel = await ctx.runQuery(
       api.models.coachTrustLevels.getCoachTrustLevel,
       { organizationId: args.organizationId }
     );
-
-    console.log("[WhatsApp] Coach trust level:", trustLevel.currentLevel);
 
     // Process insights based on trust level
     const results = await applyInsightsWithTrust(ctx, {
@@ -744,7 +704,6 @@ async function sendWhatsAppMessage(to: string, body: string): Promise<boolean> {
       return false;
     }
 
-    console.log("[WhatsApp] Message sent to:", to);
     return true;
   } catch (error) {
     console.error("[WhatsApp] Error sending message:", error);

@@ -346,12 +346,6 @@ export const processVoiceNoteInsight = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      console.log("🔄 Processing voice note insight for parent summary", {
-        voiceNoteId: args.voiceNoteId,
-        insightId: args.insightId,
-        playerIdentityId: args.playerIdentityId,
-      });
-
       // Step 1: Classify sensitivity
       const classification = await ctx.runAction(
         internal.actions.coachParentSummaries.classifyInsightSensitivity,
@@ -360,8 +354,6 @@ export const processVoiceNoteInsight = internalAction({
           insightDescription: args.insightDescription,
         }
       );
-
-      console.log("📊 Classification result:", classification);
 
       // Step 1.5: Check if sensitive insights should be skipped
       if (
@@ -378,9 +370,6 @@ export const processVoiceNoteInsight = internalAction({
         );
 
         if (shouldSkip) {
-          console.log(
-            `⏭️ SKIPPING: Sensitive insight (${classification.category}) - coach has disabled sensitive parent summaries`
-          );
           return null;
         }
       }
@@ -434,12 +423,6 @@ export const processVoiceNoteInsight = internalAction({
         }
       );
 
-      console.log("✍️ Generated summary:", {
-        summaryLength: summary.summary.length,
-        confidenceScore: summary.confidenceScore,
-        flags: summary.flags,
-      });
-
       // Step 5: Create summary record
       await ctx.runMutation(
         internal.models.coachParentSummaries.createParentSummary,
@@ -464,8 +447,6 @@ export const processVoiceNoteInsight = internalAction({
           sportId: sport._id,
         }
       );
-
-      console.log("✅ Parent summary created successfully");
     } catch (error) {
       console.error("❌ Error processing voice note insight:", error);
       // Don't throw - we don't want to break the voice note pipeline

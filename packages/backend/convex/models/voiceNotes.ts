@@ -338,9 +338,6 @@ export const createTypedNote = mutation({
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
-    console.log("🔥 BACKEND createTypedNote: coachId =", args.coachId);
-    console.log("🔥 BACKEND createTypedNote: orgId =", args.orgId);
-
     const noteId = await ctx.db.insert("voiceNotes", {
       orgId: args.orgId,
       coachId: args.coachId,
@@ -1474,22 +1471,8 @@ export const assignPlayerToInsight = mutation({
         descResult.wasModified ||
         recUpdateResult.wasModified;
 
-      if (nameWasCorrected) {
-        console.log(
-          `[Player Assignment] Pattern-corrected name "${originalPlayerName}" -> "${playerName}" in insight`
-        );
-        console.log(`  Title: "${insight.title}" -> "${correctedTitle}"`);
-        if (descResult.wasModified) {
-          console.log("  Description also corrected");
-        }
-        if (recUpdateResult.wasModified) {
-          console.log("  RecommendedUpdate also corrected");
-        }
-      } else {
+      if (!nameWasCorrected) {
         // Pattern matching didn't find the name - schedule AI correction as fallback
-        console.log(
-          `[Player Assignment] Pattern matching didn't find "${originalPlayerName}" in text. Scheduling AI correction.`
-        );
         await ctx.scheduler.runAfter(
           0,
           internal.actions.voiceNotes.correctInsightPlayerName,
@@ -1526,9 +1509,6 @@ export const assignPlayerToInsight = mutation({
     });
 
     // Schedule parent summary generation for this insight now that it has a player
-    console.log(
-      `[Player Assignment] Coach assigned "${playerName}" to insight: "${correctedTitle}". Scheduling parent summary.`
-    );
     await ctx.scheduler.runAfter(
       0,
       internal.actions.coachParentSummaries.processVoiceNoteInsight,

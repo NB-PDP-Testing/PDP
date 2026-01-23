@@ -53,3 +53,48 @@ export const getUserById = query({
   ),
   handler: async (ctx, args) => await ctx.db.get(args.userId),
 });
+
+/**
+ * Get a user by their string ID (for voice notes coachId lookups)
+ * This function is accessible from outside the component.
+ */
+export const getUserByStringId = query({
+  args: {
+    userId: v.string(),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    console.log(
+      `[betterAuth.getUserByStringId] Looking up user with ID: ${args.userId}`
+    );
+
+    try {
+      // Cast string to Id<"user"> for ctx.db.get
+      const user = await ctx.db.get(args.userId as v.Id<"user">);
+
+      if (user) {
+        console.log(
+          `[betterAuth.getUserByStringId] ✅ FOUND user: ${(user as any).email}`
+        );
+        return user;
+      }
+
+      console.error(
+        `[betterAuth.getUserByStringId] ❌ User not found for ID: ${args.userId}`
+      );
+
+      // Debug: Show sample IDs
+      const sampleUsers = await ctx.db.query("user").take(3);
+      console.log(
+        `[betterAuth.getUserByStringId] Sample user IDs: ${sampleUsers.map((u) => u._id).join(", ")}`
+      );
+
+      return null;
+    } catch (error) {
+      console.error(
+        `[betterAuth.getUserByStringId] ERROR: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return null;
+    }
+  },
+});

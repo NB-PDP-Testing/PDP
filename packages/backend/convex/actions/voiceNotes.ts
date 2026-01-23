@@ -317,15 +317,21 @@ export const buildInsights = internalAction({
       // Always include the recording coach, plus any fellow coaches on same teams
       const coachesRoster: Array<{ id: string; name: string }> = [];
 
+      console.log(
+        "[TODO Coaches] ========== BUILDING COACHES ROSTER =========="
+      );
+      console.log(`[TODO Coaches] note.coachId = "${note.coachId}"`);
+      console.log(`[TODO Coaches] note.coachId type = ${typeof note.coachId}`);
+
       // ALWAYS add the recording coach first (even if they have no teams)
       if (note.coachId) {
         console.log(
           `[TODO Coaches] Looking up recording coach with ID: ${note.coachId}`
         );
 
-        // Use internal query to get user by string ID
+        // Use betterAuth component query to get user by string ID
         const recordingCoachUser = await ctx.runQuery(
-          internal.models.voiceNotes.getUserByStringId,
+          components.betterAuth.userFunctions.getUserByStringId,
           {
             userId: note.coachId,
           }
@@ -337,6 +343,19 @@ export const buildInsights = internalAction({
 
         if (recordingCoachUser) {
           const u = recordingCoachUser as any;
+          console.log(
+            `[TODO Coaches] User document fields: ${JSON.stringify(
+              {
+                _id: u._id,
+                email: u.email,
+                name: u.name,
+                firstName: u.firstName,
+                lastName: u.lastName,
+              },
+              null,
+              2
+            )}`
+          );
           const coachName =
             `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
             u.email ||
@@ -354,7 +373,15 @@ export const buildInsights = internalAction({
             `[TODO Coaches] ❌ FAILED to find recording coach user for ID: ${note.coachId}`
           );
         }
+      } else {
+        console.warn("[TODO Coaches] note.coachId is null/undefined!");
       }
+
+      console.log("[TODO Coaches] ========== ROSTER BUILD COMPLETE ==========");
+      console.log(`[TODO Coaches] Final roster size: ${coachesRoster.length}`);
+      console.log(
+        `[TODO Coaches] Roster: ${JSON.stringify(coachesRoster, null, 2)}`
+      );
 
       // If coach has teams, add fellow coaches on same teams
       if (note.coachId && teamsList.length > 0) {

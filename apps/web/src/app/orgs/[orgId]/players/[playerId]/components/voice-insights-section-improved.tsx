@@ -257,13 +257,13 @@ export function VoiceInsightsSectionImproved({
     for (const note of filteredNotes) {
       for (const insight of note.insights) {
         if (insight.status === "applied") {
-          applied++;
+          applied += 1;
         }
         if (insight.status === "pending") {
-          pending++;
+          pending += 1;
         }
         if (insight.status === "dismissed") {
-          dismissed++;
+          dismissed += 1;
         }
       }
     }
@@ -403,14 +403,15 @@ export function VoiceInsightsSectionImproved({
     insight: VoiceNote["insights"][0],
     note: VoiceNote
   ) => {
-    const isExpanded = expandedInsights.has(insight.id);
+    const isInsightExpanded = expandedInsights.has(insight.id);
     const summaryStatus = getParentSummaryStatus(insight.id);
 
     return (
-      <div
-        className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/30"
+      <button
+        className="w-full cursor-pointer rounded-lg border p-3 text-left transition-colors hover:bg-muted/30"
         key={insight.id}
         onClick={() => toggleInsight(insight.id)}
+        type="button"
       >
         {/* Compact Header */}
         <div className="flex items-start justify-between gap-2">
@@ -450,13 +451,13 @@ export function VoiceInsightsSectionImproved({
             <p className="text-muted-foreground text-xs">
               by {note.coachName || "Unknown Coach"}
             </p>
-            {!isExpanded && (
+            {!isInsightExpanded && (
               <p className="mt-0.5 line-clamp-1 text-muted-foreground text-xs">
                 {insight.description}
               </p>
             )}
           </div>
-          {isExpanded ? (
+          {isInsightExpanded ? (
             <ChevronUp className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
           ) : (
             <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
@@ -464,7 +465,7 @@ export function VoiceInsightsSectionImproved({
         </div>
 
         {/* Expanded Details */}
-        {isExpanded && (
+        {isInsightExpanded && (
           <div className="mt-3 space-y-3 border-t pt-3">
             <InsightCard
               coachName={note.coachName}
@@ -484,7 +485,7 @@ export function VoiceInsightsSectionImproved({
             />
           </div>
         )}
-      </div>
+      </button>
     );
   };
 

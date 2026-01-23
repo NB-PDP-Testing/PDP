@@ -4,6 +4,7 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
   Award,
   Bell,
   ChevronDown,
@@ -51,8 +52,7 @@ type NavGroup = {
  */
 export function getParentNavGroups(
   orgId: string,
-  unreadMessagesCount?: number,
-  unreadSummariesCount?: number
+  unreadMessagesCount?: number
 ): NavGroup[] {
   return [
     {
@@ -79,6 +79,16 @@ export function getParentNavGroups(
           label: "Passport Sharing",
           icon: Shield,
         },
+        {
+          href: `/orgs/${orgId}/parents/medical`,
+          label: "Medical Info",
+          icon: Heart,
+        },
+        {
+          href: `/orgs/${orgId}/parents/injuries`,
+          label: "Injuries",
+          icon: Activity,
+        },
       ],
     },
     {
@@ -89,12 +99,6 @@ export function getParentNavGroups(
           href: `/orgs/${orgId}/parents/achievements`,
           label: "Achievements",
           icon: Award,
-        },
-        {
-          href: `/orgs/${orgId}/parents/coach-feedback`,
-          label: "Coach Feedback",
-          icon: MessageSquare,
-          badge: unreadSummariesCount,
         },
         {
           href: `/orgs/${orgId}/parents/messages`,
@@ -147,19 +151,7 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
     organizationId: orgId,
   });
 
-  // Fetch unread summaries count
-  const unreadSummariesCount = useQuery(
-    api.models.coachParentSummaries.getParentUnreadCount,
-    {
-      organizationId: orgId,
-    }
-  );
-
-  const navGroups = getParentNavGroups(
-    orgId,
-    unreadCount ?? 0,
-    unreadSummariesCount ?? 0
-  );
+  const navGroups = getParentNavGroups(orgId, unreadCount ?? 0);
 
   // Track which groups are expanded - auto-expand group containing current page
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
@@ -290,19 +282,7 @@ export function ParentMobileNav({
     organizationId: orgId,
   });
 
-  // Fetch unread summaries count
-  const unreadSummariesCount = useQuery(
-    api.models.coachParentSummaries.getParentUnreadCount,
-    {
-      organizationId: orgId,
-    }
-  );
-
-  const navGroups = getParentNavGroups(
-    orgId,
-    unreadCount ?? 0,
-    unreadSummariesCount ?? 0
-  );
+  const navGroups = getParentNavGroups(orgId, unreadCount ?? 0);
   const [open, setOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {

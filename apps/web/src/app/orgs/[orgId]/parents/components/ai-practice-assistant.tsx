@@ -11,9 +11,8 @@ import {
   Share2,
   Sparkles,
   Target,
-  User,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,13 +29,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 type AIPracticeAssistantProps = {
   playerData: Array<{
@@ -45,8 +37,26 @@ type AIPracticeAssistantProps = {
       firstName: string;
       lastName: string;
     };
+    enrollment?: {
+      ageGroup?: string;
+      sport?: string;
+    };
   }>;
   orgId: string;
+};
+
+// Sport emoji mapping
+const SPORT_EMOJIS: Record<string, string> = {
+  gaa: "🏐",
+  soccer: "⚽",
+  football: "🏈",
+  rugby: "🏉",
+  basketball: "🏀",
+  tennis: "🎾",
+  hockey: "🏒",
+  swimming: "🏊",
+  athletics: "🏃",
+  golf: "⛳",
 };
 
 // Sport-specific drill database
@@ -218,161 +228,220 @@ type PracticePlan = {
   childName: string;
   sport: string;
   focusSkill: string;
-  drills: typeof DRILL_DATABASE.soccer;
+  drills: (typeof DRILL_DATABASE.soccer)[number][];
   weeklyGoal: string;
   schedule: string[];
   aiTip: string;
+};
+
+type ChildSportEnrollment = {
+  playerId: Id<"playerIdentities">;
+  firstName: string;
+  lastName: string;
+  sport: string;
+  sportCode: string;
+  ageGroup: string;
 };
 
 export function AIPracticeAssistant({
   playerData,
   orgId,
 }: AIPracticeAssistantProps) {
-  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [selectedEnrollment, setSelectedEnrollment] =
+    useState<ChildSportEnrollment | null>(null);
   const [generatedPlan, setGeneratedPlan] = useState<PracticePlan | null>(null);
   const [showPlanDialog, setShowPlanDialog] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Get selected child
-  const selectedChild = playerData.find(
-    (c) => c.player._id === selectedChildId
+  // Get player identity IDs
+  const playerIds = useMemo(
+    () => playerData.map((c) => c.player._id),
+    [playerData]
   );
+
+  // Bulk fetch sport passports for all children
+  const sportPassports = useQuery(
+    api.models.sportPassports.getBulkPassportsForPlayers,
+    playerIds.length > 0 ? { playerIdentityIds: playerIds } : "skip"
+  );
+
+  // Build list of child-sport enrollments (multi-sport children appear multiple times)
+  const childSportEnrollments = useMemo(() => {
+    const enrollments: ChildSportEnrollment[] = [];
+
+    for (const child of playerData) {
+      const passportData = sportPassports?.find(
+        (p) => p.playerIdentityId === child.player._id
+      );
+
+      if (passportData?.passports && passportData.passports.length > 0) {
+        // Add an entry for each sport passport
+        for (const passport of passportData.passports) {
+          // Format sport code as display name (e.g., "gaa" -> "GAA", "soccer" -> "Soccer")
+          const sportDisplay = passport.sportCode
+            ? passport.sportCode.length <= 3
+              ? passport.sportCode.toUpperCase() // Short codes like "gaa" -> "GAA"
+              : passport.sportCode.charAt(0).toUpperCase() +
+                passport.sportCode.slice(1) // Longer names capitalize first letter
+            : "Sport";
+          enrollments.push({
+            playerId: child.player._id,
+            firstName: child.player.firstName,
+            lastName: child.player.lastName,
+            sport: sportDisplay,
+            sportCode: passport.sportCode || "generic",
+            ageGroup: child.enrollment?.ageGroup || "Youth",
+          });
+        }
+      } else {
+        // Fallback to enrollment data if no passports
+        enrollments.push({
+          playerId: child.player._id,
+          firstName: child.player.firstName,
+          lastName: child.player.lastName,
+          sport: child.enrollment?.sport || "Sport",
+          sportCode: child.enrollment?.sport?.toLowerCase() || "generic",
+          ageGroup: child.enrollment?.ageGroup || "Youth",
+        });
+      }
+    }
+
+    return enrollments;
+  }, [playerData, sportPassports]);
 
   // Get passport data for selected child
   const passportData = useQuery(
     api.models.sportPassports.getFullPlayerPassportView,
-    selectedChildId
+    selectedEnrollment
       ? {
-          playerIdentityId: selectedChildId as Id<"playerIdentities">,
+          playerIdentityId: selectedEnrollment.playerId,
           organizationId: orgId,
         }
       : "skip"
   );
 
-  // Generate practice plan based on weakest skills
-  const generatePlan = useCallback(() => {
-    if (!(selectedChild && passportData)) {
-      return;
-    }
+  // Handle clicking on a child card to generate plan
+  const handleGeneratePlan = useCallback(
+    (enrollment: ChildSportEnrollment) => {
+      setSelectedEnrollment(enrollment);
+      setIsGenerating(true);
 
-    setIsGenerating(true);
+      // Simulate AI processing delay
+      setTimeout(() => {
+        const skills = passportData?.skills as
+          | Record<string, number>
+          | undefined;
+        const sportCode = enrollment.sportCode || "generic";
 
-    // Simulate AI processing delay
-    setTimeout(() => {
-      const skills = passportData.skills as Record<string, number> | undefined;
-      const sportCode = passportData.passports?.[0]?.sportCode || "generic";
+        // Find weakest skill
+        let weakestSkill = "agility";
+        let lowestRating = 5;
 
-      // Find weakest skill
-      let weakestSkill = "agility";
-      let lowestRating = 5;
-
-      if (skills) {
-        Object.entries(skills).forEach(([skill, rating]) => {
-          if (typeof rating === "number" && rating < lowestRating) {
-            lowestRating = rating;
-            weakestSkill = skill;
+        if (skills) {
+          for (const [skill, rating] of Object.entries(skills)) {
+            if (typeof rating === "number" && rating < lowestRating) {
+              lowestRating = rating;
+              weakestSkill = skill;
+            }
           }
-        });
-      }
+        }
 
-      // Get drills for this sport
-      const sportDrills = DRILL_DATABASE[sportCode] || DRILL_DATABASE.generic;
-      const focusDrill =
-        sportDrills.find((d) => d.skill === weakestSkill) || sportDrills[0];
-      const additionalDrills = sportDrills
-        .filter((d) => d !== focusDrill)
-        .slice(0, 2);
+        // Get drills for this sport
+        const sportDrills = DRILL_DATABASE[sportCode] || DRILL_DATABASE.generic;
+        const focusDrill =
+          sportDrills.find((d) => d.skill === weakestSkill) || sportDrills[0];
+        const additionalDrills = sportDrills
+          .filter((d) => d !== focusDrill)
+          .slice(0, 2);
 
-      const plan: PracticePlan = {
-        childName: `${selectedChild.player.firstName} ${selectedChild.player.lastName}`,
-        sport: sportCode.toUpperCase(),
-        focusSkill: weakestSkill
-          .replace(/_/g, " ")
-          .replace(/\b\w/g, (l) => l.toUpperCase()),
-        drills: [focusDrill, ...additionalDrills],
-        weeklyGoal: `Improve ${weakestSkill.replace(/_/g, " ")} rating from ${lowestRating} to ${Math.min(5, lowestRating + 1)}`,
-        schedule: [
-          "Tuesday after school",
-          "Thursday after school",
-          "Saturday morning",
-        ],
-        aiTip: `Focus on quality over quantity. ${selectedChild.player.firstName} should aim for 3 short sessions (15 mins each) rather than one long session. Celebrate small improvements!`,
-      };
+        const plan: PracticePlan = {
+          childName: `${enrollment.firstName} ${enrollment.lastName}`,
+          sport: enrollment.sport.toUpperCase(),
+          focusSkill: weakestSkill
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (l) => l.toUpperCase()),
+          drills: focusDrill ? [focusDrill, ...additionalDrills] : [],
+          weeklyGoal: `Improve ${weakestSkill.replace(/_/g, " ")} rating from ${lowestRating} to ${Math.min(5, lowestRating + 1)}`,
+          schedule: [
+            "Tuesday after school",
+            "Thursday after school",
+            "Saturday morning",
+          ],
+          aiTip: `Focus on quality over quantity. ${enrollment.firstName} should aim for 3 short sessions (15 mins each) rather than one long session. Celebrate small improvements!`,
+        };
 
-      setGeneratedPlan(plan);
-      setShowPlanDialog(true);
-      setIsGenerating(false);
-    }, 1500);
-  }, [selectedChild, passportData]);
+        setGeneratedPlan(plan);
+        setShowPlanDialog(true);
+        setIsGenerating(false);
+      }, 1500);
+    },
+    [passportData]
+  );
+
+  const getSportEmoji = (sportCode: string): string =>
+    SPORT_EMOJIS[sportCode.toLowerCase()] || "🏃";
 
   return (
     <>
-      <Card className="overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-purple-600 to-purple-700 text-white">
-          <CardTitle className="flex items-center gap-2 text-white">
-            <Sparkles className="h-5 w-5" />
-            AI Practice Assistant
-          </CardTitle>
-          <CardDescription className="text-purple-100">
-            Generate personalized 15-minute home practice plans
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-4">
-          <div className="space-y-4">
+      <Card className="overflow-hidden border-0 bg-gradient-to-r from-purple-600 to-purple-700">
+        <CardHeader className="pb-0 text-white">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-white/20 p-3">
+              <Sparkles className="h-6 w-6" />
+            </div>
             <div>
-              <label className="mb-2 block font-medium text-sm">
-                Select Child
-              </label>
-              <Select
-                onValueChange={setSelectedChildId}
-                value={selectedChildId || ""}
+              <CardTitle className="text-white text-xl">
+                AI Practice Assistant
+              </CardTitle>
+              <CardDescription className="text-purple-100">
+                Personalized home training plans powered by AI
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 pt-4 text-white">
+          <p className="mb-4 text-sm text-white/90">
+            Click a child to generate their personalized weekly practice plan:
+          </p>
+
+          {/* Children Cards Grid - One Click (No Dropdown) */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {childSportEnrollments.map((enrollment, idx) => (
+              <button
+                className="rounded-lg border border-white/30 bg-white/10 p-4 text-left transition-all hover:scale-105 hover:bg-white/20 disabled:cursor-wait disabled:opacity-50"
+                disabled={isGenerating}
+                key={`${enrollment.playerId}-${enrollment.sportCode}-${idx}`}
+                onClick={() => handleGeneratePlan(enrollment)}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a child" />
-                </SelectTrigger>
-                <SelectContent>
-                  {playerData.map((child) => (
-                    <SelectItem key={child.player._id} value={child.player._id}>
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        {child.player.firstName} {child.player.lastName}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <p className="mb-1 font-semibold text-white">
+                  {enrollment.firstName} {enrollment.lastName}
+                </p>
+                <p className="text-purple-100 text-sm">
+                  {getSportEmoji(enrollment.sportCode)} {enrollment.sport} •{" "}
+                  {enrollment.ageGroup}
+                </p>
+                <div className="mt-2 flex items-center gap-2 text-purple-200 text-xs">
+                  <Sparkles className="h-4 w-4" />
+                  <span>
+                    {isGenerating &&
+                    selectedEnrollment?.playerId === enrollment.playerId &&
+                    selectedEnrollment?.sportCode === enrollment.sportCode
+                      ? "Generating..."
+                      : "Generate Plan"}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
 
-            <Button
-              className="w-full bg-purple-600 hover:bg-purple-700"
-              disabled={!selectedChildId || isGenerating}
-              onClick={generatePlan}
-            >
-              {isGenerating ? (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing skills...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Practice Plan
-                </>
-              )}
-            </Button>
-
-            <div className="rounded-lg bg-purple-50 p-3">
-              <h4 className="mb-2 flex items-center gap-2 font-medium text-purple-800 text-sm">
-                <Lightbulb className="h-4 w-4" />
-                How it works
-              </h4>
-              <ul className="space-y-1 text-purple-700 text-xs">
-                <li>• Analyzes your child's skill ratings</li>
-                <li>• Identifies areas for improvement</li>
-                <li>• Creates sport-specific drills</li>
-                <li>• 3 × 5-minute drills = 15 mins total</li>
-              </ul>
-            </div>
+          {/* How it works explanation */}
+          <div className="mt-4 rounded-lg bg-white/10 p-3">
+            <p className="text-purple-100 text-sm">
+              <Lightbulb className="mr-1 inline h-4 w-4" />
+              <strong>How it works:</strong> Analyzes your child's skill ratings
+              → Identifies areas for improvement → Creates sport-specific drills
+              (3 × 5-minute sessions = 15 mins total)
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -413,8 +482,8 @@ export function AIPracticeAssistant({
                   Recommended Schedule
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                  {generatedPlan.schedule.map((time, idx) => (
-                    <Badge className="bg-green-100 text-green-700" key={idx}>
+                  {generatedPlan.schedule.map((time) => (
+                    <Badge className="bg-green-100 text-green-700" key={time}>
                       {time}
                     </Badge>
                   ))}
@@ -428,8 +497,8 @@ export function AIPracticeAssistant({
                   Practice Drills (3 × 5 minutes)
                 </h4>
                 <div className="space-y-4">
-                  {generatedPlan.drills.map((drill, idx) => (
-                    <div className="rounded-lg border p-4" key={idx}>
+                  {generatedPlan.drills.map((drill) => (
+                    <div className="rounded-lg border p-4" key={drill.name}>
                       <div className="mb-2 flex items-center justify-between">
                         <span className="font-medium">{drill.name}</span>
                         <Badge variant="outline">{drill.duration}</Badge>
@@ -440,10 +509,10 @@ export function AIPracticeAssistant({
                           Equipment:
                         </span>
                         <div className="flex flex-wrap gap-1">
-                          {drill.equipment.map((eq, i) => (
+                          {drill.equipment.map((eq) => (
                             <Badge
                               className="text-xs"
-                              key={i}
+                              key={eq}
                               variant="secondary"
                             >
                               {eq}
@@ -453,8 +522,8 @@ export function AIPracticeAssistant({
                       </div>
 
                       <ol className="mb-2 list-inside list-decimal space-y-1 text-sm">
-                        {drill.instructions.map((inst, i) => (
-                          <li key={i}>{inst}</li>
+                        {drill.instructions.map((inst) => (
+                          <li key={inst}>{inst}</li>
                         ))}
                       </ol>
 
@@ -489,8 +558,8 @@ export function AIPracticeAssistant({
                     "Session 2 completed",
                     "Session 3 completed",
                     "Weekly goal achieved",
-                  ].map((item, idx) => (
-                    <div className="flex items-center gap-2" key={idx}>
+                  ].map((item) => (
+                    <div className="flex items-center gap-2" key={item}>
                       <div className="h-5 w-5 rounded border" />
                       <span className="text-sm">{item}</span>
                     </div>

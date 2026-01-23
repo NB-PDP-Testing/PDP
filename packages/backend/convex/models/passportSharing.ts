@@ -2249,6 +2249,7 @@ export const updateEnrollmentVisibility = mutation({
     }
 
     // Validate guardian has parental responsibility for this player (if specified)
+    // Also ensure the link is not declined
     if (args.playerIdentityId) {
       const link = await ctx.db
         .query("guardianPlayerLinks")
@@ -2258,7 +2259,8 @@ export const updateEnrollmentVisibility = mutation({
         .filter((q) =>
           q.and(
             q.eq(q.field("playerIdentityId"), args.playerIdentityId),
-            q.eq(q.field("hasParentalResponsibility"), true)
+            q.eq(q.field("hasParentalResponsibility"), true),
+            q.eq(q.field("declinedByUserId"), undefined)
           )
         )
         .first();
@@ -2418,12 +2420,18 @@ export const getEnrollmentVisibilityForAllChildren = query({
     }
 
     // Get all children for this guardian with parental responsibility
+    // Exclude declined links (where user clicked "This Isn't Me")
     const links = await ctx.db
       .query("guardianPlayerLinks")
       .withIndex("by_guardian", (q) =>
         q.eq("guardianIdentityId", args.guardianIdentityId)
       )
-      .filter((q) => q.eq(q.field("hasParentalResponsibility"), true))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("hasParentalResponsibility"), true),
+          q.eq(q.field("declinedByUserId"), undefined)
+        )
+      )
       .collect();
 
     if (links.length === 0) {

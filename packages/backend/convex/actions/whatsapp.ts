@@ -230,9 +230,15 @@ async function processAudioMessage(
   }
 
   const audioBuffer = await response.arrayBuffer();
-  const audioBlob = new Blob([audioBuffer], { type: "audio/ogg" });
+  const contentType = response.headers.get("content-type") || "audio/ogg";
+  const audioBlob = new Blob([audioBuffer], { type: contentType });
 
-  console.log("[WhatsApp] Audio downloaded, size:", audioBuffer.byteLength);
+  console.log(
+    "[WhatsApp] Audio downloaded, size:",
+    audioBuffer.byteLength,
+    "content-type:",
+    contentType
+  );
 
   // Upload to Convex storage
   const uploadUrl = await ctx.storage.generateUploadUrl();

@@ -79,7 +79,7 @@ type AssigningCoachInsight = {
   noteId: Id<"voiceNotes">;
   insightId: string;
   title: string;
-  coachName?: string;
+  recordingCoachId?: string; // The coach who recorded this voice note
 } | null;
 
 type ClassifyingInsight = {
@@ -457,7 +457,12 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
       ?.flatMap((note) =>
         note.insights
           .filter((i) => i.status === "pending")
-          .map((i) => ({ ...i, noteId: note._id, noteDate: note.date }))
+          .map((i) => ({
+            ...i,
+            noteId: note._id,
+            noteDate: note.date,
+            noteCoachId: note.coachId, // Pass through recording coach ID
+          }))
       )
       .sort(
         (a, b) =>
@@ -738,7 +743,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
                   noteId: insight.noteId,
                   insightId: insight.id,
                   title: insight.title,
-                  coachName: undefined,
+                  recordingCoachId: (insight as any).noteCoachId,
                 })
               }
               size="sm"
@@ -1216,64 +1221,122 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
 
               {/* Coach list */}
               <div className="space-y-2">
-                {/* Current coach (you) */}
-                <button
-                  className="flex w-full items-center justify-between rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-left transition-colors hover:bg-green-100"
-                  disabled={isSaving}
-                  onClick={() =>
-                    coachUserId && handleAssignCoach(coachUserId, coachName)
-                  }
-                  type="button"
-                >
-                  <div className="flex items-center gap-2">
-                    <UserPlus className="h-4 w-4 text-green-600" />
-                    <div>
-                      <div className="font-medium text-sm">
-                        You ({coachName})
-                      </div>
-                      <div className="text-gray-500 text-xs">
-                        Assign this task to yourself
+                {/* Recording coach - the person who created this voice note */}
+                {assigningCoachInsight.recordingCoachId &&
+                  (() => {
+                    // Find recording coach in fellow coaches list or use current coach
+                    const isCurrentUser =
+                      assigningCoachInsight.recordingCoachId === coachUserId;
+                    const recordingCoach = fellowCoaches?.find(
+                      (c) => c.userId === assigningCoachInsight.recordingCoachId
+                    );
+
+                    const displayName = isCurrentUser
+                      ? coachName
+                      : recordingCoach?.userName || "Recording Coach";
+                    const _displayEmail = isCurrentUser
+                      ? session?.user?.email
+                      : recordingCoach?.email;
+                    const displayId =
+                      assigningCoachInsight.recordingCoachId || coachUserId;
+
+                    return (
+                      <button
+                        className="flex w-full items-center justify-between rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-left transition-colors hover:bg-green-100"
+                        disabled={isSaving || !displayId}
+                        onClick={() =>
+                          displayId && handleAssignCoach(displayId, displayName)
+                        }
+                        type="button"
+                      >
+                        <div className="flex items-center gap-2">
+                          <UserPlus className="h-4 w-4 text-green-600" />
+                          <div>
+                            <div className="font-medium text-sm">
+                              {isCurrentUser
+                                ? `You (${displayName})`
+                                : displayName}
+                            </div>
+                            <div className="text-gray-500 text-xs">
+                              {isCurrentUser
+                                ? "You recorded this voice note"
+                                : "Recorded this voice note"}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-green-600 text-xs">
+                          Suggested
+                        </span>
+                      </button>
+                    );
+                  })()}
+
+                {/* Fallback: Current coach if no recording coach ID */}
+                {!assigningCoachInsight.recordingCoachId && (
+                  <button
+                    className="flex w-full items-center justify-between rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-left transition-colors hover:bg-green-100"
+                    disabled={isSaving}
+                    onClick={() =>
+                      coachUserId && handleAssignCoach(coachUserId, coachName)
+                    }
+                    type="button"
+                  >
+                    <div className="flex items-center gap-2">
+                      <UserPlus className="h-4 w-4 text-green-600" />
+                      <div>
+                        <div className="font-medium text-sm">
+                          You ({coachName})
+                        </div>
+                        <div className="text-gray-500 text-xs">
+                          Assign this task to yourself
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <span className="text-green-600 text-xs">Suggested</span>
-                </button>
+                    <span className="text-green-600 text-xs">Suggested</span>
+                  </button>
+                )}
 
-                {/* Fellow coaches */}
+                {/* Other coaches on same teams */}
                 {fellowCoaches && fellowCoaches.length > 0 && (
                   <>
                     <div className="py-2 text-center text-gray-500 text-xs">
                       Or assign to another coach:
                     </div>
-                    {fellowCoaches.map((coach) => (
-                      <button
-                        className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-4 py-3 text-left transition-colors hover:bg-gray-50"
-                        disabled={isSaving}
-                        key={coach.userId}
-                        onClick={() =>
-                          handleAssignCoach(coach.userId, coach.userName)
-                        }
-                        type="button"
-                      >
-                        <div className="flex items-center gap-2">
-                          <UserPlus className="h-4 w-4 text-gray-600" />
-                          <div>
-                            <div className="font-medium text-sm">
-                              {coach.userName}
-                            </div>
-                            {coach.email && (
-                              <div className="text-gray-500 text-xs">
-                                {coach.email}
+                    {fellowCoaches
+                      .filter(
+                        (coach) =>
+                          coach.userId !==
+                          assigningCoachInsight.recordingCoachId
+                      )
+                      .map((coach) => (
+                        <button
+                          className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+                          disabled={isSaving}
+                          key={coach.userId}
+                          onClick={() =>
+                            handleAssignCoach(coach.userId, coach.userName)
+                          }
+                          type="button"
+                        >
+                          <div className="flex items-center gap-2">
+                            <UserPlus className="h-4 w-4 text-gray-600" />
+                            <div>
+                              <div className="font-medium text-sm">
+                                {coach.userName}
                               </div>
-                            )}
+                              {coach.email && (
+                                <div className="text-gray-500 text-xs">
+                                  {coach.email}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <span className="text-gray-500 text-xs">
-                          {coach.sharedTeamCount}{" "}
-                          {coach.sharedTeamCount === 1 ? "team" : "teams"}
-                        </span>
-                      </button>
-                    ))}
+                          <span className="text-gray-500 text-xs">
+                            {coach.sharedTeamCount}{" "}
+                            {coach.sharedTeamCount === 1 ? "team" : "teams"}
+                          </span>
+                        </button>
+                      ))}
                   </>
                 )}
               </div>

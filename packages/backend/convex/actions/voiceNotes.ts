@@ -20,7 +20,7 @@ import { internalAction } from "../_generated/server";
  * - OPENAI_MODEL_TRANSCRIPTION: Model for audio transcription (default: gpt-4o-mini-transcribe)
  * - OPENAI_MODEL_INSIGHTS: Model for extracting insights from transcription (default: gpt-4o)
  */
-const DEFAULT_MODEL_TRANSCRIPTION = "gpt-4o-mini-transcribe";
+const DEFAULT_MODEL_TRANSCRIPTION = "whisper-1";
 const DEFAULT_MODEL_INSIGHTS = "gpt-4o";
 
 /**
@@ -182,9 +182,14 @@ export const transcribeAudio = internalAction({
       // Get model config from database with fallback
       const config = await getAIConfig(ctx, "voice_transcription", note.orgId);
 
+      // Determine file extension based on source
+      // WhatsApp sends OGG audio, app recordings are WebM
+      const fileExtension =
+        note.source === "whatsapp_audio" ? "voice-note.ogg" : "voice-note.webm";
+
       // Transcribe with OpenAI
       const client = getOpenAI();
-      const file = await OpenAI.toFile(audioBuffer, "voice-note.webm");
+      const file = await OpenAI.toFile(audioBuffer, fileExtension);
       const transcription = await client.audio.transcriptions.create({
         model: config.modelId,
         file,

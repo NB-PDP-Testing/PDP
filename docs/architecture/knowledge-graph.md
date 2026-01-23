@@ -1,8 +1,9 @@
 # Knowledge Graph Architecture for Player Development
 
 **Date**: January 23, 2026
-**Status**: 📋 Planning
+**Status**: 🚧 In Progress (Phase 1)
 **Author**: Architecture Team
+**Graph Platform**: Memgraph Cloud (14-day trial active)
 
 ---
 
@@ -269,25 +270,34 @@ ORDER BY matchingPatterns DESC
 
 ## Technology Recommendations
 
-### Primary Recommendation: Neo4j AuraDB
+### Primary Recommendation: Memgraph Cloud
 
-After evaluating multiple options, we recommend **Neo4j AuraDB Professional** for the following reasons:
+After evaluating multiple options, we recommend **Memgraph Cloud** for the following reasons:
 
-| Factor | Neo4j | Amazon Neptune | Memgraph |
-|--------|-------|----------------|----------|
-| **Graph Algorithms** | 65+ in GDS library | Limited | Fewer |
-| **Query Language** | Cypher (ISO GQL) | Gremlin/SPARQL | openCypher |
-| **Sports Analytics Fit** | Excellent | Good | Good |
-| **Convex Integration** | HTTP API | AWS-native | HTTP API |
-| **Cost (starter)** | $65/mo | ~$0.10/hr | $99/mo |
-| **Community/Docs** | Largest | AWS-focused | Growing |
+| Factor | Memgraph | Neo4j AuraDB | Neo4j Community |
+|--------|----------|--------------|-----------------|
+| **Performance** | 8x faster reads, 50x faster writes | Baseline | Baseline |
+| **Architecture** | In-memory (C++) | On-disk (Java/JVM) | On-disk (Java/JVM) |
+| **Query Language** | openCypher (~95% Neo4j compatible) | Cypher | Cypher |
+| **Free Tier Limits** | Unlimited nodes (RAM-bound) | 50K nodes / 175K rels | Self-host only |
+| **Streaming** | Native Kafka/Redpanda/Pulsar | Via connectors | Via connectors |
+| **Graph Algorithms** | MAGE library (open source) | GDS (paid) | Limited |
+| **Real-time Fit** | Excellent (sub-ms latency) | Good | Good |
+| **Cost (starter)** | Free tier / $99/mo Pro | $65/mo (50K limit) | Free (self-host) |
 
-**Graph Data Science Library** is critical for:
+**Why Memgraph for PlayerARC:**
+1. **Real-time skill updates** - Sub-millisecond writes when coaches record assessments
+2. **Native streaming** - Direct Kafka integration for voice note insights pipeline
+3. **No artificial limits** - AuraDB Free's 50K node cap would be hit quickly
+4. **Cypher compatible** - Same queries work if we migrate to Neo4j later
+5. **MAGE algorithms** - Open source PageRank, community detection, similarity, pathfinding
+
+**MAGE Library** provides:
 - PageRank (coach influence)
 - Community Detection (player clusters)
 - Similarity Algorithms (player matching)
 - Path Finding (skill prerequisites)
-- ML Embeddings (player vectors)
+- Node2Vec embeddings (player vectors)
 
 ### Hybrid Architecture
 
@@ -297,9 +307,9 @@ After evaluating multiple options, we recommend **Neo4j AuraDB Professional** fo
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────────────┐        ┌──────────────────────┐       │
-│  │      CONVEX          │        │      NEO4J           │       │
+│  │      CONVEX          │        │     MEMGRAPH         │       │
 │  │   (Primary Store)    │ ────── │   (Analytics Graph)  │       │
-│  │                      │  Sync  │                      │       │
+│  │                      │  Bolt  │                      │       │
 │  │  • User data         │ ────── │  • Skill progression │       │
 │  │  • Teams & players   │        │  • Cross-sport links │       │
 │  │  • Assessments       │ ◄───── │  • Recommendations   │       │
@@ -310,7 +320,7 @@ After evaluating multiple options, we recommend **Neo4j AuraDB Professional** fo
 │            ▼                               ▼                     │
 │  ┌──────────────────────┐        ┌──────────────────────┐       │
 │  │     NEXT.JS          │        │   VECTOR DB          │       │
-│  │   (Frontend)         │        │   (Weaviate)         │       │
+│  │   (Frontend)         │        │   (Future: Weaviate) │       │
 │  │                      │        │                      │       │
 │  │  • Real-time UI      │        │  • Semantic search   │       │
 │  │  • Assessment forms  │        │  • Voice note embeds │       │
@@ -320,66 +330,101 @@ After evaluating multiple options, we recommend **Neo4j AuraDB Professional** fo
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### Memgraph Cloud Connection
+
+**Environment Variables** (add to `.env.local` and Convex):
+```bash
+MEMGRAPH_HOST=your-project.memgraph.cloud
+MEMGRAPH_PORT=7687
+MEMGRAPH_USER=memgraph
+MEMGRAPH_PASSWORD=your-password
+```
+
+**Connection via Bolt Protocol**:
+```typescript
+// Using neo4j-driver (compatible with Memgraph)
+import neo4j from 'neo4j-driver';
+
+const driver = neo4j.driver(
+  `bolt+s://${process.env.MEMGRAPH_HOST}:${process.env.MEMGRAPH_PORT}`,
+  neo4j.auth.basic(process.env.MEMGRAPH_USER, process.env.MEMGRAPH_PASSWORD)
+);
+```
+
 ### Sync Strategy
 
 **Event-Driven Sync (Recommended)**:
 ```typescript
 // packages/backend/convex/actions/graphSync.ts
-import { action } from "../_generated/server";
+import { action, internalQuery } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { v } from "convex/values";
+import neo4j from "neo4j-driver";
+
+// Memgraph connection helper
+function getMemgraphDriver() {
+  return neo4j.driver(
+    `bolt+s://${process.env.MEMGRAPH_HOST}:${process.env.MEMGRAPH_PORT}`,
+    neo4j.auth.basic(
+      process.env.MEMGRAPH_USER!,
+      process.env.MEMGRAPH_PASSWORD!
+    )
+  );
+}
 
 export const syncAssessmentToGraph = action({
   args: { assessmentId: v.id("skillAssessments") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    // Fetch assessment with context
+    // Fetch assessment with context from Convex
     const assessment = await ctx.runQuery(
       internal.skillAssessments.getById,
       { id: args.assessmentId }
     );
 
-    // Sync to Neo4j
-    await fetch(process.env.NEO4J_HTTP_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.NEO4J_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        statements: [{
-          statement: `
-            MERGE (p:Player {id: $playerId})
-            MERGE (s:Skill {code: $skillCode})
-            CREATE (a:Assessment {
-              id: $assessmentId,
-              rating: $rating,
-              date: date($date),
-              type: $type
-            })
-            MERGE (p)-[:HAS_ASSESSMENT]->(a)
-            MERGE (a)-[:OF_SKILL]->(s)
-            WITH p, a, s
-            OPTIONAL MATCH (p)-[:HAS_ASSESSMENT]->(prev:Assessment)-[:OF_SKILL]->(s)
-            WHERE prev.date < a.date AND prev <> a
-            WITH a, prev ORDER BY prev.date DESC LIMIT 1
-            FOREACH (_ IN CASE WHEN prev IS NOT NULL THEN [1] ELSE [] END |
-              MERGE (prev)-[:FOLLOWED_BY]->(a)
-            )
-          `,
-          parameters: {
-            playerId: assessment.playerIdentityId,
-            skillCode: assessment.skillCode,
-            assessmentId: assessment._id,
-            rating: assessment.rating,
-            date: assessment.assessmentDate,
-            type: assessment.assessmentType
-          }
-        }]
-      })
-    });
+    if (!assessment) return null;
+
+    // Sync to Memgraph via Bolt protocol
+    const driver = getMemgraphDriver();
+    const session = driver.session();
+
+    try {
+      await session.run(
+        `
+        MERGE (p:Player {id: $playerId})
+        MERGE (s:Skill {code: $skillCode})
+        CREATE (a:Assessment {
+          id: $assessmentId,
+          rating: $rating,
+          date: localDateTime($date),
+          type: $type
+        })
+        MERGE (p)-[:HAS_ASSESSMENT]->(a)
+        MERGE (a)-[:OF_SKILL]->(s)
+        WITH p, a, s
+        OPTIONAL MATCH (p)-[:HAS_ASSESSMENT]->(prev:Assessment)-[:OF_SKILL]->(s)
+        WHERE prev.date < a.date AND prev <> a
+        WITH a, prev ORDER BY prev.date DESC LIMIT 1
+        FOREACH (_ IN CASE WHEN prev IS NOT NULL THEN [1] ELSE [] END |
+          MERGE (prev)-[:FOLLOWED_BY]->(a)
+        )
+        `,
+        {
+          playerId: assessment.playerIdentityId,
+          skillCode: assessment.skillCode,
+          assessmentId: assessment._id,
+          rating: assessment.rating,
+          date: assessment.assessmentDate,
+          type: assessment.assessmentType,
+        }
+      );
+    } finally {
+      await session.close();
+      await driver.close();
+    }
 
     return null;
-  }
+  },
 });
 ```
 
@@ -393,15 +438,16 @@ export const syncAssessmentToGraph = action({
 
 | Task | Owner | Dependencies | Deliverables |
 |------|-------|--------------|--------------|
-| Set up Neo4j AuraDB instance | DevOps | None | Running instance |
+| ✅ Set up Memgraph Cloud instance | DevOps | None | Running instance |
 | Design initial graph schema | Architecture | Schema review | Cypher DDL |
-| Build Convex → Neo4j sync action | Backend | Schema | Sync mutation |
+| Build Convex → Memgraph sync action | Backend | Schema | Sync mutation |
 | Create skill assessment sync | Backend | Sync action | Assessment nodes |
 | Build player identity sync | Backend | Sync action | Player nodes |
-| Create initial visualization | Frontend | React-graph-viz | Skill tree view |
+| Create initial visualization | Frontend | Memgraph Lab / react-graph-viz | Skill tree view |
 
 **Success Metrics**:
-- [ ] Neo4j instance running with schema
+- [x] Memgraph Cloud instance running
+- [ ] Graph schema deployed with constraints/indexes
 - [ ] 1,000+ assessment nodes synced
 - [ ] Basic skill tree visualization functional
 
@@ -463,19 +509,28 @@ export const syncAssessmentToGraph = action({
 
 ### Monthly Estimates by Scale
 
-| Scale | Players | Convex | Neo4j | Weaviate | Total |
-|-------|---------|--------|-------|----------|-------|
-| Prototype | 100 | $0 | $0 (free) | $0 | **$0** |
-| Small | 1,000 | $25 | $65 | $25 | **$115** |
-| Medium | 10,000 | $100 | $259 | $100 | **$459** |
-| Large | 100,000 | $400 | $500+ | $350 | **$1,250+** |
+| Scale | Players | Convex | Memgraph | Vector DB | Total |
+|-------|---------|--------|----------|-----------|-------|
+| Prototype | 100 | $0 | $0 (trial/hobby) | $0 | **$0** |
+| Small | 1,000 | $25 | $0 (hobby) or $99 | $0 | **$25-$124** |
+| Medium | 10,000 | $100 | $99-$199 | $100 | **$299-$399** |
+| Large | 100,000 | $400 | $399+ | $350 | **$1,149+** |
+
+### Memgraph Pricing Tiers
+
+| Tier | RAM | Price | Best For |
+|------|-----|-------|----------|
+| **Hobby** | 1 GB | Free | Prototyping, small datasets |
+| **Pro** | 2-8 GB | $99-$199/mo | Production MVP |
+| **Enterprise** | 16+ GB | Custom | Large scale |
 
 ### Cost Optimization Strategies
 
-1. **Batch Sync**: Sync assessments hourly instead of real-time for non-critical data
-2. **Query Caching**: Cache frequently-accessed graph queries in Convex
-3. **Archive Old Data**: Move historical assessments to cold storage, query on-demand
-4. **Tiered Features**: Reserve complex graph queries for premium organizations
+1. **Start with Hobby Tier**: Free tier handles significant data before needing Pro
+2. **Batch Sync**: Sync assessments hourly instead of real-time for non-critical data
+3. **Query Caching**: Cache frequently-accessed graph queries in Convex
+4. **Archive Old Data**: Move historical assessments to cold storage, query on-demand
+5. **RAM Efficiency**: Memgraph's in-memory is 4x more efficient than Neo4j
 
 ---
 
@@ -484,12 +539,12 @@ export const syncAssessmentToGraph = action({
 ### Data Flow Security
 
 ```
-Convex (Primary)              Neo4j (Analytics)
+Convex (Primary)              Memgraph Cloud (Analytics)
      │                              │
      │  1. Data encrypted at rest   │
      │  2. TLS 1.3 in transit       │
-     │  3. API key authentication   │
-     │  4. No PII in Neo4j          │
+     │  3. Bolt+s (encrypted)       │
+     │  4. No PII in Memgraph       │
      │     (use player IDs only)    │
      │  5. Org-scoped queries       │
      │                              │

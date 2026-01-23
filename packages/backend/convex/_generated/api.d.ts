@@ -83,6 +83,7 @@ import type * as scripts_cleanupEnrollmentSport from "../scripts/cleanupEnrollme
 import type * as scripts_cleanupUATData from "../scripts/cleanupUATData.js";
 import type * as scripts_clearDevData from "../scripts/clearDevData.js";
 import type * as scripts_clearPlayerDataKeepUsers from "../scripts/clearPlayerDataKeepUsers.js";
+import type * as scripts_debugCoachUser from "../scripts/debugCoachUser.js";
 import type * as scripts_debugPlayerData from "../scripts/debugPlayerData.js";
 import type * as scripts_deleteAllPlayers from "../scripts/deleteAllPlayers.js";
 import type * as scripts_deleteUser from "../scripts/deleteUser.js";
@@ -91,6 +92,7 @@ import type * as scripts_fixGAATeamSportCodes from "../scripts/fixGAATeamSportCo
 import type * as scripts_fullReset from "../scripts/fullReset.js";
 import type * as scripts_fullResetOptimized from "../scripts/fullResetOptimized.js";
 import type * as scripts_getOrgId from "../scripts/getOrgId.js";
+import type * as scripts_listUsers from "../scripts/listUsers.js";
 import type * as scripts_migrateEnrollmentSport from "../scripts/migrateEnrollmentSport.js";
 import type * as scripts_passportSharingDiagnostics from "../scripts/passportSharingDiagnostics.js";
 import type * as scripts_previewOrgCleanup from "../scripts/previewOrgCleanup.js";
@@ -102,6 +104,7 @@ import type * as scripts_seedDefaultSportRules from "../scripts/seedDefaultSport
 import type * as scripts_seedUATData from "../scripts/seedUATData.js";
 import type * as scripts_setCurrentOrg from "../scripts/setCurrentOrg.js";
 import type * as scripts_stagedReset from "../scripts/stagedReset.js";
+import type * as scripts_updateTeamObservationCoachNames from "../scripts/updateTeamObservationCoachNames.js";
 import type * as scripts_validateTeamAssignments from "../scripts/validateTeamAssignments.js";
 import type * as scripts_verifyUATSetup from "../scripts/verifyUATSetup.js";
 import type * as seed_sessionPlansSeed from "../seed/sessionPlansSeed.js";
@@ -190,6 +193,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/cleanupUATData": typeof scripts_cleanupUATData;
   "scripts/clearDevData": typeof scripts_clearDevData;
   "scripts/clearPlayerDataKeepUsers": typeof scripts_clearPlayerDataKeepUsers;
+  "scripts/debugCoachUser": typeof scripts_debugCoachUser;
   "scripts/debugPlayerData": typeof scripts_debugPlayerData;
   "scripts/deleteAllPlayers": typeof scripts_deleteAllPlayers;
   "scripts/deleteUser": typeof scripts_deleteUser;
@@ -198,6 +202,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/fullReset": typeof scripts_fullReset;
   "scripts/fullResetOptimized": typeof scripts_fullResetOptimized;
   "scripts/getOrgId": typeof scripts_getOrgId;
+  "scripts/listUsers": typeof scripts_listUsers;
   "scripts/migrateEnrollmentSport": typeof scripts_migrateEnrollmentSport;
   "scripts/passportSharingDiagnostics": typeof scripts_passportSharingDiagnostics;
   "scripts/previewOrgCleanup": typeof scripts_previewOrgCleanup;
@@ -209,6 +214,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/seedUATData": typeof scripts_seedUATData;
   "scripts/setCurrentOrg": typeof scripts_setCurrentOrg;
   "scripts/stagedReset": typeof scripts_stagedReset;
+  "scripts/updateTeamObservationCoachNames": typeof scripts_updateTeamObservationCoachNames;
   "scripts/validateTeamAssignments": typeof scripts_validateTeamAssignments;
   "scripts/verifyUATSetup": typeof scripts_verifyUATSetup;
   "seed/sessionPlansSeed": typeof seed_sessionPlansSeed;

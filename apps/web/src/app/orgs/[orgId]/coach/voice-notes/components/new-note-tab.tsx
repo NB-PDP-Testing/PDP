@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { useCurrentUser } from "@/hooks/use-current-user";
+import { authClient } from "@/lib/auth-client";
 
 type NoteType = "training" | "match" | "general";
 
@@ -28,8 +28,8 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  // Get current user for coachId
-  const user = useCurrentUser();
+  // Get current user session for Better Auth user ID
+  const { data: session } = authClient.useSession();
 
   // Convex mutations
   const createTypedNote = useMutation(api.models.voiceNotes.createTypedNote);
@@ -103,17 +103,14 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
 
       const { storageId } = await response.json();
 
-      // Create the voice note
-      if (!user) {
+      // Create the voice note - use Better Auth user ID
+      if (!session?.user?.id) {
         throw new Error("User not authenticated");
       }
 
-      // Use userId if available, otherwise use _id
-      const userId = user.userId || user._id;
-
       await createRecordedNote({
         orgId,
-        coachId: userId,
+        coachId: session.user.id,
         noteType,
         audioStorageId: storageId,
       });
@@ -132,18 +129,22 @@ export function NewNoteTab({ orgId, onSuccess, onError }: NewNoteTabProps) {
       return;
     }
 
-    if (!user) {
+    // Require Better Auth user ID
+    if (!session?.user?.id) {
       onError("User not authenticated");
       return;
     }
 
-    // Use userId if available, otherwise use _id
-    const userId = user.userId || user._id;
+    console.log("🔥 FRONTEND: session.user.id =", session.user.id);
+    console.log(
+      "🔥 FRONTEND: Full session =",
+      JSON.stringify(session, null, 2)
+    );
 
     try {
       await createTypedNote({
         orgId,
-        coachId: userId,
+        coachId: session.user.id,
         noteType,
         noteText: noteText.trim(),
       });

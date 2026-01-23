@@ -69,6 +69,12 @@ type AssigningInsight = {
   playerName?: string;
 } | null;
 
+type AssigningTeamInsight = {
+  noteId: Id<"voiceNotes">;
+  insightId: string;
+  title: string;
+} | null;
+
 type ClassifyingInsight = {
   noteId: Id<"voiceNotes">;
   insightId: string;
@@ -100,6 +106,8 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   const [editingInsight, setEditingInsight] = useState<EditingInsight>(null);
   const [assigningInsight, setAssigningInsight] =
     useState<AssigningInsight>(null);
+  const [assigningTeamInsight, setAssigningTeamInsight] =
+    useState<AssigningTeamInsight>(null);
   const [classifyingInsight, setClassifyingInsight] =
     useState<ClassifyingInsight>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -169,6 +177,30 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
     } catch (error) {
       console.error("Failed to assign player:", error);
       onError("Failed to assign player to insight.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAssignTeam = async (teamId: string, teamName: string) => {
+    if (!assigningTeamInsight) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await classifyInsight({
+        noteId: assigningTeamInsight.noteId,
+        insightId: assigningTeamInsight.insightId,
+        category: "team_culture",
+        teamId,
+        teamName,
+      });
+      onSuccess(`Assigned to ${teamName}.`);
+      setAssigningTeamInsight(null);
+    } catch (error) {
+      console.error("Failed to assign team:", error);
+      onError("Failed to assign team to insight.");
     } finally {
       setIsSaving(false);
     }
@@ -391,19 +423,35 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   // Separate insights by type:
   // 1. Matched: Has playerIdentityId (can be applied directly)
   // 2. Unmatched: Has playerName but no match (needs player assignment)
-  // 3. Team insights with valid category: team_culture or todo (can be applied)
-  // 4. Uncategorized: No player and no team-level category (needs classification)
+  // 3. Team insights WITH teamId: Ready to apply
+  // 4. Team insights WITHOUT teamId: Needs team assignment
+  // 5. TODO insights WITH assignee: Ready to apply
+  // 6. TODO insights WITHOUT assignee: Needs assignee (future)
+  // 7. Uncategorized: No player and no team-level category (needs classification)
   const matchedInsights = pendingInsights.filter((i) => i.playerIdentityId);
   const unmatchedInsights = pendingInsights.filter(
     (i) => !i.playerIdentityId && i.playerName
   );
 
-  // Team insights that ARE classified as team-level
+  // Team insights WITH teamId - ready to apply
   const classifiedTeamInsights = pendingInsights.filter(
     (i) =>
       !(i.playerIdentityId || i.playerName) &&
-      i.category &&
-      TEAM_LEVEL_CATEGORIES.includes(i.category)
+      i.category === "team_culture" &&
+      (i as any).teamId
+  );
+
+  // Team insights WITHOUT teamId - needs team assignment
+  const teamInsightsNeedingAssignment = pendingInsights.filter(
+    (i) =>
+      !(i.playerIdentityId || i.playerName) &&
+      i.category === "team_culture" &&
+      !(i as any).teamId
+  );
+
+  // TODO insights - ready to apply (already have assignee from AI/auto-assign)
+  const todoInsights = pendingInsights.filter(
+    (i) => !(i.playerIdentityId || i.playerName) && i.category === "todo"
   );
 
   // Insights without player AND without team-level category need classification
@@ -534,6 +582,19 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
               your team. Assign a player below to generate a parent summary.
             </p>
           )}
+          {isTeamWithoutTeamId && (
+            <p className="mt-2 text-purple-700 text-xs">
+              💡 This is a team insight but no specific team was mentioned.
+              {coachTeams?.teams && coachTeams.teams.length === 1 ? (
+                <>
+                  {" "}
+                  Assign it to <strong>{coachTeams.teams[0].teamName}</strong>?
+                </>
+              ) : (
+                " Assign it to a team below to apply."
+              )}
+            </p>
+          )}
           {isUncategorized && (
             <p className="mt-2 text-orange-700 text-xs">
               💡 Is this about a specific player, the team, or a task you need
@@ -576,6 +637,24 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
               title="Classify this insight"
             >
               Classify
+            </Button>
+          )}
+          {/* Assign Team button for team insights without teamId */}
+          {isTeamWithoutTeamId && (
+            <Button
+              className="h-8 bg-purple-600 px-2 hover:bg-purple-700 sm:h-9 sm:px-3"
+              onClick={() =>
+                setAssigningTeamInsight({
+                  noteId: insight.noteId,
+                  insightId: insight.id,
+                  title: insight.title,
+                })
+              }
+              size="sm"
+              title="Assign to a team"
+            >
+              <Users className="mr-1 h-4 w-4" />
+              Assign Team
             </Button>
           )}
           {insight.playerIdentityId && (
@@ -639,6 +718,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   const readyToApplyInsights = [
     ...matchedInsights,
     ...classifiedTeamInsights,
+    ...todoInsights,
   ].sort(
     (a, b) => new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
   );
@@ -646,6 +726,7 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   // Combine and sort needs-attention insights by most recent first
   const needsAttentionInsights = [
     ...unmatchedInsights,
+    ...teamInsightsNeedingAssignment,
     ...uncategorizedInsights,
   ].sort(
     (a, b) => new Date(b.noteDate).getTime() - new Date(a.noteDate).getTime()
@@ -667,6 +748,8 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
             <CardDescription className="text-amber-700 text-xs sm:text-sm">
               {unmatchedInsights.length > 0 &&
                 `${unmatchedInsights.length} insight${unmatchedInsights.length !== 1 ? "s" : ""} mention players we couldn't match. `}
+              {teamInsightsNeedingAssignment.length > 0 &&
+                `${teamInsightsNeedingAssignment.length} team insight${teamInsightsNeedingAssignment.length !== 1 ? "s" : ""} need team assignment. `}
               {uncategorizedInsights.length > 0 &&
                 `${uncategorizedInsights.length} insight${uncategorizedInsights.length !== 1 ? "s" : ""} need classification.`}
             </CardDescription>
@@ -674,7 +757,20 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
           <CardContent className="space-y-3">
             {/* All needs-attention insights sorted by most recent */}
             {needsAttentionInsights.map((insight) => {
-              const type = insight.playerName ? "unmatched" : "uncategorized";
+              // Determine type based on what's missing
+              let type:
+                | "matched"
+                | "unmatched"
+                | "classified"
+                | "uncategorized" = "uncategorized";
+              if (insight.playerName) {
+                type = "unmatched"; // Has player name but not matched
+              } else if (
+                insight.category === "team_culture" &&
+                !(insight as any).teamId
+              ) {
+                type = "uncategorized"; // Team insight needing team assignment
+              }
               return renderInsightCard(insight, type);
             })}
           </CardContent>
@@ -912,6 +1008,94 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
         </DialogContent>
       </Dialog>
 
+      {/* Assign Team Dialog */}
+      <Dialog
+        onOpenChange={(open) => !open && setAssigningTeamInsight(null)}
+        open={!!assigningTeamInsight}
+      >
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Assign to Team</DialogTitle>
+            <DialogDescription>
+              This insight is about team culture or dynamics. Select which team
+              it refers to.
+            </DialogDescription>
+          </DialogHeader>
+          {assigningTeamInsight && (
+            <div className="py-4">
+              {/* Show insight title */}
+              <div className="mb-4 rounded-lg border bg-gray-50 p-3">
+                <p className="font-medium text-gray-800 text-sm">
+                  {assigningTeamInsight.title}
+                </p>
+              </div>
+
+              {/* Team list */}
+              <div className="space-y-2">
+                {coachTeams?.teams && coachTeams.teams.length > 0 ? (
+                  coachTeams.teams.map(
+                    (team: {
+                      teamId: string;
+                      teamName: string;
+                      ageGroup?: string;
+                    }) => {
+                      const isOnlyTeam = coachTeams.teams.length === 1;
+                      return (
+                        <button
+                          className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition-colors hover:bg-gray-50 ${
+                            isOnlyTeam
+                              ? "border-purple-300 bg-purple-50"
+                              : "border-gray-200"
+                          }`}
+                          disabled={isSaving}
+                          key={team.teamId}
+                          onClick={() =>
+                            handleAssignTeam(team.teamId, team.teamName)
+                          }
+                          type="button"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-purple-600" />
+                            <div>
+                              <div className="font-medium text-sm">
+                                {team.teamName}
+                              </div>
+                              {team.ageGroup && (
+                                <div className="text-gray-500 text-xs">
+                                  {team.ageGroup}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {isOnlyTeam && (
+                            <span className="text-purple-600 text-xs">
+                              Suggested
+                            </span>
+                          )}
+                        </button>
+                      );
+                    }
+                  )
+                ) : (
+                  <p className="px-3 py-4 text-center text-gray-500 text-sm">
+                    No teams assigned. Please contact your administrator.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              disabled={isSaving}
+              onClick={() => setAssigningTeamInsight(null)}
+              variant="outline"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Classify Insight Dialog */}
       <Dialog
         onOpenChange={(open) => !open && setClassifyingInsight(null)}
@@ -978,28 +1162,31 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
                           teamId: string;
                           teamName: string;
                           ageGroup?: string;
-                        }) => (
-                          <Button
-                            className="h-auto px-3 py-1.5"
-                            disabled={isSaving}
-                            key={team.teamId}
-                            onClick={() =>
-                              handleClassifyAsTeamInsight(
-                                team.teamId,
-                                team.teamName
-                              )
-                            }
-                            size="sm"
-                            variant="secondary"
-                          >
-                            {team.teamName}
-                            {team.ageGroup && (
-                              <span className="ml-1 text-gray-500 text-xs">
-                                ({team.ageGroup})
-                              </span>
-                            )}
-                          </Button>
-                        )
+                        }) => {
+                          const isOnlyTeam = coachTeams.teams.length === 1;
+                          return (
+                            <Button
+                              className={`h-auto px-3 py-1.5 ${isOnlyTeam ? "ring-2 ring-purple-400 ring-offset-2" : ""}`}
+                              disabled={isSaving}
+                              key={team.teamId}
+                              onClick={() =>
+                                handleClassifyAsTeamInsight(
+                                  team.teamId,
+                                  team.teamName
+                                )
+                              }
+                              size="sm"
+                              variant={isOnlyTeam ? "default" : "secondary"}
+                            >
+                              {team.teamName}
+                              {team.ageGroup && (
+                                <span className="ml-1 text-gray-500 text-xs">
+                                  ({team.ageGroup})
+                                </span>
+                              )}
+                            </Button>
+                          );
+                        }
                       )
                     ) : (
                       <p className="text-gray-400 text-xs italic">

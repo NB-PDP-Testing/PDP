@@ -313,27 +313,12 @@ export const buildInsights = internalAction({
         }
       }
 
-      // Get other coaches assigned to the same teams (for TODO assignment)
+      // Get coaches for TODO assignment
+      // Always include the recording coach, plus any fellow coaches on same teams
       const coachesRoster: Array<{ id: string; name: string }> = [];
-      if (note.coachId && teamsList.length > 0) {
-        // Get fellow coaches on same teams
-        const fellowCoaches = await ctx.runQuery(
-          api.models.coaches.getFellowCoachesForTeams,
-          {
-            userId: note.coachId,
-            organizationId: note.orgId,
-          }
-        );
 
-        // Add fellow coaches to roster
-        for (const coach of fellowCoaches) {
-          coachesRoster.push({
-            id: coach.userId,
-            name: coach.userName,
-          });
-        }
-
-        // Add the recording coach themselves
+      // ALWAYS add the recording coach first (even if they have no teams)
+      if (note.coachId) {
         const recordingCoachUser = await ctx.runQuery(
           components.betterAuth.adapter.findOne,
           {
@@ -343,13 +328,39 @@ export const buildInsights = internalAction({
         );
         if (recordingCoachUser) {
           const u = recordingCoachUser as any;
+          const coachName =
+            `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+            u.email ||
+            "Unknown";
           coachesRoster.push({
             id: note.coachId,
-            name:
-              `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
-              u.email ||
-              "Unknown",
+            name: coachName,
           });
+        } else {
+          console.warn(
+            `[TODO Coaches] Could not find recording coach user for ID: ${note.coachId}`
+          );
+        }
+      }
+
+      // If coach has teams, add fellow coaches on same teams
+      if (note.coachId && teamsList.length > 0) {
+        const fellowCoaches = await ctx.runQuery(
+          api.models.coaches.getFellowCoachesForTeams,
+          {
+            userId: note.coachId,
+            organizationId: note.orgId,
+          }
+        );
+
+        // Add fellow coaches to roster (avoid duplicates)
+        for (const coach of fellowCoaches) {
+          if (!coachesRoster.some((c) => c.id === coach.userId)) {
+            coachesRoster.push({
+              id: coach.userId,
+              name: coach.userName,
+            });
+          }
         }
       }
 
@@ -571,26 +582,18 @@ IMPORTANT:
           );
         }
 
-        // Auto-assign team if:
-        // 1. This is a team_culture insight
-        // 2. AI didn't assign a teamId
-        // 3. Coach has exactly 1 team assigned
-        let teamId = insight.teamId ?? undefined;
-        let teamName = insight.teamName ?? undefined;
+        // Team assignment: Only use AI-matched teams (no auto-assignment)
+        // Teams should only be assigned when explicitly mentioned in the voice note
+        const teamId = insight.teamId ?? undefined;
+        const teamName = insight.teamName ?? undefined;
 
-        if (
-          insight.category === "team_culture" &&
-          !teamId &&
-          teamsList.length === 1
-        ) {
-          teamId = teamsList[0].id;
-          teamName = teamsList[0].name;
-          console.log(
-            `[Team Auto-Assignment] Assigned team_culture insight to "${teamName}" (coach has only 1 team)`
-          );
-        } else if (insight.category === "team_culture" && teamId && teamName) {
+        if (insight.category === "team_culture" && teamId && teamName) {
           console.log(
             `[Team Matching] AI matched team_culture insight to "${teamName}"`
+          );
+        } else if (insight.category === "team_culture" && !teamId) {
+          console.log(
+            "[Team Classification] team_culture insight needs manual team assignment (no explicit team mentioned)"
           );
         }
 
@@ -601,26 +604,22 @@ IMPORTANT:
         let assigneeUserId = insight.assigneeUserId ?? undefined;
         let assigneeName = insight.assigneeName ?? undefined;
 
+        console.log(
+          `[TODO Auto-Assignment] Checking insight "${insight.title}": category="${insight.category}", assigneeUserId="${assigneeUserId}", note.coachId="${note.coachId}", roster size=${coachesRoster.length}`
+        );
+
         if (insight.category === "todo" && !assigneeUserId && note.coachId) {
           // If no assignee from AI, default to recording coach
+          console.log(
+            `[TODO Auto-Assignment] Looking for recording coach in roster of ${coachesRoster.length} coaches...`
+          );
           const recordingCoach = coachesRoster.find(
             (c) => c.id === note.coachId
           );
           if (recordingCoach) {
             assigneeUserId = recordingCoach.id;
             assigneeName = recordingCoach.name;
-            console.log(
-              `[TODO Auto-Assignment] Assigned todo to recording coach "${assigneeName}"`
-            );
           }
-        } else if (
-          insight.category === "todo" &&
-          assigneeUserId &&
-          assigneeName
-        ) {
-          console.log(
-            `[TODO Matching] AI matched todo to coach "${assigneeName}"`
-          );
         }
 
         return {

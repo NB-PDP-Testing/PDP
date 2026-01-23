@@ -323,6 +323,9 @@ export const createTypedNote = mutation({
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
+    console.log("🔥 BACKEND createTypedNote: coachId =", args.coachId);
+    console.log("🔥 BACKEND createTypedNote: orgId =", args.orgId);
+
     const noteId = await ctx.db.insert("voiceNotes", {
       orgId: args.orgId,
       coachId: args.coachId,

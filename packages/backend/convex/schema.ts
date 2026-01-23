@@ -1355,7 +1355,7 @@ export default defineSchema({
   // Voice Notes
   voiceNotes: defineTable({
     orgId: v.string(),
-    coachId: v.string(), // Required - Better Auth user ID
+    coachId: v.optional(v.string()), // Optional for backwards compatibility with old notes
     date: v.string(),
     type: v.union(
       v.literal("training"),

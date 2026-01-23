@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
   AlertCircle,
@@ -13,7 +14,7 @@ import {
 import type { Route } from "next";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { GuardianIdentityClaimDialog } from "@/components/guardian-identity-claim-dialog";
 import Loader from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
@@ -27,11 +28,14 @@ import {
 } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
-import { AIPracticeAssistant } from "./components/ai-practice-assistant";
+import { ActionItemsPanel } from "./components/action-items-panel";
+import { AIPracticeAssistantEnhanced } from "./components/ai-practice-assistant-enhanced";
 import { ChildCard } from "./components/child-card";
+import { ChildSummaryCard } from "./components/child-summary-card";
 import { CoachFeedback } from "./components/coach-feedback";
 import { GuardianSettings } from "./components/guardian-settings";
 import { MedicalInfo } from "./components/medical-info";
+import { UnifiedInboxView } from "./components/unified-inbox-view";
 import { WeeklySchedule } from "./components/weekly-schedule";
 
 function ParentDashboardContent() {
@@ -46,6 +50,9 @@ function ParentDashboardContent() {
     new Set()
   );
   const [hasAutoOpened, setHasAutoOpened] = useState(false);
+
+  // US-011: View toggle state for By Child vs All Messages
+  const [view, setView] = useState<"by-child" | "unified">("by-child");
 
   // Get user's role details in this organization
   const roleDetails = useQuery(
@@ -90,27 +97,60 @@ function ParentDashboardContent() {
     isLoading: identityLoading,
   } = useGuardianChildrenInOrg(orgId, session?.user?.email);
 
+  // Get summaries data for child summary cards (US-009)
+  const summariesData = useQuery(
+    api.models.coachParentSummaries.getParentSummariesByChildAndSport,
+    { organizationId: orgId }
+  );
+
+  // US-011: Flatten all messages for unified inbox view
+  const allMessages = useMemo(() => {
+    if (!summariesData) {
+      return [];
+    }
+
+    const flattened: Array<{
+      _id: Id<"coachParentSummaries">;
+      coachName: string;
+      publicSummary: {
+        content: string;
+        confidenceScore: number;
+        generatedAt: number;
+      };
+      status: string;
+      viewedAt?: number;
+      acknowledgedAt?: number;
+      createdAt: number;
+      childName: string;
+      sportName: string;
+    }> = [];
+    for (const childData of summariesData) {
+      const childName = `${childData.player.firstName} ${childData.player.lastName}`;
+      for (const sportGroup of childData.sportGroups) {
+        for (const summary of sportGroup.summaries) {
+          flattened.push({
+            ...summary,
+            childName,
+            sportName: sportGroup.sport?.name || "Unknown Sport",
+          });
+        }
+      }
+    }
+
+    // Sort by createdAt descending (newest first)
+    return flattened.sort((a, b) => b.createdAt - a.createdAt);
+  }, [summariesData]);
+
   // Show claim dialog if there are unclaimed identities (only auto-open once)
   // Note: Don't check !guardianIdentity because useGuardianIdentity returns
   // unclaimed identities too (via email lookup)
   useEffect(() => {
-    console.log("Claimable identities check:", {
-      claimableIdentities,
-      count: claimableIdentities?.length,
-      showClaimDialog,
-      hasAutoOpened,
-    });
     if (
       claimableIdentities &&
       claimableIdentities.length > 0 &&
       !showClaimDialog &&
       !hasAutoOpened
     ) {
-      console.log(
-        "Auto-opening claim dialog for",
-        claimableIdentities.length,
-        "identities"
-      );
       setShowClaimDialog(true);
       setHasAutoOpened(true);
     }
@@ -135,6 +175,14 @@ function ParentDashboardContent() {
   // Mutation to decline guardian-player links
   const declineGuardianPlayerLink = useMutation(
     api.models.guardianPlayerLinks.declineGuardianPlayerLink
+  );
+
+  // US-011: Mutations for message handling in unified view
+  const markViewed = useMutation(
+    api.models.coachParentSummaries.markSummaryViewed
+  );
+  const acknowledgeSummaryMutation = useMutation(
+    api.models.coachParentSummaries.acknowledgeParentSummary
   );
 
   // Handle dialog dismissal (user clicks "This Isn't Me")
@@ -179,6 +227,53 @@ function ParentDashboardContent() {
 
   // Get current claimable identity to display
   const currentClaimable = claimableIdentities?.[currentClaimIndex];
+
+  // US-011: Handlers for unified inbox view
+  const handleViewSummary = async (summaryId: Id<"coachParentSummaries">) => {
+    try {
+      await markViewed({
+        summaryId,
+        viewSource: "dashboard",
+      });
+    } catch (error) {
+      console.error("Failed to mark summary as viewed:", error);
+    }
+  };
+
+  const handleAcknowledgeSummary = async (
+    summaryId: Id<"coachParentSummaries">
+  ) => {
+    try {
+      await acknowledgeSummaryMutation({ summaryId });
+    } catch (error) {
+      console.error("Failed to acknowledge summary:", error);
+      throw error;
+    }
+  };
+
+  // US-013: Messages ref for smooth scroll behavior
+  const messagesRef = useRef<HTMLDivElement>(null);
+
+  // US-013: Calculate total unread count across all children and sports
+  const totalUnreadCount = useMemo(() => {
+    if (!summariesData) {
+      return 0;
+    }
+    return summariesData.reduce(
+      (total, childData) =>
+        total +
+        childData.sportGroups.reduce(
+          (childTotal, sportGroup) => childTotal + sportGroup.unreadCount,
+          0
+        ),
+      0
+    );
+  }, [summariesData]);
+
+  // US-013: Scroll to messages handler
+  const handleReviewClick = () => {
+    messagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   // Check if user has parent functional role or is admin/owner
   const hasParentRole = useMemo(() => {
@@ -431,6 +526,14 @@ function ParentDashboardContent() {
         </Card>
       )}
 
+      {/* Action Items Panel (US-013) */}
+      {playerCount > 0 && totalUnreadCount > 0 && (
+        <ActionItemsPanel
+          onReviewClick={handleReviewClick}
+          unreadCount={totalUnreadCount}
+        />
+      )}
+
       {/* Children Cards */}
       {playerCount > 0 && (
         <div>
@@ -446,8 +549,60 @@ function ParentDashboardContent() {
       {/* Weekly Schedule */}
       {playerCount > 0 && <WeeklySchedule playerData={identityChildren} />}
 
-      {/* Coach Feedback Section */}
-      {playerCount > 0 && <CoachFeedback orgId={orgId} />}
+      {/* Child Summary Cards Grid (US-009) */}
+      {playerCount > 0 && summariesData && summariesData.length > 0 && (
+        <div>
+          <h2 className="mb-4 font-semibold text-xl">Quick Overview</h2>
+          <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {summariesData.map((childData) => {
+              // Calculate child-specific unread count by summing all sportGroups unreadCount
+              const childUnreadCount = childData.sportGroups.reduce(
+                (sum, sportGroup) => sum + sportGroup.unreadCount,
+                0
+              );
+
+              return (
+                <ChildSummaryCard
+                  key={childData.player._id}
+                  orgId={orgId}
+                  player={childData.player}
+                  unreadCount={childUnreadCount}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Coach Feedback Section with View Toggle (US-011) */}
+      {playerCount > 0 && summariesData && summariesData.length > 0 && (
+        <div ref={messagesRef}>
+          <div className="mb-4 flex gap-2">
+            <Button
+              onClick={() => setView("by-child")}
+              variant={view === "by-child" ? "default" : "outline"}
+            >
+              By Child
+            </Button>
+            <Button
+              onClick={() => setView("unified")}
+              variant={view === "unified" ? "default" : "outline"}
+            >
+              All Messages ({allMessages.length})
+            </Button>
+          </div>
+
+          {view === "unified" ? (
+            <UnifiedInboxView
+              messages={allMessages}
+              onAcknowledge={handleAcknowledgeSummary}
+              onView={handleViewSummary}
+            />
+          ) : (
+            <CoachFeedback orgId={orgId} />
+          )}
+        </div>
+      )}
 
       {/* Medical Information Section */}
       {playerCount > 0 && (
@@ -457,7 +612,10 @@ function ParentDashboardContent() {
       {/* AI Practice Assistant */}
       {playerCount > 0 && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <AIPracticeAssistant orgId={orgId} playerData={identityChildren} />
+          <AIPracticeAssistantEnhanced
+            orgId={orgId}
+            playerData={identityChildren}
+          />
 
           {/* Coming Soon Features */}
           <Card>

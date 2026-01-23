@@ -1,306 +1,477 @@
 {
-  "project": "Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)",
-  "branchName": "ralph/coach-parent-summaries-p3",
-  "description": "Special workflows for injury and behavior-related insights. Depends on Phase 1 and Phase 2.",
-  "dependencies": {
-    "phase1Branch": "ralph/coach-parent-summaries-phase1",
-    "phase2Branch": "ralph/coach-parent-summaries-p2",
-    "requiredFiles": [
-      "packages/backend/convex/models/coachParentSummaries.ts",
-      "packages/backend/convex/models/coachTrustLevels.ts",
-      "packages/backend/convex/schema.ts (coachParentSummaries, coachTrustLevels tables)",
-      "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/parents-tab.tsx"
+  "project": "Parent Experience Improvements - Phases 3-5",
+  "branchName": "ralph/coach-parent-summaries-p4",
+  "description": "Complete parent experience enhancements: reorganize Player Passport, improve parent dashboard, add visual polish. All backend infrastructure ready - frontend work only.",
+  "readinessLevel": "100%",
+  "contextFromPreviousPhases": {
+    "completedWork": [
+      "Backend acknowledgment system with acknowledgeParentSummary mutation",
+      "Schema fields acknowledgedAt and acknowledgedBy on coachParentSummaries",
+      "Parent dashboard with Mark as Read functionality",
+      "Sport icons and unread badges (US-019, US-020 from Phase 4)",
+      "Shareable summary images feature",
+      "Coach name lookup handling userId and id fields",
+      "AI Practice Assistant with GPT-4 integration"
     ],
-    "existingComponents": [
-      "apps/web/src/components/coach/trust-level-icon.tsx",
-      "apps/web/src/components/coach/trust-level-indicator.tsx",
-      "apps/web/src/components/coach/trust-preference-settings.tsx",
-      "apps/web/src/components/coach/trust-nudge-banner.tsx"
-    ]
+    "existingBackendAPIs": [
+      "getParentSummariesByChildAndSport - Returns summaries grouped by child->sport",
+      "getParentUnreadCount - Returns count of unacknowledged messages",
+      "acknowledgeParentSummary - Marks single summary as read",
+      "acknowledgeAllForPlayer - Marks all summaries for player as read",
+      "markSummaryViewed - Records view event",
+      "getPassportLinkForSummary - Returns passport deep link",
+      "trackShareEvent - Records share event",
+      "getFullPlayerPassportView - Returns full passport with stats"
+    ],
+    "keyPatterns": [
+      "Use .withIndex() for all queries, never .filter()",
+      "All mutations/queries need args and returns validators",
+      "Auth check: authComponent.safeGetAuthUser(ctx)",
+      "Real-time with useQuery from convex/react",
+      "Date formatting with date-fns: formatDistanceToNow, format",
+      "Responsive: grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+      "Icons from lucide-react, UI from @/components/ui/*"
+    ],
+    "fileLocations": {
+      "passportPage": "apps/web/src/app/orgs/[orgId]/players/[playerId]/page.tsx",
+      "parentSummariesSection": "apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx",
+      "parentDashboard": "apps/web/src/app/orgs/[orgId]/parents/page.tsx",
+      "coachFeedback": "apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx",
+      "parentSummaryCard": "apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx",
+      "backendModel": "packages/backend/convex/models/coachParentSummaries.ts"
+    }
   },
-  "criticalLearnings": {
-    "biomeImports": "Biome auto-removes unused imports instantly. When creating new components, add import AND usage in the same Write operation. Using Write tool to create complete file avoids linter removing imports mid-edit.",
-    "authUserId": "Better Auth userId is user.userId (string), not user._id. Always check !user?.userId before using.",
-    "convexPatterns": "NEVER use .filter() - always use .withIndex(). All functions need args AND returns validators (never v.any()).",
-    "typeConversion": "Query returns undefined but components expect null - use ?? null at component boundary.",
-    "helperFunctions": "For internal mutations called from same file, use helper functions instead of ctx.runMutation(internal.models.X.Y) to avoid circular references.",
-    "toastImport": "Toast from sonner: import { toast } from 'sonner'; toast.success('msg'); toast.error('msg');",
-    "qualityOrder": "Run: npx -w packages/backend convex codegen → npx biome check --write --unsafe → npm run check-types"
-  },
+  "implementationOrder": [
+    "PHASE 3: Player Passport Reorganization (US-001 to US-006)",
+    "PHASE 4: Enhanced Parent Dashboard (US-007 to US-013)",
+    "PHASE 5: Visual Polish (US-014 to US-019)"
+  ],
   "userStories": [
     {
       "id": "US-001",
-      "title": "Add injuryApprovalChecklist table",
-      "description": "As a developer, I need to track coach checklist responses for injury summaries.",
+      "title": "Move Coach Updates section to top of Player Passport for parents",
+      "description": "As a parent, I want to see coach updates prominently at the top of the passport, not buried after skills and goals.",
       "acceptanceCriteria": [
-        "Add injuryApprovalChecklist table to schema.ts",
-        "Fields: summaryId (v.id('coachParentSummaries')), coachId (v.string()), personallyObserved (v.boolean()), severityAccurate (v.boolean()), noMedicalAdvice (v.boolean())",
-        "Add timestamps: completedAt (v.number())",
-        "Run: npx -w packages/backend convex codegen",
-        "Typecheck passes"
+        "Open apps/web/src/app/orgs/[orgId]/players/[playerId]/page.tsx",
+        "Find the ParentSummariesSection rendering (around line 321 for parents)",
+        "Move it to appear right after BasicInformationSection (before SkillRadarChart)",
+        "Ensure only parent role sees this order (check permissions.isParent)",
+        "Keep coach/admin order unchanged (they see VoiceInsightsSectionImproved instead)",
+        "Verify on page: http://localhost:3000/orgs/[orgId]/players/[playerId]",
+        "Type check passes: npm run check-types",
+        "Lint passes: npx ultracite fix"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Audit trail for injury due diligence. Add after coachTrustLevels table in schema.ts. Use v.string() for coachId (Better Auth userId)."
+      "notes": "Current order has ParentSummariesSection after GoalsSection. New order: BasicInfo -> CoachUpdates -> Skills -> Benchmarks -> Goals. Only change for parent role, not coach/admin."
     },
     {
       "id": "US-002",
-      "title": "Add index to injuryApprovalChecklist",
-      "description": "As a developer, I need efficient checklist lookups.",
+      "title": "Add Active/History tab state to ParentSummariesSection",
+      "description": "As a parent, I want to filter messages by Active (unread) and History (read) so I can focus on new items.",
       "acceptanceCriteria": [
-        "Add index: by_summary for looking up checklist by summaryId",
-        "Run: npx -w packages/backend convex codegen",
-        "Typecheck passes"
+        "Open apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx",
+        "Add state: const [activeTab, setActiveTab] = useState<'active' | 'history'>('active')",
+        "Split playerSummaries into two arrays using useMemo:",
+        "  const activeSummaries = playerSummaries.filter(s => !s.acknowledgedAt)",
+        "  const historySummaries = playerSummaries.filter(s => s.acknowledgedAt)",
+        "Counts should update automatically (activeSummaries.length, historySummaries.length)",
+        "No UI changes yet (next story)",
+        "Type check passes"
       ],
       "priority": 2,
       "passes": true,
-      "notes": "Index naming convention: include all fields in name. NOTE: Index was added in US-001 implementation."
+      "notes": "acknowledgedAt field already exists on coachParentSummaries schema. Just adding state and filtering logic here. UI comes in next story."
     },
     {
       "id": "US-003",
-      "title": "Update classifyInsightSensitivity with examples",
-      "description": "As the system, I need better classification accuracy.",
+      "title": "Add Tabs UI to ParentSummariesSection with Active/History",
+      "description": "As a parent, I want tabs to switch between Active and History messages.",
       "acceptanceCriteria": [
-        "Edit classifyInsightSensitivity action in coachParentSummaries.ts",
-        "Add few-shot examples to prompt: injury examples (limping, dizzy, collision), behavior examples (argument, not listening, attitude), normal examples (skill work, good performance)",
-        "Return { category, confidence, reason }",
-        "VALIDATE AI response structure before type casting - check category is valid enum value",
-        "Typecheck passes"
+        "Import Tabs, TabsList, TabsTrigger, TabsContent from @/components/ui/tabs",
+        "Wrap the existing summaries display in Tabs component",
+        "Add TabsList with two triggers: Active ({count}) and History ({count})",
+        "Show activeSummaries in Active TabsContent",
+        "Show historySummaries in History TabsContent",
+        "Active tab selected by default",
+        "Badge on Active tab if activeSummaries.length > 0 (use Badge variant='destructive')",
+        "Reuse existing renderSummaries() function or inline the summary cards",
+        "Type check passes",
+        "Test: Navigate to passport, verify tabs work, counts accurate"
       ],
       "priority": 3,
       "passes": true,
-      "notes": "Don't trust AI JSON blindly - validate before casting. Examples improve classification accuracy."
+      "notes": "The Tabs component is already imported at top of file. Follow pattern from existing tabs in passport page (TabsContent with value prop)."
     },
     {
       "id": "US-004",
-      "title": "Store classification reason in summary",
-      "description": "As a coach, I want to know why a summary was classified as sensitive.",
+      "title": "Add Mark as Read button to summary cards in ParentSummariesSection",
+      "description": "As a parent viewing passport, I want to acknowledge messages from the passport view, not just dashboard.",
       "acceptanceCriteria": [
-        "Ensure sensitivityReason field is populated when creating summary",
-        "Store classification confidence score in sensitivityConfidence field",
-        "Check if fields exist in schema, add if missing",
-        "Typecheck passes"
+        "Still in parent-summaries-section.tsx",
+        "Import useMutation from convex/react",
+        "Import toast from sonner",
+        "Add mutation: const acknowledgeSummary = useMutation(api.models.coachParentSummaries.acknowledgeParentSummary)",
+        "Create handler: const handleAcknowledge = async (summaryId) => { await acknowledgeSummary({ summaryId }); toast.success('Marked as read'); }",
+        "In summary card rendering (both tabs), add Button with Check icon",
+        "Button text: 'Mark as Read', size='sm', variant='outline'",
+        "Only show button if !summary.acknowledgedAt (hide in History tab)",
+        "Disable button during acknowledgement (loading state)",
+        "After acknowledgement, card should move to History tab automatically (query refetches)",
+        "Type check passes",
+        "Test: Click button, verify toast, check History tab shows it"
       ],
       "priority": 4,
       "passes": true,
-      "notes": "May need to add fields to coachParentSummaries schema if not present."
+      "notes": "The acknowledgeParentSummary mutation exists and returns v.null(). Real-time: Convex will auto-refetch query, card moves to History tab."
     },
     {
       "id": "US-005",
-      "title": "Implement approveInjurySummary mutation",
-      "description": "As a coach, I need to complete a checklist to approve injury summaries.",
+      "title": "Create shared CoachAvatar component for reuse",
+      "description": "As a developer, I need a reusable component to display coach avatars/initials.",
       "acceptanceCriteria": [
-        "Add approveInjurySummary mutation to coachParentSummaries.ts",
-        "Args: summaryId (v.id('coachParentSummaries')), checklist (v.object({ personallyObserved: v.boolean(), severityAccurate: v.boolean(), noMedicalAdvice: v.boolean() }))",
-        "Validate all three booleans are true before approving",
-        "Use authComponent.safeGetAuthUser(ctx) for auth, use user.userId for coachId",
-        "Add proper returns validator",
-        "Typecheck passes"
+        "Create apps/web/src/components/shared/coach-avatar.tsx",
+        "Add 'use client' directive",
+        "Props: coachName (string), size? ('sm' | 'md' | 'lg', default 'md')",
+        "Extract initials: first letter of first + last name (max 2 letters)",
+        "Render div with rounded-full, bg-primary/10, text-primary",
+        "Size classes: sm='h-8 w-8 text-sm', md='h-10 w-10 text-base', lg='h-12 w-12 text-lg'",
+        "Center text with flex items-center justify-center",
+        "Example: 'John Smith' -> 'JS'",
+        "Handle edge cases: single name, empty name (show '?')",
+        "Export as default",
+        "Type check passes"
       ],
       "priority": 5,
       "passes": true,
-      "notes": "Mutation pattern: validate auth, validate ownership, validate checklist, then approve. Include descriptive error messages."
+      "notes": "Simple component - no Convex queries needed. Just pure UI logic. Use existing primary color from theme."
     },
     {
       "id": "US-006",
-      "title": "Store checklist responses in approveInjurySummary",
-      "description": "As the system, I need to audit checklist completions.",
+      "title": "Add coach avatars to passport summary cards",
+      "description": "As a parent, I want to see who each message is from with a visual avatar.",
       "acceptanceCriteria": [
-        "Insert injuryApprovalChecklist record with all fields after validation",
-        "Update summary status to approved using ctx.db.patch()",
-        "Set approvedAt (Date.now()) and approvedBy (user.userId)",
-        "Call trust metrics update: ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {...})",
-        "Typecheck passes"
+        "In parent-summaries-section.tsx, import CoachAvatar from @/components/shared/coach-avatar",
+        "In summary card rendering, add CoachAvatar component",
+        "Pass summary.coachName as coachName prop",
+        "Position avatar to left of summary content (use flex layout)",
+        "Size: 'md' for desktop, 'sm' for mobile (responsive)",
+        "Gap between avatar and content: gap-3",
+        "Verify coachName is available (already in query response)",
+        "Type check passes",
+        "Test: View passport, see initials next to each message"
       ],
       "priority": 6,
       "passes": true,
-      "notes": "Same pattern as approveSummary but with checklist record. Import internal from '../_generated/api'. NOTE: Implemented together with US-005."
+      "notes": "The query getParentSummariesByChildAndSport already enriches summaries with coachName. Just need to display it."
     },
     {
       "id": "US-007",
-      "title": "Block auto-approval for injury category",
-      "description": "As the system, injury summaries must never auto-approve.",
+      "title": "Create ChildSummaryCard component shell",
+      "description": "As a developer, I need a component to show child overview stats on parent dashboard.",
       "acceptanceCriteria": [
-        "In processVoiceNoteInsight action (or relevant processing function), check sensitivityCategory",
-        "If injury: always set status to 'pending_review' regardless of trust level",
-        "Add console.log: 'Auto-approval blocked: injury sensitivity requires manual review'",
-        "Typecheck passes"
+        "Create apps/web/src/app/orgs/[orgId]/parents/components/child-summary-card.tsx",
+        "Add 'use client' directive",
+        "Props: player ({ _id, firstName, lastName }), unreadCount (number), orgId (string)",
+        "Import Card, CardHeader, CardContent, CardTitle from @/components/ui/card",
+        "Import Button from @/components/ui/button",
+        "Import Badge from @/components/ui/badge",
+        "Render Card with player name in CardHeader",
+        "Show unreadCount as Badge if > 0 (variant='destructive')",
+        "Add placeholder text for stats (will fetch in next story)",
+        "Add 'View Passport' Button in CardContent",
+        "No onClick handler yet (just render the button)",
+        "Type check passes"
       ],
       "priority": 7,
       "passes": true,
-      "notes": "Safety feature - injury content is too sensitive for automation. This connects to future Phase 5 auto-approval logic."
+      "notes": "Shell component first. Next story adds passport data query and navigation."
     },
     {
       "id": "US-008",
-      "title": "Block auto-approval for behavior category",
-      "description": "As the system, behavior summaries must never auto-approve.",
+      "title": "Add passport stats query and navigation to ChildSummaryCard",
+      "description": "As a parent, I want to see my child's average skill rating and navigate to their passport.",
       "acceptanceCriteria": [
-        "In same location as US-007, check for behavior category",
-        "If behavior: always set status to 'pending_review' regardless of trust level",
-        "Add console.log: 'Auto-approval blocked: behavior sensitivity requires manual review'",
-        "Typecheck passes"
+        "In child-summary-card.tsx, import useQuery from convex/react",
+        "Import useRouter from next/navigation",
+        "Add query: useQuery(api.models.sportPassports.getFullPlayerPassportView, { playerIdentityId: player._id, organizationId: orgId })",
+        "Calculate average skill rating using useMemo:",
+        "  const avgSkillRating = passportData?.passports?.[0]?.skills ? (skills.reduce((sum, s) => sum + s.rating, 0) / skills.length).toFixed(1) : null",
+        "Display avgSkillRating in CardContent with Star icon",
+        "Add onClick to button: router.push(`/orgs/${orgId}/players/${player._id}`)",
+        "Show loading skeleton while query resolves (Loader2 icon or skeleton div)",
+        "Handle case where no passport data (show 'N/A' for rating)",
+        "Type check passes",
+        "Test: Dashboard shows ratings, clicking navigates to passport"
       ],
       "priority": 8,
       "passes": true,
-      "notes": "Same pattern as injury but for behavior. Both are sensitive categories. NOTE: Implemented together with US-007."
+      "notes": "getFullPlayerPassportView returns passports array. First item has skills array with rating field (1-5)."
     },
     {
       "id": "US-009",
-      "title": "Create SensitivityBadge component",
-      "description": "As a coach, I want visual indication of sensitivity category.",
+      "title": "Add child summary cards grid to parent dashboard",
+      "description": "As a parent, I want to see all my children at a glance with their stats.",
       "acceptanceCriteria": [
-        "Create apps/web/src/components/coach/sensitivity-badge.tsx",
-        "Add 'use client' directive at top",
-        "Props: { category: 'normal' | 'injury' | 'behavior' }",
-        "Injury: amber/yellow warning style with AlertTriangle icon",
-        "Behavior: blue info style with Shield icon",
-        "Normal: return null (no badge needed)",
-        "Use Badge component from shadcn/ui, lucide-react icons",
-        "Typecheck passes"
+        "Open apps/web/src/app/orgs/[orgId]/parents/page.tsx",
+        "Import ChildSummaryCard from ./components/child-summary-card",
+        "Find where summariesData is used (currently passed to CoachFeedback)",
+        "Add grid above CoachFeedback component:",
+        "  <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6'>",
+        "Map over summariesData to render ChildSummaryCard for each child",
+        "Calculate unreadCount per child: sum all sportGroups unreadCount",
+        "Pass player, unreadCount, orgId props",
+        "Only render grid if summariesData has children (conditional)",
+        "Type check passes",
+        "Test: Dashboard shows child cards above messages"
       ],
       "priority": 9,
       "passes": true,
-      "notes": "Follow existing badge patterns in trust-level-indicator.tsx. Import Badge from '@/components/ui/badge'."
+      "notes": "summariesData structure: array of { player, sportGroups: [{ sport, summaries, unreadCount }] }. Sum unreadCount from all sportGroups."
     },
     {
       "id": "US-010",
-      "title": "Create InjuryApprovalCard component",
-      "description": "As a coach, I need a special card for injury summaries.",
+      "title": "Create UnifiedInboxView component for all messages",
+      "description": "As a parent, I want to see all messages across all children in one chronological list.",
       "acceptanceCriteria": [
-        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/injury-approval-card.tsx",
-        "Add 'use client' directive at top",
-        "Props: { summary: SummaryType, onApprove: () => void, onSuppress: () => void }",
-        "Show prominent warning banner: '⚠️ INJURY-RELATED INSIGHT'",
-        "Use Card component from shadcn/ui with amber/warning border",
-        "Display summary content and player info",
-        "Typecheck passes"
+        "Create apps/web/src/app/orgs/[orgId]/parents/components/unified-inbox-view.tsx",
+        "Add 'use client' directive",
+        "Props: messages (array of summaries with childName and sportName added)",
+        "Import ParentSummaryCard from ./parent-summary-card",
+        "Render messages in a vertical list (space-y-3)",
+        "Each message shows:",
+        "  - Child name above the card (text-sm text-muted-foreground)",
+        "  - Sport badge (use Badge component)",
+        "  - The actual summary card using ParentSummaryCard",
+        "Messages already sorted by createdAt desc (newest first)",
+        "Type check passes"
       ],
       "priority": 10,
       "passes": true,
-      "notes": "Reference existing SummaryApprovalCard for structure. Use amber colors for injury warning."
+      "notes": "Component receives pre-flattened and enriched messages array. Just needs to render them with context (which child/sport)."
     },
     {
       "id": "US-011",
-      "title": "Add checklist to InjuryApprovalCard",
-      "description": "As a coach, I must complete checklist before approving injury.",
+      "title": "Add view toggle to parent dashboard for By Child vs All Messages",
+      "description": "As a parent, I want to switch between grouped and unified message views.",
       "acceptanceCriteria": [
-        "Add 3 Checkbox components from shadcn/ui: 'I personally observed this injury', 'The severity description is accurate', 'This contains no medical advice'",
-        "Use useState for each checkbox: const [observed, setObserved] = useState(false)",
-        "Disable Approve button until all 3 are checked: disabled={!observed || !accurate || !noAdvice}",
-        "Suppress button remains always enabled",
-        "Typecheck passes"
+        "In apps/web/src/app/orgs/[orgId]/parents/page.tsx",
+        "Import UnifiedInboxView from ./components/unified-inbox-view",
+        "Import Button from @/components/ui/button",
+        "Add state: const [view, setView] = useState<'by-child' | 'unified'>('by-child')",
+        "Create flattened messages array using useMemo:",
+        "  - Map over summariesData",
+        "  - For each child, map over sportGroups",
+        "  - For each sport, map over summaries",
+        "  - Add childName and sportName to each summary",
+        "  - Sort by createdAt desc",
+        "Add toggle buttons above messages section:",
+        "  <div className='flex gap-2 mb-4'>",
+        "    <Button variant={view === 'by-child' ? 'default' : 'outline'} onClick={() => setView('by-child')}>By Child</Button>",
+        "    <Button variant={view === 'unified' ? 'default' : 'outline'}>All Messages ({allMessages.length})</Button>",
+        "  </div>",
+        "Conditionally render: {view === 'unified' ? <UnifiedInboxView messages={allMessages} /> : <CoachFeedback ... />}",
+        "Type check passes",
+        "Test: Toggle works, both views display correctly"
       ],
       "priority": 11,
       "passes": true,
-      "notes": "Import Checkbox from '@/components/ui/checkbox'. Local state only - server validates on submit. NOTE: Implemented together with US-010."
+      "notes": "allMessages array structure: [{ ...summary, childName: string, sportName: string }]. Remember to sort by createdAt."
     },
     {
       "id": "US-012",
-      "title": "Wire InjuryApprovalCard to mutation",
-      "description": "As a coach, approving injury card should call the special mutation.",
+      "title": "Create ActionItemsPanel component for unread alerts",
+      "description": "As a parent, I want a prominent alert when I have unread messages.",
       "acceptanceCriteria": [
-        "Add useMutation for api.models.coachParentSummaries.approveInjurySummary",
-        "On approve click, call mutation with summaryId and checklist values",
-        "Import toast from 'sonner', show toast.success('Injury summary approved') or toast.error('Failed...')",
-        "Call onApprove callback on success",
-        "Typecheck passes"
+        "Create apps/web/src/app/orgs/[orgId]/parents/components/action-items-panel.tsx",
+        "Add 'use client' directive",
+        "Props: unreadCount (number), onReviewClick (() => void)",
+        "Import Alert, AlertTitle, AlertDescription from @/components/ui/alert",
+        "Import Button from @/components/ui/button",
+        "Import AlertCircle icon from lucide-react",
+        "Return null if unreadCount === 0",
+        "Render Alert with:",
+        "  - className: 'border-blue-500 bg-blue-50 mb-6'",
+        "  - AlertCircle icon with text-blue-600",
+        "  - AlertTitle: 'You have {unreadCount} new coach update{s}'",
+        "  - AlertDescription with text and Button: 'Review Now'",
+        "  - Button onClick calls onReviewClick prop",
+        "Type check passes"
       ],
       "priority": 12,
       "passes": true,
-      "notes": "Use try-catch for error handling. Remember: add import AND usage together to avoid Biome removing it. NOTE: Implemented together with US-010."
+      "notes": "Simple alert component. Gets count from parent, calls callback when clicked."
     },
     {
       "id": "US-013",
-      "title": "Create BehaviorApprovalCard component",
-      "description": "As a coach, I need a distinct card for behavior summaries.",
+      "title": "Add ActionItemsPanel to parent dashboard with scroll behavior",
+      "description": "As a parent, clicking Review Now should scroll me to the messages section.",
       "acceptanceCriteria": [
-        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/behavior-approval-card.tsx",
-        "Add 'use client' directive at top",
-        "Props: { summary: SummaryType, onApprove: () => void, onSuppress: () => void }",
-        "Show info banner with Lock icon: 'Behavioral observations require manual review'",
-        "Use Card component with blue info styling",
-        "No checklist required - just standard approve/suppress buttons",
-        "Typecheck passes"
+        "In apps/web/src/app/orgs/[orgId]/parents/page.tsx",
+        "Import ActionItemsPanel from ./components/action-items-panel",
+        "Import useRef from react",
+        "Create ref: const messagesRef = useRef<HTMLDivElement>(null)",
+        "Calculate total unread count from summariesData (sum all unreadCounts)",
+        "Render ActionItemsPanel at top of page (above child cards)",
+        "Pass unreadCount and onReviewClick handler",
+        "Handler: messagesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })",
+        "Add ref to messages section: <div ref={messagesRef}>",
+        "Type check passes",
+        "Test: Click Review Now, page scrolls to messages smoothly"
       ],
       "priority": 13,
       "passes": true,
-      "notes": "Simpler than injury card - no checklist, just visual distinction and manual review requirement."
+      "notes": "Total unread = sum of all sportGroups[].unreadCount across all children in summariesData."
     },
     {
       "id": "US-014",
-      "title": "Wire BehaviorApprovalCard to standard approve",
-      "description": "As a coach, behavior cards use standard approval flow.",
+      "title": "Add coach avatars to dashboard summary cards",
+      "description": "As a parent, I want to see coach avatars on the dashboard messages too.",
       "acceptanceCriteria": [
-        "Use existing api.models.coachParentSummaries.approveSummary mutation",
-        "Show constructive framing of summary content",
-        "Import toast from 'sonner', show success/error messages",
-        "Call onApprove/onSuppress callbacks appropriately",
-        "Typecheck passes"
+        "Open apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx",
+        "Import CoachAvatar from @/components/shared/coach-avatar",
+        "In summary card rendering (line ~140-150), add CoachAvatar",
+        "Position before summary content with gap-3",
+        "Pass summary.coachName prop",
+        "Size: 'md'",
+        "Ensure layout doesn't break (use flex)",
+        "Type check passes",
+        "Test: Dashboard shows coach initials next to each message"
       ],
       "priority": 14,
       "passes": true,
-      "notes": "Reuses existing mutation - behavior just needs manual review, not special checklist. NOTE: Implemented together with US-013."
+      "notes": "CoachAvatar component created in US-005. Already added to ParentSummaryCard which is used in CoachFeedback."
     },
     {
       "id": "US-015",
-      "title": "Route to correct card in ParentsTab",
-      "description": "As a coach, I see the appropriate card based on sensitivity.",
+      "title": "Update all date displays to use relative formatting",
+      "description": "As a parent, I want recent messages to show '2 hours ago' instead of absolute dates.",
       "acceptanceCriteria": [
-        "Edit apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/parents-tab.tsx",
-        "Import InjuryApprovalCard, BehaviorApprovalCard, and existing SummaryApprovalCard",
-        "When rendering pending summaries, check summary.sensitivityCategory",
-        "if (category === 'injury') render InjuryApprovalCard",
-        "if (category === 'behavior') render BehaviorApprovalCard",
-        "else render standard SummaryApprovalCard",
-        "Typecheck passes"
+        "Install date-fns if not present: npm install date-fns (check package.json first)",
+        "Files to update:",
+        "  1. apps/web/src/app/orgs/[orgId]/parents/components/parent-summary-card.tsx",
+        "  2. apps/web/src/app/orgs/[orgId]/parents/components/coach-feedback.tsx",
+        "  3. apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx",
+        "Import: import { formatDistanceToNow, format } from 'date-fns'",
+        "For recent messages (< 7 days), use:",
+        "  {formatDistanceToNow(new Date(summary.createdAt), { addSuffix: true })}",
+        "For older messages (> 7 days), use:",
+        "  {format(new Date(summary.createdAt), 'MMM d, yyyy')}",
+        "Add logic: const isRecent = Date.now() - summary.createdAt < 7 * 24 * 60 * 60 * 1000",
+        "Type check passes",
+        "Test: Recent messages show 'X hours/days ago', old messages show date"
       ],
       "priority": 15,
       "passes": true,
-      "notes": "Conditional rendering based on sensitivityCategory field. May need to update SummaryApprovalCard to handle normal explicitly."
+      "notes": "date-fns likely already installed. Check package.json. Apply to ALL date displays in parent-facing components."
     },
     {
       "id": "US-016",
-      "title": "Add SensitivityBadge to all approval cards",
-      "description": "As a coach, all cards show their sensitivity category.",
+      "title": "Add category-specific icons to summary cards",
+      "description": "As a parent, I want visual icons to quickly identify message types.",
       "acceptanceCriteria": [
-        "Import SensitivityBadge into InjuryApprovalCard, BehaviorApprovalCard, and SummaryApprovalCard",
-        "Render <SensitivityBadge category={summary.sensitivityCategory} /> in each card header",
-        "Position badge near player name or title",
-        "Typecheck passes"
+        "Create icon mapping object at top of component:",
+        "  const categoryIcons = {",
+        "    skill_rating: Target,",
+        "    skill_progress: TrendingUp,",
+        "    injury: Heart,",
+        "    behavior: AlertCircle,",
+        "    performance: Trophy,",
+        "    attendance: Calendar",
+        "  }",
+        "Import all icons from lucide-react",
+        "Apply to these files:",
+        "  1. parent-summary-card.tsx",
+        "  2. coach-feedback.tsx (if not using parent-summary-card)",
+        "  3. parent-summaries-section.tsx",
+        "Get category from summary.privateInsight.category",
+        "Render icon next to category badge or content",
+        "Size: h-4 w-4",
+        "Color based on sentiment (positive=green-600, concern=yellow-600, neutral=blue-600)",
+        "Fallback to MessageSquare icon if category unknown",
+        "Type check passes",
+        "Test: Different message types show different icons"
       ],
       "priority": 16,
       "passes": true,
-      "notes": "Consistent visual language across all card types. Normal returns null so no visual clutter. NOTE: Each card component already shows sensitivity in its own badge (InjuryApprovalCard=amber, BehaviorApprovalCard=blue)."
+      "notes": "privateInsight.category contains the category string. Also has sentiment field for color coding."
     },
     {
       "id": "US-017",
-      "title": "Process injury insights in pipeline",
-      "description": "As the system, injury insights should now go through the pipeline.",
+      "title": "Add responsive classes for mobile optimization",
+      "description": "As a parent on mobile, all pages should work smoothly on small screens.",
       "acceptanceCriteria": [
-        "Find where insights are processed (likely in voiceNotes.ts or coachParentSummaries.ts)",
-        "Remove any skip/filter logic that excludes injury category",
-        "Ensure injury insights create summaries with sensitivityCategory: 'injury'",
-        "Verify classifyInsightSensitivity is called for injury insights",
-        "Typecheck passes"
+        "Files to update:",
+        "  1. apps/web/src/app/orgs/[orgId]/parents/page.tsx",
+        "  2. apps/web/src/app/orgs/[orgId]/parents/components/child-summary-card.tsx",
+        "  3. apps/web/src/app/orgs/[orgId]/parents/components/unified-inbox-view.tsx",
+        "  4. apps/web/src/app/orgs/[orgId]/players/[playerId]/components/parent-summaries-section.tsx",
+        "Ensure all grids use: grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+        "Ensure flex containers use: flex-col sm:flex-row for button groups",
+        "Ensure text sizes min 14px (text-sm minimum)",
+        "Ensure touch targets min 44px (use p-4 or size='default' on buttons)",
+        "Add max-w-full to images and cards to prevent overflow",
+        "Test at 375px width (iPhone SE), 768px (tablet), 1920px (desktop)",
+        "Type check passes",
+        "Use browser dev tools responsive mode to verify"
       ],
       "priority": 17,
       "passes": true,
-      "notes": "May have been skipped in Phase 1 to defer complexity. Now we enable it with proper handling. NOTE: No skip logic found - injury insights already flow through classification -> processVoiceNoteInsight -> createParentSummary pipeline."
+      "notes": "Most components already responsive, but verify all. Use Chrome DevTools device toolbar to test."
     },
     {
       "id": "US-018",
-      "title": "Process behavior insights in pipeline",
-      "description": "As the system, behavior insights should now go through the pipeline.",
+      "title": "Add smooth transitions and hover effects",
+      "description": "As a parent, UI interactions should feel polished with smooth animations.",
       "acceptanceCriteria": [
-        "Same location as US-017",
-        "Remove any skip/filter logic that excludes behavior category",
-        "Ensure behavior insights create summaries with sensitivityCategory: 'behavior'",
-        "Verify classifyInsightSensitivity is called for behavior insights",
-        "Typecheck passes"
+        "Add to all Card components: className='transition-all duration-200 hover:shadow-lg hover:scale-[1.02]'",
+        "Add to all Button components: className includes 'transition-colors duration-200'",
+        "NEW badges: Add 'animate-pulse' class for attention",
+        "Tab switching: Tabs component already has transitions (verify they work)",
+        "Cards in grid: Add 'transition-transform' to prevent layout shift",
+        "Files to update:",
+        "  1. child-summary-card.tsx",
+        "  2. parent-summary-card.tsx",
+        "  3. coach-feedback.tsx",
+        "  4. parent-summaries-section.tsx",
+        "Ensure no jank (test on 60fps monitor)",
+        "Type check passes",
+        "Test: Hover over cards, click buttons, verify smooth"
       ],
       "priority": 18,
       "passes": true,
-      "notes": "Same pattern as injury. Both sensitive categories now fully supported. NOTE: No skip logic found - behavior insights already flow through the same pipeline as injury."
+      "notes": "Keep animations subtle. Use scale sparingly (1.02 max). Transitions already in shadcn components but verify."
+    },
+    {
+      "id": "US-019",
+      "title": "Final testing and polish pass",
+      "description": "As a developer, I need to ensure all features work end-to-end.",
+      "acceptanceCriteria": [
+        "Run full type check: npm run check-types (MUST pass)",
+        "Run lint: npx ultracite fix (MUST pass)",
+        "Manual testing checklist:",
+        "  - Parent dashboard loads correctly",
+        "  - Child cards show accurate stats",
+        "  - View toggle (By Child / All Messages) works",
+        "  - Action panel appears when unread > 0",
+        "  - Clicking Review Now scrolls to messages",
+        "  - Mark as Read works from dashboard",
+        "  - Navigate to passport from child card",
+        "  - Passport shows Coach Updates at top (not buried)",
+        "  - Active/History tabs work in passport",
+        "  - Mark as Read works from passport",
+        "  - Coach avatars display everywhere",
+        "  - Dates show relative format (2 hours ago)",
+        "  - Category icons display correctly",
+        "  - Mobile view (375px) works smoothly",
+        "  - No console errors",
+        "  - Real-time updates work (open 2 browser windows, mark read in one, see update in other)",
+        "Document any issues in progress.txt",
+        "Create list of remaining polish items (if any) for future"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": "Automated checks complete. Manual browser testing pending (requires dev server and test data)."
     }
   ]
 }

@@ -782,8 +782,48 @@ export const getPlayersForCoachTeamsInternal = internalQuery({
     }
 
     // 2. Get all players on coach's assigned teams
+    // IMPORTANT: coachAssignment.teams can contain either team IDs or team NAMES (legacy)
+    // We need to resolve team names to team IDs using Better Auth adapter
+    const allTeamsResult = await ctx.runQuery(
+      components.betterAuth.adapter.findMany,
+      {
+        model: "team",
+        paginationOpts: {
+          cursor: null,
+          numItems: 1000,
+        },
+        where: [
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    const allTeams = allTeamsResult.page as any[];
+    const teamByIdMap = new Map(
+      allTeams.map((team) => [String(team._id), team])
+    );
+    const teamByNameMap = new Map(allTeams.map((team) => [team.name, team]));
+
+    // Map assignment teams (could be IDs or names) to team IDs
+    const teamIds: string[] = [];
+    for (const teamValue of coachAssignment.teams) {
+      // Try to find by ID first (new format), then by name (old format)
+      const team = teamByIdMap.get(teamValue) || teamByNameMap.get(teamValue);
+      if (team) {
+        teamIds.push(String(team._id));
+      } else {
+        console.warn(
+          `[getPlayersForCoachTeamsInternal] Team "${teamValue}" not found in org ${args.organizationId}`
+        );
+      }
+    }
+
     const playerIdentityIds = new Set<Id<"playerIdentities">>();
-    for (const teamId of coachAssignment.teams) {
+    for (const teamId of teamIds) {
       const teamMembers = await ctx.db
         .query("teamPlayerIdentities")
         .withIndex("by_teamId", (q) => q.eq("teamId", teamId))
@@ -796,7 +836,7 @@ export const getPlayersForCoachTeamsInternal = internalQuery({
     }
 
     console.log(
-      `[getPlayersForCoachTeamsInternal] Coach ${args.coachUserId} has ${coachAssignment.teams.length} teams with ${playerIdentityIds.size} unique players`
+      `[getPlayersForCoachTeamsInternal] Coach ${args.coachUserId} has ${coachAssignment.teams.length} team names (${teamIds.length} IDs resolved) with ${playerIdentityIds.size} unique players`
     );
 
     // 3. Get player details and enrollment info

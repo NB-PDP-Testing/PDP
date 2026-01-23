@@ -1,0 +1,672 @@
+"use client";
+
+import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+import { useMutation, useQuery } from "convex/react";
+import { format, formatDistanceToNow } from "date-fns";
+import {
+  AlertCircle,
+  Calendar,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Heart,
+  Loader2,
+  MessageSquare,
+  Target,
+  TrendingUp,
+  Trophy,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import CoachAvatar from "@/components/shared/coach-avatar";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+type ParentSummary = {
+  _id: Id<"coachParentSummaries">;
+  _creationTime: number;
+  voiceNoteId: Id<"voiceNotes">;
+  insightId: string;
+  coachId: string;
+  coachName: string;
+  playerIdentityId: Id<"playerIdentities">;
+  organizationId: string;
+  sportId: Id<"sports">;
+  privateInsight: {
+    title: string;
+    description: string;
+    category: string;
+    sentiment: "positive" | "neutral" | "concern";
+  };
+  publicSummary: {
+    content: string;
+    confidenceScore: number;
+    generatedAt: number;
+  };
+  sensitivityCategory: "normal" | "injury" | "behavior";
+  status:
+    | "pending_review"
+    | "approved"
+    | "suppressed"
+    | "auto_approved"
+    | "delivered"
+    | "viewed";
+  createdAt: number;
+  approvedAt?: number;
+  deliveredAt?: number;
+  viewedAt?: number;
+  acknowledgedAt?: number;
+  acknowledgedBy?: string;
+};
+
+type Props = {
+  playerIdentityId: Id<"playerIdentities">;
+  orgId: string;
+};
+
+export function ParentSummariesSection({ playerIdentityId, orgId }: Props) {
+  const [acknowledgingId, setAcknowledgingId] = useState<string | null>(null);
+
+  // US-015: Helper function for relative/absolute date formatting
+  const formatDate = (timestamp: number) => {
+    const isRecent = Date.now() - timestamp < 7 * 24 * 60 * 60 * 1000;
+    if (isRecent) {
+      return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    }
+    return format(new Date(timestamp), "MMM d, yyyy");
+  };
+
+  // Mutation for marking summary as read
+  const acknowledgeSummary = useMutation(
+    api.models.coachParentSummaries.acknowledgeParentSummary
+  );
+
+  // Handler for acknowledging a summary
+  const handleAcknowledge = async (summaryId: Id<"coachParentSummaries">) => {
+    try {
+      setAcknowledgingId(summaryId);
+      await acknowledgeSummary({ summaryId });
+      toast.success("Marked as read");
+    } catch (_error) {
+      toast.error("Failed to mark as read");
+    } finally {
+      setAcknowledgingId(null);
+    }
+  };
+
+  // Query parent summaries for all children
+  const allSummaries = useQuery(
+    api.models.coachParentSummaries.getParentSummariesByChildAndSport,
+    { organizationId: orgId }
+  );
+
+  // Filter to only this player's approved summaries
+  const playerSummaries = useMemo(() => {
+    if (!allSummaries) {
+      return null;
+    }
+
+    const summaries: Array<ParentSummary & { sportName?: string }> = [];
+
+    for (const child of allSummaries) {
+      if (child.player._id !== playerIdentityId) {
+        continue;
+      }
+
+      for (const sportGroup of child.sportGroups) {
+        for (const summary of sportGroup.summaries) {
+          // Only show approved/delivered/viewed summaries to parents
+          if (
+            summary.status === "approved" ||
+            summary.status === "delivered" ||
+            summary.status === "viewed"
+          ) {
+            summaries.push({
+              ...summary,
+              sportName: sportGroup.sport?.name,
+            });
+          }
+        }
+      }
+    }
+
+    // Sort by most recent
+    return summaries.sort((a, b) => b.createdAt - a.createdAt);
+  }, [allSummaries, playerIdentityId]);
+
+  // Split summaries into active (unread) and history (read)
+  const activeSummaries = useMemo(() => {
+    if (!playerSummaries) {
+      return [];
+    }
+    return playerSummaries.filter((s) => !s.acknowledgedAt);
+  }, [playerSummaries]);
+
+  const historySummaries = useMemo(() => {
+    if (!playerSummaries) {
+      return [];
+    }
+    return playerSummaries.filter((s) => s.acknowledgedAt);
+  }, [playerSummaries]);
+
+  // Collapse section if there are no new/unacknowledged messages
+  const hasNewMessages = activeSummaries.length > 0;
+  const [isExpanded, setIsExpanded] = useState(hasNewMessages);
+
+  // Default to "history" tab when no new messages, otherwise "active"
+  const [activeTab, setActiveTab] = useState<"active" | "history">(
+    hasNewMessages ? "active" : "history"
+  );
+
+  // Calculate statistics
+  const stats = useMemo(() => {
+    if (!playerSummaries) {
+      return { total: 0, new: 0, read: 0 };
+    }
+
+    const total = playerSummaries.length;
+    const read = playerSummaries.filter((s) => s.viewedAt).length;
+    const newCount = playerSummaries.filter(
+      (s) => !s.viewedAt && s.status === "delivered"
+    ).length;
+
+    return { total, new: newCount, read };
+  }, [playerSummaries]);
+
+  // Group summaries by coach (for current tab)
+  const summariesByCoach = useMemo(() => {
+    const summariesToGroup =
+      activeTab === "active" ? activeSummaries : historySummaries;
+
+    if (summariesToGroup.length === 0) {
+      return [];
+    }
+
+    const grouped = new Map<
+      string,
+      {
+        coachId: string;
+        coachName: string;
+        summaries: typeof summariesToGroup;
+      }
+    >();
+
+    for (const summary of summariesToGroup) {
+      const coachId = summary.coachId || "unknown";
+      const coachName = summary.coachName || "Unknown Coach";
+
+      if (!grouped.has(coachId)) {
+        grouped.set(coachId, {
+          coachId,
+          coachName,
+          summaries: [],
+        });
+      }
+
+      const coachGroup = grouped.get(coachId);
+      if (coachGroup) {
+        coachGroup.summaries.push(summary);
+      }
+    }
+
+    // Sort coaches by most recent summary
+    return Array.from(grouped.values()).sort((a, b) => {
+      const aLatest = Math.max(...a.summaries.map((s) => s.createdAt));
+      const bLatest = Math.max(...b.summaries.map((s) => s.createdAt));
+      return bLatest - aLatest;
+    });
+  }, [activeTab, activeSummaries, historySummaries]);
+
+  // US-016: Category icon mapping
+  const categoryIcons = {
+    skill_rating: Target,
+    skill_progress: TrendingUp,
+    injury: Heart,
+    behavior: AlertCircle,
+    performance: Trophy,
+    attendance: Calendar,
+  };
+
+  // US-016: Get category icon with sentiment-based coloring
+  const getCategoryIcon = (summary: ParentSummary) => {
+    const category = summary.privateInsight.category;
+    const sentiment = summary.privateInsight.sentiment;
+
+    const IconComponent =
+      categoryIcons[category as keyof typeof categoryIcons] || MessageSquare;
+
+    // Color based on sentiment
+    let colorClass = "text-blue-600";
+    if (sentiment === "positive") {
+      colorClass = "text-green-600";
+    } else if (sentiment === "concern") {
+      colorClass = "text-yellow-600";
+    }
+
+    return <IconComponent className={`h-4 w-4 ${colorClass}`} />;
+  };
+
+  // Get category color
+  const getCategoryColor = (category: string) => {
+    const categoryMap: Record<string, string> = {
+      skill_rating: "bg-blue-100 text-blue-800",
+      skill_progress: "bg-green-100 text-green-800",
+      injury: "bg-red-100 text-red-800",
+      behavior: "bg-red-100 text-red-800", // Red for behavioral insights (require manual interaction)
+      performance: "bg-purple-100 text-purple-800",
+      attendance: "bg-orange-100 text-orange-800",
+    };
+    return categoryMap[category] || "bg-gray-100 text-gray-800";
+  };
+
+  // Loading state
+  if (playerSummaries === null) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Coach Updates
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Empty state
+  if (playerSummaries.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Coach Updates
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="py-8 text-center">
+            <MessageSquare className="mx-auto h-12 w-12 text-muted-foreground/50" />
+            <p className="mt-2 text-muted-foreground text-sm">
+              No coach updates have been shared yet.
+            </p>
+            <p className="mt-1 text-muted-foreground text-xs">
+              Your child's coaches will share progress updates here.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Render summaries based on active tab
+  const renderSummaries = () => {
+    // Get summaries for current tab
+    const summariesToShow =
+      activeTab === "active" ? activeSummaries : historySummaries;
+
+    if (summariesToShow.length === 0) {
+      return (
+        <div className="py-8 text-center text-muted-foreground text-sm">
+          {activeTab === "active"
+            ? "No unread messages"
+            : "No read messages yet"}
+        </div>
+      );
+    }
+
+    if (summariesByCoach.length <= 1) {
+      // Single coach or all summaries - flat list
+      return (
+        <div className="space-y-3">
+          {summariesToShow.map((summary) => (
+            <Card className="overflow-hidden" key={summary._id}>
+              <CardContent className="p-4">
+                <div className="flex gap-3">
+                  {/* Coach Avatar */}
+                  <div className="hidden flex-shrink-0 sm:block">
+                    <CoachAvatar coachName={summary.coachName} size="md" />
+                  </div>
+                  <div className="flex-shrink-0 sm:hidden">
+                    <CoachAvatar coachName={summary.coachName} size="sm" />
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="flex-1 space-y-3">
+                    {/* Header: Category & Date */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium text-xs ${getCategoryColor(summary.privateInsight.category)}`}
+                        >
+                          {summary.privateInsight.category
+                            .replace(/_/g, " ")
+                            .toUpperCase()}
+                        </span>
+                        <span className="text-muted-foreground text-xs">
+                          {formatDate(summary.createdAt)}
+                        </span>
+                        {summary.sportName && (
+                          <>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="text-muted-foreground text-xs">
+                              {summary.sportName}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {getCategoryIcon(summary)}
+                        {summary.viewedAt && (
+                          <Badge className="text-xs" variant="outline">
+                            Read
+                          </Badge>
+                        )}
+                        {!summary.viewedAt &&
+                          summary.status === "delivered" && (
+                            <Badge className="bg-blue-100 text-blue-800 text-xs">
+                              New
+                            </Badge>
+                          )}
+                      </div>
+                    </div>
+
+                    {/* Parent-Safe Content */}
+                    <div
+                      className={`rounded-lg p-4 ${
+                        summary.privateInsight.category.toLowerCase() ===
+                        "behavior"
+                          ? "border-red-400 border-l-4 bg-red-50"
+                          : summary.privateInsight.category.toLowerCase() ===
+                              "injury"
+                            ? "border-orange-400 border-l-4 bg-orange-50"
+                            : "bg-blue-50"
+                      }`}
+                    >
+                      <p className="text-gray-800 text-sm leading-relaxed">
+                        {summary.publicSummary.content}
+                      </p>
+                    </div>
+
+                    {/* Metadata */}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        From Coach {summary.coachName}
+                      </span>
+                      {summary.deliveredAt && (
+                        <span className="text-muted-foreground">
+                          Shared {formatDate(summary.deliveredAt)}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Mark as Read Button - Only show for unacknowledged summaries */}
+                    {!summary.acknowledgedAt && (
+                      <div className="pt-2">
+                        <Button
+                          disabled={acknowledgingId === summary._id}
+                          onClick={() => handleAcknowledge(summary._id)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {acknowledgingId === summary._id ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Marking...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="mr-2 h-4 w-4" />
+                              Mark as Read
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      );
+    }
+
+    // Multiple coaches - use tabs
+    return (
+      <Tabs className="w-full" defaultValue={summariesByCoach[0].coachId}>
+        <TabsList>
+          {summariesByCoach.map((coach) => (
+            <TabsTrigger key={coach.coachId} value={coach.coachId}>
+              {coach.coachName} ({coach.summaries.length})
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {summariesByCoach.map((coach) => (
+          <TabsContent
+            className="mt-4 space-y-3"
+            key={coach.coachId}
+            value={coach.coachId}
+          >
+            {coach.summaries.map((summary) => (
+              <Card className="overflow-hidden" key={summary._id}>
+                <CardContent className="p-4">
+                  <div className="flex gap-3">
+                    {/* Coach Avatar */}
+                    <div className="hidden flex-shrink-0 sm:block">
+                      <CoachAvatar coachName={summary.coachName} size="md" />
+                    </div>
+                    <div className="flex-shrink-0 sm:hidden">
+                      <CoachAvatar coachName={summary.coachName} size="sm" />
+                    </div>
+
+                    {/* Card Content */}
+                    <div className="flex-1 space-y-3">
+                      {/* Header: Category & Date */}
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2.5 py-0.5 font-medium text-xs ${getCategoryColor(summary.privateInsight.category)}`}
+                          >
+                            {summary.privateInsight.category
+                              .replace(/_/g, " ")
+                              .toUpperCase()}
+                          </span>
+                          <span className="text-muted-foreground text-xs">
+                            {formatDate(summary.createdAt)}
+                          </span>
+                          {summary.sportName && (
+                            <>
+                              <span className="text-muted-foreground">•</span>
+                              <span className="text-muted-foreground text-xs">
+                                {summary.sportName}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {getCategoryIcon(summary)}
+                          {summary.viewedAt && (
+                            <Badge className="text-xs" variant="outline">
+                              Read
+                            </Badge>
+                          )}
+                          {!summary.viewedAt &&
+                            summary.status === "delivered" && (
+                              <Badge className="bg-blue-100 text-blue-800 text-xs">
+                                New
+                              </Badge>
+                            )}
+                        </div>
+                      </div>
+
+                      {/* Parent-Safe Content */}
+                      <div
+                        className={`rounded-lg p-4 ${
+                          summary.privateInsight.category.toLowerCase() ===
+                          "behavior"
+                            ? "border-red-400 border-l-4 bg-red-50"
+                            : summary.privateInsight.category.toLowerCase() ===
+                                "injury"
+                              ? "border-orange-400 border-l-4 bg-orange-50"
+                              : "bg-blue-50"
+                        }`}
+                      >
+                        <p className="text-gray-800 text-sm leading-relaxed">
+                          {summary.publicSummary.content}
+                        </p>
+                      </div>
+
+                      {/* Metadata */}
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          From {coach.coachName}
+                        </span>
+                        {summary.deliveredAt && (
+                          <span className="text-muted-foreground">
+                            Shared {formatDate(summary.deliveredAt)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Mark as Read Button - Only show for unacknowledged summaries */}
+                      {!summary.acknowledgedAt && (
+                        <div className="pt-2">
+                          <Button
+                            disabled={acknowledgingId === summary._id}
+                            onClick={() => handleAcknowledge(summary._id)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            {acknowledgingId === summary._id ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Marking...
+                              </>
+                            ) : (
+                              <>
+                                <Check className="mr-2 h-4 w-4" />
+                                Mark as Read
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </TabsContent>
+        ))}
+      </Tabs>
+    );
+  };
+
+  return (
+    <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Coach Updates
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary text-xs">
+                  {activeSummaries.length} new / {playerSummaries.length} total
+                </span>
+              </div>
+              {isExpanded ? (
+                <ChevronUp className="h-5 w-5 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              )}
+            </CardTitle>
+          </CardHeader>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent>
+          <CardContent className="space-y-4 pt-0">
+            {/* Info Notice */}
+            <Alert>
+              <MessageSquare className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                Your child's coaches share important updates about progress,
+                development, and achievements here.
+              </AlertDescription>
+            </Alert>
+
+            {/* Statistics Dashboard */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-lg bg-blue-50 p-3 text-center">
+                <div className="font-bold text-blue-700 text-lg">
+                  {stats.total}
+                </div>
+                <div className="text-muted-foreground text-xs">Total</div>
+              </div>
+              <div className="rounded-lg bg-green-50 p-3 text-center">
+                <div className="font-bold text-green-700 text-lg">
+                  {stats.new}
+                </div>
+                <div className="text-muted-foreground text-xs">New</div>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-3 text-center">
+                <div className="font-bold text-gray-700 text-lg">
+                  {stats.read}
+                </div>
+                <div className="text-muted-foreground text-xs">Read</div>
+              </div>
+            </div>
+
+            {/* Active/History Tabs */}
+            <Tabs
+              className="w-full"
+              onValueChange={(value) =>
+                setActiveTab(value as "active" | "history")
+              }
+              value={activeTab}
+            >
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="active">
+                  Active ({activeSummaries.length})
+                  {activeSummaries.length > 0 && (
+                    <Badge className="ml-2" variant="destructive">
+                      {activeSummaries.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="history">
+                  History ({historySummaries.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent className="mt-4" value="active">
+                {renderSummaries()}
+              </TabsContent>
+
+              <TabsContent className="mt-4" value="history">
+                {renderSummaries()}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
+}

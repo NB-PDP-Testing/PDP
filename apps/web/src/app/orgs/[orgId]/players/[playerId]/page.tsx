@@ -18,10 +18,12 @@ import { CrossSportOverview } from "./components/cross-sport-overview";
 import { EmergencyContactsSection } from "./components/emergency-contacts-section";
 import { GoalsSection } from "./components/goals-section";
 import { NotesSection } from "./components/notes-section";
+import { ParentSummariesSection } from "./components/parent-summaries-section";
 import { PositionsFitnessSection } from "./components/positions-fitness-section";
 import { RequestAccessModal } from "./components/request-access-modal";
 import { ShareModal } from "./components/share-modal";
 import { SkillsSection } from "./components/skills-section";
+import { VoiceInsightsSectionImproved } from "./components/voice-insights-section-improved";
 
 export default function PlayerPassportPage() {
   const params = useParams();
@@ -281,6 +283,24 @@ export default function PlayerPassportPage() {
                 />
               )}
 
+            {/* Voice Insights/Coach Updates - Role-Specific Display */}
+            {permissions.isCoach || permissions.isAdmin ? (
+              /* Coaches/Admins: Show raw insights with transcriptions (prioritized) */
+              <VoiceInsightsSectionImproved
+                isAdmin={permissions.isAdmin}
+                isCoach={permissions.isCoach}
+                isParent={false}
+                orgId={orgId}
+                playerIdentityId={playerId as Id<"playerIdentities">}
+              />
+            ) : permissions.isParent ? (
+              /* Parents: Show ONLY approved parent summaries (parent-safe content) - PRIORITIZED at top */
+              <ParentSummariesSection
+                orgId={orgId}
+                playerIdentityId={playerId as Id<"playerIdentities">}
+              />
+            ) : null}
+
             {/* Skills Radar Chart - visual overview of player skills */}
             {playerData.sportCode && (
               <SkillRadarChart
@@ -303,6 +323,7 @@ export default function PlayerPassportPage() {
               )}
 
             <GoalsSection player={playerData as any} />
+
             <NotesSection
               isCoach={permissions.canEdit}
               player={playerData as any}
@@ -331,6 +352,24 @@ export default function PlayerPassportPage() {
             />
           )}
 
+          {/* Voice Insights/Coach Updates - Role-Specific Display */}
+          {permissions.isCoach || permissions.isAdmin ? (
+            /* Coaches/Admins: Show raw insights with transcriptions (prioritized) */
+            <VoiceInsightsSectionImproved
+              isAdmin={permissions.isAdmin}
+              isCoach={permissions.isCoach}
+              isParent={false}
+              orgId={orgId}
+              playerIdentityId={playerId as Id<"playerIdentities">}
+            />
+          ) : permissions.isParent ? (
+            /* Parents: Show ONLY approved parent summaries (parent-safe content) - PRIORITIZED at top */
+            <ParentSummariesSection
+              orgId={orgId}
+              playerIdentityId={playerId as Id<"playerIdentities">}
+            />
+          ) : null}
+
           {/* Skills Radar Chart - visual overview of player skills */}
           {playerData.sportCode && (
             <SkillRadarChart
@@ -353,6 +392,7 @@ export default function PlayerPassportPage() {
             )}
 
           <GoalsSection player={playerData as any} />
+
           <NotesSection
             isCoach={permissions.canEdit}
             player={playerData as any}

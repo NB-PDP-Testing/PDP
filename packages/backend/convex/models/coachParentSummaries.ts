@@ -1,7 +1,13 @@
 import { v } from "convex/values";
+import { components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { internalMutation, mutation, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
 import { authComponent } from "../auth";
 
 // ============================================================
@@ -52,6 +58,8 @@ const summaryValidator = v.object({
   approvedBy: v.optional(v.string()),
   deliveredAt: v.optional(v.number()),
   viewedAt: v.optional(v.number()),
+  acknowledgedAt: v.optional(v.number()),
+  acknowledgedBy: v.optional(v.string()),
 });
 
 const playerIdentityValidator = v.object({
@@ -173,19 +181,20 @@ export const createParentSummary = internalMutation({
       throw new Error("Voice note not found");
     }
 
+    // Verify coachId exists (required for parent summaries)
+    if (!voiceNote.coachId) {
+      throw new Error(
+        "Cannot create parent summary: voice note has no coachId. This is likely a legacy note."
+      );
+    }
+
     // Determine initial status based on sensitivity category
     // INJURY and BEHAVIOR categories NEVER auto-approve (even in future phases)
     let status: "pending_review" | "auto_approved" = "pending_review";
 
     if (args.sensitivityCategory === "injury") {
-      console.log(
-        "Auto-approval blocked: injury sensitivity requires manual review"
-      );
       status = "pending_review";
     } else if (args.sensitivityCategory === "behavior") {
-      console.log(
-        "Auto-approval blocked: behavior sensitivity requires manual review"
-      );
       status = "pending_review";
     }
     // Future Phase 5: Normal category may auto-approve based on trust level
@@ -195,7 +204,7 @@ export const createParentSummary = internalMutation({
     const summaryId = await ctx.db.insert("coachParentSummaries", {
       voiceNoteId: args.voiceNoteId,
       insightId: args.insightId,
-      coachId: voiceNote.coachId || "",
+      coachId: voiceNote.coachId, // Required field - always present
       playerIdentityId: args.playerIdentityId,
       organizationId: voiceNote.orgId,
       sportId: args.sportId,
@@ -232,26 +241,33 @@ export const approveSummary = mutation({
       throw new Error("Not authenticated");
     }
 
+    // Get the user ID (use _id or userId depending on what's available)
+    const userId = user.userId || user._id;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
     if (!summary) {
       throw new Error("Summary not found");
     }
 
-    // Verify user is the coach for this summary
-    if (summary.coachId !== user.userId) {
-      throw new Error("Only the coach can approve this summary");
+    // Verify user is the coach for this summary (strict ownership)
+    if (summary.coachId !== userId) {
+      throw new Error(
+        "Only the coach who created this note can approve this summary"
+      );
     }
 
     // Update the summary status
     await ctx.db.patch(args.summaryId, {
       status: "approved",
       approvedAt: Date.now(),
-      approvedBy: user.userId || "",
+      approvedBy: userId,
     });
 
     // Update coach trust metrics
-    const { internal } = await import("../_generated/api");
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
       coachId: summary.coachId,
       organizationId: summary.organizationId,
@@ -279,8 +295,14 @@ export const approveInjurySummary = mutation({
   handler: async (ctx, args) => {
     // Authenticate user
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user?.userId) {
+    if (!user) {
       throw new Error("Not authenticated");
+    }
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const userId = user.userId || user._id;
+    if (!userId) {
+      throw new Error("User ID not found");
     }
 
     // Fetch the summary
@@ -289,9 +311,11 @@ export const approveInjurySummary = mutation({
       throw new Error("Summary not found");
     }
 
-    // Verify user is the coach for this summary
-    if (summary.coachId !== user.userId) {
-      throw new Error("Only the coach can approve this summary");
+    // Verify user is the coach for this summary (strict ownership)
+    if (summary.coachId !== userId) {
+      throw new Error(
+        "Only the coach who created this note can approve this summary"
+      );
     }
 
     // Validate all checklist items are true
@@ -310,7 +334,7 @@ export const approveInjurySummary = mutation({
     // Insert checklist record for audit trail
     await ctx.db.insert("injuryApprovalChecklist", {
       summaryId: args.summaryId,
-      coachId: user.userId,
+      coachId: userId,
       personallyObserved: args.checklist.personallyObserved,
       severityAccurate: args.checklist.severityAccurate,
       noMedicalAdvice: args.checklist.noMedicalAdvice,
@@ -321,11 +345,10 @@ export const approveInjurySummary = mutation({
     await ctx.db.patch(args.summaryId, {
       status: "approved",
       approvedAt: Date.now(),
-      approvedBy: user.userId,
+      approvedBy: userId,
     });
 
     // Update coach trust metrics
-    const { internal } = await import("../_generated/api");
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
       coachId: summary.coachId,
       organizationId: summary.organizationId,
@@ -352,6 +375,12 @@ export const suppressSummary = mutation({
       throw new Error("Not authenticated");
     }
 
+    // Get the user ID (use _id or userId depending on what's available)
+    const userId = user.userId || user._id;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
     if (!summary) {
@@ -359,7 +388,7 @@ export const suppressSummary = mutation({
     }
 
     // Verify user is the coach for this summary
-    if (summary.coachId !== user.userId) {
+    if (summary.coachId !== userId) {
       throw new Error("Only the coach can suppress this summary");
     }
 
@@ -369,7 +398,6 @@ export const suppressSummary = mutation({
     });
 
     // Update coach trust metrics
-    const { internal } = await import("../_generated/api");
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
       coachId: summary.coachId,
       organizationId: summary.organizationId,
@@ -398,6 +426,12 @@ export const editSummaryContent = mutation({
       throw new Error("Not authenticated");
     }
 
+    // Get the user ID (use _id or userId depending on what's available)
+    const userId = user.userId || user._id;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
     if (!summary) {
@@ -405,7 +439,7 @@ export const editSummaryContent = mutation({
     }
 
     // Verify user is the coach for this summary
-    if (summary.coachId !== user.userId) {
+    if (summary.coachId !== userId) {
       throw new Error("Only the coach can edit this summary");
     }
 
@@ -452,12 +486,15 @@ export const getCoachPendingSummaries = query({
       throw new Error("Not authenticated");
     }
 
+    // Get userId with fallback to _id
+    const userId = user.userId || user._id;
+
     // Query summaries by coach with pending_review status
     const summaries = await ctx.db
       .query("coachParentSummaries")
       .withIndex("by_coach_org_status", (q) =>
         q
-          .eq("coachId", user.userId || "")
+          .eq("coachId", userId)
           .eq("organizationId", args.organizationId)
           .eq("status", "pending_review")
       )
@@ -565,7 +602,12 @@ export const getParentSummariesByChildAndSport = query({
       sportGroups: v.array(
         v.object({
           sport: v.union(sportValidator, v.null()),
-          summaries: v.array(summaryValidator),
+          summaries: v.array(
+            v.object({
+              ...summaryValidator.fields,
+              coachName: v.string(),
+            })
+          ),
           unreadCount: v.number(),
         })
       ),
@@ -654,17 +696,65 @@ export const getParentSummariesByChildAndSport = query({
           }
         }
 
-        // Convert to array with sport info
+        // Convert to array with sport info and enrich with coach names
         const sportGroups = await Promise.all(
           Array.from(sportMap.entries()).map(
             async ([sportId, sportSummaries]) => {
               const sport = await ctx.db.get(sportId as Id<"sports">);
+              // Count unacknowledged messages (not just unviewed)
+              // acknowledgedAt is the explicit user action to mark as read
               const unreadCount = sportSummaries.filter(
-                (s) => !s.viewedAt
+                (s) => !s.acknowledgedAt
               ).length;
+
+              // Enrich summaries with coach names
+              const enrichedSummaries = await Promise.all(
+                sportSummaries.map(async (summary) => {
+                  let coachName = "Unknown Coach";
+
+                  if (summary.coachId) {
+                    try {
+                      // Query by _id field (Convex document ID)
+                      const coachResult = await ctx.runQuery(
+                        components.betterAuth.adapter.findOne,
+                        {
+                          model: "user",
+                          where: [
+                            {
+                              field: "_id",
+                              value: summary.coachId,
+                              operator: "eq",
+                            },
+                          ],
+                        }
+                      );
+
+                      if (coachResult) {
+                        // Better Auth stores full name in 'name' field
+                        if (coachResult.name) {
+                          coachName = coachResult.name;
+                        } else if (coachResult.email) {
+                          coachName = coachResult.email;
+                        }
+                      }
+                    } catch (error) {
+                      console.error(
+                        `Failed to fetch coach name for ${summary.coachId}:`,
+                        error
+                      );
+                    }
+                  }
+
+                  return {
+                    ...summary,
+                    coachName,
+                  };
+                })
+              );
+
               return {
                 sport,
-                summaries: sportSummaries,
+                summaries: enrichedSummaries,
                 unreadCount,
               };
             }
@@ -704,6 +794,12 @@ export const markSummaryViewed = mutation({
       throw new Error("Not authenticated");
     }
 
+    // Get the user ID
+    const userId = user._id || user.userId;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);
     if (!summary) {
@@ -713,7 +809,7 @@ export const markSummaryViewed = mutation({
     // Find guardian identity for this user
     const guardianIdentity = await ctx.db
       .query("guardianIdentities")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .first();
 
     if (!guardianIdentity) {
@@ -749,5 +845,466 @@ export const markSummaryViewed = mutation({
     });
 
     return null;
+  },
+});
+
+/**
+ * Track when a parent shares a summary
+ */
+export const trackShareEvent = mutation({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+    shareDestination: v.union(
+      v.literal("download"),
+      v.literal("native_share"),
+      v.literal("copy_link")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the user ID
+    const userId = user._id || user.userId;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
+    // Fetch the summary
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      throw new Error("Summary not found");
+    }
+
+    // Find guardian identity for this user
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!guardianIdentity) {
+      throw new Error("Guardian identity not found");
+    }
+
+    // Verify guardian is linked to the summary's player
+    const link = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian_and_player", (q) =>
+        q
+          .eq("guardianIdentityId", guardianIdentity._id)
+          .eq("playerIdentityId", summary.playerIdentityId)
+      )
+      .first();
+
+    if (!link) {
+      throw new Error("Not authorized to share this summary");
+    }
+
+    // Insert summaryShares record
+    await ctx.db.insert("summaryShares", {
+      summaryId: args.summaryId,
+      guardianIdentityId: guardianIdentity._id,
+      sharedAt: Date.now(),
+      shareDestination: args.shareDestination,
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Acknowledge a parent summary (mark as read/understood)
+ * This is different from "viewed" - it's an explicit user action
+ * to mark a message as acknowledged/understood
+ */
+export const acknowledgeParentSummary = mutation({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the user ID
+    const userId = user._id || user.userId;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
+    // Fetch the summary
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      throw new Error("Summary not found");
+    }
+
+    // Find guardian identity for this user
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!guardianIdentity) {
+      throw new Error("Guardian identity not found");
+    }
+
+    // Verify guardian is linked to the summary's player
+    const link = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian_and_player", (q) =>
+        q
+          .eq("guardianIdentityId", guardianIdentity._id)
+          .eq("playerIdentityId", summary.playerIdentityId)
+      )
+      .first();
+
+    if (!link) {
+      throw new Error("Not authorized to acknowledge this summary");
+    }
+
+    // Update summary with acknowledgment
+    await ctx.db.patch(args.summaryId, {
+      acknowledgedAt: Date.now(),
+      acknowledgedBy: userId,
+    });
+
+    return null;
+  },
+});
+
+/**
+ * Acknowledge all summaries for a specific player
+ * Batch operation for "mark all as read" functionality
+ */
+export const acknowledgeAllForPlayer = mutation({
+  args: {
+    playerIdentityId: v.id("playerIdentities"),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    acknowledgedCount: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    // Get the user ID
+    const userId = user._id || user.userId;
+    if (!userId) {
+      throw new Error("User ID not found");
+    }
+
+    // Find guardian identity for this user
+    const guardianIdentity = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!guardianIdentity) {
+      throw new Error("Guardian identity not found");
+    }
+
+    // Verify guardian is linked to the player
+    const link = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian_and_player", (q) =>
+        q
+          .eq("guardianIdentityId", guardianIdentity._id)
+          .eq("playerIdentityId", args.playerIdentityId)
+      )
+      .first();
+
+    if (!link) {
+      throw new Error(
+        "Not authorized to acknowledge summaries for this player"
+      );
+    }
+
+    // Find all unacknowledged summaries for this player
+    const summaries = await ctx.db
+      .query("coachParentSummaries")
+      .withIndex("by_player_acknowledged", (q) =>
+        q.eq("playerIdentityId", args.playerIdentityId)
+      )
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("organizationId"), args.organizationId),
+          q.or(
+            q.eq(q.field("status"), "delivered"),
+            q.eq(q.field("status"), "viewed")
+          ),
+          q.eq(q.field("acknowledgedAt"), undefined)
+        )
+      )
+      .collect();
+
+    // Acknowledge all summaries
+    const acknowledgedAt = Date.now();
+    await Promise.all(
+      summaries.map((summary) =>
+        ctx.db.patch(summary._id, {
+          acknowledgedAt,
+          acknowledgedBy: userId,
+        })
+      )
+    );
+
+    return {
+      acknowledgedCount: summaries.length,
+    };
+  },
+});
+
+/**
+ * Get passport deep link for a summary
+ * Maps insight category to appropriate passport section
+ */
+export const getPassportLinkForSummary = query({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+  },
+  returns: v.object({
+    section: v.string(),
+    url: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    // Fetch the summary
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      throw new Error("Summary not found");
+    }
+
+    // Determine passport section based on insight category and sensitivity
+    let section = "overview"; // default
+
+    // Check sensitivityCategory first for injury/behavior
+    if (summary.sensitivityCategory === "injury") {
+      section = "medical";
+    } else if (summary.sensitivityCategory === "behavior") {
+      section = "overview";
+    } else if (summary.privateInsight?.category) {
+      // Map insight category to passport section
+      const categoryMap: Record<string, string> = {
+        skill_rating: "skills",
+        skill_progress: "goals",
+        injury: "medical",
+        behavior: "overview",
+      };
+      section = categoryMap[summary.privateInsight.category] || "overview";
+    }
+
+    // Build passport URL - parent viewing player passport
+    const url = `/orgs/${summary.organizationId}/players/${summary.playerIdentityId}`;
+
+    return { section, url };
+  },
+});
+
+/**
+ * Internal query: Fetch summary data for image generation
+ * Fetches summary with player, coach, and org names
+ */
+export const getSummaryForImage = internalQuery({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+  },
+  returns: v.union(
+    v.object({
+      content: v.string(),
+      playerFirstName: v.string(),
+      coachName: v.string(),
+      orgName: v.string(),
+      orgLogo: v.union(v.string(), v.null()),
+      generatedAt: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx, args) => {
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      return null;
+    }
+
+    // Fetch player
+    const player = await ctx.db.get(summary.playerIdentityId);
+    if (!player) {
+      return null;
+    }
+
+    // Fetch coach name using Better Auth adapter
+    let coachName = "Your Coach";
+    if (summary.coachId) {
+      try {
+        // Query by _id field (Convex document ID - this is what's actually stored as coachId)
+        const userResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "user",
+            where: [{ field: "_id", value: summary.coachId, operator: "eq" }],
+          }
+        );
+
+        if (userResult) {
+          // Better Auth stores full name in 'name' field
+          if (userResult.name) {
+            coachName = `Coach ${userResult.name}`;
+          } else if (userResult.email) {
+            // Fallback to email if no name
+            coachName = `Coach ${userResult.email}`;
+          }
+        }
+      } catch (error) {
+        console.error(
+          `Failed to fetch coach name for ${summary.coachId}:`,
+          error
+        );
+      }
+    }
+
+    // Fetch organization name and logo using Better Auth adapter
+    let orgName = "Organization";
+    let orgLogo: string | null = null;
+    if (summary.organizationId) {
+      try {
+        // Try to find by id first
+        let orgResult = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
+          {
+            model: "organization",
+            where: [
+              {
+                field: "id",
+                value: summary.organizationId,
+                operator: "eq",
+              },
+            ],
+          }
+        );
+
+        // If not found, try by _id (though organizationId should always be the Better Auth id)
+        if (!orgResult) {
+          orgResult = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "organization",
+              where: [
+                {
+                  field: "_id",
+                  value: summary.organizationId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+        }
+
+        if (orgResult) {
+          const org = orgResult as {
+            name?: string;
+            logo?: string;
+          };
+          if (org.name) {
+            orgName = org.name;
+          }
+          if (org.logo) {
+            orgLogo = org.logo;
+          }
+        }
+      } catch (error) {
+        console.error(
+          `Failed to fetch org name for ${summary.organizationId}:`,
+          error
+        );
+      }
+    }
+
+    return {
+      content: summary.publicSummary.content,
+      playerFirstName: player.firstName,
+      coachName,
+      orgName,
+      orgLogo,
+      generatedAt: summary.publicSummary.generatedAt,
+    };
+  },
+});
+
+/**
+ * Public query: Get summary data for PDF/sharing
+ * Parents can call this to get data needed for generating PDFs
+ */
+export const getSummaryForPDF = query({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+  },
+  returns: v.union(
+    v.object({
+      content: v.string(),
+      playerFirstName: v.string(),
+      coachName: v.string(),
+      organizationName: v.string(),
+      generatedDate: v.string(),
+      category: v.optional(v.string()),
+    }),
+    v.null()
+  ),
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    content: string;
+    playerFirstName: string;
+    coachName: string;
+    organizationName: string;
+    generatedDate: string;
+    category?: string;
+  } | null> => {
+    // Re-use internal query logic
+    const data: {
+      content: string;
+      playerFirstName: string;
+      coachName: string;
+      orgName: string;
+      orgLogo: string | null;
+      generatedAt: number;
+    } | null = await ctx.runQuery(
+      internal.models.coachParentSummaries.getSummaryForImage,
+      args
+    );
+
+    if (!data) {
+      return null;
+    }
+
+    // Format date for display
+    const date = new Date(data.generatedAt);
+    const formattedDate = date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    // Get summary to extract category
+    const summary = await ctx.db.get(args.summaryId);
+    const category = summary?.privateInsight?.category;
+
+    return {
+      content: data.content,
+      playerFirstName: data.playerFirstName,
+      coachName: data.coachName,
+      organizationName: data.orgName,
+      generatedDate: formattedDate,
+      category,
+    };
   },
 });

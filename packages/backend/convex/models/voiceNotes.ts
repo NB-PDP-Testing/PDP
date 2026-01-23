@@ -9,6 +9,23 @@ import {
   query,
 } from "../_generated/server";
 
+// ============ INTERNAL QUERIES ============
+
+/**
+ * Get a user by their string ID (for use in actions)
+ * Better Auth user IDs are stored as strings in voiceNotes.coachId
+ */
+export const getUserByStringId = internalQuery({
+  args: {
+    userId: v.string(),
+  },
+  returns: v.union(v.any(), v.null()),
+  handler: async (ctx, args) => {
+    // Cast string to Id<"user"> for db.get
+    return await ctx.db.get(args.userId as Id<"user">);
+  },
+});
+
 // ============ REGEX PATTERNS (for skill rating parsing) ============
 // Patterns to match: "Rating: 4", "set to 3", "to three", "improved to 4/5", "level 3"
 const SKILL_RATING_NUMERIC_PATTERN =

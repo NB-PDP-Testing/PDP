@@ -319,26 +319,39 @@ export const buildInsights = internalAction({
 
       // ALWAYS add the recording coach first (even if they have no teams)
       if (note.coachId) {
+        console.log(
+          `[TODO Coaches] Looking up recording coach with ID: ${note.coachId}`
+        );
+
+        // Use internal query to get user by string ID
         const recordingCoachUser = await ctx.runQuery(
-          components.betterAuth.adapter.findOne,
+          internal.models.voiceNotes.getUserByStringId,
           {
-            model: "user",
-            where: [{ field: "id", value: note.coachId, operator: "eq" }],
+            userId: note.coachId,
           }
         );
+
+        console.log(
+          `[TODO Coaches] Query result: ${recordingCoachUser ? "FOUND" : "NOT FOUND"}`
+        );
+
         if (recordingCoachUser) {
           const u = recordingCoachUser as any;
           const coachName =
             `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
             u.email ||
+            u.name ||
             "Unknown";
+          console.log(
+            `[TODO Coaches] ✅ Adding coach "${coachName}" to roster (ID: ${note.coachId})`
+          );
           coachesRoster.push({
             id: note.coachId,
             name: coachName,
           });
         } else {
-          console.warn(
-            `[TODO Coaches] Could not find recording coach user for ID: ${note.coachId}`
+          console.error(
+            `[TODO Coaches] ❌ FAILED to find recording coach user for ID: ${note.coachId}`
           );
         }
       }

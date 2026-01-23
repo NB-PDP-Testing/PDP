@@ -637,28 +637,21 @@ IMPORTANT:
           );
         }
 
-        // Auto-assign TODO if:
-        // 1. This is a todo insight
-        // 2. AI didn't assign an assigneeUserId
-        // 3. Default to recording coach if no assignee specified
-        let assigneeUserId = insight.assigneeUserId ?? undefined;
-        let assigneeName = insight.assigneeName ?? undefined;
+        // TODO assignment: Trust the AI's decision
+        // AI assigns when it detects first-person pronouns ("I need to", "I'll", "I should")
+        // AI leaves NULL when it's ambiguous ("jerseys need sorting", "someone should", "we need to")
+        const assigneeUserId = insight.assigneeUserId ?? undefined;
+        const assigneeName = insight.assigneeName ?? undefined;
 
-        console.log(
-          `[TODO Auto-Assignment] Checking insight "${insight.title}": category="${insight.category}", assigneeUserId="${assigneeUserId}", note.coachId="${note.coachId}", roster size=${coachesRoster.length}`
-        );
-
-        if (insight.category === "todo" && !assigneeUserId && note.coachId) {
-          // If no assignee from AI, default to recording coach
-          console.log(
-            `[TODO Auto-Assignment] Looking for recording coach in roster of ${coachesRoster.length} coaches...`
-          );
-          const recordingCoach = coachesRoster.find(
-            (c) => c.id === note.coachId
-          );
-          if (recordingCoach) {
-            assigneeUserId = recordingCoach.id;
-            assigneeName = recordingCoach.name;
+        if (insight.category === "todo") {
+          if (assigneeUserId) {
+            console.log(
+              `[TODO Assignment] AI assigned "${insight.title}" to ${assigneeName} (ID: ${assigneeUserId})`
+            );
+          } else {
+            console.log(
+              `[TODO Assignment] "${insight.title}" left unassigned - needs manual assignment (AI detected ambiguous phrasing)`
+            );
           }
         }
 

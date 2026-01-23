@@ -932,7 +932,7 @@ export async function generateCoachSummaryPDF(
       width: badgeWidth,
       height: 20,
       color: rgb(0.9, 0.9, 0.92),
-      borderRadius: 10,
+      // Note: borderRadius not supported by pdf-lib
     });
 
     // Badge text

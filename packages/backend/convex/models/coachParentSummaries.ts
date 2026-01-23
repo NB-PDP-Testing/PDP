@@ -181,6 +181,13 @@ export const createParentSummary = internalMutation({
       throw new Error("Voice note not found");
     }
 
+    // Verify coachId exists (required for parent summaries)
+    if (!voiceNote.coachId) {
+      throw new Error(
+        "Cannot create parent summary: voice note has no coachId. This is likely a legacy note."
+      );
+    }
+
     // Determine initial status based on sensitivity category
     // INJURY and BEHAVIOR categories NEVER auto-approve (even in future phases)
     let status: "pending_review" | "auto_approved" = "pending_review";
@@ -1253,7 +1260,10 @@ export const getSummaryForPDF = query({
   ),
   handler: async (ctx, args) => {
     // Re-use internal query logic
-    const data = await getSummaryForImage(ctx, args);
+    const data = await ctx.runQuery(
+      internal.models.coachParentSummaries.getSummaryForImage,
+      args
+    );
 
     if (!data) {
       return null;

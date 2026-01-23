@@ -8,8 +8,9 @@ import { query } from "../_generated/server";
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    // Query Better Auth user table directly
-    const users = await ctx.db.query("user").collect();
+    // Query Better Auth user table directly via component
+    // Note: Better Auth tables are in the component, not in our schema
+    const users = await ctx.db.query("user" as any).collect();
 
     console.log(`Found ${users.length} users:`);
     for (const user of users) {

@@ -92,7 +92,7 @@ export const generatePracticePlan = action({
 
     // Note: Development goals API not yet implemented
     // Will use coach feedback and skill analysis instead
-    const goals = null;
+    const goals: any[] | null = null;
 
     // Get recent coach summaries for context
     const summaries = await ctx.runQuery(
@@ -104,8 +104,8 @@ export const generatePracticePlan = action({
 
     // Find summaries for this specific player
     const playerSummaries = summaries
-      .find((child) => child.player._id === args.playerIdentityId)
-      ?.sportGroups.flatMap((sg) => sg.summaries)
+      .find((child: any) => child.player._id === args.playerIdentityId)
+      ?.sportGroups.flatMap((sg: any) => sg.summaries)
       .slice(0, 3); // Get most recent 3
 
     // Analyze skills to find areas for improvement
@@ -120,16 +120,19 @@ export const generatePracticePlan = action({
     const weakestSkills = skillEntries.slice(0, 3);
     const playerName = `${passportData.firstName} ${passportData.lastName}`;
     const ageGroup = enrollment.ageGroup || "Unknown";
-    const sport = passportData.passports?.[0]?.sportName || "General Sports";
+    const sport =
+      (passportData.passports as any)?.[0]?.sportName ||
+      enrollment.sport ||
+      "General Sports";
 
     // Build context for AI
     const coachFeedback =
-      playerSummaries?.map((s) => s.publicSummary.content).join("\n- ") ||
+      playerSummaries?.map((s: any) => s.publicSummary.content).join("\n- ") ||
       "No recent feedback";
 
-    const developmentGoals =
-      goals?.map((g) => `${g.title}: ${g.description}`).join("\n- ") ||
-      "No specific goals set";
+    const developmentGoals = goals
+      ? goals.map((g: any) => `${g.title}: ${g.description}`).join("\n- ")
+      : "No specific goals set";
 
     const skillsList = weakestSkills
       .map((s) => `${s.name}: ${s.rating}/5`)
@@ -254,7 +257,7 @@ IMPORTANT: Return ONLY valid JSON, no markdown formatting or extra text.`;
       }
 
       // Build final practice plan
-      const plan = {
+      const plan: any = {
         playerName,
         sport,
         ageGroup,

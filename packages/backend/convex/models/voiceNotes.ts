@@ -856,6 +856,13 @@ export const updateInsightStatus = mutation({
       const targetTeamName = (insight as any).teamName;
 
       if (targetTeamId && targetTeamName) {
+        // Verify coachId exists (required for team observations)
+        if (!note.coachId) {
+          throw new Error(
+            "Cannot create team observation: voice note has no coachId. This is likely a legacy note."
+          );
+        }
+
         // Get coach name from Better Auth
         const coachUser = await ctx.runQuery(
           components.betterAuth.adapter.findOne,

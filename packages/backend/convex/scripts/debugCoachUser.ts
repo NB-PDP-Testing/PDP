@@ -26,6 +26,7 @@ export const checkCoach = query({
     const users = await ctx.runQuery(components.betterAuth.adapter.findMany, {
       model: "user",
       where: [{ field: "id", value: args.coachId, operator: "eq" }],
+      paginationOpts: { cursor: null, numItems: 10 },
     });
 
     console.log("Result from findMany:", users);

@@ -379,7 +379,7 @@ export const buildInsights = internalAction({
         new Map(
           players.map((player: any) => [player.playerIdentityId, player])
         ).values()
-      );
+      ) as PlayerFromOrg[];
 
       const rosterContext = uniquePlayers.length
         ? JSON.stringify(
@@ -562,7 +562,7 @@ IMPORTANT:
           console.error(
             `[Matching Failed] ❌ Could not match "${insight.playerName}" to roster. Roster has ${players.length} players: ${players
               .slice(0, 5)
-              .map((p) => p.firstName)
+              .map((p: any) => p.firstName)
               .join(", ")}...`
           );
         }

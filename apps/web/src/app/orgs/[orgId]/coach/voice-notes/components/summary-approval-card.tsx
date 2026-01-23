@@ -21,6 +21,8 @@ type SummaryApprovalCardProps = {
     privateInsight: {
       title: string;
       description: string;
+      category: string;
+      sentiment: "positive" | "neutral" | "concern";
     };
   };
   player: {
@@ -34,6 +36,7 @@ type SummaryApprovalCardProps = {
   onSuppress: () => void;
   isApproving: boolean;
   isSuppressing: boolean;
+  dateTime?: string;
 };
 
 export function SummaryApprovalCard({
@@ -44,6 +47,7 @@ export function SummaryApprovalCard({
   onSuppress,
   isApproving,
   isSuppressing,
+  dateTime,
 }: SummaryApprovalCardProps) {
   // Check if mobile on mount - collapsed by default on mobile for space
   const [isInsightExpanded, setIsInsightExpanded] = useState(false);
@@ -78,8 +82,34 @@ export function SummaryApprovalCard({
     return "Review";
   };
 
+  // Get border color based on category (case-insensitive)
+  const getBorderColor = (category: string) => {
+    const lowerCategory = category.toLowerCase();
+    if (lowerCategory === "behavior") {
+      return "border-l-red-500";
+    }
+    if (lowerCategory === "injury") {
+      return "border-l-orange-500";
+    }
+    return "border-l-blue-500";
+  };
+
+  // Get content box styling based on category (case-insensitive)
+  const getContentBoxStyle = (category: string) => {
+    const lowerCategory = category.toLowerCase();
+    if (lowerCategory === "behavior") {
+      return "bg-red-50 border-l-4 border-red-400";
+    }
+    if (lowerCategory === "injury") {
+      return "bg-orange-50 border-l-4 border-orange-400";
+    }
+    return "bg-muted";
+  };
+
   return (
-    <Card className="border-l-4 border-l-blue-500">
+    <Card
+      className={`border-l-4 ${getBorderColor(summary.privateInsight.category)}`}
+    >
       {/* Compact header with player name, sport, and confidence badge */}
       <CardHeader className="pb-2 sm:pb-4">
         <div className="flex items-center justify-between gap-2">
@@ -91,6 +121,9 @@ export function SummaryApprovalCard({
               <p className="text-muted-foreground text-xs sm:text-sm">
                 {sport.name}
               </p>
+            )}
+            {dateTime && (
+              <p className="text-muted-foreground text-xs">{dateTime}</p>
             )}
           </div>
           <Badge
@@ -105,7 +138,9 @@ export function SummaryApprovalCard({
 
       <CardContent className="space-y-3 pt-0 sm:space-y-4">
         {/* Parent-Friendly Summary - more compact on mobile */}
-        <div className="rounded-lg bg-muted p-3 sm:p-4">
+        <div
+          className={`rounded-lg p-3 sm:p-4 ${getContentBoxStyle(summary.privateInsight.category)}`}
+        >
           <p className="mb-1 font-medium text-muted-foreground text-xs sm:mb-2 sm:text-sm">
             Summary for Parent:
           </p>

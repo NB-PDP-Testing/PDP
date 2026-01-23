@@ -1,8 +1,11 @@
 # Voice Notes Architecture & Implementation Analysis
+**Last Updated**: January 21, 2026
+**Status**: ✅ Production Ready with Phase 4 Enhancements
+**Related**: See `docs/architecture/PHASE4_ARCHITECTURE.md` for complete Phase 4 details
 
 ## Executive Summary
 
-The Voice Notes system is **fully implemented** with OpenAI integration for both transcription and AI-powered insight extraction. The system is more advanced than the original MVP plan, which only specified Deepgram transcription.
+The Voice Notes system is **fully implemented with Phase 4 enhancements** including advanced insight routing, player name correction, bulk operations, and parent summary integration. The system uses OpenAI for transcription (Whisper) and AI-powered insight extraction (GPT-4o), significantly more advanced than the original MVP plan.
 
 ---
 
@@ -95,7 +98,8 @@ The Voice Notes system is **fully implemented** with OpenAI integration for both
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │                    schema.ts (voiceNotes table)                  │   │
 │  │  - orgId: string (index: by_orgId)                              │   │
-│  │  - coachId: string (index: by_orgId_and_coachId)                │   │
+│  │  - coachId: string ⚠️ REQUIRED (index: by_orgId_and_coachId)   │   │
+│  │    (Jan 21 2026: Changed from optional to required for Phase 4) │   │
 │  │  - date: string                                                  │   │
 │  │  - type: "training" | "match" | "general"                       │   │
 │  │  - audioStorageId: Id<"_storage">                               │   │
@@ -103,7 +107,7 @@ The Voice Notes system is **fully implemented** with OpenAI integration for both
 │  │  - transcriptionStatus: "pending"|"processing"|"completed"|"failed"│   │
 │  │  - transcriptionError: string                                    │   │
 │  │  - summary: string                                               │   │
-│  │  - insights: Insight[]                                           │   │
+│  │  - insights: Insight[] (Enhanced Phase 4 - see below)           │   │
 │  │  - insightsStatus: "pending"|"processing"|"completed"|"failed"  │   │
 │  │  - insightsError: string                                         │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
@@ -177,7 +181,7 @@ User types note → User clicks "Save & Analyze"
               updateInsights() saves to note
 ```
 
-### 3. Insight Application Flow
+### 3. Insight Application Flow (Phase 4 Enhanced)
 ```
 User reviews insight → Clicks Apply/Dismiss
                               ↓
@@ -185,29 +189,142 @@ User reviews insight → Clicks Apply/Dismiss
                               ↓
                Insight status updated in note
                               ↓
-               ⚠️ NO PLAYER PROFILE UPDATE (missing feature)
+               Insight routed to appropriate table based on category:
+                              ↓
+               ┌── injury → playerInjuries table
+               ├── skill_rating → skillAssessments table
+               ├── skill_progress → passportGoals or skillAssessments
+               ├── behavior/performance → sportPassports.coachNotes
+               ├── team_culture → team.coachNotes (Better Auth)
+               └── todo → coachTasks table
+                              ↓
+               (If player-linked) Schedule parent summary generation
+                              ↓
+               Parent summary AI processing (if coach trust level allows)
+                              ↓
+               Summary available for coach review/approval
 ```
 
 ---
 
-## Insight Schema
+## Phase 4 Enhancements (January 2026)
+
+### Critical Fix: coachId Now Required
+**Date**: January 21, 2026
+**Commit**: `5feda57`
+**Issue**: Voice notes created without coachId were breaking coach-scoped queries and parent summary attribution.
+
+**Impact**:
+- All new voice notes must include `coachId`
+- Enables proper coach-scoped analytics
+- Required for parent summary attribution
+- Necessary for team assignment tracking
+
+### Advanced Insight Routing System
+
+Insights now automatically route to specific database tables based on category:
+
+| Category | Destination | What Gets Created |
+|----------|-------------|-------------------|
+| `injury` | `playerInjuries` | Formal injury record with severity, body part, status, RTP protocol |
+| `skill_rating` | `skillAssessments` | Skill assessment with 1-5 rating for specific skill |
+| `skill_progress` | `passportGoals` or `skillAssessments` | Development goal OR skill assessment (smart detection) |
+| `behavior` | `sportPassports.coachNotes` | Coach note on player behavior |
+| `performance` | `sportPassports.coachNotes` | Performance observation |
+| `attendance` | `sportPassports.coachNotes` | Attendance tracking note |
+| `team_culture` | `team.coachNotes` | Team-wide cultural observation |
+| `todo` | `coachTasks` | Actionable task with assignment tracking |
+
+**Smart Skill Detection**: If `skill_progress` insight contains a rating pattern ("Rating: 4", "set to 3/5"), automatically creates `skillAssessments` record instead of goal.
+
+### Skill Rating Parser
+
+Extracts numeric ratings from natural language:
+- "Rating: 4" → 4
+- "improved to 3/5" → 3
+- "level three" → 3
+- "now at four" → 4
+
+Uses sophisticated regex patterns to detect and convert word numbers to numeric ratings.
+
+### Player Name Correction (Two-Stage)
+
+**1. Pattern-Based Correction** (Fast):
+- Handles possessives: "Claudia's" → "Clodagh's"
+- Word boundaries: "Claudia" → "Clodagh"
+- Full names: "Claudia Barlow" → "Clodagh Barlow"
+
+**2. AI Fallback** (GPT-4o-mini):
+- If pattern matching fails, schedule AI correction
+- Intelligently rewrites text with correct player name
+- Maintains context and phrasing
+
+### Bulk Operations
+
+New `bulkApplyInsights` mutation applies multiple insights in a single transaction:
+- Groups by noteId to minimize database reads
+- Optimized for coach workflow efficiency
+- Returns success/failure count per insight
+
+### Team & TODO Classification
+
+`classifyInsight` mutation allows coaches to:
+- Mark insights as team-level (not player-specific)
+- Create TODO tasks automatically from insights
+- Assign tasks to specific users
+- Link tasks back to original voice note
+
+### Player Passport Integration
+
+`getVoiceNotesForPlayer` query enables:
+- Display all coach insights for a player on their passport
+- Enriched with coach name from Better Auth
+- Used in "Coach Insights" section of player profiles
+
+### Parent Summary Integration
+
+**Automatic Workflow**:
+1. Coach records voice note
+2. AI extracts insights
+3. **For each player-linked insight:**
+   - Check if parent summaries enabled for coach
+   - Generate parent-friendly summary via GPT-4o
+   - Store with `pending_review` status
+   - Coach reviews and approves
+   - Parent receives tab notification
+   - Parent reads message on dashboard
+
+**Trust Levels**: Coaches can enable auto-approve for non-sensitive categories (skill_progress, performance). Injuries and behavior always require manual review.
+
+See `docs/architecture/PHASE4_ARCHITECTURE.md` for complete details.
+
+---
+
+## Insight Schema (Updated Phase 4)
 
 ```typescript
 interface Insight {
   id: string;                    // Unique ID for the insight
-  playerId?: Id<"players">;      // Matched player ID (if found in roster)
+  playerIdentityId?: Id<"playerIdentities">;  // Matched player ID (identity system)
   playerName?: string;           // Player name from transcription
   title: string;                 // Short title (e.g., "Skill Improvement")
   description: string;           // Detailed description
-  category?: string;             // One of 6 categories
+  category?: string;             // One of 8 categories (Phase 4: added skill_rating, todo)
   recommendedUpdate?: string;    // AI-suggested action
   status: "pending" | "applied" | "dismissed";
   appliedDate?: string;          // When insight was applied
+
+  // Phase 4 additions:
+  teamId?: string;               // Team ID for team_culture insights
+  teamName?: string;             // Team name for team_culture insights
+  assigneeUserId?: string;       // User assigned to TODO insights
+  assigneeName?: string;         // Name of assignee for TODO insights
+  linkedTaskId?: Id<"coachTasks">; // Link to created task (if category = todo)
 }
 ```
 
-### Insight Categories
-1. **injury** - Player injuries detected
+### Insight Categories (Phase 4: 8 categories)
+1. **injury** - Player injuries detected (→ `playerInjuries` table)
 2. **skill_progress** - Skill improvements or regressions
 3. **behavior** - Behavioral observations
 4. **performance** - Performance metrics

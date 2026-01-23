@@ -4,6 +4,7 @@
  */
 
 import { v } from "convex/values";
+import { components } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 
 /**
@@ -357,6 +358,7 @@ export const clearDefaultPreference = mutation({
 
 /**
  * Update user profile information
+ * Updates the Better Auth user table with profile fields via component mutation
  */
 export const updateProfile = mutation({
   args: {
@@ -366,10 +368,25 @@ export const updateProfile = mutation({
     phone: v.optional(v.string()),
   },
   returns: v.object({ success: v.boolean() }),
-  handler: (_ctx, _args) => {
-    // TODO: This would update the Better Auth user table
-    // For now, profile updates are handled by Better Auth client SDK
-    // This is a placeholder for future server-side profile updates
-    return { success: false };
+  handler: async (ctx, args) => {
+    // Call the Better Auth component mutation to update user profile
+    // This is necessary because the user table is inside the component
+    try {
+      const result = await ctx.runMutation(
+        components.betterAuth.userFunctions.updateUserProfile,
+        {
+          userId: args.userId,
+          firstName: args.firstName,
+          lastName: args.lastName,
+          phone: args.phone,
+        }
+      );
+
+      console.log("[updateProfile] Result:", result);
+      return result;
+    } catch (error) {
+      console.error("[updateProfile] Error:", error);
+      return { success: false };
+    }
   },
 });

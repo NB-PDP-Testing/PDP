@@ -13,6 +13,7 @@ import {
   ParentMobileNav,
   ParentSidebar,
 } from "@/components/layout/parent-sidebar";
+import { TabNotificationProvider } from "@/components/providers/tab-notification-provider";
 import { Button } from "@/components/ui/button";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
@@ -61,7 +62,7 @@ export default function ParentsLayout({
   ];
 
   return (
-    <>
+    <TabNotificationProvider orgId={orgId}>
       {/* Bottom navigation for mobile */}
       {useBottomNav && <BottomNav items={parentBottomNavItems} />}
 
@@ -125,6 +126,6 @@ export default function ParentsLayout({
           </>
         )}
       </div>
-    </>
+    </TabNotificationProvider>
   );
 }

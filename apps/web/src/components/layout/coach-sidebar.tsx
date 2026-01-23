@@ -94,6 +94,11 @@ export function getCoachNavGroups(orgId: string): NavGroup[] {
           icon: Mic,
         },
         {
+          href: `/orgs/${orgId}/coach/team-insights`,
+          label: "Team Insights",
+          icon: Users,
+        },
+        {
           href: `/orgs/${orgId}/coach/messages`,
           label: "Messages",
           icon: MessageSquare,

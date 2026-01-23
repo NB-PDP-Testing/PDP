@@ -4,7 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
-import { internalAction } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 
 /**
  * AI Model Configuration for Parent Summaries
@@ -346,12 +346,6 @@ export const processVoiceNoteInsight = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      console.log("🔄 Processing voice note insight for parent summary", {
-        voiceNoteId: args.voiceNoteId,
-        insightId: args.insightId,
-        playerIdentityId: args.playerIdentityId,
-      });
-
       // Step 1: Classify sensitivity
       const classification = await ctx.runAction(
         internal.actions.coachParentSummaries.classifyInsightSensitivity,
@@ -360,8 +354,6 @@ export const processVoiceNoteInsight = internalAction({
           insightDescription: args.insightDescription,
         }
       );
-
-      console.log("📊 Classification result:", classification);
 
       // Step 1.5: Check if sensitive insights should be skipped
       if (
@@ -378,9 +370,6 @@ export const processVoiceNoteInsight = internalAction({
         );
 
         if (shouldSkip) {
-          console.log(
-            `⏭️ SKIPPING: Sensitive insight (${classification.category}) - coach has disabled sensitive parent summaries`
-          );
           return null;
         }
       }
@@ -434,12 +423,6 @@ export const processVoiceNoteInsight = internalAction({
         }
       );
 
-      console.log("✍️ Generated summary:", {
-        summaryLength: summary.summary.length,
-        confidenceScore: summary.confidenceScore,
-        flags: summary.flags,
-      });
-
       // Step 5: Create summary record
       await ctx.runMutation(
         internal.models.coachParentSummaries.createParentSummary,
@@ -464,8 +447,6 @@ export const processVoiceNoteInsight = internalAction({
           sportId: sport._id,
         }
       );
-
-      console.log("✅ Parent summary created successfully");
     } catch (error) {
       console.error("❌ Error processing voice note insight:", error);
       // Don't throw - we don't want to break the voice note pipeline
@@ -473,5 +454,375 @@ export const processVoiceNoteInsight = internalAction({
     }
 
     return null;
+  },
+});
+
+/**
+ * Generate a shareable image card for a parent summary (US-011, US-012, US-013)
+ * Creates a branded 1200x630 PNG image using satori (JSX to SVG) and resvg (SVG to PNG)
+ *
+ * Image design:
+ * - Gradient background (PlayerARC brand colors: blue to purple)
+ * - PlayerARC logo/text at top
+ * - Quote-styled message content with player first name
+ * - Attribution: "From Coach [FirstName] at [Organization]"
+ * - Date in subtle text at bottom
+ *
+ * Storage: Uploads to Convex storage and returns URL
+ */
+export const generateShareableImage = action({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    // Dynamically import satori and resvg WASM for compatibility
+    const satori = (await import("satori")).default;
+    const { Resvg, initWasm } = await import("@resvg/resvg-wasm");
+
+    // Initialize WASM before using Resvg (CRITICAL for WASM version)
+    // Handle "Already initialized" error gracefully in serverless environment
+    // where the same process may handle multiple requests
+    try {
+      await initWasm(
+        fetch("https://unpkg.com/@resvg/resvg-wasm/index_bg.wasm")
+      );
+    } catch (error) {
+      // If already initialized, that's fine - continue execution
+      if (
+        !(
+          error instanceof Error &&
+          error.message.includes("Already initialized")
+        )
+      ) {
+        throw error;
+      }
+    }
+
+    // Fetch summary data with player, coach, org names
+    const summary = await ctx.runQuery(
+      internal.models.coachParentSummaries.getSummaryForImage,
+      {
+        summaryId: args.summaryId,
+      }
+    );
+
+    if (!summary) {
+      throw new Error("Summary not found");
+    }
+
+    // Format date (e.g., "January 20, 2026")
+    const date = new Date(summary.generatedAt);
+    const formattedDate = date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    // Fetch fonts with error handling
+    // Google Fonts may be blocked in Convex serverless environment
+    const fonts: Array<{
+      name: string;
+      data: ArrayBuffer;
+      weight: 400 | 500 | 600 | 700;
+      style: string;
+    }> = [];
+
+    try {
+      // Try to fetch Inter font (multiple weights)
+      const fontUrls = [
+        {
+          url: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.woff",
+          weight: 400 as const,
+        },
+        {
+          url: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI2fAZ9hjp-Ek-_EeA.woff",
+          weight: 500 as const,
+        },
+        {
+          url: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYAZ9hjp-Ek-_EeA.woff",
+          weight: 600 as const,
+        },
+        {
+          url: "https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hjp-Ek-_EeA.woff",
+          weight: 700 as const,
+        },
+      ];
+
+      for (const { url: fontUrl, weight } of fontUrls) {
+        try {
+          const response = await fetch(fontUrl);
+          // Check if response is actually a font file, not HTML
+          const contentType = response.headers.get("content-type");
+          if (
+            contentType &&
+            (contentType.includes("font") || contentType.includes("woff"))
+          ) {
+            const data = await response.arrayBuffer();
+            fonts.push({
+              name: "Inter",
+              data,
+              weight: weight as 400 | 500 | 600 | 700,
+              style: "normal",
+            });
+          }
+        } catch (error) {
+          console.warn(`Failed to load font weight ${weight}:`, error);
+        }
+      }
+    } catch (error) {
+      console.warn("Font loading failed, using system fonts:", error);
+    }
+
+    // Coach name comes pre-formatted from query (includes "Coach" prefix)
+    const coachName = summary.coachName;
+
+    // Fetch PlayerARC logo
+    let logoDataUrl = "";
+    try {
+      const logoUrl =
+        "https://playerarc.io/_next/image?url=%2Flogos-landing%2FPDP-Logo-OffWhiteOrbit_GreenHuman.png&w=256&q=75";
+      const logoResponse = await fetch(logoUrl);
+      if (logoResponse.ok) {
+        const logoBuffer = await logoResponse.arrayBuffer();
+        const logoBase64 = Buffer.from(logoBuffer).toString("base64");
+        logoDataUrl = `data:image/png;base64,${logoBase64}`;
+      }
+    } catch (error) {
+      console.warn("Failed to fetch PlayerARC logo:", error);
+    }
+
+    // Fetch organization logo if available
+    let orgLogoDataUrl = "";
+    if (summary.orgLogo) {
+      try {
+        const orgLogoResponse = await fetch(summary.orgLogo);
+        if (orgLogoResponse.ok) {
+          const orgLogoBuffer = await orgLogoResponse.arrayBuffer();
+          const orgLogoBase64 = Buffer.from(orgLogoBuffer).toString("base64");
+          // Detect content type
+          const contentType =
+            orgLogoResponse.headers.get("content-type") || "image/png";
+          orgLogoDataUrl = `data:${contentType};base64,${orgLogoBase64}`;
+        }
+      } catch (error) {
+        console.warn("Failed to fetch organization logo:", error);
+      }
+    }
+
+    // Generate SVG using satori - PlayerARC branded design
+    // Navy blue header/footer matching playerarc.io branding
+    const svg = await satori(
+      {
+        type: "div",
+        props: {
+          style: {
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            background: "#ffffff",
+            fontFamily: "sans-serif",
+          },
+          children: [
+            // Navy Blue Header Bar
+            {
+              type: "div",
+              props: {
+                style: {
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "30px 50px",
+                  background: "#2c3e50",
+                },
+                children: [
+                  // Left: PlayerARC logo + text
+                  {
+                    type: "div",
+                    props: {
+                      style: {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "15px",
+                      },
+                      children: logoDataUrl
+                        ? [
+                            {
+                              type: "img",
+                              props: {
+                                src: logoDataUrl,
+                                style: {
+                                  width: "50px",
+                                  height: "50px",
+                                },
+                              },
+                            },
+                            {
+                              type: "div",
+                              props: {
+                                style: {
+                                  fontSize: "40px",
+                                  fontWeight: "700",
+                                  color: "#ffffff",
+                                  letterSpacing: "-0.5px",
+                                },
+                                children: "PlayerARC",
+                              },
+                            },
+                          ]
+                        : [
+                            {
+                              type: "div",
+                              props: {
+                                style: {
+                                  fontSize: "40px",
+                                  fontWeight: "700",
+                                  color: "#ffffff",
+                                  letterSpacing: "-0.5px",
+                                },
+                                children: "PlayerARC",
+                              },
+                            },
+                          ],
+                    },
+                  },
+                  // Right: Org logo or name
+                  orgLogoDataUrl
+                    ? {
+                        type: "img",
+                        props: {
+                          src: orgLogoDataUrl,
+                          style: {
+                            height: "50px",
+                            maxWidth: "200px",
+                            objectFit: "contain",
+                          },
+                        },
+                      }
+                    : {
+                        type: "div",
+                        props: {
+                          style: {
+                            fontSize: "22px",
+                            color: "#ffffff",
+                            fontWeight: "500",
+                            opacity: 0.9,
+                          },
+                          children: summary.orgName,
+                        },
+                      },
+                ],
+              },
+            },
+            // White Content Area
+            {
+              type: "div",
+              props: {
+                style: {
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  flex: "1",
+                  padding: "60px 80px",
+                  textAlign: "center",
+                },
+                children: [
+                  {
+                    type: "div",
+                    props: {
+                      style: {
+                        fontSize: "32px",
+                        color: "#1e293b",
+                        marginBottom: "30px",
+                        lineHeight: "1.5",
+                        fontWeight: "400",
+                        maxWidth: "900px",
+                      },
+                      children: `"${summary.content}"`,
+                    },
+                  },
+                  {
+                    type: "div",
+                    props: {
+                      style: {
+                        fontSize: "24px",
+                        color: "#64748b",
+                        fontWeight: "600",
+                        fontStyle: "italic",
+                      },
+                      children: `For ${summary.playerFirstName}`,
+                    },
+                  },
+                ],
+              },
+            },
+            // Navy Blue Footer Bar
+            {
+              type: "div",
+              props: {
+                style: {
+                  display: "flex",
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "25px 50px",
+                  background: "#2c3e50",
+                },
+                children: [
+                  {
+                    type: "div",
+                    props: {
+                      style: {
+                        fontSize: "22px",
+                        color: "#ffffff",
+                        fontWeight: "500",
+                      },
+                      children: coachName,
+                    },
+                  },
+                  {
+                    type: "div",
+                    props: {
+                      style: {
+                        fontSize: "20px",
+                        color: "#ffffff",
+                        opacity: 0.8,
+                      },
+                      children: formattedDate,
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      } as any,
+      {
+        width: 1200,
+        height: 700, // Increased from 630 to better accommodate logos
+        // Use loaded fonts if available, otherwise satori will use system fonts
+        fonts: fonts.length > 0 ? (fonts as any) : [],
+      }
+    );
+
+    // Convert SVG to PNG using resvg (US-013)
+    const resvg = new Resvg(svg);
+    const pngData = resvg.render();
+    const pngBuffer = pngData.asPng();
+
+    // Store in Convex storage (US-013)
+    // Convert Buffer to Uint8Array for Blob
+    const pngArray = new Uint8Array(pngBuffer);
+    const blob = new Blob([pngArray], { type: "image/png" });
+    const storageId = await ctx.storage.store(blob);
+    const url = await ctx.storage.getUrl(storageId);
+
+    if (!url) {
+      throw new Error("Failed to generate storage URL");
+    }
+
+    return url;
   },
 });

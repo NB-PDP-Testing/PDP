@@ -362,18 +362,18 @@ export const getFellowCoachesForTeams = query({
     const results = [];
     for (const coach of fellowCoaches) {
       const userResult = await ctx.runQuery(
-        components.betterAuth.adapter.findOne,
+        components.betterAuth.userFunctions.getUserByStringId,
         {
-          model: "user",
-          where: [{ field: "id", value: coach.userId, operator: "eq" }],
+          userId: coach.userId,
         }
       );
 
       if (userResult) {
+        const user = userResult as any;
         results.push({
           userId: coach.userId,
-          userName: userResult.name || userResult.email || "Unknown",
-          email: userResult.email,
+          userName: user.name || user.email || "Unknown",
+          email: user.email,
           teams: coach.teams,
           sharedTeamCount: coach.sharedTeamCount,
         });

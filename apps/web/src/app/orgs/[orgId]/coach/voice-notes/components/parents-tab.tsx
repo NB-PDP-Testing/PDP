@@ -24,6 +24,21 @@ import { BehaviorApprovalCard } from "./behavior-approval-card";
 import { InjuryApprovalCard } from "./injury-approval-card";
 import { SummaryApprovalCard } from "./summary-approval-card";
 
+// Format date as "Mon Jan 22, 10:30 PM"
+function formatSummaryDate(date: Date | string | number): string {
+  const d =
+    typeof date === "string" || typeof date === "number"
+      ? new Date(date)
+      : date;
+  return d.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 type ParentsTabProps = {
   orgId: BetterAuthId<"organization">;
   onSuccess: (message: string) => void;
@@ -116,8 +131,17 @@ export function ParentsTab({ orgId, onSuccess, onError }: ParentsTabProps) {
     );
   }
 
-  // Sort summaries: injury first, then behavior, then normal
+  // Sort summaries: by most recent first, with sensitivity as secondary sort
   const sortedSummaries = [...pendingSummaries].sort((a, b) => {
+    // Primary: Sort by creation time (most recent first)
+    const timeA = a._creationTime;
+    const timeB = b._creationTime;
+
+    if (timeB !== timeA) {
+      return timeB - timeA;
+    }
+
+    // Secondary: Sort by sensitivity (injury > behavior > normal)
     const priority: Record<string, number> = {
       injury: 0,
       behavior: 1,
@@ -159,6 +183,7 @@ export function ParentsTab({ orgId, onSuccess, onError }: ParentsTabProps) {
               publicSummary: item.publicSummary,
               privateInsight: item.privateInsight,
             },
+            dateTime: formatSummaryDate(item._creationTime),
           };
 
           // Route to correct card based on sensitivity category

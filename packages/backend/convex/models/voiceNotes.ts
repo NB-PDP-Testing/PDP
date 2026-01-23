@@ -765,7 +765,70 @@ export const updateInsightStatus = mutation({
       } else {
         message = "Player identity not found";
       }
-    } else if (args.status === "applied" && !insight.playerIdentityId) {
+    } else if (
+      args.status === "applied" &&
+      !insight.playerIdentityId &&
+      insight.category === "todo"
+    ) {
+      // This is a TODO insight - create a coach task
+      const assigneeUserId = (insight as any).assigneeUserId;
+      const assigneeName = (insight as any).assigneeName;
+
+      if (!(assigneeUserId && note.coachId)) {
+        throw new Error(
+          "TODO insight must have assigneeUserId and coachId to create a task"
+        );
+      }
+
+      const now = Date.now();
+
+      // Create the coach task
+      const taskId = await ctx.db.insert("coachTasks", {
+        text: insight.title,
+        completed: false,
+        organizationId: note.orgId,
+        assignedToUserId: assigneeUserId,
+        assignedToName: assigneeName,
+        createdByUserId: note.coachId,
+        source: "voice_note",
+        voiceNoteId: args.noteId,
+        insightId: args.insightId,
+        priority: "medium",
+        createdAt: now,
+      });
+
+      appliedTo = "coachTasks";
+      recordId = taskId;
+      message = `Task created and assigned to ${assigneeName}`;
+
+      // Link the task back to the insight
+      const updatedInsightsWithTask = note.insights.map((i) => {
+        if (i.id === args.insightId) {
+          return {
+            ...i,
+            status: "applied" as const,
+            appliedDate: new Date().toISOString(),
+            linkedTaskId: taskId,
+          };
+        }
+        return i;
+      });
+
+      await ctx.db.patch(args.noteId, {
+        insights: updatedInsightsWithTask,
+      });
+
+      return {
+        success: true,
+        appliedTo,
+        recordId,
+        message,
+      };
+    } else if (
+      args.status === "applied" &&
+      !insight.playerIdentityId &&
+      insight.category === "team_culture"
+    ) {
       // This is a team-level insight (no player linked)
       // Create a record in teamObservations table
       const category = insight.category?.toLowerCase() || "team_culture";

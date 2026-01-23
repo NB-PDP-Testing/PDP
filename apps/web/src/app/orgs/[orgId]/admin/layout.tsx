@@ -284,6 +284,7 @@ function LegacyNavigation({
     { href: `/orgs/${orgId}/admin/guardians`, label: "Guardians" },
     { href: `/orgs/${orgId}/admin/users`, label: "Users" },
     { href: `/orgs/${orgId}/admin/users/approvals`, label: "Approvals" },
+    { href: `/orgs/${orgId}/admin/voice-notes`, label: "Voice Notes" },
     { href: `/orgs/${orgId}/admin/player-import`, label: "Import" },
     { href: `/orgs/${orgId}/admin/gaa-import`, label: "GAA" },
     { href: `/orgs/${orgId}/admin/benchmarks`, label: "Benchmarks" },

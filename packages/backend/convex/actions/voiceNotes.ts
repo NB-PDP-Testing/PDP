@@ -4,7 +4,7 @@ import { v } from "convex/values";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
-import { internal } from "../_generated/api";
+import { api, components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { internalAction } from "../_generated/server";
@@ -20,7 +20,7 @@ import { internalAction } from "../_generated/server";
  * - OPENAI_MODEL_TRANSCRIPTION: Model for audio transcription (default: gpt-4o-mini-transcribe)
  * - OPENAI_MODEL_INSIGHTS: Model for extracting insights from transcription (default: gpt-4o)
  */
-const DEFAULT_MODEL_TRANSCRIPTION = "gpt-4o-mini-transcribe";
+const DEFAULT_MODEL_TRANSCRIPTION = "whisper-1";
 const DEFAULT_MODEL_INSIGHTS = "gpt-4o";
 
 /**
@@ -95,6 +95,34 @@ const insightSchema = z.object({
           .string()
           .nullable()
           .describe("Suggested action or update based on this insight"),
+        teamId: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "ID of the team from the team roster, if this is a team_culture insight and team was mentioned"
+          ),
+        teamName: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Name of the team from the team roster, if this is a team_culture insight and team was mentioned"
+          ),
+        assigneeUserId: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "ID of the coach to assign this TODO to, if coach was mentioned or implied (e.g., 'I need to')"
+          ),
+        assigneeName: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "Name of the coach to assign this TODO to, if coach was mentioned or implied"
+          ),
       })
     )
     .min(0),
@@ -154,9 +182,14 @@ export const transcribeAudio = internalAction({
       // Get model config from database with fallback
       const config = await getAIConfig(ctx, "voice_transcription", note.orgId);
 
+      // Determine file extension based on source
+      // WhatsApp sends OGG audio, app recordings are WebM
+      const fileExtension =
+        note.source === "whatsapp_audio" ? "voice-note.ogg" : "voice-note.webm";
+
       // Transcribe with OpenAI
       const client = getOpenAI();
-      const file = await OpenAI.toFile(audioBuffer, "voice-note.webm");
+      const file = await OpenAI.toFile(audioBuffer, fileExtension);
       const transcription = await client.audio.transcriptions.create({
         model: config.modelId,
         file,
@@ -243,17 +276,125 @@ export const buildInsights = internalAction({
             { organizationId: note.orgId }
           );
 
-      // Build roster context for AI
-      const rosterContext = players.length
-        ? players
-            .map(
-              (player: any) =>
-                `- ${player.firstName} ${player.lastName} (ID: ${player.playerIdentityId})${
-                  player.ageGroup ? `, Age Group: ${player.ageGroup}` : ""
-                }${player.sport ? `, Sport: ${player.sport}` : ""}`
-            )
-            .join("\n")
-        : "No roster context provided.";
+      // Get coach's assigned teams for team matching
+      const coachTeams = note.coachId
+        ? await ctx.runQuery(api.models.coaches.getCoachAssignments, {
+            userId: note.coachId,
+            organizationId: note.orgId,
+          })
+        : null;
+
+      // Get team details if coach has teams assigned
+      const teamsList: Array<{
+        id: string;
+        name: string;
+        ageGroup?: string;
+        sport?: string;
+      }> = [];
+      if (coachTeams && (coachTeams as any).teams?.length > 0) {
+        const allTeamsResult = await ctx.runQuery(
+          components.betterAuth.adapter.findMany,
+          {
+            model: "team",
+            paginationOpts: { cursor: null, numItems: 1000 },
+            where: [
+              { field: "organizationId", value: note.orgId, operator: "eq" },
+            ],
+          }
+        );
+        const allTeams = allTeamsResult.page as any[];
+        const teamByNameMap = new Map(allTeams.map((t) => [t.name, t]));
+
+        for (const teamValue of (coachTeams as any).teams) {
+          const team = teamByNameMap.get(teamValue);
+          if (team) {
+            teamsList.push({
+              id: String(team._id),
+              name: team.name,
+              ageGroup: team.ageGroup,
+              sport: team.sport,
+            });
+          }
+        }
+      }
+
+      // Get coaches for TODO assignment
+      // Always include the recording coach, plus any fellow coaches on same teams
+      const coachesRoster: Array<{ id: string; name: string }> = [];
+
+      // ALWAYS add the recording coach first (even if they have no teams)
+      if (note.coachId) {
+        // Use betterAuth component query to get user by string ID
+        const recordingCoachUser = await ctx.runQuery(
+          components.betterAuth.userFunctions.getUserByStringId,
+          {
+            userId: note.coachId,
+          }
+        );
+
+        if (recordingCoachUser) {
+          const u = recordingCoachUser as any;
+          const coachName =
+            `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+            u.name ||
+            u.email ||
+            "Unknown";
+          coachesRoster.push({
+            id: note.coachId,
+            name: coachName,
+          });
+        } else {
+          console.error(
+            `[TODO Coaches] ❌ FAILED to find recording coach user for ID: ${note.coachId}`
+          );
+        }
+      } else {
+        console.warn("[TODO Coaches] note.coachId is null/undefined!");
+      }
+
+      // If coach has teams, add fellow coaches on same teams
+      if (note.coachId && teamsList.length > 0) {
+        const fellowCoaches = await ctx.runQuery(
+          api.models.coaches.getFellowCoachesForTeams,
+          {
+            userId: note.coachId,
+            organizationId: note.orgId,
+          }
+        );
+
+        // Add fellow coaches to roster (avoid duplicates)
+        for (const coach of fellowCoaches) {
+          if (!coachesRoster.some((c) => c.id === coach.userId)) {
+            coachesRoster.push({
+              id: coach.userId,
+              name: coach.userName,
+            });
+          }
+        }
+      }
+
+      // Build roster context for AI (JSON format for reliable parsing)
+      // IMPORTANT: Deduplicate by playerIdentityId in case player is on multiple teams
+      const uniquePlayers = Array.from(
+        new Map(
+          players.map((player: any) => [player.playerIdentityId, player])
+        ).values()
+      ) as PlayerFromOrg[];
+
+      const rosterContext = uniquePlayers.length
+        ? JSON.stringify(
+            uniquePlayers.map((player: any) => ({
+              id: player.playerIdentityId,
+              firstName: player.firstName,
+              lastName: player.lastName,
+              fullName: `${player.firstName} ${player.lastName}`,
+              ageGroup: player.ageGroup || "Unknown",
+              sport: player.sport || "Unknown",
+            })),
+            null,
+            2
+          )
+        : "[]";
 
       // Get model config from database with fallback
       const config = await getAIConfig(ctx, "voice_insights", note.orgId);
@@ -291,13 +432,89 @@ CATEGORIZATION RULES:
 - If it's a task/action for the coach to do → use todo, playerName should be null
 - skill_rating: include the rating number in recommendedUpdate (e.g., "Set to 3/5")
 
-Team Roster:
+Team Roster (JSON array - players):
 ${rosterContext}
 
-Important:
-- Always try to match mentioned player names to the roster and include their exact ID
-- If a player name doesn't match the roster exactly, still extract the insight with the playerName field
-- For team_culture and todo categories, playerName and playerId should be null
+Coach's Teams (JSON array):
+${teamsList.length ? JSON.stringify(teamsList, null, 2) : "[]"}
+
+Coaches on Same Teams (JSON array - for TODO assignment):
+${coachesRoster.length ? JSON.stringify(coachesRoster, null, 2) : "[]"}
+
+CRITICAL PLAYER MATCHING INSTRUCTIONS:
+- When you identify a player name in the voice note, YOU MUST find them in the roster JSON above
+- The roster JSON is an array of player objects with "id", "firstName", "lastName", "fullName" fields
+- Compare the mentioned name to the "fullName" field first (exact or partial match)
+- If the voice note mentions only a first name (e.g., "Clodagh"), check if any "firstName" in roster matches
+- When you find a match, you MUST copy the EXACT "id" field value into the playerId in your response
+- The "id" is a long string like "mx7fsvhh9m9v8qayeetcjvn5g17y95dv" - copy it exactly
+- If no match is found, set playerId to null but still include the playerName
+
+MATCHING EXAMPLES (FOLLOW THESE EXACTLY):
+Example 1: Voice note says "Clodagh Barlow injured her hand"
+  Roster has: {"id": "mx7fsvhh9m9v8qayeetcjvn5g17y95dv", "fullName": "Clodagh Barlow", ...}
+  YOU MUST RETURN: {"playerName": "Clodagh Barlow", "playerId": "mx7fsvhh9m9v8qayeetcjvn5g17y95dv"}
+
+Example 2: Voice note says "great effort from Clodagh this evening"
+  Roster has: {"id": "mx7fsvhh9m9v8qayeetcjvn5g17y95dv", "firstName": "Clodagh", "lastName": "Barlow", "fullName": "Clodagh Barlow", ...}
+  YOU MUST RETURN: {"playerName": "Clodagh Barlow", "playerId": "mx7fsvhh9m9v8qayeetcjvn5g17y95dv"}
+
+Example 3: Voice note says "Sinead had a great session"
+  Roster has: {"id": "abc123xyz", "firstName": "Sinead", "lastName": "Haughey", "fullName": "Sinead Haughey", ...}
+  YOU MUST RETURN: {"playerName": "Sinead Haughey", "playerId": "abc123xyz"}
+
+Example 4: Voice note says "John improved his passing" but John is not in roster
+  YOU MUST RETURN: {"playerName": "John", "playerId": null}
+
+VERIFICATION CHECKLIST:
+1. Did I search the roster JSON for this player name? YES/NO
+2. Did I find a matching "fullName" or "firstName"? YES/NO
+3. If YES, did I copy the exact "id" field into playerId? YES/NO
+4. If NO, did I set playerId to null? YES/NO
+
+TEAM MATCHING INSTRUCTIONS (for team_culture insights):
+- ONLY match team_culture insights to a team if the EXACT team name is mentioned in the voice note
+- Look for EXPLICIT team names that match the "name" field in the Coach's Teams JSON above
+- DO NOT infer or guess which team based on context like "the girls", "the lads", "the team"
+- If you find an EXACT match, copy the "id" and "name" into teamId and teamName
+- If the team name is not explicitly mentioned, leave teamId and teamName as NULL (coach will classify manually)
+- Examples of EXPLICIT matches:
+  * "The U18 Female team showed great spirit" → Match to {"id": "abc123", "name": "U18 Female"} → teamId="abc123", teamName="U18 Female"
+  * "Senior Women played well today" → Match to {"id": "xyz789", "name": "Senior Women"} → teamId="xyz789", teamName="Senior Women"
+- Examples where you should leave NULL:
+  * "The girls worked hard tonight" → teamId=null, teamName=null (ambiguous - could be any team)
+  * "Great team spirit today" → teamId=null, teamName=null (no specific team mentioned)
+  * "The senior team played well" → teamId=null, teamName=null (not exact - could be "Senior Women", "Senior Men", etc.)
+- IMPORTANT: When in doubt, leave NULL and let the coach classify manually
+
+TODO/ACTION ASSIGNMENT INSTRUCTIONS (for todo insights):
+- CRITICAL: ONLY assign TODOs when you can EXPLICITLY identify who should do it
+- Check the voice note for EXPLICIT assignment indicators:
+  * FIRST-PERSON PRONOUNS ("I need to", "I'll", "I should", "I've got to") → Assign to the recording coach
+  * SPECIFIC COACH NAME ("John should", "Sarah needs to") → Match to "Coaches on Same Teams" list
+- If NONE of the above, you MUST leave assigneeUserId and assigneeName as NULL:
+  * Bare action phrases with NO pronouns ("Organize match", "Sort jerseys", "Book pitch")
+  * Generic pronouns ("we need to", "someone should", "they have to")
+  * Passive voice ("needs to be done", "should be sorted", "must be organized")
+- Examples of AUTO-ASSIGNMENT (recording coach):
+  * "I need to order new cones" → assigneeUserId = recording coach ID
+  * "I'll schedule the parent meeting" → assigneeUserId = recording coach ID
+  * "I should book the pitch for Friday" → assigneeUserId = recording coach ID
+- Examples of SPECIFIC COACH ASSIGNMENT:
+  * "John should schedule the meeting" → Match "John" to coaches list
+  * "Ask Sarah to book the pitch" → Match "Sarah" to coaches list
+- Examples of NO ASSIGNMENT (leave NULL - coach assigns manually):
+  * "Organize challenge match" → assigneeUserId=null (bare phrase, no pronoun)
+  * "Sort the jerseys" → assigneeUserId=null (bare phrase, no pronoun)
+  * "Someone needs to book the pitch" → assigneeUserId=null (generic pronoun)
+  * "We need to order cones" → assigneeUserId=null (generic "we")
+  * "Jerseys need sorting" → assigneeUserId=null (passive voice)
+  * "Need to organize a match" → assigneeUserId=null (no explicit "I")
+
+IMPORTANT:
+- If a player name doesn't match the roster, still extract with playerName but set playerId to null
+- For team_culture and todo categories, both playerName and playerId should be null
+- For team_culture insights, try to match teamId and teamName from the Coach's Teams list
 - Be specific and actionable in your recommendations`,
               },
             ],
@@ -330,7 +547,37 @@ Important:
       // Resolve player IDs and build insights array
       // Now using playerIdentityId for the new identity system
       const resolvedInsights = parsed.data.insights.map((insight) => {
-        const matchedPlayer = findMatchingPlayer(insight, players);
+        // Log what AI returned
+        if (insight.playerName && !insight.playerId) {
+          console.warn(
+            `[AI Matching] ⚠️ AI extracted playerName "${insight.playerName}" but NO playerId. Attempting fallback matching...`
+          );
+        }
+
+        // Use deduplicated roster for matching
+        const matchedPlayer = findMatchingPlayer(insight, uniquePlayers);
+
+        // Log matching result
+        if (insight.playerName && !matchedPlayer) {
+          console.error(
+            `[Matching Failed] ❌ Could not match "${insight.playerName}" to roster. Roster has ${players.length} players: ${players
+              .slice(0, 5)
+              .map((p: any) => p.firstName)
+              .join(", ")}...`
+          );
+        }
+
+        // Team assignment: Only use AI-matched teams (no auto-assignment)
+        // Teams should only be assigned when explicitly mentioned in the voice note
+        const teamId = insight.teamId ?? undefined;
+        const teamName = insight.teamName ?? undefined;
+
+        // TODO assignment: Trust the AI's decision
+        // AI assigns when it detects first-person pronouns ("I need to", "I'll", "I should")
+        // AI leaves NULL when it's ambiguous ("jerseys need sorting", "someone should", "we need to")
+        const assigneeUserId = insight.assigneeUserId ?? undefined;
+        const assigneeName = insight.assigneeName ?? undefined;
+
         return {
           id: `insight_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
           playerIdentityId: matchedPlayer?.playerIdentityId ?? undefined,
@@ -339,6 +586,10 @@ Important:
           description: insight.description,
           category: insight.category ?? undefined,
           recommendedUpdate: insight.recommendedUpdate ?? undefined,
+          teamId,
+          teamName,
+          assigneeUserId,
+          assigneeName,
           status: "pending" as const,
         };
       });
@@ -352,15 +603,12 @@ Important:
       });
 
       // Log summary of matching results
-      const matchedCount = resolvedInsights.filter(
+      const _matchedCount = resolvedInsights.filter(
         (i) => i.playerIdentityId
       ).length;
-      const unmatchedCount = resolvedInsights.filter(
+      const _unmatchedCount = resolvedInsights.filter(
         (i) => !i.playerIdentityId && i.playerName
       ).length;
-      console.log(
-        `[Voice Note ${args.noteId}] Insights: ${resolvedInsights.length} total, ${matchedCount} matched to players, ${unmatchedCount} unmatched with names`
-      );
 
       // Check if parent summaries are enabled for this coach
       const parentSummariesEnabled = await ctx.runQuery(
@@ -374,11 +622,12 @@ Important:
       // Schedule parent summary generation for each insight with a player
       // Phase 3: Injury and behavior categories now flow through with manual review required
       if (parentSummariesEnabled) {
+        const _insightsWithPlayers = resolvedInsights.filter(
+          (i) => i.playerIdentityId
+        );
+
         for (const insight of resolvedInsights) {
           if (insight.playerIdentityId) {
-            console.log(
-              `[Parent Summary] Scheduling: "${insight.title}" for player ${insight.playerName} (category: ${insight.category})`
-            );
             await ctx.scheduler.runAfter(
               0,
               internal.actions.coachParentSummaries.processVoiceNoteInsight,
@@ -399,10 +648,6 @@ Important:
             );
           }
         }
-      } else {
-        console.log(
-          `[Parent Summary] ⚠️ DISABLED: Coach has disabled parent summaries. ${resolvedInsights.filter((i) => i.playerIdentityId).length} insights will be captured without parent summaries.`
-        );
       }
     } catch (error) {
       console.error("Failed to build insights:", error);
@@ -445,9 +690,6 @@ function findMatchingPlayer(
   const searchName = insight.playerName;
 
   if (!players.length) {
-    console.log(
-      `[Player Matching] No players in roster to match against for insight: "${insight.title}"`
-    );
     return;
   }
 
@@ -457,14 +699,8 @@ function findMatchingPlayer(
       (player) => player.playerIdentityId === insight.playerId
     );
     if (matchById) {
-      console.log(
-        `[Player Matching] ✅ Matched by ID: ${matchById.name} (${insight.playerId})`
-      );
       return matchById;
     }
-    console.log(
-      `[Player Matching] ID "${insight.playerId}" not found in roster`
-    );
   }
 
   // Try to match by name
@@ -476,9 +712,6 @@ function findMatchingPlayer(
       (player) => player.name.toLowerCase() === normalizedSearch
     );
     if (exactMatch) {
-      console.log(
-        `[Player Matching] ✅ Exact match: "${searchName}" → ${exactMatch.name}`
-      );
       return exactMatch;
     }
 
@@ -488,9 +721,6 @@ function findMatchingPlayer(
       return fullName === normalizedSearch;
     });
     if (nameMatch) {
-      console.log(
-        `[Player Matching] ✅ Full name match: "${searchName}" → ${nameMatch.name}`
-      );
       return nameMatch;
     }
 
@@ -499,9 +729,6 @@ function findMatchingPlayer(
       (player) => player.firstName.toLowerCase() === normalizedSearch
     );
     if (firstNameMatches.length === 1) {
-      console.log(
-        `[Player Matching] ✅ First name match: "${searchName}" → ${firstNameMatches[0].name}`
-      );
       return firstNameMatches[0];
     }
     if (firstNameMatches.length > 1) {
@@ -519,9 +746,6 @@ function findMatchingPlayer(
         normalizedSearch.includes(player.name.toLowerCase())
     );
     if (partialMatches.length === 1) {
-      console.log(
-        `[Player Matching] ✅ Partial match: "${searchName}" → ${partialMatches[0].name}`
-      );
       return partialMatches[0];
     }
     if (partialMatches.length > 1) {
@@ -536,10 +760,6 @@ function findMatchingPlayer(
         .slice(0, 10)
         .map((p) => p.firstName)
         .join(", ")}${players.length > 10 ? "..." : ""}`
-    );
-  } else {
-    console.log(
-      `[Player Matching] No player name provided for insight: "${insight.title}"`
     );
   }
 
@@ -559,13 +779,10 @@ export const correctInsightPlayerName = internalAction({
     correctName: v.string(),
     originalTitle: v.string(),
     originalDescription: v.string(),
+    originalRecommendedUpdate: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    console.log(
-      `[AI Name Correction] Starting for "${args.wrongName}" -> "${args.correctName}"`
-    );
-
     const openai = getOpenAI();
 
     const prompt = `You are correcting a player name in sports coaching feedback.
@@ -575,12 +792,12 @@ The voice transcription incorrectly heard the player's name as "${args.wrongName
 Please rewrite the following text, replacing any instance of the wrong name (or similar variations) with the correct name. Keep everything else exactly the same.
 
 Title: ${args.originalTitle}
-Description: ${args.originalDescription}
+Description: ${args.originalDescription}${args.originalRecommendedUpdate ? `\nRecommendedUpdate: ${args.originalRecommendedUpdate}` : ""}
 
 Respond in JSON format:
 {
   "title": "corrected title with correct player name",
-  "description": "corrected description with correct player name",
+  "description": "corrected description with correct player name",${args.originalRecommendedUpdate ? '\n  "recommendedUpdate": "corrected recommendedUpdate with correct player name",' : ""}
   "wasModified": true/false (whether any changes were made)
 }`;
 
@@ -606,10 +823,6 @@ Respond in JSON format:
       const result = JSON.parse(content);
 
       if (result.wasModified) {
-        console.log(
-          `[AI Name Correction] Successfully corrected: "${args.originalTitle}" -> "${result.title}"`
-        );
-
         // Update the insight in the database
         await ctx.runMutation(
           internal.models.voiceNotes.updateInsightContentInternal,
@@ -618,11 +831,8 @@ Respond in JSON format:
             insightId: args.insightId,
             title: result.title,
             description: result.description,
+            recommendedUpdate: result.recommendedUpdate,
           }
-        );
-      } else {
-        console.log(
-          `[AI Name Correction] AI found no changes needed for "${args.originalTitle}"`
         );
       }
     } catch (error) {

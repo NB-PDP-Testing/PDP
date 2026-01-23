@@ -847,12 +847,6 @@ export default defineSchema({
   // EXISTING APPLICATION TABLES
   // ============================================================
 
-  // Simple todos (existing)
-  todos: defineTable({
-    text: v.string(),
-    completed: v.boolean(),
-  }),
-
   // Coach tasks - personal and team task management for coaches
   coachTasks: defineTable({
     text: v.string(), // Task description
@@ -1373,12 +1367,21 @@ export default defineSchema({
   // Voice Notes
   voiceNotes: defineTable({
     orgId: v.string(),
-    coachId: v.optional(v.string()),
+    coachId: v.optional(v.string()), // Optional for backwards compatibility with old notes
     date: v.string(),
     type: v.union(
       v.literal("training"),
       v.literal("match"),
       v.literal("general")
+    ),
+    // Source channel - how the note was created
+    source: v.optional(
+      v.union(
+        v.literal("app_recorded"), // Recorded via app microphone
+        v.literal("app_typed"), // Typed directly in app
+        v.literal("whatsapp_audio"), // Voice note from WhatsApp
+        v.literal("whatsapp_text") // Text message from WhatsApp
+      )
     ),
     // Audio recording (optional - typed notes won't have this)
     audioStorageId: v.optional(v.id("_storage")),
@@ -1432,6 +1435,41 @@ export default defineSchema({
   })
     .index("by_orgId", ["orgId"])
     .index("by_orgId_and_coachId", ["orgId", "coachId"]),
+
+  // ============================================================
+  // TEAM OBSERVATIONS
+  // Structured storage for team-level insights from voice notes
+  // ============================================================
+  teamObservations: defineTable({
+    organizationId: v.string(), // Better Auth organization ID
+    teamId: v.string(), // Better Auth team ID
+    teamName: v.string(), // Denormalized for display
+
+    // Source tracking
+    source: v.union(
+      v.literal("voice_note"), // From voice note insight
+      v.literal("manual") // Manually added by coach
+    ),
+    voiceNoteId: v.optional(v.id("voiceNotes")), // Link to voice note if from voice note
+    insightId: v.optional(v.string()), // Link to specific insight
+
+    // Coach who created/recorded
+    coachId: v.string(), // Better Auth user ID
+    coachName: v.string(), // Denormalized for display
+
+    // Observation content
+    title: v.string(),
+    description: v.string(),
+    category: v.optional(v.string()), // e.g., "team_culture", "team_performance"
+
+    // Metadata
+    dateObserved: v.string(), // ISO date string
+    createdAt: v.number(),
+  })
+    .index("by_organizationId", ["organizationId"])
+    .index("by_teamId", ["teamId"])
+    .index("by_organizationId_and_teamId", ["organizationId", "teamId"])
+    .index("by_voiceNoteId", ["voiceNoteId"]),
 
   // ============================================================
   // COACH-PARENT MESSAGING
@@ -1700,6 +1738,8 @@ export default defineSchema({
     approvedBy: v.optional(v.string()), // Better Auth user ID
     deliveredAt: v.optional(v.number()),
     viewedAt: v.optional(v.number()),
+    acknowledgedAt: v.optional(v.number()), // When parent marked as read/acknowledged
+    acknowledgedBy: v.optional(v.string()), // Better Auth user ID of parent who acknowledged
   })
     .index("by_voiceNote", ["voiceNoteId"])
     .index("by_player", ["playerIdentityId"])
@@ -1715,7 +1755,8 @@ export default defineSchema({
       "playerIdentityId",
       "organizationId",
       "status",
-    ]),
+    ])
+    .index("by_player_acknowledged", ["playerIdentityId", "acknowledgedAt"]),
 
   // Track when parents view summaries
   parentSummaryViews: defineTable({
@@ -1726,6 +1767,20 @@ export default defineSchema({
       v.literal("dashboard"),
       v.literal("notification_click"),
       v.literal("direct_link")
+    ),
+  })
+    .index("by_summary", ["summaryId"])
+    .index("by_guardian", ["guardianIdentityId"]),
+
+  // Track when parents share summaries
+  summaryShares: defineTable({
+    summaryId: v.id("coachParentSummaries"),
+    guardianIdentityId: v.id("guardianIdentities"),
+    sharedAt: v.number(),
+    shareDestination: v.union(
+      v.literal("download"),
+      v.literal("native_share"),
+      v.literal("copy_link")
     ),
   })
     .index("by_summary", ["summaryId"])
@@ -2877,4 +2932,92 @@ export default defineSchema({
     .index("by_config", ["configId"])
     .index("by_feature", ["feature"])
     .index("by_changedAt", ["changedAt"]),
+
+  // ============================================================
+  // WHATSAPP INTEGRATION (TWILIO)
+  // Receive voice notes and messages from coaches via WhatsApp
+  // ============================================================
+
+  whatsappMessages: defineTable({
+    // Twilio message identifiers
+    messageSid: v.string(),
+    accountSid: v.string(),
+
+    // Sender/receiver info
+    fromNumber: v.string(), // E.164 format (without whatsapp: prefix)
+    toNumber: v.string(), // Our Twilio WhatsApp number
+
+    // Message content
+    messageType: v.union(
+      v.literal("text"),
+      v.literal("audio"),
+      v.literal("image"),
+      v.literal("video"),
+      v.literal("document")
+    ),
+    body: v.optional(v.string()),
+    mediaUrl: v.optional(v.string()),
+    mediaContentType: v.optional(v.string()),
+    mediaStorageId: v.optional(v.id("_storage")),
+
+    // Coach linking (matched by phone number)
+    coachId: v.optional(v.string()),
+    coachName: v.optional(v.string()),
+    organizationId: v.optional(v.string()),
+
+    // Processing status
+    status: v.union(
+      v.literal("received"),
+      v.literal("processing"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("unmatched")
+    ),
+    errorMessage: v.optional(v.string()),
+
+    // Link to created voice note
+    voiceNoteId: v.optional(v.id("voiceNotes")),
+
+    // Auto-apply results (for WhatsApp reply)
+    processingResults: v.optional(
+      v.object({
+        autoApplied: v.array(
+          v.object({
+            insightId: v.string(),
+            playerName: v.optional(v.string()),
+            teamName: v.optional(v.string()),
+            category: v.string(),
+            title: v.string(),
+            parentSummaryQueued: v.boolean(),
+          })
+        ),
+        needsReview: v.array(
+          v.object({
+            insightId: v.string(),
+            playerName: v.optional(v.string()),
+            category: v.string(),
+            title: v.string(),
+            reason: v.string(), // "sensitive" | "low_trust" | "unmatched_player"
+          })
+        ),
+        unmatched: v.array(
+          v.object({
+            insightId: v.string(),
+            mentionedName: v.optional(v.string()),
+            title: v.string(),
+          })
+        ),
+      })
+    ),
+
+    // Timestamps
+    receivedAt: v.number(),
+    processedAt: v.optional(v.number()),
+  })
+    .index("by_messageSid", ["messageSid"])
+    .index("by_fromNumber", ["fromNumber"])
+    .index("by_coachId", ["coachId"])
+    .index("by_organizationId", ["organizationId"])
+    .index("by_status", ["status"])
+    .index("by_receivedAt", ["receivedAt"]),
 });

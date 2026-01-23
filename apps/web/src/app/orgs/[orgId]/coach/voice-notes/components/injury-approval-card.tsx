@@ -46,6 +46,7 @@ type InjuryApprovalCardProps = {
   };
   onApprove: () => void;
   onSuppress: () => void;
+  dateTime?: string;
 };
 
 export function InjuryApprovalCard({
@@ -54,6 +55,7 @@ export function InjuryApprovalCard({
   sport,
   onApprove,
   onSuppress,
+  dateTime,
 }: InjuryApprovalCardProps) {
   // Checklist state
   const [personallyObserved, setPersonallyObserved] = useState(false);
@@ -178,6 +180,9 @@ export function InjuryApprovalCard({
               <p className="text-muted-foreground text-xs sm:text-sm">
                 {sport.name}
               </p>
+            )}
+            {dateTime && (
+              <p className="text-muted-foreground text-xs">{dateTime}</p>
             )}
           </div>
           <Badge

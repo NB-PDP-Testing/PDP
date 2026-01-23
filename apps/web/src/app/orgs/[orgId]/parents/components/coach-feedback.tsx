@@ -3,7 +3,15 @@
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import { Sparkles } from "lucide-react";
+import {
+  Activity,
+  Bike,
+  Dumbbell,
+  type LucideIcon,
+  Sparkles,
+  Trophy,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -17,6 +25,17 @@ type CoachFeedbackProps = {
   orgId: string;
 };
 
+// Sport icon mapping (US-019)
+const sportCodeToIcon: Record<string, LucideIcon> = {
+  GAA: Trophy, // Gaelic Athletic Association
+  soccer: Trophy,
+  football: Trophy,
+  basketball: Dumbbell,
+  rugby: Trophy,
+  cycling: Bike,
+  athletics: Activity,
+};
+
 export function CoachFeedback({ orgId }: CoachFeedbackProps) {
   // Fetch AI-generated summaries grouped by child and sport
   const summariesData = useQuery(
@@ -26,9 +45,22 @@ export function CoachFeedback({ orgId }: CoachFeedbackProps) {
     }
   );
 
+  // Get sport icon or default
+  const getSportIcon = (sportCode?: string) => {
+    if (!sportCode) {
+      return Activity;
+    }
+    return sportCodeToIcon[sportCode.toLowerCase()] || Activity;
+  };
+
   // Mark summary as viewed mutation
   const markViewed = useMutation(
     api.models.coachParentSummaries.markSummaryViewed
+  );
+
+  // Acknowledge summary mutation
+  const acknowledgeSummary = useMutation(
+    api.models.coachParentSummaries.acknowledgeParentSummary
   );
 
   const handleViewSummary = async (summaryId: Id<"coachParentSummaries">) => {
@@ -40,6 +72,18 @@ export function CoachFeedback({ orgId }: CoachFeedbackProps) {
       // Silently mark as viewed - no toast needed
     } catch (error) {
       console.error("Failed to mark summary as read:", error);
+    }
+  };
+
+  const handleAcknowledgeSummary = async (
+    summaryId: Id<"coachParentSummaries">
+  ) => {
+    try {
+      await acknowledgeSummary({ summaryId });
+      // Success feedback handled by parent-summary-card
+    } catch (error) {
+      console.error("Failed to acknowledge summary:", error);
+      throw error;
     }
   };
 
@@ -74,14 +118,18 @@ export function CoachFeedback({ orgId }: CoachFeedbackProps) {
               <div className="space-y-4">
                 {childData.sportGroups.map((sportGroup) => (
                   <div key={sportGroup.sport?._id || `sport-${Math.random()}`}>
-                    {/* Sport name subheader */}
+                    {/* Sport name subheader with icon (US-019) and badge (US-020) */}
                     {sportGroup.sport && (
                       <h4 className="mb-2 flex items-center gap-2 font-medium text-muted-foreground text-sm">
+                        {(() => {
+                          const SportIcon = getSportIcon(sportGroup.sport.code);
+                          return <SportIcon className="h-4 w-4" />;
+                        })()}
                         {sportGroup.sport.name}
                         {sportGroup.unreadCount > 0 && (
-                          <span className="rounded-full bg-red-500 px-2 py-0.5 text-white text-xs">
-                            {sportGroup.unreadCount} new
-                          </span>
+                          <Badge variant="destructive">
+                            {sportGroup.unreadCount}
+                          </Badge>
                         )}
                       </h4>
                     )}
@@ -90,8 +138,9 @@ export function CoachFeedback({ orgId }: CoachFeedbackProps) {
                     <div className="space-y-2">
                       {sportGroup.summaries.map((summary) => (
                         <ParentSummaryCard
-                          isUnread={!summary.viewedAt}
+                          isUnread={!summary.acknowledgedAt}
                           key={summary._id}
+                          onAcknowledge={handleAcknowledgeSummary}
                           onView={handleViewSummary}
                           summary={summary}
                         />

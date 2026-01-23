@@ -72,6 +72,13 @@ import { useAnalytics } from "@/lib/analytics";
  * PHASE 16 - Logo Visibility Enhancement:
  * - ux_logo_adaptive_visibility: WCAG-based logo box contrast calculation using org colors
  *
+ * PHASE 17 - Parent Features:
+ * - parent_summary_share_image: Enable shareable image generation for parent summaries
+ *
+ * PHASE 18 - Voice Notes Features:
+ * - voice_notes_whatsapp: Enable WhatsApp integration for voice notes (Twilio-based)
+ * - voice_notes_ai_model_display: Show coaches which AI models are being used for transcription/insights
+ *
  * ACCESS CONTROL:
  * - Feature flags can only be enabled/disabled by Platform Staff via PostHog admin
  * - When enabled, features are visible to ALL users (not restricted to staff)
@@ -194,6 +201,14 @@ export type UXFeatureFlags = {
   /** Adaptive logo visibility using org colors and smart contrast detection */
   useAdaptiveLogoVisibility: boolean;
 
+  // Phase 17 - Parent Features
+  /** Enable shareable image generation for parent summaries (WASM-based PNG generation) */
+  useParentSummaryShareImage: boolean;
+
+  // Phase 18 - Voice Notes Features
+  /** Enable WhatsApp integration for voice notes via Twilio */
+  useVoiceNotesWhatsApp: boolean;
+
   // Quick Actions A/B/C Testing
   /** Which quick actions variant to display: control (collapsible grid), fab (floating button), horizontal (icon scroll), two-tier (3 primary + more) */
   quickActionsVariant: QuickActionsVariant;
@@ -282,6 +297,12 @@ export function useUXFeatureFlags(): UXFeatureFlags {
 
     // Phase 16 - Logo Visibility Enhancement
     useAdaptiveLogoVisibility: isFeatureEnabled("ux_logo_adaptive_visibility"),
+
+    // Phase 17 - Parent Features
+    useParentSummaryShareImage: isFeatureEnabled("parent_summary_share_image"),
+
+    // Phase 18 - Voice Notes Features
+    useVoiceNotesWhatsApp: isFeatureEnabled("voice_notes_whatsapp"),
 
     // Quick Actions A/B/C Testing
     quickActionsVariant: getQuickActionsVariant(isFeatureEnabled),
@@ -415,4 +436,10 @@ export const UXAnalyticsEvents = {
   QUICK_ACTIONS_FAB_OPENED: "ux_quick_actions_fab_opened",
   QUICK_ACTIONS_COLLAPSED: "ux_quick_actions_collapsed",
   QUICK_ACTIONS_EXPANDED: "ux_quick_actions_expanded",
+
+  // Phase 18 - Voice Notes events
+  WHATSAPP_VOICE_NOTE_SENT: "voice_notes_whatsapp_sent",
+  WHATSAPP_VOICE_NOTE_RECEIVED: "voice_notes_whatsapp_received",
+  WHATSAPP_VOICE_NOTE_PROCESSED: "voice_notes_whatsapp_processed",
+  WHATSAPP_VOICE_NOTE_FAILED: "voice_notes_whatsapp_failed",
 } as const;

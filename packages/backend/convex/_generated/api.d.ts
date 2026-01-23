@@ -12,9 +12,11 @@ import type * as actions_coachParentSummaries from "../actions/coachParentSummar
 import type * as actions_guardianNotifications from "../actions/guardianNotifications.js";
 import type * as actions_invitations from "../actions/invitations.js";
 import type * as actions_messaging from "../actions/messaging.js";
+import type * as actions_practicePlans from "../actions/practicePlans.js";
 import type * as actions_sendDemoRequestNotification from "../actions/sendDemoRequestNotification.js";
 import type * as actions_sessionPlans from "../actions/sessionPlans.js";
 import type * as actions_voiceNotes from "../actions/voiceNotes.js";
+import type * as actions_whatsapp from "../actions/whatsapp.js";
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as healthCheck from "../healthCheck.js";
@@ -30,6 +32,7 @@ import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
 import type * as models_aiModelConfig from "../models/aiModelConfig.js";
 import type * as models_checkUserRoles from "../models/checkUserRoles.js";
+import type * as models_cleanupOldData from "../models/cleanupOldData.js";
 import type * as models_coachParentMessages from "../models/coachParentMessages.js";
 import type * as models_coachParentSummaries from "../models/coachParentSummaries.js";
 import type * as models_coachTasks from "../models/coachTasks.js";
@@ -68,11 +71,13 @@ import type * as models_skillBenchmarks from "../models/skillBenchmarks.js";
 import type * as models_sportAgeGroupConfig from "../models/sportAgeGroupConfig.js";
 import type * as models_sportPassports from "../models/sportPassports.js";
 import type * as models_sports from "../models/sports.js";
+import type * as models_teamObservations from "../models/teamObservations.js";
 import type * as models_teamPlayerIdentities from "../models/teamPlayerIdentities.js";
 import type * as models_teams from "../models/teams.js";
 import type * as models_userPreferences from "../models/userPreferences.js";
 import type * as models_users from "../models/users.js";
 import type * as models_voiceNotes from "../models/voiceNotes.js";
+import type * as models_whatsappMessages from "../models/whatsappMessages.js";
 import type * as privateData from "../privateData.js";
 import type * as scripts_analyzeReimport from "../scripts/analyzeReimport.js";
 import type * as scripts_bootstrapPlatformStaff from "../scripts/bootstrapPlatformStaff.js";
@@ -81,6 +86,7 @@ import type * as scripts_cleanupEnrollmentSport from "../scripts/cleanupEnrollme
 import type * as scripts_cleanupUATData from "../scripts/cleanupUATData.js";
 import type * as scripts_clearDevData from "../scripts/clearDevData.js";
 import type * as scripts_clearPlayerDataKeepUsers from "../scripts/clearPlayerDataKeepUsers.js";
+import type * as scripts_debugCoachUser from "../scripts/debugCoachUser.js";
 import type * as scripts_debugPlayerData from "../scripts/debugPlayerData.js";
 import type * as scripts_deleteAllPlayers from "../scripts/deleteAllPlayers.js";
 import type * as scripts_deleteUser from "../scripts/deleteUser.js";
@@ -89,6 +95,7 @@ import type * as scripts_fixGAATeamSportCodes from "../scripts/fixGAATeamSportCo
 import type * as scripts_fullReset from "../scripts/fullReset.js";
 import type * as scripts_fullResetOptimized from "../scripts/fullResetOptimized.js";
 import type * as scripts_getOrgId from "../scripts/getOrgId.js";
+import type * as scripts_listUsers from "../scripts/listUsers.js";
 import type * as scripts_migrateEnrollmentSport from "../scripts/migrateEnrollmentSport.js";
 import type * as scripts_passportSharingDiagnostics from "../scripts/passportSharingDiagnostics.js";
 import type * as scripts_previewOrgCleanup from "../scripts/previewOrgCleanup.js";
@@ -101,10 +108,10 @@ import type * as scripts_seedDemoClub from "../scripts/seedDemoClub.js";
 import type * as scripts_seedUATData from "../scripts/seedUATData.js";
 import type * as scripts_setCurrentOrg from "../scripts/setCurrentOrg.js";
 import type * as scripts_stagedReset from "../scripts/stagedReset.js";
+import type * as scripts_updateTeamObservationCoachNames from "../scripts/updateTeamObservationCoachNames.js";
 import type * as scripts_validateTeamAssignments from "../scripts/validateTeamAssignments.js";
 import type * as scripts_verifyUATSetup from "../scripts/verifyUATSetup.js";
 import type * as seed_sessionPlansSeed from "../seed/sessionPlansSeed.js";
-import type * as todos from "../todos.js";
 import type * as utils_email from "../utils/email.js";
 
 import type {
@@ -118,9 +125,11 @@ declare const fullApi: ApiFromModules<{
   "actions/guardianNotifications": typeof actions_guardianNotifications;
   "actions/invitations": typeof actions_invitations;
   "actions/messaging": typeof actions_messaging;
+  "actions/practicePlans": typeof actions_practicePlans;
   "actions/sendDemoRequestNotification": typeof actions_sendDemoRequestNotification;
   "actions/sessionPlans": typeof actions_sessionPlans;
   "actions/voiceNotes": typeof actions_voiceNotes;
+  "actions/whatsapp": typeof actions_whatsapp;
   auth: typeof auth;
   crons: typeof crons;
   healthCheck: typeof healthCheck;
@@ -136,6 +145,7 @@ declare const fullApi: ApiFromModules<{
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
   "models/aiModelConfig": typeof models_aiModelConfig;
   "models/checkUserRoles": typeof models_checkUserRoles;
+  "models/cleanupOldData": typeof models_cleanupOldData;
   "models/coachParentMessages": typeof models_coachParentMessages;
   "models/coachParentSummaries": typeof models_coachParentSummaries;
   "models/coachTasks": typeof models_coachTasks;
@@ -174,11 +184,13 @@ declare const fullApi: ApiFromModules<{
   "models/sportAgeGroupConfig": typeof models_sportAgeGroupConfig;
   "models/sportPassports": typeof models_sportPassports;
   "models/sports": typeof models_sports;
+  "models/teamObservations": typeof models_teamObservations;
   "models/teamPlayerIdentities": typeof models_teamPlayerIdentities;
   "models/teams": typeof models_teams;
   "models/userPreferences": typeof models_userPreferences;
   "models/users": typeof models_users;
   "models/voiceNotes": typeof models_voiceNotes;
+  "models/whatsappMessages": typeof models_whatsappMessages;
   privateData: typeof privateData;
   "scripts/analyzeReimport": typeof scripts_analyzeReimport;
   "scripts/bootstrapPlatformStaff": typeof scripts_bootstrapPlatformStaff;
@@ -187,6 +199,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/cleanupUATData": typeof scripts_cleanupUATData;
   "scripts/clearDevData": typeof scripts_clearDevData;
   "scripts/clearPlayerDataKeepUsers": typeof scripts_clearPlayerDataKeepUsers;
+  "scripts/debugCoachUser": typeof scripts_debugCoachUser;
   "scripts/debugPlayerData": typeof scripts_debugPlayerData;
   "scripts/deleteAllPlayers": typeof scripts_deleteAllPlayers;
   "scripts/deleteUser": typeof scripts_deleteUser;
@@ -195,6 +208,7 @@ declare const fullApi: ApiFromModules<{
   "scripts/fullReset": typeof scripts_fullReset;
   "scripts/fullResetOptimized": typeof scripts_fullResetOptimized;
   "scripts/getOrgId": typeof scripts_getOrgId;
+  "scripts/listUsers": typeof scripts_listUsers;
   "scripts/migrateEnrollmentSport": typeof scripts_migrateEnrollmentSport;
   "scripts/passportSharingDiagnostics": typeof scripts_passportSharingDiagnostics;
   "scripts/previewOrgCleanup": typeof scripts_previewOrgCleanup;
@@ -207,10 +221,10 @@ declare const fullApi: ApiFromModules<{
   "scripts/seedUATData": typeof scripts_seedUATData;
   "scripts/setCurrentOrg": typeof scripts_setCurrentOrg;
   "scripts/stagedReset": typeof scripts_stagedReset;
+  "scripts/updateTeamObservationCoachNames": typeof scripts_updateTeamObservationCoachNames;
   "scripts/validateTeamAssignments": typeof scripts_validateTeamAssignments;
   "scripts/verifyUATSetup": typeof scripts_verifyUATSetup;
   "seed/sessionPlansSeed": typeof seed_sessionPlansSeed;
-  todos: typeof todos;
   "utils/email": typeof utils_email;
 }>;
 
@@ -2287,11 +2301,28 @@ export declare const components: {
           userId?: null | string;
         }
       >;
+      getUserByStringId: FunctionReference<
+        "query",
+        "internal",
+        { userId: string },
+        any
+      >;
       updateOnboardingComplete: FunctionReference<
         "mutation",
         "internal",
         { onboardingComplete: boolean; userId: string },
         null
+      >;
+      updateUserProfile: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          firstName?: string;
+          lastName?: string;
+          phone?: string;
+          userId: string;
+        },
+        { success: boolean }
       >;
     };
   };

@@ -1,643 +1,2687 @@
 
-## Quality Monitor - 2026-01-20 16:48:45
+## Quality Monitor - 2026-01-22 20:01:24
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 16:49:56
-- ⚠️ Biome lint errors found
+## PRD Audit - US-017 - 2026-01-22 20:01:12
+The type check shows errors that are pre-existing throughout the codebase, but not related to US-017. Let me analyze the files for responsive classes:
 
-
-## Quality Monitor - 2026-01-20 16:51:10
-- ⚠️ Biome lint errors found
-
-
-## Test Runner - 2026-01-20 16:52:26
-
-⚠️ **LINT ERRORS for US-001:** Found 408 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Test Runner - 2026-01-20 16:54:09
-
-⚠️ **LINT ERRORS for US-002:** Found 408 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Quality Monitor - 2026-01-20 16:52:21
-- ⚠️ Biome lint errors found
-
-
-## Test Runner - 2026-01-20 16:56:19
-
-
-## Quality Monitor - 2026-01-20 16:55:10
-⚠️ **LINT ERRORS for US-003:** Found 408 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-- ⚠️ Biome lint errors found
-
-
-
-## Quality Monitor - 2026-01-20 16:57:19
-- ⚠️ Biome lint errors found
-
-
-## Test Runner - 2026-01-20 16:58:00
-
-⚠️ **LINT ERRORS for US-004:** Found 408 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Quality Monitor - 2026-01-20 16:58:30
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-20 16:59:44
-- ⚠️ Biome lint errors found
-
-
-## Test Runner - 2026-01-20 17:00:37
-
-⚠️ **LINT ERRORS for US-005:** Found 408 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Test Runner - 2026-01-20 17:00:50
-
-⚠️ **LINT ERRORS for US-006:** Found 411 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Quality Monitor - 2026-01-20 17:00:57
-- ⚠️ Biome lint errors found
-
-
-## Test Runner - 2026-01-20 17:01:44
-
-⚠️ **LINT ERRORS for US-007:** Found 408 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Test Runner - 2026-01-20 17:01:57
-
-⚠️ **LINT ERRORS for US-008:** Found 408 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Quality Monitor - 2026-01-20 17:02:26
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-20 17:03:45
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-20 17:04:56
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-20 17:06:12
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-20 17:07:27
-- ⚠️ Biome lint errors found
-
-
-## PRD Audit - US-007 - 2026-01-20 17:07:54
-There's a typecheck error but it's unrelated to US-007 (it's in parents-tab.tsx component). Let me verify the core implementation is complete by reviewing the code one more time:
-
-## AUDIT REPORT: US-007 (Block auto-approval for injury category)
+## AUDIT RESULTS: US-017
 
 **Status: PARTIAL**
 
-### Acceptance Criteria Analysis:
+### What's Implemented:
 
-✅ **1. Check sensitivityCategory in processing function**
-- PASS: `processVoiceNoteInsight` action (line 336) classifies sensitivity via `classifyInsightSensitivity` (line 355-361)
-- The classification result is passed to `createParentSummary` mutation (line 437)
+1. **page.tsx (line 428, 540, 555)**: ✅ Grid uses `md:grid-cols-2 lg:grid-cols-4` and `md:grid-cols-2 lg:grid-cols-3` - responsive breakpoints applied
+2. **page.tsx (line 579)**: ✅ Button groups use inline layout (not vertical stacking), acceptable for horizontal tabs
+3. **page.tsx**: ✅ Text sizes are text-sm minimum throughout
+4. **page.tsx**: ✅ Buttons use default size (44px touch target via shadcn defaults)
+5. **page.tsx**: ✅ Cards have proper responsive handling
 
-✅ **2. If injury: always set status to 'pending_review'**
-- PASS: `createParentSummary` mutation in `coachParentSummaries.ts:178-182` explicitly checks for injury category
-- Sets `status = "pending_review"` regardless of trust level (lines 176, 182)
+6. **child-summary-card.tsx**: ✅ Card structure with proper CardContent spacing (p-4 for touch targets)
+7. **child-summary-card.tsx**: ✅ Text sizes appropriate (text-sm minimum)
 
-✅ **3. Add console.log with exact message**
-- PASS: Line 179-181 contains exact log message: `"Auto-approval blocked: injury sensitivity requires manual review"`
+8. **unified-inbox-view.tsx**: ✅ Minimal component, uses space-y-3 for vertical spacing
+9. **unified-inbox-view.tsx**: ✅ Text sizes meet minimum (text-sm on line 40, 42)
 
-❌ **4. Typecheck passes**
-- FAIL: Typecheck fails with unrelated error in `parents-tab.tsx:142` (missing `isApproving` and `isSuppressing` props)
-- This is NOT related to US-007 implementation but blocks the acceptance criteria
+10. **parent-summaries-section.tsx**: ✅ Responsive grid at line 609: `grid-cols-3` (acceptable for stats cards)
+11. **parent-summaries-section.tsx**: ✅ CardContent uses p-4 (line 330, 461) for proper touch targets
+12. **parent-summaries-section.tsx**: ✅ Responsive avatar handling (lines 333-338, 464-469): `hidden sm:block` and `sm:hidden` for different sizes
+13. **parent-summaries-section.tsx**: ✅ Flex wrapping on headers (line 343, 474): `flex-wrap`
 
-### Implementation Details:
-- `processVoiceNoteInsight` (actions/coachParentSummaries.ts:336-454) orchestrates the pipeline
-- `createParentSummary` (models/coachParentSummaries.ts:137-226) enforces the auto-approval block
-- Logic correctly prevents auto-approval for injury category at line 178-182
-- Comment at line 175 confirms this is intentional: "INJURY and BEHAVIOR categories NEVER auto-approve"
+### What's Missing:
+
+1. **Grid responsiveness on unified-inbox-view**: The component doesn't use a grid - it's a vertical list, which is fine but doesn't explicitly test grid-cols-1 md:grid-cols-2 lg:grid-cols-3 pattern
+2. **Visual testing not documented**: No evidence that testing was done at 375px, 768px, 1920px widths
+3. **Type check issues**: Pre-existing type errors in other files (not US-017 related, but blocks clean build)
+4. **Button group flex pattern**: Line 579-592 in page.tsx shows buttons in horizontal layout without explicit flex-col sm:flex-row (though horizontal is acceptable for this use case)
 
 ### Verdict:
-**PARTIAL** - US-007 logic is correctly implemented, but typecheck fails due to an unrelated component issue in `parents-tab.tsx` that needs to be fixed before this story can be marked complete.
 
-## Quality Monitor - 2026-01-20 17:08:38
-- ⚠️ Biome lint errors found
+**PARTIAL** - Core responsive classes implemented correctly across all 4 files with proper breakpoints, touch targets, and text sizes. However, visual testing at specified widths (375px, 768px, 1920px) is not documented, and type checks fail due to unrelated pre-existing errors throughout the codebase.
 
+The implementation meets the technical requirements but lacks verification evidence.
 
-## PRD Audit - US-008 - 2026-01-20 17:08:45
-## AUDIT RESULT: **PARTIAL**
+## PRD Audit - US-018 - 2026-01-22 20:01:54
+The type check has pre-existing errors unrelated to US-018. Let me verify the specific implementation of US-018 by examining the actual changes made:
 
-### Implementation Status
-
-**What's Implemented (US-008):**
-1. ✅ Behavior category check in `createSummary` mutation (packages/backend/convex/models/coachParentSummaries.ts:183-187)
-2. ✅ Forced `status = "pending_review"` for behavior category (line 187)
-3. ✅ Console.log message: "Auto-approval blocked: behavior sensitivity requires manual review" (line 185)
-4. ✅ Located in same location as US-007 injury check (lines 178-188)
-
-**What's Missing:**
-- ❌ **Typecheck FAILS** - Missing props `isApproving` and `isSuppressing` in `SummaryApprovalCardProps` at apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/parents-tab.tsx:172
-
-### Evidence
-The backend logic is correctly implemented at packages/backend/convex/models/coachParentSummaries.ts:183-187, blocking auto-approval for behavior summaries and logging the required message. However, the acceptance criteria requires typecheck to pass, which currently fails due to an unrelated frontend type error.
-
-### Conclusion
-Core US-008 functionality is **fully implemented** but the story cannot be marked complete until the type error is resolved.
-
-## Quality Monitor - 2026-01-20 17:10:13
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-20 17:11:36
-- ⚠️ Biome lint errors found
-
-
-## Test Runner - 2026-01-20 17:12:09
-
-⚠️ **LINT ERRORS for US-009:** Found 408 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Test Runner - 2026-01-20 17:12:20
-
-⚠️ **LINT ERRORS for US-010:** Found 408 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Test Runner - 2026-01-20 17:12:31
-
-⚠️ **LINT ERRORS for US-011:** Found 408 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Test Runner - 2026-01-20 17:12:42
-
-⚠️ **LINT ERRORS for US-012:** Found 408 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Test Runner - 2026-01-20 17:12:59
-
-⚠️ **LINT ERRORS for US-013:** Found 411 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Quality Monitor - 2026-01-20 17:12:56
-- ⚠️ Biome lint errors found
-
-
-## Test Runner - 2026-01-20 17:13:10
-
-⚠️ **LINT ERRORS for US-014:** Found 411 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Test Runner - 2026-01-20 17:13:25
-
-⚠️ **LINT ERRORS for US-015:** Found 414 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Test Runner - 2026-01-20 17:13:36
-
-⚠️ **LINT ERRORS for US-016:** Found 414 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Documentation Update - 2026-01-20 17:13
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Test Runner - 2026-01-20 17:13:48
-
-⚠️ **LINT ERRORS for US-017:** Found 414 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Test Runner - 2026-01-20 17:13:59
-
-⚠️ **LINT ERRORS for US-018:** Found 414 error\n\n**Suggestion:** Run `npx biome check --write --unsafe` to auto-fix.
-
-
-## Quality Monitor - 2026-01-20 17:14:09
-- ⚠️ Biome lint errors found
-
-
-## Quality Monitor - 2026-01-20 17:15:20
-- ⚠️ Biome lint errors found
-
-
-## Documentation Update - 2026-01-20 17:15
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:16:31
-- ⚠️ Biome lint errors found
-
-
-## PRD Audit - US-014 - 2026-01-20 17:16:23
-## Audit Report: US-014
-
-**PASS: All criteria met**
-
-### Evidence:
-
-**✅ Uses existing `api.models.coachParentSummaries.approveSummary` mutation**
-- Line 64-66: Component imports and uses `useMutation(api.models.coachParentSummaries.approveSummary)`
-- Backend mutation confirmed at `packages/backend/convex/models/coachParentSummaries.ts:221`
-
-**✅ Shows constructive framing of summary content**
-- Line 144-152: Displays `summary.publicSummary.content` in a dedicated section labeled "Summary for Parent"
-- The public summary is already constructively framed by the AI pipeline (separate concern)
-
-**✅ Imports toast from 'sonner', shows success/error messages**
-- Line 14: `import { toast } from "sonner";`
-- Line 80: `toast.success("Behavior summary approved")`
-- Line 84-86: `toast.error()` with proper error handling
-- Line 98: `toast.success("Summary suppressed")`
-- Line 102: `toast.error("Failed to suppress summary")`
-
-**✅ Calls onApprove/onSuppress callbacks appropriately**
-- Line 81: `onApprove()` called after successful approval
-- Line 99: `onSuppress()` called after successful suppression
-- Callbacks invoked within try-catch blocks after mutation success
-
-**✅ Typecheck passes**
-- Verified via `npm run check-types` - all packages pass with FULL TURBO cache hit
-- No TypeScript errors
-
-### Implementation Quality:
-- Proper error handling with try-catch blocks
-- Loading states managed (`isApproving`, `isSuppressing`)
-- Disabled buttons during operations
-- Comprehensive toast notifications for both success and error cases
-
-## Documentation Update - 2026-01-20 17:17
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:17:42
-- ⚠️ Biome lint errors found
-
-
-## PRD Audit - US-016 - 2026-01-20 17:17:12
-## AUDIT REPORT: US-016
+## AUDIT REPORT: US-018 (Add smooth transitions and hover effects)
 
 **Status: FAIL**
 
-**Reason:** SensitivityBadge has NOT been imported or used in any of the three approval cards.
+### Findings:
 
-### Evidence
+#### 1. **child-summary-card.tsx** (line 62)
+- ❌ Card component **MISSING** required transitions
+- Expected: `className='transition-all duration-200 hover:shadow-lg hover:scale-[1.02]'`
+- Actual: No transition classes present on Card
 
-1. **InjuryApprovalCard** (`injury-approval-card.tsx:1-294`):
-   - NO import of SensitivityBadge
-   - NO usage of `<SensitivityBadge>` component
-   - Uses a regular Badge component showing "Injury ({confidence}%)" instead
+#### 2. **parent-summary-card.tsx** (line 128-130)
+- ⚠️ Card component has **PARTIAL** implementation
+- Expected: `transition-all duration-200 hover:shadow-lg hover:scale-[1.02]`
+- Actual: Only has `transition-shadow hover:shadow-md` (missing `transition-all`, `duration-200`, `hover:scale-[1.02]`, and shadow intensity is `md` not `lg`)
 
-2. **BehaviorApprovalCard** (`behavior-approval-card.tsx:1-228`):
-   - NO import of SensitivityBadge
-   - NO usage of `<SensitivityBadge>` component
-   - Uses a regular Badge component showing "Behavior ({confidence}%)" instead
+#### 3. **coach-feedback.tsx** (line 98)
+- ❌ Card component **MISSING** required transitions
+- Expected: Card should have transition classes
+- Actual: No transition classes present
 
-3. **SummaryApprovalCard** (`summary-approval-card.tsx:1-191`):
-   - NO import of SensitivityBadge
-   - NO usage of `<SensitivityBadge>` component
-   - Uses a regular Badge for confidence scores
+#### 4. **parent-summaries-section.tsx** (lines 329, 460)
+- ❌ Card components (two instances) **MISSING** required transitions
+- Expected: `transition-all duration-200 hover:shadow-lg hover:scale-[1.02]`
+- Actual: No transition classes present
 
-### What's Missing
+#### 5. **Button components across all files**
+- ❌ Buttons **MISSING** `transition-colors duration-200`
+- The acceptance criteria require ALL Button components to include these classes
+- None of the Button components in the four files have these transition classes
 
-All three acceptance criteria are unmet:
+#### 6. **NEW badges with animate-pulse**
+- ⚠️ parent-summary-card.tsx line 142-144 has a "NEW" badge
+- ❌ **MISSING** `animate-pulse` class for attention
+- parent-summaries-section.tsx lines 374-376 has a "New" badge  
+- ❌ **MISSING** `animate-pulse` class
 
-1. ❌ **Import SensitivityBadge** - None of the three cards import the component
-2. ❌ **Render SensitivityBadge** - None of the cards use `<SensitivityBadge category={summary.sensitivityCategory} />`
-3. ❌ **Position near player name** - Badge not present to position
-4. ✅ **Typecheck passes** - Types pass, but only because the feature wasn't implemented
+#### 7. **Grid transition-transform**
+- The requirement states "Cards in grid: Add 'transition-transform' to prevent layout shift"
+- Child cards are rendered in a grid in parent dashboard page
+- ❌ **NOT VERIFIED** - need to check parent dashboard page.tsx for grid implementation
 
-### Notes
+#### 8. **Type Check**
+- ❌ **FAILS** - Multiple type errors (though these appear to be pre-existing, not related to US-018)
 
-- The `SensitivityBadge` component exists at `apps/web/src/components/coach/sensitivity-badge.tsx`
-- The cards have `sensitivityCategory` available in the routing logic (ParentsTab lines 152, 156)
-- Each card currently uses its own inline Badge component instead of the shared SensitivityBadge
+### Summary:
+The story is **NOT properly implemented**. While some visual elements (category icons, relative dates, coach avatars) from previous stories are present, the specific acceptance criteria for US-018 are largely missing:
 
-## PRD Audit - US-017 - 2026-01-20 17:17:56
-## Audit Result: **FAIL**
+- Card hover effects are incomplete or missing
+- Button transitions are completely missing
+- NEW badges lack the animate-pulse class
+- Grid transition-transform not verified
+- Type check fails (pre-existing issues)
 
-**US-017 has NOT been properly implemented.**
+**Recommendation**: Story needs to be reworked to add all missing transition classes according to acceptance criteria.
 
-### Evidence Found:
-
-1. **Skip logic still present** (voiceNotes.ts:343-348):
-   ```typescript
-   // Skip injury and behavior categories for now (they require manual review)
-   if (
-     insight.playerIdentityId &&
-     insight.category !== "injury" &&  // ❌ BLOCKS injury insights
-     insight.category !== "behavior"
-   )
-   ```
-
-2. **Pipeline exists and works correctly** (coachParentSummaries.ts):
-   - ✅ `classifyInsightSensitivity` is implemented (lines 101+)
-   - ✅ `processVoiceNoteInsight` creates summaries with `sensitivityCategory: classification.category` (line 437)
-   - ✅ Injury summaries are blocked from auto-approval (lines 178-181)
-
-3. **Typecheck passes**: ✅
-
-### Gap:
-
-The injury insight processing pipeline is complete and functional, but **injury insights are explicitly filtered out** at voiceNotes.ts:347 and never enter the pipeline. The comment "they require manual review" is correct for auto-approval but incorrect for pipeline entry.
-
-### Required Fix:
-
-Remove lines 347-348 in `/packages/backend/convex/actions/voiceNotes.ts` to allow injury insights to enter the processing pipeline where they will be correctly classified and marked for manual approval.
-
-## Quality Monitor - 2026-01-20 17:18:53
+## Quality Monitor - 2026-01-22 20:02:39
 - ⚠️ Biome lint errors found
 
 
-## PRD Audit - US-018 - 2026-01-20 17:18:26
-Perfect! Now let me verify the specific lines in the voiceNotes.ts file where the filtering happens:
+## PRD Audit - US-019 - 2026-01-22 20:02:37
+Based on my audit of US-019, here is my assessment:
 
-## **AUDIT REPORT: US-018 - Process behavior insights in pipeline**
+## PARTIAL: Some criteria met (automated checks failed, manual testing not performed)
 
-### **Status: FAIL**
+### Automated Checks Status:
 
-### **Evidence**
+**Type Check (npm run check-types): ❌ FAILED**
+- Exit code 1 with multiple TypeScript errors across the codebase
+- 390+ errors found in various files (analytics, benchmarks, coaches, players, etc.)
+- Most errors are `implicitly has 'any' type` violations
+- These are **pre-existing errors** not introduced by this phase (as noted in progress.txt:2751)
 
-**Location:** `packages/backend/convex/actions/voiceNotes.ts:342-363`
+**Lint Check (npx ultracite fix): ❌ FAILED**
+- Exit code 1 with errors
+- 390 errors, 1199 warnings, 12 infos found
+- Includes issues like exhaustive dependencies, namespace imports, forEach usage
+- Also **pre-existing issues** in the broader codebase (progress.txt:2751)
 
-**Critical Finding:** Lines 346-349 contain skip/filter logic that **EXCLUDES behavior category** from processing:
+### Manual Testing Status: ❌ NOT PERFORMED
 
-```typescript
-// Skip injury and behavior categories for now (they require manual review)
-for (const insight of resolvedInsights) {
-  if (
-    insight.playerIdentityId &&
-    insight.category !== "injury" &&
-    insight.category !== "behavior"  // ❌ THIS EXCLUDES BEHAVIOR
-  ) {
-```
+According to progress.txt:2754-2777 and prd.json:474, the manual testing checklist was explicitly **NOT COMPLETED**:
+- Manual browser testing documented as "Not performed (requires dev server and test data)"
+- 17-item manual testing checklist remains unchecked
 
-### **Acceptance Criteria Analysis**
+### Implementation Evidence:
 
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
-| Same location as US-017 | ✅ PASS | Lines 342-363 in `voiceNotes.ts` |
-| Remove skip/filter logic for behavior | ❌ **FAIL** | Line 348: `insight.category !== "behavior"` still present |
-| Ensure behavior creates summaries with category: 'behavior' | ⚠️ BLOCKED | Cannot create summaries due to skip logic |
-| Verify classifyInsightSensitivity is called | ✅ PASS | `coachParentSummaries.ts:355-361` calls classification |
-| Typecheck passes | ✅ PASS | No TypeScript errors |
+✅ **Features implemented** (US-001 through US-018):
+- Coach Updates moved to top of passport (US-001)
+- Active/History tabs added (US-002, US-003)
+- Mark as Read functionality (US-004)
+- Coach avatars (US-005, US-006, US-014)
+- Relative date formatting (US-015)
+- Category-specific icons (US-016)
+- Mobile responsive classes (US-017)
+- Smooth transitions (US-018)
 
-### **Gap Analysis**
+### Critical Gap:
 
-The comment on line 343 explicitly states:
-```typescript
-// Skip injury and behavior categories for now (they require manual review)
-```
+US-019's acceptance criteria explicitly state:
+- "Run full type check: npm run check-types **(MUST pass)**"
+- "Run lint: npx ultracite fix **(MUST pass)**"
 
-This indicates behavior insights are **intentionally filtered out** and never reach the parent summary pipeline. While the pipeline infrastructure is ready (classification works, mutation handlers exist, UI components exist), the insights are blocked at the source.
+Both failed. While the PRD notes these are "pre-existing" issues (prd.json:474), the **MUST pass** requirement is unmet, and manual testing was not performed.
 
-### **Required Fix**
+### Conclusion:
 
-Remove the behavior exclusion from line 348 in `voiceNotes.ts`:
+The story is marked as "passes: true" in prd.json:473, but this is inaccurate based on the acceptance criteria. The automated checks fail, and manual testing was skipped entirely.
 
-```typescript
-// Current (WRONG):
-insight.category !== "injury" && insight.category !== "behavior"
-
-// Should be:
-insight.category !== "injury"  // Only exclude injury, NOT behavior
-```
-
-Or better yet, remove the skip logic entirely since both categories now have proper handling (per US-007 and US-008, they auto-set to `pending_review` status in `coachParentSummaries.ts:183-188`).
-
-## Documentation Update - 2026-01-20 17:19
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:20:04
+## Quality Monitor - 2026-01-22 20:03:55
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:21:16
+## Quality Monitor - 2026-01-22 20:05:09
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:21
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:22:28
+## Quality Monitor - 2026-01-22 20:06:23
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:23
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:23:39
+## Quality Monitor - 2026-01-22 20:07:40
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:24:50
+## Quality Monitor - 2026-01-22 20:08:54
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:25
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:26:03
+## Quality Monitor - 2026-01-22 20:10:09
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:27:15
+## Quality Monitor - 2026-01-22 20:11:22
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:27
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:28:27
+## Quality Monitor - 2026-01-22 20:12:36
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:29
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:29:38
+## Quality Monitor - 2026-01-22 20:13:49
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:30:49
+## Quality Monitor - 2026-01-22 20:15:03
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:31
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:32:00
+## Quality Monitor - 2026-01-22 20:16:17
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:33:12
+## Quality Monitor - 2026-01-22 20:17:30
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:33
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:34:24
+## Quality Monitor - 2026-01-22 20:18:44
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:35
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:35:36
+## Quality Monitor - 2026-01-22 20:19:57
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:36:47
+## Quality Monitor - 2026-01-22 20:21:11
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:37
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:37:58
+## Quality Monitor - 2026-01-22 20:22:26
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:39:09
+## Quality Monitor - 2026-01-22 20:23:40
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:39
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:40:20
+## Quality Monitor - 2026-01-22 20:24:53
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:41
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:41:32
+## Quality Monitor - 2026-01-22 20:26:07
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:42:43
+## Quality Monitor - 2026-01-22 20:27:21
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:43
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:43:55
+## Quality Monitor - 2026-01-22 20:28:35
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:45:06
+## Quality Monitor - 2026-01-22 20:29:49
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:45
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:46:18
+## Quality Monitor - 2026-01-22 20:31:05
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:47
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:47:30
+## Quality Monitor - 2026-01-22 20:32:19
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:48:43
+## Quality Monitor - 2026-01-22 20:33:32
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:49
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:49:54
+## Quality Monitor - 2026-01-22 20:34:46
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:51:06
+## Quality Monitor - 2026-01-22 20:35:59
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:51
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:52:17
+## Quality Monitor - 2026-01-22 20:37:13
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:53:28
+## Quality Monitor - 2026-01-22 20:38:27
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:53
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:54:40
+## Quality Monitor - 2026-01-22 20:39:42
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:55
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:55:51
+## Quality Monitor - 2026-01-22 20:40:55
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:57:02
+## Quality Monitor - 2026-01-22 20:42:08
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:57
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 17:58:13
+## Quality Monitor - 2026-01-22 20:43:22
 - ⚠️ Biome lint errors found
 
 
-## Quality Monitor - 2026-01-20 17:59:24
+## Quality Monitor - 2026-01-22 20:44:36
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 17:59
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
-
-## Quality Monitor - 2026-01-20 18:00:35
+## Quality Monitor - 2026-01-22 20:45:50
 - ⚠️ Biome lint errors found
 
 
-## Documentation Update - 2026-01-20 18:01
-- ✅ Feature documentation generated: `docs/features/coach-parent-summaries-p3.md`
-- Phase complete: Coach-Parent AI Summaries - Phase 3 (Sensitive Topics)
+## Quality Monitor - 2026-01-22 20:47:04
+- ⚠️ Biome lint errors found
 
-## Quality Monitor - 2026-01-20 18:01:47
+
+## Quality Monitor - 2026-01-22 20:48:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 20:49:30
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 20:50:45
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 20:51:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 20:53:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 20:54:27
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 20:55:41
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 20:56:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 20:58:08
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 20:59:23
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:00:36
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:01:50
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:03:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:04:18
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:05:32
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:06:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:08:02
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:09:15
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:10:30
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:11:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:13:00
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:14:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:15:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:16:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:18:33
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:19:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:21:00
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:22:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:23:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:24:57
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:26:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:27:23
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:28:57
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:30:15
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:31:30
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:32:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:34:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:35:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:36:48
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:38:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:39:25
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:40:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:41:52
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:43:06
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:44:19
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:45:35
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:46:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:48:06
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:49:22
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:50:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:51:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:53:09
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:54:32
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:55:46
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:56:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:58:12
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 21:59:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:00:41
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:01:55
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:03:08
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:04:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:05:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:06:53
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:08:07
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:09:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:10:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:11:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:13:06
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:14:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:15:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:17:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:18:39
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:19:52
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:21:07
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:22:20
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:23:45
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:24:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:26:22
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:27:45
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:28:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:30:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:31:28
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:32:43
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:34:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:35:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:36:52
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:38:09
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:39:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:40:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:41:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:43:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:44:19
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:45:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:47:07
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:48:28
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:49:52
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:51:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:52:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:53:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:55:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:56:28
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:57:42
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 22:58:55
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:00:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:01:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:02:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:04:34
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:05:55
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:07:19
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:08:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:10:09
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:11:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:12:50
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:14:15
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:15:28
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:16:48
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:18:02
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:19:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:20:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:22:05
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:23:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:25:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:26:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:27:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:29:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:30:43
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:32:09
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:33:22
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:34:39
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:35:53
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:37:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:38:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:40:07
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:41:22
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:42:52
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:44:05
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:45:39
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:47:02
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:48:15
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:49:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:51:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:52:32
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:53:46
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:55:00
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:56:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:57:28
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:58:43
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-22 23:59:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:01:15
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:02:34
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:04:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:05:18
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:06:32
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:07:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:09:01
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:10:16
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:11:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:13:00
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:14:25
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:15:39
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:17:02
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:18:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:19:42
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:21:07
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:22:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:23:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:25:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:26:39
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:27:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:29:15
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:30:30
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:31:50
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:33:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:34:20
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:35:43
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:37:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:38:48
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:40:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:41:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:42:55
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:44:09
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:45:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:46:53
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:48:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:49:39
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:50:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:52:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:53:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:54:42
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:56:16
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:57:31
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 00:58:46
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:00:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:01:41
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:02:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:04:18
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:05:35
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:06:53
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:08:12
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:09:34
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:11:34
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:13:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:14:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:15:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:17:36
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:19:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:20:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:23:01
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:24:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:25:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:27:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:29:35
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:31:20
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:33:06
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:34:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:35:45
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:37:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:38:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:39:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:41:55
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:43:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:44:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:46:16
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:48:34
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:51:01
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:52:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:54:12
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:55:53
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:58:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 01:59:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:00:48
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:02:08
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:03:25
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:04:46
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:06:08
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:07:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:08:46
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:10:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:11:33
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:12:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:14:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:16:02
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:17:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:19:36
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:20:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:22:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:24:08
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:25:41
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:27:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:28:30
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:31:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:33:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:34:42
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:36:03
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:37:43
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:38:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:40:16
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:41:31
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:43:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:44:31
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:46:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:48:01
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:49:22
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:51:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:52:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:54:25
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:56:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:57:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 02:58:57
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:00:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:01:34
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:02:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:04:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:05:31
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:06:49
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:08:08
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:09:27
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:10:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:12:06
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:13:27
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:14:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:16:08
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:17:28
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:18:48
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:20:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:21:30
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:22:48
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:24:08
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:25:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:26:49
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:28:09
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:29:28
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:30:48
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:32:06
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:33:25
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:34:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:36:03
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:37:22
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:38:41
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:39:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:41:18
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:42:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:43:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:45:18
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:46:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:47:55
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:49:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:50:32
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:51:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:53:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:54:30
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:55:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:57:05
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:58:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 03:59:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:00:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:02:16
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:03:35
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:04:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:06:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:07:32
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:08:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:10:08
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:11:25
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:12:43
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:14:01
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:15:19
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:16:39
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:17:57
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:19:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:20:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:21:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:23:15
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:24:34
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:25:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:27:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:28:33
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:29:52
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:31:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:32:27
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:33:46
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:35:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:36:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:37:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:38:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:40:18
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:41:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:42:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:44:16
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:45:33
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:46:52
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:48:09
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:49:28
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:50:48
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:52:07
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:53:25
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:54:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:56:03
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:57:22
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:58:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 04:59:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:01:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:02:36
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:03:55
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:05:15
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:06:34
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:07:52
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:09:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:10:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:11:46
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:13:02
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:14:20
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:15:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:16:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:18:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:19:32
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:20:49
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:22:05
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:23:23
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:24:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:25:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:27:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:28:35
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:29:53
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:31:12
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:32:28
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:33:45
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:35:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:36:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:37:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:38:55
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:40:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:41:31
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:42:48
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:44:07
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:45:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:46:42
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:47:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:49:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:50:35
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:51:52
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:53:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:54:27
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:55:45
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:57:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:58:22
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 05:59:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:00:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:02:15
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:03:35
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:04:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:06:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:07:31
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:08:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:10:06
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:11:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:12:42
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:14:00
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:15:20
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:16:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:17:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:19:16
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:20:34
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:21:53
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:23:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:24:33
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:25:55
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:27:15
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:28:34
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:29:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:31:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:32:34
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:33:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:35:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:36:31
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:37:49
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:39:08
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:40:28
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:41:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:43:06
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:44:25
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:45:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:47:05
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:48:25
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:49:43
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:51:03
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:52:20
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:53:39
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:54:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:56:20
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:57:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 06:58:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:00:18
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:01:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:02:55
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:04:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:05:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:07:00
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:08:18
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:09:35
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:10:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:12:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:13:32
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:14:50
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:16:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:17:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:18:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:20:06
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:21:25
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:22:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:24:03
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:25:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:26:41
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:27:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:29:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:30:36
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:31:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:33:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:34:33
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:35:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:37:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:38:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:39:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:41:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:42:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:43:43
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:45:06
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:46:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:47:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:49:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:50:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:51:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:53:02
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:54:23
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:55:43
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:57:01
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:58:18
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 07:59:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:00:57
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:02:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:03:34
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:04:52
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:06:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:07:28
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:08:46
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:10:04
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:11:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:12:42
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:13:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:15:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:16:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:17:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:19:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:20:27
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:21:43
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:23:01
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:24:18
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:25:35
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:26:52
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:28:09
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:29:26
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:30:42
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:31:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:33:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:34:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:35:45
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:37:01
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:38:19
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:39:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:41:20
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:42:57
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:44:30
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:45:52
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:47:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:48:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:49:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:51:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:52:30
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:54:11
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:55:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:57:22
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 08:58:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:00:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:01:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:03:22
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:05:01
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:06:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:07:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:08:54
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:10:10
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:11:30
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:13:09
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:14:24
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:15:42
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:17:03
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:18:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:19:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:20:57
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:22:16
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:23:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:24:58
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:26:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:28:03
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:29:32
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:30:49
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:32:14
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:33:44
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:35:02
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:36:27
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:37:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:39:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:40:29
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:41:47
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:43:06
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:44:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:45:35
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:46:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 09:48:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:28:15
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:30:42
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:31:59
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:33:18
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:34:37
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:36:00
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:37:53
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:39:48
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:42:02
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:43:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:45:17
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:47:46
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:49:19
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:50:38
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:51:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:53:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:54:36
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:55:56
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-23 10:57:57
 - ⚠️ Biome lint errors found
 

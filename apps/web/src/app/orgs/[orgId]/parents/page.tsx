@@ -4,13 +4,14 @@ import { api } from "@pdp/backend/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { AlertCircle, CheckCircle, Clock, Users } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { GuardianIdentityClaimDialog } from "@/components/guardian-identity-claim-dialog";
 import Loader from "@/components/loader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useGuardianChildrenInOrg } from "@/hooks/use-guardian-identity";
 import { authClient } from "@/lib/auth-client";
+import { ActionItemsPanel } from "./components/action-items-panel";
 import { AIPracticeAssistant } from "./components/ai-practice-assistant";
 import { ChildCard } from "./components/child-card";
 import { CoachFeedbackSnapshot } from "./components/coach-feedback-snapshot";
@@ -73,27 +74,22 @@ function ParentDashboardContent() {
     isLoading: identityLoading,
   } = useGuardianChildrenInOrg(orgId, session?.user?.email);
 
+  // Get summaries data for child summary cards (US-009)
+  const summariesData = useQuery(
+    api.models.coachParentSummaries.getParentSummariesByChildAndSport,
+    { organizationId: orgId }
+  );
+
   // Show claim dialog if there are unclaimed identities (only auto-open once)
   // Note: Don't check !guardianIdentity because useGuardianIdentity returns
   // unclaimed identities too (via email lookup)
   useEffect(() => {
-    console.log("Claimable identities check:", {
-      claimableIdentities,
-      count: claimableIdentities?.length,
-      showClaimDialog,
-      hasAutoOpened,
-    });
     if (
       claimableIdentities &&
       claimableIdentities.length > 0 &&
       !showClaimDialog &&
       !hasAutoOpened
     ) {
-      console.log(
-        "Auto-opening claim dialog for",
-        claimableIdentities.length,
-        "identities"
-      );
       setShowClaimDialog(true);
       setHasAutoOpened(true);
     }
@@ -162,6 +158,30 @@ function ParentDashboardContent() {
 
   // Get current claimable identity to display
   const currentClaimable = claimableIdentities?.[currentClaimIndex];
+
+  // US-013: Messages ref for smooth scroll behavior
+  const messagesRef = useRef<HTMLDivElement>(null);
+
+  // US-013: Calculate total unread count across all children and sports
+  const totalUnreadCount = useMemo(() => {
+    if (!summariesData) {
+      return 0;
+    }
+    return summariesData.reduce(
+      (total, childData) =>
+        total +
+        childData.sportGroups.reduce(
+          (childTotal, sportGroup) => childTotal + sportGroup.unreadCount,
+          0
+        ),
+      0
+    );
+  }, [summariesData]);
+
+  // US-013: Scroll to messages handler
+  const handleReviewClick = () => {
+    messagesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   // Check if user has parent functional role or is admin/owner
   const hasParentRole = useMemo(() => {
@@ -381,6 +401,14 @@ function ParentDashboardContent() {
       {/* AI Practice Assistant - Full width */}
       {playerCount > 0 && (
         <AIPracticeAssistant orgId={orgId} playerData={identityChildren} />
+      )}
+
+      {/* Action Items Panel (US-013) */}
+      {playerCount > 0 && totalUnreadCount > 0 && (
+        <ActionItemsPanel
+          onReviewClick={handleReviewClick}
+          unreadCount={totalUnreadCount}
+        />
       )}
 
       {/* Children Cards */}

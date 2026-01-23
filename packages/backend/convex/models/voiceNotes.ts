@@ -59,6 +59,15 @@ const statusValidator = v.union(
   v.literal("failed")
 );
 
+const sourceValidator = v.optional(
+  v.union(
+    v.literal("app_recorded"),
+    v.literal("app_typed"),
+    v.literal("whatsapp_audio"),
+    v.literal("whatsapp_text")
+  )
+);
+
 // ============ QUERIES ============
 
 /**
@@ -85,6 +94,7 @@ export const getAllVoiceNotes = query({
       insights: v.array(insightValidator),
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
+      source: sourceValidator,
     })
   ),
   handler: async (ctx, args) => {
@@ -121,6 +131,7 @@ export const getVoiceNoteById = query({
       insights: v.array(insightValidator),
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
+      source: sourceValidator,
     }),
     v.null()
   ),
@@ -155,6 +166,7 @@ export const getVoiceNotesByCoach = query({
       insights: v.array(insightValidator),
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
+      source: sourceValidator,
     })
   ),
   handler: async (ctx, args) => {
@@ -211,6 +223,103 @@ export const getPendingInsights = query({
   },
 });
 
+/**
+ * Get voice notes and insights for a specific player
+ * Used in player passport to display coach insights
+ * Returns all voice notes that have insights for the given player
+ */
+export const getVoiceNotesForPlayer = query({
+  args: {
+    orgId: v.string(),
+    playerIdentityId: v.id("playerIdentities"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("voiceNotes"),
+      _creationTime: v.number(),
+      orgId: v.string(),
+      coachId: v.optional(v.string()),
+      coachName: v.string(),
+      date: v.string(),
+      type: noteTypeValidator,
+      transcription: v.optional(v.string()),
+      transcriptionStatus: v.optional(statusValidator),
+      insights: v.array(insightValidator),
+      insightsStatus: v.optional(statusValidator),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Strategy: Query all org voice notes with completed insights status
+    // Filter client-side for notes that have insights for this player
+    // (No schema changes needed - insights are embedded in array)
+
+    const allNotes = await ctx.db
+      .query("voiceNotes")
+      .withIndex("by_orgId", (q) => q.eq("orgId", args.orgId))
+      .filter((q) => q.eq(q.field("insightsStatus"), "completed"))
+      .order("desc")
+      .take(1000);
+
+    // Filter notes that have insights for this player
+    const playerNotes = allNotes.filter((note) =>
+      note.insights.some(
+        (insight) => insight.playerIdentityId === args.playerIdentityId
+      )
+    );
+
+    // Enrich with coach info
+    const notesWithCoachInfo = await Promise.all(
+      playerNotes.map(async (note) => {
+        let coachName = "Unknown Coach";
+
+        if (note.coachId) {
+          // Query user from Better Auth component
+          const coachResult = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "user",
+              where: [
+                {
+                  field: "userId",
+                  value: note.coachId,
+                  operator: "eq",
+                },
+              ],
+            }
+          );
+
+          if (coachResult) {
+            const coach = coachResult as {
+              firstName?: string;
+              lastName?: string;
+            };
+            if (coach.firstName || coach.lastName) {
+              coachName =
+                `${coach.firstName || ""} ${coach.lastName || ""}`.trim();
+            }
+          }
+        }
+
+        return {
+          _id: note._id,
+          _creationTime: note._creationTime,
+          orgId: note.orgId,
+          coachId: note.coachId,
+          coachName,
+          date: note.date,
+          type: note.type,
+          transcription: note.transcription,
+          transcriptionStatus: note.transcriptionStatus,
+          insights: note.insights,
+          insightsStatus: note.insightsStatus,
+        };
+      })
+    );
+
+    return notesWithCoachInfo;
+  },
+});
+
 // ============ MUTATIONS ============
 
 /**
@@ -220,9 +329,12 @@ export const getPendingInsights = query({
 export const createTypedNote = mutation({
   args: {
     orgId: v.string(),
-    coachId: v.optional(v.string()),
+    coachId: v.string(), // Required - Better Auth user ID
     noteText: v.string(),
     noteType: noteTypeValidator,
+    source: v.optional(
+      v.union(v.literal("app_typed"), v.literal("whatsapp_text"))
+    ),
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
@@ -231,6 +343,7 @@ export const createTypedNote = mutation({
       coachId: args.coachId,
       date: new Date().toISOString(),
       type: args.noteType,
+      source: args.source || "app_typed",
       transcription: args.noteText,
       transcriptionStatus: "completed",
       insights: [],
@@ -253,9 +366,12 @@ export const createTypedNote = mutation({
 export const createRecordedNote = mutation({
   args: {
     orgId: v.string(),
-    coachId: v.optional(v.string()),
+    coachId: v.string(), // Required - Better Auth user ID
     audioStorageId: v.id("_storage"),
     noteType: noteTypeValidator,
+    source: v.optional(
+      v.union(v.literal("app_recorded"), v.literal("whatsapp_audio"))
+    ),
   },
   returns: v.id("voiceNotes"),
   handler: async (ctx, args) => {
@@ -264,6 +380,7 @@ export const createRecordedNote = mutation({
       coachId: args.coachId,
       date: new Date().toISOString(),
       type: args.noteType,
+      source: args.source || "app_recorded",
       audioStorageId: args.audioStorageId,
       transcriptionStatus: "pending",
       insights: [],
@@ -665,86 +782,127 @@ export const updateInsightStatus = mutation({
       } else {
         message = "Player identity not found";
       }
-    } else if (args.status === "applied" && !insight.playerIdentityId) {
+    } else if (
+      args.status === "applied" &&
+      !insight.playerIdentityId &&
+      insight.category === "todo"
+    ) {
+      // This is a TODO insight - create a coach task
+      const assigneeUserId = (insight as any).assigneeUserId;
+      const assigneeName = (insight as any).assigneeName;
+
+      if (!(assigneeUserId && note.coachId)) {
+        throw new Error(
+          "TODO insight must have assigneeUserId and coachId to create a task"
+        );
+      }
+
+      const now = Date.now();
+
+      // Create the coach task
+      const taskId = await ctx.db.insert("coachTasks", {
+        text: insight.title,
+        completed: false,
+        organizationId: note.orgId,
+        assignedToUserId: assigneeUserId,
+        assignedToName: assigneeName,
+        createdByUserId: note.coachId,
+        source: "voice_note",
+        voiceNoteId: args.noteId,
+        insightId: args.insightId,
+        priority: "medium",
+        createdAt: now,
+      });
+
+      appliedTo = "coachTasks";
+      recordId = taskId;
+      message = `Task created and assigned to ${assigneeName}`;
+
+      // Link the task back to the insight
+      const updatedInsightsWithTask = note.insights.map((i) => {
+        if (i.id === args.insightId) {
+          return {
+            ...i,
+            status: "applied" as const,
+            appliedDate: new Date().toISOString(),
+            linkedTaskId: taskId,
+          };
+        }
+        return i;
+      });
+
+      await ctx.db.patch(args.noteId, {
+        insights: updatedInsightsWithTask,
+      });
+
+      return {
+        success: true,
+        appliedTo,
+        recordId,
+        message,
+      };
+    } else if (
+      args.status === "applied" &&
+      !insight.playerIdentityId &&
+      insight.category === "team_culture"
+    ) {
       // This is a team-level insight (no player linked)
-      // Route to team notes - since there's no player, ANY category goes to team
-      const _category = insight.category?.toLowerCase() || "";
+      // Create a record in teamObservations table
+      const category = insight.category?.toLowerCase() || "team_culture";
+      const now = Date.now();
 
-      // Always route to team notes when there's no player linked
-      // This is simpler and more intuitive - if there's no player, it's a team note
-      {
-        // Try to find a team based on note type or context
-        // For now, we'll use the Better Auth adapter to find teams for this org
-        // and add the note to all teams (or ideally the most relevant one)
+      // Check if insight has teamId (from AI auto-assignment)
+      const targetTeamId = (insight as any).teamId;
+      const targetTeamName = (insight as any).teamName;
 
-        const now = Date.now();
-        const newNote = `[${new Date().toLocaleDateString()}] ${insight.title}: ${insight.description}${insight.recommendedUpdate ? ` (Recommended: ${insight.recommendedUpdate})` : ""}`;
+      if (targetTeamId && targetTeamName) {
+        // Verify coachId exists (required for team observations)
+        if (!note.coachId) {
+          throw new Error(
+            "Cannot create team observation: voice note has no coachId. This is likely a legacy note."
+          );
+        }
 
-        // Get teams for this organization using Better Auth component
-        const teamsResult = await ctx.runQuery(
-          components.betterAuth.adapter.findMany,
+        // Get coach name from Better Auth
+        const coachUser = await ctx.runQuery(
+          components.betterAuth.adapter.findOne,
           {
-            model: "team",
-            paginationOpts: { cursor: null, numItems: 100 },
-            where: [
-              { field: "organizationId", value: note.orgId, operator: "eq" },
-            ],
+            model: "user",
+            where: [{ field: "id", value: note.coachId, operator: "eq" }],
           }
         );
 
-        const teams = teamsResult.page as Array<{
-          _id: string;
-          name: string;
-          coachNotes?: string;
-        }>;
+        const coachName = coachUser
+          ? `${(coachUser as any).firstName || ""} ${(coachUser as any).lastName || ""}`.trim() ||
+            (coachUser as any).name ||
+            "Coach"
+          : "Coach";
 
-        if (teams.length === 1) {
-          // Only one team - add note to it
-          const team = teams[0];
-          const existingNotes = team.coachNotes || "";
-          const updatedNotes = existingNotes
-            ? `${existingNotes}\n\n${newNote}`
-            : newNote;
+        // Create team observation record
+        const observationId = await ctx.db.insert("teamObservations", {
+          organizationId: note.orgId,
+          teamId: targetTeamId,
+          teamName: targetTeamName,
+          source: "voice_note",
+          voiceNoteId: args.noteId,
+          insightId: args.insightId,
+          coachId: note.coachId,
+          coachName,
+          title: insight.title,
+          description: insight.description,
+          category,
+          dateObserved: note.date,
+          createdAt: now,
+        });
 
-          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
-            input: {
-              model: "team",
-              where: [{ field: "_id", value: team._id, operator: "eq" }],
-              update: {
-                coachNotes: updatedNotes,
-                updatedAt: now,
-              },
-            },
-          });
-
-          appliedTo = "team.coachNotes";
-          recordId = team._id;
-          message = `Team note added to ${team.name}`;
-        } else if (teams.length > 1) {
-          // Multiple teams - add to the first one (could be improved with team detection logic)
-          const team = teams[0];
-          const existingNotes = team.coachNotes || "";
-          const updatedNotes = existingNotes
-            ? `${existingNotes}\n\n${newNote}`
-            : newNote;
-
-          await ctx.runMutation(components.betterAuth.adapter.updateOne, {
-            input: {
-              model: "team",
-              where: [{ field: "_id", value: team._id, operator: "eq" }],
-              update: {
-                coachNotes: updatedNotes,
-                updatedAt: now,
-              },
-            },
-          });
-
-          appliedTo = "team.coachNotes";
-          recordId = team._id;
-          message = `Team note added to ${team.name} (${teams.length} teams available)`;
-        } else {
-          message = "No teams found for this organization to add the note to.";
-        }
+        appliedTo = "teamObservations";
+        recordId = observationId;
+        message = `Team observation added to ${targetTeamName}`;
+      } else {
+        // No team ID - insight needs to be classified with a team first
+        throw new Error(
+          "Team insight must be assigned to a team before applying. Please classify it first."
+        );
       }
     }
 
@@ -1024,6 +1182,7 @@ export const updateInsightContentInternal = internalMutation({
     insightId: v.string(),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
+    recommendedUpdate: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1038,6 +1197,8 @@ export const updateInsightContentInternal = internalMutation({
           ...insight,
           title: args.title ?? insight.title,
           description: args.description ?? insight.description,
+          recommendedUpdate:
+            args.recommendedUpdate ?? insight.recommendedUpdate,
         };
       }
       return insight;
@@ -1273,14 +1434,15 @@ export const assignPlayerToInsight = mutation({
       throw new Error("Insight not found");
     }
 
-    // Correct player name in title and description using pattern matching
+    // Correct player name in title, description, AND recommendedUpdate using pattern matching
     const originalPlayerName = insight.playerName;
     let correctedTitle = insight.title;
     let correctedDescription = insight.description;
+    let correctedRecommendedUpdate = insight.recommendedUpdate;
     let nameWasCorrected = false;
 
     if (originalPlayerName && originalPlayerName !== playerName) {
-      // Try pattern-based correction
+      // Try pattern-based correction for all text fields
       const titleResult = correctPlayerNameInText(
         insight.title,
         originalPlayerName,
@@ -1294,23 +1456,30 @@ export const assignPlayerToInsight = mutation({
         player.lastName
       );
 
+      // Also correct recommendedUpdate if it exists
+      let recUpdateResult = {
+        corrected: insight.recommendedUpdate,
+        wasModified: false,
+      };
+      if (insight.recommendedUpdate) {
+        recUpdateResult = correctPlayerNameInText(
+          insight.recommendedUpdate,
+          originalPlayerName,
+          player.firstName,
+          player.lastName
+        );
+      }
+
       correctedTitle = titleResult.corrected;
       correctedDescription = descResult.corrected;
-      nameWasCorrected = titleResult.wasModified || descResult.wasModified;
+      correctedRecommendedUpdate = recUpdateResult.corrected;
+      nameWasCorrected =
+        titleResult.wasModified ||
+        descResult.wasModified ||
+        recUpdateResult.wasModified;
 
-      if (nameWasCorrected) {
-        console.log(
-          `[Player Assignment] Pattern-corrected name "${originalPlayerName}" -> "${playerName}" in insight`
-        );
-        console.log(`  Title: "${insight.title}" -> "${correctedTitle}"`);
-        if (descResult.wasModified) {
-          console.log("  Description also corrected");
-        }
-      } else {
+      if (!nameWasCorrected) {
         // Pattern matching didn't find the name - schedule AI correction as fallback
-        console.log(
-          `[Player Assignment] Pattern matching didn't find "${originalPlayerName}" in text. Scheduling AI correction.`
-        );
         await ctx.scheduler.runAfter(
           0,
           internal.actions.voiceNotes.correctInsightPlayerName,
@@ -1321,12 +1490,13 @@ export const assignPlayerToInsight = mutation({
             correctName: playerName,
             originalTitle: insight.title,
             originalDescription: insight.description,
+            originalRecommendedUpdate: insight.recommendedUpdate,
           }
         );
       }
     }
 
-    // Update the insight with the assigned player and corrected text
+    // Update the insight with the assigned player and corrected text (including recommendedUpdate)
     const updatedInsights = note.insights.map((i) => {
       if (i.id === args.insightId) {
         return {
@@ -1335,6 +1505,7 @@ export const assignPlayerToInsight = mutation({
           playerName,
           title: correctedTitle,
           description: correctedDescription,
+          recommendedUpdate: correctedRecommendedUpdate,
         };
       }
       return i;
@@ -1345,9 +1516,6 @@ export const assignPlayerToInsight = mutation({
     });
 
     // Schedule parent summary generation for this insight now that it has a player
-    console.log(
-      `[Player Assignment] Coach assigned "${playerName}" to insight: "${correctedTitle}". Scheduling parent summary.`
-    );
     await ctx.scheduler.runAfter(
       0,
       internal.actions.coachParentSummaries.processVoiceNoteInsight,
@@ -1409,6 +1577,7 @@ export const getNote = internalQuery({
       insights: v.array(insightValidator),
       insightsStatus: v.optional(statusValidator),
       insightsError: v.optional(v.string()),
+      source: sourceValidator,
     }),
     v.null()
   ),

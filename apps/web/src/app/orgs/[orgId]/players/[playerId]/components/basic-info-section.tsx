@@ -91,7 +91,7 @@ function formatSportName(sportCode: string): string {
 }
 
 export function BasicInformationSection({ player }: Props) {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Filter teams to only show those matching the current sport, then sort by age group
   const teamsForCurrentSport = player.teams
@@ -126,192 +126,196 @@ export function BasicInformationSection({ player }: Props) {
   });
 
   return (
-    <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
-      <Card>
-        <CollapsibleTrigger className="w-full">
-          <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Basic Information
-              </CardTitle>
-              {isExpanded ? (
-                <ChevronUp className="h-5 w-5 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-muted-foreground" />
-              )}
-            </div>
-          </CardHeader>
-        </CollapsibleTrigger>
+    <div className="space-y-2">
+      {/* Player Name - Always Visible */}
+      <h2 className="font-bold text-2xl">{player.name}</h2>
 
-        <CollapsibleContent>
-          <CardContent className="space-y-6">
-            {/* Player Demographics */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <InfoField label="Player Name" value={player.name} />
-              <InfoField label="Age Group" value={player.ageGroup} />
-              {/* Sport - shows only the current passport's sport with icon */}
-              <div>
-                <dt className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-                  Sport
-                </dt>
-                <dd className="mt-1.5">
-                  {player.sport ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-gradient-to-r from-purple-100 to-blue-100 px-3 py-1 font-medium text-purple-800 text-sm">
-                      {getSportEmoji(player.sport)}{" "}
-                      {formatSportName(player.sport)}
-                    </span>
-                  ) : (
-                    <span className="font-medium text-sm">Not specified</span>
-                  )}
-                </dd>
+      <Collapsible onOpenChange={setIsExpanded} open={isExpanded}>
+        <Card>
+          <CollapsibleTrigger className="w-full">
+            <CardHeader className="cursor-pointer transition-colors hover:bg-accent/50">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Basic Information
+                </CardTitle>
+                {isExpanded ? (
+                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                )}
               </div>
-              <InfoField label="Gender" value={player.gender} />
-              <InfoField
-                label={sortedTeams.length > 1 ? "Teams" : "Team"}
-                value={
-                  sortedTeams.length > 0
-                    ? sortedTeams.map((t) => t.name).join(", ")
-                    : "No team assigned"
-                }
-              />
-              <InfoField label="Season" value={player.season} />
-              {player.completionDate && (
+            </CardHeader>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent>
+            <CardContent className="space-y-6">
+              {/* Player Demographics */}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <InfoField label="Age Group" value={player.ageGroup} />
+                {/* Sport - shows only the current passport's sport with icon */}
+                <div>
+                  <dt className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                    Sport
+                  </dt>
+                  <dd className="mt-1.5">
+                    {player.sport ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-gradient-to-r from-purple-100 to-blue-100 px-3 py-1 font-medium text-purple-800 text-sm">
+                        {getSportEmoji(player.sport)}{" "}
+                        {formatSportName(player.sport)}
+                      </span>
+                    ) : (
+                      <span className="font-medium text-sm">Not specified</span>
+                    )}
+                  </dd>
+                </div>
+                <InfoField label="Gender" value={player.gender} />
                 <InfoField
-                  label="Completion Date"
-                  value={player.completionDate}
+                  label="Team(s)"
+                  value={
+                    sortedTeams.length > 0
+                      ? sortedTeams.map((t) => t.name).join(", ")
+                      : "No teams assigned"
+                  }
                 />
-              )}
-              {player.dateOfBirth && (
-                <InfoField label="Date of Birth" value={player.dateOfBirth} />
-              )}
-            </div>
-
-            {/* Attendance */}
-            {player.attendance && (
-              <div className="border-t pt-4">
-                <h4 className="mb-3 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
-                  Attendance
-                </h4>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <InfoField label="Season" value={player.season} />
+                {player.completionDate && (
                   <InfoField
-                    label="Training Attendance"
-                    value={player.attendance.training}
+                    label="Completion Date"
+                    value={player.completionDate}
                   />
-                  <InfoField
-                    label="Match Attendance"
-                    value={player.attendance.matches}
-                  />
-                </div>
+                )}
+                {player.dateOfBirth && (
+                  <InfoField label="Date of Birth" value={player.dateOfBirth} />
+                )}
               </div>
-            )}
 
-            {/* Address Information */}
-            {(player.address || player.town || player.postcode) && (
-              <div className="border-t pt-4">
-                <h4 className="mb-3 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
-                  Address
-                </h4>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {player.address && (
-                    <InfoField label="Address" value={player.address} />
-                  )}
-                  {player.town && (
-                    <InfoField label="Town" value={player.town} />
-                  )}
-                  {player.postcode && (
-                    <InfoField label="Postcode" value={player.postcode} />
-                  )}
+              {/* Attendance */}
+              {player.attendance && (
+                <div className="border-t pt-4">
+                  <h4 className="mb-3 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
+                    Attendance
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <InfoField
+                      label="Training Attendance"
+                      value={player.attendance.training}
+                    />
+                    <InfoField
+                      label="Match Attendance"
+                      value={player.attendance.matches}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Parent/Guardian Information */}
-            {player.parents && player.parents.length > 0 && (
-              <div className="mt-6 border-t pt-4">
-                <h4 className="mb-4 font-semibold text-gray-600 text-xs uppercase tracking-wide">
-                  {player.parents.length > 1
-                    ? "Parents & Guardians"
-                    : "Parent / Guardian"}
-                </h4>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {player.parents.map((parent, idx) => (
-                    <div
-                      className="rounded-lg bg-white p-4 shadow-md transition-shadow hover:shadow-lg"
-                      key={parent.id || idx}
-                    >
-                      {/* Parent Header */}
-                      <div className="mb-3 flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 font-semibold text-sm text-white">
-                            {parent.firstName?.[0]}
-                            {parent.surname?.[0]}
+              {/* Address Information */}
+              {(player.address || player.town || player.postcode) && (
+                <div className="border-t pt-4">
+                  <h4 className="mb-3 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
+                    Address
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {player.address && (
+                      <InfoField label="Address" value={player.address} />
+                    )}
+                    {player.town && (
+                      <InfoField label="Town" value={player.town} />
+                    )}
+                    {player.postcode && (
+                      <InfoField label="Postcode" value={player.postcode} />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Parent/Guardian Information */}
+              {player.parents && player.parents.length > 0 && (
+                <div className="mt-6 border-t pt-4">
+                  <h4 className="mb-4 font-semibold text-gray-600 text-xs uppercase tracking-wide">
+                    {player.parents.length > 1
+                      ? "Parents & Guardians"
+                      : "Parent / Guardian"}
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {player.parents.map((parent, idx) => (
+                      <div
+                        className="rounded-lg bg-white p-4 shadow-md transition-shadow hover:shadow-lg"
+                        key={parent.id || idx}
+                      >
+                        {/* Parent Header */}
+                        <div className="mb-3 flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 font-semibold text-sm text-white">
+                              {parent.firstName?.[0]}
+                              {parent.surname?.[0]}
+                            </div>
+                            <div>
+                              <h5 className="font-semibold text-gray-800">
+                                {parent.firstName} {parent.surname}
+                              </h5>
+                              {parent.relationship && (
+                                <p className="text-gray-500 text-xs">
+                                  {parent.relationship}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <h5 className="font-semibold text-gray-800">
-                              {parent.firstName} {parent.surname}
-                            </h5>
-                            {parent.relationship && (
-                              <p className="text-gray-500 text-xs">
-                                {parent.relationship}
-                              </p>
-                            )}
-                          </div>
+                          {parent.isPrimary && (
+                            <span className="rounded-full bg-green-100 px-2 py-0.5 font-medium text-green-700 text-xs">
+                              Primary
+                            </span>
+                          )}
                         </div>
-                        {parent.isPrimary && (
-                          <span className="rounded-full bg-green-100 px-2 py-0.5 font-medium text-green-700 text-xs">
-                            Primary
-                          </span>
-                        )}
-                      </div>
 
-                      {/* Contact Details */}
-                      <div className="space-y-2">
-                        <a
-                          className="flex items-center gap-2 text-gray-600 text-sm transition-colors hover:text-blue-600"
-                          href={`mailto:${parent.email}`}
-                        >
-                          <Mail className="h-4 w-4 text-gray-400" />
-                          <span className="truncate">{parent.email}</span>
-                        </a>
-                        {parent.phone && (
+                        {/* Contact Details */}
+                        <div className="space-y-2">
                           <a
                             className="flex items-center gap-2 text-gray-600 text-sm transition-colors hover:text-blue-600"
-                            href={`tel:${parent.phone}`}
+                            href={`mailto:${parent.email}`}
                           >
-                            <Phone className="h-4 w-4 text-gray-400" />
-                            <span>{parent.phone}</span>
+                            <Mail className="h-4 w-4 text-gray-400" />
+                            <span className="truncate">{parent.email}</span>
                           </a>
-                        )}
+                          {parent.phone && (
+                            <a
+                              className="flex items-center gap-2 text-gray-600 text-sm transition-colors hover:text-blue-600"
+                              href={`tel:${parent.phone}`}
+                            >
+                              <Phone className="h-4 w-4 text-gray-400" />
+                              <span>{parent.phone}</span>
+                            </a>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Injury Notes */}
-            {player.injuryNotes && (
-              <div className="border-t pt-4">
-                <div className="rounded-lg border-orange-500 border-l-4 bg-orange-50 p-4">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="h-5 w-5 text-orange-600" />
-                    <div>
-                      <h4 className="font-semibold text-orange-900 text-sm">
-                        Injury/Burnout Notes
-                      </h4>
-                      <p className="mt-1 text-orange-800 text-sm">
-                        {player.injuryNotes}
-                      </p>
+              {/* Injury Notes */}
+              {player.injuryNotes && (
+                <div className="border-t pt-4">
+                  <div className="rounded-lg border-orange-500 border-l-4 bg-orange-50 p-4">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-orange-600" />
+                      <div>
+                        <h4 className="font-semibold text-orange-900 text-sm">
+                          Injury/Burnout Notes
+                        </h4>
+                        <p className="mt-1 text-orange-800 text-sm">
+                          {player.injuryNotes}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </CollapsibleContent>
-      </Card>
-    </Collapsible>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+    </div>
   );
 }
 

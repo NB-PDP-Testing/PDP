@@ -1792,7 +1792,16 @@ export const syncFunctionalRolesFromInvitation = mutation({
     const suggestedRoles: ("coach" | "parent" | "admin")[] =
       metadata?.suggestedFunctionalRoles || [];
     const roleSpecificData = metadata?.roleSpecificData || {};
-    const suggestedPlayerLinks: string[] = metadata?.suggestedPlayerLinks || [];
+    // suggestedPlayerLinks can be either string[] (legacy) or object[] with {id, name, relationship}
+    const rawPlayerLinks = metadata?.suggestedPlayerLinks || [];
+    const suggestedPlayerLinks: Array<{
+      id: string;
+      name?: string;
+      relationship?: string;
+    }> = rawPlayerLinks.map(
+      (link: string | { id: string; name?: string; relationship?: string }) =>
+        typeof link === "string" ? { id: link } : link
+    );
 
     console.log(
       "[syncFunctionalRolesFromInvitation] Extracted data:",
@@ -2000,7 +2009,24 @@ export const syncFunctionalRolesFromInvitation = mutation({
             suggestedPlayerLinks
           );
 
-          for (const playerIdentityId of suggestedPlayerLinks) {
+          for (const playerLink of suggestedPlayerLinks) {
+            const playerIdentityId = playerLink.id;
+            // Validate relationship is one of the allowed values
+            const validRelationships = [
+              "mother",
+              "father",
+              "guardian",
+              "grandparent",
+              "other",
+            ] as const;
+            type RelationshipType = (typeof validRelationships)[number];
+            const rawRelationship = playerLink.relationship || "guardian";
+            const relationship: RelationshipType = validRelationships.includes(
+              rawRelationship as RelationshipType
+            )
+              ? (rawRelationship as RelationshipType)
+              : "guardian";
+
             try {
               // Verify the player identity exists
               const playerIdentity = await ctx.db.get(
@@ -2059,12 +2085,24 @@ export const syncFunctionalRolesFromInvitation = mutation({
                 continue;
               }
 
+              // Determine if this should be primary (first guardian for player)
+              const existingGuardians = await ctx.db
+                .query("guardianPlayerLinks")
+                .withIndex("by_player", (q) =>
+                  q.eq(
+                    "playerIdentityId",
+                    playerIdentityId as Id<"playerIdentities">
+                  )
+                )
+                .collect();
+              const shouldBePrimary = existingGuardians.length === 0;
+
               // Create the guardian-player link
               await ctx.db.insert("guardianPlayerLinks", {
                 guardianIdentityId: guardian._id,
                 playerIdentityId: playerIdentityId as Id<"playerIdentities">,
-                relationship: "guardian",
-                isPrimary: true,
+                relationship,
+                isPrimary: shouldBePrimary,
                 hasParentalResponsibility: true,
                 canCollectFromTraining: true,
                 consentedToSharing: true,
@@ -2078,7 +2116,9 @@ export const syncFunctionalRolesFromInvitation = mutation({
                 guardian._id,
                 "->",
                 playerIdentityId,
-                `(${playerIdentity.firstName} ${playerIdentity.lastName})`
+                `(${playerIdentity.firstName} ${playerIdentity.lastName})`,
+                `relationship: ${relationship}`,
+                `isPrimary: ${shouldBePrimary}`
               );
             } catch (error) {
               console.error(

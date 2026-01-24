@@ -123,11 +123,13 @@ export const getGuardianById = query({
  * Check if an email conflicts with an existing guardian identity
  * Used when editing a guardian to detect if the new email belongs to someone else
  * Returns the conflicting guardian's details for preview, or null if no conflict
+ * Also checks if the current player is already linked to prevent duplicate reassignments
  */
 export const checkGuardianEmailConflict = query({
   args: {
     email: v.string(),
     excludeGuardianId: v.optional(v.id("guardianIdentities")),
+    playerIdentityId: v.optional(v.id("playerIdentities")),
   },
   returns: v.union(
     v.null(),
@@ -139,6 +141,7 @@ export const checkGuardianEmailConflict = query({
       phone: v.optional(v.string()),
       verificationStatus: v.string(),
       linkedPlayersCount: v.number(),
+      playerAlreadyLinked: v.boolean(),
     })
   ),
   handler: async (ctx, args) => {
@@ -171,6 +174,21 @@ export const checkGuardianEmailConflict = query({
       )
       .collect();
 
+    // Check if the current player is already linked to this guardian
+    let playerAlreadyLinked = false;
+    const playerIdToCheck = args.playerIdentityId;
+    if (playerIdToCheck) {
+      const existingLink = await ctx.db
+        .query("guardianPlayerLinks")
+        .withIndex("by_guardian_and_player", (q) =>
+          q
+            .eq("guardianIdentityId", existingGuardian._id)
+            .eq("playerIdentityId", playerIdToCheck)
+        )
+        .first();
+      playerAlreadyLinked = !!existingLink;
+    }
+
     return {
       guardianIdentityId: existingGuardian._id,
       firstName: existingGuardian.firstName,
@@ -179,6 +197,7 @@ export const checkGuardianEmailConflict = query({
       phone: existingGuardian.phone,
       verificationStatus: existingGuardian.verificationStatus,
       linkedPlayersCount: linkedPlayers.length,
+      playerAlreadyLinked,
     };
   },
 });

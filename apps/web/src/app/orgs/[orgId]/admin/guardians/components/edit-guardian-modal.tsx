@@ -34,6 +34,7 @@ type EditGuardianModalProps = {
   onOpenChange: (open: boolean) => void;
   guardianPlayerLinkId: Id<"guardianPlayerLinks">;
   guardianIdentityId: Id<"guardianIdentities">;
+  playerIdentityId: Id<"playerIdentities">;
   playerName: string;
   currentData: {
     firstName: string;
@@ -49,6 +50,7 @@ export function EditGuardianModal({
   onOpenChange,
   guardianPlayerLinkId,
   guardianIdentityId,
+  playerIdentityId,
   playerName,
   currentData,
 }: EditGuardianModalProps) {
@@ -94,6 +96,7 @@ export function EditGuardianModal({
       ? {
           email: normalizedEmail,
           excludeGuardianId: guardianIdentityId,
+          playerIdentityId,
         }
       : "skip"
   );
@@ -133,6 +136,13 @@ export function EditGuardianModal({
 
     // Check if there's a conflict with an existing guardian
     if (conflictCheck) {
+      // If player is already linked to this guardian, block with error
+      if (conflictCheck.playerAlreadyLinked) {
+        toast.error("Cannot save changes", {
+          description: `${playerName} is already linked to ${conflictCheck.firstName} ${conflictCheck.lastName}. You cannot create a duplicate link.`,
+        });
+        return;
+      }
       // Show reassign modal instead of failing
       setShowReassignModal(true);
       return;
@@ -282,7 +292,14 @@ export function EditGuardianModal({
                   value={formData.email}
                 />
                 {/* Show hint if email conflicts with existing guardian */}
-                {conflictCheck && (
+                {conflictCheck?.playerAlreadyLinked && (
+                  <p className="text-red-600 text-xs">
+                    {playerName} is already linked to {conflictCheck.firstName}{" "}
+                    {conflictCheck.lastName}. You cannot create a duplicate
+                    link.
+                  </p>
+                )}
+                {conflictCheck && !conflictCheck.playerAlreadyLinked && (
                   <p className="text-amber-600 text-xs">
                     This email belongs to an existing guardian (
                     {conflictCheck.firstName} {conflictCheck.lastName}). Saving

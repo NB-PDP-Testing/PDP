@@ -24,7 +24,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
+import { authClient } from "@/lib/auth-client";
 import { SummaryApprovalCard } from "./summary-approval-card";
+
+const { useSession } = authClient;
 
 type ReviewTabProps = {
   orgId: BetterAuthId<"organization">;
@@ -34,6 +37,10 @@ type ReviewTabProps = {
 
 export function ReviewTab({ orgId, onSuccess, onError }: ReviewTabProps) {
   const router = useRouter();
+  const { data: session } = useSession();
+
+  // Get coach ID from session (use id as fallback if userId is null)
+  const coachId = session?.user?.userId || session?.user?.id;
 
   // Parent summary queries and mutations
   const pendingSummaries = useQuery(
@@ -47,10 +54,11 @@ export function ReviewTab({ orgId, onSuccess, onError }: ReviewTabProps) {
     api.models.coachParentSummaries.suppressSummary
   );
 
-  // Voice notes for pending insights
-  const voiceNotes = useQuery(api.models.voiceNotes.getAllVoiceNotes, {
-    orgId,
-  });
+  // Voice notes for pending insights - scoped to this coach's notes only
+  const voiceNotes = useQuery(
+    api.models.voiceNotes.getVoiceNotesByCoach,
+    coachId ? { orgId, coachId } : "skip"
+  );
   const updateInsightStatus = useMutation(
     api.models.voiceNotes.updateInsightStatus
   );

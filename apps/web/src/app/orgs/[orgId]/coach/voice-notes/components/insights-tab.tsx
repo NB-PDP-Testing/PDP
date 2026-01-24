@@ -122,14 +122,18 @@ export function InsightsTab({ orgId, onSuccess, onError }: InsightsTabProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [playerSearch, setPlayerSearch] = useState("");
 
-  // Voice notes for pending insights
-  const voiceNotes = useQuery(api.models.voiceNotes.getAllVoiceNotes, {
-    orgId,
-  });
+  // Get coach ID from session (use id as fallback if userId is null)
+  const coachUserId = session?.user?.id;
+  const coachId = session?.user?.userId || coachUserId;
+  const coachName = session?.user?.name ?? "Me";
+
+  // Voice notes for pending insights - scoped to this coach's notes only
+  const voiceNotes = useQuery(
+    api.models.voiceNotes.getVoiceNotesByCoach,
+    coachId ? { orgId, coachId } : "skip"
+  );
 
   // Get players for assignment dropdown - scoped to coach's assigned teams
-  const coachUserId = session?.user?.id;
-  const coachName = session?.user?.name ?? "Me";
 
   // Use skip when session is still loading to avoid unnecessary queries
   const players = useQuery(

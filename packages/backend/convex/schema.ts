@@ -1740,6 +1740,28 @@ export default defineSchema({
     viewedAt: v.optional(v.number()),
     acknowledgedAt: v.optional(v.number()), // When parent marked as read/acknowledged
     acknowledgedBy: v.optional(v.string()), // Better Auth user ID of parent who acknowledged
+
+    // Auto-approval decision (Phase 2)
+    autoApprovalDecision: v.optional(
+      v.object({
+        shouldAutoApprove: v.boolean(),
+        reason: v.string(),
+        tier: v.union(
+          v.literal("auto_send"),
+          v.literal("manual_review"),
+          v.literal("flagged")
+        ),
+        decidedAt: v.number(),
+      })
+    ),
+
+    // Scheduled delivery (1-hour revoke window)
+    scheduledDeliveryAt: v.optional(v.number()), // When summary will be delivered to parent
+
+    // Revocation tracking
+    revokedAt: v.optional(v.number()), // When coach revoked auto-approval
+    revokedBy: v.optional(v.string()), // userId of coach who revoked
+    revocationReason: v.optional(v.string()), // Why coach revoked
   })
     .index("by_voiceNote", ["voiceNoteId"])
     .index("by_player", ["playerIdentityId"])

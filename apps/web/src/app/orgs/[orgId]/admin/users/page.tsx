@@ -974,14 +974,14 @@ export default function ManageUsersPage() {
                     }`}
                     key={invitation._id}
                   >
-                    {/* Row 1: Icon + Email + Action Buttons */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                    {/* Row 1: Icon + Email (+ Action Buttons on desktop) */}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex min-w-0 items-center gap-3">
                         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-orange-100">
                           <Mail className="h-5 w-5 text-orange-600" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">
+                          <p className="font-medium sm:truncate">
                             {invitation.email}
                           </p>
                           <p className="truncate text-muted-foreground text-xs">
@@ -989,8 +989,8 @@ export default function ManageUsersPage() {
                           </p>
                         </div>
                       </div>
-                      {/* Action buttons - icon only on mobile, with text on larger screens */}
-                      <div className="flex flex-shrink-0 items-center gap-1">
+                      {/* Action buttons - stacked below on mobile, inline on desktop */}
+                      <div className="flex flex-wrap items-center gap-1 pl-[52px] sm:flex-shrink-0 sm:pl-0">
                         <Button
                           className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
                           onClick={() => setEditingInvitation(invitation)}

@@ -961,227 +961,233 @@ export default function ManageUsersPage() {
             <div className="space-y-3">
               {pendingInvitations.map((invitation: any) => {
                 const isExpired = invitation.isExpired;
-                const expiresAt = new Date(invitation.expiresAt);
                 const daysUntilExpiry = Math.ceil(
                   (invitation.expiresAt - Date.now()) / (1000 * 60 * 60 * 24)
                 );
 
                 return (
                   <div
-                    className={`flex items-center justify-between gap-2 rounded-lg border p-3 ${
+                    className={`flex flex-col gap-2 rounded-lg border p-3 ${
                       isExpired
                         ? "border-red-200 bg-red-50"
                         : "border-orange-200 bg-orange-50"
                     }`}
                     key={invitation._id}
                   >
-                    <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-orange-100">
-                        <Mail className="h-5 w-5 text-orange-600" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">
-                          {invitation.email}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-sm">
-                          <span>
-                            Invited by {invitation.inviter?.name || "Unknown"}
-                          </span>
-                          {(() => {
-                            // Use functional roles from backend query (already extracted from metadata)
-                            const functionalRoles =
-                              invitation.functionalRoles || [];
-
-                            // Show functional roles if available with inline assignments
-                            if (functionalRoles.length > 0) {
-                              return functionalRoles.map((role: string) => (
-                                <span
-                                  className="flex items-center gap-1.5"
-                                  key={role}
-                                >
-                                  <span>•</span>
-                                  <Badge className="text-xs" variant="outline">
-                                    {role.charAt(0).toUpperCase() +
-                                      role.slice(1)}
-                                  </Badge>
-                                  {/* Show teams inline if coach role */}
-                                  {role === "coach" &&
-                                    invitation.teams?.length > 0 && (
-                                      <span className="flex items-center gap-1 text-blue-600 text-xs">
-                                        →
-                                        {invitation.teams
-                                          .map((t: any) => t.name)
-                                          .join(", ")}
-                                      </span>
-                                    )}
-                                  {/* Show players inline if parent role */}
-                                  {role === "parent" &&
-                                    invitation.players?.length > 0 && (
-                                      <span className="flex items-center gap-1 text-green-600 text-xs">
-                                        →
-                                        {invitation.players
-                                          .map(
-                                            (p: any) =>
-                                              `${p.firstName} ${p.lastName}`
-                                          )
-                                          .join(", ")}
-                                      </span>
-                                    )}
-                                </span>
-                              ));
-                            }
-                            if (invitation.role) {
-                              return (
-                                <>
-                                  <span>•</span>
-                                  <Badge
-                                    className="text-xs"
-                                    variant="secondary"
-                                  >
-                                    {invitation.role}
-                                  </Badge>
-                                  <Badge
-                                    className="text-xs"
-                                    variant="destructive"
-                                  >
-                                    No functional role
-                                  </Badge>
-                                </>
-                              );
-                            }
-                            return null;
-                          })()}
+                    {/* Row 1: Icon + Email (+ Action Buttons on desktop) */}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-orange-100">
+                          <Mail className="h-5 w-5 text-orange-600" />
                         </div>
-                        <p className="text-muted-foreground text-xs">
-                          {isExpired ? (
-                            <span className="text-red-600">Expired</span>
-                          ) : (
-                            <span>
-                              Expires in {daysUntilExpiry}{" "}
-                              {daysUntilExpiry === 1 ? "day" : "days"} (
-                              {expiresAt.toLocaleDateString()})
-                            </span>
-                          )}
-                          {(() => {
-                            // Show resend tracking if available
-                            const resendHistory =
-                              invitation.metadata?.resendHistory || [];
-                            if (resendHistory.length > 0) {
-                              const lastResend = resendHistory.at(-1);
-                              const _lastSentDate = new Date(
-                                lastResend.resentAt
-                              );
-                              const daysAgo = Math.floor(
-                                (Date.now() - lastResend.resentAt) /
-                                  (1000 * 60 * 60 * 24)
-                              );
-                              return (
-                                <span className="ml-2">
-                                  • Resent {resendHistory.length}{" "}
-                                  {resendHistory.length === 1
-                                    ? "time"
-                                    : "times"}
-                                  {daysAgo === 0
-                                    ? " (today)"
-                                    : daysAgo === 1
-                                      ? " (yesterday)"
-                                      : ` (${daysAgo} days ago)`}
-                                </span>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium sm:truncate">
+                            {invitation.email}
+                          </p>
+                          <p className="truncate text-muted-foreground text-xs">
+                            Invited by {invitation.inviter?.name || "Unknown"}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
-                      <Button
-                        onClick={() => setEditingInvitation(invitation)}
-                        size="sm"
-                        title="Edit invitation roles and assignments"
-                        variant="ghost"
-                      >
-                        <svg
-                          aria-hidden="true"
-                          className="mr-2 h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                        Edit
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          setHistoryInvitation({
-                            invitationId: invitation._id,
-                            email: invitation.email,
-                          })
-                        }
-                        size="sm"
-                        title="View invitation history"
-                        variant="ghost"
-                      >
-                        <svg
-                          aria-hidden="true"
-                          className="mr-2 h-4 w-4"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                        History
-                      </Button>
-                      <Button
-                        onClick={() => setSelectedInvitationId(invitation._id)}
-                        size="sm"
-                        variant="ghost"
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Details
-                      </Button>
-                      {!isExpired && (
+                      {/* Action buttons - stacked below on mobile, inline on desktop */}
+                      <div className="flex flex-wrap items-center gap-1 pl-[52px] sm:flex-shrink-0 sm:pl-0">
                         <Button
-                          disabled={loading === invitation._id}
-                          onClick={() => handleResendInvitation(invitation._id)}
+                          className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
+                          onClick={() => setEditingInvitation(invitation)}
                           size="sm"
-                          variant="outline"
+                          title="Edit invitation roles and assignments"
+                          variant="ghost"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            className="h-4 w-4 sm:mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          <span className="hidden sm:inline">Edit</span>
+                        </Button>
+                        <Button
+                          className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
+                          onClick={() =>
+                            setHistoryInvitation({
+                              invitationId: invitation._id,
+                              email: invitation.email,
+                            })
+                          }
+                          size="sm"
+                          title="View invitation history"
+                          variant="ghost"
+                        >
+                          <svg
+                            aria-hidden="true"
+                            className="h-4 w-4 sm:mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            viewBox="0 0 24 24"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          <span className="hidden sm:inline">History</span>
+                        </Button>
+                        <Button
+                          className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
+                          onClick={() =>
+                            setSelectedInvitationId(invitation._id)
+                          }
+                          size="sm"
+                          title="View invitation details"
+                          variant="ghost"
+                        >
+                          <Eye className="h-4 w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Details</span>
+                        </Button>
+                        {!isExpired && (
+                          <Button
+                            className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
+                            disabled={loading === invitation._id}
+                            onClick={() =>
+                              handleResendInvitation(invitation._id)
+                            }
+                            size="sm"
+                            title="Resend invitation"
+                            variant="outline"
+                          >
+                            {loading === invitation._id ? (
+                              <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+                            ) : (
+                              <Send className="h-4 w-4 sm:mr-2" />
+                            )}
+                            <span className="hidden sm:inline">Resend</span>
+                          </Button>
+                        )}
+                        <Button
+                          className="h-8 w-8 p-0 sm:h-auto sm:w-auto sm:px-3"
+                          disabled={loading === invitation._id}
+                          onClick={() => handleCancelInvitation(invitation._id)}
+                          size="sm"
+                          title="Cancel invitation"
+                          variant="destructive"
                         >
                           {loading === invitation._id ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
                           ) : (
-                            <Send className="mr-2 h-4 w-4" />
+                            <X className="h-4 w-4 sm:mr-2" />
                           )}
-                          Resend
+                          <span className="hidden sm:inline">Cancel</span>
                         </Button>
-                      )}
-                      <Button
-                        disabled={loading === invitation._id}
-                        onClick={() => handleCancelInvitation(invitation._id)}
-                        size="sm"
-                        variant="destructive"
-                      >
-                        {loading === invitation._id ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      </div>
+                    </div>
+
+                    {/* Row 2: Roles, Badges, Expiry Info - with left padding to align with text */}
+                    <div className="flex flex-wrap items-center gap-2 pl-[52px] text-muted-foreground text-sm">
+                      {(() => {
+                        // Use functional roles from backend query (already extracted from metadata)
+                        const functionalRoles =
+                          invitation.functionalRoles || [];
+
+                        // Show functional roles if available with inline assignments
+                        if (functionalRoles.length > 0) {
+                          return functionalRoles.map((role: string) => (
+                            <span
+                              className="flex items-center gap-1.5"
+                              key={role}
+                            >
+                              <Badge className="text-xs" variant="outline">
+                                {role.charAt(0).toUpperCase() + role.slice(1)}
+                              </Badge>
+                              {/* Show teams inline if coach role */}
+                              {role === "coach" &&
+                                invitation.teams?.length > 0 && (
+                                  <span className="flex items-center gap-1 text-blue-600 text-xs">
+                                    →
+                                    <span className="max-w-[150px] truncate">
+                                      {invitation.teams
+                                        .map((t: any) => t.name)
+                                        .join(", ")}
+                                    </span>
+                                  </span>
+                                )}
+                              {/* Show players inline if parent role */}
+                              {role === "parent" &&
+                                invitation.players?.length > 0 && (
+                                  <span className="flex items-center gap-1 text-green-600 text-xs">
+                                    →
+                                    <span className="max-w-[150px] truncate">
+                                      {invitation.players
+                                        .map(
+                                          (p: any) =>
+                                            `${p.firstName} ${p.lastName}`
+                                        )
+                                        .join(", ")}
+                                    </span>
+                                  </span>
+                                )}
+                            </span>
+                          ));
+                        }
+                        if (invitation.role) {
+                          return (
+                            <>
+                              <Badge className="text-xs" variant="secondary">
+                                {invitation.role}
+                              </Badge>
+                              <Badge className="text-xs" variant="destructive">
+                                No functional role
+                              </Badge>
+                            </>
+                          );
+                        }
+                        return null;
+                      })()}
+                      <span className="text-xs">
+                        •{" "}
+                        {isExpired ? (
+                          <span className="text-red-600">Expired</span>
                         ) : (
-                          <X className="mr-2 h-4 w-4" />
+                          <span>
+                            Expires in {daysUntilExpiry}{" "}
+                            {daysUntilExpiry === 1 ? "day" : "days"}
+                          </span>
                         )}
-                        Cancel
-                      </Button>
+                      </span>
+                      {(() => {
+                        // Show resend tracking if available
+                        const resendHistory =
+                          invitation.metadata?.resendHistory || [];
+                        if (resendHistory.length > 0) {
+                          const lastResend = resendHistory.at(-1);
+                          const daysAgo = Math.floor(
+                            (Date.now() - lastResend.resentAt) /
+                              (1000 * 60 * 60 * 24)
+                          );
+                          return (
+                            <span className="text-xs">
+                              • Resent {resendHistory.length}×
+                              {daysAgo === 0
+                                ? " today"
+                                : daysAgo === 1
+                                  ? " yesterday"
+                                  : ` ${daysAgo}d ago`}
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                   </div>
                 );

@@ -1818,6 +1818,19 @@ export default defineSchema({
     lastActivityAt: v.optional(v.number()), // Last time metrics were updated
     createdAt: v.number(),
     updatedAt: v.number(),
+
+    // Preview mode tracking (Phase 5)
+    previewModeStats: v.optional(
+      v.object({
+        wouldAutoApproveSuggestions: v.number(), // Count of summaries AI would auto-approve
+        coachApprovedThose: v.number(), // Of those suggestions, how many coach approved
+        coachRejectedThose: v.number(), // Of those suggestions, how many coach suppressed
+        agreementRate: v.number(), // coachApprovedThose / wouldAutoApproveSuggestions
+        startedAt: v.number(), // When preview mode started
+        completedAt: v.optional(v.number()), // When 20 summaries reviewed (undefined until then)
+      })
+    ),
+    confidenceThreshold: v.optional(v.number()), // Minimum confidence score for auto-approval (default 0.7)
   }).index("by_coach", ["coachId"]),
 
   // Coach Per-Org Preferences - settings that vary by organization

@@ -1,0 +1,678 @@
+# Ralph Progress Log - OPTIMIZED FOR P5+
+**Last Optimized**: 2026-01-24
+**Archive**: Full P1-P4 history in `/scripts/ralph/archive/progress-p1-p4-full.txt.bak`
+
+---
+
+## CODEBASE PATTERNS - READ FIRST!
+**Last Updated**: 2026-01-24 (Post P1-P4)
+
+### Critical Convex Patterns
+```typescript
+// ALWAYS use .withIndex(), NEVER use .filter()
+const result = await ctx.db.query("tableName")
+  .withIndex("by_field", q => q.eq("field", value))
+  .first();
+
+// Auth pattern
+const user = await authComponent.safeGetAuthUser(ctx);
+if (!user?.userId) throw new Error("Not authenticated");
+
+// Guardian lookup (for parent features)
+const guardian = await ctx.db.query("guardianIdentities")
+  .withIndex("by_userId", q => q.eq("userId", user.userId))
+  .first();
+
+// Access verification
+const link = await ctx.db.query("guardianPlayerLinks")
+  .withIndex("by_guardian_and_player", q =>
+    q.eq("guardianIdentityId", guardian._id).eq("playerIdentityId", playerId))
+  .first();
+if (!link) throw new Error("Access denied");
+
+// Storage pattern for images
+const storageId = await ctx.storage.store(new Blob([buffer]));
+const url = await ctx.storage.getUrl(storageId);
+```
+
+### TypeScript Narrowing - CRITICAL
+```typescript
+// DO: Assign optional args to const for narrowing
+const status = args.status;
+if (status) { /* status is now string, not string | undefined */ }
+
+// DON'T: Args don't narrow in callbacks
+if (args.status) { /* args.status is STILL string | undefined */ }
+```
+
+### Biome Rules - WILL FAIL CI IF VIOLATED
+- NO `++` or `--` operators - use `+= 1`
+- NO `value!` assertions - use proper narrowing
+- Regex patterns MUST be at file top-level, NOT inside functions
+- Imports get REMOVED if usage not in same edit - use Write for new files
+
+### React/Frontend Patterns
+```tsx
+// Import paths for Convex
+import { api } from "@pdp/backend/convex/_generated/api"; // CORRECT
+
+// React key must be explicit JSX attribute
+{items.map(item => <Card key={item._id} {...props} />)} // CORRECT
+
+// Conditional rendering with different components
+// DO use explicit if statements for component type narrowing
+if (sensitivityCategory === "injury") {
+  return <InjuryApprovalCard {...injuryProps} />;
+}
+return <SummaryApprovalCard {...normalProps} />;
+
+// shadcn/ui components from @/components/ui
+import { Progress } from '@/components/ui/progress';
+import { Slider } from '@/components/ui/slider';
+import { Badge } from '@/components/ui/badge';
+```
+
+### Quality Check Commands
+```bash
+# Run before marking stories complete
+npx -w packages/backend convex codegen  # Schema validation
+npm run check-types                      # TypeScript
+npx ultracite fix                        # Lint + format
+npm run check                            # Final check
+
+# Browser testing (REQUIRED for UI changes)
+~/.claude/skills/dev-browser/server.sh & # Start server if needed
+# Use dev-browser skill to verify changes
+# Test credentials: neil.B@blablablak.com / lien1979
+# Dev server: http://localhost:3000
+```
+
+### File Locations Reference
+| Type | Location |
+|------|----------|
+| Schema | `packages/backend/convex/schema.ts` |
+| Parent Summary Model | `packages/backend/convex/models/coachParentSummaries.ts` |
+| Parent Summary Actions | `packages/backend/convex/actions/coachParentSummaries.ts` |
+| Trust Levels Model | `packages/backend/convex/models/coachTrustLevels.ts` |
+| Trust Calculator | `packages/backend/convex/lib/trustLevelCalculator.ts` |
+| Parent Components | `apps/web/src/app/orgs/[orgId]/parents/components/` |
+| Coach Components | `apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/` |
+| Shared Coach UI | `apps/web/src/components/coach/` |
+
+### Existing Tables Schema (Key Fields)
+**coachParentSummaries:**
+- voiceNoteId, insightId, coachId, playerIdentityId, organizationId
+- privateInsight: { title, description, category, sentiment }
+- publicSummary: { content, confidenceScore, generatedAt }
+- status: pending_review | approved | suppressed | auto_approved | delivered | viewed
+- sensitivityCategory: normal | injury | behavior
+- sensitivityReason, sensitivityConfidence
+
+**coachTrustLevels:**
+- coachId, organizationId, currentLevel (0-3)
+- preferredLevel, parentSummariesEnabled, skipSensitiveInsights
+- totalApprovals, totalSuppressed, consecutiveApprovals
+
+**guardianIdentities:**
+- firstName, lastName, email, phone, userId
+- verificationStatus
+
+**guardianPlayerLinks:**
+- guardianIdentityId, playerIdentityId, relationship
+- isPrimary, hasParentalResponsibility, consentedToSharing
+
+---
+
+## P1-P4 COMPLETION SUMMARY (2026-01-20 to 2026-01-22)
+
+### ✅ What Was Built
+
+**Phase 1-2: Backend Infrastructure**
+- AI summary generation with confidence scores (generateParentSummary action)
+- Trust level system (4 levels: Manual, Learning, Trusted, Expert)
+- Backend: coachParentSummaries, coachTrustLevels tables
+- Frontend: TrustPreferenceSettings with radio buttons
+- Confidence scores **generated but hidden** from coaches
+
+**Phase 3: Sensitive Content Handling**
+- Injury/behavior detection and flagging
+- sensitivityCategory field (normal | injury | behavior)
+- Sensitive content ALWAYS requires manual review (never auto-approved)
+
+**Phase 4: Parent Experience**
+- Parent dashboard with acknowledgment system
+- Shareable summary images (Satori + RESVG)
+- Browser tab notifications
+- Web Share API integration
+- Deep links to player passport
+
+### 🎯 Key Learnings from P1-P4
+
+**Critical Gotchas:**
+1. **Biome aggressively removes unused imports** - Use Write tool for new files
+2. **Type narrowing fails in callbacks** - Assign to const first: `const x = args.x; if(x){...}`
+3. **File locking during edits** - Biome auto-fixes while you're editing
+4. **React keys must be explicit** - Not spread from object
+5. **Better Auth session lacks membership data** - Query `getMembersForAllOrganizations` instead
+
+**Quality Patterns That Work:**
+- Run codegen → check-types → ultracite fix → check (in that order)
+- Browser testing catches layout issues automated tests miss
+- Commit frequently (even mid-story if context low)
+- Document "What to do next" when leaving partial work
+
+**Architecture Patterns Discovered:**
+- Confidence scores already exist in publicSummary.confidenceScore
+- setCoachPreferredLevel mutation exists from Phase 2
+- Trust calculator uses constants: level1=10, level2=50, level3=200 approvals
+- shadcn/ui components (Progress, Slider, Badge) follow same import pattern
+
+### 📊 Final Status
+- **Total Stories Completed:** 60+ across P1-P4
+- **Commits:** 12+ feature commits
+- **Quality:** All type checks passing, lint clean
+- **Production Ready:** Yes (deployed)
+
+---
+
+## [2026-01-24 15:30] - P5 PHASE 1 STARTING POINT - Preview Mode + Trust Slider
+**Status**: Ready to start
+**Branch**: ralph/coach-parent-summaries-p5-phase1 (will be created by Ralph)
+**PRD**: scripts/ralph/prd.json (8 user stories: US-001 to US-008)
+**Starting Commit**: On neil/marketing-site-improvements branch
+
+### 🎯 WHAT RALPH NEEDS TO DO (P5 Phase 1 - 8 Stories)
+
+**Stories 1-5: Preview Mode (Transparency)**
+1. US-001: Add preview mode tracking fields to schema (previewModeStats, confidenceThreshold)
+2. US-002: Calculate wouldAutoApprove predictions in getCoachPendingSummaries query
+3. US-003: Show confidence scores (already generated, just reveal with progress bar)
+4. US-004: Add "AI would auto-send" prediction badges to summary cards
+5. US-005: Track preview mode statistics (agreement rate over 20 messages)
+
+**Stories 6-8: Trust Slider (Control)**
+6. US-006: Create TrustLevelSlider component (horizontal Radix UI slider)
+7. US-007: Add progress visualization ("38/50 approvals to Trusted")
+8. US-008: Replace TrustPreferenceSettings with slider in settings
+
+**Goal:** Transparency + Control BEFORE automation. Zero risk - nothing auto-approves yet.
+
+### 🔑 CRITICAL CONTEXT FOR P5
+
+**What Already Exists (Reuse, Don't Rebuild):**
+- ✅ Confidence scores generated in `publicSummary.confidenceScore` (just hidden in UI)
+- ✅ Backend mutation `setCoachPreferredLevel` exists (wire slider to it)
+- ✅ Trust calculator `trustLevelCalculator.ts` has threshold constants
+- ✅ TrustPreferenceSettings component with radio buttons (will replace)
+- ✅ getCoachPendingSummaries query exists (add wouldAutoApprove calculation to it)
+
+**What's Missing (Build in P5 Phase 1):**
+- ❌ Preview mode tracking (previewModeStats in schema)
+- ❌ Confidence visualization (Progress bar in UI)
+- ❌ Prediction badges ("AI would auto-send")
+- ❌ Horizontal slider component (TrustLevelSlider)
+- ❌ Progress visualization to next level
+
+**Critical Gap P5 Fixes:**
+- Trust levels promise auto-approval BUT nothing actually auto-approves
+- Confidence scores exist BUT coaches can't see them
+- Radio buttons feel binary - need gradual slider control
+- No preview - can't see what AI WOULD do before enabling
+
+### 📚 CODE SNIPPETS FOR P5 PHASE 1
+
+**US-001: Schema Changes**
+```typescript
+// Location: packages/backend/convex/schema.ts (line ~1795)
+// Add to coachTrustLevels table definition:
+previewModeStats: v.optional(v.object({
+  wouldAutoApproveSuggestions: v.number(),
+  coachApprovedThose: v.number(),
+  coachRejectedThose: v.number(),
+  agreementRate: v.number(),
+  startedAt: v.number(),
+  completedAt: v.optional(v.number())
+})),
+confidenceThreshold: v.optional(v.number())
+```
+
+**US-002: wouldAutoApprove Logic**
+```typescript
+// Location: packages/backend/convex/models/coachParentSummaries.ts
+// In getCoachPendingSummaries query (around line 468):
+const effectiveLevel = Math.min(
+  trustLevel.currentLevel,
+  trustLevel.preferredLevel ?? trustLevel.currentLevel
+);
+const threshold = trustLevel.confidenceThreshold ?? 0.7;
+const wouldAutoApprove =
+  summary.sensitivityCategory === 'normal' &&
+  effectiveLevel >= 2 &&
+  summary.publicSummary.confidenceScore >= threshold;
+
+// Add to return object: wouldAutoApprove
+// Update returns validator: v.boolean()
+```
+
+**US-003: Confidence Display**
+```typescript
+// Location: apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx
+import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
+
+// Add after summary content display:
+<div className='mt-4 space-y-2'>
+  <div className='flex items-center justify-between text-sm'>
+    <span className={cn('font-medium',
+      confidenceScore < 0.6 ? 'text-red-600' :
+      confidenceScore < 0.8 ? 'text-amber-600' :
+      'text-green-600'
+    )}>
+      AI Confidence: {Math.round(summary.publicSummary.confidenceScore * 100)}%
+    </span>
+  </div>
+  <Progress value={summary.publicSummary.confidenceScore * 100} className='h-2' />
+</div>
+```
+
+**US-004: Prediction Badge**
+```typescript
+// In summary-approval-card.tsx, after confidence section:
+import { Badge } from '@/components/ui/badge';
+import { Sparkles } from 'lucide-react';
+
+{wouldAutoApprove ? (
+  <Badge variant='secondary' className='bg-blue-100 text-blue-700'>
+    <Sparkles className='mr-1 h-3 w-3' />
+    AI would auto-send this at Level 2+
+  </Badge>
+) : (
+  <p className='text-sm text-muted-foreground'>Requires manual review</p>
+)}
+```
+
+**US-005: Track Preview Stats**
+```typescript
+// In approveSummary mutation:
+const trustLevel = await ctx.db.query('coachTrustLevels')
+  .withIndex('by_coach_org', q =>
+    q.eq('coachId', summary.coachId).eq('organizationId', summary.organizationId))
+  .first();
+
+if (trustLevel?.previewModeStats && !trustLevel.previewModeStats.completedAt) {
+  const effectiveLevel = Math.min(
+    trustLevel.currentLevel,
+    trustLevel.preferredLevel ?? trustLevel.currentLevel
+  );
+  const threshold = trustLevel.confidenceThreshold ?? 0.7;
+  const wouldAutoApprove =
+    summary.sensitivityCategory === 'normal' &&
+    effectiveLevel >= 2 &&
+    summary.publicSummary.confidenceScore >= threshold;
+
+  const newSuggestions = trustLevel.previewModeStats.wouldAutoApproveSuggestions + (wouldAutoApprove ? 1 : 0);
+  const newApproved = trustLevel.previewModeStats.coachApprovedThose + (wouldAutoApprove ? 1 : 0);
+  const agreementRate = newSuggestions > 0 ? newApproved / newSuggestions : 0;
+
+  await ctx.db.patch(trustLevel._id, {
+    previewModeStats: {
+      ...trustLevel.previewModeStats,
+      wouldAutoApproveSuggestions: newSuggestions,
+      coachApprovedThose: newApproved,
+      agreementRate,
+      completedAt: newSuggestions >= 20 ? Date.now() : undefined
+    }
+  });
+}
+
+// Similar logic in suppressSummary mutation
+// Increment wouldAutoApproveSuggestions but NOT coachApprovedThose
+```
+
+**US-006: Slider Component**
+```typescript
+// NEW FILE: apps/web/src/components/coach/trust-level-slider.tsx
+'use client';
+
+import { Slider } from '@/components/ui/slider';
+import { cn } from '@/lib/utils';
+
+interface TrustLevelSliderProps {
+  currentLevel: number;
+  preferredLevel: number | null;
+  earnedLevel: number;
+  onLevelChange: (level: number) => void;
+  progressToNext: {
+    percentage: number;
+    threshold: number;
+    currentCount: number;
+  };
+}
+
+export function TrustLevelSlider({
+  currentLevel,
+  preferredLevel,
+  earnedLevel,
+  onLevelChange,
+  progressToNext,
+}: TrustLevelSliderProps) {
+  const selectedLevel = preferredLevel ?? currentLevel;
+  const levelNames = ['Manual', 'Learning', 'Trusted', 'Expert'];
+
+  return (
+    <div className='space-y-6'>
+      <div className='space-y-4'>
+        <div className='flex justify-between text-sm'>
+          {[0, 1, 2, 3].map(level => (
+            <div key={level} className={cn('text-center', level > earnedLevel && 'opacity-40')}>
+              <div className='font-medium'>{levelNames[level]}</div>
+              <div className='text-xs text-muted-foreground'>Lvl {level}</div>
+            </div>
+          ))}
+        </div>
+        <Slider
+          min={0}
+          max={earnedLevel}
+          step={1}
+          value={[selectedLevel]}
+          onValueChange={([level]) => onLevelChange(level)}
+          className='py-4'
+        />
+        <p className='text-sm text-muted-foreground'>
+          Your Setting: Level {selectedLevel} - {levelNames[selectedLevel]}
+        </p>
+      </div>
+    </div>
+  );
+}
+```
+
+**US-007: Progress Visualization**
+```typescript
+// Add to trust-level-slider.tsx after slider:
+import { Progress } from '@/components/ui/progress';
+
+{earnedLevel < 3 && (
+  <div className='rounded-lg border p-4 space-y-3'>
+    <div>
+      <div className='flex items-center justify-between mb-2'>
+        <span className='text-sm font-medium'>
+          Progress to {levelNames[earnedLevel + 1]}
+        </span>
+        <span className='text-xs text-muted-foreground'>
+          {progressToNext.currentCount} / {progressToNext.threshold}
+        </span>
+      </div>
+      <Progress value={progressToNext.percentage} className='h-2' />
+    </div>
+    <div className='text-xs text-muted-foreground'>
+      {progressToNext.percentage >= 80 ? (
+        <span className='text-green-600 font-medium'>
+          Almost there! Keep approving quality summaries.
+        </span>
+      ) : (
+        <span>
+          {progressToNext.threshold - progressToNext.currentCount} more approvals needed
+        </span>
+      )}
+    </div>
+  </div>
+)}
+{earnedLevel === 3 && (
+  <div className='rounded-lg border border-green-200 bg-green-50 p-4'>
+    <p className='text-sm text-green-700'>🎉 Maximum level reached!</p>
+  </div>
+)}
+```
+
+**US-008: Integration**
+```typescript
+// Location: apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/settings-tab.tsx
+import { TrustLevelSlider } from '@/components/coach/trust-level-slider';
+import { toast } from 'sonner';
+
+// Calculate progress:
+const nextLevel = (trustLevel?.currentLevel ?? 0) + 1;
+const threshold = nextLevel === 1 ? 10 : nextLevel === 2 ? 50 : nextLevel === 3 ? 200 : 0;
+const currentCount = trustLevel?.totalApprovals ?? 0;
+const percentage = threshold > 0 ? Math.min(100, (currentCount / threshold) * 100) : 100;
+
+// Replace TrustPreferenceSettings with:
+<TrustLevelSlider
+  currentLevel={trustLevel?.currentLevel ?? 0}
+  preferredLevel={trustLevel?.preferredLevel ?? null}
+  earnedLevel={trustLevel?.currentLevel ?? 0}
+  onLevelChange={handleLevelChange}
+  progressToNext={{ percentage, threshold, currentCount }}
+/>
+
+// Wire to existing mutation:
+const handleLevelChange = async (level: number) => {
+  await setCoachPreferredLevel({ preferredLevel: level });
+  toast.success(`Trust level updated to ${levelNames[level]}`);
+};
+```
+
+### 🎯 INDUSTRY PATTERNS APPLIED
+
+**Preview Mode (Google Smart Reply, GitHub Copilot):**
+- Show predictions BEFORE auto-send
+- Track acceptance/rejection rates
+- 20-message learning period (ML model evaluation standard)
+- 70% confidence threshold (Zendesk production data)
+
+**Trust Slider (Spotify, iPhone, Tesla):**
+- Horizontal orientation (wider = more familiar)
+- Instant feedback, no save button
+- Gradual control, not binary
+- Always reversible (drag left to downgrade)
+- Progress bars showing partial progress
+
+### 📊 EXPECTED OUTCOMES
+
+**After P5 Phase 1:**
+- ✅ Coaches see confidence scores (transparency)
+- ✅ Coaches see prediction badges (preview mode)
+- ✅ Beautiful horizontal slider (gradual control)
+- ✅ Real-time progress visualization (motivating)
+- ❌ Nothing auto-approves yet (zero risk)
+
+**Data to Collect:**
+- Agreement rates (do coaches approve what AI predicts?)
+- Confidence distribution (most summaries 70%+?)
+- Slider engagement (coaches adjust levels?)
+- Preview completion (reach 20 messages?)
+
+**Decision Point:**
+- After 2 weeks: Check agreement rates
+- If >70% → Proceed to Phase 2 (auto-approval)
+- If <70% → Adjust thresholds, iterate
+
+### 🔧 FILES RALPH WILL MODIFY
+
+**Backend (3 files):**
+1. packages/backend/convex/schema.ts
+2. packages/backend/convex/models/coachParentSummaries.ts
+3. (Reference only: trustLevelCalculator.ts)
+
+**Frontend (4-5 files):**
+1. apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx
+2. apps/web/src/components/coach/trust-level-slider.tsx (NEW)
+3. apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/settings-tab.tsx
+4. apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/parents-tab.tsx
+
+**Total:** ~7-8 files = atomic, focused changes
+
+### 🚀 READY TO START
+
+**Ralph's First Steps:**
+1. Read this progress.txt for context
+2. Read prd.json for acceptance criteria
+3. Read insights/ for quantitative patterns
+4. Create branch ralph/coach-parent-summaries-p5-phase1
+5. Start with US-001 (schema)
+6. Run quality checks after each story
+7. Commit: `feat: US-XXX - Story Title`
+8. Document learnings below
+9. Repeat US-002 through US-008
+
+**Quality Checks:**
+- npx -w packages/backend convex codegen
+- npm run check-types
+- npx ultracite fix
+- npm run check
+- Browser testing for UI stories (US-003, US-004, US-006, US-007, US-008)
+
+**Expected Timeline:**
+- Smooth: 2.5-3 hours
+- Realistic: 4-6 hours
+- Max iterations: 10
+
+---
+
+## P5 PHASE 1 ITERATIONS START HERE
+
+<!-- Ralph will append iteration details below this line -->
+
+---
+
+## P5 PHASE 1 - TASK COORDINATION - 2026-01-24 15:05
+
+**Project:** Coach-Parent AI Summaries - P5 Phase 1 (Preview Mode + Trust Slider)
+**Branch:** ralph/coach-parent-summaries-p5
+**Coordinator:** Claude Code (actively monitoring)
+**Status:** READY TO START
+
+### PHILOSOPHY & GOALS
+
+**Core Principle:** Transparency builds trust - show predictions BEFORE automating
+
+**Industry Patterns:**
+- Google Smart Reply: Preview suggestions before auto-send
+- GitHub Copilot: Track acceptance patterns
+- Spotify: Horizontal slider for gradual control
+- Tesla Autopilot: Progressive levels with driver control
+
+**What Changes:**
+✅ Confidence scores visible (currently hidden)
+✅ "AI would auto-send" prediction badges
+✅ Preview mode tracking (20-message learning)
+✅ Horizontal slider UI (replaces radio buttons)
+✅ Progress visualization ("38 / 50 to Trusted")
+
+**What Stays Same:**
+⚠️ NO auto-approval yet (Phase 2 feature)
+⚠️ ALL summaries still require manual review
+⚠️ This is pure preview and UX enhancement
+
+### TASK FLOW (8 Stories)
+
+**Path 1: Preview Mode (Transparency)**
+Task #1: Schema changes [READY] → US-001
+    ↓
+Task #2: wouldAutoApprove calculation [blocked by #1] → US-002
+    ↓
+Task #3: Confidence visualization [blocked by #2] → US-003
+Task #5: Preview statistics tracking [blocked by #1,#2] → US-005
+    ↓
+Task #4: Prediction badges [blocked by #2,#3] → US-004
+
+**Path 2: Trust Slider (Control)**
+Task #6: Create slider component [READY] → US-006
+    ↓
+Task #7: Add progress viz [blocked by #6] → US-007
+    ↓
+Task #8: Integrate into settings [blocked by #6,#7] → US-008
+
+**Parallelization:**
+- Paths 1 and 2 can run in parallel (no interdependencies)
+- Task #1 and #6 can start immediately
+- After #2 completes, #3, #4, #5 can proceed
+- After #6 completes, #7, #8 follow sequentially
+
+### FILE CHANGES
+
+**Backend:**
+- packages/backend/convex/schema.ts (+previewModeStats, +confidenceThreshold)
+- packages/backend/convex/models/coachParentSummaries.ts (+wouldAutoApprove, +tracking)
+
+**Frontend:**
+- apps/web/src/components/coach/trust-level-slider.tsx (NEW component)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx (+confidence, +badge)
+- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/settings-tab.tsx (replace radio with slider)
+
+### SUCCESS CRITERIA
+
+**Functional:**
+- [ ] Coaches see confidence scores (progress bar, color coded)
+- [ ] Coaches see "AI would auto-send" badges
+- [ ] Preview mode stats tracked (20-message window)
+- [ ] Horizontal slider in settings (gradual 0-3)
+- [ ] Progress bar shows "X / Y approvals to next level"
+- [ ] Toast feedback when changing trust level
+
+**Quality:**
+- [ ] npm run check-types passes
+- [ ] npx ultracite fix passes
+- [ ] No console errors in browser
+- [ ] All 8 stories marked passes: true
+
+**Zero Risk:**
+- [ ] NO summaries auto-approve
+- [ ] All manual review still required
+- [ ] Only UI/preview changes
+
+### MONITORING PROTOCOL
+
+**Ralph will:**
+1. Create branch ralph/coach-parent-summaries-p5
+2. Work through tasks in dependency order
+3. Run quality checks after each story
+4. Commit when passing
+5. Update prd.json passes: true
+6. Document in progress.txt
+
+**Claude Code (Coordinator) will:**
+- Monitor agent feedback every 2-3 minutes
+- Track Ralph's progress continuously
+- Update task statuses as Ralph works
+- Inject guidance if Ralph stuck
+- Alert on blocking issues
+- Summary reports every 10 iterations
+
+**Monitoring Agents (when started):**
+- Quality Monitor (60s): Type/lint checks
+- PRD Auditor (90s): Story verification
+- Test Runner (30s): Test execution
+- Documenter (120s): Feature docs
+
+### NEXT ACTIONS
+
+**Before starting Ralph:**
+1. ✅ PRD prepared (prd.json with 8 stories)
+2. ✅ Tasks created in task system
+3. ✅ Dependencies configured
+4. ✅ Pre-flight checklist reviewed
+5. [ ] Start monitoring agents: ./scripts/ralph/agents/start-all.sh
+6. [ ] Start Ralph: ./scripts/ralph/ralph.sh 10
+
+**While Ralph runs:**
+- Monitor feedback.md for agent findings
+- Track progress.txt for iteration updates
+- Watch task completions in real-time
+- Provide guidance as needed
+
+**After Ralph completes:**
+- Manual testing verification
+- Merge to main
+- Deploy to production
+- Monitor preview mode for 2 weeks
+- Analyze agreement rates
+- Decide on Phase 2 (auto-approval)
+
+---
+
+**STATUS: READY TO BEGIN P5 PHASE 1**
+**Waiting for:** Agents started + Ralph launched
+**Expected Duration:** 4-6 hours (with retries)
+

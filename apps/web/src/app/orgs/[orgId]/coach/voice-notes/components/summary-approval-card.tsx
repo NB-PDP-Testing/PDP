@@ -1,6 +1,12 @@
 "use client";
 
-import { CheckCircle, ChevronDown, ChevronUp, XCircle } from "lucide-react";
+import {
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  XCircle,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +16,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 type SummaryApprovalCardProps = {
   summary: {
@@ -32,6 +40,7 @@ type SummaryApprovalCardProps = {
   sport?: {
     name: string;
   };
+  wouldAutoApprove: boolean;
   onApprove: () => void;
   onSuppress: () => void;
   isApproving: boolean;
@@ -43,6 +52,7 @@ export function SummaryApprovalCard({
   summary,
   player,
   sport,
+  wouldAutoApprove,
   onApprove,
   onSuppress,
   isApproving,
@@ -147,6 +157,35 @@ export function SummaryApprovalCard({
           <p className="text-xs leading-relaxed sm:text-sm">
             {summary.publicSummary.content}
           </p>
+        </div>
+
+        {/* AI Confidence Visualization */}
+        <div className="mt-4 space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span
+              className={cn(
+                "font-medium",
+                confidenceScore < 0.6
+                  ? "text-red-600"
+                  : confidenceScore < 0.8
+                    ? "text-amber-600"
+                    : "text-green-600"
+              )}
+            >
+              AI Confidence: {Math.round(confidenceScore * 100)}%
+            </span>
+          </div>
+          <Progress className="h-2" value={confidenceScore * 100} />
+          {wouldAutoApprove ? (
+            <Badge className="bg-blue-100 text-blue-700" variant="secondary">
+              <Sparkles className="mr-1 h-3 w-3" />
+              AI would auto-send this at Level 2+
+            </Badge>
+          ) : (
+            <p className="text-muted-foreground text-sm">
+              Requires manual review
+            </p>
+          )}
         </div>
 
         {/* Collapsible Original Insight - collapsed by default on mobile */}

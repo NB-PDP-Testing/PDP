@@ -235,6 +235,7 @@ export function ReviewTab({ orgId, onSuccess, onError }: ReviewTabProps) {
                   publicSummary: item.publicSummary,
                   privateInsight: item.privateInsight,
                 }}
+                wouldAutoApprove={item.wouldAutoApprove}
               />
             ))}
           </CardContent>

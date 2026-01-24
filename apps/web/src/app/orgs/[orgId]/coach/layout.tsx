@@ -34,6 +34,10 @@ import {
   QuickActionsProvider,
   useQuickActionsContext,
 } from "@/contexts/quick-actions-context";
+import {
+  SessionPlanProvider,
+  useSessionPlanContext,
+} from "@/contexts/session-plan-context";
 import { useOrgTheme } from "@/hooks/use-org-theme";
 import { useUXFeatureFlags } from "@/hooks/use-ux-feature-flags";
 import { authClient } from "@/lib/auth-client";
@@ -96,6 +100,9 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
   const { actions, isMenuOpen, setIsMenuOpen, setActions } =
     useQuickActionsContext();
 
+  // Get session plan context for opening modal from quick actions
+  const { openSessionPlanModal } = useSessionPlanContext();
+
   // Track if we've already set default actions (prevents feedback loop)
   const defaultActionsSet = useRef(false);
 
@@ -122,7 +129,7 @@ function CoachLayoutInner({ children }: { children: React.ReactNode }) {
           icon: Target,
           label: "Generate Session Plan",
           title: "AI-powered training session",
-          onClick: () => router.push(`/orgs/${orgId}/coach` as Route),
+          onClick: () => openSessionPlanModal(),
           color: "bg-purple-600 hover:bg-purple-700",
         },
         {
@@ -342,7 +349,9 @@ export default function CoachLayout({
 }) {
   return (
     <QuickActionsProvider>
-      <CoachLayoutInner>{children}</CoachLayoutInner>
+      <SessionPlanProvider>
+        <CoachLayoutInner>{children}</CoachLayoutInner>
+      </SessionPlanProvider>
     </QuickActionsProvider>
   );
 }

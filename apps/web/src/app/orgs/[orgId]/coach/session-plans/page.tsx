@@ -581,8 +581,8 @@ export default function SessionPlansPage() {
 
   return (
     <div className="min-w-0 max-w-full overflow-hidden">
-      {/* FAB Quick Actions - Uses inline modal same as Overview page */}
-      <FABQuickActions onGenerateSessionPlan={handleGenerateSessionPlan} />
+      {/* FAB Quick Actions - Session plan uses SessionPlanContext (Issue #234) */}
+      <FABQuickActions />
 
       {/* Main Content */}
       <div className="flex min-w-0 flex-1 flex-col">

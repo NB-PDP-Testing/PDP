@@ -11,12 +11,12 @@ import {
 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useQuickActionsContext } from "@/contexts/quick-actions-context";
+import { useSessionPlanContext } from "@/contexts/session-plan-context";
 import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
 import { useAnalytics } from "@/lib/analytics";
 
 type FABQuickActionsProps = {
   onAssessPlayers?: () => void;
-  onGenerateSessionPlan?: () => void;
   onViewAnalytics?: () => void;
   onVoiceNotes?: () => void;
   onInjuries?: () => void;
@@ -48,10 +48,15 @@ type FABQuickActionsProps = {
  * - PostHog rate limiting from repeated tracking
  *
  * See: docs/archive/bug-fixes/FIX_COMPARISON_OPTIONS_JAN_2026.md
+ *
+ * ## Session Plan Integration (Issue #234):
+ *
+ * The "Generate Session Plan" action uses useSessionPlanContext() to ensure
+ * consistent behavior across all pages. The modal, caching, and blue badge
+ * logic are centralized in SessionPlanProvider.
  */
 export function FABQuickActions({
   onAssessPlayers,
-  onGenerateSessionPlan,
   onViewAnalytics,
   onVoiceNotes,
   onInjuries,
@@ -61,12 +66,12 @@ export function FABQuickActions({
 }: FABQuickActionsProps) {
   const { track } = useAnalytics();
   const { setActions } = useQuickActionsContext();
+  const { openSessionPlanModal } = useSessionPlanContext();
 
   // Store latest callback references in a ref
   // This allows us to access current callbacks without triggering effects
   const callbacksRef = useRef({
     onAssessPlayers,
-    onGenerateSessionPlan,
     onViewAnalytics,
     onVoiceNotes,
     onInjuries,
@@ -75,13 +80,16 @@ export function FABQuickActions({
     onMatchDay,
   });
 
+  // Store openSessionPlanModal in a ref to avoid dependency issues
+  const sessionPlanRef = useRef(openSessionPlanModal);
+  sessionPlanRef.current = openSessionPlanModal;
+
   // Update ref when callbacks change (no dependency array - runs on every render)
   // This is intentional and efficient: updating a ref doesn't trigger re-renders
   // and ensures onClick handlers always call the latest callback
   useEffect(() => {
     callbacksRef.current = {
       onAssessPlayers,
-      onGenerateSessionPlan,
       onViewAnalytics,
       onVoiceNotes,
       onInjuries,
@@ -109,7 +117,7 @@ export function FABQuickActions({
         icon: Target,
         label: "Generate Session Plan",
         title: "AI-powered training session",
-        onClick: () => callbacksRef.current.onGenerateSessionPlan?.(),
+        onClick: () => sessionPlanRef.current(),
         color: "bg-purple-600 hover:bg-purple-700",
       },
       {

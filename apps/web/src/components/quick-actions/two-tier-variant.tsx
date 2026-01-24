@@ -20,12 +20,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useSessionPlanContext } from "@/contexts/session-plan-context";
 import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
 import { useAnalytics } from "@/lib/analytics";
 
 type TwoTierQuickActionsProps = {
   onAssessPlayers: () => void;
-  onGenerateSessionPlan: () => void;
   onViewAnalytics: () => void;
   onVoiceNotes: () => void;
   onInjuries: () => void;
@@ -49,10 +49,11 @@ type QuickAction = {
  * - "More Actions" button opens bottom sheet with remaining 5 actions
  * - ~140px height for primary actions
  * - Prioritizes most common coach workflows
+ *
+ * Session Plan uses SessionPlanContext for consistent behavior (Issue #234)
  */
 export function TwoTierQuickActions({
   onAssessPlayers,
-  onGenerateSessionPlan,
   onViewAnalytics,
   onVoiceNotes,
   onInjuries,
@@ -62,6 +63,7 @@ export function TwoTierQuickActions({
 }: TwoTierQuickActionsProps) {
   const [isMoreActionsOpen, setIsMoreActionsOpen] = useState(false);
   const { track } = useAnalytics();
+  const { openSessionPlanModal } = useSessionPlanContext();
 
   // Track variant viewed on mount
   useEffect(() => {
@@ -81,7 +83,7 @@ export function TwoTierQuickActions({
     {
       icon: Target,
       label: "Session Plan",
-      onClick: onGenerateSessionPlan,
+      onClick: openSessionPlanModal,
       color: "bg-purple-600 hover:bg-purple-700",
     },
     {
@@ -150,12 +152,12 @@ export function TwoTierQuickActions({
         <CardContent className="space-y-3 p-4">
           {/* Primary Actions - 3 large tiles */}
           <div className="grid grid-cols-3 gap-3">
-            {primaryActions.map((action, idx) => {
+            {primaryActions.map((action) => {
               const Icon = action.icon;
               return (
                 <Button
                   className={`flex h-[100px] w-full flex-col items-center justify-center gap-2 rounded-xl px-2 py-4 text-white transition-all ${action.color} hover:scale-105 active:scale-95`}
-                  key={idx}
+                  key={action.label}
                   onClick={() => handleActionClick(action, true)}
                   title={action.label}
                   type="button"
@@ -192,12 +194,12 @@ export function TwoTierQuickActions({
             </SheetTitle>
           </SheetHeader>
           <div className="mt-6 space-y-2">
-            {secondaryActions.map((action, idx) => {
+            {secondaryActions.map((action) => {
               const Icon = action.icon;
               return (
                 <button
                   className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-gray-100 active:bg-gray-200"
-                  key={idx}
+                  key={action.label}
                   onClick={() => handleActionClick(action, false)}
                   type="button"
                 >

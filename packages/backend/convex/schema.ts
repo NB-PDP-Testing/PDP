@@ -2397,6 +2397,11 @@ export default defineSchema({
     usedRealAI: v.optional(v.boolean()),
     viewCount: v.optional(v.number()),
 
+    // Library vs Cache distinction (Issue #234 follow-up)
+    // When false/undefined: Plan is cached for Quick Actions blue badge but NOT shown in library
+    // When true: Plan is explicitly saved to library and shown in My Plans
+    savedToLibrary: v.optional(v.boolean()),
+
     // Timestamps
     createdAt: v.number(),
     updatedAt: v.number(),

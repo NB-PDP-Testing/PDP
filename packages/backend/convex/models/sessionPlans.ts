@@ -1037,7 +1037,8 @@ export const submitFeedback = mutation({
 // ============================================================================
 
 /**
- * List coach's private plans
+ * List coach's private plans that are saved to library
+ * Only shows plans where savedToLibrary=true (explicitly saved)
  */
 export const listForCoach = query({
   args: {
@@ -1064,7 +1065,8 @@ export const listForCoach = query({
       .filter((q: any) =>
         q.and(
           q.eq(q.field("visibility"), "private"),
-          q.neq(q.field("status"), "deleted")
+          q.neq(q.field("status"), "deleted"),
+          q.eq(q.field("savedToLibrary"), true) // Only show explicitly saved plans
         )
       )
       .collect();
@@ -1116,6 +1118,11 @@ export const getFilteredPlans = query({
     const filteredPlans = allPlans.filter((plan) => {
       // Exclude deleted plans
       if (plan.status === "deleted") {
+        return false;
+      }
+
+      // Only show plans explicitly saved to library
+      if (plan.savedToLibrary !== true) {
         return false;
       }
 
@@ -2038,6 +2045,9 @@ export const searchPlans = query({
 /**
  * Save a pre-generated plan (for Quick Actions compatibility)
  * Automatically schedules metadata extraction after saving
+ *
+ * @param savedToLibrary - If false (default), plan is only cached for blue badge.
+ *                         If true, plan appears in My Plans library.
  */
 export const savePlan = mutation({
   args: {
@@ -2048,6 +2058,7 @@ export const savePlan = mutation({
     teamData: v.optional(v.any()),
     usedRealAI: v.optional(v.boolean()),
     creationMethod: v.optional(v.string()),
+    savedToLibrary: v.optional(v.boolean()), // false = cached only, true = saved to library
   },
   returns: v.id("sessionPlans"),
   handler: async (ctx, args) => {
@@ -2089,6 +2100,7 @@ export const savePlan = mutation({
       creationMethod: args.creationMethod, // Track source: "quick_action" or "session_plans_page"
       generatedAt: now,
       usedRealAI: args.usedRealAI ?? false,
+      savedToLibrary: args.savedToLibrary ?? false, // Default to false (cache only)
       createdAt: now,
       updatedAt: now,
     });
@@ -2102,6 +2114,38 @@ export const savePlan = mutation({
     );
 
     return planId;
+  },
+});
+
+/**
+ * Mark a plan as saved to library (explicit user action)
+ * This makes the plan visible in My Plans library
+ */
+export const markSavedToLibrary = mutation({
+  args: {
+    planId: v.id("sessionPlans"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) {
+      throw new Error("Plan not found");
+    }
+
+    // Verify ownership
+    if (plan.coachId !== identity.subject) {
+      throw new Error("Not authorized to modify this plan");
+    }
+
+    await ctx.db.patch(args.planId, {
+      savedToLibrary: true,
+      updatedAt: Date.now(),
+    });
   },
 });
 
@@ -2173,6 +2217,7 @@ export const incrementRegenerateCount = mutation({
 
 /**
  * Get most recent plan for a team (for Quick Actions caching)
+ * Returns both cached plans (savedToLibrary=false) and saved plans (savedToLibrary=true)
  */
 export const getRecentPlanForTeam = query({
   args: {
@@ -2189,6 +2234,7 @@ export const getRecentPlanForTeam = query({
       duration: v.optional(v.number()),
       sessionPlan: v.optional(v.string()),
       usedRealAI: v.boolean(),
+      savedToLibrary: v.boolean(), // Whether plan was explicitly saved to library
     })
   ),
   handler: async (ctx, args) => {
@@ -2223,6 +2269,7 @@ export const getRecentPlanForTeam = query({
       duration: recentPlan.duration,
       sessionPlan: recentPlan.rawContent,
       usedRealAI: false, // Currently using simulated AI
+      savedToLibrary: recentPlan.savedToLibrary ?? false,
     };
   },
 });

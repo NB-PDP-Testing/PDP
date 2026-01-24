@@ -44,6 +44,9 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
+import { authClient } from "@/lib/auth-client";
+
+const { useSession } = authClient;
 
 // Format date as "Mon Jan 22, 10:30 PM"
 function formatHistoryDate(date: Date | string | number): string {
@@ -94,11 +97,16 @@ function parseSearchQuery(query: string): {
 
 export function HistoryTab({ orgId, onSuccess, onError }: HistoryTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const { data: session } = useSession();
 
-  // Convex queries and mutations
-  const voiceNotes = useQuery(api.models.voiceNotes.getAllVoiceNotes, {
-    orgId,
-  });
+  // Get coach ID from session (use id as fallback if userId is null)
+  const coachId = session?.user?.userId || session?.user?.id;
+
+  // Convex queries and mutations - scoped to this coach's notes only
+  const voiceNotes = useQuery(
+    api.models.voiceNotes.getVoiceNotesByCoach,
+    coachId ? { orgId, coachId } : "skip"
+  );
   const deleteVoiceNote = useMutation(api.models.voiceNotes.deleteVoiceNote);
 
   const handleDeleteNote = async (noteId: Id<"voiceNotes">) => {

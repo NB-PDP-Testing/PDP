@@ -12,6 +12,7 @@ import {
   MessageSquare,
   Mic,
   Settings,
+  Users,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -19,18 +20,26 @@ import { TrustLevelIcon } from "@/components/coach/trust-level-icon";
 import { TrustNudgeBanner } from "@/components/coach/trust-nudge-banner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { authClient } from "@/lib/auth-client";
 import { HistoryTab } from "./components/history-tab";
 import { InsightsTab } from "./components/insights-tab";
 import { NewNoteTab } from "./components/new-note-tab";
 import { ParentsTab } from "./components/parents-tab";
 import { SettingsTab } from "./components/settings-tab";
+import { TeamInsightsTab } from "./components/team-insights-tab";
 
-type TabId = "new" | "parents" | "insights" | "history" | "settings";
+const { useSession } = authClient;
+
+type TabId = "new" | "parents" | "insights" | "team" | "history" | "settings";
 
 export function VoiceNotesDashboard() {
   const params = useParams();
   const router = useRouter();
   const orgId = params.orgId as BetterAuthId<"organization">;
+  const { data: session } = useSession();
+
+  // Get coach ID from session (use id as fallback if userId is null)
+  const coachId = session?.user?.userId || session?.user?.id;
 
   const [activeTab, setActiveTab] = useState<TabId>("new");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -40,10 +49,15 @@ export function VoiceNotesDashboard() {
     {}
   );
 
-  // Queries for stats and conditional tab logic
-  const voiceNotes = useQuery(api.models.voiceNotes.getAllVoiceNotes, {
-    orgId,
-  });
+  // Queries for stats and conditional tab logic - scoped to this coach's notes only
+  const voiceNotes = useQuery(
+    api.models.voiceNotes.getVoiceNotesByCoach,
+    coachId ? { orgId, coachId } : "skip"
+  );
+  const teamInsights = useQuery(
+    api.models.voiceNotes.getVoiceNotesForCoachTeams,
+    coachId ? { orgId, coachId } : "skip"
+  );
   const pendingSummaries = useQuery(
     api.models.coachParentSummaries.getCoachPendingSummaries,
     { organizationId: orgId }
@@ -56,6 +70,12 @@ export function VoiceNotesDashboard() {
   const pendingInsightsCount =
     voiceNotes?.flatMap((note) =>
       note.insights.filter((i) => i.status === "pending")
+    ).length ?? 0;
+  const pendingTeamInsightsCount =
+    teamInsights?.flatMap((note: any) =>
+      note.insights.filter(
+        (i: any) => i.status === "pending" && i.playerIdentityId
+      )
     ).length ?? 0;
   const pendingSummariesCount = pendingSummaries?.length ?? 0;
 
@@ -179,6 +199,16 @@ export function VoiceNotesDashboard() {
       });
     }
 
+    // Only show Team tab if there are pending team insights
+    if (pendingTeamInsightsCount > 0) {
+      baseTabs.push({
+        id: "team",
+        label: "Team",
+        icon: Users,
+        badge: pendingTeamInsightsCount,
+      });
+    }
+
     // Always show History (Settings is now in header)
     baseTabs.push({ id: "history", label: "History", icon: History });
 
@@ -186,6 +216,7 @@ export function VoiceNotesDashboard() {
   }, [
     pendingSummariesCount,
     pendingInsightsCount,
+    pendingTeamInsightsCount,
     hasSensitiveSummaries,
     needsAttentionCount,
   ]);
@@ -395,6 +426,13 @@ export function VoiceNotesDashboard() {
         )}
         {activeTab === "insights" && (
           <InsightsTab
+            onError={showErrorMessage}
+            onSuccess={showSuccessMessage}
+            orgId={orgId}
+          />
+        )}
+        {activeTab === "team" && (
+          <TeamInsightsTab
             onError={showErrorMessage}
             onSuccess={showSuccessMessage}
             orgId={orgId}

@@ -183,6 +183,153 @@ export const getVoiceNotesByCoach = query({
 });
 
 /**
+ * Get voice notes from all coaches on teams where this coach is assigned
+ * Used for team collaborative insights view
+ * Returns notes with player insights only, enriched with coach names and team context
+ */
+export const getVoiceNotesForCoachTeams = query({
+  args: {
+    orgId: v.string(),
+    coachId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("voiceNotes"),
+      _creationTime: v.number(),
+      orgId: v.string(),
+      coachId: v.optional(v.string()),
+      coachName: v.string(),
+      date: v.string(),
+      type: noteTypeValidator,
+      transcription: v.optional(v.string()),
+      summary: v.optional(v.string()),
+      insights: v.array(insightValidator),
+      insightsStatus: v.optional(statusValidator),
+      // Team context - which teams this note is relevant to
+      relevantTeamIds: v.array(v.string()),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Step 1: Get coach's team assignments
+    const coachAssignment = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_user_and_org", (q) =>
+        q.eq("userId", args.coachId).eq("organizationId", args.orgId)
+      )
+      .first();
+
+    if (!coachAssignment || coachAssignment.teams.length === 0) {
+      return []; // Coach not assigned to any teams
+    }
+
+    const myTeams = coachAssignment.teams;
+
+    // Step 2: Find all coaches assigned to any of these teams
+    const allCoachAssignments = await ctx.db
+      .query("coachAssignments")
+      .withIndex("by_organizationId", (q) => q.eq("organizationId", args.orgId))
+      .collect();
+
+    // Get coach IDs who share at least one team with this coach
+    const coachIdsOnMyTeams = new Set<string>();
+    for (const assignment of allCoachAssignments) {
+      // Check if this coach has any team overlap
+      const hasSharedTeam = assignment.teams.some((teamId) =>
+        myTeams.includes(teamId)
+      );
+      if (hasSharedTeam) {
+        coachIdsOnMyTeams.add(assignment.userId);
+      }
+    }
+
+    if (coachIdsOnMyTeams.size === 0) {
+      return [];
+    }
+
+    // Step 3: Get all voice notes from these coaches
+    const allNotes = await Promise.all(
+      Array.from(coachIdsOnMyTeams).map(async (coachId) => {
+        const notes = await ctx.db
+          .query("voiceNotes")
+          .withIndex("by_orgId_and_coachId", (q) =>
+            q.eq("orgId", args.orgId).eq("coachId", coachId)
+          )
+          .order("desc")
+          .take(500); // Limit per coach to avoid overload
+        return notes;
+      })
+    );
+
+    const notes = allNotes.flat();
+
+    // Step 4: Filter to notes with player insights only (collaborative focus)
+    const notesWithPlayerInsights = notes.filter((note) =>
+      note.insights.some((insight: any) => insight.playerIdentityId)
+    );
+
+    // Step 5: Enrich with coach names and team context
+    const enrichedNotes = await Promise.all(
+      notesWithPlayerInsights.map(async (note) => {
+        let coachName = "Unknown Coach";
+
+        if (note.coachId) {
+          const coachResult = await ctx.runQuery(
+            components.betterAuth.adapter.findOne,
+            {
+              model: "user",
+              where: [{ field: "id", value: note.coachId, operator: "eq" }],
+            }
+          );
+
+          if (coachResult) {
+            const coach = coachResult as {
+              firstName?: string;
+              lastName?: string;
+              name?: string;
+            };
+            coachName =
+              `${coach.firstName || ""} ${coach.lastName || ""}`.trim() ||
+              coach.name ||
+              "Coach";
+          }
+        }
+
+        // Determine which of MY teams this note is relevant to
+        // (based on the creating coach's team assignments)
+        const noteCoachAssignment = allCoachAssignments.find(
+          (a) => a.userId === note.coachId
+        );
+        const relevantTeamIds = noteCoachAssignment
+          ? noteCoachAssignment.teams.filter((teamId) =>
+              myTeams.includes(teamId)
+            )
+          : [];
+
+        return {
+          _id: note._id,
+          _creationTime: note._creationTime,
+          orgId: note.orgId,
+          coachId: note.coachId,
+          coachName,
+          date: note.date,
+          type: note.type,
+          transcription: note.transcription,
+          summary: note.summary,
+          insights: note.insights,
+          insightsStatus: note.insightsStatus,
+          relevantTeamIds,
+        };
+      })
+    );
+
+    // Step 6: Sort by date (most recent first)
+    return enrichedNotes.sort(
+      (a: any, b: any) => b._creationTime - a._creationTime
+    );
+  },
+});
+
+/**
  * Get pending insights for an organization
  * Limited to 100 most recent notes to reduce bandwidth usage
  */

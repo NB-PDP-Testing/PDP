@@ -267,10 +267,9 @@ export const approveSummary = mutation({
       approvedBy: userId,
     });
 
-    // Update coach trust metrics
+    // Update coach trust metrics (platform-wide)
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
       coachId: summary.coachId,
-      organizationId: summary.organizationId,
       action: "approved",
     });
 
@@ -348,10 +347,9 @@ export const approveInjurySummary = mutation({
       approvedBy: userId,
     });
 
-    // Update coach trust metrics
+    // Update coach trust metrics (platform-wide)
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
       coachId: summary.coachId,
-      organizationId: summary.organizationId,
       action: "approved",
     });
 
@@ -397,10 +395,9 @@ export const suppressSummary = mutation({
       status: "suppressed",
     });
 
-    // Update coach trust metrics
+    // Update coach trust metrics (platform-wide)
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
       coachId: summary.coachId,
-      organizationId: summary.organizationId,
       action: "suppressed",
     });
 

@@ -421,13 +421,13 @@ const orgContextResultValidator = v.object({
  * For multi-org coaches: attempts to detect org from message content,
  * then falls back to session memory, then asks for clarification.
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multi-org detection requires multiple fallback strategies
 export const findCoachWithOrgContext = internalQuery({
   args: {
     phoneNumber: v.string(),
     messageBody: v.optional(v.string()),
   },
   returns: v.union(v.null(), orgContextResultValidator),
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multi-org detection requires multiple fallback strategies
   handler: async (ctx, args) => {
     const normalizedPhone = normalizePhoneNumber(args.phoneNumber);
     console.log(
@@ -646,6 +646,9 @@ async function checkPlayerMatches(
   const { components: betterAuthComponents } = require("../_generated/api");
 
   // Phase 1: Gather coach assignment data for all orgs
+  // Store resolved team IDs per org (after matching names/IDs)
+  const resolvedTeamIdsByOrg: Map<string, string[]> = new Map();
+
   for (const org of availableOrgs) {
     const coachAssignment = await ctx.db
       .query("coachAssignments")
@@ -665,23 +668,49 @@ async function checkPlayerMatches(
       sport: coachAssignment.sport || null,
     });
 
-    // Check team names
-    for (const teamId of coachAssignment.teams) {
-      const teamsResult = await ctx.runQuery(
-        betterAuthComponents.betterAuth.adapter.findMany,
-        {
-          model: "team",
-          paginationOpts: { cursor: null, numItems: 1 },
-          where: [{ field: "_id", operator: "eq", value: teamId }],
-        }
-      );
-      const team = (teamsResult.page || [])[0];
+    // Fetch ALL teams for this organization first
+    // coachAssignment.teams may contain either team names OR team IDs
+    const allTeamsResult = await ctx.runQuery(
+      betterAuthComponents.betterAuth.adapter.findMany,
+      {
+        model: "team",
+        paginationOpts: { cursor: null, numItems: 1000 },
+        where: [{ field: "organizationId", operator: "eq", value: org.id }],
+      }
+    );
+    const allTeams = (allTeamsResult.page || []) as Array<{
+      _id: string;
+      name?: string;
+    }>;
 
-      if (team) {
-        const teamName = (team.name || "").toLowerCase();
-        if (teamName && messageBody.includes(teamName)) {
-          teamMatches.set(org.id, (teamMatches.get(org.id) || 0) + 1);
-        }
+    // Match team names OR team IDs from coachAssignment.teams
+    // Normalize team names for comparison (trim whitespace, case-insensitive)
+    const normalizedCoachTeams = coachAssignment.teams.map((t: string) =>
+      t.trim().toLowerCase()
+    );
+
+    const matchedTeams = allTeams.filter((team) => {
+      const normalizedTeamName = (team.name || "").trim().toLowerCase();
+      const teamId = team._id;
+      return (
+        normalizedCoachTeams.includes(normalizedTeamName) ||
+        normalizedCoachTeams.includes(teamId) ||
+        coachAssignment.teams.includes(team.name) ||
+        coachAssignment.teams.includes(teamId)
+      );
+    });
+
+    // Store resolved team IDs for later use (player matching, etc.)
+    resolvedTeamIdsByOrg.set(
+      org.id,
+      matchedTeams.map((t) => t._id)
+    );
+
+    // Check team names against message body
+    for (const team of matchedTeams) {
+      const teamName = (team.name || "").toLowerCase();
+      if (teamName && messageBody.includes(teamName)) {
+        teamMatches.set(org.id, (teamMatches.get(org.id) || 0) + 1);
       }
     }
   }
@@ -762,15 +791,16 @@ async function checkPlayerMatches(
   }
 
   // Check 4: Player name matches
+  // Use resolved team IDs (not the raw coachAssignment.teams which may contain names)
   const playerMatches: Map<string, number> = new Map();
 
   for (const org of availableOrgs) {
-    const coachData = coachDataByOrg.get(org.id);
-    if (!coachData || coachData.teams.length === 0) {
+    const teamIds = resolvedTeamIdsByOrg.get(org.id);
+    if (!teamIds || teamIds.length === 0) {
       continue;
     }
 
-    for (const teamId of coachData.teams) {
+    for (const teamId of teamIds) {
       const teamPlayers = await ctx.db
         .query("teamPlayerIdentities")
         // biome-ignore lint/suspicious/noExplicitAny: Dynamic query builder
@@ -807,11 +837,12 @@ async function checkPlayerMatches(
   }
 
   // Check 5: Coach name matches
+  // Use resolved team IDs for finding coaches who share teams
   const coachMatches: Map<string, number> = new Map();
 
   for (const org of availableOrgs) {
-    const coachData = coachDataByOrg.get(org.id);
-    if (!coachData || coachData.teams.length === 0) {
+    const teamIds = resolvedTeamIdsByOrg.get(org.id);
+    if (!teamIds || teamIds.length === 0) {
       continue;
     }
 
@@ -823,15 +854,46 @@ async function checkPlayerMatches(
       )
       .collect();
 
+    // Get all teams for this org to resolve other coaches' team assignments
+    const allTeamsResult = await ctx.runQuery(
+      betterAuthComponents.betterAuth.adapter.findMany,
+      {
+        model: "team",
+        paginationOpts: { cursor: null, numItems: 1000 },
+        where: [{ field: "organizationId", operator: "eq", value: org.id }],
+      }
+    );
+    const allTeams = (allTeamsResult.page || []) as Array<{
+      _id: string;
+      name?: string;
+    }>;
+
     const teamCoachUserIds = new Set<string>();
     for (const assignment of allOrgCoachAssignments) {
       if (assignment.userId === coachId) {
         continue;
       }
-      const sharedTeams = assignment.teams?.filter((t: string) =>
-        coachData.teams.includes(t)
+      // Resolve other coach's team assignments to actual team IDs
+      const otherCoachTeamIds = allTeams
+        .filter((team) => {
+          const normalizedTeamName = (team.name || "").trim().toLowerCase();
+          const normalizedAssignmentTeams = (assignment.teams || []).map(
+            (t: string) => t.trim().toLowerCase()
+          );
+          return (
+            normalizedAssignmentTeams.includes(normalizedTeamName) ||
+            normalizedAssignmentTeams.includes(team._id) ||
+            (assignment.teams || []).includes(team.name) ||
+            (assignment.teams || []).includes(team._id)
+          );
+        })
+        .map((t) => t._id);
+
+      // Check if there's overlap with current coach's resolved team IDs
+      const hasSharedTeams = otherCoachTeamIds.some((id) =>
+        teamIds.includes(id)
       );
-      if (sharedTeams && sharedTeams.length > 0) {
+      if (hasSharedTeams) {
         teamCoachUserIds.add(assignment.userId);
       }
     }

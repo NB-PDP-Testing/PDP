@@ -2806,7 +2806,7 @@ export const getPendingFunctionalRoleRequests = query({
 
         for (const request of requests) {
           pendingRequests.push({
-            memberId: member.id,
+            memberId: (member as any)._id,
             userId: member.userId,
             userName: (userResult?.name as string) || null,
             userEmail: (userResult?.email as string) || null,

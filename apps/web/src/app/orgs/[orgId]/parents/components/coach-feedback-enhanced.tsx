@@ -235,29 +235,27 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
   ) => {
     if (data.length === 0) {
       return (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              {hasActiveFilters
-                ? "No messages found matching your filters."
-                : activeTab === "new"
-                  ? "No new messages. Great job staying on top of feedback!"
-                  : "No message history yet."}
-            </p>
-            {hasActiveFilters && (
-              <Button
-                className="mt-4"
-                onClick={() => {
-                  setSearchQuery("");
-                  setSelectedChild("all");
-                }}
-                variant="outline"
-              >
-                Clear filters
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        <div className="rounded-lg border border-dashed bg-muted/30 p-12 text-center">
+          <p className="text-muted-foreground">
+            {hasActiveFilters
+              ? "No messages found matching your filters."
+              : activeTab === "new"
+                ? "No new messages. Great job staying on top of feedback!"
+                : "No message history yet."}
+          </p>
+          {hasActiveFilters && (
+            <Button
+              className="mt-4"
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedChild("all");
+              }}
+              variant="outline"
+            >
+              Clear filters
+            </Button>
+          )}
+        </div>
       );
     }
 
@@ -393,53 +391,52 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
         </Card>
       </div>
 
-      {/* Tabs & Filters */}
-      <Tabs
-        onValueChange={(v) => setActiveTab(v as "new" | "history")}
-        value={activeTab}
-      >
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-blue-600" />
-                    AI Coach Summaries
-                  </CardTitle>
-                  <CardDescription>
-                    AI-generated summaries from your coach's voice notes
-                  </CardDescription>
-                </div>
-              </div>
-
-              {/* Tabs */}
-              <TabsList className="grid w-full max-w-md grid-cols-2">
-                <TabsTrigger value="new">
-                  New
-                  {stats.unread > 0 && (
-                    <Badge
-                      className="ml-2 bg-red-500 text-white"
-                      variant="default"
-                    >
-                      {stats.unread}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="history">
-                  History
-                  {stats.read > 0 && (
-                    <Badge className="ml-2" variant="secondary">
-                      {stats.read}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
+      {/* Unified Card with Tabs and Content */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-blue-600" />
+                AI Coach Summaries
+              </CardTitle>
+              <CardDescription>
+                AI-generated summaries from your coach's voice notes
+              </CardDescription>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Search and Filters Bar */}
-            <div className="flex flex-col gap-3 sm:flex-row">
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          <Tabs
+            onValueChange={(v) => setActiveTab(v as "new" | "history")}
+            value={activeTab}
+          >
+            {/* Tabs */}
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="new">
+                New
+                {stats.unread > 0 && (
+                  <Badge
+                    className="ml-2 bg-red-500 text-white"
+                    variant="default"
+                  >
+                    {stats.unread}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                History
+                {stats.read > 0 && (
+                  <Badge className="ml-2" variant="secondary">
+                    {stats.read}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Search and Filters */}
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               {/* Search */}
               <div className="relative flex-1">
                 <Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
@@ -520,18 +517,18 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
                 </Button>
               </div>
             )}
-          </CardContent>
-        </Card>
 
-        {/* Tab Content */}
-        <TabsContent className="mt-6" value="new">
-          {renderChildCards(newData, true)}
-        </TabsContent>
+            {/* Tab Content */}
+            <TabsContent className="mt-6 space-y-6" value="new">
+              {renderChildCards(newData, true)}
+            </TabsContent>
 
-        <TabsContent className="mt-6" value="history">
-          {renderChildCards(historyData, false)}
-        </TabsContent>
-      </Tabs>
+            <TabsContent className="mt-6 space-y-6" value="history">
+              {renderChildCards(historyData, false)}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 }

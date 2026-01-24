@@ -755,6 +755,124 @@ export const getCoachPendingSummaries = query({
 });
 
 /**
+ * Get auto-approved summaries (Phase 2)
+ * Shows recently auto-approved messages with revoke option
+ * Includes pending delivery, delivered, viewed, and revoked summaries from last 7 days
+ */
+export const getAutoApprovedSummaries = query({
+  args: {
+    organizationId: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("coachParentSummaries"),
+      playerName: v.string(),
+      summaryContent: v.string(),
+      confidenceScore: v.number(),
+      approvedAt: v.optional(v.number()),
+      scheduledDeliveryAt: v.optional(v.number()),
+      status: v.string(),
+      viewedAt: v.optional(v.number()),
+      revokedAt: v.optional(v.number()),
+      isRevocable: v.boolean(),
+      autoApprovalDecision: v.optional(
+        v.object({
+          shouldAutoApprove: v.boolean(),
+          reason: v.string(),
+          tier: v.union(
+            v.literal("auto_send"),
+            v.literal("manual_review"),
+            v.literal("flagged")
+          ),
+          decidedAt: v.number(),
+        })
+      ),
+    })
+  ),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    const userId = user.userId || user._id;
+
+    // Query summaries from last 7 days that were auto-approved
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+    // Get all summaries for this coach in this org
+    const allSummaries = await ctx.db
+      .query("coachParentSummaries")
+      .withIndex("by_coach_org_status", (q) =>
+        q.eq("coachId", userId).eq("organizationId", args.organizationId)
+      )
+      .collect();
+
+    // Filter for auto-approved summaries from last 7 days
+    const recentAutoApproved = allSummaries.filter((summary) => {
+      // Must have auto-approval decision indicating it was auto-approved
+      if (!summary.autoApprovalDecision?.shouldAutoApprove) {
+        return false;
+      }
+
+      // Must have been created in last 7 days
+      if (summary._creationTime < sevenDaysAgo) {
+        return false;
+      }
+
+      // Include: auto_approved, viewed, or suppressed (with revocation)
+      return (
+        summary.status === "auto_approved" ||
+        summary.status === "viewed" ||
+        (summary.status === "suppressed" && summary.revokedAt !== undefined)
+      );
+    });
+
+    // Enrich with player info and calculate isRevocable
+    const enrichedSummaries = await Promise.all(
+      recentAutoApproved.map(async (summary) => {
+        const player = await ctx.db.get(summary.playerIdentityId);
+        const playerName = player
+          ? `${player.firstName} ${player.lastName}`
+          : "Unknown Player";
+
+        // Check if parent has viewed
+        const hasViewed = summary.viewedAt !== undefined;
+
+        // Calculate isRevocable: auto_approved status, not viewed, within delivery window
+        const isRevocable =
+          summary.status === "auto_approved" &&
+          !hasViewed &&
+          summary.scheduledDeliveryAt !== undefined &&
+          Date.now() < summary.scheduledDeliveryAt;
+
+        return {
+          _id: summary._id,
+          playerName,
+          summaryContent: summary.publicSummary.content,
+          confidenceScore: summary.publicSummary.confidenceScore,
+          approvedAt: summary.approvedAt,
+          scheduledDeliveryAt: summary.scheduledDeliveryAt,
+          status: summary.status,
+          viewedAt: summary.viewedAt,
+          revokedAt: summary.revokedAt,
+          isRevocable,
+          autoApprovalDecision: summary.autoApprovalDecision,
+        };
+      })
+    );
+
+    // Sort by creation time (newest first)
+    return enrichedSummaries.sort((a, b) => {
+      const aTime = a.approvedAt ?? 0;
+      const bTime = b.approvedAt ?? 0;
+      return bTime - aTime;
+    });
+  },
+});
+
+/**
  * Get unread summary count for a parent
  * Counts summaries with status approved/delivered and no viewedAt
  */

@@ -264,10 +264,15 @@ export const setCoachPreferredLevel = mutation({
 
     // Get authenticated user
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user?.userId) {
+    if (!user) {
       throw new Error("Not authenticated");
     }
-    const coachId = user.userId;
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const coachId = user.userId || user._id;
+    if (!coachId) {
+      throw new Error("User ID not found");
+    }
 
     // Get or create platform-wide trust record
     const trustRecord = await getOrCreateTrustLevelHelper(ctx, coachId);
@@ -278,18 +283,10 @@ export const setCoachPreferredLevel = mutation({
       updatedAt: now,
     };
 
-    // If current level exceeds new preferred level, downgrade
-    if (trustRecord.currentLevel > args.preferredLevel) {
-      updates.currentLevel = args.preferredLevel;
-      updates.levelHistory = [
-        ...trustRecord.levelHistory,
-        {
-          level: args.preferredLevel,
-          changedAt: now,
-          reason: `Coach opted down to level ${args.preferredLevel}`,
-        },
-      ];
-    }
+    // NOTE: We do NOT downgrade currentLevel here.
+    // currentLevel represents what the coach has EARNED.
+    // preferredLevel is just their automation cap preference.
+    // The effective level is calculated as min(currentLevel, preferredLevel ?? currentLevel)
 
     await ctx.db.patch(trustRecord._id, updates);
 
@@ -315,10 +312,15 @@ export const setParentSummariesEnabled = mutation({
   handler: async (ctx, args) => {
     // Get authenticated user
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user?.userId) {
+    if (!user) {
       throw new Error("Not authenticated");
     }
-    const coachId = user.userId;
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const coachId = user.userId || user._id;
+    if (!coachId) {
+      throw new Error("User ID not found");
+    }
 
     // Get or create per-org preferences
     const prefs = await getOrCreateOrgPreferencesHelper(
@@ -350,10 +352,15 @@ export const setSkipSensitiveInsights = mutation({
   handler: async (ctx, args) => {
     // Get authenticated user
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user?.userId) {
+    if (!user) {
       throw new Error("Not authenticated");
     }
-    const coachId = user.userId;
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const coachId = user.userId || user._id;
+    if (!coachId) {
+      throw new Error("User ID not found");
+    }
 
     // Get or create per-org preferences
     const prefs = await getOrCreateOrgPreferencesHelper(
@@ -402,7 +409,10 @@ export const getCoachTrustLevel = query({
   handler: async (ctx, args) => {
     // Get authenticated user
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user?.userId) {
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const coachId = user?.userId || user?._id;
+    if (!coachId) {
       // Return default values if not authenticated
       return {
         currentLevel: 0,
@@ -420,7 +430,6 @@ export const getCoachTrustLevel = query({
         },
       };
     }
-    const coachId = user.userId;
 
     // Get platform-wide trust record
     const trustRecord = await ctx.db
@@ -500,10 +509,12 @@ export const getCoachPlatformTrustLevel = query({
   handler: async (ctx) => {
     // Get authenticated user
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user?.userId) {
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const coachId = user?.userId || user?._id;
+    if (!coachId) {
       return null;
     }
-    const coachId = user.userId;
 
     // Get platform-wide trust record
     const trustRecord = await ctx.db
@@ -554,10 +565,12 @@ export const getCoachAllOrgPreferences = query({
   handler: async (ctx) => {
     // Get authenticated user
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user?.userId) {
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const coachId = user?.userId || user?._id;
+    if (!coachId) {
       return [];
     }
-    const coachId = user.userId;
 
     // Get all org preferences for this coach
     const prefs = await ctx.db

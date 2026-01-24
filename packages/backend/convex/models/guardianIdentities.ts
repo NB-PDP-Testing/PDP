@@ -120,6 +120,70 @@ export const getGuardianById = query({
 });
 
 /**
+ * Check if an email conflicts with an existing guardian identity
+ * Used when editing a guardian to detect if the new email belongs to someone else
+ * Returns the conflicting guardian's details for preview, or null if no conflict
+ */
+export const checkGuardianEmailConflict = query({
+  args: {
+    email: v.string(),
+    excludeGuardianId: v.optional(v.id("guardianIdentities")),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      guardianIdentityId: v.id("guardianIdentities"),
+      firstName: v.string(),
+      lastName: v.string(),
+      email: v.string(),
+      phone: v.optional(v.string()),
+      verificationStatus: v.string(),
+      linkedPlayersCount: v.number(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.email.toLowerCase().trim();
+
+    // Find guardian with this email
+    const existingGuardian = await ctx.db
+      .query("guardianIdentities")
+      .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
+      .first();
+
+    // No guardian with this email
+    if (!existingGuardian) {
+      return null;
+    }
+
+    // If it's the same guardian we're editing, no conflict
+    if (
+      args.excludeGuardianId &&
+      existingGuardian._id === args.excludeGuardianId
+    ) {
+      return null;
+    }
+
+    // Count how many players are linked to this guardian
+    const linkedPlayers = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian", (q) =>
+        q.eq("guardianIdentityId", existingGuardian._id)
+      )
+      .collect();
+
+    return {
+      guardianIdentityId: existingGuardian._id,
+      firstName: existingGuardian.firstName,
+      lastName: existingGuardian.lastName,
+      email: existingGuardian.email || "",
+      phone: existingGuardian.phone,
+      verificationStatus: existingGuardian.verificationStatus,
+      linkedPlayersCount: linkedPlayers.length,
+    };
+  },
+});
+
+/**
  * Search guardians by name
  */
 export const searchGuardiansByName = query({

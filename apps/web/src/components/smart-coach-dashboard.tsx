@@ -23,6 +23,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
@@ -152,6 +153,10 @@ export function SmartCoachDashboard({
 
   // Convex client for database operations
   const convex = useConvex();
+
+  // Get organization ID from URL params (needed for saving session plans)
+  const params = useParams();
+  const orgId = params.orgId as string;
 
   // Team notes state
   const [showAddTeamNote, setShowAddTeamNote] = useState(false);
@@ -686,6 +691,7 @@ export function SmartCoachDashboard({
       });
 
       const teamDataForDB = {
+        organizationId: orgId, // CRITICAL: Include org ID so plan appears in library
         playerCount: teamPlayers.length,
         ageGroup: teamPlayers[0]?.ageGroup || "U12",
         avgSkillLevel: team.avgSkillLevel,

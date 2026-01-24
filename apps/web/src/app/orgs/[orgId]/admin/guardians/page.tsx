@@ -80,6 +80,8 @@ export default function GuardianManagementPage() {
   const [selectedGuardianForEdit, setSelectedGuardianForEdit] = useState<{
     guardianPlayerLinkId: Id<"guardianPlayerLinks">;
     guardianIdentityId: Id<"guardianIdentities">;
+    playerIdentityId: Id<"playerIdentities">;
+    playerName: string;
     firstName: string;
     lastName: string;
     email: string;
@@ -1011,6 +1013,8 @@ export default function GuardianManagementPage() {
                                           guardianPlayerLinkId: player.linkId,
                                           guardianIdentityId:
                                             guardian.guardianId,
+                                          playerIdentityId: player.playerId,
+                                          playerName: player.playerName,
                                           firstName: guardian.firstName,
                                           lastName: guardian.lastName,
                                           email: guardian.email || "",
@@ -1198,6 +1202,8 @@ export default function GuardianManagementPage() {
                                         guardianPlayerLinkId:
                                           firstPlayer.linkId,
                                         guardianIdentityId: guardian.guardianId,
+                                        playerIdentityId: firstPlayer.playerId,
+                                        playerName: firstPlayer.playerName,
                                         firstName: guardian.firstName,
                                         lastName: guardian.lastName,
                                         email: guardian.email || "",
@@ -1270,6 +1276,8 @@ export default function GuardianManagementPage() {
                                                 player.linkId,
                                               guardianIdentityId:
                                                 guardian.guardianId,
+                                              playerIdentityId: player.playerId,
+                                              playerName: player.playerName,
                                               firstName: guardian.firstName,
                                               lastName: guardian.lastName,
                                               email: guardian.email || "",
@@ -1442,6 +1450,8 @@ export default function GuardianManagementPage() {
           guardianPlayerLinkId={selectedGuardianForEdit.guardianPlayerLinkId}
           onOpenChange={setEditGuardianModalOpen}
           open={editGuardianModalOpen}
+          playerIdentityId={selectedGuardianForEdit.playerIdentityId}
+          playerName={selectedGuardianForEdit.playerName}
         />
       )}
 

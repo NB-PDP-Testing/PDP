@@ -421,6 +421,68 @@ export const setPrimaryGuardian = mutation({
 });
 
 /**
+ * Reassign a player from one guardian to another
+ * Used when admin edits a guardian's email to one that already exists
+ * Instead of failing, we reassign the player-guardian link to the existing guardian
+ */
+export const reassignPlayerToGuardian = mutation({
+  args: {
+    linkId: v.id("guardianPlayerLinks"),
+    newGuardianIdentityId: v.id("guardianIdentities"),
+    relationship: v.optional(relationshipValidator),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // 1. Get existing link
+    const existingLink = await ctx.db.get(args.linkId);
+    if (!existingLink) {
+      throw new Error("Guardian-player link not found");
+    }
+
+    // 2. Verify new guardian exists
+    const newGuardian = await ctx.db.get(args.newGuardianIdentityId);
+    if (!newGuardian) {
+      throw new Error("Target guardian identity not found");
+    }
+
+    // 3. Check if new guardian is already linked to this player
+    const duplicateLink = await ctx.db
+      .query("guardianPlayerLinks")
+      .withIndex("by_guardian_and_player", (q) =>
+        q
+          .eq("guardianIdentityId", args.newGuardianIdentityId)
+          .eq("playerIdentityId", existingLink.playerIdentityId)
+      )
+      .first();
+
+    if (duplicateLink) {
+      throw new Error(
+        "This guardian is already linked to this player. Cannot create duplicate link."
+      );
+    }
+
+    // 4. Update the link to point to the new guardian
+    // Reset acknowledgement since new guardian must acknowledge
+    await ctx.db.patch(args.linkId, {
+      guardianIdentityId: args.newGuardianIdentityId,
+      relationship: args.relationship ?? existingLink.relationship,
+      acknowledgedByParentAt: undefined, // Reset - new guardian must acknowledge
+      notificationSentAt: undefined, // Reset notification tracking
+      declinedByUserId: undefined, // Clear any decline status
+      declineReason: undefined,
+      declineReasonText: undefined,
+      updatedAt: Date.now(),
+    });
+
+    console.log(
+      `[reassignPlayerToGuardian] Reassigned player ${existingLink.playerIdentityId} from guardian ${existingLink.guardianIdentityId} to ${args.newGuardianIdentityId}`
+    );
+
+    return null;
+  },
+});
+
+/**
  * Update sharing consent for a link
  */
 export const updateLinkConsent = mutation({

@@ -4337,3 +4337,70 @@ export const getMembersByUserId = query({
     return membershipsWithOrgNames;
   },
 });
+
+/**
+ * Check if a user exists and if they are a member of a specific organization.
+ * Used by the Add Guardian modal to determine whether to send invitation or link directly.
+ */
+export const checkUserAndMembership = query({
+  args: {
+    email: v.string(),
+    organizationId: v.string(),
+  },
+  returns: v.object({
+    exists: v.boolean(),
+    isMember: v.boolean(),
+    userId: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    const normalizedEmail = args.email.toLowerCase().trim();
+
+    // Check if user exists
+    const userResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "user",
+        where: [
+          {
+            field: "email",
+            value: normalizedEmail,
+            operator: "eq",
+          },
+        ],
+      }
+    );
+
+    if (!userResult) {
+      return { exists: false, isMember: false };
+    }
+
+    const userId = (userResult as any)._id;
+
+    // Check if user is a member of this organization
+    const memberResult = await ctx.runQuery(
+      components.betterAuth.adapter.findOne,
+      {
+        model: "member",
+        where: [
+          {
+            field: "userId",
+            value: userId,
+            operator: "eq",
+          },
+          {
+            field: "organizationId",
+            value: args.organizationId,
+            operator: "eq",
+            connector: "AND",
+          },
+        ],
+      }
+    );
+
+    return {
+      exists: true,
+      isMember: !!memberResult,
+      userId,
+    };
+  },
+});

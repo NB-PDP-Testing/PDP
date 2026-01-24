@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  Mail,
-  Phone,
-  User,
-} from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, User } from "lucide-react";
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -15,16 +8,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-
-type Parent = {
-  id: string;
-  firstName: string;
-  surname: string;
-  email: string;
-  phone?: string;
-  relationship?: string;
-  isPrimary?: boolean;
-};
 
 type Team = {
   _id: string;
@@ -46,7 +29,6 @@ type PlayerData = {
     training: string;
     matches: string;
   };
-  parents?: Parent[];
   teams?: Team[];
   injuryNotes?: string;
   dateOfBirth?: string;
@@ -225,70 +207,6 @@ export function BasicInformationSection({ player }: Props) {
                     {player.postcode && (
                       <InfoField label="Postcode" value={player.postcode} />
                     )}
-                  </div>
-                </div>
-              )}
-
-              {/* Parent/Guardian Information */}
-              {player.parents && player.parents.length > 0 && (
-                <div className="mt-6 border-t pt-4">
-                  <h4 className="mb-4 font-semibold text-gray-600 text-xs uppercase tracking-wide">
-                    {player.parents.length > 1
-                      ? "Parents & Guardians"
-                      : "Parent / Guardian"}
-                  </h4>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {player.parents.map((parent, idx) => (
-                      <div
-                        className="rounded-lg bg-white p-4 shadow-md transition-shadow hover:shadow-lg"
-                        key={parent.id || idx}
-                      >
-                        {/* Parent Header */}
-                        <div className="mb-3 flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 font-semibold text-sm text-white">
-                              {parent.firstName?.[0]}
-                              {parent.surname?.[0]}
-                            </div>
-                            <div>
-                              <h5 className="font-semibold text-gray-800">
-                                {parent.firstName} {parent.surname}
-                              </h5>
-                              {parent.relationship && (
-                                <p className="text-gray-500 text-xs">
-                                  {parent.relationship}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          {parent.isPrimary && (
-                            <span className="rounded-full bg-green-100 px-2 py-0.5 font-medium text-green-700 text-xs">
-                              Primary
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Contact Details */}
-                        <div className="space-y-2">
-                          <a
-                            className="flex items-center gap-2 text-gray-600 text-sm transition-colors hover:text-blue-600"
-                            href={`mailto:${parent.email}`}
-                          >
-                            <Mail className="h-4 w-4 text-gray-400" />
-                            <span className="truncate">{parent.email}</span>
-                          </a>
-                          {parent.phone && (
-                            <a
-                              className="flex items-center gap-2 text-gray-600 text-sm transition-colors hover:text-blue-600"
-                              href={`tel:${parent.phone}`}
-                            >
-                              <Phone className="h-4 w-4 text-gray-400" />
-                              <span>{parent.phone}</span>
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </div>
               )}

@@ -17,7 +17,6 @@ import { BasicInformationSection } from "./components/basic-info-section";
 import { CrossSportOverview } from "./components/cross-sport-overview";
 import { EmergencyContactsSection } from "./components/emergency-contacts-section";
 import { GoalsSection } from "./components/goals-section";
-import { GuardiansSection } from "./components/guardians-section";
 import { NotesSection } from "./components/notes-section";
 import { ParentSummariesSection } from "./components/parent-summaries-section";
 import { PositionsFitnessSection } from "./components/positions-fitness-section";
@@ -280,17 +279,6 @@ function PlayerPassportPageContent() {
             {/* Cast to any since components define their own interfaces for the properties they need */}
             <BasicInformationSection player={playerData as any} />
 
-            {/* Guardians Section - for youth players */}
-            {"playerType" in playerData &&
-              playerData.playerType === "youth" && (
-                <GuardiansSection
-                  canManage={permissions.canEdit}
-                  organizationId={orgId}
-                  playerIdentityId={playerId as Id<"playerIdentities">}
-                  playerName={playerData.name}
-                />
-              )}
-
             {/* Emergency Contacts - for adult players, shown right after basic info */}
             {"playerType" in playerData &&
               playerData.playerType === "adult" && (
@@ -361,16 +349,6 @@ function PlayerPassportPageContent() {
         <div className="space-y-4">
           {/* Single-sport player - existing layout */}
           <BasicInformationSection player={playerData as any} />
-
-          {/* Guardians Section - for youth players */}
-          {"playerType" in playerData && playerData.playerType === "youth" && (
-            <GuardiansSection
-              canManage={permissions.canEdit}
-              organizationId={orgId}
-              playerIdentityId={playerId as Id<"playerIdentities">}
-              playerName={playerData.name}
-            />
-          )}
 
           {/* Emergency Contacts - for adult players, shown right after basic info */}
           {"playerType" in playerData && playerData.playerType === "adult" && (

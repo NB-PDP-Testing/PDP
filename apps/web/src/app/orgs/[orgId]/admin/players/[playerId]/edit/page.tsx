@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { authClient } from "@/lib/auth-client";
+import { GuardiansSection } from "./components/guardians-section";
 
 export default function EditPlayerPage() {
   const params = useParams();
@@ -407,6 +408,16 @@ export default function EditPlayerPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Guardians Section - for youth players only */}
+      {playerIdentity.playerType === "youth" && (
+        <GuardiansSection
+          canManage={true}
+          organizationId={orgId}
+          playerIdentityId={playerId as Id<"playerIdentities">}
+          playerName={`${playerIdentity.firstName} ${playerIdentity.lastName}`}
+        />
+      )}
 
       {/* Team Assignments - Full Width */}
       <Card>

@@ -1786,26 +1786,21 @@ export default defineSchema({
     .index("by_summary", ["summaryId"])
     .index("by_guardian", ["guardianIdentityId"]),
 
-  // Coach trust levels for AI summary automation
-  // Tracks coach reliability and determines automation level
+  // Coach Trust Levels - PLATFORM-WIDE (one record per coach across all orgs)
+  // Trust is earned globally based on approval/suppression patterns
   // Level 0 (New): Manual review for all summaries
   // Level 1 (Learning): Quick review with AI suggestions (10+ approvals)
   // Level 2 (Trusted): Auto-approve normal, review sensitive (50+ approvals, <10% suppression)
   // Level 3 (Expert): Full automation, requires opt-in (200+ approvals)
   coachTrustLevels: defineTable({
-    // Identity
+    // Identity - one record per coach (platform-wide)
     coachId: v.string(), // Better Auth user ID
-    organizationId: v.string(), // Better Auth organization ID
 
     // Current trust state
     currentLevel: v.number(), // 0-3, current automation level
     preferredLevel: v.optional(v.number()), // 0-3, coach's max desired level (caps auto-upgrade)
 
-    // Feature toggles
-    parentSummariesEnabled: v.optional(v.boolean()), // Whether to generate parent summaries (default true)
-    skipSensitiveInsights: v.optional(v.boolean()), // Skip injury/behavior insights from parent summaries (default false)
-
-    // Metrics for calculating trust level
+    // Metrics for calculating trust level (aggregated across all orgs)
     totalApprovals: v.number(), // Count of approved summaries
     totalSuppressed: v.number(), // Count of suppressed summaries
     consecutiveApprovals: v.number(), // Current streak of approvals (resets on suppress)
@@ -1823,8 +1818,23 @@ export default defineSchema({
     lastActivityAt: v.optional(v.number()), // Last time metrics were updated
     createdAt: v.number(),
     updatedAt: v.number(),
+  }).index("by_coach", ["coachId"]),
+
+  // Coach Per-Org Preferences - settings that vary by organization
+  // Separate from trust level which is platform-wide
+  coachOrgPreferences: defineTable({
+    coachId: v.string(), // Better Auth user ID
+    organizationId: v.string(), // Better Auth organization ID
+
+    // Feature toggles (per-org)
+    parentSummariesEnabled: v.optional(v.boolean()), // Generate parent summaries (default true)
+    skipSensitiveInsights: v.optional(v.boolean()), // Skip injury/behavior from summaries (default false)
+
+    createdAt: v.number(),
+    updatedAt: v.number(),
   })
     .index("by_coach_org", ["coachId", "organizationId"])
+    .index("by_coach", ["coachId"])
     .index("by_org", ["organizationId"]),
 
   // Injury Approval Checklist Responses

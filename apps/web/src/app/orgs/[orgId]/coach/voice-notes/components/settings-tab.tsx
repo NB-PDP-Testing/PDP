@@ -38,7 +38,6 @@ export function SettingsTab({ orgId }: SettingsTabProps) {
   const handleTrustPreferenceUpdate = async (preferredLevel: number) => {
     try {
       await setPreferredLevel({
-        organizationId: orgId,
         preferredLevel,
       });
       toast.success("Trust preferences updated");

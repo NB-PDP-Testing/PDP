@@ -1,15 +1,20 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
+import type { Id } from "@pdp/backend/convex/_generated/dataModel";
+import { useConvex } from "convex/react";
 import {
   AlertCircle,
   BarChart3,
   Brain,
   CheckCircle,
+  Clock,
   Download,
   Edit,
   FileText,
   Mail,
   MessageCircle,
+  Save,
   Share,
   Share2,
   Target,
@@ -30,12 +35,19 @@ import {
   generateSessionPlan,
 } from "@/lib/ai-service";
 import {
+  trackPlanCached,
+  trackPlanGenerated,
+  trackPlanRegenerated,
+  trackPlanShared,
+} from "@/lib/analytics-tracker";
+import {
   downloadPDF,
   generateSessionPlanPDF,
   shareViaEmail,
   shareViaNative,
   shareViaWhatsApp,
 } from "@/lib/pdf-generator";
+import { sessionPlanConfig } from "@/lib/session-plan-config";
 
 type TeamAnalytics = {
   teamId: string;
@@ -128,6 +140,18 @@ export function SmartCoachDashboard({
   );
   const [showShareModal, setShowShareModal] = useState(false);
   const [planToShare, setPlanToShare] = useState<any>(null);
+
+  // Session plan caching state (restored from commit ddbb1af for Issue #292)
+  const [currentPlanId, setCurrentPlanId] = useState<Id<"sessionPlans"> | null>(
+    null
+  );
+  const [showCachedBadge, setShowCachedBadge] = useState(false);
+  const [cachedBadgeDismissed, setCachedBadgeDismissed] = useState(false);
+  const [cachedPlanAge, setCachedPlanAge] = useState<string | null>(null);
+  const [planSaved, setPlanSaved] = useState(false);
+
+  // Convex client for database operations
+  const convex = useConvex();
 
   // Team notes state
   const [showAddTeamNote, setShowAddTeamNote] = useState(false);
@@ -523,9 +547,14 @@ export function SmartCoachDashboard({
     }
   };
 
-  const handleGenerateSessionPlan = async () => {
+  // Handle generating session plan with caching (restored from commit ddbb1af for Issue #292)
+  const handleGenerateSessionPlan = async (
+    bypassCache = false,
+    isRegeneration = false
+  ) => {
     setLoadingSessionPlan(true);
     setShowSessionPlan(true);
+    setPlanSaved(false); // Reset saved state for new generation
 
     try {
       // Use first team with players for session plan
@@ -536,13 +565,12 @@ export function SmartCoachDashboard({
       }
 
       const teamPlayers = players.filter((p) => {
-        // Check if player is on this team (supports multi-team)
         const playerTeamsList = getPlayerTeams(p);
         return playerTeamsList.includes(team.teamName) && p;
       });
 
-      // ⚡ OPTIMIZED: Only send minimal data needed by backend (not full player objects)
-      const teamData = {
+      // Team data for AI generation
+      const teamDataForAI = {
         teamName: team.teamName,
         playerCount: teamPlayers.length,
         ageGroup: teamPlayers[0]?.ageGroup || "U12",
@@ -553,20 +581,137 @@ export function SmartCoachDashboard({
         overdueReviews: team.overdueReviews,
       };
 
+      // Check for cached plan first (unless bypassing cache for regeneration)
+      if (bypassCache) {
+        setShowCachedBadge(false);
+        setCachedPlanAge(null);
+        setCachedBadgeDismissed(false);
+      } else {
+        const cacheDuration = sessionPlanConfig.cacheDurationHours;
+
+        const cachedPlan = await convex.query(
+          api.models.sessionPlans.getRecentPlanForTeam,
+          {
+            teamId: team.teamId,
+            maxAgeHours: cacheDuration,
+          }
+        );
+
+        if (cachedPlan) {
+          // Calculate age of cached plan
+          const ageMs = Math.max(0, Date.now() - cachedPlan.generatedAt);
+          const ageMinutes = Math.floor(ageMs / (1000 * 60));
+          const ageHours = Math.floor(ageMinutes / 60);
+          let ageStr = "just now";
+          if (ageHours > 0) {
+            ageStr = `${ageHours} hour${ageHours > 1 ? "s" : ""} ago`;
+          } else if (ageMinutes > 0) {
+            ageStr = `${ageMinutes} minute${ageMinutes > 1 ? "s" : ""} ago`;
+          }
+
+          setSessionPlan(cachedPlan.sessionPlan || "");
+          setCurrentPlanId(cachedPlan._id);
+          setShowCachedBadge(true);
+          setCachedPlanAge(ageStr);
+          setPlanSaved(true); // Cached plan is already saved
+
+          // Track cache hit in PostHog
+          trackPlanCached({
+            teamId: team.teamId,
+            teamName: team.teamName,
+            playerCount: teamPlayers.length,
+            ageGroup: teamPlayers[0]?.ageGroup,
+            creationMethod: "ai_generated",
+            usedRealAI: cachedPlan.usedRealAI,
+            cacheHit: true,
+            cacheAge: ageMs,
+            planId: cachedPlan._id,
+          });
+
+          // Increment view count
+          await convex.mutation(api.models.sessionPlans.incrementViewCount, {
+            planId: cachedPlan._id,
+          });
+
+          setLoadingSessionPlan(false);
+          return;
+        }
+      }
+
       console.log(
         `📊 Generating session plan for ${team.teamName} (${teamPlayers.length} players)`
       );
 
-      // Use weaknesses as focus if available
+      // Generate new plan
       const focus =
         team.weaknesses.length > 0 ? team.weaknesses[0].skill : undefined;
-      const plan = await generateSessionPlan(teamData, focus);
+      const plan = await generateSessionPlan(teamDataForAI, focus);
       setSessionPlan(plan);
+      setShowCachedBadge(false);
+      setCachedPlanAge(null);
+      setCurrentPlanId(null); // New plan not saved yet
+      setPlanSaved(false);
+
+      // Track plan generation in PostHog (skip if this is a regeneration - already tracked)
+      if (!isRegeneration) {
+        trackPlanGenerated({
+          teamId: team.teamId,
+          teamName: team.teamName,
+          playerCount: teamPlayers.length,
+          ageGroup: teamPlayers[0]?.ageGroup,
+          creationMethod: "ai_generated",
+          usedRealAI: true,
+          focus,
+        });
+      }
     } catch (error) {
       console.error("Error generating session plan:", error);
       setSessionPlan("Error generating session plan. Please try again.");
     } finally {
       setLoadingSessionPlan(false);
+    }
+  };
+
+  // Handle saving session plan to library (Issue #292 - manual save instead of auto-save)
+  const handleSaveToLibrary = async () => {
+    const team = teamAnalytics.find((t) => t.playerCount > 0);
+    if (!(team && sessionPlan)) {
+      return;
+    }
+
+    try {
+      const teamPlayers = players.filter((p) => {
+        const playerTeamsList = getPlayerTeams(p);
+        return playerTeamsList.includes(team.teamName) && p;
+      });
+
+      const teamDataForDB = {
+        playerCount: teamPlayers.length,
+        ageGroup: teamPlayers[0]?.ageGroup || "U12",
+        avgSkillLevel: team.avgSkillLevel,
+        strengths: team.strengths.map((s) => s.skill),
+        weaknesses: team.weaknesses.map((w) => w.skill),
+      };
+
+      const focus =
+        team.weaknesses.length > 0 ? team.weaknesses[0].skill : undefined;
+
+      const planId = await convex.mutation(api.models.sessionPlans.savePlan, {
+        teamId: team.teamId,
+        teamName: team.teamName,
+        sessionPlan,
+        focus,
+        teamData: teamDataForDB,
+        usedRealAI: true,
+        creationMethod: "ai_generated",
+      });
+
+      setCurrentPlanId(planId);
+      setPlanSaved(true);
+      toast.success("Session plan saved to your library!");
+    } catch (error) {
+      console.error("Error saving session plan:", error);
+      toast.error("Failed to save session plan. Please try again.");
     }
   };
 
@@ -1416,6 +1561,29 @@ export function SmartCoachDashboard({
                   ×
                 </Button>
               </div>
+
+              {/* Cached Plan Alert Badge (restored from commit ddbb1af for Issue #292) */}
+              {showCachedBadge && cachedPlanAge && !cachedBadgeDismissed && (
+                <div className="mt-2 flex items-center gap-2 rounded-md bg-blue-50/80 px-2.5 py-1.5 text-xs">
+                  <Clock className="flex-shrink-0 text-blue-600" size={14} />
+                  <div className="flex-1 text-blue-700">
+                    <div className="font-semibold text-[13px] leading-tight">
+                      You generated this {cachedPlanAge}
+                    </div>
+                    <div className="mt-0.5 text-[11px] leading-tight opacity-85">
+                      Tap Regenerate to create a fresh plan
+                    </div>
+                  </div>
+                  <button
+                    aria-label="Dismiss"
+                    className="flex-shrink-0 rounded-sm p-1 text-blue-600 transition-colors hover:bg-blue-100/50"
+                    onClick={() => setCachedBadgeDismissed(true)}
+                    type="button"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="p-4 md:p-6">
               {loadingSessionPlan ? (
@@ -1443,11 +1611,10 @@ export function SmartCoachDashboard({
               <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-gray-200 border-t bg-gray-50 p-4 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] sm:flex-row md:p-4">
                 <Button
                   className="flex w-full items-center justify-center gap-2 bg-blue-600 font-medium transition-colors hover:bg-blue-700 sm:flex-1"
-                  onClick={() => {
+                  onClick={async () => {
                     const team = teamAnalytics.find((t) => t.playerCount > 0);
                     if (team) {
                       const teamPlayers = players.filter((p) => {
-                        // Check if player is on this team (supports multi-team)
                         const playerTeamsList = getPlayerTeams(p);
                         return playerTeamsList.includes(team.teamName) && p;
                       });
@@ -1459,18 +1626,59 @@ export function SmartCoachDashboard({
                         },
                         sessionPlan,
                         teamName: team.teamName,
+                        teamId: team.teamId,
                         playerCount: teamPlayers.length,
                       });
                       setShowShareModal(true);
+
+                      // Track share intent and increment count if plan is saved
+                      if (currentPlanId) {
+                        await convex.mutation(
+                          api.models.sessionPlans.incrementShareCount,
+                          { planId: currentPlanId }
+                        );
+                      }
+                      trackPlanShared({
+                        teamId: team.teamId,
+                        teamName: team.teamName,
+                        creationMethod: "ai_generated",
+                        planId: currentPlanId ?? undefined,
+                      });
                     }
                   }}
                 >
                   <Share2 className="flex-shrink-0" size={16} />
                   <span>Share Plan</span>
                 </Button>
+                {/* Save to Library button (Issue #292 - manual save) */}
+                <Button
+                  className="flex w-full items-center justify-center gap-2 bg-purple-600 font-medium transition-colors hover:bg-purple-700 disabled:opacity-50 sm:flex-1"
+                  disabled={planSaved}
+                  onClick={handleSaveToLibrary}
+                >
+                  <Save className="flex-shrink-0" size={16} />
+                  <span>{planSaved ? "Saved!" : "Save to Library"}</span>
+                </Button>
                 <Button
                   className="flex w-full items-center justify-center gap-2 bg-green-600 font-medium transition-colors hover:bg-green-700 sm:flex-1"
-                  onClick={handleGenerateSessionPlan}
+                  onClick={async () => {
+                    // Track regeneration before generating
+                    const team = teamAnalytics.find((t) => t.playerCount > 0);
+                    if (currentPlanId && team) {
+                      await convex.mutation(
+                        api.models.sessionPlans.incrementRegenerateCount,
+                        { planId: currentPlanId }
+                      );
+                      trackPlanRegenerated({
+                        teamId: team.teamId,
+                        teamName: team.teamName,
+                        creationMethod: "ai_generated",
+                        planId: currentPlanId,
+                      });
+                    }
+                    // Regenerate with cache bypass
+                    await handleGenerateSessionPlan(true, true);
+                  }}
                 >
                   <Brain className="flex-shrink-0" size={16} />
                   <span>Regenerate Plan</span>

@@ -30,7 +30,15 @@ const WHATSAPP_PREFIX_REGEX = /^whatsapp:/;
 /**
  * Process an incoming WhatsApp message from the webhook.
  * This is called by the HTTP handler after validating the request.
+ *
+ * Multi-Org Flow:
+ * 1. For single-org coaches: process immediately
+ * 2. For multi-org coaches:
+ *    - Try to detect org from message content (explicit mention, player/team names)
+ *    - Fall back to session memory (recent messages from same phone)
+ *    - If ambiguous, ask for clarification via WhatsApp
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multi-org detection requires handling multiple code paths
 export const processIncomingMessage = internalAction({
   args: {
     messageSid: v.string(),
@@ -73,6 +81,25 @@ export const processIncomingMessage = internalAction({
       }
     }
 
+    // Check if there's a pending message awaiting org selection
+    // Uses runMutation because it may mark expired messages
+    const pendingMessage = await ctx.runMutation(
+      internal.models.whatsappMessages.getPendingMessage,
+      { phoneNumber }
+    );
+
+    if (pendingMessage && args.body) {
+      // This might be an org selection response
+      return await handleOrgSelectionResponse(ctx, {
+        phoneNumber,
+        toNumber,
+        messageBody: args.body,
+        pendingMessage,
+        newMessageSid: args.messageSid,
+        accountSid: args.accountSid,
+      });
+    }
+
     // Store raw message
     const messageId = await ctx.runMutation(
       internal.models.whatsappMessages.createMessage,
@@ -88,21 +115,20 @@ export const processIncomingMessage = internalAction({
       }
     );
 
-    // Look up coach by phone number
-    const coachInfo = await ctx.runQuery(
-      internal.models.whatsappMessages.findCoachByPhone,
-      { phoneNumber }
+    // Look up coach with org context detection
+    const coachContext = await ctx.runQuery(
+      internal.models.whatsappMessages.findCoachWithOrgContext,
+      { phoneNumber, messageBody: args.body }
     );
 
-    if (!coachInfo) {
-      // Update message as unmatched
+    if (!coachContext) {
+      // No coach found for this phone number
       await ctx.runMutation(internal.models.whatsappMessages.updateStatus, {
         messageId,
         status: "unmatched",
         errorMessage: `No coach account linked to phone number ${phoneNumber}`,
       });
 
-      // Send reply about unmatched number
       await sendWhatsAppMessage(
         phoneNumber,
         `Your phone number isn't linked to a coach account in PlayerArc. Please add your phone number in the app settings, or contact your club administrator.`
@@ -111,45 +137,114 @@ export const processIncomingMessage = internalAction({
       return { success: false, messageId, error: "Phone number not matched" };
     }
 
+    // Handle multi-org ambiguity
+    if (coachContext.needsClarification) {
+      console.log("[WhatsApp] Multi-org coach, need clarification");
+
+      // Store media if present (for audio messages)
+      let mediaStorageId: Id<"_storage"> | undefined;
+      if (messageType === "audio" && args.mediaUrl) {
+        mediaStorageId = await downloadAndStoreMedia(ctx, args.mediaUrl);
+        if (mediaStorageId) {
+          await ctx.runMutation(
+            internal.models.whatsappMessages.updateMediaStorage,
+            { messageId, mediaStorageId }
+          );
+        }
+      }
+
+      // Create pending message
+      await ctx.runMutation(
+        internal.models.whatsappMessages.createPendingMessage,
+        {
+          messageSid: args.messageSid,
+          phoneNumber,
+          coachId: coachContext.coachId,
+          coachName: coachContext.coachName,
+          messageType,
+          body: args.body,
+          mediaUrl: args.mediaUrl,
+          mediaContentType: args.mediaContentType,
+          mediaStorageId,
+          availableOrgs: coachContext.availableOrgs,
+        }
+      );
+
+      // Update main message status
+      await ctx.runMutation(internal.models.whatsappMessages.updateStatus, {
+        messageId,
+        status: "processing",
+        errorMessage: "Awaiting org selection",
+      });
+
+      // Send clarification request
+      const orgList = coachContext.availableOrgs
+        .map((org, i) => `${i + 1}. ${org.name}`)
+        .join("\n");
+
+      await sendWhatsAppMessage(
+        phoneNumber,
+        `Hi ${coachContext.coachName}! You're a coach at multiple clubs. Which one is this note for?\n\n${orgList}\n\nReply with the number (1, 2, etc.) or club name.`
+      );
+
+      return { success: true, messageId };
+    }
+
+    // Organization is resolved - process normally
+    // Safe to assert: needsClarification is false so organization is set
+    const organization = coachContext.organization as {
+      id: string;
+      name: string;
+    };
+    const resolvedVia = coachContext.resolvedVia as NonNullable<
+      typeof coachContext.resolvedVia
+    >;
+
+    // Update session memory
+    await ctx.runMutation(internal.models.whatsappMessages.updateSession, {
+      phoneNumber,
+      coachId: coachContext.coachId,
+      organizationId: organization.id,
+      organizationName: organization.name,
+      resolvedVia,
+    });
+
     // Update message with coach info
     await ctx.runMutation(internal.models.whatsappMessages.updateCoachInfo, {
       messageId,
-      coachId: coachInfo.coachId,
-      coachName: coachInfo.coachName,
-      organizationId: coachInfo.organizationId,
+      coachId: coachContext.coachId,
+      coachName: coachContext.coachName,
+      organizationId: organization.id,
     });
 
-    // Send immediate acknowledgment
-    const orgName = coachInfo.organizationName || "your club";
+    // Send immediate acknowledgment (include org name for multi-org coaches)
+    const isMultiOrg = coachContext.availableOrgs.length > 1;
     const ackMessage =
       messageType === "audio"
-        ? `Voice note received for ${orgName}. Transcribing...`
-        : `Note received for ${orgName}. Processing...`;
+        ? `Voice note received${isMultiOrg ? ` for ${organization.name}` : ""}. Transcribing...`
+        : `Note received${isMultiOrg ? ` for ${organization.name}` : ""}. Processing...`;
 
     await sendWhatsAppMessage(phoneNumber, ackMessage);
 
     // Process the message based on type
     try {
       if (messageType === "audio" && args.mediaUrl) {
-        // Download audio from Twilio and create recorded note
         await processAudioMessage(ctx, {
           messageId,
           mediaUrl: args.mediaUrl,
-          coachId: coachInfo.coachId,
-          organizationId: coachInfo.organizationId,
+          coachId: coachContext.coachId,
+          organizationId: organization.id,
           phoneNumber,
         });
       } else if (messageType === "text" && args.body) {
-        // Create typed note directly
         await processTextMessage(ctx, {
           messageId,
           text: args.body,
-          coachId: coachInfo.coachId,
-          organizationId: coachInfo.organizationId,
+          coachId: coachContext.coachId,
+          organizationId: organization.id,
           phoneNumber,
         });
       } else {
-        // Unsupported message type
         await ctx.runMutation(internal.models.whatsappMessages.updateStatus, {
           messageId,
           status: "failed",
@@ -187,9 +282,239 @@ export const processIncomingMessage = internalAction({
 });
 
 /**
+ * Handle an org selection response from a multi-org coach
+ */
+async function handleOrgSelectionResponse(
+  // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
+  ctx: any,
+  args: {
+    phoneNumber: string;
+    toNumber: string;
+    messageBody: string;
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic pending message type
+    pendingMessage: any;
+    newMessageSid: string;
+    accountSid: string;
+  }
+): Promise<{
+  success: boolean;
+  messageId?: Id<"whatsappMessages">;
+  error?: string;
+}> {
+  // Try to parse the selection
+  const selectedOrg = await ctx.runQuery(
+    internal.models.whatsappMessages.parseOrgSelection,
+    {
+      messageBody: args.messageBody,
+      availableOrgs: args.pendingMessage.availableOrgs,
+    }
+  );
+
+  if (!selectedOrg) {
+    // Didn't understand the selection
+    const orgList = args.pendingMessage.availableOrgs
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamic org type
+      .map((org: any, i: number) => `${i + 1}. ${org.name}`)
+      .join("\n");
+
+    await sendWhatsAppMessage(
+      args.phoneNumber,
+      `Sorry, I didn't understand. Please reply with the number (1, 2, etc.) or club name:\n\n${orgList}`
+    );
+
+    return { success: false, error: "Invalid org selection" };
+  }
+
+  console.log("[WhatsApp] Org selected:", selectedOrg.name);
+
+  // Mark pending message as resolved
+  await ctx.runMutation(
+    internal.models.whatsappMessages.resolvePendingMessage,
+    { pendingMessageId: args.pendingMessage._id }
+  );
+
+  // Update session memory
+  await ctx.runMutation(internal.models.whatsappMessages.updateSession, {
+    phoneNumber: args.phoneNumber,
+    coachId: args.pendingMessage.coachId,
+    organizationId: selectedOrg.id,
+    organizationName: selectedOrg.name,
+    resolvedVia: "user_selection",
+  });
+
+  // Create a new message record for this selection acknowledgment
+  const messageId = await ctx.runMutation(
+    internal.models.whatsappMessages.createMessage,
+    {
+      messageSid: args.newMessageSid,
+      accountSid: args.accountSid,
+      fromNumber: args.phoneNumber,
+      toNumber: args.toNumber,
+      messageType: "text",
+      body: args.messageBody,
+    }
+  );
+
+  // Update with coach info
+  await ctx.runMutation(internal.models.whatsappMessages.updateCoachInfo, {
+    messageId,
+    coachId: args.pendingMessage.coachId,
+    coachName: args.pendingMessage.coachName,
+    organizationId: selectedOrg.id,
+  });
+
+  // Send confirmation
+  await sendWhatsAppMessage(
+    args.phoneNumber,
+    `Got it! Recording for ${selectedOrg.name}. Processing your note...`
+  );
+
+  // Now process the original pending message
+  try {
+    if (
+      args.pendingMessage.messageType === "audio" &&
+      args.pendingMessage.mediaStorageId
+    ) {
+      // Create voice note from already-stored audio
+      const noteId = await ctx.runMutation(
+        api.models.voiceNotes.createRecordedNote,
+        {
+          orgId: selectedOrg.id,
+          coachId: args.pendingMessage.coachId,
+          audioStorageId: args.pendingMessage.mediaStorageId,
+          noteType: "general",
+          source: "whatsapp_audio",
+        }
+      );
+
+      // Link voice note to WhatsApp message
+      await ctx.runMutation(internal.models.whatsappMessages.linkVoiceNote, {
+        messageId,
+        voiceNoteId: noteId,
+      });
+
+      // Schedule auto-apply check
+      await ctx.scheduler.runAfter(
+        30_000,
+        internal.actions.whatsapp.checkAndAutoApply,
+        {
+          messageId,
+          voiceNoteId: noteId,
+          coachId: args.pendingMessage.coachId,
+          organizationId: selectedOrg.id,
+          phoneNumber: args.phoneNumber,
+        }
+      );
+    } else if (
+      args.pendingMessage.messageType === "text" &&
+      args.pendingMessage.body
+    ) {
+      // Create typed note
+      const noteId = await ctx.runMutation(
+        api.models.voiceNotes.createTypedNote,
+        {
+          orgId: selectedOrg.id,
+          coachId: args.pendingMessage.coachId,
+          noteText: args.pendingMessage.body,
+          noteType: "general",
+          source: "whatsapp_text",
+        }
+      );
+
+      await ctx.runMutation(internal.models.whatsappMessages.linkVoiceNote, {
+        messageId,
+        voiceNoteId: noteId,
+      });
+
+      await ctx.scheduler.runAfter(
+        15_000,
+        internal.actions.whatsapp.checkAndAutoApply,
+        {
+          messageId,
+          voiceNoteId: noteId,
+          coachId: args.pendingMessage.coachId,
+          organizationId: selectedOrg.id,
+          phoneNumber: args.phoneNumber,
+        }
+      );
+    }
+
+    return { success: true, messageId };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    console.error(
+      "[WhatsApp] Failed to process pending message:",
+      errorMessage
+    );
+
+    await sendWhatsAppMessage(
+      args.phoneNumber,
+      "Sorry, there was an error processing your note. Please try again."
+    );
+
+    return { success: false, messageId, error: errorMessage };
+  }
+}
+
+/**
+ * Download and store media from Twilio (for pending messages)
+ */
+async function downloadAndStoreMedia(
+  // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
+  ctx: any,
+  mediaUrl: string
+): Promise<Id<"_storage"> | undefined> {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+  if (!(accountSid && authToken)) {
+    console.error("[WhatsApp] Twilio credentials not configured");
+    return;
+  }
+
+  try {
+    const authHeader = Buffer.from(`${accountSid}:${authToken}`).toString(
+      "base64"
+    );
+    const response = await fetch(mediaUrl, {
+      headers: { Authorization: `Basic ${authHeader}` },
+    });
+
+    if (!response.ok) {
+      console.error("[WhatsApp] Failed to download media:", response.status);
+      return;
+    }
+
+    const audioBuffer = await response.arrayBuffer();
+    const contentType = response.headers.get("content-type") || "audio/ogg";
+    const audioBlob = new Blob([audioBuffer], { type: contentType });
+
+    const uploadUrl = await ctx.storage.generateUploadUrl();
+    const uploadResponse = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": "audio/ogg" },
+      body: audioBlob,
+    });
+
+    if (!uploadResponse.ok) {
+      console.error("[WhatsApp] Failed to upload media to storage");
+      return;
+    }
+
+    const { storageId } = await uploadResponse.json();
+    return storageId;
+  } catch (error) {
+    console.error("[WhatsApp] Error downloading/storing media:", error);
+    return;
+  }
+}
+
+/**
  * Process an audio message - download from Twilio and create voice note
  */
 async function processAudioMessage(
+  // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
   ctx: any,
   args: {
     messageId: Id<"whatsappMessages">;
@@ -281,6 +606,7 @@ async function processAudioMessage(
  * Process a text message - create typed voice note
  */
 async function processTextMessage(
+  // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
   ctx: any,
   args: {
     messageId: Id<"whatsappMessages">;
@@ -419,9 +745,12 @@ export const checkAndAutoApply = internalAction({
 /**
  * Apply insights based on coach's trust level
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Trust-based insight categorization requires many conditionals
 async function applyInsightsWithTrust(
+  // biome-ignore lint/suspicious/noExplicitAny: Convex action context type
   ctx: any,
   args: {
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic voice note type
     voiceNote: any;
     trustLevel: number;
     coachId: string;
@@ -450,9 +779,26 @@ async function applyInsightsWithTrust(
   }>;
 }> {
   const results = {
-    autoApplied: [] as any[],
-    needsReview: [] as any[],
-    unmatched: [] as any[],
+    autoApplied: [] as Array<{
+      insightId: string;
+      playerName?: string;
+      teamName?: string;
+      category: string;
+      title: string;
+      parentSummaryQueued: boolean;
+    }>,
+    needsReview: [] as Array<{
+      insightId: string;
+      playerName?: string;
+      category: string;
+      title: string;
+      reason: string;
+    }>,
+    unmatched: [] as Array<{
+      insightId: string;
+      mentionedName?: string;
+      title: string;
+    }>,
   };
 
   // Sensitive categories that NEVER auto-apply
@@ -586,11 +932,29 @@ async function applyInsightsWithTrust(
 /**
  * Format the results into a WhatsApp-friendly message
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Message formatting requires handling multiple result types
 function formatResultsMessage(
   results: {
-    autoApplied: any[];
-    needsReview: any[];
-    unmatched: any[];
+    autoApplied: Array<{
+      insightId: string;
+      playerName?: string;
+      teamName?: string;
+      category: string;
+      title: string;
+      parentSummaryQueued: boolean;
+    }>;
+    needsReview: Array<{
+      insightId: string;
+      playerName?: string;
+      category: string;
+      title: string;
+      reason: string;
+    }>;
+    unmatched: Array<{
+      insightId: string;
+      mentionedName?: string;
+      title: string;
+    }>;
   },
   _trustLevel: number
 ): string {

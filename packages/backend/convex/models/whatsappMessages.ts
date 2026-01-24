@@ -4,9 +4,44 @@ import { internalMutation, internalQuery, query } from "../_generated/server";
 /**
  * WhatsApp Messages Model
  *
- * Handles storage and retrieval of incoming WhatsApp messages
- * and coach phone number lookups.
+ * Handles storage and retrieval of incoming WhatsApp messages,
+ * coach phone number lookups, and multi-org context detection.
+ *
+ * Multi-Org Detection Flow (for coaches with multiple orgs):
+ * 1. If coach has only 1 org → use that (single_org)
+ * 2. Check if org name explicitly mentioned in message (explicit_mention)
+ * 3. Check if player/team names uniquely match one org (player_match/team_match)
+ * 4. Check session memory - recent messages from same phone (session_memory)
+ * 5. If still ambiguous → ask for clarification via WhatsApp
  */
+
+// Session timeout: 2 hours
+const SESSION_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+
+// ============================================================
+// REGEX PATTERNS (top-level for performance)
+// ============================================================
+
+// Age group patterns
+const AGE_GROUP_U_PATTERN = /\bu[-\s]?(\d{1,2})\b/gi;
+const AGE_GROUP_UNDER_PATTERN = /\bunder[-\s]?(\d{1,2})\b/gi;
+const AGE_GROUP_PLURAL_PATTERN = /\b(?:the\s+)?(\d{1,2})s\b/gi;
+const AGE_GROUP_SENIOR_PATTERN = /\b(?:senior|seniors|adult|adults)\b/i;
+
+// Sport patterns
+const SPORT_SOCCER_PATTERNS = [/\bsoccer\b/i, /\bfootball\b/i, /\bfooty\b/i];
+const SPORT_GAA_PATTERNS = [/\bgaa\b/i, /\bgaelic\b/i, /\bgaelic football\b/i];
+const SPORT_HURLING_PATTERNS = [/\bhurling\b/i, /\bhurl\b/i, /\bsliotar\b/i];
+const SPORT_CAMOGIE_PATTERNS = [/\bcamogie\b/i];
+const SPORT_RUGBY_PATTERNS = [/\brugby\b/i];
+const SPORT_BASKETBALL_PATTERNS = [/\bbasketball\b/i, /\bhoops\b/i];
+const SPORT_HOCKEY_PATTERNS = [/\bhockey\b/i];
+const SPORT_TENNIS_PATTERNS = [/\btennis\b/i];
+const SPORT_SWIMMING_PATTERNS = [/\bswimming\b/i, /\bswim\b/i];
+const SPORT_ATHLETICS_PATTERNS = [/\bathletics\b/i, /\btrack\b/i];
+
+// Org selection parsing
+const NUMERIC_SELECTION_PATTERN = /^(\d+)$/;
 
 // ============================================================
 // VALIDATORS
@@ -102,7 +137,7 @@ export const updateStatus = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const updates: any = { status: args.status };
+    const updates: Record<string, unknown> = { status: args.status };
     if (args.errorMessage) {
       updates.errorMessage = args.errorMessage;
     }
@@ -341,6 +376,908 @@ function normalizePhoneNumber(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   return hasPlus ? `+${digits}` : digits;
 }
+
+// ============================================================
+// MULTI-ORG DETECTION
+// ============================================================
+
+const orgContextResultValidator = v.object({
+  coachId: v.string(),
+  coachName: v.string(),
+  // If resolved, this is the org to use
+  organization: v.union(
+    v.null(),
+    v.object({
+      id: v.string(),
+      name: v.string(),
+    })
+  ),
+  // How the org was resolved (or null if ambiguous)
+  resolvedVia: v.union(
+    v.literal("single_org"),
+    v.literal("explicit_mention"),
+    v.literal("player_match"),
+    v.literal("team_match"),
+    v.literal("coach_match"),
+    v.literal("age_group_match"),
+    v.literal("sport_match"),
+    v.literal("session_memory"),
+    v.null()
+  ),
+  // All available orgs (for multi-org coaches)
+  availableOrgs: v.array(
+    v.object({
+      id: v.string(),
+      name: v.string(),
+    })
+  ),
+  // If ambiguous, this is true
+  needsClarification: v.boolean(),
+});
+
+/**
+ * Enhanced coach lookup that handles multi-org detection.
+ * For single-org coaches: returns that org immediately.
+ * For multi-org coaches: attempts to detect org from message content,
+ * then falls back to session memory, then asks for clarification.
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multi-org detection requires multiple fallback strategies
+export const findCoachWithOrgContext = internalQuery({
+  args: {
+    phoneNumber: v.string(),
+    messageBody: v.optional(v.string()),
+  },
+  returns: v.union(v.null(), orgContextResultValidator),
+  handler: async (ctx, args) => {
+    const normalizedPhone = normalizePhoneNumber(args.phoneNumber);
+    console.log(
+      "[WhatsApp] Looking up coach with org context:",
+      normalizedPhone
+    );
+
+    // Query users from the Better Auth component
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { components: betterAuthComponents } = require("../_generated/api");
+    const usersResult = await ctx.runQuery(
+      betterAuthComponents.betterAuth.adapter.findMany,
+      {
+        model: "user",
+        paginationOpts: { cursor: null, numItems: 1000 },
+      }
+    );
+    const users = usersResult.page || [];
+
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic user type from component
+    const matchedUser = (users as any[]).find((user: any) => {
+      if (!user.phone) {
+        return false;
+      }
+      return normalizePhoneNumber(user.phone) === normalizedPhone;
+    });
+
+    if (!matchedUser) {
+      console.log("[WhatsApp] No user found with phone:", normalizedPhone);
+      return null;
+    }
+
+    const coachId = matchedUser._id;
+    const coachName =
+      matchedUser.name ||
+      `${matchedUser.firstName || ""} ${matchedUser.lastName || ""}`.trim() ||
+      "Unknown Coach";
+
+    console.log("[WhatsApp] Found user:", coachName, coachId);
+
+    // Get all memberships
+    const membersResult = await ctx.runQuery(
+      betterAuthComponents.betterAuth.adapter.findMany,
+      {
+        model: "member",
+        paginationOpts: { cursor: null, numItems: 100 },
+        where: [{ field: "userId", operator: "eq", value: coachId }],
+      }
+    );
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic type from component
+    const members = (membersResult.page || []) as any[];
+
+    if (members.length === 0) {
+      console.log("[WhatsApp] User has no organization membership");
+      return null;
+    }
+
+    // Get all orgs for these memberships
+    const orgIds = members.map((m) => m.organizationId);
+    const orgsResult = await ctx.runQuery(
+      betterAuthComponents.betterAuth.adapter.findMany,
+      {
+        model: "organization",
+        paginationOpts: { cursor: null, numItems: 100 },
+      }
+    );
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic type from component
+    const allOrgs = (orgsResult.page || []) as any[];
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic type from component
+    const coachOrgs = allOrgs.filter((org: any) => orgIds.includes(org._id));
+
+    const availableOrgs = coachOrgs.map((org) => ({
+      id: org._id,
+      name: org.name || "Unknown Org",
+    }));
+
+    console.log("[WhatsApp] Coach has", availableOrgs.length, "org(s)");
+
+    // CASE 1: Single org - no ambiguity
+    if (availableOrgs.length === 1) {
+      console.log("[WhatsApp] Single org, using:", availableOrgs[0].name);
+      return {
+        coachId,
+        coachName,
+        organization: availableOrgs[0],
+        resolvedVia: "single_org" as const,
+        availableOrgs,
+        needsClarification: false,
+      };
+    }
+
+    // CASE 2: Multi-org - try to detect from message
+    const messageBody = args.messageBody?.toLowerCase() || "";
+
+    // 2a. Check for explicit org mention
+    for (const org of availableOrgs) {
+      const orgNameLower = org.name.toLowerCase();
+      // Check for patterns like "Grange:", "@Grange", "for Grange", "at Grange"
+      const patterns = [
+        `${orgNameLower}:`,
+        `@${orgNameLower}`,
+        `for ${orgNameLower}`,
+        `at ${orgNameLower}`,
+        `from ${orgNameLower}`,
+      ];
+      if (patterns.some((p) => messageBody.includes(p))) {
+        console.log("[WhatsApp] Explicit org mention detected:", org.name);
+        return {
+          coachId,
+          coachName,
+          organization: org,
+          resolvedVia: "explicit_mention" as const,
+          availableOrgs,
+          needsClarification: false,
+        };
+      }
+    }
+
+    // 2b. Check for player/team names that uniquely match one org
+    // This requires querying rosters - we'll do a simplified version
+    // that checks team names from the team table
+    const playerMatches = await checkPlayerMatches(
+      ctx,
+      messageBody,
+      coachId,
+      availableOrgs
+    );
+    if (playerMatches.matchedOrg) {
+      console.log(
+        "[WhatsApp] Player/team match detected:",
+        playerMatches.matchedOrg.name
+      );
+      return {
+        coachId,
+        coachName,
+        organization: playerMatches.matchedOrg,
+        resolvedVia: playerMatches.matchType as
+          | "player_match"
+          | "team_match"
+          | "coach_match"
+          | "age_group_match"
+          | "sport_match",
+        availableOrgs,
+        needsClarification: false,
+      };
+    }
+
+    // 2c. Check session memory
+    const session = await ctx.db
+      .query("whatsappSessions")
+      .withIndex("by_phone", (q) => q.eq("phoneNumber", normalizedPhone))
+      .first();
+
+    if (session && Date.now() - session.lastMessageAt < SESSION_TIMEOUT_MS) {
+      const sessionOrg = availableOrgs.find(
+        (o) => o.id === session.organizationId
+      );
+      if (sessionOrg) {
+        console.log("[WhatsApp] Session memory match:", sessionOrg.name);
+        return {
+          coachId,
+          coachName,
+          organization: sessionOrg,
+          resolvedVia: "session_memory" as const,
+          availableOrgs,
+          needsClarification: false,
+        };
+      }
+    }
+
+    // CASE 3: Ambiguous - need clarification
+    console.log("[WhatsApp] Ambiguous - need clarification");
+    return {
+      coachId,
+      coachName,
+      organization: null,
+      resolvedVia: null,
+      availableOrgs,
+      needsClarification: true,
+    };
+  },
+});
+
+/**
+ * Helper to check if message contains contextual clues unique to one org.
+ * Checks: team names, age groups, sports, player names, coach names.
+ * Only checks data from teams that the sending coach is assigned to.
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex matching logic across multiple dimensions (team, age group, sport, player, coach names)
+async function checkPlayerMatches(
+  // biome-ignore lint/suspicious/noExplicitAny: Dynamic context from Convex
+  ctx: any,
+  messageBody: string,
+  coachId: string,
+  availableOrgs: Array<{ id: string; name: string }>
+): Promise<{
+  matchedOrg: { id: string; name: string } | null;
+  matchType:
+    | "player_match"
+    | "team_match"
+    | "coach_match"
+    | "age_group_match"
+    | "sport_match"
+    | null;
+}> {
+  // Store coach assignment data per org
+  type CoachOrgData = {
+    teams: string[];
+    ageGroups: string[];
+    sport: string | null;
+  };
+  const coachDataByOrg: Map<string, CoachOrgData> = new Map();
+  const teamMatches: Map<string, number> = new Map();
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { components: betterAuthComponents } = require("../_generated/api");
+
+  // Phase 1: Gather coach assignment data for all orgs
+  for (const org of availableOrgs) {
+    const coachAssignment = await ctx.db
+      .query("coachAssignments")
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamic query builder
+      .withIndex("by_user_and_org", (q: any) =>
+        q.eq("userId", coachId).eq("organizationId", org.id)
+      )
+      .first();
+
+    if (!coachAssignment?.teams?.length) {
+      continue;
+    }
+
+    coachDataByOrg.set(org.id, {
+      teams: coachAssignment.teams || [],
+      ageGroups: coachAssignment.ageGroups || [],
+      sport: coachAssignment.sport || null,
+    });
+
+    // Check team names
+    for (const teamId of coachAssignment.teams) {
+      const teamsResult = await ctx.runQuery(
+        betterAuthComponents.betterAuth.adapter.findMany,
+        {
+          model: "team",
+          paginationOpts: { cursor: null, numItems: 1 },
+          where: [{ field: "_id", operator: "eq", value: teamId }],
+        }
+      );
+      const team = (teamsResult.page || [])[0];
+
+      if (team) {
+        const teamName = (team.name || "").toLowerCase();
+        if (teamName && messageBody.includes(teamName)) {
+          teamMatches.set(org.id, (teamMatches.get(org.id) || 0) + 1);
+        }
+      }
+    }
+  }
+
+  // Check 1: Team name matches
+  const orgsWithTeamMatches = Array.from(teamMatches.entries());
+  if (orgsWithTeamMatches.length === 1) {
+    const matchedOrgId = orgsWithTeamMatches[0][0];
+    const matchedOrg = availableOrgs.find((o) => o.id === matchedOrgId);
+    if (matchedOrg) {
+      return { matchedOrg, matchType: "team_match" };
+    }
+  }
+
+  // Check 2: Age group matches
+  // Patterns: "u12", "u-12", "under 12", "under-12", "u12s", "the 12s", "twelves"
+  const ageGroupMatches: Map<string, number> = new Map();
+  const ageGroupPatterns = extractAgeGroupsFromMessage(messageBody);
+
+  if (ageGroupPatterns.length > 0) {
+    for (const org of availableOrgs) {
+      const coachData = coachDataByOrg.get(org.id);
+      if (!coachData || coachData.ageGroups.length === 0) {
+        continue;
+      }
+
+      for (const pattern of ageGroupPatterns) {
+        // Normalize both to compare (e.g., "u12" matches "U12", "u-12", etc.)
+        const normalizedPattern = pattern.replace(/[^a-z0-9]/g, "");
+        for (const ageGroup of coachData.ageGroups) {
+          const normalizedAgeGroup = ageGroup
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "");
+          if (normalizedPattern === normalizedAgeGroup) {
+            ageGroupMatches.set(org.id, (ageGroupMatches.get(org.id) || 0) + 1);
+          }
+        }
+      }
+    }
+
+    const orgsWithAgeGroupMatches = Array.from(ageGroupMatches.entries());
+    if (orgsWithAgeGroupMatches.length === 1) {
+      const matchedOrgId = orgsWithAgeGroupMatches[0][0];
+      const matchedOrg = availableOrgs.find((o) => o.id === matchedOrgId);
+      if (matchedOrg) {
+        return { matchedOrg, matchType: "age_group_match" };
+      }
+    }
+  }
+
+  // Check 3: Sport matches
+  // Patterns: "soccer", "football", "hurling", "gaa", "rugby", etc.
+  const sportMatches: Map<string, number> = new Map();
+  const detectedSports = extractSportsFromMessage(messageBody);
+
+  if (detectedSports.length > 0) {
+    for (const org of availableOrgs) {
+      const coachData = coachDataByOrg.get(org.id);
+      if (!coachData?.sport) {
+        continue;
+      }
+
+      for (const sport of detectedSports) {
+        if (matchesSport(sport, coachData.sport)) {
+          sportMatches.set(org.id, (sportMatches.get(org.id) || 0) + 1);
+        }
+      }
+    }
+
+    const orgsWithSportMatches = Array.from(sportMatches.entries());
+    if (orgsWithSportMatches.length === 1) {
+      const matchedOrgId = orgsWithSportMatches[0][0];
+      const matchedOrg = availableOrgs.find((o) => o.id === matchedOrgId);
+      if (matchedOrg) {
+        return { matchedOrg, matchType: "sport_match" };
+      }
+    }
+  }
+
+  // Check 4: Player name matches
+  const playerMatches: Map<string, number> = new Map();
+
+  for (const org of availableOrgs) {
+    const coachData = coachDataByOrg.get(org.id);
+    if (!coachData || coachData.teams.length === 0) {
+      continue;
+    }
+
+    for (const teamId of coachData.teams) {
+      const teamPlayers = await ctx.db
+        .query("teamPlayerIdentities")
+        // biome-ignore lint/suspicious/noExplicitAny: Dynamic query builder
+        .withIndex("by_teamId", (q: any) => q.eq("teamId", teamId))
+        // biome-ignore lint/suspicious/noExplicitAny: Dynamic query builder
+        .filter((q: any) => q.eq(q.field("status"), "active"))
+        .collect();
+
+      for (const teamPlayer of teamPlayers) {
+        const player = await ctx.db.get(teamPlayer.playerIdentityId);
+        if (player) {
+          const firstName = (player.firstName || "").toLowerCase();
+          const lastName = (player.lastName || "").toLowerCase();
+          const fullName = `${firstName} ${lastName}`;
+
+          if (
+            (firstName.length > 2 && messageBody.includes(firstName)) ||
+            messageBody.includes(fullName)
+          ) {
+            playerMatches.set(org.id, (playerMatches.get(org.id) || 0) + 1);
+          }
+        }
+      }
+    }
+  }
+
+  const orgsWithPlayerMatches = Array.from(playerMatches.entries());
+  if (orgsWithPlayerMatches.length === 1) {
+    const matchedOrgId = orgsWithPlayerMatches[0][0];
+    const matchedOrg = availableOrgs.find((o) => o.id === matchedOrgId);
+    if (matchedOrg) {
+      return { matchedOrg, matchType: "player_match" };
+    }
+  }
+
+  // Check 5: Coach name matches
+  const coachMatches: Map<string, number> = new Map();
+
+  for (const org of availableOrgs) {
+    const coachData = coachDataByOrg.get(org.id);
+    if (!coachData || coachData.teams.length === 0) {
+      continue;
+    }
+
+    const allOrgCoachAssignments = await ctx.db
+      .query("coachAssignments")
+      // biome-ignore lint/suspicious/noExplicitAny: Dynamic query builder
+      .withIndex("by_organizationId", (q: any) =>
+        q.eq("organizationId", org.id)
+      )
+      .collect();
+
+    const teamCoachUserIds = new Set<string>();
+    for (const assignment of allOrgCoachAssignments) {
+      if (assignment.userId === coachId) {
+        continue;
+      }
+      const sharedTeams = assignment.teams?.filter((t: string) =>
+        coachData.teams.includes(t)
+      );
+      if (sharedTeams && sharedTeams.length > 0) {
+        teamCoachUserIds.add(assignment.userId);
+      }
+    }
+
+    for (const otherCoachId of teamCoachUserIds) {
+      const usersResult = await ctx.runQuery(
+        betterAuthComponents.betterAuth.adapter.findMany,
+        {
+          model: "user",
+          paginationOpts: { cursor: null, numItems: 1 },
+          where: [{ field: "_id", operator: "eq", value: otherCoachId }],
+        }
+      );
+      const user = (usersResult.page || [])[0];
+
+      if (user) {
+        const firstName = (user.firstName || "").toLowerCase();
+        const lastName = (user.lastName || "").toLowerCase();
+        const fullName = (user.name || "").toLowerCase();
+
+        const coachFirstName = `coach ${firstName}`;
+        const coachLastName = `coach ${lastName}`;
+        const coachFullName = `coach ${fullName}`;
+
+        if (
+          (firstName.length > 2 && messageBody.includes(firstName)) ||
+          (lastName.length > 2 && messageBody.includes(lastName)) ||
+          messageBody.includes(fullName) ||
+          messageBody.includes(coachFirstName) ||
+          messageBody.includes(coachLastName) ||
+          messageBody.includes(coachFullName)
+        ) {
+          coachMatches.set(org.id, (coachMatches.get(org.id) || 0) + 1);
+        }
+      }
+    }
+  }
+
+  const orgsWithCoachMatches = Array.from(coachMatches.entries());
+  if (orgsWithCoachMatches.length === 1) {
+    const matchedOrgId = orgsWithCoachMatches[0][0];
+    const matchedOrg = availableOrgs.find((o) => o.id === matchedOrgId);
+    if (matchedOrg) {
+      return { matchedOrg, matchType: "coach_match" };
+    }
+  }
+
+  return { matchedOrg: null, matchType: null };
+}
+
+/**
+ * Extract age group references from a message.
+ * Matches patterns like: u12, u-12, under 12, under-12, u12s, the 12s, twelves
+ */
+function extractAgeGroupsFromMessage(message: string): string[] {
+  const ageGroups: string[] = [];
+
+  // Pattern 1: "u" followed by number (u12, u-12, u 12)
+  const uMatches = message.matchAll(AGE_GROUP_U_PATTERN);
+  for (const match of uMatches) {
+    ageGroups.push(`u${match[1]}`);
+  }
+
+  // Pattern 2: "under" followed by number (under 12, under-12)
+  const underMatches = message.matchAll(AGE_GROUP_UNDER_PATTERN);
+  for (const match of underMatches) {
+    ageGroups.push(`u${match[1]}`);
+  }
+
+  // Pattern 3: Plural forms (u12s, the 12s)
+  const pluralMatches = message.matchAll(AGE_GROUP_PLURAL_PATTERN);
+  for (const match of pluralMatches) {
+    ageGroups.push(`u${match[1]}`);
+  }
+
+  // Pattern 4: Word numbers (twelves, fourteens, etc.)
+  const wordNumbers: Record<string, string> = {
+    sixes: "u6",
+    sevens: "u7",
+    eights: "u8",
+    nines: "u9",
+    tens: "u10",
+    elevens: "u11",
+    twelves: "u12",
+    thirteens: "u13",
+    fourteens: "u14",
+    fifteens: "u15",
+    sixteens: "u16",
+    seventeens: "u17",
+    eighteens: "u18",
+    nineteens: "u19",
+    twenties: "u20",
+  };
+  for (const [word, code] of Object.entries(wordNumbers)) {
+    if (message.includes(word)) {
+      ageGroups.push(code);
+    }
+  }
+
+  // Pattern 5: "senior", "seniors", "adult", "adults"
+  if (AGE_GROUP_SENIOR_PATTERN.test(message)) {
+    ageGroups.push("senior");
+  }
+
+  return [...new Set(ageGroups)]; // Remove duplicates
+}
+
+/**
+ * Extract sport references from a message.
+ * Returns normalized sport codes.
+ */
+function extractSportsFromMessage(message: string): string[] {
+  const sports: string[] = [];
+
+  // Sport patterns with their normalized codes (using top-level constants)
+  const sportPatterns: Array<{ patterns: RegExp[]; code: string }> = [
+    { patterns: SPORT_SOCCER_PATTERNS, code: "soccer" },
+    { patterns: SPORT_GAA_PATTERNS, code: "gaa_football" },
+    { patterns: SPORT_HURLING_PATTERNS, code: "hurling" },
+    { patterns: SPORT_CAMOGIE_PATTERNS, code: "camogie" },
+    { patterns: SPORT_RUGBY_PATTERNS, code: "rugby" },
+    { patterns: SPORT_BASKETBALL_PATTERNS, code: "basketball" },
+    { patterns: SPORT_HOCKEY_PATTERNS, code: "hockey" },
+    { patterns: SPORT_TENNIS_PATTERNS, code: "tennis" },
+    { patterns: SPORT_SWIMMING_PATTERNS, code: "swimming" },
+    { patterns: SPORT_ATHLETICS_PATTERNS, code: "athletics" },
+  ];
+
+  for (const { patterns, code } of sportPatterns) {
+    for (const pattern of patterns) {
+      if (pattern.test(message)) {
+        sports.push(code);
+        break; // Only add each sport once
+      }
+    }
+  }
+
+  return [...new Set(sports)];
+}
+
+/**
+ * Check if a detected sport matches a coach's assigned sport.
+ * Handles variations and aliases.
+ */
+function matchesSport(detected: string, assigned: string): boolean {
+  const normalizedDetected = detected.toLowerCase();
+  const normalizedAssigned = assigned.toLowerCase();
+
+  // Direct match
+  if (normalizedDetected === normalizedAssigned) {
+    return true;
+  }
+
+  // Handle aliases
+  const aliases: Record<string, string[]> = {
+    soccer: ["football", "soccer"],
+    gaa_football: ["gaa", "gaelic", "gaelic_football"],
+    hurling: ["hurling", "hurl"],
+  };
+
+  for (const [canonical, variants] of Object.entries(aliases)) {
+    if (
+      (normalizedAssigned === canonical ||
+        variants.includes(normalizedAssigned)) &&
+      (normalizedDetected === canonical ||
+        variants.includes(normalizedDetected))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// ============================================================
+// SESSION MANAGEMENT
+// ============================================================
+
+/**
+ * Update or create session memory for a phone number.
+ */
+export const updateSession = internalMutation({
+  args: {
+    phoneNumber: v.string(),
+    coachId: v.string(),
+    organizationId: v.string(),
+    organizationName: v.string(),
+    resolvedVia: v.union(
+      v.literal("single_org"),
+      v.literal("explicit_mention"),
+      v.literal("player_match"),
+      v.literal("team_match"),
+      v.literal("coach_match"),
+      v.literal("age_group_match"),
+      v.literal("sport_match"),
+      v.literal("user_selection"),
+      v.literal("session_memory")
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const normalizedPhone = normalizePhoneNumber(args.phoneNumber);
+    const now = Date.now();
+
+    // Check for existing session
+    const existing = await ctx.db
+      .query("whatsappSessions")
+      .withIndex("by_phone", (q) => q.eq("phoneNumber", normalizedPhone))
+      .first();
+
+    if (existing) {
+      // Update existing session
+      await ctx.db.patch(existing._id, {
+        organizationId: args.organizationId,
+        organizationName: args.organizationName,
+        resolvedVia: args.resolvedVia,
+        lastMessageAt: now,
+      });
+    } else {
+      // Create new session
+      await ctx.db.insert("whatsappSessions", {
+        phoneNumber: normalizedPhone,
+        coachId: args.coachId,
+        organizationId: args.organizationId,
+        organizationName: args.organizationName,
+        resolvedVia: args.resolvedVia,
+        lastMessageAt: now,
+        createdAt: now,
+      });
+    }
+
+    return null;
+  },
+});
+
+/**
+ * Get current session for a phone number.
+ */
+export const getSession = internalQuery({
+  args: {
+    phoneNumber: v.string(),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      organizationId: v.string(),
+      organizationName: v.string(),
+      lastMessageAt: v.number(),
+      isExpired: v.boolean(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const normalizedPhone = normalizePhoneNumber(args.phoneNumber);
+
+    const session = await ctx.db
+      .query("whatsappSessions")
+      .withIndex("by_phone", (q) => q.eq("phoneNumber", normalizedPhone))
+      .first();
+
+    if (!session) {
+      return null;
+    }
+
+    return {
+      organizationId: session.organizationId,
+      organizationName: session.organizationName,
+      lastMessageAt: session.lastMessageAt,
+      isExpired: Date.now() - session.lastMessageAt > SESSION_TIMEOUT_MS,
+    };
+  },
+});
+
+// ============================================================
+// PENDING MESSAGE MANAGEMENT
+// ============================================================
+
+/**
+ * Store a pending message awaiting org selection.
+ */
+export const createPendingMessage = internalMutation({
+  args: {
+    messageSid: v.string(),
+    phoneNumber: v.string(),
+    coachId: v.string(),
+    coachName: v.string(),
+    messageType: messageTypeValidator,
+    body: v.optional(v.string()),
+    mediaUrl: v.optional(v.string()),
+    mediaContentType: v.optional(v.string()),
+    mediaStorageId: v.optional(v.id("_storage")),
+    availableOrgs: v.array(
+      v.object({
+        id: v.string(),
+        name: v.string(),
+      })
+    ),
+  },
+  returns: v.id("whatsappPendingMessages"),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const expiresAt = now + 24 * 60 * 60 * 1000; // 24 hours
+
+    return await ctx.db.insert("whatsappPendingMessages", {
+      messageSid: args.messageSid,
+      phoneNumber: normalizePhoneNumber(args.phoneNumber),
+      coachId: args.coachId,
+      coachName: args.coachName,
+      messageType: args.messageType,
+      body: args.body,
+      mediaUrl: args.mediaUrl,
+      mediaContentType: args.mediaContentType,
+      mediaStorageId: args.mediaStorageId,
+      availableOrgs: args.availableOrgs,
+      status: "awaiting_selection",
+      createdAt: now,
+      expiresAt,
+    });
+  },
+});
+
+/**
+ * Check if there's a pending message for this phone number.
+ * Uses internalMutation because it may need to mark expired messages.
+ */
+export const getPendingMessage = internalMutation({
+  args: {
+    phoneNumber: v.string(),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("whatsappPendingMessages"),
+      messageSid: v.string(),
+      coachId: v.string(),
+      coachName: v.string(),
+      messageType: messageTypeValidator,
+      body: v.optional(v.string()),
+      mediaUrl: v.optional(v.string()),
+      mediaContentType: v.optional(v.string()),
+      mediaStorageId: v.optional(v.id("_storage")),
+      availableOrgs: v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+        })
+      ),
+      status: v.string(),
+    })
+  ),
+  handler: async (ctx, args) => {
+    const normalizedPhone = normalizePhoneNumber(args.phoneNumber);
+
+    const pending = await ctx.db
+      .query("whatsappPendingMessages")
+      .withIndex("by_phone", (q) => q.eq("phoneNumber", normalizedPhone))
+      .filter((q) => q.eq(q.field("status"), "awaiting_selection"))
+      .first();
+
+    if (!pending) {
+      return null;
+    }
+
+    // Check if expired
+    if (Date.now() > pending.expiresAt) {
+      // Mark as expired
+      await ctx.db.patch(pending._id, { status: "expired" });
+      return null;
+    }
+
+    return {
+      _id: pending._id,
+      messageSid: pending.messageSid,
+      coachId: pending.coachId,
+      coachName: pending.coachName,
+      messageType: pending.messageType,
+      body: pending.body,
+      mediaUrl: pending.mediaUrl,
+      mediaContentType: pending.mediaContentType,
+      mediaStorageId: pending.mediaStorageId,
+      availableOrgs: pending.availableOrgs,
+      status: pending.status,
+    };
+  },
+});
+
+/**
+ * Resolve a pending message with the selected org.
+ */
+export const resolvePendingMessage = internalMutation({
+  args: {
+    pendingMessageId: v.id("whatsappPendingMessages"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.pendingMessageId, { status: "resolved" });
+    return null;
+  },
+});
+
+/**
+ * Parse user selection from message (e.g., "1", "2", or org name).
+ */
+export const parseOrgSelection = internalQuery({
+  args: {
+    messageBody: v.string(),
+    availableOrgs: v.array(
+      v.object({
+        id: v.string(),
+        name: v.string(),
+      })
+    ),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      id: v.string(),
+      name: v.string(),
+    })
+  ),
+  handler: (_ctx, args) => {
+    const body = args.messageBody.trim().toLowerCase();
+
+    // Try numeric selection (1, 2, 3, etc.)
+    const numericMatch = body.match(NUMERIC_SELECTION_PATTERN);
+    if (numericMatch) {
+      const index = Number.parseInt(numericMatch[1], 10) - 1;
+      if (index >= 0 && index < args.availableOrgs.length) {
+        return args.availableOrgs[index];
+      }
+    }
+
+    // Try org name match (fuzzy)
+    for (const org of args.availableOrgs) {
+      const orgNameLower = org.name.toLowerCase();
+      if (
+        body === orgNameLower ||
+        body.includes(orgNameLower) ||
+        orgNameLower.includes(body)
+      ) {
+        return org;
+      }
+    }
+
+    return null;
+  },
+});
 
 // ============================================================
 // PUBLIC QUERIES (for admin/debugging)

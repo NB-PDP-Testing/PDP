@@ -42,9 +42,15 @@ export function TrustLevelSlider({
         </div>
         <Slider
           className="py-4"
-          max={earnedLevel}
+          disabled={earnedLevel === 0}
+          max={3}
           min={0}
-          onValueChange={([level]) => onLevelChange(level)}
+          onValueChange={([level]) => {
+            // Only allow changes up to earned level
+            if (level <= earnedLevel) {
+              onLevelChange(level);
+            }
+          }}
           step={1}
           value={[selectedLevel]}
         />

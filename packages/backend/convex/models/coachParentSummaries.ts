@@ -550,14 +550,15 @@ export const revokeSummary = mutation({
   handler: async (ctx, args) => {
     // Authenticate user
     const user = await authComponent.safeGetAuthUser(ctx);
-    if (!user?.userId) {
+
+    // Get the user ID (use _id or userId depending on what's available)
+    const userId = user?.userId || user?._id;
+    if (!userId) {
       return {
         success: false,
         error: "Not authenticated",
       };
     }
-
-    const userId = user.userId;
 
     // Fetch the summary
     const summary = await ctx.db.get(args.summaryId);

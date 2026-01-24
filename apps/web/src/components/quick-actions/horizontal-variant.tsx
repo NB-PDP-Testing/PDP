@@ -13,12 +13,12 @@ import {
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSessionPlanContext } from "@/contexts/session-plan-context";
 import { UXAnalyticsEvents } from "@/hooks/use-ux-feature-flags";
 import { useAnalytics } from "@/lib/analytics";
 
 type HorizontalScrollQuickActionsProps = {
   onAssessPlayers: () => void;
-  onGenerateSessionPlan: () => void;
   onViewAnalytics: () => void;
   onVoiceNotes: () => void;
   onInjuries: () => void;
@@ -43,10 +43,11 @@ type QuickAction = {
  * - Horizontal scroll for 7-8 icons
  * - Touch-friendly with swipe
  * - Similar to iOS Control Center shortcuts
+ *
+ * Session Plan uses SessionPlanContext for consistent behavior (Issue #234)
  */
 export function HorizontalScrollQuickActions({
   onAssessPlayers,
-  onGenerateSessionPlan,
   onViewAnalytics,
   onVoiceNotes,
   onInjuries,
@@ -55,6 +56,7 @@ export function HorizontalScrollQuickActions({
   onMatchDay,
 }: HorizontalScrollQuickActionsProps) {
   const { track } = useAnalytics();
+  const { openSessionPlanModal } = useSessionPlanContext();
 
   // Track variant viewed on mount
   useEffect(() => {
@@ -73,7 +75,7 @@ export function HorizontalScrollQuickActions({
     {
       icon: Target,
       label: "Session Plan",
-      onClick: onGenerateSessionPlan,
+      onClick: openSessionPlanModal,
       color: "bg-purple-600 hover:bg-purple-700",
     },
     {
@@ -132,12 +134,12 @@ export function HorizontalScrollQuickActions({
       </CardHeader>
       <CardContent className="p-0">
         <div className="scrollbar-hide flex gap-3 overflow-x-auto px-4 pb-4">
-          {actions.map((action, idx) => {
+          {actions.map((action) => {
             const Icon = action.icon;
             return (
               <Button
                 className={`flex h-[80px] w-[72px] flex-shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl px-2 py-3 text-white transition-all ${action.color} hover:scale-105 active:scale-95`}
-                key={idx}
+                key={action.label}
                 onClick={() => handleActionClick(action)}
                 title={action.label}
                 type="button"

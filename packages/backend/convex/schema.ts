@@ -3030,4 +3030,77 @@ export default defineSchema({
     .index("by_organizationId", ["organizationId"])
     .index("by_status", ["status"])
     .index("by_receivedAt", ["receivedAt"]),
+
+  // WhatsApp session memory for multi-org coaches
+  // Remembers which org a coach was recently messaging about (2-hour timeout)
+  whatsappSessions: defineTable({
+    phoneNumber: v.string(), // E.164 format
+    coachId: v.string(), // User ID
+
+    // Current session org context
+    organizationId: v.string(),
+    organizationName: v.string(),
+
+    // How the org was determined
+    resolvedVia: v.union(
+      v.literal("single_org"), // Coach only has one org
+      v.literal("explicit_mention"), // Coach mentioned org name in message
+      v.literal("player_match"), // Unique player name matched to org
+      v.literal("team_match"), // Unique team name matched to org
+      v.literal("coach_match"), // Unique coach name matched to org
+      v.literal("age_group_match"), // Unique age group matched to org (e.g., "u12s")
+      v.literal("sport_match"), // Unique sport matched to org (e.g., "soccer training")
+      v.literal("user_selection"), // Coach replied with selection
+      v.literal("session_memory") // Continued from previous message
+    ),
+
+    // Timestamps
+    lastMessageAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_phone", ["phoneNumber"])
+    .index("by_coach", ["coachId"]),
+
+  // Pending WhatsApp messages awaiting org clarification
+  whatsappPendingMessages: defineTable({
+    messageSid: v.string(),
+    phoneNumber: v.string(),
+    coachId: v.string(),
+    coachName: v.string(),
+
+    // Original message content
+    messageType: v.union(
+      v.literal("text"),
+      v.literal("audio"),
+      v.literal("image"),
+      v.literal("video"),
+      v.literal("document")
+    ),
+    body: v.optional(v.string()),
+    mediaUrl: v.optional(v.string()),
+    mediaContentType: v.optional(v.string()),
+    mediaStorageId: v.optional(v.id("_storage")),
+
+    // Available orgs for selection
+    availableOrgs: v.array(
+      v.object({
+        id: v.string(),
+        name: v.string(),
+      })
+    ),
+
+    // Status
+    status: v.union(
+      v.literal("awaiting_selection"), // Waiting for coach to reply
+      v.literal("resolved"), // Coach selected, processing
+      v.literal("expired") // Timed out (24 hours)
+    ),
+
+    // Timestamps
+    createdAt: v.number(),
+    expiresAt: v.number(), // 24 hours from creation
+  })
+    .index("by_phone", ["phoneNumber"])
+    .index("by_status", ["status"])
+    .index("by_messageSid", ["messageSid"]),
 });

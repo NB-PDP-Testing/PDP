@@ -38,6 +38,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { authClient } from "@/lib/auth-client";
 import { GuardiansSection } from "./components/guardians-section";
 
+// Helper to format date for date input (YYYY-MM-DD) - defined outside component to avoid re-renders
+function formatDateForInput(dateString: string | undefined): string {
+  if (!dateString) {
+    return "";
+  }
+  try {
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  } catch {
+    return "";
+  }
+}
+
 export default function EditPlayerPage() {
   const params = useParams();
   const router = useRouter();
@@ -89,22 +105,6 @@ export default function EditPlayerPage() {
     api.models.teamPlayerIdentities.updatePlayerTeams
   );
 
-  // Helper to format date for date input (YYYY-MM-DD)
-  const formatDateForInput = (dateString: string | undefined) => {
-    if (!dateString) {
-      return "";
-    }
-    try {
-      const date = new Date(dateString);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    } catch {
-      return "";
-    }
-  };
-
   // Populate form when data loads
   useEffect(() => {
     if (playerIdentity && enrollment) {
@@ -119,9 +119,7 @@ export default function EditPlayerPage() {
         adminNotes: enrollment.adminNotes || "",
       });
     }
-    // formatDateForInput is a stable function that doesn't depend on state/props
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerIdentity, enrollment, formatDateForInput]);
+  }, [playerIdentity, enrollment]);
 
   // Initialize selected teams
   useEffect(() => {

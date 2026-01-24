@@ -2402,6 +2402,10 @@ export default defineSchema({
     // When true: Plan is explicitly saved to library and shown in My Plans
     savedToLibrary: v.optional(v.boolean()),
 
+    // Regeneration tracking (Issue #234)
+    // When true: Plan was created via "Regenerate Plan" button (not initial generation)
+    isRegenerated: v.optional(v.boolean()),
+
     // Timestamps
     createdAt: v.number(),
     updatedAt: v.number(),

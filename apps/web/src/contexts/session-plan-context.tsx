@@ -26,6 +26,11 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { generateSessionPlan } from "@/lib/ai-service";
+import {
+  trackPlanCached,
+  trackPlanGenerated,
+  trackPlanRegenerated,
+} from "@/lib/analytics-tracker";
 import { authClient } from "@/lib/auth-client";
 import {
   downloadPDF,
@@ -80,6 +85,7 @@ export function SessionPlanProvider({
   const [showCachedBadge, setShowCachedBadge] = useState(false);
   const [cachedBadgeDismissed, setCachedBadgeDismissed] = useState(false);
   const [cachedPlanAge, setCachedPlanAge] = useState<string | null>(null);
+  const [isRegenerated, setIsRegenerated] = useState(false);
 
   // Fetch coach's teams
   const coachAssignments = useQuery(
@@ -114,9 +120,26 @@ export function SessionPlanProvider({
       try {
         // Check for cached plan first (unless bypassing cache)
         if (bypassCache) {
-          console.log("[SessionPlan] Bypassing cache, generating fresh plan");
-          setShowCachedBadge(false);
-          setCachedPlanAge(null);
+          console.log("[SessionPlan] Bypassing cache, regenerating plan");
+
+          // Delete all old cached plans for this team before creating new one (Issue #234)
+          try {
+            const deletedCount = await convex.mutation(
+              api.models.sessionPlans.deleteTeamCachedPlans,
+              { teamId: firstTeam.teamId }
+            );
+            console.log(
+              `[SessionPlan] Deleted ${deletedCount} old cached plans`
+            );
+          } catch (deleteError) {
+            console.error(
+              "[SessionPlan] Error deleting old cached plans:",
+              deleteError
+            );
+            // Continue with generation even if delete fails
+          }
+
+          // Keep badge visible but reset dismissed state
           setCachedBadgeDismissed(false);
           setCurrentPlanId(null);
         } else {
@@ -152,14 +175,25 @@ export function SessionPlanProvider({
             setCurrentPlanId(cachedPlan._id);
             setShowCachedBadge(true);
             setCachedPlanAge(ageStr);
+            setIsRegenerated(cachedPlan.isRegenerated); // Use stored flag
             // Only show as "Saved" if it was explicitly saved to library
             setPlanSaved(cachedPlan.savedToLibrary);
             setLoadingSessionPlan(false);
+
+            // Track cache hit for analytics
+            trackPlanCached({
+              teamId: firstTeam.teamId,
+              teamName: firstTeam.teamName,
+              playerCount: teamPlayers.length,
+              ageGroup: firstTeam.ageGroup || "U12",
+              cacheAge: ageMs,
+            });
+
             return;
           }
         }
 
-        // No cached plan found, generate new one
+        // No cached plan found (or bypassing cache), generate new one
         setCurrentPlanId(null);
 
         const teamDataForAI = {
@@ -177,8 +211,26 @@ export function SessionPlanProvider({
         const plan = await generateSessionPlan(teamDataForAI, undefined);
 
         setSessionPlan(plan);
-        setShowCachedBadge(false);
-        setCachedPlanAge(null);
+
+        // Show badge immediately after generation with "just now" (Issue #234)
+        setShowCachedBadge(true);
+        setCachedPlanAge("just now");
+        setIsRegenerated(bypassCache); // Track if this was a regeneration
+
+        // Track generation for analytics
+        const analyticsProps = {
+          teamId: firstTeam.teamId,
+          teamName: firstTeam.teamName,
+          playerCount: teamPlayers.length,
+          ageGroup: firstTeam.ageGroup || "U12",
+          creationMethod: "ai_generated" as const,
+        };
+
+        if (bypassCache) {
+          trackPlanRegenerated(analyticsProps);
+        } else {
+          trackPlanGenerated(analyticsProps);
+        }
 
         // Auto-save the plan to database for caching (Issue #234)
         // This ensures the plan can be retrieved later with blue badge
@@ -205,6 +257,7 @@ export function SessionPlanProvider({
               usedRealAI: true,
               creationMethod: "quick_action",
               savedToLibrary: false, // Cache only, not shown in library until explicitly saved
+              isRegenerated: bypassCache, // Track if this was a regeneration
             }
           );
 
@@ -220,7 +273,9 @@ export function SessionPlanProvider({
           setPlanSaved(false);
         }
 
-        toast.success("Session plan generated!");
+        toast.success(
+          bypassCache ? "Session plan regenerated!" : "Session plan generated!"
+        );
       } catch (error) {
         console.error("Error generating session plan:", error);
         setSessionPlan("Error generating session plan. Please try again.");
@@ -489,7 +544,8 @@ export function SessionPlanProvider({
                     <Clock className="flex-shrink-0 text-blue-600" size={14} />
                     <div className="flex-1 text-blue-700">
                       <div className="font-semibold text-[13px] leading-tight">
-                        You generated this {cachedPlanAge}
+                        You {isRegenerated ? "regenerated" : "generated"} this{" "}
+                        {cachedPlanAge}
                       </div>
                       <div className="mt-0.5 text-[11px] leading-tight opacity-85">
                         Tap Regenerate to create a fresh plan

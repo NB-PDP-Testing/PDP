@@ -2048,6 +2048,7 @@ export const searchPlans = query({
  *
  * @param savedToLibrary - If false (default), plan is only cached for blue badge.
  *                         If true, plan appears in My Plans library.
+ * @param isRegenerated - If true, this plan was created via "Regenerate Plan" button.
  */
 export const savePlan = mutation({
   args: {
@@ -2059,6 +2060,7 @@ export const savePlan = mutation({
     usedRealAI: v.optional(v.boolean()),
     creationMethod: v.optional(v.string()),
     savedToLibrary: v.optional(v.boolean()), // false = cached only, true = saved to library
+    isRegenerated: v.optional(v.boolean()), // true = created via Regenerate button
   },
   returns: v.id("sessionPlans"),
   handler: async (ctx, args) => {
@@ -2101,6 +2103,7 @@ export const savePlan = mutation({
       generatedAt: now,
       usedRealAI: args.usedRealAI ?? false,
       savedToLibrary: args.savedToLibrary ?? false, // Default to false (cache only)
+      isRegenerated: args.isRegenerated ?? false, // Track if created via Regenerate
       createdAt: now,
       updatedAt: now,
     });
@@ -2146,6 +2149,51 @@ export const markSavedToLibrary = mutation({
       savedToLibrary: true,
       updatedAt: Date.now(),
     });
+  },
+});
+
+/**
+ * Delete all cached plans for a team (Issue #234)
+ * This ensures only one cached plan exists per team at any time.
+ * Only deletes plans where savedToLibrary=false (cache only).
+ * Plans saved to library are preserved.
+ *
+ * @returns Number of plans deleted
+ */
+export const deleteTeamCachedPlans = mutation({
+  args: {
+    teamId: v.string(),
+  },
+  returns: v.number(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    // Find all cached plans for this team (not saved to library)
+    const allPlans = await ctx.db.query("sessionPlans").collect();
+
+    const cachedPlans = allPlans.filter(
+      (p) =>
+        p.teamId === args.teamId &&
+        p.coachId === identity.subject &&
+        p.savedToLibrary !== true && // Only delete cached plans, not library plans
+        p.status !== "deleted"
+    );
+
+    // Delete each cached plan
+    let deletedCount = 0;
+    for (const plan of cachedPlans) {
+      await ctx.db.delete(plan._id);
+      deletedCount += 1;
+    }
+
+    console.log(
+      `[SessionPlan] Deleted ${deletedCount} cached plans for team ${args.teamId}`
+    );
+
+    return deletedCount;
   },
 });
 
@@ -2235,6 +2283,7 @@ export const getRecentPlanForTeam = query({
       sessionPlan: v.optional(v.string()),
       usedRealAI: v.boolean(),
       savedToLibrary: v.boolean(), // Whether plan was explicitly saved to library
+      isRegenerated: v.boolean(), // Whether plan was created via Regenerate button
     })
   ),
   handler: async (ctx, args) => {
@@ -2270,6 +2319,7 @@ export const getRecentPlanForTeam = query({
       sessionPlan: recentPlan.rawContent,
       usedRealAI: false, // Currently using simulated AI
       savedToLibrary: recentPlan.savedToLibrary ?? false,
+      isRegenerated: recentPlan.isRegenerated ?? false,
     };
   },
 });

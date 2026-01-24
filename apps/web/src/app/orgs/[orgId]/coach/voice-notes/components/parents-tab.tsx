@@ -184,6 +184,7 @@ export function ParentsTab({ orgId, onSuccess, onError }: ParentsTabProps) {
               privateInsight: item.privateInsight,
             },
             dateTime: formatSummaryDate(item._creationTime),
+            wouldAutoApprove: item.wouldAutoApprove,
           };
 
           // Route to correct card based on sensitivity category

@@ -267,6 +267,48 @@ export const approveSummary = mutation({
       approvedBy: userId,
     });
 
+    // Track preview mode statistics (Phase 5)
+    const trustLevel = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", summary.coachId))
+      .first();
+
+    if (
+      trustLevel?.previewModeStats &&
+      !trustLevel.previewModeStats.completedAt
+    ) {
+      // Calculate if this summary would have been auto-approved
+      const effectiveLevel = Math.min(
+        trustLevel.currentLevel,
+        trustLevel.preferredLevel ?? trustLevel.currentLevel
+      );
+      const threshold = trustLevel.confidenceThreshold ?? 0.7;
+      const wouldAutoApprove =
+        summary.sensitivityCategory === "normal" &&
+        effectiveLevel >= 2 &&
+        summary.publicSummary.confidenceScore >= threshold;
+
+      // Update preview mode stats
+      const newSuggestions =
+        trustLevel.previewModeStats.wouldAutoApproveSuggestions +
+        (wouldAutoApprove ? 1 : 0);
+      const newApproved =
+        trustLevel.previewModeStats.coachApprovedThose +
+        (wouldAutoApprove ? 1 : 0);
+      const agreementRate =
+        newSuggestions > 0 ? newApproved / newSuggestions : 0;
+
+      await ctx.db.patch(trustLevel._id, {
+        previewModeStats: {
+          ...trustLevel.previewModeStats,
+          wouldAutoApproveSuggestions: newSuggestions,
+          coachApprovedThose: newApproved,
+          agreementRate,
+          completedAt: newSuggestions >= 20 ? Date.now() : undefined,
+        },
+      });
+    }
+
     // Update coach trust metrics (platform-wide)
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
       coachId: summary.coachId,
@@ -395,6 +437,51 @@ export const suppressSummary = mutation({
       status: "suppressed",
     });
 
+    // Track preview mode statistics (Phase 5)
+    const trustLevel = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", summary.coachId))
+      .first();
+
+    if (
+      trustLevel?.previewModeStats &&
+      !trustLevel.previewModeStats.completedAt
+    ) {
+      // Calculate if this summary would have been auto-approved
+      const effectiveLevel = Math.min(
+        trustLevel.currentLevel,
+        trustLevel.preferredLevel ?? trustLevel.currentLevel
+      );
+      const threshold = trustLevel.confidenceThreshold ?? 0.7;
+      const wouldAutoApprove =
+        summary.sensitivityCategory === "normal" &&
+        effectiveLevel >= 2 &&
+        summary.publicSummary.confidenceScore >= threshold;
+
+      // Update preview mode stats
+      // When suppressing: increment suggestions if would auto-approve, increment coachRejectedThose
+      const newSuggestions =
+        trustLevel.previewModeStats.wouldAutoApproveSuggestions +
+        (wouldAutoApprove ? 1 : 0);
+      const newRejected =
+        trustLevel.previewModeStats.coachRejectedThose +
+        (wouldAutoApprove ? 1 : 0);
+      const agreementRate =
+        newSuggestions > 0
+          ? trustLevel.previewModeStats.coachApprovedThose / newSuggestions
+          : 0;
+
+      await ctx.db.patch(trustLevel._id, {
+        previewModeStats: {
+          ...trustLevel.previewModeStats,
+          wouldAutoApproveSuggestions: newSuggestions,
+          coachRejectedThose: newRejected,
+          agreementRate,
+          completedAt: newSuggestions >= 20 ? Date.now() : undefined,
+        },
+      });
+    }
+
     // Update coach trust metrics (platform-wide)
     await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
       coachId: summary.coachId,
@@ -474,6 +561,7 @@ export const getCoachPendingSummaries = query({
       ...summaryValidator.fields,
       player: v.union(playerIdentityValidator, v.null()),
       sport: v.union(sportValidator, v.null()),
+      wouldAutoApprove: v.boolean(),
     })
   ),
   handler: async (ctx, args) => {
@@ -485,6 +573,21 @@ export const getCoachPendingSummaries = query({
 
     // Get userId with fallback to _id
     const userId = user.userId || user._id;
+
+    // Get coach trust level for wouldAutoApprove calculation
+    const trustLevel = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", userId))
+      .first();
+
+    // Calculate effective trust level and threshold
+    const effectiveLevel = trustLevel
+      ? Math.min(
+          trustLevel.currentLevel,
+          trustLevel.preferredLevel ?? trustLevel.currentLevel
+        )
+      : 0;
+    const threshold = trustLevel?.confidenceThreshold ?? 0.7;
 
     // Query summaries by coach with pending_review status
     const summaries = await ctx.db
@@ -502,10 +605,22 @@ export const getCoachPendingSummaries = query({
       summaries.map(async (summary) => {
         const player = await ctx.db.get(summary.playerIdentityId);
         const sport = await ctx.db.get(summary.sportId);
+
+        // Calculate if this summary would auto-approve at current trust level
+        // Level 0/1: Never auto-approve (always false)
+        // Level 2: Auto-approve if normal category AND confidence >= threshold
+        // Level 3: Auto-approve if normal category (regardless of confidence)
+        // Sensitive categories (injury, behavior): NEVER auto-approve
+        const wouldAutoApprove =
+          summary.sensitivityCategory === "normal" &&
+          effectiveLevel >= 2 &&
+          summary.publicSummary.confidenceScore >= threshold;
+
         return {
           ...summary,
           player,
           sport,
+          wouldAutoApprove,
         };
       })
     );

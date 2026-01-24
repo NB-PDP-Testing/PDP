@@ -1,0 +1,196 @@
+{
+  "project": "Coach-Parent AI Summaries - P5 Phase 2 (Supervised Auto-Approval)",
+  "branchName": "ralph/coach-parent-summaries-p5-phase2",
+  "description": "Supervised auto-approval with 1-hour revoke window. Enables automation for trusted coaches while maintaining safety net. Industry pattern: supervised automation before full automation.",
+  "contextAndDependencies": {
+    "completedPhases": [
+      "P1-P4: Backend infrastructure, trust levels, sensitive content, parent experience",
+      "P5 Phase 1: Preview mode (transparency) and trust slider (control) - ALL COMPLETE"
+    ],
+    "phase1Achievements": [
+      "Preview mode tracking in coachTrustLevels.previewModeStats",
+      "wouldAutoApprove calculation in getCoachPendingSummaries",
+      "Confidence visualization (progress bar, color coding)",
+      "Prediction badges ('AI would auto-send this at Level 2+')",
+      "Preview statistics tracking (20-message agreement rate)",
+      "TrustLevelSlider component (horizontal slider)",
+      "Progress visualization ('38/50 approvals to Trusted')",
+      "Integration into settings (replaced radio buttons)"
+    ],
+    "phase1Files": [
+      "packages/backend/convex/schema.ts - Added previewModeStats, confidenceThreshold",
+      "packages/backend/convex/models/coachParentSummaries.ts - Added wouldAutoApprove, tracking logic",
+      "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx - Confidence viz, badges",
+      "apps/web/src/components/coach/trust-level-slider.tsx - NEW slider component",
+      "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/settings-tab.tsx - Slider integration"
+    ],
+    "criticalContext": [
+      "Phase 1 shows PREDICTIONS only - nothing auto-approves yet",
+      "Phase 2 enables ACTUAL auto-approval with 1-hour revoke window",
+      "wouldAutoApprove logic already implemented - reuse for actual approval",
+      "Trust levels exist: 0=Manual, 1=Learning, 2=Trusted, 3=Expert",
+      "Auto-approval only for: level 2+ AND normal category AND confidence >= threshold",
+      "Injury/behavior NEVER auto-approve (always manual review)"
+    ],
+    "existingTables": [
+      "coachParentSummaries - Has status, publicSummary.confidenceScore, sensitivityCategory",
+      "coachTrustLevels - Has currentLevel, preferredLevel, confidenceThreshold, previewModeStats"
+    ],
+    "requiredComponents": [
+      "SummaryApprovalCard - Shows confidence and prediction badges (Phase 1)",
+      "TrustLevelSlider - Horizontal slider for level control (Phase 1)",
+      "voice-notes-dashboard.tsx - Main dashboard with tabs"
+    ],
+    "existingQueries": [
+      "getCoachPendingSummaries - Returns pending summaries with wouldAutoApprove (Phase 1)",
+      "getCoachTrustLevel - Returns trust level data"
+    ],
+    "keyFiles": [
+      "Schema: packages/backend/convex/schema.ts",
+      "Backend models: packages/backend/convex/models/coachParentSummaries.ts",
+      "Trust calculator: packages/backend/convex/lib/trustLevelCalculator.ts (reference pattern)",
+      "Dashboard: apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx"
+    ]
+  },
+  "philosophyAndGoals": {
+    "corePhilosophy": "Supervised automation first. 1-hour revoke window = safety net. Coach always in control. Never surprise parents with errors.",
+    "industryPatterns": [
+      "Gmail Smart Reply: Preview → Suggest → Auto (progressive automation)",
+      "Tesla Autopilot: Driver supervision required, can override instantly",
+      "Stripe Radar: Auto-approve low-risk, flag high-risk, manual review edge cases",
+      "GitHub Copilot: Suggest code, track acceptance, learn from patterns"
+    ],
+    "successMetrics": {
+      "safety": "Revocation rate <5% (most auto-approvals are correct)",
+      "efficiency": "Auto-approval rate >30% at level 2, >60% at level 3",
+      "trust": "Coach survey: 'I trust auto-approval' >80% agree",
+      "transparency": "100% of auto-approved summaries visible in dashboard"
+    }
+  },
+  "userStories": [
+    {
+      "id": "US-006",
+      "title": "Add auto-approval decision fields to coachParentSummaries schema",
+      "description": "As a developer, I need to track auto-approval decisions and revocations.",
+      "acceptanceCriteria": [
+        "Edit packages/backend/convex/schema.ts",
+        "Find coachParentSummaries table definition (around line 1630)",
+        "Add autoApprovalDecision: v.optional(v.object({ shouldAutoApprove: v.boolean(), reason: v.string(), tier: v.union(v.literal('auto_send'), v.literal('manual_review'), v.literal('flagged')), decidedAt: v.number() }))",
+        "Add scheduledDeliveryAt: v.optional(v.number()) - When summary will be delivered to parent",
+        "Add revokedAt: v.optional(v.number()) - When coach revoked auto-approval",
+        "Add revokedBy: v.optional(v.string()) - userId of coach who revoked",
+        "Add revocationReason: v.optional(v.string()) - Why coach revoked",
+        "Run: npx -w packages/backend convex codegen",
+        "Typecheck passes: npm run check-types"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Audit trail for auto-approval decisions. scheduledDeliveryAt = approvedAt + 1 hour (revoke window). tier field enables future tiers (immediate vs delayed vs flagged). Revocation fields track coach overrides for learning loop (Phase 4)."
+    },
+    {
+      "id": "US-007",
+      "title": "Create autoApprovalDecision lib",
+      "description": "As a developer, I need pure logic for auto-approval decisions.",
+      "acceptanceCriteria": [
+        "Create packages/backend/convex/lib/autoApprovalDecision.ts",
+        "Export interface AutoApprovalDecision { shouldAutoApprove: boolean; reason: string; tier: 'auto_send' | 'manual_review' | 'flagged'; decidedAt: number; }",
+        "Export function decideAutoApproval(trustLevel: { currentLevel: number; preferredLevel: number | null; confidenceThreshold: number | null; }, summary: { confidenceScore: number; sensitivityCategory: string; }): AutoApprovalDecision",
+        "Logic: const effectiveLevel = Math.min(trustLevel.currentLevel, trustLevel.preferredLevel ?? trustLevel.currentLevel);",
+        "Logic: const threshold = trustLevel.confidenceThreshold ?? 0.7;",
+        "Logic: NEVER auto-approve if sensitivityCategory !== 'normal' (return { shouldAutoApprove: false, reason: 'injury/behavior requires manual review', tier: 'flagged', decidedAt: Date.now() })",
+        "Logic: If effectiveLevel < 2: return { shouldAutoApprove: false, reason: 'Level 0/1 requires manual review', tier: 'manual_review', decidedAt: Date.now() }",
+        "Logic: If effectiveLevel === 2 && confidenceScore < threshold: return { shouldAutoApprove: false, reason: `Confidence ${Math.round(confidenceScore * 100)}% below ${Math.round(threshold * 100)}% threshold`, tier: 'manual_review', decidedAt: Date.now() }",
+        "Logic: If effectiveLevel === 2 && confidenceScore >= threshold: return { shouldAutoApprove: true, reason: `Level 2 trusted: ${Math.round(confidenceScore * 100)}% confidence`, tier: 'auto_send', decidedAt: Date.now() }",
+        "Logic: If effectiveLevel === 3: return { shouldAutoApprove: true, reason: 'Level 3 full automation', tier: 'auto_send', decidedAt: Date.now() }",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Pure function, fully testable, no side effects. Reference pattern: trustLevelCalculator.ts. Descriptive reasons enable debugging and coach understanding. Default 70% threshold (Zendesk sweet spot). Level 3 = full automation opt-in (auto-approves all normal regardless of confidence)."
+    },
+    {
+      "id": "US-008",
+      "title": "Implement auto-approval in createParentSummary",
+      "description": "As the system, eligible summaries auto-approve with 1-hour revoke window.",
+      "acceptanceCriteria": [
+        "Edit createParentSummary internalMutation in packages/backend/convex/models/coachParentSummaries.ts",
+        "Import { decideAutoApproval } from '../lib/autoApprovalDecision'",
+        "After creating summary, fetch coach's trust level: const trustLevel = await ctx.db.query('coachTrustLevels').withIndex('by_coach_org', q => q.eq('coachId', args.coachId).eq('organizationId', args.organizationId)).first()",
+        "If no trust level: proceed with status = 'pending_review' (existing behavior)",
+        "If trust level exists: const decision = decideAutoApproval(trustLevel, { confidenceScore: summary.confidenceScore, sensitivityCategory: summary.sensitivityCategory })",
+        "Patch summary with autoApprovalDecision: decision",
+        "If decision.shouldAutoApprove === true: patch status = 'auto_approved', approvedAt = Date.now(), approvedBy = 'system:auto', scheduledDeliveryAt = Date.now() + (60 * 60 * 1000)",
+        "If decision.shouldAutoApprove === false: status remains 'pending_review'",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "1-hour revoke window = supervised automation (not instant delivery). scheduledDeliveryAt enables future scheduled delivery job (Phase 2.5 or P6). approvedBy = 'system:auto' distinguishes from manual approval. Trust level fetch already exists in similar pattern (Phase 1 wouldAutoApprove logic)."
+    },
+    {
+      "id": "US-009",
+      "title": "Implement revokeSummary mutation",
+      "description": "As a coach, I can revoke auto-approved summaries before parents see them.",
+      "acceptanceCriteria": [
+        "Add revokeSummary mutation to packages/backend/convex/models/coachParentSummaries.ts",
+        "Args: { summaryId: v.id('coachParentSummaries'), reason: v.optional(v.string()) }",
+        "Returns: v.object({ success: v.boolean(), error: v.optional(v.string()) })",
+        "Auth: const user = await authComponent.safeGetAuthUser(ctx); if (!user?.userId) throw new Error('Not authenticated')",
+        "Fetch summary: const summary = await ctx.db.get(args.summaryId); if (!summary) return { success: false, error: 'Summary not found' }",
+        "Verify coach owns summary: if (summary.coachId !== user.userId) return { success: false, error: 'Not authorized' }",
+        "Check revocable: if (summary.status !== 'auto_approved') return { success: false, error: 'Only auto-approved summaries can be revoked' }",
+        "Check not viewed: const view = await ctx.db.query('parentSummaryViews').withIndex('by_summary', q => q.eq('summaryId', args.summaryId)).first(); if (view) return { success: false, error: 'Summary already viewed by parent' }",
+        "Revoke: await ctx.db.patch(args.summaryId, { status: 'suppressed', revokedAt: Date.now(), revokedBy: user.userId, revocationReason: args.reason ?? 'Coach override' })",
+        "Update trust metrics: await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, { coachId: summary.coachId, organizationId: summary.organizationId, action: 'suppressed' })",
+        "Return: { success: true }",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Safety net. Coach catches mistake within 1-hour window. After parent views, no revoke (audit trail intact). Revokes count as suppressions for trust metrics (slight penalty, as they indicate prediction error). parentSummaryViews check ensures parent hasn't seen it yet."
+    },
+    {
+      "id": "US-010",
+      "title": "Create AutoApprovedTab component and query",
+      "description": "As a coach, I see recently auto-approved messages with revoke option.",
+      "acceptanceCriteria": [
+        "Add getAutoApprovedSummaries query to packages/backend/convex/models/coachParentSummaries.ts",
+        "Args: { organizationId: v.string() }, Returns: v.array(v.object({ ... }))",
+        "Auth: verify coach belongs to org via Better Auth",
+        "Query: summaries from last 7 days where (status === 'auto_approved' OR status === 'viewed' OR (status === 'suppressed' AND revokedAt !== undefined)) AND autoApprovalDecision.shouldAutoApprove === true",
+        "Use withIndex('by_org_status') or similar, filter by date range in query",
+        "Include fields: summaryId, playerName, summary content, confidence, approvedAt, scheduledDeliveryAt, status, viewedAt, revokedAt",
+        "Calculate isRevocable: status === 'auto_approved' && viewedAt === undefined && Date.now() < scheduledDeliveryAt",
+        "Create apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/auto-approved-tab.tsx",
+        "Add 'use client' directive",
+        "Props: { orgId: string; onSuccess: (msg: string) => void; onError: (msg: string) => void }",
+        "Use useQuery to fetch auto-approved summaries",
+        "Display in table: Player, Summary (truncated), Confidence (with badge), Sent At (relative time), Status badge (Pending/Delivered/Viewed/Revoked), Revoke button",
+        "Revoke button: useMutation for revokeSummary, show confirmation dialog, disabled if !isRevocable",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Dashboard transparency. Coach sees exactly what went out automatically. Can revoke within 1-hour window. Status badges: 'Pending Delivery' (yellow), 'Delivered' (blue), 'Viewed' (green), 'Revoked' (red). Query includes revoked summaries for audit trail (coach can see mistakes they caught)."
+    },
+    {
+      "id": "US-011",
+      "title": "Add AutoApprovedTab to voice notes dashboard",
+      "description": "As a coach at level 2+, I see the Auto-Sent tab in my dashboard.",
+      "acceptanceCriteria": [
+        "Edit apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx",
+        "Import AutoApprovedTab from './components/auto-approved-tab'",
+        "Fetch trust level if not already available: const trustLevel = useQuery(api.models.coachTrustLevels.getCoachTrustLevel, { organizationId: orgId })",
+        "Add tab conditionally in tabs array: if ((trustLevel?.currentLevel ?? 0) >= 2)",
+        "Tab config: { label: 'Auto-Sent', value: 'auto-sent', component: <AutoApprovedTab orgId={orgId} onSuccess={handleSuccess} onError={handleError} /> }",
+        "Position: After 'Parents' tab, before 'Insights' or 'Settings' tab",
+        "Optional: Add count badge to tab label showing pending delivery count (query for status === 'auto_approved' count)",
+        "Wire onSuccess to toast.success, onError to toast.error",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Only visible to coaches who've earned automation (level 2+). Badge encourages review within revoke window. If no badge, tab still valuable for transparency (see what went out last 7 days). Tab appears after coach reaches level 2 (UI adapts to trust progression)."
+    }
+  ]
+}

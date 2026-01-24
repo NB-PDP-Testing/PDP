@@ -534,6 +534,90 @@ export const suppressSummary = mutation({
 });
 
 /**
+ * Revoke auto-approved summary (Phase 2)
+ * Coach can revoke within 1-hour window before parent views
+ * Safety net for supervised automation
+ */
+export const revokeSummary = mutation({
+  args: {
+    summaryId: v.id("coachParentSummaries"),
+    reason: v.optional(v.string()),
+  },
+  returns: v.object({
+    success: v.boolean(),
+    error: v.optional(v.string()),
+  }),
+  handler: async (ctx, args) => {
+    // Authenticate user
+    const user = await authComponent.safeGetAuthUser(ctx);
+    if (!user?.userId) {
+      return {
+        success: false,
+        error: "Not authenticated",
+      };
+    }
+
+    const userId = user.userId;
+
+    // Fetch the summary
+    const summary = await ctx.db.get(args.summaryId);
+    if (!summary) {
+      return {
+        success: false,
+        error: "Summary not found",
+      };
+    }
+
+    // Verify coach owns this summary
+    if (summary.coachId !== userId) {
+      return {
+        success: false,
+        error: "Not authorized",
+      };
+    }
+
+    // Check if summary is auto-approved (only auto-approved can be revoked)
+    if (summary.status !== "auto_approved") {
+      return {
+        success: false,
+        error: "Only auto-approved summaries can be revoked",
+      };
+    }
+
+    // Check if parent has already viewed the summary
+    const view = await ctx.db
+      .query("parentSummaryViews")
+      .withIndex("by_summary", (q) => q.eq("summaryId", args.summaryId))
+      .first();
+
+    if (view) {
+      return {
+        success: false,
+        error: "Summary already viewed by parent",
+      };
+    }
+
+    // Revoke the summary (mark as suppressed with revocation metadata)
+    await ctx.db.patch(args.summaryId, {
+      status: "suppressed",
+      revokedAt: Date.now(),
+      revokedBy: userId,
+      revocationReason: args.reason ?? "Coach override",
+    });
+
+    // Update trust metrics (revocation counts as suppression)
+    await ctx.runMutation(internal.models.coachTrustLevels.updateTrustMetrics, {
+      coachId: summary.coachId,
+      action: "suppressed",
+    });
+
+    return {
+      success: true,
+    };
+  },
+});
+
+/**
  * Edit the public summary content before approval
  * Allows coach to modify the AI-generated parent summary
  * Only available for pending_review summaries

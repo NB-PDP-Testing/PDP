@@ -237,13 +237,13 @@ export default function SessionPlansPage() {
   const [showSessionPlan, setShowSessionPlan] = useState(false);
   const [sessionPlan, setSessionPlan] = useState("");
   const [loadingSessionPlan, setLoadingSessionPlan] = useState(false);
-  const [currentPlanId, setCurrentPlanId] = useState<Id<"sessionPlans"> | null>(
-    null
-  );
+  const [_currentPlanId, setCurrentPlanId] =
+    useState<Id<"sessionPlans"> | null>(null);
+  const [planSaved, setPlanSaved] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const _isMobile = useMediaQuery("(max-width: 640px)");
 
-  // Handle session plan generation (same as Overview page)
+  // Handle session plan generation (Issue #292 - removed auto-save, now manual save only)
   const handleGenerateSessionPlan = useCallback(async () => {
     if (!(firstTeam && teamPlayers)) {
       toast.error("No team data available", {
@@ -255,6 +255,8 @@ export default function SessionPlansPage() {
 
     setLoadingSessionPlan(true);
     setShowSessionPlan(true);
+    setPlanSaved(false); // Reset saved state for new generation
+    setCurrentPlanId(null); // Clear any previous plan ID
 
     try {
       // Note: Quick action doesn't have full skill data - AI will generate based on team basics
@@ -274,6 +276,34 @@ export default function SessionPlansPage() {
         overdueReviews: 0,
       };
 
+      // Generate plan with AI
+      const focus = weaknesses.length > 0 ? weaknesses[0].skill : undefined;
+      const plan = await generateSessionPlan(teamDataForAI, focus);
+
+      setSessionPlan(plan);
+      toast.success("Session plan generated!", {
+        description: "Click 'Save to Library' to keep this plan.",
+      });
+    } catch (error) {
+      console.error("Error generating session plan:", error);
+      setSessionPlan("Error generating session plan. Please try again.");
+      toast.error("Failed to generate session plan");
+    } finally {
+      setLoadingSessionPlan(false);
+    }
+  }, [firstTeam, teamPlayers]);
+
+  // Handle saving session plan to library (Issue #292 - manual save)
+  const handleSaveToLibrary = useCallback(async () => {
+    if (!(firstTeam && teamPlayers && sessionPlan)) {
+      return;
+    }
+
+    try {
+      const avgSkillLevel = 0;
+      const strengths: string[] = [];
+      const weaknesses: string[] = [];
+
       const teamDataForDB = {
         organizationId: orgId, // CRITICAL: Include org ID so plan appears in library
         playerCount: teamPlayers.length,
@@ -285,17 +315,12 @@ export default function SessionPlansPage() {
         overdueReviews: 0,
       };
 
-      // Generate plan with AI
-      const focus = weaknesses.length > 0 ? weaknesses[0].skill : undefined;
-      const plan = await generateSessionPlan(teamDataForAI, focus);
+      const focus = weaknesses.length > 0 ? weaknesses[0] : undefined;
 
-      setSessionPlan(plan);
-
-      // Save plan to database
       const planId = await convex.mutation(api.models.sessionPlans.savePlan, {
         teamId: firstTeam.teamId,
         teamName: firstTeam.teamName,
-        sessionPlan: plan,
+        sessionPlan,
         focus,
         teamData: teamDataForDB,
         usedRealAI: true,
@@ -303,17 +328,13 @@ export default function SessionPlansPage() {
       });
 
       setCurrentPlanId(planId);
-      toast.success("Session plan generated!", {
-        description: "Your AI-powered training plan is ready.",
-      });
+      setPlanSaved(true);
+      toast.success("Session plan saved to your library!");
     } catch (error) {
-      console.error("Error generating session plan:", error);
-      setSessionPlan("Error generating session plan. Please try again.");
-      toast.error("Failed to generate session plan");
-    } finally {
-      setLoadingSessionPlan(false);
+      console.error("Error saving session plan:", error);
+      toast.error("Failed to save session plan. Please try again.");
     }
-  }, [firstTeam, teamPlayers, convex, orgId]);
+  }, [firstTeam, teamPlayers, sessionPlan, convex, orgId]);
 
   // Calculate available filters from all plans
   const availableFilters: AvailableFilters = useMemo(() => {
@@ -1307,20 +1328,14 @@ export default function SessionPlansPage() {
                       <Brain className="flex-shrink-0" size={18} />
                       <span>Regenerate Plan</span>
                     </Button>
-                    {currentPlanId && (
-                      <Button
-                        className="flex h-10 w-full items-center justify-center gap-2 bg-purple-600 font-medium text-sm shadow-sm transition-colors hover:bg-purple-700 sm:flex-1 md:text-base"
-                        onClick={() => {
-                          router.push(
-                            `/orgs/${orgId}/coach/session-plans/${currentPlanId}`
-                          );
-                          setShowSessionPlan(false);
-                        }}
-                      >
-                        <Save className="flex-shrink-0" size={18} />
-                        <span>Save Plan</span>
-                      </Button>
-                    )}
+                    <Button
+                      className="flex h-10 w-full items-center justify-center gap-2 bg-purple-600 font-medium text-sm shadow-sm transition-colors hover:bg-purple-700 disabled:opacity-50 sm:flex-1 md:text-base"
+                      disabled={planSaved}
+                      onClick={handleSaveToLibrary}
+                    >
+                      <Save className="flex-shrink-0" size={18} />
+                      <span>{planSaved ? "Saved!" : "Save to Library"}</span>
+                    </Button>
                     <Button
                       className="h-10 w-full bg-gray-600 font-medium text-sm shadow-sm transition-colors hover:bg-gray-700 sm:flex-1 md:text-base"
                       onClick={() => setShowSessionPlan(false)}

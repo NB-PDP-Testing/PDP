@@ -2,7 +2,7 @@
 
 import { api } from "@pdp/backend/convex/_generated/api";
 import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { Download, Loader2, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { downloadPDF, generateCoachSummaryPDF } from "@/lib/pdf-generator";
 
 type ShareModalProps = {
   summaryId: Id<"coachParentSummaries">;
@@ -22,8 +21,8 @@ type ShareModalProps = {
 };
 
 /**
- * Modal for previewing and sharing parent summary images/PDFs
- * Shows generated image with PDF download and native share options
+ * Modal for previewing and sharing parent summary images
+ * Shows generated image with download and native share options
  */
 export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -35,12 +34,6 @@ export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
     api.actions.coachParentSummaries.generateShareableImage
   );
 
-  // Query to get summary data for PDF
-  const summaryData = useQuery(
-    api.models.coachParentSummaries.getSummaryForPDF,
-    { summaryId }
-  );
-
   // Mutation to track share events
   const trackShare = useMutation(
     api.models.coachParentSummaries.trackShareEvent
@@ -50,7 +43,7 @@ export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
   const hasNativeShare =
     typeof navigator !== "undefined" && typeof navigator.share === "function";
 
-  // Generate image when modal opens (US-015)
+  // Generate image when modal opens
   useEffect(() => {
     if (isOpen && !imageUrl && !isLoading) {
       setIsLoading(true);
@@ -78,29 +71,27 @@ export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
     }
   }, [isOpen]);
 
-  // Download PDF (US-016)
+  // Download image
   const handleDownload = async () => {
-    if (!summaryData) {
-      toast.error("Loading summary data...");
+    if (!imageUrl) {
+      toast.error("Image not ready");
       return;
     }
 
     try {
-      // Generate PDF
-      const pdfBytes = await generateCoachSummaryPDF({
-        content: summaryData.content,
-        playerFirstName: summaryData.playerFirstName,
-        coachName: summaryData.coachName,
-        organizationName: summaryData.organizationName,
-        generatedDate: summaryData.generatedDate,
-        category: summaryData.category,
-      });
+      // Fetch image as blob
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
 
-      // Download PDF
-      downloadPDF(
-        pdfBytes,
-        `playerarc-feedback-${summaryData.playerFirstName}-${new Date().toISOString().split("T")[0]}.pdf`
-      );
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `playerarc-feedback-${new Date().toISOString().split("T")[0]}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
 
       // Track download
       await trackShare({
@@ -108,14 +99,14 @@ export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
         shareDestination: "download",
       });
 
-      toast.success("PDF downloaded!");
+      toast.success("Image downloaded!");
     } catch (err) {
       console.error("Download failed:", err);
-      toast.error("Failed to download PDF");
+      toast.error("Failed to download image");
     }
   };
 
-  // Native share (US-017)
+  // Native share
   const handleNativeShare = async () => {
     if (!(imageUrl && hasNativeShare)) {
       return;
@@ -175,7 +166,7 @@ export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
             </div>
           )}
 
-          {/* Image preview (US-015) */}
+          {/* Image preview */}
           {imageUrl && !isLoading && (
             <>
               <div className="overflow-hidden rounded-lg border">
@@ -188,17 +179,17 @@ export function ShareModal({ summaryId, isOpen, onClose }: ShareModalProps) {
 
               {/* Action buttons */}
               <div className="flex gap-2">
-                {/* Download button (US-016) - Downloads as PDF */}
+                {/* Download button - Downloads as image */}
                 <Button
                   className="flex-1"
                   onClick={handleDownload}
                   variant="outline"
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Download PDF
+                  Download Image
                 </Button>
 
-                {/* Native share button (US-017) */}
+                {/* Native share button */}
                 {hasNativeShare && (
                   <Button
                     className="flex-1"

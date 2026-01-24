@@ -9,6 +9,7 @@ import {
   query,
 } from "../_generated/server";
 import { authComponent } from "../auth";
+import { decideAutoApproval } from "../lib/autoApprovalDecision";
 
 // ============================================================
 // VALIDATORS
@@ -188,23 +189,59 @@ export const createParentSummary = internalMutation({
       );
     }
 
-    // Determine initial status based on sensitivity category
-    // INJURY and BEHAVIOR categories NEVER auto-approve (even in future phases)
-    let status: "pending_review" | "auto_approved" = "pending_review";
+    // Fetch coach's trust level to determine if eligible for auto-approval (Phase 2)
+    // Note: Trust levels are platform-wide (not per-org)
+    // coachId is guaranteed to exist due to check above
+    const coachId = voiceNote.coachId as string;
+    const trustLevel = await ctx.db
+      .query("coachTrustLevels")
+      .withIndex("by_coach", (q) => q.eq("coachId", coachId))
+      .first();
 
-    if (args.sensitivityCategory === "injury") {
-      status = "pending_review";
-    } else if (args.sensitivityCategory === "behavior") {
-      status = "pending_review";
+    // Determine auto-approval decision
+    let status: "pending_review" | "auto_approved" = "pending_review";
+    let autoApprovalDecision:
+      | {
+          shouldAutoApprove: boolean;
+          reason: string;
+          tier: "auto_send" | "manual_review" | "flagged";
+          decidedAt: number;
+        }
+      | undefined;
+    let approvedAt: number | undefined;
+    let approvedBy: string | undefined;
+    let scheduledDeliveryAt: number | undefined;
+
+    if (trustLevel) {
+      // Make auto-approval decision based on trust level and summary properties
+      const decision = decideAutoApproval(
+        {
+          currentLevel: trustLevel.currentLevel,
+          preferredLevel: trustLevel.preferredLevel,
+          confidenceThreshold: trustLevel.confidenceThreshold,
+        },
+        {
+          confidenceScore: args.publicSummary.confidenceScore,
+          sensitivityCategory: args.sensitivityCategory,
+        }
+      );
+
+      autoApprovalDecision = decision;
+
+      // If auto-approved, set status and schedule delivery with 1-hour revoke window
+      if (decision.shouldAutoApprove) {
+        status = "auto_approved";
+        approvedAt = Date.now();
+        approvedBy = "system:auto";
+        scheduledDeliveryAt = Date.now() + 60 * 60 * 1000; // 1 hour from now
+      }
     }
-    // Future Phase 5: Normal category may auto-approve based on trust level
-    // For now, all summaries go to pending_review
 
     // Create the summary record
     const summaryId = await ctx.db.insert("coachParentSummaries", {
       voiceNoteId: args.voiceNoteId,
       insightId: args.insightId,
-      coachId: voiceNote.coachId, // Required field - always present
+      coachId, // Required field - verified above
       playerIdentityId: args.playerIdentityId,
       organizationId: voiceNote.orgId,
       sportId: args.sportId,
@@ -215,6 +252,10 @@ export const createParentSummary = internalMutation({
       sensitivityConfidence: args.sensitivityConfidence,
       status,
       createdAt: Date.now(),
+      autoApprovalDecision,
+      approvedAt,
+      approvedBy,
+      scheduledDeliveryAt,
     });
 
     return summaryId;

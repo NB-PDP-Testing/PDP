@@ -1,0 +1,25 @@
+{
+  "project": "P5 Phase 2 - Supervised Auto-Approval",
+  "branchName": "ralph/coach-parent-summaries-p5-phase2",
+  "status": "READY",
+  "description": "Enable actual auto-approval with 1-hour revoke window. Safety net for coaches to catch mistakes.",
+  "stories": ["US-006", "US-007", "US-008", "US-009", "US-010", "US-011"],
+  "storyCount": 6,
+  "estimatedTime": "5-7 hours",
+  "filesWillModify": [
+    "packages/backend/convex/schema.ts",
+    "packages/backend/convex/lib/autoApprovalDecision.ts",
+    "packages/backend/convex/models/coachParentSummaries.ts",
+    "apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/auto-approved-tab.tsx",
+    "apps/web/src/app/orgs/[orgId]/coach/voice-notes/voice-notes-dashboard.tsx"
+  ],
+  "keyFeatures": [
+    "Auto-approval decision logic (pure function)",
+    "1-hour revoke window before delivery",
+    "Revoke mutation for coach safety net",
+    "Auto-Sent dashboard tab (level 2+ only)",
+    "Audit trail for all auto-decisions"
+  ],
+  "activePRD": "/scripts/ralph/prd.json",
+  "reference": "Full PRD: /scripts/ralph/prds/coach-parent-summaries-phase5-REVISED.prd.json (US-006 to US-011)"
+}

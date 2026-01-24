@@ -23,6 +23,7 @@ import type * as healthCheck from "../healthCheck.js";
 import type * as http from "../http.js";
 import type * as lib_ageGroupUtils from "../lib/ageGroupUtils.js";
 import type * as lib_analytics from "../lib/analytics.js";
+import type * as lib_autoApprovalDecision from "../lib/autoApprovalDecision.js";
 import type * as lib_consentGateway from "../lib/consentGateway.js";
 import type * as lib_firstUserSetup from "../lib/firstUserSetup.js";
 import type * as lib_trustLevelCalculator from "../lib/trustLevelCalculator.js";
@@ -136,6 +137,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/ageGroupUtils": typeof lib_ageGroupUtils;
   "lib/analytics": typeof lib_analytics;
+  "lib/autoApprovalDecision": typeof lib_autoApprovalDecision;
   "lib/consentGateway": typeof lib_consentGateway;
   "lib/firstUserSetup": typeof lib_firstUserSetup;
   "lib/trustLevelCalculator": typeof lib_trustLevelCalculator;

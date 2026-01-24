@@ -17,8 +17,8 @@ export interface AutoApprovalDecision {
 
 export interface TrustLevelInput {
   currentLevel: number;
-  preferredLevel: number | null;
-  confidenceThreshold: number | null;
+  preferredLevel: number | null | undefined;
+  confidenceThreshold: number | null | undefined;
 }
 
 export interface SummaryInput {

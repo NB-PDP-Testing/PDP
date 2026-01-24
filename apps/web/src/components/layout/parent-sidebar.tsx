@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Settings,
   Shield,
+  Sparkles,
   TrendingUp,
   User,
   Users,
@@ -52,7 +53,8 @@ type NavGroup = {
  */
 export function getParentNavGroups(
   orgId: string,
-  unreadMessagesCount?: number
+  unreadMessagesCount?: number,
+  unreadCoachFeedbackCount?: number
 ): NavGroup[] {
   return [
     {
@@ -95,6 +97,14 @@ export function getParentNavGroups(
       label: "Updates",
       icon: Bell,
       items: [
+        {
+          href: `/orgs/${orgId}/parents/coach-feedback`,
+          label: "Coach Feedback",
+          icon: Sparkles,
+          ...(unreadCoachFeedbackCount && unreadCoachFeedbackCount > 0
+            ? { badge: unreadCoachFeedbackCount }
+            : {}),
+        },
         {
           href: `/orgs/${orgId}/parents/achievements`,
           label: "Achievements",
@@ -151,7 +161,17 @@ export function ParentSidebar({ orgId, primaryColor }: ParentSidebarProps) {
     organizationId: orgId,
   });
 
-  const navGroups = getParentNavGroups(orgId, unreadCount ?? 0);
+  // Fetch unread coach feedback count
+  const unreadCoachFeedbackCount = useQuery(
+    api.models.coachParentSummaries.getParentUnreadCount,
+    { organizationId: orgId }
+  );
+
+  const navGroups = getParentNavGroups(
+    orgId,
+    unreadCount ?? 0,
+    unreadCoachFeedbackCount ?? 0
+  );
 
   // Track which groups are expanded - auto-expand group containing current page
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
@@ -282,7 +302,17 @@ export function ParentMobileNav({
     organizationId: orgId,
   });
 
-  const navGroups = getParentNavGroups(orgId, unreadCount ?? 0);
+  // Fetch unread coach feedback count
+  const unreadCoachFeedbackCount = useQuery(
+    api.models.coachParentSummaries.getParentUnreadCount,
+    { organizationId: orgId }
+  );
+
+  const navGroups = getParentNavGroups(
+    orgId,
+    unreadCount ?? 0,
+    unreadCoachFeedbackCount ?? 0
+  );
   const [open, setOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     for (const group of navGroups) {

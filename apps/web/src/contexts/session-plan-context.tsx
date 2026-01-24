@@ -212,9 +212,18 @@ export function SessionPlanProvider({
 
         setSessionPlan(plan);
 
-        // Show badge immediately after generation with "just now" (Issue #234)
-        setShowCachedBadge(true);
-        setCachedPlanAge("just now");
+        // Badge logic:
+        // - First generation (bypassCache=false, no prior cache): NO badge
+        // - Regeneration (bypassCache=true): YES badge (there was a prior plan)
+        if (bypassCache) {
+          // Regeneration: show badge because there was a prior cached plan
+          setShowCachedBadge(true);
+          setCachedPlanAge("just now");
+        } else {
+          // First generation: no badge until user returns later
+          setShowCachedBadge(false);
+          setCachedPlanAge(null);
+        }
         setIsRegenerated(bypassCache); // Track if this was a regeneration
 
         // Track generation for analytics

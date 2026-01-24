@@ -6,6 +6,7 @@ import { useConvex, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
   Brain,
+  Clock,
   Download,
   FileText,
   Grid3x3,
@@ -44,6 +45,7 @@ import {
   shareViaNative,
   shareViaWhatsApp,
 } from "@/lib/pdf-generator";
+import { sessionPlanConfig } from "@/lib/session-plan-config";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "./empty-state";
 import type { AvailableFilters, FilterState } from "./filter-sidebar";
@@ -237,42 +239,122 @@ export default function SessionPlansPage() {
   const [showSessionPlan, setShowSessionPlan] = useState(false);
   const [sessionPlan, setSessionPlan] = useState("");
   const [loadingSessionPlan, setLoadingSessionPlan] = useState(false);
-  const [currentPlanId, setCurrentPlanId] = useState<Id<"sessionPlans"> | null>(
-    null
-  );
+  const [_currentPlanId, setCurrentPlanId] =
+    useState<Id<"sessionPlans"> | null>(null);
+  const [planSaved, setPlanSaved] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const _isMobile = useMediaQuery("(max-width: 640px)");
 
-  // Handle session plan generation (same as Overview page)
-  const handleGenerateSessionPlan = useCallback(async () => {
-    if (!(firstTeam && teamPlayers)) {
-      toast.error("No team data available", {
-        description:
-          "Please make sure you have at least one team with players.",
-      });
+  // Caching state for blue alert badge (Issue #292)
+  const [showCachedBadge, setShowCachedBadge] = useState(false);
+  const [cachedBadgeDismissed, setCachedBadgeDismissed] = useState(false);
+  const [cachedPlanAge, setCachedPlanAge] = useState<string | null>(null);
+
+  // Handle session plan generation (Issue #292 - with caching and manual save)
+  const handleGenerateSessionPlan = useCallback(
+    async (bypassCache = false) => {
+      if (!(firstTeam && teamPlayers)) {
+        toast.error("No team data available", {
+          description:
+            "Please make sure you have at least one team with players.",
+        });
+        return;
+      }
+
+      setLoadingSessionPlan(true);
+      setShowSessionPlan(true);
+      setPlanSaved(false); // Reset saved state for new generation
+
+      try {
+        // Check for cached plan first (unless bypassing cache for regeneration)
+        if (bypassCache) {
+          setShowCachedBadge(false);
+          setCachedPlanAge(null);
+          setCachedBadgeDismissed(false);
+          setCurrentPlanId(null);
+        } else {
+          const cacheDuration = sessionPlanConfig.cacheDurationHours;
+
+          const cachedPlan = await convex.query(
+            api.models.sessionPlans.getRecentPlanForTeam,
+            {
+              teamId: firstTeam.teamId,
+              maxAgeHours: cacheDuration,
+            }
+          );
+
+          if (cachedPlan) {
+            // Calculate age of cached plan
+            const ageMs = Math.max(0, Date.now() - cachedPlan.generatedAt);
+            const ageMinutes = Math.floor(ageMs / (1000 * 60));
+            const ageHours = Math.floor(ageMinutes / 60);
+            let ageStr = "just now";
+            if (ageHours > 0) {
+              ageStr = `${ageHours} hour${ageHours > 1 ? "s" : ""} ago`;
+            } else if (ageMinutes > 0) {
+              ageStr = `${ageMinutes} minute${ageMinutes > 1 ? "s" : ""} ago`;
+            }
+
+            setSessionPlan(cachedPlan.sessionPlan || "");
+            setCurrentPlanId(cachedPlan._id);
+            setShowCachedBadge(true);
+            setCachedPlanAge(ageStr);
+            setPlanSaved(true); // Cached plan is already saved
+            setLoadingSessionPlan(false);
+            return;
+          }
+        }
+
+        // No cached plan found, generate new one
+        setCurrentPlanId(null);
+
+        // Note: Quick action doesn't have full skill data - AI will generate based on team basics
+        const avgSkillLevel = 0;
+        const strengths: { skill: string; avg: number }[] = [];
+        const weaknesses: { skill: string; avg: number }[] = [];
+
+        const teamDataForAI = {
+          teamName: firstTeam.teamName,
+          playerCount: teamPlayers.length,
+          ageGroup: firstTeam.ageGroup || teamPlayers[0]?.ageGroup || "U12",
+          avgSkillLevel,
+          strengths,
+          weaknesses,
+          attendanceIssues: 0,
+          overdueReviews: 0,
+        };
+
+        // Generate plan with AI
+        const focus = weaknesses.length > 0 ? weaknesses[0].skill : undefined;
+        const plan = await generateSessionPlan(teamDataForAI, focus);
+
+        setSessionPlan(plan);
+        setShowCachedBadge(false);
+        setCachedPlanAge(null);
+        toast.success("Session plan generated!", {
+          description: "Click 'Save to Library' to keep this plan.",
+        });
+      } catch (error) {
+        console.error("Error generating session plan:", error);
+        setSessionPlan("Error generating session plan. Please try again.");
+        toast.error("Failed to generate session plan");
+      } finally {
+        setLoadingSessionPlan(false);
+      }
+    },
+    [firstTeam, teamPlayers, convex]
+  );
+
+  // Handle saving session plan to library (Issue #292 - manual save)
+  const handleSaveToLibrary = useCallback(async () => {
+    if (!(firstTeam && teamPlayers && sessionPlan)) {
       return;
     }
 
-    setLoadingSessionPlan(true);
-    setShowSessionPlan(true);
-
     try {
-      // Note: Quick action doesn't have full skill data - AI will generate based on team basics
-      // For detailed skill-based plans, use the full generator at /new
-      const avgSkillLevel = 0; // Not available in quick action
-      const strengths: { skill: string; avg: number }[] = [];
-      const weaknesses: { skill: string; avg: number }[] = [];
-
-      const teamDataForAI = {
-        teamName: firstTeam.teamName,
-        playerCount: teamPlayers.length,
-        ageGroup: firstTeam.ageGroup || teamPlayers[0]?.ageGroup || "U12",
-        avgSkillLevel,
-        strengths,
-        weaknesses,
-        attendanceIssues: 0,
-        overdueReviews: 0,
-      };
+      const avgSkillLevel = 0;
+      const strengths: string[] = [];
+      const weaknesses: string[] = [];
 
       const teamDataForDB = {
         organizationId: orgId, // CRITICAL: Include org ID so plan appears in library
@@ -285,17 +367,12 @@ export default function SessionPlansPage() {
         overdueReviews: 0,
       };
 
-      // Generate plan with AI
-      const focus = weaknesses.length > 0 ? weaknesses[0].skill : undefined;
-      const plan = await generateSessionPlan(teamDataForAI, focus);
+      const focus = weaknesses.length > 0 ? weaknesses[0] : undefined;
 
-      setSessionPlan(plan);
-
-      // Save plan to database
       const planId = await convex.mutation(api.models.sessionPlans.savePlan, {
         teamId: firstTeam.teamId,
         teamName: firstTeam.teamName,
-        sessionPlan: plan,
+        sessionPlan,
         focus,
         teamData: teamDataForDB,
         usedRealAI: true,
@@ -303,17 +380,13 @@ export default function SessionPlansPage() {
       });
 
       setCurrentPlanId(planId);
-      toast.success("Session plan generated!", {
-        description: "Your AI-powered training plan is ready.",
-      });
+      setPlanSaved(true);
+      toast.success("Session plan saved to your library!");
     } catch (error) {
-      console.error("Error generating session plan:", error);
-      setSessionPlan("Error generating session plan. Please try again.");
-      toast.error("Failed to generate session plan");
-    } finally {
-      setLoadingSessionPlan(false);
+      console.error("Error saving session plan:", error);
+      toast.error("Failed to save session plan. Please try again.");
     }
-  }, [firstTeam, teamPlayers, convex, orgId]);
+  }, [firstTeam, teamPlayers, sessionPlan, convex, orgId]);
 
   // Calculate available filters from all plans
   const availableFilters: AvailableFilters = useMemo(() => {
@@ -1253,6 +1326,28 @@ export default function SessionPlansPage() {
                     </p>
                   </div>
                 </div>
+                {/* Cached Plan Alert Badge (Issue #292) */}
+                {showCachedBadge && cachedPlanAge && !cachedBadgeDismissed && (
+                  <div className="mt-2 flex items-center gap-2 rounded-md bg-blue-50/80 px-2.5 py-1.5 text-xs">
+                    <Clock className="flex-shrink-0 text-blue-600" size={14} />
+                    <div className="flex-1 text-blue-700">
+                      <div className="font-semibold text-[13px] leading-tight">
+                        You generated this {cachedPlanAge}
+                      </div>
+                      <div className="mt-0.5 text-[11px] leading-tight opacity-85">
+                        Tap Regenerate to create a fresh plan
+                      </div>
+                    </div>
+                    <button
+                      aria-label="Dismiss"
+                      className="flex-shrink-0 rounded-sm p-1 text-blue-600 transition-colors hover:bg-blue-100/50"
+                      onClick={() => setCachedBadgeDismissed(true)}
+                      type="button"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
               </CardHeader>
               <CardContent
                 className={cn(
@@ -1302,25 +1397,19 @@ export default function SessionPlansPage() {
                     </Button>
                     <Button
                       className="flex h-10 w-full items-center justify-center gap-2 bg-green-600 font-medium text-sm shadow-sm transition-colors hover:bg-green-700 sm:flex-1 md:text-base"
-                      onClick={() => handleGenerateSessionPlan()}
+                      onClick={() => handleGenerateSessionPlan(true)}
                     >
                       <Brain className="flex-shrink-0" size={18} />
                       <span>Regenerate Plan</span>
                     </Button>
-                    {currentPlanId && (
-                      <Button
-                        className="flex h-10 w-full items-center justify-center gap-2 bg-purple-600 font-medium text-sm shadow-sm transition-colors hover:bg-purple-700 sm:flex-1 md:text-base"
-                        onClick={() => {
-                          router.push(
-                            `/orgs/${orgId}/coach/session-plans/${currentPlanId}`
-                          );
-                          setShowSessionPlan(false);
-                        }}
-                      >
-                        <Save className="flex-shrink-0" size={18} />
-                        <span>Save Plan</span>
-                      </Button>
-                    )}
+                    <Button
+                      className="flex h-10 w-full items-center justify-center gap-2 bg-purple-600 font-medium text-sm shadow-sm transition-colors hover:bg-purple-700 disabled:opacity-50 sm:flex-1 md:text-base"
+                      disabled={planSaved}
+                      onClick={handleSaveToLibrary}
+                    >
+                      <Save className="flex-shrink-0" size={18} />
+                      <span>{planSaved ? "Saved!" : "Save to Library"}</span>
+                    </Button>
                     <Button
                       className="h-10 w-full bg-gray-600 font-medium text-sm shadow-sm transition-colors hover:bg-gray-700 sm:flex-1 md:text-base"
                       onClick={() => setShowSessionPlan(false)}

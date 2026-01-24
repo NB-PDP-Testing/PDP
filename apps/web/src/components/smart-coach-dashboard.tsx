@@ -1,31 +1,19 @@
 "use client";
 
-import { api } from "@pdp/backend/convex/_generated/api";
-import type { Id } from "@pdp/backend/convex/_generated/dataModel";
-import { useConvex } from "convex/react";
 import {
   AlertCircle,
   BarChart3,
   Brain,
   CheckCircle,
-  Clock,
-  Download,
   Edit,
   FileText,
-  Mail,
-  MessageCircle,
-  Save,
-  Share,
-  Share2,
   Target,
   TrendingDown,
   TrendingUp,
   Users,
   X,
 } from "lucide-react";
-import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { OrgThemedGradient } from "@/components/org-themed-gradient";
 import { FABQuickActions } from "@/components/quick-actions/fab-variant";
 import { Button } from "@/components/ui/button";
@@ -33,22 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   type AIRecommendation,
   generateCoachingRecommendations,
-  generateSessionPlan,
 } from "@/lib/ai-service";
-import {
-  trackPlanCached,
-  trackPlanGenerated,
-  trackPlanRegenerated,
-  trackPlanShared,
-} from "@/lib/analytics-tracker";
-import {
-  downloadPDF,
-  generateSessionPlanPDF,
-  shareViaEmail,
-  shareViaNative,
-  shareViaWhatsApp,
-} from "@/lib/pdf-generator";
-import { sessionPlanConfig } from "@/lib/session-plan-config";
 
 type TeamAnalytics = {
   teamId: string;
@@ -133,30 +106,9 @@ export function SmartCoachDashboard({
     AIRecommendation[]
   >([]);
   const [loadingAI, setLoadingAI] = useState(false);
-  const [showSessionPlan, setShowSessionPlan] = useState(false);
-  const [sessionPlan, setSessionPlan] = useState("");
-  const [loadingSessionPlan, setLoadingSessionPlan] = useState(false);
   const [actualAIMode, setActualAIMode] = useState<"real" | "simulated">(
     "simulated"
   );
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [planToShare, setPlanToShare] = useState<any>(null);
-
-  // Session plan caching state (restored from commit ddbb1af for Issue #292)
-  const [currentPlanId, setCurrentPlanId] = useState<Id<"sessionPlans"> | null>(
-    null
-  );
-  const [showCachedBadge, setShowCachedBadge] = useState(false);
-  const [cachedBadgeDismissed, setCachedBadgeDismissed] = useState(false);
-  const [cachedPlanAge, setCachedPlanAge] = useState<string | null>(null);
-  const [planSaved, setPlanSaved] = useState(false);
-
-  // Convex client for database operations
-  const convex = useConvex();
-
-  // Get organization ID from URL params (needed for saving session plans)
-  const params = useParams();
-  const orgId = params.orgId as string;
 
   // Team notes state
   const [showAddTeamNote, setShowAddTeamNote] = useState(false);
@@ -552,181 +504,12 @@ export function SmartCoachDashboard({
     }
   };
 
-  // Handle generating session plan with caching (restored from commit ddbb1af for Issue #292)
-  const handleGenerateSessionPlan = async (
-    bypassCache = false,
-    isRegeneration = false
-  ) => {
-    setLoadingSessionPlan(true);
-    setShowSessionPlan(true);
-    setPlanSaved(false); // Reset saved state for new generation
-
-    try {
-      // Use first team with players for session plan
-      const team = teamAnalytics.find((t) => t.playerCount > 0);
-      if (!team) {
-        setSessionPlan("No teams with players found.");
-        return;
-      }
-
-      const teamPlayers = players.filter((p) => {
-        const playerTeamsList = getPlayerTeams(p);
-        return playerTeamsList.includes(team.teamName) && p;
-      });
-
-      // Team data for AI generation
-      const teamDataForAI = {
-        teamName: team.teamName,
-        playerCount: teamPlayers.length,
-        ageGroup: teamPlayers[0]?.ageGroup || "U12",
-        avgSkillLevel: team.avgSkillLevel,
-        strengths: team.strengths,
-        weaknesses: team.weaknesses,
-        attendanceIssues: team.attendanceIssues,
-        overdueReviews: team.overdueReviews,
-      };
-
-      // Check for cached plan first (unless bypassing cache for regeneration)
-      if (bypassCache) {
-        setShowCachedBadge(false);
-        setCachedPlanAge(null);
-        setCachedBadgeDismissed(false);
-      } else {
-        const cacheDuration = sessionPlanConfig.cacheDurationHours;
-
-        const cachedPlan = await convex.query(
-          api.models.sessionPlans.getRecentPlanForTeam,
-          {
-            teamId: team.teamId,
-            maxAgeHours: cacheDuration,
-          }
-        );
-
-        if (cachedPlan) {
-          // Calculate age of cached plan
-          const ageMs = Math.max(0, Date.now() - cachedPlan.generatedAt);
-          const ageMinutes = Math.floor(ageMs / (1000 * 60));
-          const ageHours = Math.floor(ageMinutes / 60);
-          let ageStr = "just now";
-          if (ageHours > 0) {
-            ageStr = `${ageHours} hour${ageHours > 1 ? "s" : ""} ago`;
-          } else if (ageMinutes > 0) {
-            ageStr = `${ageMinutes} minute${ageMinutes > 1 ? "s" : ""} ago`;
-          }
-
-          setSessionPlan(cachedPlan.sessionPlan || "");
-          setCurrentPlanId(cachedPlan._id);
-          setShowCachedBadge(true);
-          setCachedPlanAge(ageStr);
-          setPlanSaved(true); // Cached plan is already saved
-
-          // Track cache hit in PostHog
-          trackPlanCached({
-            teamId: team.teamId,
-            teamName: team.teamName,
-            playerCount: teamPlayers.length,
-            ageGroup: teamPlayers[0]?.ageGroup,
-            creationMethod: "ai_generated",
-            usedRealAI: cachedPlan.usedRealAI,
-            cacheHit: true,
-            cacheAge: ageMs,
-            planId: cachedPlan._id,
-          });
-
-          // Increment view count
-          await convex.mutation(api.models.sessionPlans.incrementViewCount, {
-            planId: cachedPlan._id,
-          });
-
-          setLoadingSessionPlan(false);
-          return;
-        }
-      }
-
-      console.log(
-        `📊 Generating session plan for ${team.teamName} (${teamPlayers.length} players)`
-      );
-
-      // Generate new plan
-      const focus =
-        team.weaknesses.length > 0 ? team.weaknesses[0].skill : undefined;
-      const plan = await generateSessionPlan(teamDataForAI, focus);
-      setSessionPlan(plan);
-      setShowCachedBadge(false);
-      setCachedPlanAge(null);
-      setCurrentPlanId(null); // New plan not saved yet
-      setPlanSaved(false);
-
-      // Track plan generation in PostHog (skip if this is a regeneration - already tracked)
-      if (!isRegeneration) {
-        trackPlanGenerated({
-          teamId: team.teamId,
-          teamName: team.teamName,
-          playerCount: teamPlayers.length,
-          ageGroup: teamPlayers[0]?.ageGroup,
-          creationMethod: "ai_generated",
-          usedRealAI: true,
-          focus,
-        });
-      }
-    } catch (error) {
-      console.error("Error generating session plan:", error);
-      setSessionPlan("Error generating session plan. Please try again.");
-    } finally {
-      setLoadingSessionPlan(false);
-    }
-  };
-
-  // Handle saving session plan to library (Issue #292 - manual save instead of auto-save)
-  const handleSaveToLibrary = async () => {
-    const team = teamAnalytics.find((t) => t.playerCount > 0);
-    if (!(team && sessionPlan)) {
-      return;
-    }
-
-    try {
-      const teamPlayers = players.filter((p) => {
-        const playerTeamsList = getPlayerTeams(p);
-        return playerTeamsList.includes(team.teamName) && p;
-      });
-
-      const teamDataForDB = {
-        organizationId: orgId, // CRITICAL: Include org ID so plan appears in library
-        playerCount: teamPlayers.length,
-        ageGroup: teamPlayers[0]?.ageGroup || "U12",
-        avgSkillLevel: team.avgSkillLevel,
-        strengths: team.strengths.map((s) => s.skill),
-        weaknesses: team.weaknesses.map((w) => w.skill),
-      };
-
-      const focus =
-        team.weaknesses.length > 0 ? team.weaknesses[0].skill : undefined;
-
-      const planId = await convex.mutation(api.models.sessionPlans.savePlan, {
-        teamId: team.teamId,
-        teamName: team.teamName,
-        sessionPlan,
-        focus,
-        teamData: teamDataForDB,
-        usedRealAI: true,
-        creationMethod: "ai_generated",
-      });
-
-      setCurrentPlanId(planId);
-      setPlanSaved(true);
-      toast.success("Session plan saved to your library!");
-    } catch (error) {
-      console.error("Error saving session plan:", error);
-      toast.error("Failed to save session plan. Please try again.");
-    }
-  };
-
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Quick Actions - Connects header buttons to handler functions */}
+      {/* Note: Session Plan action uses SessionPlanContext (Issue #234) */}
       <FABQuickActions
         onAssessPlayers={onAssessPlayers || noop}
-        onGenerateSessionPlan={handleGenerateSessionPlan}
         onGoals={onViewGoals || noop}
         onInjuries={onViewInjuries || noop}
         onMatchDay={onViewMatchDay || noop}
@@ -1412,293 +1195,6 @@ export function SmartCoachDashboard({
             )}
           </CardContent>
         </Card>
-      )}
-
-      {/* Share Practice Plan Modal */}
-      {showShareModal && planToShare && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-2 md:p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Share className="text-blue-600" size={20} />
-                  Share Practice Plan
-                </CardTitle>
-                <Button
-                  onClick={() => setShowShareModal(false)}
-                  size="icon"
-                  variant="ghost"
-                >
-                  ×
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                className="w-full bg-red-600 font-medium transition-colors hover:bg-red-700"
-                onClick={async () => {
-                  try {
-                    const pdfBlob = await generateSessionPlanPDF({
-                      teamName: planToShare.teamName,
-                      sessionPlan: planToShare.sessionPlan,
-                      sport: planToShare.player.sport,
-                      ageGroup: planToShare.player.ageGroup,
-                      playerCount: planToShare.playerCount,
-                    });
-                    await downloadPDF(
-                      pdfBlob,
-                      `${planToShare.teamName}_Session_Plan.pdf`
-                    );
-                  } catch (error) {
-                    console.error("Error downloading PDF:", error);
-                    toast.error("Failed to download PDF. Please try again.");
-                  }
-                }}
-              >
-                <Download size={18} />
-                Download as PDF
-              </Button>
-
-              <Button
-                className="w-full bg-blue-600 font-medium transition-colors hover:bg-blue-700"
-                onClick={async () => {
-                  try {
-                    const pdfBlob = await generateSessionPlanPDF({
-                      teamName: planToShare.teamName,
-                      sessionPlan: planToShare.sessionPlan,
-                      sport: planToShare.player.sport,
-                      ageGroup: planToShare.player.ageGroup,
-                      playerCount: planToShare.playerCount,
-                    });
-                    await shareViaEmail(pdfBlob, planToShare.teamName);
-                    setShowShareModal(false);
-                  } catch (error) {
-                    console.error("Error sharing via email:", error);
-                    toast.error(
-                      "Failed to open email client. Please try downloading instead."
-                    );
-                  }
-                }}
-              >
-                <Mail size={18} />
-                Share via Email
-              </Button>
-
-              <Button
-                className="w-full bg-green-600 font-medium transition-colors hover:bg-green-700"
-                onClick={async () => {
-                  try {
-                    const pdfBlob = await generateSessionPlanPDF({
-                      teamName: planToShare.teamName,
-                      sessionPlan: planToShare.sessionPlan,
-                      sport: planToShare.player.sport,
-                      ageGroup: planToShare.player.ageGroup,
-                      playerCount: planToShare.playerCount,
-                    });
-                    await shareViaWhatsApp(pdfBlob, planToShare.teamName);
-                    setShowShareModal(false);
-                  } catch (error) {
-                    console.error("Error sharing via WhatsApp:", error);
-                    toast.error(
-                      "Failed to open WhatsApp. Please try another method."
-                    );
-                  }
-                }}
-              >
-                <MessageCircle size={18} />
-                Share via WhatsApp
-              </Button>
-
-              <Button
-                className="w-full bg-purple-600 font-medium transition-colors hover:bg-purple-700"
-                onClick={async () => {
-                  try {
-                    const pdfBlob = await generateSessionPlanPDF({
-                      teamName: planToShare.teamName,
-                      sessionPlan: planToShare.sessionPlan,
-                      sport: planToShare.player.sport,
-                      ageGroup: planToShare.player.ageGroup,
-                      playerCount: planToShare.playerCount,
-                    });
-                    await shareViaNative(pdfBlob, planToShare.teamName);
-                    setShowShareModal(false);
-                  } catch (error) {
-                    console.error("Error using native share:", error);
-                    toast.error(
-                      "Native sharing not supported. Please use another method."
-                    );
-                  }
-                }}
-              >
-                <Share2 size={18} />
-                More Share Options
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Session Plan Modal */}
-      {showSessionPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 md:p-4">
-          <Card className="max-h-[95vh] w-full max-w-3xl overflow-y-auto shadow-xl md:max-h-[90vh]">
-            <CardHeader className="sticky top-0 z-10 border-gray-200 border-b bg-white shadow-sm">
-              <div className="flex items-start justify-between">
-                <div className="min-w-0 flex-1 pr-3">
-                  <CardTitle className="flex items-center gap-2 leading-tight">
-                    <FileText
-                      className="flex-shrink-0 text-green-600"
-                      size={20}
-                    />
-                    <span className="line-clamp-2">
-                      AI Training Session Plan
-                    </span>
-                  </CardTitle>
-                  <p className="mt-1 text-gray-600 text-xs md:text-sm">
-                    Personalized for your team's needs
-                  </p>
-                </div>
-                <Button
-                  className="flex-shrink-0"
-                  onClick={() => setShowSessionPlan(false)}
-                  size="icon"
-                  variant="ghost"
-                >
-                  ×
-                </Button>
-              </div>
-
-              {/* Cached Plan Alert Badge (restored from commit ddbb1af for Issue #292) */}
-              {showCachedBadge && cachedPlanAge && !cachedBadgeDismissed && (
-                <div className="mt-2 flex items-center gap-2 rounded-md bg-blue-50/80 px-2.5 py-1.5 text-xs">
-                  <Clock className="flex-shrink-0 text-blue-600" size={14} />
-                  <div className="flex-1 text-blue-700">
-                    <div className="font-semibold text-[13px] leading-tight">
-                      You generated this {cachedPlanAge}
-                    </div>
-                    <div className="mt-0.5 text-[11px] leading-tight opacity-85">
-                      Tap Regenerate to create a fresh plan
-                    </div>
-                  </div>
-                  <button
-                    aria-label="Dismiss"
-                    className="flex-shrink-0 rounded-sm p-1 text-blue-600 transition-colors hover:bg-blue-100/50"
-                    onClick={() => setCachedBadgeDismissed(true)}
-                    type="button"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
-            </CardHeader>
-            <CardContent className="p-4 md:p-6">
-              {loadingSessionPlan ? (
-                <div className="py-8 text-center md:py-12">
-                  <Brain
-                    className="mx-auto mb-4 animate-pulse text-green-600"
-                    size={40}
-                  />
-                  <p className="text-gray-600 text-sm md:text-base">
-                    AI is generating your personalized training session plan...
-                  </p>
-                  <p className="mt-2 text-gray-500 text-xs md:text-sm">
-                    This may take a few moments
-                  </p>
-                </div>
-              ) : (
-                <div className="prose prose-sm max-w-none">
-                  <div className="whitespace-pre-wrap text-[15px] text-gray-700 leading-relaxed md:text-base">
-                    {sessionPlan}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-            {!loadingSessionPlan && (
-              <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-gray-200 border-t bg-gray-50 p-4 shadow-[0_-2px_8px_rgba(0,0,0,0.08)] sm:flex-row md:p-4">
-                <Button
-                  className="flex w-full items-center justify-center gap-2 bg-blue-600 font-medium transition-colors hover:bg-blue-700 sm:flex-1"
-                  onClick={async () => {
-                    const team = teamAnalytics.find((t) => t.playerCount > 0);
-                    if (team) {
-                      const teamPlayers = players.filter((p) => {
-                        const playerTeamsList = getPlayerTeams(p);
-                        return playerTeamsList.includes(team.teamName) && p;
-                      });
-                      setPlanToShare({
-                        player: {
-                          name: `${team.teamName} Session Plan`,
-                          sport: teamPlayers[0]?.sport || "GAA Football",
-                          ageGroup: teamPlayers[0]?.ageGroup || "U12",
-                        },
-                        sessionPlan,
-                        teamName: team.teamName,
-                        teamId: team.teamId,
-                        playerCount: teamPlayers.length,
-                      });
-                      setShowShareModal(true);
-
-                      // Track share intent and increment count if plan is saved
-                      if (currentPlanId) {
-                        await convex.mutation(
-                          api.models.sessionPlans.incrementShareCount,
-                          { planId: currentPlanId }
-                        );
-                      }
-                      trackPlanShared({
-                        teamId: team.teamId,
-                        teamName: team.teamName,
-                        creationMethod: "ai_generated",
-                        planId: currentPlanId ?? undefined,
-                      });
-                    }
-                  }}
-                >
-                  <Share2 className="flex-shrink-0" size={16} />
-                  <span>Share Plan</span>
-                </Button>
-                {/* Save to Library button (Issue #292 - manual save) */}
-                <Button
-                  className="flex w-full items-center justify-center gap-2 bg-purple-600 font-medium transition-colors hover:bg-purple-700 disabled:opacity-50 sm:flex-1"
-                  disabled={planSaved}
-                  onClick={handleSaveToLibrary}
-                >
-                  <Save className="flex-shrink-0" size={16} />
-                  <span>{planSaved ? "Saved!" : "Save to Library"}</span>
-                </Button>
-                <Button
-                  className="flex w-full items-center justify-center gap-2 bg-green-600 font-medium transition-colors hover:bg-green-700 sm:flex-1"
-                  onClick={async () => {
-                    // Track regeneration before generating
-                    const team = teamAnalytics.find((t) => t.playerCount > 0);
-                    if (currentPlanId && team) {
-                      await convex.mutation(
-                        api.models.sessionPlans.incrementRegenerateCount,
-                        { planId: currentPlanId }
-                      );
-                      trackPlanRegenerated({
-                        teamId: team.teamId,
-                        teamName: team.teamName,
-                        creationMethod: "ai_generated",
-                        planId: currentPlanId,
-                      });
-                    }
-                    // Regenerate with cache bypass
-                    await handleGenerateSessionPlan(true, true);
-                  }}
-                >
-                  <Brain className="flex-shrink-0" size={16} />
-                  <span>Regenerate Plan</span>
-                </Button>
-                <Button
-                  className="w-full bg-gray-600 font-medium transition-colors hover:bg-gray-700 sm:flex-1"
-                  onClick={() => setShowSessionPlan(false)}
-                >
-                  Close
-                </Button>
-              </div>
-            )}
-          </Card>
-        </div>
       )}
     </div>
   );

@@ -57,7 +57,7 @@
         "Typecheck passes"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Central hub. One page for all messaging/AI controls. Similar to AWS Cost Explorer, Stripe Dashboard, Vercel Analytics. Path: /platform/messaging (not under /orgs/[orgId])."
     },
     {

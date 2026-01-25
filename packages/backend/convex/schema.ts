@@ -1833,6 +1833,94 @@ export default defineSchema({
     .index("by_org_timestamp", ["organizationId", "timestamp"])
     .index("by_coach_timestamp", ["coachId", "timestamp"]),
 
+  // ============================================================
+  // PHASE 6.1: COST MONITORING & BUDGET CONTROLS
+  // Per-org budget tracking with daily/monthly spending caps
+  // ============================================================
+
+  // Per-organization cost budgets (Phase 6.1)
+  // Tracks spending and enforces daily/monthly limits to prevent runaway costs
+  orgCostBudgets: defineTable({
+    organizationId: v.string(), // Better Auth organization ID
+
+    // Budget limits (in USD)
+    dailyBudgetUsd: v.number(), // Daily spending cap
+    monthlyBudgetUsd: v.number(), // Monthly spending cap
+
+    // Alert settings
+    alertThresholdPercent: v.number(), // Default 80 - triggers warning at 80% of budget
+
+    // Current spend tracking
+    currentDailySpend: v.number(), // Accumulated spend today
+    currentMonthlySpend: v.number(), // Accumulated spend this month
+
+    // Reset tracking
+    lastResetDate: v.string(), // Last daily reset (YYYY-MM-DD format)
+    lastResetMonth: v.string(), // Last monthly reset (YYYY-MM format)
+
+    // Status
+    isEnabled: v.boolean(), // Enable/disable budget enforcement
+  }).index("by_org", ["organizationId"]),
+
+  // Platform cost alerts audit trail (Phase 6.1)
+  // Logs all cost alerts for monitoring and analytics
+  platformCostAlerts: defineTable({
+    // Alert type and context
+    alertType: v.union(
+      v.literal("org_daily_threshold"), // Warning: approaching daily limit
+      v.literal("org_daily_exceeded"), // Critical: daily limit exceeded
+      v.literal("org_monthly_threshold"), // Warning: approaching monthly limit
+      v.literal("org_monthly_exceeded"), // Critical: monthly limit exceeded
+      v.literal("platform_spike") // Critical: unusual platform-wide spike
+    ),
+    organizationId: v.optional(v.string()), // Which org (null for platform-wide alerts)
+
+    // Alert severity
+    severity: v.union(v.literal("warning"), v.literal("critical")),
+
+    // Alert details
+    message: v.string(), // Human-readable alert message
+    triggerValue: v.number(), // Current value that triggered alert (e.g., current spend)
+    thresholdValue: v.number(), // Threshold value that was exceeded
+
+    // Timestamps
+    timestamp: v.number(), // When alert was created
+
+    // Acknowledgment tracking
+    acknowledged: v.boolean(), // Has this been reviewed by platform staff?
+    acknowledgedBy: v.optional(v.string()), // User ID who acknowledged
+    acknowledgedAt: v.optional(v.number()), // When acknowledged
+  })
+    .index("by_timestamp", ["timestamp"])
+    .index("by_org", ["organizationId"])
+    .index("by_severity_ack", ["severity", "acknowledged"]),
+
+  // Rate limiting infrastructure (Phase 6.1)
+  // Tracks API usage limits to prevent abuse or runaway loops
+  rateLimits: defineTable({
+    // Scope definition
+    scope: v.union(v.literal("platform"), v.literal("organization")),
+    scopeId: v.string(), // 'platform' for global limits, organizationId for org-specific
+
+    // Limit type
+    limitType: v.union(
+      v.literal("messages_per_hour"), // Message count limit per hour
+      v.literal("messages_per_day"), // Message count limit per day
+      v.literal("cost_per_hour"), // Cost limit per hour (in USD)
+      v.literal("cost_per_day") // Cost limit per day (in USD)
+    ),
+
+    // Limit value and current usage
+    limitValue: v.number(), // Maximum allowed (count or cost in USD)
+    currentCount: v.number(), // Current message count in window
+    currentCost: v.number(), // Current cost in window (USD)
+
+    // Rolling window tracking
+    windowStart: v.number(), // Window start timestamp
+    windowEnd: v.number(), // Window end timestamp
+    lastResetAt: v.number(), // Last time counters were reset
+  }).index("by_scope_type", ["scope", "scopeId", "limitType"]),
+
   // Track when parents view summaries
   parentSummaryViews: defineTable({
     summaryId: v.id("coachParentSummaries"),

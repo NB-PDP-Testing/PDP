@@ -4,7 +4,7 @@
  */
 
 import { v } from "convex/values";
-import { internalMutation, query } from "../_generated/server";
+import { internalMutation, internalQuery } from "../_generated/server";
 
 /**
  * Check rate limits before making AI calls
@@ -21,7 +21,7 @@ import { internalMutation, query } from "../_generated/server";
  * - resetAt: when the rate limit window resets
  * - remainingMessages: how many messages left in window (if applicable)
  */
-export const checkRateLimit = query({
+export const checkRateLimit = internalQuery({
   args: {
     organizationId: v.string(),
   },

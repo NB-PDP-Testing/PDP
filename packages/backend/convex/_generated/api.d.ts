@@ -51,6 +51,7 @@ import type * as models_guardianManagement from "../models/guardianManagement.js
 import type * as models_guardianPlayerLinks from "../models/guardianPlayerLinks.js";
 import type * as models_medicalProfiles from "../models/medicalProfiles.js";
 import type * as models_members from "../models/members.js";
+import type * as models_orgCostBudgets from "../models/orgCostBudgets.js";
 import type * as models_orgGuardianProfiles from "../models/orgGuardianProfiles.js";
 import type * as models_orgInjuryNotes from "../models/orgInjuryNotes.js";
 import type * as models_orgJoinRequests from "../models/orgJoinRequests.js";
@@ -67,6 +68,7 @@ import type * as models_playerImport from "../models/playerImport.js";
 import type * as models_playerInjuries from "../models/playerInjuries.js";
 import type * as models_playerSelfAccess from "../models/playerSelfAccess.js";
 import type * as models_players from "../models/players.js";
+import type * as models_rateLimits from "../models/rateLimits.js";
 import type * as models_referenceData from "../models/referenceData.js";
 import type * as models_sessionPlans from "../models/sessionPlans.js";
 import type * as models_skillAssessments from "../models/skillAssessments.js";
@@ -167,6 +169,7 @@ declare const fullApi: ApiFromModules<{
   "models/guardianPlayerLinks": typeof models_guardianPlayerLinks;
   "models/medicalProfiles": typeof models_medicalProfiles;
   "models/members": typeof models_members;
+  "models/orgCostBudgets": typeof models_orgCostBudgets;
   "models/orgGuardianProfiles": typeof models_orgGuardianProfiles;
   "models/orgInjuryNotes": typeof models_orgInjuryNotes;
   "models/orgJoinRequests": typeof models_orgJoinRequests;
@@ -183,6 +186,7 @@ declare const fullApi: ApiFromModules<{
   "models/playerInjuries": typeof models_playerInjuries;
   "models/playerSelfAccess": typeof models_playerSelfAccess;
   "models/players": typeof models_players;
+  "models/rateLimits": typeof models_rateLimits;
   "models/referenceData": typeof models_referenceData;
   "models/sessionPlans": typeof models_sessionPlans;
   "models/skillAssessments": typeof models_skillAssessments;

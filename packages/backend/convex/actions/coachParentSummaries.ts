@@ -439,6 +439,54 @@ export const processVoiceNoteInsight = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
+      // Step 0.1: Check rate limits FIRST (US-009)
+      // Prevents abuse or runaway loops
+      const rateCheck = await ctx.runQuery(
+        internal.models.rateLimits.checkRateLimit,
+        { organizationId: args.organizationId }
+      );
+
+      if (!rateCheck.allowed) {
+        const resetDate = rateCheck.resetAt
+          ? new Date(rateCheck.resetAt).toISOString()
+          : "soon";
+        console.warn(
+          `⚠️ Rate limit exceeded for org ${args.organizationId}: ${rateCheck.reason}. Resets at ${resetDate}`
+        );
+        // Exit early without calling AI
+        return null;
+      }
+
+      // Step 0.2: Check budget limits (US-004)
+      // Fail fast if budget exceeded
+      const budgetCheck = await ctx.runQuery(
+        internal.models.orgCostBudgets.checkOrgCostBudget,
+        { organizationId: args.organizationId }
+      );
+
+      if (!budgetCheck.withinBudget) {
+        // Log budget exceeded event for analytics
+        await ctx.runMutation(
+          internal.models.orgCostBudgets.logBudgetExceededEvent,
+          {
+            organizationId: args.organizationId,
+            reason: budgetCheck.reason,
+          }
+        );
+
+        // Get reset time for helpful error message
+        const resetInfo =
+          budgetCheck.reason === "daily_exceeded"
+            ? "Budget resets at midnight UTC"
+            : "Budget resets at start of next month";
+
+        console.warn(
+          `⚠️ Budget exceeded for org ${args.organizationId}: ${budgetCheck.reason}. ${resetInfo}`
+        );
+        // Exit early WITHOUT calling any AI
+        return null;
+      }
+
       // Step 1: Classify sensitivity
       const classification = await ctx.runAction(
         internal.actions.coachParentSummaries.classifyInsightSensitivity,
@@ -543,6 +591,19 @@ export const processVoiceNoteInsight = internalAction({
           sportId: sport._id,
         }
       );
+
+      // Step 6: Increment rate limit counters (US-009)
+      // Both AI calls succeeded, so increment the rate limit counters
+      // Note: We made 2 AI calls (classify + generate), but rate limit is per "message"
+      // which represents one complete operation (both calls combined)
+      // Cost is tracked separately in aiUsageLog - we'll use a small estimated cost here
+      // since we don't have the actual cost returned from the actions
+      // TODO: Consider returning cost from generateParentSummary action
+      const ESTIMATED_COST_PER_OPERATION = 0.001; // $0.001 = 0.1 cents per operation
+      await ctx.runMutation(internal.models.rateLimits.incrementRateLimit, {
+        organizationId: args.organizationId,
+        cost: ESTIMATED_COST_PER_OPERATION,
+      });
     } catch (error) {
       console.error("❌ Error processing voice note insight:", error);
       // Don't throw - we don't want to break the voice note pipeline

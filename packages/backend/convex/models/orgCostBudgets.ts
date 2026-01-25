@@ -4,7 +4,7 @@
  */
 
 import { v } from "convex/values";
-import { query } from "../_generated/server";
+import { internalMutation, internalQuery } from "../_generated/server";
 
 /**
  * Check if organization is within budget before making AI calls
@@ -17,7 +17,7 @@ import { query } from "../_generated/server";
  * - dailyRemaining: USD remaining in daily budget (if within budget)
  * - monthlyRemaining: USD remaining in monthly budget (if within budget)
  */
-export const checkOrgCostBudget = query({
+export const checkOrgCostBudget = internalQuery({
   args: {
     organizationId: v.string(),
   },
@@ -85,5 +85,33 @@ export const checkOrgCostBudget = query({
       dailyRemaining: budget.dailyBudgetUsd - budget.currentDailySpend,
       monthlyRemaining: budget.monthlyBudgetUsd - budget.currentMonthlySpend,
     };
+  },
+});
+
+/**
+ * Log budget exceeded event for analytics
+ *
+ * USAGE: Called from processVoiceNoteInsight when budget check fails
+ *
+ * This is NOT an alert - it's just analytics tracking.
+ * Helps us understand how often budgets are hit.
+ */
+export const logBudgetExceededEvent = internalMutation({
+  args: {
+    organizationId: v.string(),
+    reason: v.string(), // "daily_exceeded" or "monthly_exceeded"
+  },
+  returns: v.null(),
+  handler: (_ctx, args) => {
+    // For now, just log to console
+    // In the future, we could track these events in a separate table
+    console.log(
+      `⚠️ Budget exceeded for org ${args.organizationId}: ${args.reason}`
+    );
+
+    // TODO: Could insert into a budgetExceededEvents table for analytics
+    // For now, platform staff can see these in platformCostAlerts
+
+    return null;
   },
 });

@@ -1807,7 +1807,7 @@ export default defineSchema({
     timestamp: v.number(), // Date.now()
 
     // Context: who and where
-    organizationId: v.id("organization"), // Which org incurred the cost
+    organizationId: v.string(), // Better Auth organization ID (string, not Convex ID)
     coachId: v.string(), // Better Auth user ID of coach who triggered the call
     playerId: v.optional(v.id("orgPlayerEnrollments")), // Which player (if applicable)
 
@@ -1832,6 +1832,36 @@ export default defineSchema({
     .index("by_operation", ["operation"])
     .index("by_org_timestamp", ["organizationId", "timestamp"])
     .index("by_coach_timestamp", ["coachId", "timestamp"]),
+
+  // ============================================================
+  // PHASE 6.4: PERFORMANCE OPTIMIZATION
+  // Pre-aggregated daily AI usage stats for faster dashboard queries
+  // ============================================================
+
+  // Daily aggregated AI usage statistics (Phase 6.4 - US-023)
+  // Pre-computed daily rollups for 100x faster dashboard queries
+  // Cron job runs nightly at 1 AM UTC to aggregate previous day's data
+  aiUsageDailyAggregates: defineTable({
+    // Date dimension (YYYY-MM-DD format, e.g., "2026-01-25")
+    date: v.string(),
+
+    // Organization dimension
+    organizationId: v.string(), // Better Auth organization ID
+
+    // Aggregated metrics
+    totalCost: v.number(), // Sum of all costs for this org on this date
+    totalCalls: v.number(), // Count of API calls
+    totalInputTokens: v.number(), // Sum of input tokens
+    totalCachedTokens: v.number(), // Sum of cached tokens
+    totalOutputTokens: v.number(), // Sum of output tokens
+    avgCacheHitRate: v.number(), // Average cache hit rate (0.0-1.0)
+
+    // Metadata
+    createdAt: v.number(), // When this aggregate was created (timestamp)
+  })
+    .index("by_date", ["date"])
+    .index("by_org_date", ["organizationId", "date"])
+    .index("by_org", ["organizationId"]),
 
   // ============================================================
   // PHASE 6.1: COST MONITORING & BUDGET CONTROLS

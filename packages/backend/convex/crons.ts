@@ -58,4 +58,15 @@ crons.hourly(
   {}
 );
 
+// Phase 6.4: Aggregate daily AI usage stats at 1 AM UTC (US-023)
+crons.daily(
+  "aggregate-daily-usage",
+  {
+    hourUTC: 1,
+    minuteUTC: 0,
+  },
+  internal.models.aiUsageLog.aggregateDailyUsage,
+  {}
+);
+
 export default crons;

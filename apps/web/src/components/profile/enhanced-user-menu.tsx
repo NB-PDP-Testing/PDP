@@ -1,5 +1,7 @@
 "use client";
 
+import { api } from "@pdp/backend/convex/_generated/api";
+import { useQuery } from "convex/react";
 import {
   Bell,
   Brain,
@@ -39,7 +41,8 @@ import { cn } from "@/lib/utils";
  * - Avatar button trigger (h-10 for header alignment)
  * - ResponsiveDialog: Desktop dropdown (360px), Mobile bottom sheet
  * - Theme selector with grid layout (Light/Dark/System)
- * - Quick actions (Profile/Settings/Alerts/Coach)
+ * - Quick actions (Profile/Coach AI/Settings/Alerts)
+ * - Coach AI button only shows for users with coach role in any organization
  * - Sign out button
  * - WCAG 2.2 AA compliant
  * - Mobile-optimized touch targets (p-2 on mobile, p-1.5 on desktop)
@@ -59,6 +62,15 @@ export function EnhancedUserMenu() {
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [coachSettingsOpen, setCoachSettingsOpen] = useState(false);
+
+  // Check if user is a coach in any organization
+  const userOrganizations = useQuery(
+    api.models.members.getMembersForAllOrganizations,
+    {}
+  );
+  const isCoachAnywhere =
+    userOrganizations?.some((org) => org.functionalRoles?.includes("coach")) ??
+    false;
 
   // Get user initials for avatar fallback
   const getInitials = () => {
@@ -270,7 +282,12 @@ export function EnhancedUserMenu() {
 
           {/* Quick Actions Grid */}
           <div className="p-3">
-            <div className="grid grid-cols-4 gap-2">
+            <div
+              className={cn(
+                "grid gap-2",
+                isCoachAnywhere ? "grid-cols-4" : "grid-cols-3"
+              )}
+            >
               <button
                 className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent"
                 onClick={() => {
@@ -282,17 +299,19 @@ export function EnhancedUserMenu() {
                 <User aria-hidden="true" className="h-5 w-5" />
                 <span className="text-[10px]">Profile</span>
               </button>
-              <button
-                className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent"
-                onClick={() => {
-                  setOpen(false);
-                  setCoachSettingsOpen(true);
-                }}
-                type="button"
-              >
-                <Brain aria-hidden="true" className="h-5 w-5" />
-                <span className="text-[10px]">Coach AI</span>
-              </button>
+              {isCoachAnywhere && (
+                <button
+                  className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent"
+                  onClick={() => {
+                    setOpen(false);
+                    setCoachSettingsOpen(true);
+                  }}
+                  type="button"
+                >
+                  <Brain aria-hidden="true" className="h-5 w-5" />
+                  <span className="text-[10px]">Coach AI</span>
+                </button>
+              )}
               <button
                 className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent"
                 onClick={() => {

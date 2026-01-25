@@ -97,7 +97,9 @@ export default function PlatformStaffManagementPage() {
     if (!pendingInvitations) {
       return 0;
     }
-    return pendingInvitations.filter((inv) => !inv.isExpired).length;
+    return pendingInvitations.filter(
+      (inv: (typeof pendingInvitations)[number]) => !inv.isExpired
+    ).length;
   }, [pendingInvitations]);
 
   const handleTogglePlatformStaff = async (
@@ -138,9 +140,6 @@ export default function PlatformStaffManagementPage() {
       if (result.success) {
         toast.success(result.message);
         setInviteEmail("");
-        if (result.grantedImmediately) {
-          // User exists, staff granted immediately
-        }
       } else {
         toast.error(result.message);
       }
@@ -555,89 +554,91 @@ export default function PlatformStaffManagementPage() {
                     </div>
                   ) : pendingInvitations.length > 0 ? (
                     <div className="space-y-2">
-                      {pendingInvitations.map((invitation) => (
-                        <Card
-                          className={
-                            invitation.isExpired
-                              ? "border-red-200 bg-red-50"
-                              : "border-yellow-200 bg-yellow-50"
-                          }
-                          key={invitation._id}
-                        >
-                          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                                  invitation.isExpired
-                                    ? "bg-red-100"
-                                    : "bg-yellow-100"
-                                }`}
-                              >
-                                <Mail
-                                  className={`h-5 w-5 ${
+                      {pendingInvitations.map(
+                        (invitation: (typeof pendingInvitations)[number]) => (
+                          <Card
+                            className={
+                              invitation.isExpired
+                                ? "border-red-200 bg-red-50"
+                                : "border-yellow-200 bg-yellow-50"
+                            }
+                            key={invitation._id}
+                          >
+                            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
                                     invitation.isExpired
-                                      ? "text-red-600"
-                                      : "text-yellow-600"
+                                      ? "bg-red-100"
+                                      : "bg-yellow-100"
                                   }`}
-                                />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium">
-                                  {invitation.email}
-                                </p>
-                                <div className="flex flex-wrap items-center gap-2 text-sm">
-                                  {invitation.isExpired ? (
-                                    <Badge
-                                      className="bg-red-100 text-red-700"
-                                      variant="outline"
-                                    >
-                                      Expired
-                                    </Badge>
-                                  ) : (
-                                    <Badge
-                                      className="bg-yellow-100 text-yellow-700"
-                                      variant="outline"
-                                    >
-                                      <Clock className="mr-1 h-3 w-3" />
-                                      {formatTimeRemaining(
-                                        invitation.expiresAt
-                                      )}
-                                    </Badge>
-                                  )}
-                                  {invitation.invitedByName && (
-                                    <span className="text-muted-foreground">
-                                      Invited by {invitation.invitedByName}
-                                    </span>
-                                  )}
+                                >
+                                  <Mail
+                                    className={`h-5 w-5 ${
+                                      invitation.isExpired
+                                        ? "text-red-600"
+                                        : "text-yellow-600"
+                                    }`}
+                                  />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate font-medium">
+                                    {invitation.email}
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                                    {invitation.isExpired ? (
+                                      <Badge
+                                        className="bg-red-100 text-red-700"
+                                        variant="outline"
+                                      >
+                                        Expired
+                                      </Badge>
+                                    ) : (
+                                      <Badge
+                                        className="bg-yellow-100 text-yellow-700"
+                                        variant="outline"
+                                      >
+                                        <Clock className="mr-1 h-3 w-3" />
+                                        {formatTimeRemaining(
+                                          invitation.expiresAt
+                                        )}
+                                      </Badge>
+                                    )}
+                                    {invitation.invitedByName && (
+                                      <span className="text-muted-foreground">
+                                        Invited by {invitation.invitedByName}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={() =>
-                                  handleResendInvitation(invitation._id)
-                                }
-                                size="sm"
-                                variant="outline"
-                              >
-                                <RefreshCw className="mr-1 h-4 w-4" />
-                                {invitation.isExpired ? "Resend" : "Extend"}
-                              </Button>
-                              <Button
-                                className="text-red-600 hover:bg-red-100 hover:text-red-700"
-                                onClick={() =>
-                                  handleCancelInvitation(invitation._id)
-                                }
-                                size="sm"
-                                variant="ghost"
-                              >
-                                <X className="mr-1 h-4 w-4" />
-                                Cancel
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() =>
+                                    handleResendInvitation(invitation._id)
+                                  }
+                                  size="sm"
+                                  variant="outline"
+                                >
+                                  <RefreshCw className="mr-1 h-4 w-4" />
+                                  {invitation.isExpired ? "Resend" : "Extend"}
+                                </Button>
+                                <Button
+                                  className="text-red-600 hover:bg-red-100 hover:text-red-700"
+                                  onClick={() =>
+                                    handleCancelInvitation(invitation._id)
+                                  }
+                                  size="sm"
+                                  variant="ghost"
+                                >
+                                  <X className="mr-1 h-4 w-4" />
+                                  Cancel
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )
+                      )}
                     </div>
                   ) : (
                     <Card className="border-dashed">

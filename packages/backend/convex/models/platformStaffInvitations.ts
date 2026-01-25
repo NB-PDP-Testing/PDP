@@ -7,7 +7,7 @@
  */
 
 import { v } from "convex/values";
-import { components } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 
 const INVITATION_EXPIRY_DAYS = 7;
@@ -114,6 +114,17 @@ export const createInvitation = mutation({
       createdAt: now,
       expiresAt,
     });
+
+    // Schedule email sending via internal action
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.platformStaffInvitations.sendInvitationEmail,
+      {
+        email: normalizedEmail,
+        invitedByName: args.invitedByName,
+        invitedByEmail: args.invitedByEmail,
+      }
+    );
 
     return {
       success: true,
@@ -316,6 +327,17 @@ export const resendInvitation = mutation({
     await ctx.db.patch(args.invitationId, {
       expiresAt: newExpiresAt,
     });
+
+    // Schedule email sending via internal action
+    await ctx.scheduler.runAfter(
+      0,
+      internal.actions.platformStaffInvitations.sendInvitationEmail,
+      {
+        email: invitation.email,
+        invitedByName: invitation.invitedByName,
+        invitedByEmail: invitation.invitedByEmail,
+      }
+    );
 
     return {
       success: true,

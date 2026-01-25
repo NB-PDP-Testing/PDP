@@ -1069,6 +1069,190 @@ The PlayerARC Team
 }
 
 /**
+ * Platform staff invitation email data
+ */
+type PlatformStaffInvitationEmailData = {
+  email: string;
+  invitedByName?: string;
+  invitedByEmail?: string;
+  inviteLink: string;
+  expiresInDays: number;
+};
+
+/**
+ * Send platform staff invitation email
+ */
+export async function sendPlatformStaffInvitationEmail(
+  data: PlatformStaffInvitationEmailData
+): Promise<void> {
+  const { email, invitedByName, invitedByEmail, inviteLink, expiresInDays } =
+    data;
+
+  const subject = "You've been invited to become Platform Staff on PlayerARC";
+  const logoUrl = getLogoUrl();
+  const inviterDisplay = invitedByName
+    ? `${invitedByName}${invitedByEmail ? ` (${invitedByEmail})` : ""}`
+    : invitedByEmail || "A platform administrator";
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin: 0 auto;">
+            <tr>
+              <td style="text-align: center; padding-bottom: 4px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 0 auto;">
+                  <tr>
+                    <td style="vertical-align: middle; padding-right: 12px;">
+                      <img src="${logoUrl}" alt="PlayerARC Logo" style="max-width: 80px; height: auto; display: block;" />
+                    </td>
+                    <td style="vertical-align: middle;">
+                      <h1 style="color: white; margin: 0; font-size: 24px; font-weight: bold; line-height: 1.2;">PlayerARC</h1>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="text-align: center; padding-top: 0;">
+                <p style="color: #22c55e; margin: 0; font-size: 13px; font-style: italic;">As many as possible, for as long as possible…</p>
+              </td>
+            </tr>
+          </table>
+        </div>
+        <div style="background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
+          <h2 style="color: #1E3A5F; margin-top: 0;">You've been invited to become Platform Staff!</h2>
+          <p>Hi there,</p>
+          <p>
+            <strong>${inviterDisplay}</strong> has invited you to become a <strong>Platform Staff</strong> member on PlayerARC.
+          </p>
+
+          <div style="background-color: #f3e8ff; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #9333ea;">
+            <h3 style="color: #7c3aed; margin: 0 0 10px 0; font-size: 16px;">🛡️ Platform Staff Access</h3>
+            <p style="margin: 0; color: #6b21a8;">As a Platform Staff member, you'll have administrative access to manage the entire PlayerARC platform, including:</p>
+            <ul style="margin: 10px 0 0 0; padding-left: 20px; color: #6b21a8;">
+              <li>Manage organizations and clubs</li>
+              <li>Configure platform settings</li>
+              <li>Access administrative tools</li>
+              <li>Support users across the platform</li>
+            </ul>
+          </div>
+
+          <div style="text-align: center; margin: 30px 0;">
+            <a
+              href="${inviteLink}"
+              style="background-color: #9333ea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;"
+            >
+              Accept Invitation & Create Account
+            </a>
+          </div>
+
+          <p style="font-size: 13px; color: #666; margin-top: 25px;">
+            Once you create your account, you'll automatically be granted Platform Staff access.
+          </p>
+
+          <p style="font-size: 12px; color: #999; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+            If the button doesn't work, copy and paste this link into your browser:<br>
+            <a href="${inviteLink}" style="color: #1E3A5F; word-break: break-all;">${inviteLink}</a>
+          </p>
+          <p style="font-size: 12px; color: #999;">
+            This invitation will expire in ${expiresInDays} days. If you didn't expect this invitation,
+            you can safely ignore this email.
+          </p>
+        </div>
+        <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #999;">
+          <p>© ${new Date().getFullYear()} PlayerARC. All rights reserved.</p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const textBody = `
+You've been invited to become Platform Staff on PlayerARC!
+
+${inviterDisplay} has invited you to become a Platform Staff member on PlayerARC.
+
+PLATFORM STAFF ACCESS
+As a Platform Staff member, you'll have administrative access to manage the entire PlayerARC platform, including:
+- Manage organizations and clubs
+- Configure platform settings
+- Access administrative tools
+- Support users across the platform
+
+Accept your invitation by clicking this link:
+${inviteLink}
+
+Once you create your account, you'll automatically be granted Platform Staff access.
+
+---
+This invitation will expire in ${expiresInDays} days. If you didn't expect this invitation, you can safely ignore this email.
+
+© ${new Date().getFullYear()} PlayerARC. All rights reserved.
+  `.trim();
+
+  // Log email details (for development/debugging)
+  console.log("📧 Platform Staff Invitation Email:", {
+    to: email,
+    subject,
+    invitedBy: inviterDisplay,
+  });
+
+  // Send email via Resend API
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const fromEmail =
+    process.env.EMAIL_FROM_ADDRESS ||
+    "PlayerARC <team@notifications.playerarc.io>";
+
+  if (!resendApiKey) {
+    console.warn(
+      "⚠️ RESEND_API_KEY not configured. Platform staff invitation email will not be sent. Set RESEND_API_KEY in Convex dashboard."
+    );
+    return;
+  }
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject,
+        html: htmlBody,
+        text: textBody,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("❌ Failed to send platform staff invitation email:", {
+        status: response.status,
+        error: errorData,
+      });
+      throw new Error(`Resend API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log(
+      "✅ Platform staff invitation email sent successfully:",
+      result.id
+    );
+  } catch (error) {
+    console.error("❌ Error sending platform staff invitation email:", error);
+    // Don't throw - log the error but don't break the invitation flow
+  }
+}
+
+/**
  * Pending guardian action notification email data (for existing users)
  */
 type PendingGuardianActionEmailData = {

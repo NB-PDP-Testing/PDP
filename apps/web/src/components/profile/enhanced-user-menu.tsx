@@ -8,6 +8,7 @@ import {
   Monitor,
   Moon,
   Settings,
+  Shield,
   Sun,
   User,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import { useTheme } from "next-themes";
 import { useState } from "react";
 import { ResponsiveDialog } from "@/components/interactions";
 import { AlertsDialog } from "@/components/profile/alerts-dialog";
+import { CoachSettingsDialog } from "@/components/profile/coach-settings-dialog";
 import { PreferencesDialog } from "@/components/profile/preferences-dialog";
 import { ProfileSettingsDialog } from "@/components/profile/profile-settings-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -37,7 +39,7 @@ import { cn } from "@/lib/utils";
  * - Avatar button trigger (h-10 for header alignment)
  * - ResponsiveDialog: Desktop dropdown (360px), Mobile bottom sheet
  * - Theme selector with grid layout (Light/Dark/System)
- * - Quick actions (Profile/Settings/Alerts)
+ * - Quick actions (Profile/Settings/Alerts/Coach)
  * - Sign out button
  * - WCAG 2.2 AA compliant
  * - Mobile-optimized touch targets (p-2 on mobile, p-1.5 on desktop)
@@ -56,6 +58,7 @@ export function EnhancedUserMenu() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [coachSettingsOpen, setCoachSettingsOpen] = useState(false);
 
   // Get user initials for avatar fallback
   const getInitials = () => {
@@ -267,7 +270,7 @@ export function EnhancedUserMenu() {
 
           {/* Quick Actions Grid */}
           <div className="p-3">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
               <button
                 className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent"
                 onClick={() => {
@@ -301,6 +304,17 @@ export function EnhancedUserMenu() {
                 <Bell aria-hidden="true" className="h-5 w-5" />
                 <span className="text-[10px]">Alerts</span>
               </button>
+              <button
+                className="flex flex-col items-center gap-1 rounded p-2 hover:bg-accent"
+                onClick={() => {
+                  setOpen(false);
+                  setCoachSettingsOpen(true);
+                }}
+                type="button"
+              >
+                <Shield aria-hidden="true" className="h-5 w-5" />
+                <span className="text-[10px]">Coach</span>
+              </button>
             </div>
 
             <Separator className="my-2" />
@@ -325,6 +339,10 @@ export function EnhancedUserMenu() {
         open={preferencesOpen}
       />
       <AlertsDialog onOpenChange={setAlertsOpen} open={alertsOpen} />
+      <CoachSettingsDialog
+        onOpenChange={setCoachSettingsOpen}
+        open={coachSettingsOpen}
+      />
     </>
   );
 }

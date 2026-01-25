@@ -6,7 +6,111 @@
  */
 
 import { v } from "convex/values";
-import { internalMutation, internalQuery, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "../_generated/server";
+import { authComponent } from "../auth";
+
+/**
+ * Get detailed AI service health status (PLATFORM STAFF ONLY)
+ * Returns full health record with all metrics for admin dashboard
+ * Returns null if no health record exists (healthy by default)
+ */
+export const getPlatformServiceHealth = query({
+  args: {},
+  returns: v.union(
+    v.object({
+      status: v.union(
+        v.literal("healthy"),
+        v.literal("degraded"),
+        v.literal("down")
+      ),
+      circuitBreakerState: v.union(
+        v.literal("closed"),
+        v.literal("open"),
+        v.literal("half_open")
+      ),
+      lastSuccessAt: v.number(),
+      lastFailureAt: v.number(),
+      recentFailureCount: v.number(),
+      failureWindow: v.number(),
+      lastCheckedAt: v.number(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx) => {
+    // Check authorization
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
+      throw new Error("Unauthorized: Platform staff access required");
+    }
+
+    // Get the singleton health record
+    const health = await ctx.db.query("aiServiceHealth").first();
+
+    if (!health) {
+      return null; // No health record = assume healthy
+    }
+
+    return {
+      status: health.status,
+      circuitBreakerState: health.circuitBreakerState,
+      lastSuccessAt: health.lastSuccessAt,
+      lastFailureAt: health.lastFailureAt,
+      recentFailureCount: health.recentFailureCount,
+      failureWindow: health.failureWindow,
+      lastCheckedAt: health.lastCheckedAt,
+    };
+  },
+});
+
+/**
+ * Force reset the circuit breaker to closed state (PLATFORM STAFF ONLY)
+ * Used when admin manually verifies service is back online
+ */
+export const forceResetCircuitBreaker = mutation({
+  args: {},
+  returns: v.union(
+    v.object({
+      success: v.boolean(),
+      message: v.string(),
+    }),
+    v.null()
+  ),
+  handler: async (ctx) => {
+    // Check authorization
+    const currentUser = await authComponent.safeGetAuthUser(ctx);
+    if (!currentUser?.isPlatformStaff) {
+      throw new Error("Unauthorized: Platform staff access required");
+    }
+
+    // Get the singleton health record
+    const health = await ctx.db.query("aiServiceHealth").first();
+
+    if (!health) {
+      return {
+        success: false,
+        message: "No health record found - nothing to reset",
+      };
+    }
+
+    // Reset to healthy state with closed circuit
+    await ctx.db.patch(health._id, {
+      status: "healthy",
+      circuitBreakerState: "closed",
+      recentFailureCount: 0,
+      lastCheckedAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      message: "Circuit breaker reset to closed state",
+    };
+  },
+});
 
 /**
  * Get the current AI service health status (PUBLIC)

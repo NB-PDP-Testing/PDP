@@ -1960,6 +1960,27 @@ export default defineSchema({
   }),
   // No indexes needed - singleton table with only one record
 
+  // Platform-wide messaging and AI feature settings
+  // Singleton table - only one record controls all platform settings
+  platformMessagingSettings: defineTable({
+    // Setting identifier (singleton - always 'global')
+    settingId: v.literal("global"),
+
+    // Feature toggles - control individual AI features
+    aiGenerationEnabled: v.boolean(), // Enable/disable AI summary generation
+    autoApprovalEnabled: v.boolean(), // Enable/disable auto-approval for trusted coaches
+    parentNotificationsEnabled: v.boolean(), // Enable/disable parent notifications
+
+    // Emergency controls
+    emergencyMode: v.boolean(), // Emergency kill switch - disables ALL AI features
+    emergencyMessage: v.optional(v.string()), // Message shown to users when emergency mode active
+
+    // Audit tracking
+    lastUpdatedAt: v.number(), // Last time settings were modified
+    lastUpdatedBy: v.optional(v.id("user")), // Platform staff who made the change
+  }),
+  // No indexes needed - singleton table with only one record
+
   // Track when parents view summaries
   parentSummaryViews: defineTable({
     summaryId: v.id("coachParentSummaries"),

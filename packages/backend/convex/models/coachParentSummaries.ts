@@ -61,7 +61,7 @@ const summaryValidator = v.object({
   viewedAt: v.optional(v.number()),
   acknowledgedAt: v.optional(v.number()),
   acknowledgedBy: v.optional(v.string()),
-  wouldAutoApprove: v.boolean(),
+  wouldAutoApprove: v.optional(v.boolean()),
   autoApprovalDecision: v.optional(
     v.object({
       shouldAutoApprove: v.boolean(),

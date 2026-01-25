@@ -81,11 +81,20 @@ export function ParentsTab({ orgId, onSuccess, onError }: ParentsTabProps) {
     }
   };
 
-  const handleSuppressSummary = async (summaryId: string) => {
+  const handleSuppressSummary = async (
+    summaryId: string,
+    feedback?: {
+      wasInaccurate: boolean;
+      wasTooSensitive: boolean;
+      timingWasWrong: boolean;
+      otherReason?: string;
+    }
+  ) => {
     setSuppressingIds((prev) => new Set(prev).add(summaryId));
     try {
       await suppressSummary({
         summaryId: summaryId as Id<"coachParentSummaries">,
+        feedback,
       });
       onSuccess("Summary suppressed - will not be shared");
     } catch (error) {
@@ -170,7 +179,12 @@ export function ParentsTab({ orgId, onSuccess, onError }: ParentsTabProps) {
           // Common props for all card types (key handled separately per React)
           const commonProps = {
             onApprove: () => handleApproveSummary(item._id),
-            onSuppress: () => handleSuppressSummary(item._id),
+            onSuppress: (feedback?: {
+              wasInaccurate: boolean;
+              wasTooSensitive: boolean;
+              timingWasWrong: boolean;
+              otherReason?: string;
+            }) => handleSuppressSummary(item._id, feedback),
             player: item.player
               ? {
                   firstName: item.player.firstName,

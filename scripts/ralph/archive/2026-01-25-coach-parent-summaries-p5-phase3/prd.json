@@ -61,7 +61,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 1,
-      "passes": true,
+      "passes": false,
       "notes": "Learning signal. Track when coach disagrees with AI: approves low confidence (<70%), rejects high confidence (>70%), revokes auto-sent, or edits before sending. Optional feedback captures WHY (enables pattern analysis)."
     },
     {
@@ -80,7 +80,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": "Low friction - feedback is optional. But when provided, enables AI improvement. Pattern example: 'AI thought this was good (75% confidence) but coach suppressed because timing was wrong.' This signals AI to consider timing in future."
     },
     {

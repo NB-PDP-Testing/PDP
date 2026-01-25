@@ -1,376 +1,126 @@
-# P5 Phase 4 (Learning Loop) - Progress Tracker
+# Ralph Progress Log
+Started: Sun 25 Jan 2026 00:20:26 GMT
+---
 
-## Phase Context
+## CODE REVIEW FEEDBACK
 
-**Previous Phase:** Phase 3 (Cost Optimization) - COMPLETE
-- US-012 to US-015: Prompt caching, usage tracking, analytics
-- 90% AI cost reduction capability via Anthropic prompt caching
-- All AI calls logged to aiUsageLog table
-- Analytics query ready for cost visibility
+### Agent Feedback - 2026-01-25 00:20
+# Agent Feedback for P5 Phase 4 (Learning Loop)
 
-**This Phase:** Phase 4 (Learning Loop)
-- US-016: Add override tracking fields to schema
-- US-017: Capture override data in suppressSummary mutation
-- US-018: Add optional feedback UI for suppression
-- US-019: Create getCoachOverridePatterns analytics query
-- US-020: Implement adaptive confidence thresholds per coach
+## Phase 4 - Ready for Ralph
+Starting fresh for US-016 through US-020
 
-**Goal:** AI learns from coach behavior. Personalize automation per coach based on their actual approval patterns.
+<!-- Agents will write feedback below this line -->
+
+## Quality Monitor - 2026-01-25 00:17:05
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 00:18:16
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 00:19:27
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 00:20:14
+- ⚠️ Biome lint errors found
+
+
+## 2026-01-25 20:30 - US-016 - Add override tracking fields to coachParentSummaries
+**Iteration**: 1
+**Commit**: ba791708a8727262669acbf37fa239d3842f07bc
+**Session**: b65b8f57-711b-48b9-9918-4c739bce4b08
+**Status**: Complete
+
+### What was implemented
+- Added three new optional fields to coachParentSummaries schema for learning signal tracking:
+  - `overrideType`: Union type tracking coach override actions (approved_low_confidence, rejected_high_confidence, edited, revoked_auto)
+  - `overrideReason`: Optional string for text explanation
+  - `overrideFeedback`: Optional structured feedback object with boolean flags for inaccurate, too sensitive, timing wrong, plus optional other reason text
+- Fields placed after revocation tracking section, before table indexes
+- All fields are optional to maintain backward compatibility
+
+### Files changed
+- packages/backend/convex/schema.ts (+20 lines)
+
+### Quality checks
+- ✅ Type check: passed (npm run check-types)
+- ✅ Codegen: passed (npx -w packages/backend convex codegen)
+- ✅ Pre-commit hooks: passed (lint-staged with biome)
+- ✅ No browser verification needed (backend schema change only)
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Schema changes for Convex require running codegen immediately after editing schema.ts
+- Pre-existing lint errors exist in the codebase (1350+ warnings), but pre-commit hooks only check staged files
+- Override tracking fields are all optional to allow gradual rollout and backward compatibility
+
+**Gotchas encountered:**
+- Schema.ts file is very large (32k+ tokens), need to use grep/search or offset/limit when reading
+- The coachParentSummaries table already had extensive Phase 2 and Phase 3 fields (auto-approval, revocation tracking)
+- Pre-commit hooks run biome with --diagnostic-level=error, so only errors block commits, not warnings
+
+**Dependencies found:**
+- These schema fields will be populated by suppressSummary mutation (US-017)
+- These fields will be read by getCoachOverridePatterns query (US-019)
+- The overrideType values align with the learning logic needed for adaptive thresholds (US-020)
+
+**What to do next**:
+- Move to US-017: Capture override data in suppressSummary mutation
+- The mutation already exists, need to add optional args and logic to populate the new schema fields
+
+**Mistakes made**: None - straightforward schema addition
 
 ---
 
-## Critical Convex Patterns
+## 2026-01-25 21:00 - US-017 - Capture override data in suppressSummary mutation
+**Iteration**: 1
+**Commit**: 5afd606d049fd73e5587e6b66716c143bd98a59e
+**Session**: b65b8f57-711b-48b9-9918-4c739bce4b08
+**Status**: Complete
 
-### Authentication Pattern (FROM PHASE 2 BUG FIX)
-**CRITICAL:** Better Auth userId field is optional and unset for all users!
+### What was implemented
+- Extended suppressSummary mutation with optional feedback parameters:
+  - Added `reason` arg (optional string) for text explanation
+  - Added `feedback` arg (optional structured object) with boolean flags and other reason
+- Implemented override detection logic:
+  - If confidenceScore >= 0.7: sets overrideType to 'coach_rejected_high_confidence'
+  - If confidenceScore < 0.7: overrideType remains undefined (normal suppression)
+- Mutation now stores overrideType, overrideReason, and overrideFeedback in the summary record
 
-```typescript
-// ❌ WRONG - Will fail for all users
-const user = await authComponent.safeGetAuthUser(ctx);
-if (!user?.userId) {
-  throw new Error("Not authenticated");
-}
-const coachId = user.userId; // userId is undefined!
+### Files changed
+- packages/backend/convex/models/coachParentSummaries.ts (+20 lines, -1 line)
 
-// ✅ CORRECT - Use fallback pattern
-const user = await authComponent.safeGetAuthUser(ctx);
-if (!user) {
-  throw new Error("Not authenticated");
-}
-const coachId = user.userId || user._id;
-if (!coachId) {
-  throw new Error("User ID not found");
-}
-```
+### Quality checks
+- ✅ Type check: passed (npm run check-types)
+- ✅ Codegen: passed (npx -w packages/backend convex codegen)
+- ✅ Pre-commit hooks: passed (lint-staged with biome)
+- ✅ No browser verification needed (backend mutation change only)
 
-**Why:** Better Auth user table has userId field but it's optional/unset. The _id field is the primary identifier.
+### Learnings for future iterations ⚠️ CRITICAL
 
-### Query Pattern
-```typescript
-export const myQuery = query({
-  args: { orgId: v.id("organization") },
-  returns: v.object({ /* ... */ }),
-  handler: async (ctx, args) => {
-    // Always use indexes, NEVER .filter()
-    const data = await ctx.db
-      .query("tableName")
-      .withIndex("by_orgId", q => q.eq("organizationId", args.orgId))
-      .collect();
+**Patterns discovered:**
+- The suppressSummary mutation already had preview mode stats tracking - added override tracking alongside it
+- Args validators use v.optional() for optional parameters
+- The 70% confidence threshold (0.7) is consistent with the auto-approval threshold used elsewhere in the codebase
 
-    return { data };
-  },
-});
-```
+**Gotchas encountered:**
+- Must read file before editing (got error on first attempt)
+- The mutation already called updateTrustMetrics - no need to modify that flow
 
-### Mutation Pattern
-```typescript
-export const myMutation = mutation({
-  args: { id: v.id("tableName"), field: v.string() },
-  returns: v.object({ success: v.boolean() }),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { field: args.field });
-    return { success: true };
-  },
-});
-```
+**Dependencies found:**
+- The overrideType value 'coach_rejected_high_confidence' matches the schema union types from US-016
+- The feedback object structure matches exactly what was defined in schema
+- Frontend (US-018) will need to pass these optional args when calling suppressSummary
 
-### Scheduled Function Pattern (NEW FOR PHASE 4)
-```typescript
-// In packages/backend/convex/crons.ts
-import { cronJobs } from "convex/server";
-import { internal } from "./_generated/api";
+**What to do next**:
+- Move to US-018: Add optional feedback UI for suppression
+- Need to modify summary-approval-card.tsx to show dialog on suppress click
+- Dialog should make feedback optional (skip button as default)
 
-const crons = cronJobs();
-
-crons.weekly(
-  "adjust-thresholds",
-  { dayOfWeek: "sunday", hourUTC: 2, minuteUTC: 0 },
-  internal.crons.adjustPersonalizedThresholds
-);
-
-export default crons;
-```
-
-**Testing Scheduled Functions:**
-- Can't test timing easily in dev
-- Use Convex dashboard to trigger manually
-- Logs show in Convex dashboard logs section
+**Mistakes made**: None - straightforward mutation extension
 
 ---
-
-## Override Tracking Patterns (NEW FOR PHASE 4)
-
-### Override Type Logic
-```typescript
-// When coach suppresses a summary:
-const overrideType = summary.confidenceScore >= 0.7
-  ? 'coach_rejected_high_confidence'  // AI was confident but coach disagreed
-  : null;  // Suppressing low confidence is normal, not an override
-
-// When coach approves low confidence:
-if (summary.status === 'approved' && summary.confidenceScore < 0.7) {
-  overrideType = 'coach_approved_low_confidence';
-}
-
-// When coach revokes auto-sent:
-if (summary.wasAutoApproved && now revoked) {
-  overrideType = 'coach_revoked_auto';
-}
-
-// When coach edits before sending:
-if (summary was edited) {
-  overrideType = 'coach_edited';
-}
-```
-
-### Adaptive Threshold Calculation
-```typescript
-// Analyze last 30 days of coach decisions
-const lowConfApprovals = overrides.filter(o =>
-  o.overrideType === 'coach_approved_low_confidence' &&
-  o.confidenceScore >= 0.6 && o.confidenceScore < 0.7
-).length;
-
-const highConfRejections = overrides.filter(o =>
-  o.overrideType === 'coach_rejected_high_confidence' &&
-  o.confidenceScore >= 0.8
-).length;
-
-const totalDecisions = overrides.length;
-
-let adjustment = 0;
-
-// Coach trusts AI more than default → lower threshold
-if (lowConfApprovals / totalDecisions > 0.5) {
-  adjustment = -0.05;  // Lower by 5%
-}
-
-// Coach is more conservative → raise threshold
-if (highConfRejections / totalDecisions > 0.2) {
-  adjustment = +0.05;  // Raise by 5%
-}
-
-// Apply adjustment with safety bounds
-const personalizedThreshold = Math.max(0.6, Math.min(0.85,
-  defaultThreshold + adjustment
-));
-```
-
-### Feedback Capture (Optional, Low Friction)
-```typescript
-// In suppressSummary mutation
-export const suppressSummary = mutation({
-  args: {
-    summaryId: v.id("coachParentSummaries"),
-    reason: v.optional(v.string()),
-    feedback: v.optional(v.object({
-      wasInaccurate: v.boolean(),
-      wasTooSensitive: v.boolean(),
-      timingWasWrong: v.boolean(),
-      otherReason: v.optional(v.string())
-    }))
-  },
-  // ...implementation
-});
-
-// UI: Show dialog with checkboxes
-// Default: "Skip" button (most common)
-// Optional: "Suppress & Send Feedback" button
-```
-
----
-
-## Phase 3 Learnings (IMPORTANT!)
-
-### Anthropic Prompt Caching
-- Add header: `{ "anthropic-beta": "prompt-caching-2024-07-31" }`
-- Cache static content (system prompts, player context)
-- Don't cache varying content (insight text)
-- Extract cache stats from `response.usage.cache_read_input_tokens`
-- Calculate cost: `(inputTokens - cachedTokens) * 0.000005 + cachedTokens * 0.0000005 + outputTokens * 0.000015`
-
-### AI Usage Logging
-- Every AI call logged to aiUsageLog table
-- Track: timestamp, orgId, coachId, playerId, operation, model, tokens, cost, cacheHitRate
-- Log in action via `ctx.runMutation(internal.models.aiUsageLog.logUsage, {...})`
-- Error handling: logging failure shouldn't break main operation
-
-### Analytics Queries
-- Use indexes with `.filter()` for date ranges (Convex doesn't support range queries on non-indexed fields)
-- Consider pagination if >1000 entries
-- Return empty structure if no data (don't throw)
-- Aggregates: reduce() or manual counting
-
----
-
-## Phase 4 User Stories Status
-
-### ⏳ US-016: Add override tracking fields to coachParentSummaries
-**Status:** Not started
-**Files to modify:**
-- packages/backend/convex/schema.ts
-
-**Key tasks:**
-1. Add overrideType: v.optional(v.union(...))
-2. Add overrideReason: v.optional(v.string())
-3. Add overrideFeedback: v.optional(v.object({...}))
-4. Run codegen to verify
-
-**Testing:**
-- Schema compiles without errors
-- Types available in _generated/api.d.ts
-
----
-
-### ⏳ US-017: Capture override data in suppressSummary
-**Status:** Not started
-**Files to modify:**
-- packages/backend/convex/models/coachParentSummaries.ts
-
-**Key tasks:**
-1. Add optional reason and feedback args to suppressSummary
-2. Calculate overrideType based on confidenceScore
-3. Store override data via ctx.db.patch
-4. Update returns validator
-
-**Testing:**
-- Suppress high confidence → overrideType set
-- Suppress low confidence → overrideType null
-- Feedback optional, not required
-
----
-
-### ⏳ US-018: Add optional feedback UI for suppression
-**Status:** Not started
-**Files to modify:**
-- apps/web/src/app/orgs/[orgId]/coach/voice-notes/components/summary-approval-card.tsx
-
-**Key tasks:**
-1. Import Dialog components from shadcn
-2. Add feedback form with checkboxes and textarea
-3. Wire to suppressSummary mutation
-4. Make "Skip" the default action (low friction)
-
-**Testing:**
-- Click suppress → dialog appears
-- Click "Skip" → suppresses without feedback
-- Fill form + "Send Feedback" → feedback captured
-- ESC key closes dialog
-
----
-
-### ⏳ US-019: Create getCoachOverridePatterns analytics query
-**Status:** Not started
-**Files to create:**
-- packages/backend/convex/models/coachOverrideAnalytics.ts
-
-**Key tasks:**
-1. Query coachParentSummaries where overrideType not null
-2. Calculate aggregates (totalOverrides, byType, patterns)
-3. Support coachId and organizationId filters
-4. Add returns validator
-
-**Testing:**
-- Create test overrides manually
-- Query by coachId → see patterns
-- Query by organizationId → see org patterns
-- Verify aggregates are correct
-
----
-
-### ⏳ US-020: Implement adaptive confidence thresholds
-**Status:** Not started
-**Files to modify:**
-- packages/backend/convex/lib/autoApprovalDecision.ts
-- packages/backend/convex/schema.ts (add personalizedThreshold field)
-- packages/backend/convex/crons.ts (add scheduled function)
-
-**Key tasks:**
-1. Add calculatePersonalizedThreshold function
-2. Add personalizedThreshold to coachTrustLevels schema
-3. Create adjustPersonalizedThresholds scheduled function
-4. Use personalizedThreshold in auto-approval decision
-
-**Testing:**
-- Create override history with patterns
-- Run threshold calculation manually
-- Verify threshold adjusts correctly
-- Test cron manually via Convex dashboard
-- Verify auto-approval uses personalized threshold
-
----
-
-## Known Issues & Gotchas
-
-1. **Better Auth userId** - Always use `user.userId || user._id` fallback
-2. **Optional feedback** - Don't make it mandatory, kills engagement
-3. **Threshold bounds** - Clamp to [0.6, 0.85] for safety
-4. **Minimum data** - Only adjust thresholds with >20 override decisions
-5. **Scheduled functions** - Test manually first, timing is hard to verify
-6. **Dialog UX** - "Skip" must be obvious and default
-7. **Index usage** - Always use .withIndex(), NEVER .filter() alone
-
----
-
-## Testing Checklist
-
-### US-016 Testing (Schema)
-- [ ] Run codegen without errors
-- [ ] Verify types in _generated/api.d.ts
-- [ ] Check fields added to coachParentSummaries table
-
-### US-017 Testing (Mutation)
-- [ ] Suppress high confidence summary → overrideType set
-- [ ] Suppress low confidence summary → overrideType null
-- [ ] Pass feedback → stored in DB
-- [ ] Skip feedback → still works
-
-### US-018 Testing (UI)
-- [ ] Click suppress → dialog appears
-- [ ] Click "Skip" → summary suppressed, no feedback
-- [ ] Check boxes + "Send Feedback" → feedback captured
-- [ ] ESC key closes dialog
-- [ ] Works on mobile (responsive)
-
-### US-019 Testing (Analytics)
-- [ ] Create test overrides
-- [ ] Query by coachId → see patterns
-- [ ] Query by organizationId → see org patterns
-- [ ] Verify aggregates correct
-- [ ] Test with no overrides → empty result
-
-### US-020 Testing (Adaptive Thresholds)
-- [ ] Create coach with many low-confidence approvals → threshold lowers
-- [ ] Create coach with many high-confidence rejections → threshold raises
-- [ ] Verify threshold clamped to [0.6, 0.85]
-- [ ] Test cron manually via Convex dashboard
-- [ ] Verify auto-approval uses personalized threshold
-
----
-
-## Success Criteria
-
-Phase 4 is complete when:
-- ✅ All 5 user stories implemented
-- ✅ Override tracking captures coach disagreements
-- ✅ Optional feedback UI works (low friction)
-- ✅ Analytics query shows override patterns
-- ✅ Adaptive thresholds adjust per coach
-- ✅ Scheduled function runs weekly
-- ✅ All quality checks passing
-- ✅ No regressions in Phases 1-3
-
----
-
-## Notes for Ralph
-
-- Read P5_PHASE4_HANDOFF.md for comprehensive context
-- Review prd.json for user story details
-- Follow override tracking patterns above
-- Use authentication pattern from Phase 2 learnings
-- Test scheduled functions manually in Convex dashboard
-- Keep feedback UI optional and low friction
-- Update this file with progress as you complete stories
-- Mark stories as passing in prd.json when done
-
-Ready for Phase 4 execution!

@@ -32,6 +32,7 @@ import type * as migrations_migrateLegacyData from "../migrations/migrateLegacyD
 import type * as models_adultPlayers from "../models/adultPlayers.js";
 import type * as models_ageGroupEligibilityOverrides from "../models/ageGroupEligibilityOverrides.js";
 import type * as models_aiModelConfig from "../models/aiModelConfig.js";
+import type * as models_aiUsageLog from "../models/aiUsageLog.js";
 import type * as models_checkUserRoles from "../models/checkUserRoles.js";
 import type * as models_cleanupOldData from "../models/cleanupOldData.js";
 import type * as models_coachParentMessages from "../models/coachParentMessages.js";
@@ -146,6 +147,7 @@ declare const fullApi: ApiFromModules<{
   "models/adultPlayers": typeof models_adultPlayers;
   "models/ageGroupEligibilityOverrides": typeof models_ageGroupEligibilityOverrides;
   "models/aiModelConfig": typeof models_aiModelConfig;
+  "models/aiUsageLog": typeof models_aiUsageLog;
   "models/checkUserRoles": typeof models_checkUserRoles;
   "models/cleanupOldData": typeof models_cleanupOldData;
   "models/coachParentMessages": typeof models_coachParentMessages;

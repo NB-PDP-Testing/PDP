@@ -107,7 +107,7 @@ export function CoachFeedback({ orgId }: CoachFeedbackProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {summariesData?.map((childData) => (
+          {summariesData?.map((childData: any) => (
             <div key={childData.player._id}>
               {/* Child name header */}
               <h3 className="mb-3 font-semibold text-lg">
@@ -116,7 +116,7 @@ export function CoachFeedback({ orgId }: CoachFeedbackProps) {
 
               {/* Sport groups for this child */}
               <div className="space-y-4">
-                {childData.sportGroups.map((sportGroup) => (
+                {childData.sportGroups.map((sportGroup: any) => (
                   <div key={sportGroup.sport?._id || `sport-${Math.random()}`}>
                     {/* Sport name subheader with icon (US-019) and badge (US-020) */}
                     {sportGroup.sport && (
@@ -136,7 +136,7 @@ export function CoachFeedback({ orgId }: CoachFeedbackProps) {
 
                     {/* Summary cards */}
                     <div className="space-y-2">
-                      {sportGroup.summaries.map((summary) => (
+                      {sportGroup.summaries.map((summary: any) => (
                         <ParentSummaryCard
                           isUnread={!summary.acknowledgedAt}
                           key={summary._id}

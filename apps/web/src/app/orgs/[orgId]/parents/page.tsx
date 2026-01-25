@@ -168,10 +168,11 @@ function ParentDashboardContent() {
       return 0;
     }
     return summariesData.reduce(
-      (total, childData) =>
+      (total: any, childData: any) =>
         total +
         childData.sportGroups.reduce(
-          (childTotal, sportGroup) => childTotal + sportGroup.unreadCount,
+          (childTotal: any, sportGroup: any) =>
+            childTotal + sportGroup.unreadCount,
           0
         ),
       0

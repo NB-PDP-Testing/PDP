@@ -8,9 +8,12 @@ import {
   CheckCircle,
   ChevronDown,
   Link2,
+  Pencil,
   Plus,
   Search,
   Target,
+  Trash2,
+  Undo2,
   Users,
 } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -152,6 +155,7 @@ export default function GoalsDashboardPage() {
   const [selectedGoal, setSelectedGoal] = useState<GoalWithPlayer | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showBulkCreateDialog, setShowBulkCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [newMilestoneText, setNewMilestoneText] = useState<
     Record<string, string>
   >({});
@@ -180,6 +184,15 @@ export default function GoalsDashboardPage() {
   const addMilestone = useMutation(api.models.passportGoals.addMilestone);
   const updateGoalSkills = useMutation(
     api.models.passportGoals.updateLinkedSkills
+  );
+  const deleteMilestoneMutation = useMutation(
+    api.models.passportGoals.deleteMilestone
+  );
+  const updateMilestoneMutation = useMutation(
+    api.models.passportGoals.updateMilestone
+  );
+  const uncompleteMilestoneMutation = useMutation(
+    api.models.passportGoals.uncompleteMilestone
   );
 
   // Get skill definitions for linking
@@ -344,6 +357,46 @@ export default function GoalsDashboardPage() {
       toast.success("Skills linked!");
     } catch (_error) {
       toast.error("Failed to update linked skills");
+    }
+  };
+
+  // Handle deleting a milestone
+  const handleDeleteMilestone = async (
+    goalId: Id<"passportGoals">,
+    milestoneId: string
+  ) => {
+    try {
+      await deleteMilestoneMutation({ goalId, milestoneId });
+      toast.success("Milestone deleted");
+    } catch (_error) {
+      toast.error("Failed to delete milestone");
+    }
+  };
+
+  // Handle updating a milestone description
+  const handleUpdateMilestone = async (
+    goalId: Id<"passportGoals">,
+    milestoneId: string,
+    description: string
+  ) => {
+    try {
+      await updateMilestoneMutation({ goalId, milestoneId, description });
+      toast.success("Milestone updated");
+    } catch (_error) {
+      toast.error("Failed to update milestone");
+    }
+  };
+
+  // Handle uncompleting a milestone
+  const handleUncompleteMilestone = async (
+    goalId: Id<"passportGoals">,
+    milestoneId: string
+  ) => {
+    try {
+      await uncompleteMilestoneMutation({ goalId, milestoneId });
+      toast.success("Milestone marked incomplete");
+    } catch (_error) {
+      toast.error("Failed to uncomplete milestone");
     }
   };
 
@@ -529,12 +582,16 @@ export default function GoalsDashboardPage() {
             toast.error("Failed to delete goal");
           }
         }}
+        onDeleteMilestone={handleDeleteMilestone}
+        onEdit={() => setShowEditDialog(true)}
         onMilestoneTextChange={(text) =>
           setNewMilestoneText((prev) => ({
             ...prev,
             [selectedGoal?._id ?? ""]: text,
           }))
         }
+        onUncompleteMilestone={handleUncompleteMilestone}
+        onUpdateMilestone={handleUpdateMilestone}
         onUpdateSkills={handleUpdateSkills}
         onUpdateStatus={async (goalId, status) => {
           try {
@@ -546,6 +603,27 @@ export default function GoalsDashboardPage() {
         }}
         skillDefinitions={skillDefinitions || []}
       />
+
+      {/* Edit Goal Dialog */}
+      {selectedGoal && (
+        <EditGoalDialog
+          goal={selectedGoal}
+          onClose={() => setShowEditDialog(false)}
+          onSubmit={async (data) => {
+            try {
+              await updateGoal({
+                goalId: selectedGoal._id,
+                ...data,
+              });
+              setShowEditDialog(false);
+              toast.success("Goal updated successfully!");
+            } catch (_error) {
+              toast.error("Failed to update goal");
+            }
+          }}
+          open={showEditDialog}
+        />
+      )}
 
       {/* Create Goal Dialog */}
       <CreateGoalDialog
@@ -694,6 +772,10 @@ function GoalDetailDialog({
   onUpdateSkills,
   onDelete,
   onUpdateStatus,
+  onEdit,
+  onDeleteMilestone,
+  onUpdateMilestone,
+  onUncompleteMilestone,
 }: {
   goal: GoalWithPlayer | null;
   onClose: () => void;
@@ -721,11 +803,26 @@ function GoalDetailDialog({
       | "on_hold"
       | "cancelled"
   ) => void;
+  onEdit: () => void;
+  onDeleteMilestone: (goalId: Id<"passportGoals">, milestoneId: string) => void;
+  onUpdateMilestone: (
+    goalId: Id<"passportGoals">,
+    milestoneId: string,
+    description: string
+  ) => void;
+  onUncompleteMilestone: (
+    goalId: Id<"passportGoals">,
+    milestoneId: string
+  ) => void;
 }) {
   const [showSkillPicker, setShowSkillPicker] = useState(false);
   const [selectedSkills, setSelectedSkills] = useState<string[]>(
     goal?.linkedSkills || []
   );
+  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(
+    null
+  );
+  const [editingMilestoneText, setEditingMilestoneText] = useState("");
 
   if (!goal) {
     return null;
@@ -808,9 +905,9 @@ function GoalDetailDialog({
                 }`}
                 key={milestone.id}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex flex-1 items-start gap-3">
                   <div
-                    className={`flex h-6 w-6 items-center justify-center rounded-full ${
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
                       milestone.completed ? "bg-green-600" : "bg-gray-300"
                     }`}
                   >
@@ -822,14 +919,63 @@ function GoalDetailDialog({
                       </span>
                     )}
                   </div>
-                  <div>
-                    <p
-                      className={`font-medium ${
-                        milestone.completed ? "text-green-800" : "text-gray-800"
-                      }`}
-                    >
-                      {milestone.description}
-                    </p>
+                  <div className="flex-1">
+                    {editingMilestoneId === milestone.id ? (
+                      <div className="flex gap-2">
+                        <Input
+                          autoFocus
+                          className="h-8"
+                          onBlur={() => {
+                            if (editingMilestoneText.trim()) {
+                              onUpdateMilestone(
+                                goal._id,
+                                milestone.id,
+                                editingMilestoneText.trim()
+                              );
+                            }
+                            setEditingMilestoneId(null);
+                            setEditingMilestoneText("");
+                          }}
+                          onChange={(e) =>
+                            setEditingMilestoneText(e.target.value)
+                          }
+                          onKeyDown={(e) => {
+                            if (
+                              e.key === "Enter" &&
+                              editingMilestoneText.trim()
+                            ) {
+                              onUpdateMilestone(
+                                goal._id,
+                                milestone.id,
+                                editingMilestoneText.trim()
+                              );
+                              setEditingMilestoneId(null);
+                              setEditingMilestoneText("");
+                            } else if (e.key === "Escape") {
+                              setEditingMilestoneId(null);
+                              setEditingMilestoneText("");
+                            }
+                          }}
+                          value={editingMilestoneText}
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        className={`cursor-pointer text-left font-medium hover:underline ${
+                          milestone.completed
+                            ? "text-green-800"
+                            : "text-gray-800"
+                        }`}
+                        onClick={() => {
+                          setEditingMilestoneId(milestone.id);
+                          setEditingMilestoneText(milestone.description);
+                        }}
+                        title="Click to edit"
+                        type="button"
+                      >
+                        {milestone.description}
+                      </button>
+                    )}
                     {milestone.completedDate && (
                       <p className="mt-1 text-green-600 text-xs">
                         ✓ Completed:{" "}
@@ -838,14 +984,38 @@ function GoalDetailDialog({
                     )}
                   </div>
                 </div>
-                {!milestone.completed && goal.status !== "completed" && (
+                <div className="ml-2 flex shrink-0 items-center gap-1">
+                  {!milestone.completed && goal.status !== "completed" && (
+                    <Button
+                      onClick={() =>
+                        onCompleteMilestone(goal._id, milestone.id)
+                      }
+                      size="sm"
+                    >
+                      Complete
+                    </Button>
+                  )}
+                  {milestone.completed && goal.status !== "completed" && (
+                    <Button
+                      onClick={() =>
+                        onUncompleteMilestone(goal._id, milestone.id)
+                      }
+                      size="sm"
+                      title="Mark as incomplete"
+                      variant="outline"
+                    >
+                      <Undo2 className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button
-                    onClick={() => onCompleteMilestone(goal._id, milestone.id)}
+                    onClick={() => onDeleteMilestone(goal._id, milestone.id)}
                     size="sm"
+                    title="Delete milestone"
+                    variant="ghost"
                   >
-                    Complete
+                    <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
-                )}
+                </div>
               </div>
             ))}
           </div>
@@ -975,6 +1145,10 @@ function GoalDetailDialog({
         )}
 
         <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <Button onClick={onEdit} variant="outline">
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit Goal
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
@@ -1199,6 +1373,198 @@ function CreateGoalDialog({
           </Button>
           <Button disabled={submitting} onClick={handleSubmit}>
             {submitting ? "Creating..." : "Create Goal"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Edit Goal Dialog
+function EditGoalDialog({
+  open,
+  onClose,
+  goal,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  goal: GoalWithPlayer;
+  onSubmit: (data: {
+    title?: string;
+    description?: string;
+    priority?: "high" | "medium" | "low";
+    targetDate?: string;
+    parentCanView?: boolean;
+    coachNotes?: string;
+    parentActions?: string[];
+  }) => Promise<void>;
+}) {
+  const [title, setTitle] = useState(goal.title);
+  const [description, setDescription] = useState(goal.description);
+  const [priority, setPriority] = useState<string>(goal.priority);
+  const [targetDate, setTargetDate] = useState(goal.targetDate || "");
+  const [parentCanView, setParentCanView] = useState(goal.parentCanView);
+  const [coachNotes, setCoachNotes] = useState(goal.coachNotes || "");
+  const [parentActionsText, setParentActionsText] = useState(
+    goal.parentActions?.join("\n") || ""
+  );
+  const [submitting, setSubmitting] = useState(false);
+
+  // Reset form when goal changes
+  useState(() => {
+    setTitle(goal.title);
+    setDescription(goal.description);
+    setPriority(goal.priority);
+    setTargetDate(goal.targetDate || "");
+    setParentCanView(goal.parentCanView);
+    setCoachNotes(goal.coachNotes || "");
+    setParentActionsText(goal.parentActions?.join("\n") || "");
+  });
+
+  const handleSubmit = async () => {
+    if (!(title && description)) {
+      toast.error("Title and description are required");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const parentActions = parentActionsText
+        .split("\n")
+        .map((a) => a.trim())
+        .filter((a) => a.length > 0);
+
+      await onSubmit({
+        title,
+        description,
+        priority: priority as "high" | "medium" | "low",
+        targetDate: targetDate || undefined,
+        parentCanView,
+        coachNotes: coachNotes || undefined,
+        parentActions: parentActions.length > 0 ? parentActions : undefined,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog onOpenChange={onClose} open={open}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Edit Goal</DialogTitle>
+          <DialogDescription>
+            Update the goal details for {goal.playerName}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Title */}
+          <div className="space-y-2">
+            <Label htmlFor="edit-title">Goal Title *</Label>
+            <Input
+              id="edit-title"
+              onChange={(e) => setTitle(e.target.value)}
+              value={title}
+            />
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <Label htmlFor="edit-description">Description *</Label>
+            <Textarea
+              id="edit-description"
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              value={description}
+            />
+          </div>
+
+          {/* Category (locked) and Priority */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <div className="flex h-10 items-center rounded-md border bg-muted px-3">
+                <span className="text-muted-foreground text-sm">
+                  {formatCategory(goal.category)}
+                </span>
+                <span className="ml-2 text-muted-foreground text-xs">
+                  (locked)
+                </span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Priority</Label>
+              <Select onValueChange={setPriority} value={priority}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Target Date */}
+          <div className="space-y-2">
+            <Label htmlFor="edit-targetDate">Target Date</Label>
+            <Input
+              id="edit-targetDate"
+              onChange={(e) => setTargetDate(e.target.value)}
+              type="date"
+              value={targetDate}
+            />
+          </div>
+
+          {/* Coach Notes */}
+          <div className="space-y-2">
+            <Label htmlFor="edit-coachNotes">Coach Notes</Label>
+            <Textarea
+              id="edit-coachNotes"
+              onChange={(e) => setCoachNotes(e.target.value)}
+              placeholder="Private notes visible only to coaches..."
+              rows={2}
+              value={coachNotes}
+            />
+          </div>
+
+          {/* Parent Actions */}
+          <div className="space-y-2">
+            <Label htmlFor="edit-parentActions">
+              Parent Actions (one per line)
+            </Label>
+            <Textarea
+              id="edit-parentActions"
+              onChange={(e) => setParentActionsText(e.target.value)}
+              placeholder="Practice at home&#10;Watch technique videos&#10;Attend extra sessions"
+              rows={3}
+              value={parentActionsText}
+            />
+          </div>
+
+          {/* Parent Visibility */}
+          <div className="flex items-center gap-2">
+            <input
+              checked={parentCanView}
+              className="h-4 w-4 rounded border-gray-300"
+              id="edit-parentCanView"
+              onChange={(e) => setParentCanView(e.target.checked)}
+              type="checkbox"
+            />
+            <Label htmlFor="edit-parentCanView">Visible to parents</Label>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button disabled={submitting} onClick={onClose} variant="outline">
+            Cancel
+          </Button>
+          <Button disabled={submitting} onClick={handleSubmit}>
+            {submitting ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

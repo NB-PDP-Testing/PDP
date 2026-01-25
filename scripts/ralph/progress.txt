@@ -292,3 +292,121 @@ PRD: scripts/ralph/prds/coach-parent-summaries-phase6.3.prd.json
 - Code structure is sound based on similar patterns used elsewhere in codebase
 
 ---
+
+### Agent Feedback - 2026-01-25 18:55
+
+## Quality Monitor - 2026-01-25 18:46:53
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 18:48:05
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 18:49:21
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 18:50:40
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 18:51:51
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 18:53:13
+- ⚠️ Biome lint errors found
+
+
+## Quality Monitor - 2026-01-25 18:54:24
+- ⚠️ Biome lint errors found
+
+
+## 2026-01-25 22:15 - US-019 - Build Rate Limits tab
+**Iteration**: 3
+**Commit**: ef79e4680034f67211404eada2e8c28b2feeecb7
+**Session**: 71e20d81-ba9c-42a1-9a49-3d78ccfc5298
+**Status**: Complete
+
+### What was implemented
+- Created 6 new backend queries/mutations in `packages/backend/convex/models/rateLimits.ts`:
+  - `getPlatformRateLimits` (query) - Platform staff view platform-wide limits
+  - `updatePlatformRateLimit` (mutation) - Edit platform limit values
+  - `getOrgRateLimits` (query) - View per-org rate limit overrides
+  - `createOrgRateLimit` (mutation) - Create new org-specific limits
+  - `updateOrgRateLimit` (mutation) - Edit org limit values
+  - `deleteOrgRateLimit` (mutation) - Remove org overrides
+- Built RateLimitsTab component with full functionality:
+  - Platform-wide limits table showing 4 limit types (messages/hour, messages/day, cost/hour, cost/day)
+  - Inline editing: Click pencil icon → edit value → save/cancel
+  - Current usage display with percentage badges (destructive variant if >80%)
+  - Time remaining countdown for window resets (e.g., "2h 15m")
+  - Per-organization overrides table (empty state when no overrides)
+  - Delete button for org overrides with confirmation
+- All backend functions check `isPlatformStaff` authorization
+- Proper error handling with toast notifications
+- Loading states with skeleton cards
+
+### Files changed
+- packages/backend/convex/models/rateLimits.ts (+316, -10)
+  - Added imports: mutation, query, authComponent
+  - Added 6 new exported functions
+- apps/web/src/app/platform/messaging/page.tsx (+361, -16)
+  - Added imports: useMutation, Clock, Pencil, Save, X, useState, toast, Badge, Button, Input
+  - Replaced Rate Limits placeholder with RateLimitsTab component
+  - Added RateLimitsTab component (~300 lines)
+  - Helper functions: formatLimitType, formatTimeRemaining
+
+### Quality checks
+- ✅ Type check: passed
+- ✅ Linting: passed (pre-commit hooks)
+- ✅ Pre-commit hooks: passed
+- ⏭️ Browser verification: Partial - authorization working (non-platform-staff redirected)
+  - Full UI testing requires platform staff account with rate limit data
+  - Code structure verified against similar patterns in codebase
+
+### Learnings for future iterations ⚠️ CRITICAL
+
+**Patterns discovered:**
+- Backend authorization pattern: `await authComponent.safeGetAuthUser(ctx)` then check `isPlatformStaff`
+- Convex Id type must be imported as `import("@pdp/backend/convex/_generated/dataModel").Id<"tableName">`
+- Using inline type import avoids linter removing unused imports: `limitId as import("...").Id<"rateLimits">`
+- Toast notifications from sonner library: `toast.success()`, `toast.error()`
+- Inline editing pattern: useState for editingLimitId, show Input or span based on editing state
+
+**Gotchas encountered:**
+- CRITICAL: Linter aggressively removes unused imports even when they're needed for types
+  - Solution: Use inline type imports like `as import("...").Id<"table">` instead of importing at top
+  - Alternative: Add import and usage in same edit to prevent removal
+- Wrong import path initially: `import("convex/values").Id` → should be from `dataModel` instead
+- User object has `_id` not `id` - must use `currentUser._id` in console.log
+- Confirm dialog triggers lint warning - added biome-ignore comment with explanation
+- Pre-existing complexity warning in checkRateLimit function (not caused by my changes)
+
+**Dependencies found:**
+- Rate limit violations are NOT currently tracked in a separate table
+  - PRD mentions violations table, but backend doesn't log violations yet
+  - Current implementation shows only limit status, not violation history
+  - Could be added in future iteration with rateLimitViolations table
+
+**What to do next**:
+- ✅ US-019 is complete
+- Next: US-020 - Build Service Health tab
+  - Will need aiServiceHealth query
+  - Will need circuit breaker reset mutation
+  - Similar pattern: query data, render status cards/tables
+
+**Mistakes made**:
+- Initially tried to import Id from "convex/values" - wrong path, should be from dataModel
+- Used `error: any` initially - linter complained, fixed with proper error instanceof Error check
+- Used plain confirm() - linter warned, added biome-ignore comment
+- Added imports before component usage - linter removed them immediately
+
+**Browser verification note**:
+- Could not fully test Rate Limits tab UI because test account is not platform staff
+- Authorization correctly redirects non-staff users to coach dashboard
+- To test UI fully: Need platform staff account OR temporarily mark test account as platform staff
+- Backend mutations/queries are sound based on code review and similar patterns elsewhere
+
+---

@@ -52,7 +52,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Anthropic prompt caching caches static content for 5 minutes. System prompts and player context are perfect candidates. Only the insight content changes per summary. Claude Haiku pricing: Regular input $5/M, Cached $0.50/M (90% discount), Output $15/M. Cache-control header required."
     },
     {
@@ -78,7 +78,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Single source of truth for all AI usage. Enables cost analytics, chargeback to orgs, identifying heavy users, tracking cache effectiveness. Store cost as dollars with full precision (don't round)."
     },
     {
@@ -97,7 +97,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Actions can't access ctx.db - must use ctx.runMutation. Get organizationId, coachId, playerId from voice note context. Model is hardcoded 'claude-3-haiku-20240307'. Operation is 'parent_summary'. Logging should never break summary creation."
     },
     {
@@ -122,7 +122,7 @@
         "Typecheck passes: npm run check-types"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Query pattern: use index, filter in JS for date range (Convex doesn't support range queries on non-indexed fields). Consider pagination if result set is large (>1000 entries). Return empty structure if no data. This enables cost visibility and chargeback."
     }
   ]

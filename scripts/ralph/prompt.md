@@ -2,10 +2,19 @@
 
 You are an autonomous coding agent working on a software project.
 
+## CRITICAL: Working Files Location
+
+**ALWAYS use these exact paths for Ralph control files:**
+- PRD: `scripts/ralph/prd.json` (NOT any files in scripts/ralph/archive/)
+- Progress: `scripts/ralph/progress.txt` (NOT any files in scripts/ralph/archive/)
+- When updating prd.json or progress.txt, use these exact paths
+
+**Why this matters:** The archive/ folder contains old runs. Never read from or write to archive/ files.
+
 ## Your Task
 
-1. **Read the PRD** at `prd.json` (in the same directory as this file)
-2. **CRITICAL: Learn from previous iterations** - Read `progress.txt`:
+1. **Read the PRD** at `scripts/ralph/prd.json`
+2. **CRITICAL: Learn from previous iterations** - Read `scripts/ralph/progress.txt`:
    - **START with the "Codebase Patterns" section at the top** - This is consolidated wisdom
    - Read the most recent iteration entries (last 3-5 entries)
    - Pay special attention to "Mistakes made" sections - don't repeat them!
@@ -30,8 +39,8 @@ You are an autonomous coding agent working on a software project.
 8. **Implement the story** following patterns learned from progress.txt
 9. **Run quality checks** (typecheck, lint, browser testing for UI changes)
 10. **Commit if passing** with message: `feat: [Story ID] - [Story Title]`
-11. **Update PRD** to set `passes: true` for completed story
-12. **CRITICAL: Document learnings** in `progress.txt` (see format below)
+11. **Update PRD** - Edit `scripts/ralph/prd.json` to set `passes: true` for completed story
+12. **CRITICAL: Document learnings** - Append to `scripts/ralph/progress.txt` (see format below)
     - Include commit hash so future iterations can reference your work
     - Be detailed about patterns, gotchas, and mistakes
     - Think: "What would I want to know if I had to continue this work fresh?"
@@ -49,7 +58,7 @@ If a story is too large to complete in one context window, note this in progress
 
 ## Progress Report Format
 
-APPEND to progress.txt (never replace, always append):
+APPEND to `scripts/ralph/progress.txt` (never replace, always append):
 ```
 ## [Date/Time] - [Story ID] - [Story Title]
 **Iteration**: [X]

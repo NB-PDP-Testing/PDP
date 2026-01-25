@@ -5,16 +5,19 @@ import { useMutation, useQuery } from "convex/react";
 import {
   Activity,
   AlertCircle,
+  CheckCircle2,
   Clock,
   DollarSign,
   Gauge,
   LayoutDashboard,
   Pencil,
+  RefreshCw,
   Save,
   Settings,
   TrendingUp,
   Users,
   X,
+  XCircle,
   Zap,
 } from "lucide-react";
 import { useState } from "react";
@@ -103,20 +106,7 @@ export default function PlatformMessagingPage() {
 
             {/* Service Health Tab */}
             <TabsContent value="service-health">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Service Health</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    AI service status, circuit breaker state, and recent errors
-                    will appear here.
-                  </p>
-                  <p className="mt-2 text-muted-foreground text-sm">
-                    Implementation: US-020
-                  </p>
-                </CardContent>
-              </Card>
+              <ServiceHealthTab />
             </TabsContent>
 
             {/* Settings Tab */}
@@ -761,6 +751,363 @@ function RateLimitsTab() {
               </TableBody>
             </Table>
           )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Helper functions for Service Health tab
+function getStatusColor(status: "healthy" | "degraded" | "down"): {
+  bg: string;
+  text: string;
+  icon: typeof CheckCircle2;
+} {
+  switch (status) {
+    case "healthy":
+      return {
+        bg: "bg-green-100 border-green-300",
+        text: "text-green-700",
+        icon: CheckCircle2,
+      };
+    case "degraded":
+      return {
+        bg: "bg-amber-100 border-amber-300",
+        text: "text-amber-700",
+        icon: AlertCircle,
+      };
+    case "down":
+      return {
+        bg: "bg-red-100 border-red-300",
+        text: "text-red-700",
+        icon: XCircle,
+      };
+    default:
+      return {
+        bg: "bg-gray-100 border-gray-300",
+        text: "text-gray-700",
+        icon: AlertCircle,
+      };
+  }
+}
+
+function getCircuitBreakerColor(state: "closed" | "open" | "half_open"): {
+  badge: string;
+  label: string;
+} {
+  switch (state) {
+    case "closed":
+      return { badge: "default", label: "Closed (Normal)" };
+    case "open":
+      return { badge: "destructive", label: "Open (Blocked)" };
+    case "half_open":
+      return { badge: "secondary", label: "Half-Open (Testing)" };
+    default:
+      return { badge: "default", label: "Unknown" };
+  }
+}
+
+function formatTimeAgo(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    return `${days}d ago`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m ago`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ago`;
+  }
+  return `${seconds}s ago`;
+}
+
+// Service Health Tab Component
+function ServiceHealthTab() {
+  const health = useQuery(api.models.aiServiceHealth.getPlatformServiceHealth);
+  const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
+    startDate: Date.now() - 30 * 24 * 60 * 60 * 1000,
+    endDate: Date.now(),
+  });
+  const forceReset = useMutation(
+    api.models.aiServiceHealth.forceResetCircuitBreaker
+  );
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: forceReset is stable
+  const handleForceReset = async () => {
+    // biome-ignore lint/suspicious/noAlert: Platform admin action requires explicit confirmation
+    const confirmed = confirm(
+      "Are you sure you want to force reset the circuit breaker? This should only be done if you've verified the AI service is healthy."
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const result = await forceReset({});
+      if (result?.success) {
+        toast.success(result.message);
+      } else {
+        toast.error(result?.message || "Failed to reset circuit breaker");
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error("Failed to reset circuit breaker");
+      }
+    }
+  };
+
+  // Loading state
+  if (health === undefined || platformUsage === undefined) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Loading Service Health...</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // No health data (healthy by default)
+  if (!health) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-green-300 bg-green-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3 text-green-700">
+              <CheckCircle2 className="h-8 w-8" />
+              Service Healthy (No Data)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-green-700">
+              No health record found. This typically means the AI service has
+              never failed and is operating normally.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const statusStyle = getStatusColor(health.status);
+  const StatusIcon = statusStyle.icon;
+  const circuitStyle = getCircuitBreakerColor(health.circuitBreakerState);
+
+  // Calculate cache effectiveness from platform usage
+  const cacheHitRate = platformUsage?.averageCacheHitRate || 0;
+  const cacheColor = getCacheHitRateColor(cacheHitRate);
+  const cacheLabel = getCacheHitRateLabel(cacheHitRate);
+
+  // Get top 5 orgs by call count
+  const topOrgsByUsage = (platformUsage?.byOrganization || [])
+    .sort((a, b) => b.callCount - a.callCount)
+    .slice(0, 5);
+
+  return (
+    <div className="space-y-6">
+      {/* Large Status Indicator */}
+      <Card className={`border-2 ${statusStyle.bg}`}>
+        <CardHeader>
+          <CardTitle
+            className={`flex items-center gap-3 text-2xl ${statusStyle.text}`}
+          >
+            <StatusIcon className="h-10 w-10" />
+            Service Status:{" "}
+            {health.status.charAt(0).toUpperCase() + health.status.slice(1)}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <p className="font-medium text-muted-foreground text-sm">
+                Circuit Breaker
+              </p>
+              <Badge
+                variant={
+                  circuitStyle.badge as "default" | "destructive" | "secondary"
+                }
+              >
+                {circuitStyle.label}
+              </Badge>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground text-sm">
+                Last Success
+              </p>
+              <p className="font-semibold text-sm">
+                {formatTimeAgo(health.lastSuccessAt)}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground text-sm">
+                Last Failure
+              </p>
+              <p className="font-semibold text-sm">
+                {formatTimeAgo(health.lastFailureAt)}
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground text-sm">
+                Recent Failures
+              </p>
+              <p className="font-semibold text-sm">
+                {health.recentFailureCount} in last{" "}
+                {Math.floor(health.failureWindow / 60_000)}m
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground text-sm">
+                Last Checked
+              </p>
+              <p className="font-semibold text-sm">
+                {formatTimeAgo(health.lastCheckedAt)}
+              </p>
+            </div>
+            <div className="flex items-end">
+              <Button
+                disabled={health.circuitBreakerState === "closed"}
+                onClick={handleForceReset}
+                size="sm"
+                variant="outline"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Force Reset Circuit
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Cache Effectiveness Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5" />
+            Cache Effectiveness
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="rounded-lg border-2 p-4">
+              <p className="font-medium text-muted-foreground text-sm">
+                Average Cache Hit Rate
+              </p>
+              <p className={`font-bold text-3xl ${cacheColor}`}>
+                {cacheHitRate.toFixed(1)}%
+              </p>
+              <p className="mt-1 text-muted-foreground text-xs">{cacheLabel}</p>
+            </div>
+            <div className="rounded-lg border-2 p-4">
+              <p className="font-medium text-muted-foreground text-sm">
+                Total API Calls (30d)
+              </p>
+              <p className="font-bold text-3xl">
+                {platformUsage?.callCount.toLocaleString() || 0}
+              </p>
+            </div>
+            <div className="rounded-lg border-2 p-4">
+              <p className="font-medium text-muted-foreground text-sm">
+                Total Cost (30d)
+              </p>
+              <p className="font-bold text-3xl">
+                ${platformUsage?.totalCost.toFixed(2) || "0.00"}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Top 5 Orgs by AI Usage */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Top 5 Organizations by AI Usage (30 days)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {topOrgsByUsage.length === 0 ? (
+            <p className="text-center text-muted-foreground">
+              No usage data available
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Rank</TableHead>
+                  <TableHead>Organization</TableHead>
+                  <TableHead className="text-right">API Calls</TableHead>
+                  <TableHead className="text-right">Total Cost</TableHead>
+                  <TableHead className="text-right">Avg Cost/Call</TableHead>
+                  <TableHead className="text-right">Cache Hit Rate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {topOrgsByUsage.map((org, index) => {
+                  const orgCacheColor = getCacheHitRateColor(
+                    org.averageCacheHitRate
+                  );
+                  const avgCostPerCall =
+                    org.callCount > 0 ? org.cost / org.callCount : 0;
+                  return (
+                    <TableRow key={org.organizationId}>
+                      <TableCell>
+                        <Badge variant="outline">#{index + 1}</Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {org.organizationId}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {org.callCount.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${org.cost.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        ${avgCostPerCall.toFixed(4)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className={orgCacheColor}>
+                          {org.averageCacheHitRate.toFixed(1)}%
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Errors (Placeholder) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" />
+            Recent Errors
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-center text-muted-foreground">
+            Error logging not yet implemented. Future enhancement will track
+            error timestamp, type, affected organization, and resolution status.
+          </p>
         </CardContent>
       </Card>
     </div>

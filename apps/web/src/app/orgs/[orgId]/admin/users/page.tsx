@@ -1721,7 +1721,7 @@ export default function ManageUsersPage() {
         )}
       </div>
       <Dialog onOpenChange={setInviteDialogOpen} open={inviteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="flex max-h-[90vh] flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Send className="h-5 w-5" />
@@ -1732,233 +1732,236 @@ export default function ManageUsersPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <ResponsiveForm
-            isLoading={inviting}
-            onCancel={() => setInviteDialogOpen(false)}
-            onSubmit={handleInvite}
-            submitText="Send Invitation"
-          >
-            <ResponsiveFormSection>
-              <div className="space-y-2">
-                <Label htmlFor="email">
-                  Email Address <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  disabled={inviting}
-                  id="email"
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="coach@example.com"
-                  required
-                  type="email"
-                  value={inviteEmail}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Roles</Label>
-                <p className="mb-2 text-muted-foreground text-xs">
-                  Select the roles this user should have. Admins can manage
-                  users and settings.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                      inviteFunctionalRoles.includes("admin")
-                        ? "border-purple-400 bg-purple-100 text-purple-700"
-                        : "border-gray-200 bg-white hover:bg-gray-50"
-                    }`}
-                    disabled={inviting}
-                    onClick={() => toggleInviteFunctionalRole("admin")}
-                    type="button"
-                  >
-                    <Shield className="h-4 w-4" />
-                    <span>Admin</span>
-                  </button>
-                  <button
-                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                      inviteFunctionalRoles.includes("coach")
-                        ? "border-green-400 bg-green-100 text-green-700"
-                        : "border-gray-200 bg-white hover:bg-gray-50"
-                    }`}
-                    disabled={inviting}
-                    onClick={() => toggleInviteFunctionalRole("coach")}
-                    type="button"
-                  >
-                    <Users className="h-4 w-4" />
-                    <span>Coach</span>
-                  </button>
-                  <button
-                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                      inviteFunctionalRoles.includes("parent")
-                        ? "border-blue-400 bg-blue-100 text-blue-700"
-                        : "border-gray-200 bg-white hover:bg-gray-50"
-                    }`}
-                    disabled={inviting}
-                    onClick={() => toggleInviteFunctionalRole("parent")}
-                    type="button"
-                  >
-                    <UserCircle className="h-4 w-4" />
-                    <span>Parent</span>
-                  </button>
-                </div>
-                {inviteFunctionalRoles.length > 0 && (
-                  <p className="text-muted-foreground text-xs">
-                    Selected: {inviteFunctionalRoles.join(", ")}. These roles
-                    will be auto-assigned when the invitation is accepted.
-                  </p>
-                )}
-              </div>
-
-              {/* Coach: Team Selection */}
-              {inviteFunctionalRoles.includes("coach") && teams && (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <ResponsiveForm
+              isLoading={inviting}
+              onCancel={() => setInviteDialogOpen(false)}
+              onSubmit={handleInvite}
+              stickySubmit={false}
+              submitText="Send Invitation"
+            >
+              <ResponsiveFormSection>
                 <div className="space-y-2">
-                  <Label>Assign to Teams (optional)</Label>
+                  <Label htmlFor="email">
+                    Email Address <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    disabled={inviting}
+                    id="email"
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="coach@example.com"
+                    required
+                    type="email"
+                    value={inviteEmail}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Roles</Label>
                   <p className="mb-2 text-muted-foreground text-xs">
-                    Select teams this coach will manage. Can be changed later.
+                    Select the roles this user should have. Admins can manage
+                    users and settings.
                   </p>
-                  <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-2">
-                    {teams.length === 0 ? (
-                      <p className="py-2 text-center text-muted-foreground text-sm">
-                        No teams available
-                      </p>
-                    ) : (
-                      teams.map((team) => (
-                        <button
-                          className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors ${
-                            inviteTeams.includes(team._id)
-                              ? "bg-green-100 text-green-700"
-                              : "hover:bg-gray-100"
-                          }`}
-                          disabled={inviting}
-                          key={team._id}
-                          onClick={() => {
-                            if (inviteTeams.includes(team._id)) {
-                              setInviteTeams(
-                                inviteTeams.filter((id) => id !== team._id)
-                              );
-                            } else {
-                              setInviteTeams([...inviteTeams, team._id]);
-                            }
-                          }}
-                          type="button"
-                        >
-                          <span
-                            className={`flex h-4 w-4 items-center justify-center rounded-sm border ${inviteTeams.includes(team._id) ? "border-primary bg-primary text-primary-foreground" : "border-muted"}`}
-                          >
-                            {inviteTeams.includes(team._id) && "✓"}
-                          </span>
-                          <span>
-                            {team.name}
-                            {team.ageGroup && (
-                              <span className="ml-1 text-muted-foreground">
-                                ({team.ageGroup})
-                              </span>
-                            )}
-                          </span>
-                        </button>
-                      ))
-                    )}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                        inviteFunctionalRoles.includes("admin")
+                          ? "border-purple-400 bg-purple-100 text-purple-700"
+                          : "border-gray-200 bg-white hover:bg-gray-50"
+                      }`}
+                      disabled={inviting}
+                      onClick={() => toggleInviteFunctionalRole("admin")}
+                      type="button"
+                    >
+                      <Shield className="h-4 w-4" />
+                      <span>Admin</span>
+                    </button>
+                    <button
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                        inviteFunctionalRoles.includes("coach")
+                          ? "border-green-400 bg-green-100 text-green-700"
+                          : "border-gray-200 bg-white hover:bg-gray-50"
+                      }`}
+                      disabled={inviting}
+                      onClick={() => toggleInviteFunctionalRole("coach")}
+                      type="button"
+                    >
+                      <Users className="h-4 w-4" />
+                      <span>Coach</span>
+                    </button>
+                    <button
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                        inviteFunctionalRoles.includes("parent")
+                          ? "border-blue-400 bg-blue-100 text-blue-700"
+                          : "border-gray-200 bg-white hover:bg-gray-50"
+                      }`}
+                      disabled={inviting}
+                      onClick={() => toggleInviteFunctionalRole("parent")}
+                      type="button"
+                    >
+                      <UserCircle className="h-4 w-4" />
+                      <span>Parent</span>
+                    </button>
                   </div>
-                  {inviteTeams.length > 0 && (
+                  {inviteFunctionalRoles.length > 0 && (
                     <p className="text-muted-foreground text-xs">
-                      {inviteTeams.length} team(s) selected
+                      Selected: {inviteFunctionalRoles.join(", ")}. These roles
+                      will be auto-assigned when the invitation is accepted.
                     </p>
                   )}
                 </div>
-              )}
 
-              {/* Parent: Player Linking */}
-              {inviteFunctionalRoles.includes("parent") && allPlayers && (
-                <div className="space-y-2">
-                  <Label>Link to Players (optional)</Label>
-                  <p className="mb-2 text-muted-foreground text-xs">
-                    Select players this parent is associated with. Auto-matching
-                    by email will also run.
-                  </p>
-                  <Input
-                    className="mb-2"
-                    disabled={inviting}
-                    onChange={(e) => setInvitePlayerSearch(e.target.value)}
-                    placeholder="Search players by name..."
-                    value={invitePlayerSearch}
-                  />
-                  <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-2">
-                    {allPlayers.length === 0 ? (
-                      <p className="py-2 text-center text-muted-foreground text-sm">
-                        No players available
-                      </p>
-                    ) : (
-                      allPlayers
-                        .filter(
-                          (player) =>
-                            !invitePlayerSearch ||
-                            player.name
-                              .toLowerCase()
-                              .includes(invitePlayerSearch.toLowerCase())
-                        )
-                        .slice(0, 20)
-                        .map((player) => (
+                {/* Coach: Team Selection */}
+                {inviteFunctionalRoles.includes("coach") && teams && (
+                  <div className="space-y-2">
+                    <Label>Assign to Teams (optional)</Label>
+                    <p className="mb-2 text-muted-foreground text-xs">
+                      Select teams this coach will manage. Can be changed later.
+                    </p>
+                    <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-2">
+                      {teams.length === 0 ? (
+                        <p className="py-2 text-center text-muted-foreground text-sm">
+                          No teams available
+                        </p>
+                      ) : (
+                        teams.map((team) => (
                           <button
                             className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors ${
-                              invitePlayerIds.includes(player._id)
-                                ? "bg-blue-100 text-blue-700"
+                              inviteTeams.includes(team._id)
+                                ? "bg-green-100 text-green-700"
                                 : "hover:bg-gray-100"
                             }`}
                             disabled={inviting}
-                            key={player._id}
+                            key={team._id}
                             onClick={() => {
-                              if (invitePlayerIds.includes(player._id)) {
-                                setInvitePlayerIds(
-                                  invitePlayerIds.filter(
-                                    (id) => id !== player._id
-                                  )
+                              if (inviteTeams.includes(team._id)) {
+                                setInviteTeams(
+                                  inviteTeams.filter((id) => id !== team._id)
                                 );
                               } else {
-                                setInvitePlayerIds([
-                                  ...invitePlayerIds,
-                                  player._id,
-                                ]);
+                                setInviteTeams([...inviteTeams, team._id]);
                               }
                             }}
                             type="button"
                           >
                             <span
-                              className={`flex h-4 w-4 items-center justify-center rounded-sm border ${invitePlayerIds.includes(player._id) ? "border-primary bg-primary text-primary-foreground" : "border-muted"}`}
+                              className={`flex h-4 w-4 items-center justify-center rounded-sm border ${inviteTeams.includes(team._id) ? "border-primary bg-primary text-primary-foreground" : "border-muted"}`}
                             >
-                              {invitePlayerIds.includes(player._id) && "✓"}
+                              {inviteTeams.includes(team._id) && "✓"}
                             </span>
                             <span>
-                              {player.name}
-                              {player.ageGroup && (
+                              {team.name}
+                              {team.ageGroup && (
                                 <span className="ml-1 text-muted-foreground">
-                                  ({player.ageGroup})
+                                  ({team.ageGroup})
                                 </span>
                               )}
                             </span>
                           </button>
                         ))
-                    )}
-                    {allPlayers.filter(
-                      (player) =>
-                        !invitePlayerSearch ||
-                        player.name
-                          .toLowerCase()
-                          .includes(invitePlayerSearch.toLowerCase())
-                    ).length > 20 && (
-                      <p className="py-1 text-center text-muted-foreground text-xs">
-                        Showing first 20 results. Use search to narrow down.
+                      )}
+                    </div>
+                    {inviteTeams.length > 0 && (
+                      <p className="text-muted-foreground text-xs">
+                        {inviteTeams.length} team(s) selected
                       </p>
                     )}
                   </div>
-                  {invitePlayerIds.length > 0 && (
-                    <p className="text-muted-foreground text-xs">
-                      {invitePlayerIds.length} player(s) selected
+                )}
+
+                {/* Parent: Player Linking */}
+                {inviteFunctionalRoles.includes("parent") && allPlayers && (
+                  <div className="space-y-2">
+                    <Label>Link to Players (optional)</Label>
+                    <p className="mb-2 text-muted-foreground text-xs">
+                      Select players this parent is associated with.
+                      Auto-matching by email will also run.
                     </p>
-                  )}
-                </div>
-              )}
-            </ResponsiveFormSection>
-          </ResponsiveForm>
+                    <Input
+                      className="mb-2"
+                      disabled={inviting}
+                      onChange={(e) => setInvitePlayerSearch(e.target.value)}
+                      placeholder="Search players by name..."
+                      value={invitePlayerSearch}
+                    />
+                    <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-2">
+                      {allPlayers.length === 0 ? (
+                        <p className="py-2 text-center text-muted-foreground text-sm">
+                          No players available
+                        </p>
+                      ) : (
+                        allPlayers
+                          .filter(
+                            (player) =>
+                              !invitePlayerSearch ||
+                              player.name
+                                .toLowerCase()
+                                .includes(invitePlayerSearch.toLowerCase())
+                          )
+                          .slice(0, 20)
+                          .map((player) => (
+                            <button
+                              className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors ${
+                                invitePlayerIds.includes(player._id)
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "hover:bg-gray-100"
+                              }`}
+                              disabled={inviting}
+                              key={player._id}
+                              onClick={() => {
+                                if (invitePlayerIds.includes(player._id)) {
+                                  setInvitePlayerIds(
+                                    invitePlayerIds.filter(
+                                      (id) => id !== player._id
+                                    )
+                                  );
+                                } else {
+                                  setInvitePlayerIds([
+                                    ...invitePlayerIds,
+                                    player._id,
+                                  ]);
+                                }
+                              }}
+                              type="button"
+                            >
+                              <span
+                                className={`flex h-4 w-4 items-center justify-center rounded-sm border ${invitePlayerIds.includes(player._id) ? "border-primary bg-primary text-primary-foreground" : "border-muted"}`}
+                              >
+                                {invitePlayerIds.includes(player._id) && "✓"}
+                              </span>
+                              <span>
+                                {player.name}
+                                {player.ageGroup && (
+                                  <span className="ml-1 text-muted-foreground">
+                                    ({player.ageGroup})
+                                  </span>
+                                )}
+                              </span>
+                            </button>
+                          ))
+                      )}
+                      {allPlayers.filter(
+                        (player) =>
+                          !invitePlayerSearch ||
+                          player.name
+                            .toLowerCase()
+                            .includes(invitePlayerSearch.toLowerCase())
+                      ).length > 20 && (
+                        <p className="py-1 text-center text-muted-foreground text-xs">
+                          Showing first 20 results. Use search to narrow down.
+                        </p>
+                      )}
+                    </div>
+                    {invitePlayerIds.length > 0 && (
+                      <p className="text-muted-foreground text-xs">
+                        {invitePlayerIds.length} player(s) selected
+                      </p>
+                    )}
+                  </div>
+                )}
+              </ResponsiveFormSection>
+            </ResponsiveForm>
+          </div>
         </DialogContent>
       </Dialog>
       {selectedInvitationId && pendingInvitations && (

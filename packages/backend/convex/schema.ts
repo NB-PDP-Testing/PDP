@@ -2485,6 +2485,7 @@ export default defineSchema({
     teamData: v.optional(v.any()),
     usedRealAI: v.optional(v.boolean()),
     viewCount: v.optional(v.number()),
+    savedToLibrary: v.optional(v.boolean()), // Legacy field for library save status
 
     // Timestamps
     createdAt: v.number(),

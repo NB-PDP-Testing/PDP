@@ -82,19 +82,7 @@ export default function PlatformMessagingPage() {
 
             {/* Overview Tab */}
             <TabsContent value="overview">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Overview</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    Key metrics and platform health status will appear here.
-                  </p>
-                  <p className="mt-2 text-muted-foreground text-sm">
-                    Implementation: US-022
-                  </p>
-                </CardContent>
-              </Card>
+              <OverviewTab />
             </TabsContent>
 
             {/* Cost Analytics Tab */}
@@ -118,6 +106,210 @@ export default function PlatformMessagingPage() {
             </TabsContent>
           </Tabs>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Overview Tab Component
+function OverviewTab() {
+  // Query data from last 24 hours
+  const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const platformUsage = useQuery(api.models.aiUsageLog.getPlatformUsage, {
+    startDate: twentyFourHoursAgo,
+  });
+  const health = useQuery(api.models.aiServiceHealth.getPlatformServiceHealth);
+
+  // Loading state
+  if (!platformUsage || health === undefined) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card className="animate-pulse" key={i}>
+              <CardHeader className="pb-2">
+                <div className="h-4 w-24 rounded bg-gray-200" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 w-32 rounded bg-gray-200" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate metrics
+  const totalMessages24h = platformUsage.callCount;
+  const totalCost24h = platformUsage.totalCost;
+  const activeOrgs = platformUsage.byOrganization.length;
+  const serviceStatus = health?.status || "healthy";
+
+  // Determine overall health color
+  const getHealthColor = () => {
+    if (serviceStatus === "down") {
+      return "bg-red-100 border-red-300 text-red-700";
+    }
+    if (serviceStatus === "degraded") {
+      return "bg-amber-100 border-amber-300 text-amber-700";
+    }
+    return "bg-green-100 border-green-300 text-green-700";
+  };
+
+  // Get service status icon
+  const getStatusIcon = () => {
+    if (serviceStatus === "healthy") {
+      return <CheckCircle2 className="h-4 w-4" />;
+    }
+    if (serviceStatus === "degraded") {
+      return <AlertCircle className="h-4 w-4" />;
+    }
+    return <XCircle className="h-4 w-4" />;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Key Metrics */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Total Messages (24h) */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">
+              Total Messages (24h)
+            </CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl">
+              {totalMessages24h.toLocaleString()}
+            </div>
+            <p className="text-muted-foreground text-xs">
+              API calls in last 24 hours
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Total Cost (24h) */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">
+              Total Cost (24h)
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl">${totalCost24h.toFixed(2)}</div>
+            <p className="text-muted-foreground text-xs">Anthropic API costs</p>
+          </CardContent>
+        </Card>
+
+        {/* Active Organizations */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">Active Orgs</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl">{activeOrgs}</div>
+            <p className="text-muted-foreground text-xs">
+              Organizations using AI (24h)
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Service Status */}
+        <Card className={getHealthColor()}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="font-medium text-sm">
+              Service Status
+            </CardTitle>
+            {getStatusIcon()}
+          </CardHeader>
+          <CardContent>
+            <div className="font-bold text-2xl capitalize">{serviceStatus}</div>
+            <p className="text-xs">AI service health</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Activity Feed */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LayoutDashboard className="h-5 w-5" />
+            Recent Activity
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-center text-muted-foreground">
+            Activity feed not yet implemented. Future enhancement will track:
+            summaries created, auto-approvals, budget alerts, emergency mode
+            activations, and other platform events.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Platform Statistics */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <TrendingUp className="h-4 w-4" />
+              Usage Trends
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">
+                Avg Cost/Message
+              </span>
+              <span className="font-semibold">
+                $
+                {totalMessages24h > 0
+                  ? (totalCost24h / totalMessages24h).toFixed(4)
+                  : "0.0000"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">
+                Cache Hit Rate
+              </span>
+              <span
+                className={`font-semibold ${getCacheHitRateColor(platformUsage.averageCacheHitRate)}`}
+              >
+                {platformUsage.averageCacheHitRate.toFixed(1)}%
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Zap className="h-4 w-4" />
+              Quick Stats
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">
+                Total Input Tokens
+              </span>
+              <span className="font-semibold">
+                {platformUsage.totalInputTokens.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">
+                Total Output Tokens
+              </span>
+              <span className="font-semibold">
+                {platformUsage.totalOutputTokens.toLocaleString()}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

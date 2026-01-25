@@ -569,7 +569,7 @@ function ImportSkillsDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col">
         <DialogHeader>
           <DialogTitle>Import Skills from JSON</DialogTitle>
           <DialogDescription>
@@ -789,7 +789,7 @@ function ImportBenchmarksDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col">
         <DialogHeader>
           <DialogTitle>Import Benchmarks from JSON</DialogTitle>
           <DialogDescription>
@@ -797,57 +797,59 @@ function ImportBenchmarksDialog({
             be auto-calculated if not provided.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="benchmark-source">Source (required)</Label>
+                <Input
+                  id="benchmark-source"
+                  onChange={(e) => setSource(e.target.value)}
+                  placeholder="e.g., FAI, GAA, IRFU"
+                  value={source}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="benchmark-year">Source Year</Label>
+                <Input
+                  id="benchmark-year"
+                  onChange={(e) => setSourceYear(Number(e.target.value))}
+                  type="number"
+                  value={sourceYear}
+                />
+              </div>
+            </div>
             <div className="grid gap-2">
-              <Label htmlFor="benchmark-source">Source (required)</Label>
+              <Label htmlFor="benchmark-doc">Source Document (optional)</Label>
               <Input
-                id="benchmark-source"
-                onChange={(e) => setSource(e.target.value)}
-                placeholder="e.g., FAI, GAA, IRFU"
-                value={source}
+                id="benchmark-doc"
+                onChange={(e) => setSourceDocument(e.target.value)}
+                placeholder="e.g., Youth Development Pathway 2024"
+                value={sourceDocument}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="benchmark-year">Source Year</Label>
-              <Input
-                id="benchmark-year"
-                onChange={(e) => setSourceYear(Number(e.target.value))}
-                type="number"
-                value={sourceYear}
+              <Label htmlFor="benchmark-json">Benchmark Data (JSON)</Label>
+              <Textarea
+                className="min-h-[200px] font-mono text-sm"
+                id="benchmark-json"
+                onChange={(e) => {
+                  setJsonInput(e.target.value);
+                  setParseError(null);
+                }}
+                placeholder={exampleJson}
+                value={jsonInput}
               />
+              {parseError && (
+                <p className="text-destructive text-sm">{parseError}</p>
+              )}
             </div>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="benchmark-doc">Source Document (optional)</Label>
-            <Input
-              id="benchmark-doc"
-              onChange={(e) => setSourceDocument(e.target.value)}
-              placeholder="e.g., Youth Development Pathway 2024"
-              value={sourceDocument}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="benchmark-json">Benchmark Data (JSON)</Label>
-            <Textarea
-              className="min-h-[200px] font-mono text-sm"
-              id="benchmark-json"
-              onChange={(e) => {
-                setJsonInput(e.target.value);
-                setParseError(null);
-              }}
-              placeholder={exampleJson}
-              value={jsonInput}
-            />
-            {parseError && (
-              <p className="text-destructive text-sm">{parseError}</p>
-            )}
-          </div>
-          <div className="rounded-md bg-muted p-3">
-            <p className="mb-2 font-medium text-sm">Expected Format:</p>
-            <pre className="overflow-x-auto text-muted-foreground text-xs">
-              {exampleJson}
-            </pre>
+            <div className="rounded-md bg-muted p-3">
+              <p className="mb-2 font-medium text-sm">Expected Format:</p>
+              <pre className="overflow-x-auto text-muted-foreground text-xs">
+                {exampleJson}
+              </pre>
+            </div>
           </div>
         </div>
         <DialogFooter>

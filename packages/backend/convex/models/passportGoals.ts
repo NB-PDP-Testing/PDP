@@ -87,25 +87,26 @@ export const getGoalsForPassport = query({
   },
   returns: v.array(goalValidator),
   handler: async (ctx, args) => {
-    if (args.status) {
+    const { passportId, status, category } = args;
+    if (status !== undefined) {
       return await ctx.db
         .query("passportGoals")
         .withIndex("by_status", (q) =>
-          q.eq("passportId", args.passportId).eq("status", args.status)
+          q.eq("passportId", passportId).eq("status", status)
         )
         .collect();
     }
-    if (args.category) {
+    if (category !== undefined) {
       return await ctx.db
         .query("passportGoals")
         .withIndex("by_category", (q) =>
-          q.eq("passportId", args.passportId).eq("category", args.category)
+          q.eq("passportId", passportId).eq("category", category)
         )
         .collect();
     }
     return await ctx.db
       .query("passportGoals")
-      .withIndex("by_passportId", (q) => q.eq("passportId", args.passportId))
+      .withIndex("by_passportId", (q) => q.eq("passportId", passportId))
       .collect();
   },
 });

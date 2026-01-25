@@ -17,7 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -244,6 +244,19 @@ export default function GoalsDashboardPage() {
       playerName: playerNameMap.get(goal.playerIdentityId) || "Unknown Player",
     }));
   }, [goals, playerNameMap]);
+
+  // Sync selectedGoal with updated data from real-time query
+  // This ensures the dialog reflects changes after mutations
+  useEffect(() => {
+    if (selectedGoal) {
+      const updatedGoal = goalsWithPlayers.find(
+        (g) => g._id === selectedGoal._id
+      );
+      if (updatedGoal) {
+        setSelectedGoal(updatedGoal);
+      }
+    }
+  }, [goalsWithPlayers, selectedGoal]);
 
   // Filter and sort goals
   const filteredGoals = useMemo(() => {

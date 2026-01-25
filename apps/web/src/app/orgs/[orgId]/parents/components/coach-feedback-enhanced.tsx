@@ -133,15 +133,15 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
     }
 
     // Build child options for filter dropdown
-    const options = summariesData.map((child) => ({
+    const options = summariesData.map((child: any) => ({
       value: child.player._id,
       label: `${child.player.firstName} ${child.player.lastName}`,
     }));
 
     // Flatten all summaries for stats
-    const allSummaries = summariesData.flatMap((child) =>
-      child.sportGroups.flatMap((sportGroup) =>
-        sportGroup.summaries.map((summary) => ({
+    const allSummaries = summariesData.flatMap((child: any) =>
+      child.sportGroups.flatMap((sportGroup: any) =>
+        sportGroup.summaries.map((summary: any) => ({
           summary,
           child,
           sportGroup,
@@ -152,25 +152,27 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
     // Calculate stats
     const totalSummaries = allSummaries.length;
     const unreadSummaries = allSummaries.filter(
-      (item) => !item.summary.acknowledgedAt
+      (item: any) => !item.summary.acknowledgedAt
     ).length;
     const readSummaries = totalSummaries - unreadSummaries;
 
     // Apply child filter
     let filtered = summariesData;
     if (selectedChild !== "all") {
-      filtered = filtered.filter((child) => child.player._id === selectedChild);
+      filtered = filtered.filter(
+        (child: any) => child.player._id === selectedChild
+      );
     }
 
     // Split into new (unacknowledged) and history (acknowledged)
     const splitData = (acknowledged: boolean) => {
       return filtered
-        .map((child) => ({
+        .map((child: any) => ({
           ...child,
           sportGroups: child.sportGroups
-            .map((sportGroup) => ({
+            .map((sportGroup: any) => ({
               ...sportGroup,
-              summaries: sportGroup.summaries.filter((summary) => {
+              summaries: sportGroup.summaries.filter((summary: any) => {
                 // Filter by acknowledged status
                 if (acknowledged && !summary.acknowledgedAt) {
                   return false;
@@ -197,9 +199,9 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
                 return true;
               }),
             }))
-            .filter((sportGroup) => sportGroup.summaries.length > 0),
+            .filter((sportGroup: any) => sportGroup.summaries.length > 0),
         }))
-        .filter((child) => child.sportGroups.length > 0);
+        .filter((child: any) => child.sportGroups.length > 0);
     };
 
     return {
@@ -261,10 +263,10 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
 
     return (
       <div className="space-y-6">
-        {data.map((childData) => {
+        {data.map((childData: any) => {
           const unreadCount = childData.sportGroups.reduce(
-            (sum, sg) =>
-              sum + sg.summaries.filter((s) => !s.acknowledgedAt).length,
+            (sum: any, sg: any) =>
+              sum + sg.summaries.filter((s: any) => !s.acknowledgedAt).length,
             0
           );
 
@@ -280,12 +282,12 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
                       {childData.sportGroups.length} sport
                       {childData.sportGroups.length !== 1 ? "s" : ""} •{" "}
                       {childData.sportGroups.reduce(
-                        (sum, sg) => sum + sg.summaries.length,
+                        (sum: any, sg: any) => sum + sg.summaries.length,
                         0
                       )}{" "}
                       message
                       {childData.sportGroups.reduce(
-                        (sum, sg) => sum + sg.summaries.length,
+                        (sum: any, sg: any) => sum + sg.summaries.length,
                         0
                       ) !== 1
                         ? "s"
@@ -314,7 +316,7 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                {childData.sportGroups.map((sportGroup) => (
+                {childData.sportGroups.map((sportGroup: any) => (
                   <div key={sportGroup.sport?._id || `sport-${Math.random()}`}>
                     {/* Sport header */}
                     {sportGroup.sport && (
@@ -325,12 +327,13 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
                         })()}
                         {sportGroup.sport.name}
                         {showMarkAllButton &&
-                          sportGroup.summaries.filter((s) => !s.acknowledgedAt)
-                            .length > 0 && (
+                          sportGroup.summaries.filter(
+                            (s: any) => !s.acknowledgedAt
+                          ).length > 0 && (
                             <Badge variant="destructive">
                               {
                                 sportGroup.summaries.filter(
-                                  (s) => !s.acknowledgedAt
+                                  (s: any) => !s.acknowledgedAt
                                 ).length
                               }
                             </Badge>
@@ -340,7 +343,7 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
 
                     {/* Summary cards */}
                     <div className="space-y-3">
-                      {sportGroup.summaries.map((summary) => (
+                      {sportGroup.summaries.map((summary: any) => (
                         <ParentSummaryCard
                           isUnread={!summary.acknowledgedAt}
                           key={summary._id}
@@ -466,7 +469,7 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Children</SelectItem>
-                  {childOptions.map((option) => (
+                  {childOptions.map((option: any) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -495,7 +498,10 @@ export function CoachFeedbackEnhanced({ orgId }: CoachFeedbackEnhancedProps) {
                 )}
                 {selectedChild !== "all" && (
                   <Badge variant="secondary">
-                    {childOptions.find((o) => o.value === selectedChild)?.label}
+                    {
+                      childOptions.find((o: any) => o.value === selectedChild)
+                        ?.label
+                    }
                     <button
                       className="ml-1"
                       onClick={() => setSelectedChild("all")}

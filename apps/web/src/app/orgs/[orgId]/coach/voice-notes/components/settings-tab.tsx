@@ -5,7 +5,7 @@ import type { Id as BetterAuthId } from "@pdp/backend/convex/betterAuth/_generat
 import { useMutation, useQuery } from "convex/react";
 import { Bell, Brain, MessageSquare, Shield } from "lucide-react";
 import { toast } from "sonner";
-import { TrustPreferenceSettings } from "@/components/coach/trust-preference-settings";
+import { TrustLevelSlider } from "@/components/coach/trust-level-slider";
 import {
   Card,
   CardContent,
@@ -15,6 +15,13 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+
+// Trust level thresholds (from backend/convex/lib/trustLevelCalculator.ts)
+const TRUST_LEVEL_THRESHOLDS = {
+  level1: 10,
+  level2: 50,
+  level3: 200,
+};
 
 type SettingsTabProps = {
   orgId: BetterAuthId<"organization">;
@@ -36,11 +43,12 @@ export function SettingsTab({ orgId }: SettingsTabProps) {
   );
 
   const handleTrustPreferenceUpdate = async (preferredLevel: number) => {
+    const levelNames = ["Manual", "Learning", "Trusted", "Expert"];
     try {
       await setPreferredLevel({
         preferredLevel,
       });
-      toast.success("Trust preferences updated");
+      toast.success(`Trust level updated to ${levelNames[preferredLevel]}`);
     } catch (error) {
       toast.error("Failed to update trust preferences");
       console.error("Error updating trust preferences:", error);
@@ -193,14 +201,34 @@ export function SettingsTab({ orgId }: SettingsTabProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Trust Preference Settings */}
-          {trustLevel && (
-            <TrustPreferenceSettings
-              currentLevel={trustLevel.currentLevel}
-              onUpdate={handleTrustPreferenceUpdate}
-              preferredLevel={trustLevel.preferredLevel ?? null}
-            />
-          )}
+          {/* Trust Level Slider */}
+          {trustLevel &&
+            (() => {
+              const nextLevel = (trustLevel.currentLevel ?? 0) + 1;
+              const threshold =
+                nextLevel === 1
+                  ? TRUST_LEVEL_THRESHOLDS.level1
+                  : nextLevel === 2
+                    ? TRUST_LEVEL_THRESHOLDS.level2
+                    : nextLevel === 3
+                      ? TRUST_LEVEL_THRESHOLDS.level3
+                      : 0;
+              const currentCount = trustLevel.totalApprovals ?? 0;
+              const percentage =
+                threshold > 0
+                  ? Math.min(100, (currentCount / threshold) * 100)
+                  : 100;
+
+              return (
+                <TrustLevelSlider
+                  currentLevel={trustLevel.currentLevel}
+                  earnedLevel={trustLevel.currentLevel}
+                  onLevelChange={handleTrustPreferenceUpdate}
+                  preferredLevel={trustLevel.preferredLevel ?? null}
+                  progressToNext={{ percentage, threshold, currentCount }}
+                />
+              );
+            })()}
         </CardContent>
       </Card>
 

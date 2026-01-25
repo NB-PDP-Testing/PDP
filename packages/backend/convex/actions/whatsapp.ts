@@ -38,7 +38,6 @@ const WHATSAPP_PREFIX_REGEX = /^whatsapp:/;
  *    - Fall back to session memory (recent messages from same phone)
  *    - If ambiguous, ask for clarification via WhatsApp
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multi-org detection requires handling multiple code paths
 export const processIncomingMessage = internalAction({
   args: {
     messageSid: v.string(),
@@ -62,6 +61,7 @@ export const processIncomingMessage = internalAction({
     success: boolean;
     messageId?: Id<"whatsappMessages">;
     error?: string;
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Multi-org detection requires handling multiple code paths
   }> => {
     // Extract phone number (remove "whatsapp:" prefix)
     const phoneNumber = args.from.replace(WHATSAPP_PREFIX_REGEX, "");
@@ -131,7 +131,7 @@ export const processIncomingMessage = internalAction({
 
       await sendWhatsAppMessage(
         phoneNumber,
-        `Your phone number isn't linked to a coach account in PlayerArc. Please add your phone number in the app settings, or contact your club administrator.`
+        `Your phone number isn't linked to a coach account in PlayerARC. Please add your phone number in your profile settings, or contact your club administrator.`
       );
 
       return { success: false, messageId, error: "Phone number not matched" };
@@ -273,7 +273,7 @@ export const processIncomingMessage = internalAction({
 
       await sendWhatsAppMessage(
         phoneNumber,
-        "Sorry, there was an error processing your message. Please try again or use the app directly."
+        "Sorry, there was an error processing your message. Please try again or try directly in PlayerARC."
       );
 
       return { success: false, messageId, error: errorMessage };
@@ -1006,7 +1006,11 @@ function formatResultsMessage(
   // Summary based on what needs attention
   const totalPending = results.needsReview.length + results.unmatched.length;
   if (totalPending > 0) {
-    lines.push(`Review ${totalPending} pending: playerarc.com/insights`);
+    const siteUrl = process.env.SITE_URL;
+    const reviewMessage = siteUrl
+      ? `Review ${totalPending} pending in PlayerARC: ${siteUrl}`
+      : `Review ${totalPending} pending in PlayerARC.`;
+    lines.push(reviewMessage);
   } else if (results.autoApplied.length > 0) {
     lines.push("All insights applied!");
   } else {

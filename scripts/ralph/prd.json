@@ -1,273 +1,173 @@
 {
-  "project": "Coach-Parent AI Summaries - Phase 6.1 (Cost Controls)",
-  "branchName": "ralph/coach-parent-summaries-p6-phase1",
-  "description": "Cost monitoring with per-org budgets, alerting, and rate limiting to prevent runaway costs.",
+  "project": "Coach-Parent AI Summaries - Phase 6.2 (Graceful Degradation)",
+  "branchName": "ralph/coach-parent-summaries-p6-phase2",
+  "description": "Circuit breaker pattern for AI service failures with graceful fallback and user-facing degradation notices.",
   "philosophyAndGoals": {
-    "corePhilosophy": "Control costs proactively. Set limits before problems occur. Alert early, block late.",
+    "corePhilosophy": "Fail gracefully. Never show errors when AI is down. Degrade service, not experience.",
     "keyPrinciples": [
-      "Per-org budgets: Daily and monthly spending caps",
-      "Fail fast: Check budgets BEFORE calling AI, not after",
-      "Rate limiting: Messages per hour/day limits prevent abuse",
-      "Automated resets: Daily/monthly spend resets automatically",
-      "Early warning: Alert at 80% threshold, block at 100%",
-      "Audit trail: All alerts logged, no silent failures"
+      "Circuit breaker: Stop calling failing APIs after threshold",
+      "Fallback templates: Send simple messages when AI unavailable",
+      "Transparency: Tell users when AI is degraded",
+      "Self-healing: Auto-recover when service restores",
+      "Zero user errors: Coach always gets outcome, even if fallback"
     ],
     "successMetrics": {
-      "budgetEnforcement": "Zero orgs exceed budget without override",
-      "rateLimitProtection": "Runaway loops blocked within 1 hour",
-      "alertAccuracy": "Alerts trigger at exactly 80% threshold",
-      "performance": "Budget check adds < 10ms to AI call latency"
+      "zeroErrors": "No user-facing errors when Anthropic API down",
+      "fastFailover": "Circuit opens within 5 failures",
+      "autoRecovery": "Circuit closes within 1 minute of service restoration",
+      "userAwareness": "Degradation banner shows within 30 seconds of circuit opening"
     }
   },
   "dependencies": {
     "requiredPhases": [
+      "Phase 6.1 - Cost Controls (US-001 to US-011)",
       "Phase 5 Phases 1-4 - ALL COMPLETE AND MERGED TO MAIN (PR #331)",
-      "aiUsageLog table exists with logUsage mutation",
       "processVoiceNoteInsight action exists in actions/coachParentSummaries.ts",
-      "crons.ts exists with 3 existing cron jobs"
+      "generateParentSummary and classifyInsightSensitivity actions exist",
+      "Coach Settings Dialog exists (PR #332) - components/profile/coach-settings-dialog.tsx"
     ],
-    "requiredTables": [
-      "aiUsageLog - For tracking actual costs (P5 Phase 3)"
+    "requiredFiles": [
+      "actions/coachParentSummaries.ts - Where AI calls happen",
+      "components/profile/coach-settings-dialog.tsx - Optional degradation indicator"
     ],
     "newInfrastructure": [
-      "orgCostBudgets table - Per-org budget tracking",
-      "platformCostAlerts table - Alert audit trail",
-      "rateLimits table - Platform and per-org rate limits",
-      "3 new cron jobs - Daily reset, alert monitoring, rate limit reset"
+      "aiServiceHealth table - Service health tracking (singleton)",
+      "lib/circuitBreaker.ts - Circuit breaker logic",
+      "components/coach/degradation-banner.tsx - UI component",
+      "models/aiServiceHealth.ts - Health queries"
     ]
   },
   "userStories": [
     {
-      "id": "US-001",
-      "title": "Add orgCostBudgets table to schema",
-      "description": "As a platform admin, I set cost budgets per organization.",
-      "phase": "6.1: Cost Monitoring",
+      "id": "US-012",
+      "title": "Add aiServiceHealth table to schema",
+      "description": "As the system, I track AI service health.",
+      "phase": "6.2: Graceful Degradation",
       "acceptanceCriteria": [
-        "Add orgCostBudgets table to schema.ts: organizationId (string), dailyBudgetUsd (number), monthlyBudgetUsd (number), alertThresholdPercent (number, default 80), isEnabled (boolean)",
-        "Add fields: currentDailySpend (number), currentMonthlySpend (number), lastResetDate (string YYYY-MM-DD), lastResetMonth (string YYYY-MM)",
-        "Add index: by_org (organizationId)",
+        "Add aiServiceHealth table to schema.ts (singleton pattern): service (v.literal('anthropic')), status (v.union: 'healthy' | 'degraded' | 'down'), lastSuccessAt (number), lastFailureAt (number), recentFailureCount (number), failureWindow (number, default 5 minutes), circuitBreakerState (v.union: 'closed' | 'open' | 'half_open'), lastCheckedAt (number)",
+        "No indexes needed (singleton - only one record)",
         "Run: npx -w packages/backend convex codegen",
         "Typecheck passes"
       ],
-      "priority": 1,
-      "passes": true,
-      "notes": "Per-org budgets prevent runaway costs. alertThresholdPercent triggers warning emails at 80% by default. Daily resets at midnight UTC, monthly at month start."
+      "priority": 12,
+      "passes": false,
+      "notes": "Circuit breaker pattern. Track service health. If failure rate exceeds threshold, open circuit (stop calling API). Prevents cascading failures."
     },
     {
-      "id": "US-002",
-      "title": "Add platformCostAlerts table to schema",
-      "description": "As a platform admin, cost alerts are logged and tracked.",
+      "id": "US-013",
+      "title": "Implement circuit breaker logic",
+      "description": "As the system, I detect and react to API degradation.",
       "acceptanceCriteria": [
-        "Add platformCostAlerts table to schema.ts: alertType (v.union: 'org_daily_threshold' | 'org_daily_exceeded' | 'org_monthly_threshold' | 'org_monthly_exceeded' | 'platform_spike'), organizationId (optional string), severity (v.union: 'warning' | 'critical'), message (string), triggerValue (number), thresholdValue (number), timestamp (number), acknowledged (boolean), acknowledgedBy (optional string), acknowledgedAt (optional number)",
-        "Add indexes: by_timestamp (timestamp), by_org (organizationId), by_severity_ack (severity, acknowledged)",
-        "Run: npx -w packages/backend convex codegen",
+        "Create lib/circuitBreaker.ts",
+        "Export function shouldCallAPI(serviceHealth): boolean",
+        "If circuitBreakerState === 'open': return false (don't call API)",
+        "If circuitBreakerState === 'half_open': allow 1 test call to check if service recovered",
+        "If circuitBreakerState === 'closed': return true (normal operation)",
+        "Export function recordAPIResult(success: boolean): updates failure counts, state transitions",
+        "State transitions: closed → open (5 failures in 5 min), open → half_open (after 1 min cooldown), half_open → closed (success) or open (failure)",
         "Typecheck passes"
       ],
-      "priority": 2,
-      "passes": true,
-      "notes": "Audit trail for all cost alerts. Platform staff can see alert history, acknowledge alerts to dismiss from dashboard. severity determines urgency."
+      "priority": 13,
+      "passes": false,
+      "notes": "Self-healing. If API is down, open circuit after 5 failures. Wait 1 min, try one call. If succeeds, close circuit. If fails, wait another minute."
     },
     {
-      "id": "US-003",
-      "title": "Implement checkOrgCostBudget query",
-      "description": "As the system, I check if org is within budget before AI calls.",
+      "id": "US-014",
+      "title": "Integrate circuit breaker into AI actions",
+      "description": "As the system, degraded service triggers graceful fallback.",
       "acceptanceCriteria": [
-        "Create models/orgCostBudgets.ts",
-        "Add checkOrgCostBudget query with args: organizationId",
-        "Fetch budget record via by_org index",
-        "If no budget set: return { withinBudget: true, reason: 'no_budget_set' }",
-        "Check currentDailySpend < dailyBudgetUsd and currentMonthlySpend < monthlyBudgetUsd",
-        "If exceeded: return { withinBudget: false, reason: 'daily_exceeded' or 'monthly_exceeded', remaining: 0 }",
-        "If within budget: return { withinBudget: true, dailyRemaining, monthlyRemaining }",
-        "Returns: v.object({ withinBudget: v.boolean(), reason: v.string(), dailyRemaining: v.optional(v.number()), monthlyRemaining: v.optional(v.number()) })",
+        "Edit generateParentSummary and classifyInsightSensitivity actions in actions/coachParentSummaries.ts",
+        "Before Anthropic API call: check shouldCallAPI(serviceHealth)",
+        "If false: return fallback response with isFallback flag",
+        "Wrap Anthropic API call in try-catch: on success recordAPIResult(true), on error recordAPIResult(false) and return fallback",
+        "Fallback for generateParentSummary: return template-based summary 'Your coach shared an update about {player}. View details in passport.'",
+        "Fallback for classifyInsightSensitivity: return { category: 'normal', confidence: 0.5, isFallback: true }",
         "Typecheck passes"
       ],
-      "priority": 3,
-      "passes": true,
-      "notes": "Called FIRST in processVoiceNoteInsight action. Prevents AI calls if budget exceeded. Graceful: returns reason so user sees helpful error not generic failure."
+      "priority": 14,
+      "passes": false,
+      "notes": "Fail gracefully. If AI is down, send simple template message instead of failing. Parent still gets notified, coach still approves. Better than nothing."
     },
     {
-      "id": "US-004",
-      "title": "Integrate budget check into AI pipeline",
-      "description": "As the system, budget checks prevent overspending.",
+      "id": "US-015",
+      "title": "Add degradation notice to coach UI",
+      "description": "As a coach, I'm informed when AI is degraded.",
       "acceptanceCriteria": [
-        "Edit processVoiceNoteInsight action in actions/coachParentSummaries.ts",
-        "FIRST STEP (before any AI calls): Run const budgetCheck = await ctx.runQuery(api.models.orgCostBudgets.checkOrgCostBudget, { organizationId })",
-        "If !budgetCheck.withinBudget: log warning, call logBudgetExceededEvent mutation, return early WITHOUT calling classifyInsightSensitivity or generateParentSummary (skip all AI)",
-        "Create internal mutation: logBudgetExceededEvent with args: organizationId, reason",
-        "Call logBudgetExceededEvent so we track how often this happens (analytics)",
-        "Return helpful error message with resetAt time so coach knows when budget resets",
+        "Create components/coach/degradation-banner.tsx",
+        "Props: { degradationType: 'ai_fallback' | 'rate_limited' | 'budget_exceeded' }",
+        "Show contextual banner: 'AI assistance temporarily unavailable. Using simplified summaries. Service typically recovers within 5 minutes.'",
+        "Different messages for each degradationType",
+        "Import Alert, AlertDescription from @/components/ui/alert",
+        "Warning icon and amber styling",
         "Typecheck passes"
       ],
-      "priority": 4,
-      "passes": true,
-      "notes": "CRITICAL: Budget check skips BOTH AI calls (classify AND generate). Fail fast. Don't call any AI if budget exceeded. Log event for analytics."
+      "priority": 15,
+      "passes": false,
+      "notes": "Transparency. Don't hide degradation. Explain what's happening, set expectations. Better than silent failures or confusing behavior. Coach Settings Dialog integration optional."
     },
     {
-      "id": "US-005",
-      "title": "Create updateOrgDailySpend scheduled function",
-      "description": "As the system, daily spend resets automatically at midnight UTC.",
+      "id": "US-016",
+      "title": "Show degradation banner in voice notes dashboard",
+      "description": "As a coach, degradation status is visible.",
       "acceptanceCriteria": [
-        "Edit packages/backend/convex/crons.ts (file already exists with 3 existing cron jobs)",
-        "Add scheduled function: updateOrgDailySpend that runs daily at 00:00 UTC",
-        "Query all orgCostBudgets records",
-        "For each: if lastResetDate !== today's date (YYYY-MM-DD format), set currentDailySpend = 0, lastResetDate = today",
-        "Use cron.daily('update-org-daily-spend', { hourUTC: 0, minuteUTC: 0 }, internal.crons.updateOrgDailySpend)",
+        "Edit voice-notes-dashboard.tsx",
+        "Add query: getAIServiceHealth (create in models/aiServiceHealth.ts if needed)",
+        "If status !== 'healthy': render DegradationBanner with appropriate type",
+        "Position below header, above tabs",
+        "Automatically dismisses when service recovers (query updates real-time)",
+        "OPTIONAL: Also integrate degradation indicator in Coach Settings Dialog (components/profile/coach-settings-dialog.tsx) - small warning badge if AI degraded",
         "Typecheck passes"
       ],
-      "priority": 5,
-      "passes": true,
-      "notes": "IMPORTANT: Edit crons.ts (already exists), don't create. Automated reset. No manual intervention needed. Runs at midnight UTC."
-    },
-    {
-      "id": "US-006",
-      "title": "Create checkCostAlerts scheduled function",
-      "description": "As a platform admin, I'm alerted when costs exceed thresholds.",
-      "acceptanceCriteria": [
-        "Edit packages/backend/convex/crons.ts",
-        "Add scheduled function: checkCostAlerts that runs every 10 minutes",
-        "Query orgCostBudgets where isEnabled === true",
-        "For each org: calculate dailyPercentUsed = (currentDailySpend / dailyBudgetUsd) * 100",
-        "If dailyPercentUsed >= alertThresholdPercent and no recent warning: insert platformCostAlerts record with type 'org_daily_threshold', severity 'warning'",
-        "If dailyPercentUsed >= 100 and no recent critical alert: insert platformCostAlerts with type 'org_daily_exceeded', severity 'critical'",
-        "Repeat for monthlyPercentUsed",
-        "Use cron.interval('check-cost-alerts', { minutes: 10 }, internal.crons.checkCostAlerts)",
-        "IMPORTANT: 'Recent alert' check = no alert of same type/severity for this org in last 60 minutes (prevents spam)",
-        "Typecheck passes"
-      ],
-      "priority": 6,
-      "passes": true,
-      "notes": "Proactive alerting. Catches budget issues before they become problems. Alert deduplication prevents notification fatigue."
-    },
-    {
-      "id": "US-007",
-      "title": "Add rateLimits table to schema",
-      "description": "As a developer, I need rate limiting infrastructure.",
-      "phase": "6.1: Rate Limiting",
-      "acceptanceCriteria": [
-        "Add rateLimits table to schema.ts: scope (v.union: 'platform' | 'organization'), scopeId (string, 'platform' for global), limitType (v.union: 'messages_per_hour' | 'messages_per_day' | 'cost_per_hour' | 'cost_per_day'), limitValue (number), currentCount (number), currentCost (number), windowStart (number), windowEnd (number), lastResetAt (number)",
-        "Add indexes: by_scope_type (scope, scopeId, limitType)",
-        "Run: npx -w packages/backend convex codegen",
-        "Typecheck passes"
-      ],
-      "priority": 7,
-      "passes": true,
-      "notes": "Flexible rate limiting. Can limit by messages or cost, hourly or daily, per-org or platform-wide. windowStart/windowEnd track rolling windows."
-    },
-    {
-      "id": "US-008",
-      "title": "Implement checkRateLimit query",
-      "description": "As the system, I check rate limits before AI calls.",
-      "acceptanceCriteria": [
-        "Create models/rateLimits.ts",
-        "Add checkRateLimit query with args: organizationId",
-        "Check platform-wide limits first: query scope='platform', limitType='messages_per_hour'",
-        "Check org-specific limits: query scope='organization', scopeId=organizationId",
-        "For each active limit: if currentCount >= limitValue or currentCost >= limitValue, return { allowed: false, reason: 'rate_limit_exceeded', resetAt: windowEnd }",
-        "If all limits OK: return { allowed: true, remainingMessages, resetAt }",
-        "Returns: v.object({ allowed: v.boolean(), reason: v.optional(v.string()), resetAt: v.optional(v.number()), remainingMessages: v.optional(v.number()) })",
-        "Typecheck passes"
-      ],
-      "priority": 8,
-      "passes": true,
-      "notes": "Guards against abuse or bugs. Example: if bug causes infinite loop calling AI, rate limit stops it after 1000 messages/hour."
-    },
-    {
-      "id": "US-009",
-      "title": "Integrate rate limiting into AI pipeline",
-      "description": "As the system, rate limits prevent abuse.",
-      "acceptanceCriteria": [
-        "Edit processVoiceNoteInsight action in actions/coachParentSummaries.ts",
-        "BEFORE budget check (US-004), add rate limit check: const rateCheck = await ctx.runQuery(api.models.rateLimits.checkRateLimit, { organizationId })",
-        "If !rateCheck.allowed: log warning, return early with error explaining rate limit and resetAt time",
-        "After successful AI call (both classify and generate complete), increment rate limit counter: ctx.runMutation(internal.models.rateLimits.incrementRateLimit, { organizationId, cost: calculatedCost })",
-        "Typecheck passes"
-      ],
-      "priority": 9,
-      "passes": true,
-      "notes": "Defense in depth. Check BEFORE spending, increment AFTER. Order: rate check → budget check → AI calls → increment counters."
-    },
-    {
-      "id": "US-010",
-      "title": "Create resetRateLimitWindows scheduled function",
-      "description": "As the system, rate limit windows reset automatically.",
-      "acceptanceCriteria": [
-        "Edit packages/backend/convex/crons.ts",
-        "Add scheduled function: resetRateLimitWindows that runs every hour at :00",
-        "Query rateLimits where windowEnd <= Date.now() (window has expired)",
-        "For each expired limit: set currentCount = 0, currentCost = 0, windowStart = Date.now(), windowEnd = Date.now() + (window duration based on limitType)",
-        "hourly limits: windowEnd = now + 1 hour, daily limits: windowEnd = now + 24 hours",
-        "Use cron.hourly('reset-rate-limit-windows', { minuteUTC: 0 }, internal.crons.resetRateLimitWindows)",
-        "Typecheck passes"
-      ],
-      "priority": 10,
-      "passes": true,
-      "notes": "Automated reset. Rolling windows (not fixed midnight resets). If limit hit at 2:30pm, resets at 3:30pm (hourly) or next day 2:30pm (daily)."
-    },
-    {
-      "id": "US-011",
-      "title": "Add default platform rate limits",
-      "description": "As a platform admin, sensible defaults protect the platform.",
-      "acceptanceCriteria": [
-        "Create migration script or seed data: packages/backend/convex/seed/defaultRateLimits.ts",
-        "Insert platform-wide limits: messages_per_hour = 1000, messages_per_day = 10000, cost_per_hour = $50, cost_per_day = $500",
-        "These are failsafes - should never hit in normal operation",
-        "Document in comments: adjust based on actual platform usage patterns",
-        "Typecheck passes"
-      ],
-      "priority": 11,
-      "passes": true,
-      "notes": "Safety net. Even if no per-org limits set, platform limits prevent catastrophic costs. Values are conservative - adjust after observing production usage."
+      "priority": 16,
+      "passes": false,
+      "notes": "Real-time feedback. Convex real-time queries mean banner appears/disappears automatically as service status changes. No page refresh needed."
     }
   ],
   "testingStrategy": {
-    "costMonitoring": {
-      "budgetEnforcement": [
-        "Set org budget to $5/day",
-        "Generate summaries until $5 spent",
-        "Verify next AI call is blocked",
-        "Verify helpful error message with reset time"
+    "circuitBreaker": {
+      "failureDetection": [
+        "Simulate Anthropic API failure (invalid API key in test)",
+        "Make 5 consecutive AI calls",
+        "Verify circuit opens after 5th failure",
+        "Verify circuitBreakerState === 'open' in aiServiceHealth"
       ],
-      "alerting": [
-        "Set org budget to $10/day with 80% threshold",
-        "Generate summaries until $8 spent",
-        "Verify warning alert logged in platformCostAlerts",
-        "Continue to $10, verify critical alert logged",
-        "Verify no duplicate alerts within 60 minutes"
+      "fallbackBehavior": [
+        "With circuit open, generate summary",
+        "Verify template message returned (not AI-generated)",
+        "Verify isFallback flag set to true",
+        "Verify parent still gets notification"
       ],
-      "dailyReset": [
-        "Manually trigger updateOrgDailySpend cron",
-        "Verify currentDailySpend reset to 0",
-        "Verify lastResetDate updated to today"
+      "autoRecovery": [
+        "With circuit open, wait 1 minute",
+        "Verify circuit transitions to 'half_open'",
+        "Restore API key, make test call",
+        "Verify circuit closes on success",
+        "Verify AI generation resumes normally"
       ]
     },
-    "rateLimiting": {
-      "messageLimit": [
-        "Set org rate limit to 10 messages/hour",
-        "Generate 10 summaries",
-        "Verify 11th summary is blocked",
-        "Verify error message includes resetAt time"
+    "userInterface": {
+      "degradationBanner": [
+        "Open circuit (simulate API failure)",
+        "Open voice notes dashboard as coach",
+        "Verify degradation banner visible",
+        "Verify message explains AI unavailable",
+        "Restore service, verify banner disappears"
       ],
-      "windowReset": [
-        "Hit rate limit",
-        "Wait for window to expire (or manually trigger resetRateLimitWindows)",
-        "Verify currentCount reset to 0",
-        "Verify new summaries allowed"
-      ],
-      "platformDefaults": [
-        "Verify platform-wide limits exist (1000/hour, 10000/day)",
-        "Verify limits apply to org without specific limits",
-        "Verify org-specific limits override platform defaults"
+      "realTimeUpdates": [
+        "Open dashboard in browser",
+        "Trigger circuit open (different tab/API)",
+        "Verify banner appears without page refresh",
+        "Restore service, verify banner disappears without refresh"
       ]
     }
   },
   "performanceTargets": {
-    "budgetCheck": "< 10ms (simple index query)",
-    "rateLimitCheck": "< 20ms (2-3 index queries)",
-    "cronEfficiency": "Alert cron runs every 10 min - must only query orgs with isEnabled=true"
+    "circuitBreakerCheck": "< 5ms (in-memory state check)",
+    "fallbackGeneration": "< 10ms (simple template interpolation)",
+    "healthQueryLatency": "< 50ms (single record query)"
   },
   "rollbackPlan": {
-    "budgetChecks": "Set isEnabled=false on all orgCostBudgets records",
-    "rateLimits": "Set limitValue to 999999 (effectively unlimited)"
+    "circuitBreaker": "Use admin dashboard 'Force Reset' button to manually close circuit",
+    "degradationBanners": "Remove components if causing UI issues, fallback behavior still works"
   }
 }

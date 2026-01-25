@@ -165,12 +165,10 @@ export function LogoUpload({
           storageId: Id<"_storage">;
         };
 
-        // Step 3: Save storage ID to organization
-        await saveLogoMutation({ organizationId, storageId });
+        // Step 3: Save storage ID to organization and get the correct URL
+        const finalUrl = await saveLogoMutation({ organizationId, storageId });
 
-        // Step 4: Update preview with final URL (Convex will serve via CDN)
-        // The storage URL will be available after save completes
-        const finalUrl = `${new URL(uploadUrl).origin}/api/storage/${storageId}`;
+        // Step 4: Update preview with the URL returned from the backend
         setPreview(finalUrl);
         onUploadComplete(finalUrl);
 

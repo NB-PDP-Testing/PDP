@@ -1385,7 +1385,9 @@ export const getPendingInvitationsByEmail = query({
           teams = await Promise.all(
             teamData.map(async (team: any) => {
               // Extract ID from team object (Phase 1 stores full objects now)
-              const teamId = typeof team === "string" ? team : team.id;
+              // Handle both 'id' and '_id' properties (edit modal uses '_id', invite form uses 'id')
+              const teamId =
+                typeof team === "string" ? team : team.id || team._id;
               const teamResult = await ctx.runQuery(
                 components.betterAuth.adapter.findOne,
                 {
@@ -1533,7 +1535,9 @@ export const getPendingInvitationsWithAssignments = query({
           teams = await Promise.all(
             teamData.map(async (team: any) => {
               // Extract ID from team object (Phase 1 stores full objects now)
-              const teamId = typeof team === "string" ? team : team.id;
+              // Handle both 'id' and '_id' properties (edit modal uses '_id', invite form uses 'id')
+              const teamId =
+                typeof team === "string" ? team : team.id || team._id;
               const teamResult = await ctx.runQuery(
                 components.betterAuth.adapter.findOne,
                 {
@@ -1903,9 +1907,10 @@ export const syncFunctionalRolesFromInvitation = mutation({
       roleSpecificData.teams?.length > 0
     ) {
       // Extract team IDs from team objects (roleSpecificData.teams contains objects with id, name, etc.)
+      // Handle both 'id' and '_id' properties (edit modal uses '_id', invite form uses 'id')
       // biome-ignore lint/suspicious/noExplicitAny: Team metadata structure varies
       const teams: string[] = roleSpecificData.teams.map((t: any) =>
-        typeof t === "string" ? t : t.id
+        typeof t === "string" ? t : t.id || t._id
       );
 
       // Check if coach assignment already exists

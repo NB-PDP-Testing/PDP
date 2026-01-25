@@ -26,6 +26,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -35,6 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function PlatformMessagingPage() {
   return (
@@ -111,22 +114,7 @@ export default function PlatformMessagingPage() {
 
             {/* Settings Tab */}
             <TabsContent value="settings">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-red-500" />
-                    Settings & Emergency Controls
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">
-                    Feature toggles and emergency kill switch will appear here.
-                  </p>
-                  <p className="mt-2 text-muted-foreground text-sm">
-                    Implementation: US-021
-                  </p>
-                </CardContent>
-              </Card>
+              <SettingsTab />
             </TabsContent>
           </Tabs>
         </div>
@@ -838,7 +826,6 @@ function ServiceHealthTab() {
     api.models.aiServiceHealth.forceResetCircuitBreaker
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: forceReset is stable
   const handleForceReset = async () => {
     // biome-ignore lint/suspicious/noAlert: Platform admin action requires explicit confirmation
     const confirmed = confirm(
@@ -1110,6 +1097,319 @@ function ServiceHealthTab() {
           </p>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// Settings Tab Component
+function SettingsTab() {
+  const settings = useQuery(
+    api.models.platformMessagingSettings.getPlatformMessagingSettings
+  );
+  const updateFeatureToggle = useMutation(
+    api.models.platformMessagingSettings.updateFeatureToggle
+  );
+  const activateEmergencyMode = useMutation(
+    api.models.platformMessagingSettings.activateEmergencyMode
+  );
+
+  const [emergencyMessage, setEmergencyMessage] = useState("");
+
+  const handleToggle = async (
+    feature:
+      | "aiGenerationEnabled"
+      | "autoApprovalEnabled"
+      | "parentNotificationsEnabled",
+    currentValue: boolean
+  ) => {
+    try {
+      const result = await updateFeatureToggle({
+        feature,
+        enabled: !currentValue,
+      });
+      if (result.success) {
+        toast.success(result.message);
+      } else {
+        toast.error("Failed to update feature toggle");
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to update feature toggle";
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleEmergencyMode = async (enable: boolean) => {
+    // Confirm emergency mode activation
+    if (enable) {
+      // biome-ignore lint/suspicious/noAlert: Critical platform admin action requires explicit confirmation
+      const confirmed = confirm(
+        "⚠️ EMERGENCY MODE ACTIVATION ⚠️\n\n" +
+          "This will IMMEDIATELY disable ALL AI features across the entire platform:\n" +
+          "- AI summary generation\n" +
+          "- Auto-approval for trusted coaches\n" +
+          "- Parent notifications\n\n" +
+          "Use this only in emergencies (billing issues, quality problems, legal concerns).\n\n" +
+          "Are you absolutely sure you want to activate emergency mode?"
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    try {
+      const result = await activateEmergencyMode({
+        enabled: enable,
+        message: enable ? emergencyMessage || undefined : undefined,
+      });
+
+      if (!result.success) {
+        toast.error("Failed to update emergency mode");
+        return;
+      }
+
+      toast.success(result.message);
+      if (!enable) {
+        setEmergencyMessage("");
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to update emergency mode";
+      toast.error(errorMessage);
+    }
+  };
+
+  // Loading state
+  if (settings === undefined) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Loading Settings...</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Default values if no settings exist yet
+  const currentSettings = settings || {
+    aiGenerationEnabled: true,
+    autoApprovalEnabled: true,
+    parentNotificationsEnabled: true,
+    emergencyMode: false,
+    emergencyMessage: undefined,
+  };
+
+  const isEmergencyMode = currentSettings.emergencyMode;
+
+  return (
+    <div className="space-y-6">
+      {/* Emergency Mode Banner */}
+      {isEmergencyMode && (
+        <Card className="border-red-500 bg-red-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-red-700">
+              <AlertCircle className="h-6 w-6" />
+              ⚠️ EMERGENCY MODE ACTIVE ⚠️
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="font-semibold text-red-700">
+              All AI features are currently disabled across the platform.
+            </p>
+            {currentSettings.emergencyMessage && (
+              <p className="mt-2 text-red-600">
+                Message: {currentSettings.emergencyMessage}
+              </p>
+            )}
+            <Button
+              className="mt-4"
+              onClick={() => handleEmergencyMode(false)}
+              variant="destructive"
+            >
+              Deactivate Emergency Mode
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Feature Toggles */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Feature Controls
+          </CardTitle>
+          <p className="text-muted-foreground text-sm">
+            Enable or disable individual AI features across the platform
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* AI Generation Toggle */}
+          <div className="flex items-center justify-between space-x-4">
+            <div className="flex-1 space-y-1">
+              <Label
+                className="font-semibold text-base"
+                htmlFor="ai-generation"
+              >
+                AI Summary Generation
+              </Label>
+              <p className="text-muted-foreground text-sm">
+                Allow coaches to generate AI-powered parent summaries
+              </p>
+            </div>
+            <Switch
+              checked={currentSettings.aiGenerationEnabled}
+              disabled={isEmergencyMode}
+              id="ai-generation"
+              onCheckedChange={() =>
+                handleToggle(
+                  "aiGenerationEnabled",
+                  currentSettings.aiGenerationEnabled
+                )
+              }
+            />
+          </div>
+
+          <div className="border-t" />
+
+          {/* Auto-Approval Toggle */}
+          <div className="flex items-center justify-between space-x-4">
+            <div className="flex-1 space-y-1">
+              <Label
+                className="font-semibold text-base"
+                htmlFor="auto-approval"
+              >
+                Auto-Approval for Trusted Coaches
+              </Label>
+              <p className="text-muted-foreground text-sm">
+                Automatically approve and send summaries from coaches with high
+                trust scores
+              </p>
+            </div>
+            <Switch
+              checked={currentSettings.autoApprovalEnabled}
+              disabled={isEmergencyMode}
+              id="auto-approval"
+              onCheckedChange={() =>
+                handleToggle(
+                  "autoApprovalEnabled",
+                  currentSettings.autoApprovalEnabled
+                )
+              }
+            />
+          </div>
+
+          <div className="border-t" />
+
+          {/* Parent Notifications Toggle */}
+          <div className="flex items-center justify-between space-x-4">
+            <div className="flex-1 space-y-1">
+              <Label
+                className="font-semibold text-base"
+                htmlFor="parent-notifications"
+              >
+                Parent Notifications
+              </Label>
+              <p className="text-muted-foreground text-sm">
+                Send notifications to parents when new summaries are available
+              </p>
+            </div>
+            <Switch
+              checked={currentSettings.parentNotificationsEnabled}
+              disabled={isEmergencyMode}
+              id="parent-notifications"
+              onCheckedChange={() =>
+                handleToggle(
+                  "parentNotificationsEnabled",
+                  currentSettings.parentNotificationsEnabled
+                )
+              }
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Emergency Controls */}
+      <Card className="border-red-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-red-700">
+            <AlertCircle className="h-5 w-5" />
+            Emergency Controls
+          </CardTitle>
+          <p className="text-muted-foreground text-sm">
+            Nuclear option: Disable all AI features immediately
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg border-2 border-red-200 bg-red-50 p-4">
+            <h3 className="mb-2 font-semibold text-red-800">
+              When to use Emergency Mode:
+            </h3>
+            <ul className="ml-4 list-disc space-y-1 text-red-700 text-sm">
+              <li>AI generating incorrect or inappropriate summaries</li>
+              <li>Unexpected billing surge from Anthropic API</li>
+              <li>Legal or compliance concern requiring immediate shutdown</li>
+              <li>System-wide quality issues detected</li>
+            </ul>
+          </div>
+
+          {!isEmergencyMode && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="font-semibold" htmlFor="emergency-message">
+                  Message to Users (Optional)
+                </Label>
+                <Textarea
+                  className="resize-none"
+                  id="emergency-message"
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                    setEmergencyMessage(e.target.value)
+                  }
+                  placeholder="e.g., 'AI features temporarily disabled for maintenance. Expected restoration in 2 hours.'"
+                  rows={3}
+                  value={emergencyMessage}
+                />
+                <p className="text-muted-foreground text-xs">
+                  This message will be shown to coaches and parents while
+                  emergency mode is active
+                </p>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={() => handleEmergencyMode(true)}
+                size="lg"
+                variant="destructive"
+              >
+                <AlertCircle className="mr-2 h-5 w-5" />
+                ACTIVATE EMERGENCY MODE
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Last Updated Info */}
+      {settings?.lastUpdatedAt && (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-muted-foreground text-sm">
+              Last updated: {new Date(settings.lastUpdatedAt).toLocaleString()}
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

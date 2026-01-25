@@ -1,0 +1,39 @@
+# Ralph Progress Log - Phase 6.1 (Cost Controls)
+Started: $(date)
+PRD: scripts/ralph/prds/coach-parent-summaries-phase6.1.prd.json
+Stories: US-001 to US-011 (11 stories)
+Branch: ralph/coach-parent-summaries-p6-phase1
+---
+
+## PHASE 6.1 OVERVIEW
+
+**Goal:** Implement cost monitoring and rate limiting to prevent runaway AI costs.
+
+**Stories:**
+- US-001 to US-006: Cost Monitoring (budgets, alerts, resets)
+- US-007 to US-011: Rate Limiting (messages/hour, cost/day, defaults)
+
+**New Tables:**
+- orgCostBudgets - Per-org budget tracking
+- platformCostAlerts - Alert audit trail
+- rateLimits - Platform and per-org rate limits
+
+**New Crons (edit existing crons.ts):**
+- updateOrgDailySpend - Daily at 00:00 UTC
+- checkCostAlerts - Every 10 minutes
+- resetRateLimitWindows - Every hour at :00
+
+**Integration Point:**
+- Edit processVoiceNoteInsight action
+- Order: rate check → budget check → AI calls → increment counters
+
+---
+
+## CODE REVIEW FEEDBACK
+
+### Agent Feedback - Phase 6.1 Start
+Ready to begin Phase 6.1 implementation
+All P5 dependencies satisfied (PR #331 merged to main)
+
+<!-- Agents will write feedback below this line -->
+
